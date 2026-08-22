@@ -30,3 +30,7 @@ everything below is what comes next, in order).
   conversation turn queues `ExtractLessonJob`, which proposes a "Lesson" (quarantined,
   unpromoted) when something reusable came up.
 - Filament admin at `/admin` for browsing Conversations and reviewing proposed Lessons.
+- `clients/cli` — a Go terminal client for `/api/chat`. First proof that the brain's
+  API is genuinely client-agnostic: any language can talk to it without touching the
+  Laravel core. Phase 5's Godot HUD, desktop, and mobile clients follow the same
+  pattern — thin, language-appropriate, all hitting the same API.

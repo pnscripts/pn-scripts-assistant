@@ -45,3 +45,18 @@ models (already installed on the host) are used via `http://host.docker.internal
 `POST /api/chat` — body: `{ "message": "...", "conversation_id": null, "provider": null }`.
 `provider` is optional (`"ollama"` or `"anthropic"`); omit it to use the configured
 default (`LLM_DEFAULT_PROVIDER` in `.env`).
+
+## Clients
+
+The brain itself (routing, learning pipeline, database) is single-sourced in Laravel on
+purpose — one source of truth for the logic. Everything that just *talks* to it over
+`/api/chat` is free to be whatever language fits its platform:
+
+| Client | Language | Status |
+|---|---|---|
+| [clients/cli](clients/cli) | Go | done — terminal chat client |
+| Jarvis-style HUD | Godot | planned (Phase 5) |
+| Desktop app | C#/.NET | planned (Phase 5) |
+| Mobile | Flutter/PWA | planned (Phase 5) |
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the full sequencing.
