@@ -7,9 +7,10 @@ return [
     'owner' => env('BRAIN_OWNER', 'Petar'),
 
     // Fixed in-container mount points (see compose.yaml) — always read-only.
-    // The actual host paths live in SCAN_DEV_PROJECTS_PATH / SCAN_HOME_PROJECTS_PATH.
+    // The actual host paths live in SCAN_DEV_PROJECTS_PATH / SCAN_HOME_PROJECTS_PATH / SCAN_DOCUMENTS_PATH.
     'scan' => [
         'dev_projects' => '/mnt/scan/dev-projects',
         'home_projects' => '/mnt/scan/home-projects',
+        'documents' => '/mnt/scan/documents',
     ],
 ];

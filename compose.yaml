@@ -21,6 +21,7 @@ services:
             - '.:/var/www/html'
             - '${SCAN_DEV_PROJECTS_PATH}:/mnt/scan/dev-projects:ro'
             - '${SCAN_HOME_PROJECTS_PATH}:/mnt/scan/home-projects:ro'
+            - '${SCAN_DOCUMENTS_PATH}:/mnt/scan/documents:ro'
         networks:
             - sail
         depends_on:

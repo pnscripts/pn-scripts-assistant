@@ -10,9 +10,8 @@ everything below is what comes next, in order).
 - **Phase 3** — The real Jarvis-style web dashboard (chat + memory browser), replacing
   the temporary smoke-test page at `/`.
 - **Phase 4** — Opt-in knowledge ingestion, reviewed before anything is promoted.
-  Projects: done (see below). Still open, each needing its own explicit scoping given
-  the sensitivity: Documents (full content vs. just file listings), browser history,
-  email (requires OAuth setup, not something to build silently).
+  Projects and Documents: done (see below). Still open: browser history, email
+  (requires OAuth setup, not something to build silently).
 - **Phase 5** — Desktop app (Tauri) and mobile client (PWA or Flutter first), and an
   optional Godot-built animated HUD front end for the visual "Jarvis" feel.
 - **Phase 6** — Multi-drive expansion: a drive registry in `PNEXUS-DATA`, so when more
@@ -49,6 +48,13 @@ everything below is what comes next, in order).
   inside a CMS's flat modules/plugins folder (WordPress's `wp-content/plugins` is
   excluded outright; PrestaShop-style `modules/` folders are not, since some of those
   actually are custom work) — review before promoting anything from there.
+- `App\Brain\Learning\DocumentScanner` + `php artisan brain:ingest-documents` — same
+  pattern, mounted at `SCAN_DOCUMENTS_PATH`, but deliberately **metadata-only**:
+  filename, extension, size, modified date. Content excerpts only for plain `.txt`/
+  `.md` files; `.docx`/`.odt`/`.pdf`/`.xlsx` are never parsed, since those are exactly
+  the types most likely to hold financial or identity documents (confirmed on this
+  machine — there's a real accounting/invoices folder). Extend to real content
+  extraction only for specific files/folders if actually needed, never as a default.
 
 ## Naming
 
