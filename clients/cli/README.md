@@ -1,23 +1,23 @@
-# vesper (Go CLI)
+# pnexus (Go CLI)
 
-Terminal client for the Vesper API. Zero dependencies (standard library only).
+Terminal client for the Pnexus API. Zero dependencies (standard library only).
 
 ## Build
 
 ```bash
-go build -o vesper .
+go build -o pnexus .
 ```
 
 ## Use
 
 ```bash
-./vesper "what's on my mind lately?"     # single-shot, continues the last conversation
-./vesper --new "let's start fresh"       # start a new conversation
-./vesper --provider anthropic "..."      # force a provider for this message
-./vesper                                  # interactive mode (':new' to reset, 'exit' to quit)
+./pnexus "what's on my mind lately?"     # single-shot, continues the last conversation
+./pnexus --new "let's start fresh"       # start a new conversation
+./pnexus --provider anthropic "..."      # force a provider for this message
+./pnexus                                  # interactive mode (':new' to reset, 'exit' to quit)
 ```
 
 Conversation state (just the current `conversation_id`) is kept in
-`$XDG_CONFIG_HOME/vesper/cli.json` (or the OS equivalent) — not in this repo.
+`$XDG_CONFIG_HOME/pnexus/cli.json` (or the OS equivalent) — not in this repo.
 
 By default it talks to `http://localhost:8090`; override with `--api` or `BRAIN_API_URL`.

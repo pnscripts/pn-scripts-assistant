@@ -1,4 +1,4 @@
-# Vesper
+# Pnexus
 
 A personal, self-learning AI assistant. Laravel core, hybrid local/API LLM routing, and
 a Lesson-quarantine learning pipeline modeled on the `.ai/` knowledge-promotion system
@@ -7,8 +7,8 @@ from the `pnscripts` Laravel project. Full architecture and phase roadmap: see
 
 ## Portability
 
-Vesper's *data* (conversations, Lessons, promoted knowledge, Postgres/Redis files)
-lives outside this repo, in a portable `VESPER-DATA/` folder on an external drive,
+Pnexus's *data* (conversations, Lessons, promoted knowledge, Postgres/Redis files)
+lives outside this repo, in a portable `PNEXUS-DATA/` folder on an external drive,
 marked with `.brain-root.json`. This repo (the code) can be cloned onto any machine;
 `scripts/start-brain.sh` finds the data root wherever it currently is (or creates a new
 one) and points Docker at it — nothing is hardcoded to one computer or one drive.
@@ -49,12 +49,12 @@ models (already installed on the host) are used via `http://host.docker.internal
 `provider` is optional (`"ollama"` or `"anthropic"`); omit it to use the configured
 default (`LLM_DEFAULT_PROVIDER` in `.env`).
 
-`GET /api/brain` — `{ "name": "Vesper", "owner": "Petar" }`. Lets every client introduce
+`GET /api/brain` — `{ "name": "Pnexus", "owner": "Petar" }`. Lets every client introduce
 the assistant the same way without hardcoding its name.
 
 ## Clients
 
-Vesper itself (routing, learning pipeline, database) is single-sourced in Laravel on
+Pnexus itself (routing, learning pipeline, database) is single-sourced in Laravel on
 purpose — one source of truth for the logic. Everything that just *talks* to it over
 the API is free to be whatever language fits its platform:
 

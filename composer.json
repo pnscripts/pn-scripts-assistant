@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "petar/vesper",
+    "name": "petar/pnexus",
     "type": "project",
-    "description": "Vesper — a personal, self-learning AI assistant with hybrid local/API LLM routing and a Lesson-quarantine learning pipeline.",
-    "keywords": ["laravel", "ai", "llm", "assistant", "self-learning", "vesper"],
+    "description": "Pnexus — a personal, self-learning AI assistant with hybrid local/API LLM routing and a Lesson-quarantine learning pipeline.",
+    "keywords": ["laravel", "ai", "llm", "assistant", "self-learning", "pnexus"],
     "license": "MIT",
     "require": {
         "php": "^8.3",
