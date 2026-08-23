@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Brain\Learning\ExtractLessonJob;
+use App\Brain\Llm\LlmRouter;
+use App\Brain\Persona;
 use App\Models\Conversation;
 use App\Models\Message;
-use App\Services\Learning\ExtractLessonJob;
-use App\Services\Llm\LlmRouter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,9 +20,19 @@ class ChatController extends Controller
             'provider' => ['nullable', 'string', 'in:ollama,anthropic'],
         ]);
 
-        $conversation = $data['conversation_id'] ?? null
-            ? Conversation::findOrFail($data['conversation_id'])
-            : Conversation::create(['title' => str($data['message'])->limit(60)]);
+        $isNewConversation = ! ($data['conversation_id'] ?? null);
+
+        $conversation = $isNewConversation
+            ? Conversation::create(['title' => str($data['message'])->limit(60)])
+            : Conversation::findOrFail($data['conversation_id']);
+
+        if ($isNewConversation) {
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'system',
+                'content' => Persona::systemPrompt(),
+            ]);
+        }
 
         Message::create([
             'conversation_id' => $conversation->id,

@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services\Llm\Providers;
+namespace App\Brain\Llm\Providers;
 
-use App\Services\Llm\Contracts\Provider;
-use App\Services\Llm\LlmResponse;
+use App\Brain\Llm\Contracts\Provider;
+use App\Brain\Llm\LlmResponse;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 

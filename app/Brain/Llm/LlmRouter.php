@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Services\Llm;
+namespace App\Brain\Llm;
 
-use App\Services\Llm\Contracts\Provider;
-use App\Services\Llm\Providers\AnthropicProvider;
-use App\Services\Llm\Providers\OllamaProvider;
+use App\Brain\Llm\Contracts\Provider;
+use App\Brain\Llm\Providers\AnthropicProvider;
+use App\Brain\Llm\Providers\OllamaProvider;
 use InvalidArgumentException;
 
 class LlmRouter

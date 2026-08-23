@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "petar/ai-brain",
+    "name": "petar/vesper",
     "type": "project",
-    "description": "A personal, self-learning AI assistant with hybrid local/API LLM routing and a Lesson-quarantine learning pipeline.",
-    "keywords": ["laravel", "ai", "llm", "assistant", "self-learning"],
+    "description": "Vesper — a personal, self-learning AI assistant with hybrid local/API LLM routing and a Lesson-quarantine learning pipeline.",
+    "keywords": ["laravel", "ai", "llm", "assistant", "self-learning", "vesper"],
     "license": "MIT",
     "require": {
         "php": "^8.3",

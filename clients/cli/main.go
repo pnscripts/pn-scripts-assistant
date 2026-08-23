@@ -1,7 +1,7 @@
-// brain is a terminal client for the AI Brain API. It's the first of several
-// clients that talk to the one brain (see ../../app/Services) over HTTP —
-// each client picks whatever language fits its platform; only the brain
-// itself is single-sourced.
+// vesper is a terminal client for the Vesper API. It's the first of several
+// clients that talk to the one brain (see ../../app/Brain) over HTTP — each
+// client picks whatever language fits its platform; only the brain itself is
+// single-sourced.
 package main
 
 import (
@@ -34,12 +34,31 @@ type chatResponse struct {
 	Model          string `json:"model"`
 }
 
+type brainInfo struct {
+	Name  string `json:"name"`
+	Owner string `json:"owner"`
+}
+
+func fetchBrainInfo(apiURL string) (brainInfo, error) {
+	resp, err := http.Get(strings.TrimRight(apiURL, "/") + "/api/brain")
+	if err != nil {
+		return brainInfo{}, err
+	}
+	defer resp.Body.Close()
+
+	var info brainInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return brainInfo{}, err
+	}
+	return info, nil
+}
+
 func statePath() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	d := filepath.Join(dir, "ai-brain")
+	d := filepath.Join(dir, "vesper")
 	if err := os.MkdirAll(d, 0o755); err != nil {
 		return "", err
 	}
@@ -94,7 +113,7 @@ func send(apiURL string, s cliState, provider, message string) (chatResponse, er
 	return cr, nil
 }
 
-func runOne(apiURL string, s *cliState, provider, message string) {
+func runOne(apiURL string, s *cliState, provider, message, name string) {
 	cr, err := send(apiURL, *s, provider, message)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -102,7 +121,7 @@ func runOne(apiURL string, s *cliState, provider, message string) {
 	}
 	s.ConversationID = &cr.ConversationID
 	saveState(*s)
-	fmt.Printf("brain [%s/%s]> %s\n", cr.Provider, cr.Model, cr.Reply)
+	fmt.Printf("%s [%s/%s]> %s\n", strings.ToLower(name), cr.Provider, cr.Model, cr.Reply)
 }
 
 func envOr(key, def string) string {
@@ -123,12 +142,23 @@ func main() {
 		s.ConversationID = nil
 	}
 
+	info, err := fetchBrainInfo(*apiURL)
+	name := "brain"
+	if err == nil && info.Name != "" {
+		name = info.Name
+	}
+
 	if args := flag.Args(); len(args) > 0 {
-		runOne(*apiURL, &s, *provider, strings.Join(args, " "))
+		runOne(*apiURL, &s, *provider, strings.Join(args, " "), name)
 		return
 	}
 
-	fmt.Println("AI Brain — interactive. ':new' for a fresh conversation, 'exit' or Ctrl+D to quit.")
+	if err == nil {
+		fmt.Printf("%s online. How can I help, %s? (':new' for a fresh conversation, 'exit' to quit)\n", info.Name, info.Owner)
+	} else {
+		fmt.Println("Connected, but /api/brain didn't respond — is the brain running? (':new' for a fresh conversation, 'exit' to quit)")
+	}
+
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("you> ")
@@ -147,6 +177,6 @@ func main() {
 			fmt.Println("(new conversation)")
 			continue
 		}
-		runOne(*apiURL, &s, *provider, line)
+		runOne(*apiURL, &s, *provider, line, name)
 	}
 }

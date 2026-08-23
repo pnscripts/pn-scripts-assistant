@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Llm;
+namespace App\Brain\Llm;
 
 final readonly class LlmResponse
 {

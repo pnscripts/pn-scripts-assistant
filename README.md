@@ -1,14 +1,14 @@
-# AI Brain
+# Vesper
 
-A personal, self-learning assistant. Laravel core, hybrid local/API LLM routing, and a
-Lesson-quarantine learning pipeline modeled on the `.ai/` knowledge-promotion system
+A personal, self-learning AI assistant. Laravel core, hybrid local/API LLM routing, and
+a Lesson-quarantine learning pipeline modeled on the `.ai/` knowledge-promotion system
 from the `pnscripts` Laravel project. Full architecture and phase roadmap: see
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Portability
 
-The brain's *data* (conversations, Lessons, promoted knowledge, Postgres/Redis files)
-lives outside this repo, in a portable `AI-BRAIN-DATA/` folder on an external drive,
+Vesper's *data* (conversations, Lessons, promoted knowledge, Postgres/Redis files)
+lives outside this repo, in a portable `VESPER-DATA/` folder on an external drive,
 marked with `.brain-root.json`. This repo (the code) can be cloned onto any machine;
 `scripts/start-brain.sh` finds the data root wherever it currently is (or creates a new
 one) and points Docker at it — nothing is hardcoded to one computer or one drive.
@@ -40,17 +40,23 @@ set `ANTHROPIC_API_KEY` if you want the `anthropic` provider available. Local Ol
 models (already installed on the host) are used via `http://host.docker.internal:11434`
 — no key needed, but slower since inference is CPU-only.
 
+`BRAIN_NAME` / `BRAIN_OWNER` control the assistant's spoken identity (see
+`app/Brain/Persona.php`) — change them freely, nothing else depends on the value.
+
 ## API
 
 `POST /api/chat` — body: `{ "message": "...", "conversation_id": null, "provider": null }`.
 `provider` is optional (`"ollama"` or `"anthropic"`); omit it to use the configured
 default (`LLM_DEFAULT_PROVIDER` in `.env`).
 
+`GET /api/brain` — `{ "name": "Vesper", "owner": "Petar" }`. Lets every client introduce
+the assistant the same way without hardcoding its name.
+
 ## Clients
 
-The brain itself (routing, learning pipeline, database) is single-sourced in Laravel on
+Vesper itself (routing, learning pipeline, database) is single-sourced in Laravel on
 purpose — one source of truth for the logic. Everything that just *talks* to it over
-`/api/chat` is free to be whatever language fits its platform:
+the API is free to be whatever language fits its platform:
 
 | Client | Language | Status |
 |---|---|---|
@@ -60,3 +66,7 @@ purpose — one source of truth for the logic. Everything that just *talks* to i
 | Mobile | Flutter/PWA | planned (Phase 5) |
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full sequencing.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

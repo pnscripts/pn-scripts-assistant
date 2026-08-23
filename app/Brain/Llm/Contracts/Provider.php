@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services\Llm\Contracts;
+namespace App\Brain\Llm\Contracts;
 
-use App\Services\Llm\LlmResponse;
+use App\Brain\Llm\LlmResponse;
 
 interface Provider
 {

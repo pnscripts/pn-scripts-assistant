@@ -26,7 +26,7 @@ find_data_root() {
     for pattern in "${SEARCH_ROOTS[@]}"; do
         for dir in $pattern; do
             [ -d "$dir" ] || continue
-            candidate="$dir/AI-BRAIN-DATA"
+            candidate="$dir/VESPER-DATA"
             if [ -f "$candidate/$MARKER_NAME" ]; then
                 echo "$candidate"
                 return 0
@@ -73,13 +73,13 @@ if [ -z "$DATA_ROOT" ]; then
         echo "Where should a new one be created? Enter a drive/folder path:"
         read -r base
         [ -d "$base" ] || { log "Path does not exist: $base"; exit 1; }
-        DATA_ROOT="$base/AI-BRAIN-DATA"
+        DATA_ROOT="$base/VESPER-DATA"
         mkdir -p "$DATA_ROOT/postgres" "$DATA_ROOT/redis" "$DATA_ROOT/logs"
         brain_id="$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)"
         cat > "$DATA_ROOT/$MARKER_NAME" <<EOF
 {
   "id": "$brain_id",
-  "name": "petar-brain",
+  "name": "vesper",
   "schema_version": 1,
   "created_at": "$(date -Iseconds)"
 }
