@@ -73,6 +73,7 @@ class LessonResource extends Resource
                         default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('conversation_id')->label('Conversation'),
+                Tables\Columns\TextColumn::make('source')->label('Source')->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
             ])
             ->filters([

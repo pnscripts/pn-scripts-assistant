@@ -9,8 +9,10 @@ everything below is what comes next, in order).
   populated and used.
 - **Phase 3** — The real Jarvis-style web dashboard (chat + memory browser), replacing
   the temporary smoke-test page at `/`.
-- **Phase 4** — Opt-in knowledge ingestion from existing Projects/Documents, reviewed
-  before anything is promoted.
+- **Phase 4** — Opt-in knowledge ingestion, reviewed before anything is promoted.
+  Projects: done (see below). Still open, each needing its own explicit scoping given
+  the sensitivity: Documents (full content vs. just file listings), browser history,
+  email (requires OAuth setup, not something to build silently).
 - **Phase 5** — Desktop app (Tauri) and mobile client (PWA or Flutter first), and an
   optional Godot-built animated HUD front end for the visual "Jarvis" feel.
 - **Phase 6** — Multi-drive expansion: a drive registry in `PNEXUS-DATA`, so when more
@@ -38,14 +40,22 @@ everything below is what comes next, in order).
   is genuinely client-agnostic: any language can talk to it without touching the
   Laravel core. Phase 5's Godot HUD, desktop, and mobile clients follow the same
   pattern — thin, language-appropriate, all hitting the same API.
+- `App\Brain\Learning\ProjectScanner` + `php artisan brain:ingest-projects` — read-only
+  scan (see `compose.yaml` `:ro` mounts of `SCAN_DEV_PROJECTS_PATH` /
+  `SCAN_HOME_PROJECTS_PATH`) that walks project directories, detects the tech stack per
+  project (composer.json/package.json/go.mod/etc.), and proposes one Lesson per project
+  found. Same quarantine as chat-derived Lessons — nothing is promoted automatically.
+  Known limitation: can't yet tell a hand-written module from a bundled third-party one
+  inside a CMS's flat modules/plugins folder (WordPress's `wp-content/plugins` is
+  excluded outright; PrestaShop-style `modules/` folders are not, since some of those
+  actually are custom work) — review before promoting anything from there.
 
 ## Naming
 
-The project, the open-source repo, and the assistant's spoken persona are all "Pnexus"
-— one brand, not a technical-name/product-name split. `app/Brain/` stays as the internal
-namespace for the core logic (a generic architectural term, like "core" or "engine"),
-which is normal even for a named product — it isn't user-facing.
+Pnexus is an independent project — no business or brand tie to PN Scripts beyond where
+the name came from. `app/Brain/` stays as the internal namespace for the core logic (a
+generic architectural term, like "core" or "engine"), which is normal even for a named
+product — it isn't user-facing.
 
-Before any public launch (GitHub, pnscripts product listing), run an actual trademark
-search — this was only screened against obviously conflicting major brands, not
-professionally cleared.
+Before any public launch (GitHub, etc.), run an actual trademark search — this was only
+screened against obviously conflicting major brands, not professionally cleared.

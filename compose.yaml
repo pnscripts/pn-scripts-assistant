@@ -19,6 +19,8 @@ services:
             IGNITION_LOCAL_SITES_PATH: '${PWD}'
         volumes:
             - '.:/var/www/html'
+            - '${SCAN_DEV_PROJECTS_PATH}:/mnt/scan/dev-projects:ro'
+            - '${SCAN_HOME_PROJECTS_PATH}:/mnt/scan/home-projects:ro'
         networks:
             - sail
         depends_on:

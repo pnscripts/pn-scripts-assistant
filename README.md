@@ -43,6 +43,11 @@ models (already installed on the host) are used via `http://host.docker.internal
 `BRAIN_NAME` / `BRAIN_OWNER` control the assistant's spoken identity (see
 `app/Brain/Persona.php`) — change them freely, nothing else depends on the value.
 
+`SCAN_DEV_PROJECTS_PATH` / `SCAN_HOME_PROJECTS_PATH` point at directories to learn
+project structure from — mounted **read-only** into the app container (see
+`compose.yaml`), never written to. Run `php artisan brain:ingest-projects` to (re-)scan
+and propose Lessons for anything new.
+
 ## API
 
 `POST /api/chat` — body: `{ "message": "...", "conversation_id": null, "provider": null }`.

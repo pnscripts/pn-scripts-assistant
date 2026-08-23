@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Lesson extends Model
 {
-    protected $fillable = ['conversation_id', 'content', 'status', 'confidence'];
+    protected $fillable = ['conversation_id', 'source', 'content', 'status', 'confidence'];
 
     public function conversation(): BelongsTo
     {
