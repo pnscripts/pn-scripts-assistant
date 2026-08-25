@@ -25,6 +25,15 @@ class ExtractLessonJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * The queue's default sixty seconds assumes work that is mostly waiting on a
+     * database. This waits on a language model instead: extraction runs at
+     * fifteen to twenty seconds on this machine and would exceed a minute on a
+     * slower one or a larger model. Exceeding it loses the Lesson entirely,
+     * which is the one thing this job exists to produce.
+     */
+    public int $timeout = 600;
+
     public function __construct(private readonly int $conversationId)
     {
     }
