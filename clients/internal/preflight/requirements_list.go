@@ -84,13 +84,13 @@ func Requirements() []Requirement {
 					return Unknown, "needs Ollama first"
 				}
 
-				if !ollamaHasModel("llama3.2") {
+				if !ollamaHasModel("qwen2.5-coder") {
 					return Missing, ""
 				}
 
-				return OK, "llama3.2"
+				return OK, "qwen2.5-coder"
 			},
-			InstallCmd: func() []string { return []string{"ollama", "pull", "llama3.2:3b"} },
+			InstallCmd: func() []string { return []string{"ollama", "pull", "qwen2.5-coder:7b"} },
 		},
 		{
 			Name:        "Embedding model",

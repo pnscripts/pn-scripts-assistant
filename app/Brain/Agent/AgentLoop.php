@@ -8,6 +8,7 @@ use App\Brain\Tools\ToolRegistry;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\ToolInvocation;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Lets the brain actually *use* its capabilities: ask the model, run what it
@@ -49,7 +50,7 @@ class AgentLoop
 
             if (! $response->wantsTools()) {
                 return new AgentResult(
-                    reply: $response->content,
+                    reply: $this->presentable($response->content),
                     provider: $response->provider,
                     model: $response->model,
                     actionsTaken: $actionsTaken,
@@ -139,6 +140,37 @@ class AgentLoop
             pendingApprovals: $pending,
             actionsTaken: $actionsTaken,
         );
+    }
+
+    /**
+     * Keeps a botched tool call from being shown as an answer.
+     *
+     * Smaller models sometimes write a tool call into the reply text instead of
+     * returning it as a structured call — asked "what is 2+2", one produced
+     * {"name":"add","parameters":{...}} as its literal reply, naming a tool that
+     * does not exist. The provider sees no tool call, so the loop finishes and
+     * the raw JSON reaches the user.
+     *
+     * Nothing can be salvaged from it: the tool is imaginary and the answer was
+     * never written. Saying so is better than printing machine output at
+     * someone as though it were speech.
+     */
+    private function presentable(string $reply): string
+    {
+        $trimmed = trim($reply);
+
+        $looksLikeToolCall = str_starts_with($trimmed, '{')
+            && str_ends_with($trimmed, '}')
+            && preg_match('/"(name|function|tool|parameters|arguments)"\s*:/', $trimmed);
+
+        if (! $looksLikeToolCall) {
+            return $reply;
+        }
+
+        Log::info('AgentLoop: suppressed a malformed tool call in reply text', ['reply' => $trimmed]);
+
+        return 'I got confused reaching for a tool there and did not actually answer. '
+            .'Ask me again and I will just reply.';
     }
 
     private function toolResultMessage(?string $callId, string $content): array

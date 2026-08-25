@@ -117,10 +117,15 @@ func RecommendModel(hw Hardware) ModelChoice {
 			SpeedNote: "fast on your GPU",
 		}
 	case hw.RAMGB >= 16:
+		// Not the smallest model that fits, but the smallest that uses tools
+		// sensibly. Given tool definitions and asked to say a word, llama3.2:3b
+		// called write_file instead; asked for arithmetic it emitted JSON naming
+		// a tool that does not exist. A model that mishandles tools is worse
+		// than no tools at all, and the size difference costs little here.
 		return ModelChoice{
-			Model:     "llama3.2:3b",
-			SizeNote:  "~2GB",
-			SpeedNote: "usable on CPU — expect a few seconds per reply",
+			Model:     "qwen2.5-coder:7b",
+			SizeNote:  "~4.7GB",
+			SpeedNote: "usable on CPU — several seconds per reply",
 		}
 	case hw.RAMGB >= 8:
 		return ModelChoice{
