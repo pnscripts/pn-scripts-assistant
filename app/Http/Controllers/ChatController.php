@@ -6,6 +6,7 @@ use App\Brain\Agent\AgentLoop;
 use App\Brain\Learning\ExtractLessonJob;
 use App\Brain\Memory\MemoryStore;
 use App\Brain\Persona;
+use App\Brain\Privacy;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\ToolInvocation;
@@ -64,11 +65,17 @@ class ChatController extends Controller
             ->map(fn (Message $m) => ['role' => $m->role, 'content' => $m->content])
             ->all();
 
-        // Pull in anything already known that bears on this message, injected fresh
-        // each turn rather than persisted — memory changes between turns, and a stale
-        // copy baked into the transcript would go on being repeated after the
-        // underlying fact was corrected or removed.
-        if ($recalled = $this->recallContext($memory, $data['message'])) {
+        // Memory is only ever given to a local model. What the brain has learned
+        // is assembled from this machine's disk — project paths, client names,
+        // documents — and the user never composed it, so it is not ours to
+        // forward to a third party. What they type is their choice; this is not.
+        $provider = $data['provider'] ?? config('llm.default_provider');
+
+        $recalled = Privacy::allowsMemoryFor($provider)
+            ? $this->recallContext($memory, $data['message'])
+            : null;
+
+        if ($recalled) {
             array_splice($history, count($history) - 1, 0, [[
                 'role' => 'system',
                 'content' => $recalled,

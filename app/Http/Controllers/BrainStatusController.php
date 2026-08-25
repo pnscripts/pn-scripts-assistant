@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Brain\Persona;
+use App\Brain\Privacy;
 use App\Brain\Storage\BrainStorage;
 use App\Brain\Tools\ToolExecutor;
 use App\Brain\Tools\ToolRegistry;
@@ -33,6 +34,7 @@ class BrainStatusController extends Controller
                 ->map(fn ($t) => ['name' => $t->name(), 'risk' => $t->risk()->value])
                 ->values(),
             'pending_approvals' => ToolInvocation::where('status', 'pending')->count(),
+            'privacy' => Privacy::describe(),
             'storage' => $storage->status(),
             'provider' => config('llm.default_provider'),
             'model' => config('llm.'.config('llm.default_provider').'.model'),

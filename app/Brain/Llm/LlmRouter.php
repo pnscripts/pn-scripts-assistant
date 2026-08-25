@@ -3,6 +3,7 @@
 namespace App\Brain\Llm;
 
 use App\Brain\Llm\Contracts\Provider;
+use App\Brain\Privacy;
 use App\Brain\Llm\Providers\AnthropicProvider;
 use App\Brain\Llm\Providers\OllamaProvider;
 use InvalidArgumentException;
@@ -22,6 +23,10 @@ class LlmRouter
 
     public function provider(string $name): Provider
     {
+        // Enforced here rather than at the call sites, so no future caller can
+        // reach a third-party model by forgetting to check first.
+        Privacy::guardProvider($name);
+
         return match ($name) {
             'ollama' => new OllamaProvider(
                 baseUrl: config('llm.ollama.base_url'),

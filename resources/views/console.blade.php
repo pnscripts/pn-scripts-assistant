@@ -25,6 +25,12 @@
             <div class="stat"><span class="stat-value" id="stat-convos">—</span><span class="stat-label">conversations</span></div>
         </section>
 
+        <section class="panel" id="privacy-panel">
+            <h2>Privacy</h2>
+            <p class="privacy-summary" id="privacy-summary">—</p>
+            <p class="privacy-detail" id="privacy-detail"></p>
+        </section>
+
         <section class="panel" id="storage-panel">
             <h2>Storage</h2>
             <div class="storage-bar"><div id="storage-fill"></div></div>

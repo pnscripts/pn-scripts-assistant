@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Brain\Integrations\HomeAssistant\HomeAssistantIntegration;
 use App\Brain\Integrations\IntegrationRegistry;
+use App\Brain\Privacy;
 use App\Brain\Tools\Devices\ListDevicesTool;
 use App\Brain\Tools\Devices\SetDeviceStateTool;
 use App\Brain\Tools\Filesystem\ListDirectoryTool;
@@ -46,8 +47,12 @@ class ToolServiceProvider extends ServiceProvider
             // Safe — observe only, run without asking.
             $registry->register(new ReadFileTool);
             $registry->register(new ListDirectoryTool);
-            $registry->register(new FetchUrlTool);
-            $registry->register(new WebSearchTool);
+            // Withheld entirely in private mode. A tool the model cannot see
+            // is one it cannot be talked into using by a page it has read.
+            if (Privacy::allowsWeb()) {
+                $registry->register(new FetchUrlTool);
+                $registry->register(new WebSearchTool);
+            }
             $registry->register(new ListDevicesTool($devices));
 
             // Mutating — queued for your approval before anything happens.

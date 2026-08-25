@@ -6,6 +6,13 @@ return [
     'name' => env('BRAIN_NAME', 'PN Brain'),
     'owner' => env('BRAIN_OWNER', 'Petar'),
 
+    /*
+     * What may leave this machine: private | research | open.
+     * See App\Brain\Privacy. Defaults to private, because the safe default for
+     * a system holding this much personal detail is the one that shares none.
+     */
+    'privacy' => env('BRAIN_PRIVACY', 'private'),
+
     // Where the app *reads* these from, which is not the same as where they live
     // on the host: in server mode it sees read-only container mounts, while a
     // desktop build has no container and reads the real paths directly.

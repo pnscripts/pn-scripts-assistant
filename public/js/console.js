@@ -151,6 +151,7 @@ async function refreshStatus() {
         el('stat-pending').textContent = s.memory.pending_lessons;
         el('stat-convos').textContent = s.memory.conversations;
         el('engine-meta').textContent = `${s.provider} · ${s.model}`;
+        renderPrivacy(s.privacy);
         renderStorage(s.storage);
         el('conn-dot').className = 'dot online';
         el('conn-text').textContent = `online · ${s.capabilities.length} capabilities`;
@@ -159,6 +160,15 @@ async function refreshStatus() {
         el('conn-dot').className = 'dot offline';
         el('conn-text').textContent = 'offline';
     }
+}
+
+function renderPrivacy(privacy) {
+    if (!privacy) return;
+
+    const summary = el('privacy-summary');
+    summary.textContent = privacy.summary;
+    summary.className = 'privacy-summary ' + privacy.mode;
+    el('privacy-detail').textContent = privacy.detail;
 }
 
 const GB = 1024 ** 3;
