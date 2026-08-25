@@ -18,7 +18,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"pnexus/internal/preflight"
 )
 
 const (
@@ -84,10 +87,90 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
+// needsSetup reports whether the machine is missing something Pnexus needs, or
+// has no way to think at all.
+//
+// The second half matters as much as the first: every dependency can be present
+// and the app still be useless, because there is neither a local model nor an
+// API key. Someone in that position needs to be asked a question, not shown a
+// list of green ticks followed by a broken chat.
+func needsSetup(envPath string) bool {
+	results := preflight.Check()
+
+	if preflight.BlockingCount(results) > 0 {
+		return true
+	}
+
+	for _, r := range results {
+		if r.Requirement.Name == "Chat model" && r.Satisfied() {
+			return false
+		}
+	}
+
+	return !hasAPIKeyIn(envPath)
+}
+
+func hasAPIKeyIn(envPath string) bool {
+	data, err := os.ReadFile(envPath)
+	if err != nil {
+		return false
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "ANTHROPIC_API_KEY=") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "ANTHROPIC_API_KEY=")) != ""
+		}
+	}
+
+	return false
+}
+
+// runSetup shows first-run setup inside the application window.
+//
+// The window opens on a server this binary runs itself, because the brain
+// cannot serve its own setup page on a machine that is missing the things the
+// brain needs in order to start. Once the user is done, the same window
+// navigates to the brain — so setup happens entirely inside the program, with
+// no terminal involved.
+func runSetup(envPath, brainURL string) error {
+	server, err := newSetupServer(envPath)
+	if err != nil {
+		return fmt.Errorf("could not start setup: %w", err)
+	}
+
+	navigate := make(chan string, 1)
+
+	go server.serve(func() {
+		if err := startBrain(); err != nil {
+			return
+		}
+
+		if err := waitForBrain(brainURL); err != nil {
+			return
+		}
+
+		navigate <- brainURL
+	})
+
+	return openWindowWithNavigation(server.url(), "Pnexus — Setup", windowWidth, windowHeight, navigate)
+}
+
 func main() {
 	url := flag.String("url", envOr("PNEXUS_URL", defaultURL), "Pnexus URL to open")
 	noStart := flag.Bool("no-start", false, "Don't try to start Pnexus if it isn't running")
+	skipSetup := flag.Bool("skip-setup", false, "Skip the first-run check")
 	flag.Parse()
+
+	envPath := defaultEnvPath()
+
+	if !*skipSetup && !brainIsUp(*url) && needsSetup(envPath) {
+		if err := runSetup(envPath, *url); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+
+		return
+	}
 
 	if !brainIsUp(*url) {
 		if *noStart {

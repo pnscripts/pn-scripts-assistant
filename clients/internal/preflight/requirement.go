@@ -1,4 +1,4 @@
-package main
+package preflight
 
 import (
 	"fmt"
@@ -38,8 +38,8 @@ func (s State) Label() string {
 // exists — a list of red crosses tells someone what is wrong but not whether
 // they should care, and several of these are genuinely optional.
 type Requirement struct {
-	Name       string
-	Why        string // what it is for
+	Name        string
+	Why         string // what it is for
 	Consequence string // what stops working without it
 
 	// Optional requirements are reported but never block startup.
@@ -117,7 +117,7 @@ func aptInstall(packages ...string) []string {
 	return append([]string{"sudo", "apt-get", "install", "-y"}, packages...)
 }
 
-func describe(state State, detail string) string {
+func Describe(state State, detail string) string {
 	if detail == "" {
 		return state.Label()
 	}

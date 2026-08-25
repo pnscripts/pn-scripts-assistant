@@ -29,3 +29,4 @@ Thumbs.db
 
 # Release artifacts — built in CI, not committed.
 /dist
+/clients/dist

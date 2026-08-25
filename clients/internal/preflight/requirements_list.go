@@ -1,4 +1,4 @@
-package main
+package preflight
 
 import (
 	"runtime"
@@ -10,7 +10,7 @@ import (
 // Deliberately one readable list: "what does this app expect of my machine?"
 // should be answerable by reading a single file, the same way
 // ToolServiceProvider answers "what can it do to my machine?".
-func requirements() []Requirement {
+func Requirements() []Requirement {
 	list := []Requirement{
 		{
 			Name:        "Docker",

@@ -17,6 +17,40 @@ static void pnexus_on_destroy(GtkWidget *widget, gpointer data) {
 // bindings still pkg-config against webkit2gtk-4.0, which Ubuntu 24.04 does not
 // ship at all — only 4.1 exists. This is the whole of what Pnexus needs from a
 // desktop toolkit: one window, one web view, one URL.
+static WebKitWebView *pnexus_view = NULL;
+
+// Navigation has to happen on the GTK main loop, so a pending URL is left here
+// and picked up by a timer rather than being loaded from the Go goroutine that
+// produced it. Touching GTK from another thread is undefined behaviour.
+static char *pnexus_pending_url = NULL;
+static GMutex pnexus_pending_lock;
+
+void pnexus_request_navigation(const char *url) {
+    g_mutex_lock(&pnexus_pending_lock);
+    g_free(pnexus_pending_url);
+    pnexus_pending_url = g_strdup(url);
+    g_mutex_unlock(&pnexus_pending_lock);
+}
+
+static gboolean pnexus_poll_navigation(gpointer data) {
+    char *url = NULL;
+
+    g_mutex_lock(&pnexus_pending_lock);
+    if (pnexus_pending_url != NULL) {
+        url = pnexus_pending_url;
+        pnexus_pending_url = NULL;
+    }
+    g_mutex_unlock(&pnexus_pending_lock);
+
+    if (url != NULL && pnexus_view != NULL) {
+        webkit_web_view_load_uri(pnexus_view, url);
+        gtk_window_set_title(GTK_WINDOW(data), "Pnexus");
+        g_free(url);
+    }
+
+    return G_SOURCE_CONTINUE;
+}
+
 static void pnexus_open_window(const char *url, const char *title, int width, int height) {
     if (!gtk_init_check(NULL, NULL)) {
         return;
@@ -35,8 +69,11 @@ static void pnexus_open_window(const char *url, const char *title, int width, in
     WebKitSettings *settings = webkit_web_view_get_settings(view);
     webkit_settings_set_enable_developer_extras(settings, TRUE);
 
+    pnexus_view = view;
     webkit_web_view_load_uri(view, url);
     gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+
+    g_timeout_add(200, pnexus_poll_navigation, window);
 
     gtk_widget_show_all(window);
     gtk_main();
@@ -53,6 +90,21 @@ func init() {
 	// GTK must be driven from the thread it was initialised on, and Go is free
 	// to move goroutines between threads unless told otherwise.
 	runtime.LockOSThread()
+}
+
+// openWindowWithNavigation opens the window and, when a URL arrives on the
+// channel, navigates the same window to it — so first-run setup hands over to
+// the brain in place rather than closing and reopening.
+func openWindowWithNavigation(url, title string, width, height int, navigate <-chan string) error {
+	go func() {
+		for next := range navigate {
+			cNext := C.CString(next)
+			C.pnexus_request_navigation(cNext)
+			C.free(unsafe.Pointer(cNext))
+		}
+	}()
+
+	return openWindow(url, title, width, height)
 }
 
 func openWindow(url, title string, width, height int) error {

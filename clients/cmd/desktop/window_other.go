@@ -17,3 +17,9 @@ func openWindow(url, title string, width, height int) error {
 		runtime.GOOS, url,
 	)
 }
+
+// openWindowWithNavigation mirrors the Linux signature so main.go compiles
+// everywhere; without a native window there is nothing to navigate.
+func openWindowWithNavigation(url, title string, width, height int, navigate <-chan string) error {
+	return openWindow(url, title, width, height)
+}
