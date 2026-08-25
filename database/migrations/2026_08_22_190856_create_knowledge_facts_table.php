@@ -1,8 +1,8 @@
 <?php
 
+use App\Support\Schema\VectorColumn;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement('ALTER TABLE knowledge_facts ADD COLUMN embedding vector(768)');
+        VectorColumn::add('knowledge_facts');
     }
 
     /**
