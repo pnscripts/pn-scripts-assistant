@@ -8,9 +8,20 @@ services:
         image: 'sail-8.5/app'
         extra_hosts:
             - 'host.docker.internal:host-gateway'
+        # Loopback only. Docker's default binds published ports to every
+        # interface, which put an unauthenticated Pnexus on the whole local
+        # network: anyone on it could read the knowledge base, chat with the
+        # brain — and read_file is a safe tool that runs without asking, over
+        # mounts that include personal documents — and, worst of all, POST to
+        # /api/approvals to approve a pending action, defeating the entire
+        # permission gate from another machine.
+        #
+        # Nothing here authenticates, because it is built as a personal desktop
+        # application. Exposing it beyond this host means adding authentication
+        # first, not changing this line.
         ports:
-            - '${APP_PORT:-80}:80'
-            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+            - '127.0.0.1:${APP_PORT:-80}:80'
+            - '127.0.0.1:${VITE_PORT:-5173}:${VITE_PORT:-5173}'
         environment:
             WWWUSER: '${WWWUSER}'
             LARAVEL_SAIL: 1
@@ -48,8 +59,10 @@ services:
         entrypoint: ['php', '/var/www/html/artisan', 'queue:work', '--tries=1', '--sleep=3']
     pgsql:
         image: 'pgvector/pgvector:pg16'
+        # Loopback only: the database holds every conversation and everything
+        # the brain has learned, and it was reachable from the LAN.
         ports:
-            - '${FORWARD_DB_PORT:-5432}:5432'
+            - '127.0.0.1:${FORWARD_DB_PORT:-5432}:5432'
         environment:
             PGPASSWORD: '${DB_PASSWORD:-secret}'
             POSTGRES_DB: '${DB_DATABASE}'
@@ -72,8 +85,10 @@ services:
             timeout: 5s
     redis:
         image: 'redis:alpine'
+        # Loopback only. Redis has no password here, by design — it should not
+        # be reachable by anything but this host.
         ports:
-            - '${FORWARD_REDIS_PORT:-6379}:6379'
+            - '127.0.0.1:${FORWARD_REDIS_PORT:-6379}:6379'
         volumes:
             - '${BRAIN_DATA_ROOT}/redis:/data'
         networks:

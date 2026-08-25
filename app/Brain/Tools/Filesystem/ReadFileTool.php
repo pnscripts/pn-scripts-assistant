@@ -45,6 +45,8 @@ class ReadFileTool implements Tool
     {
         $path = $arguments['path'];
 
+        SensitivePaths::guard($path);
+
         if (! is_file($path) || ! is_readable($path)) {
             throw new RuntimeException("Not a readable file: {$path}");
         }

@@ -52,6 +52,11 @@ class WriteFileTool implements Tool
     public function execute(array $arguments): string
     {
         $path = $arguments['path'];
+
+        // Approval is not enough here: a summary saying "write ~/.ssh/authorized_keys"
+        // is easy to wave through, and the consequence is not recoverable.
+        SensitivePaths::guard($path);
+
         $directory = dirname($path);
 
         if (! is_dir($directory) && ! mkdir($directory, 0o755, true) && ! is_dir($directory)) {
