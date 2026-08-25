@@ -1,0 +1,25 @@
+# Keeps the static build context small and, more importantly, keeps developer
+# state out of a binary that gets distributed.
+
+.git
+.env
+.env.*
+!.env.desktop.example
+
+# Reinstalled inside the build with --no-dev, so dev dependencies never ship.
+vendor
+node_modules
+
+# Compiled client binaries; the release workflow builds these separately per platform.
+clients/cli/pnexus
+clients/desktop/pnexus-desktop
+
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+*.sqlite
+
+.github
+docs
+tests

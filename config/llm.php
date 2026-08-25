@@ -21,4 +21,10 @@ return [
         'model' => env('EMBEDDING_MODEL', 'nomic-embed-text'),
         'dimensions' => 768,
     ],
+
+    // Optional. Without a key, search falls back to scraping DuckDuckGo's
+    // no-JavaScript endpoint: no account needed, but fragile by nature.
+    'search' => [
+        'brave_key' => env('BRAVE_SEARCH_API_KEY'),
+    ],
 ];
