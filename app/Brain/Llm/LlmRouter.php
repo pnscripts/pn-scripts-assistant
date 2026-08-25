@@ -10,12 +10,14 @@ use InvalidArgumentException;
 class LlmRouter
 {
     /**
-     * @param  array<int, array{role: string, content: string}>  $messages
+     * @param  array<int, array<string, mixed>>  $messages
      * @param  string|null  $provider  Explicit override ('ollama'|'anthropic'). Falls back to config default.
+     * @param  array<int, array<string, mixed>>  $tools  Tool definitions; empty means plain chat.
      */
-    public function send(array $messages, ?string $provider = null): LlmResponse
+    public function send(array $messages, ?string $provider = null, array $tools = []): LlmResponse
     {
-        return $this->provider($provider ?? config('llm.default_provider'))->sendMessage($messages);
+        return $this->provider($provider ?? config('llm.default_provider'))
+            ->sendMessage($messages, $tools);
     }
 
     public function provider(string $name): Provider
@@ -23,6 +25,8 @@ class LlmRouter
         return match ($name) {
             'ollama' => new OllamaProvider(
                 baseUrl: config('llm.ollama.base_url'),
+                // Tool use is where small models fail hardest, so agent work can
+                // point at a stronger local model than everyday chat.
                 model: config('llm.ollama.model'),
             ),
             'anthropic' => new AnthropicProvider(

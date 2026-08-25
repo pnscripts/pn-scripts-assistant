@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Brain\Agent\AgentLoop;
 use App\Brain\Learning\ExtractLessonJob;
-use App\Brain\Llm\LlmRouter;
 use App\Brain\Memory\MemoryStore;
 use App\Brain\Persona;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\ToolInvocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class ChatController extends Controller
 {
-    public function send(Request $request, LlmRouter $router, MemoryStore $memory): JsonResponse
+    public function send(Request $request, AgentLoop $agent, MemoryStore $memory): JsonResponse
     {
         $data = $request->validate([
             'conversation_id' => ['nullable', 'integer', 'exists:conversations,id'],
@@ -59,23 +60,32 @@ class ChatController extends Controller
             ]]);
         }
 
-        $response = $router->send($history, provider: $data['provider'] ?? null);
+        $result = $agent->run($conversation, $history, $data['provider'] ?? null);
 
-        Message::create([
-            'conversation_id' => $conversation->id,
-            'role' => 'assistant',
-            'provider' => $response->provider,
-            'model' => $response->model,
-            'content' => $response->content,
-        ]);
+        // When the loop stopped for approval it has already written its own
+        // message; writing again would duplicate it in the transcript.
+        if (! $result->isWaitingForApproval()) {
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'assistant',
+                'provider' => $result->provider,
+                'model' => $result->model,
+                'content' => $result->reply,
+            ]);
+        }
 
         ExtractLessonJob::dispatch($conversation->id);
 
         return response()->json([
             'conversation_id' => $conversation->id,
-            'reply' => $response->content,
-            'provider' => $response->provider,
-            'model' => $response->model,
+            'reply' => $result->reply,
+            'provider' => $result->provider,
+            'model' => $result->model,
+            'actions_taken' => $result->actionsTaken,
+            'pending_approvals' => array_map(fn (ToolInvocation $i) => [
+                'id' => $i->id,
+                'summary' => $i->summary,
+            ], $result->pendingApprovals),
         ]);
     }
 
