@@ -36,4 +36,25 @@ if ($storagePath = getenv('PNEXUS_STORAGE_PATH')) {
     $app->useStoragePath($storagePath);
 }
 
+/*
+ * A standalone build unpacks itself into a temporary directory, so Laravel's
+ * default of "read .env from the application root" means reading a file inside
+ * the executable — which is not where anyone put their configuration. Without
+ * this the app silently starts with defaults: it migrates into a throwaway
+ * database and reports no encryption key, both of which look like unrelated
+ * bugs.
+ *
+ * Environment variables alone are not a workaround. FrankenPHP serves requests
+ * from several threads and does not reliably surface the parent process's
+ * environment to all of them, so configuration has to come from a file the app
+ * can actually find.
+ *
+ * PNEXUS_ROOT is set by the launcher to the directory holding the binary; that
+ * folder holds .env, the SQLite database and storage, so the whole brain stays
+ * one copyable directory.
+ */
+if ($root = getenv('PNEXUS_ROOT')) {
+    $app->useEnvironmentPath($root);
+}
+
 return $app;
