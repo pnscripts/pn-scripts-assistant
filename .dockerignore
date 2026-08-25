@@ -10,9 +10,16 @@
 vendor
 node_modules
 
+# Build output. Excluding this is not tidiness — dist/ holds the previously
+# built brain binary, and without this line each build embeds its predecessor
+# inside itself. Observed: 186MB, then 372MB, then 794MB, doubling every time.
+dist
+clients/dist
+
 # Compiled client binaries; the release workflow builds these separately per platform.
-clients/cli/pnexus
-clients/desktop/pnexus-desktop
+clients/cmd/cli/pnexus
+clients/cmd/desktop/pnexus-desktop
+clients/cmd/doctor/pnexus-doctor
 
 storage/logs/*
 storage/framework/cache/data/*
