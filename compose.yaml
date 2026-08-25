@@ -22,6 +22,10 @@ services:
             - '${SCAN_DEV_PROJECTS_PATH}:/mnt/scan/dev-projects:ro'
             - '${SCAN_HOME_PROJECTS_PATH}:/mnt/scan/home-projects:ro'
             - '${SCAN_DOCUMENTS_PATH}:/mnt/scan/documents:ro'
+            # The one writable area. Everything the brain creates on its own
+            # lands here, inside the portable data root, so it travels with the
+            # brain and never scatters files across the host.
+            - '${BRAIN_DATA_ROOT}/workspace:/mnt/workspace'
         networks:
             - sail
         depends_on:

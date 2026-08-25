@@ -14,7 +14,23 @@ everything below is what comes next, in order).
 - **Phase 6** — Multi-drive expansion: a drive registry in `PNEXUS-DATA`, so when more
   drives get connected, Pnexus can extend storage across them instead of requiring a
   rebuild.
-- **Phase 7** — Voice interface, home-automation hooks, other integrations, as needed.
+- **Phase 7** — Voice interface, other integrations.
+
+### Next up (agentic layer, in this order)
+
+1. **Agent loop** — let the model actually choose tools and read results back,
+   rather than tools only being callable from code. Needs a model competent at
+   tool use; the choice is exposed at runtime rather than hardcoded, since a 3B
+   local model and a frontier API model are not interchangeable here.
+2. **Host agent (Go)** — a small daemon running on the host, outside Docker, so
+   the brain can reach the whole machine and the LAN. This is where Go genuinely
+   earns its place: it needs no runtime installed, and the container cannot do
+   this job. Every call it accepts still routes through the same permission gate.
+3. **Web tools** — fetch and search, `Safe` for reads.
+4. **Integration adapters** — one interface so smart-home platforms (Home
+   Assistant, Tuya, Hue, Zigbee) and other services plug in without touching the
+   core. Device control is `Mutating` by definition: switching on a heater is not
+   a reversible read.
 
 ## What's already built (Phase 0 + Phase 1)
 
@@ -85,6 +101,44 @@ First real run: 122 filesystem Lessons validated, 79 promoted, 43 caught as dupl
 are written in Go — it answered from self-taught knowledge alone. Note: all 4 Go
 projects ranked top-4 in retrieval, but `llama3.2:3b` dropped one when summarizing;
 retrieval quality is not the limiting factor, model size is.
+
+## Capabilities and the permission gate
+
+Anything Pnexus can *do* is a Tool (`App\Brain\Tools\Contracts\Tool`), so one
+permission rule and one audit trail cover every capability — filesystem, web,
+smart home, anything added later — instead of each integration inventing its own
+rules.
+
+Each tool declares a `Risk`, and the line is drawn at **observable effect**, not
+at how alarming the name sounds:
+
+| Risk | Meaning | Behaviour |
+|---|---|---|
+| `Safe` | Observes only; reversible | Runs immediately |
+| `Mutating` | Leaves the world changed | Queued, waits for human approval |
+
+`ToolExecutor` is the only path from intention to action. A mutating call is
+recorded *before* it can run and executes only via `approve()`, so there is no
+route from "the model decided to" to "it happened" that skips the record. Failures
+are recorded rather than thrown — the model needs to read what went wrong, and the
+audit trail should show attempts, not just successes.
+
+Approvals appear at `/admin/tool-invocations` with a badge counting what's waiting.
+Each shows a concrete summary ("OVERWRITE /x/y.php (40 lines)") rather than raw
+JSON, because nobody can meaningfully approve a blob. Every registered capability
+is listed in one readable file, `App\Providers\ToolServiceProvider` — adding one
+should be a visible, deliberate act.
+
+Verified end to end: safe tool auto-ran; mutating tool stayed `pending` with no
+file on disk; approval wrote it; rejection never wrote at all.
+
+**Writable area:** `PNEXUS-DATA/workspace` (mounted rw) is the only place the brain
+can currently write. It lives inside the portable data root, so what the brain
+creates travels with it rather than scattering across the host.
+
+**Ordering note:** the permission gate was built *before* any capability that
+needs it. A host-level agent holding shell access must not exist before the
+mechanism that can refuse it.
 
 ## Naming
 
