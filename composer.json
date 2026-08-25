@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "petar/pnexus",
+    "name": "petar/pn-brain",
     "type": "project",
-    "description": "Pnexus — a personal, self-learning AI assistant with hybrid local/API LLM routing and a Lesson-quarantine learning pipeline.",
-    "keywords": ["laravel", "ai", "llm", "assistant", "self-learning", "pnexus"],
+    "description": "Pn-Brain — a personal, self-learning AI assistant with hybrid local/API LLM routing and a Lesson-quarantine learning pipeline.",
+    "keywords": ["laravel", "ai", "llm", "assistant", "self-learning", "pn-brain"],
     "license": "MIT",
     "require": {
         "php": "^8.3",

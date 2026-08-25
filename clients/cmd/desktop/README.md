@@ -1,6 +1,6 @@
-# pnexus-desktop (Go)
+# pn-brain-desktop (Go)
 
-The native desktop application. Starts Pnexus if it isn't running, then opens it
+The native desktop application. Starts PN Brain if it isn't running, then opens it
 in a real application window drawn by the operating system's own web engine —
 WebKitGTK on Linux. Not a browser: no tabs, no address bar, no Chrome.
 
@@ -15,7 +15,7 @@ sudo apt install -y libwebkit2gtk-4.1-dev libgtk-3-dev
 Then:
 
 ```bash
-CGO_ENABLED=1 go build -o pnexus-desktop .
+CGO_ENABLED=1 go build -o pn-brain-desktop .
 ```
 
 The runtime libraries (`libwebkit2gtk-4.1-0`, `libgtk-3-0`) ship with any GTK
@@ -26,7 +26,7 @@ desktop, so only building needs the headers — running does not.
 The window is about eighty lines of cgo in `window_linux.go` rather than a
 library, because the maintained Go webview bindings still `pkg-config` against
 `webkit2gtk-4.0`, and Ubuntu 24.04 removed 4.0 entirely — only 4.1 exists, so
-they cannot build at all. Pnexus needs one window showing one URL, which is
+they cannot build at all. PN Brain needs one window showing one URL, which is
 short enough to own outright.
 
 | Alternative | Why not |
@@ -50,9 +50,9 @@ pure Go, still cross-compiles everywhere from one machine.
 ## Usage
 
 ```bash
-pnexus-desktop                  # start Pnexus if needed, open the window
-pnexus-desktop --no-start       # fail instead of starting it
-pnexus-desktop --url http://…   # point at a different instance
+pn-brain-desktop                  # start PN Brain if needed, open the window
+pn-brain-desktop --no-start       # fail instead of starting it
+pn-brain-desktop --url http://…   # point at a different instance
 ```
 
-Also installed as a desktop entry, so "Pnexus" appears in the applications menu.
+Also installed as a desktop entry, so "PN Brain" appears in the applications menu.

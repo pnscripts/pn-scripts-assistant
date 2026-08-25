@@ -1,4 +1,4 @@
-# Builds Pnexus as a single self-contained binary: the Laravel app, the PHP
+# Builds PN Brain as a single self-contained binary: the Laravel app, the PHP
 # interpreter and a production web server, with no external dependencies. This
 # is what turns "a web app that needs Docker" into "an app you can hand someone".
 #
@@ -17,7 +17,7 @@ COPY . .
 # Never bake a developer's environment or git history into a distributed
 # binary: it would ship real credentials and machine-specific paths to users.
 RUN rm -rf .git .env storage/logs/* \
-    && rm -f clients/cli/pnexus clients/desktop/pnexus-desktop
+    && rm -f clients/cli/pn-brain clients/desktop/pn-brain-desktop
 
 # Scripts are skipped because Laravel's post-install hooks run artisan, which
 # would try to boot the app against a database that doesn't exist at build time.

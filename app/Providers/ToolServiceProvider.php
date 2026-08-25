@@ -15,7 +15,7 @@ use App\Brain\Tools\Web\WebSearchTool;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * The complete list of what Pnexus can do to your machine and your home.
+ * The complete list of what PN Brain can do to your machine and your home.
  *
  * Deliberately one readable list in one file: adding a capability should be a
  * visible, deliberate act, and this is the file to read when asking "what is

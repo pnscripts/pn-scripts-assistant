@@ -4,7 +4,7 @@
 
 ## The real question
 
-"Make it a desktop app" looks like a UI question. It isn't. Pnexus currently needs
+"Make it a desktop app" looks like a UI question. It isn't. PN Brain currently needs
 Docker, PHP 8.4, Postgres 16 + pgvector, and Redis. That is a *server*. A desktop app
 is a *client*. So there are two separable problems, and only one of them is about
 windows:

@@ -4,7 +4,7 @@ import (
 	"runtime"
 )
 
-// requirements is the full list of what Pnexus needs, in the order a person
+// requirements is the full list of what PN Brain needs, in the order a person
 // should care about them.
 //
 // Deliberately one readable list: "what does this app expect of my machine?"
@@ -15,7 +15,7 @@ func Requirements() []Requirement {
 		{
 			Name:        "Docker",
 			Why:         "runs the brain, its database and queue",
-			Consequence: "Pnexus cannot start in server mode",
+			Consequence: "PN Brain cannot start in server mode",
 			Check: func() (State, string) {
 				if !commandExists("docker") {
 					return Missing, ""
@@ -36,7 +36,7 @@ func Requirements() []Requirement {
 		{
 			Name:        "Docker daemon",
 			Why:         "must be running, not just installed",
-			Consequence: "Pnexus cannot start in server mode",
+			Consequence: "PN Brain cannot start in server mode",
 			Check: func() (State, string) {
 				if !commandExists("docker") {
 					return Missing, "docker not installed"
@@ -77,7 +77,7 @@ func Requirements() []Requirement {
 		},
 		{
 			Name:        "Chat model",
-			Why:         "the model Pnexus talks with",
+			Why:         "the model PN Brain talks with",
 			Consequence: "local conversations will fail",
 			Check: func() (State, string) {
 				if !commandExists("ollama") {

@@ -37,8 +37,8 @@ WKWebView, and Python if PDF text extraction or OCR is ever added.
   (requires OAuth setup, not something to build silently).
 - **Phase 5** — Desktop app (Tauri) and mobile client (PWA or Flutter first), and an
   optional Godot-built animated HUD front end for the visual "Jarvis" feel.
-- **Phase 6** — Multi-drive expansion: a drive registry in `PNEXUS-DATA`, so when more
-  drives get connected, Pnexus can extend storage across them instead of requiring a
+- **Phase 6** — Multi-drive expansion: a drive registry in `PN-BRAIN-DATA`, so when more
+  drives get connected, PN Brain can extend storage across them instead of requiring a
   rebuild.
 - **Phase 7** — Voice interface, other integrations.
 
@@ -141,7 +141,7 @@ Iterating in CI costs nothing by comparison, because the runner has an
 authenticated token — the workflow already passes one as a BuildKit secret. The
 same is achievable locally by passing a personal token the same way.
 
-Nothing here blocks using Pnexus. Docker mode is complete.
+Nothing here blocks using PN Brain. Docker mode is complete.
 
 ## Two deployment targets, one codebase
 
@@ -167,7 +167,7 @@ the self-contained brain binary plus desktop and CLI clients for Linux, macOS
 
 ## What's already built (Phase 0 + Phase 1)
 
-- Portable data root (`PNEXUS-DATA/`, marked with `.brain-root.json`) — survives
+- Portable data root (`PN-BRAIN-DATA/`, marked with `.brain-root.json`) — survives
   moving to a new computer or a new drive. See `scripts/start-brain.sh`.
 - Dockerized stack (Laravel Sail + `pgvector/pgvector:pg16` + Redis), so it runs the
   same regardless of what's installed on the host.
@@ -177,11 +177,11 @@ the self-contained brain binary plus desktop and CLI clients for Linux, macOS
   conversation turn queues `App\Brain\Learning\ExtractLessonJob`, which proposes a
   "Lesson" (quarantined, unpromoted) when something reusable came up.
 - A persona layer (`App\Brain\Persona`) — every new conversation opens with a system
-  prompt establishing who Pnexus is, so the personality is consistent across every
+  prompt establishing who PN Brain is, so the personality is consistent across every
   client instead of each one having to know or repeat it. Configurable via
   `BRAIN_NAME` / `BRAIN_OWNER` in `.env`.
 - Filament admin at `/admin` for browsing Conversations and reviewing proposed Lessons.
-- `clients/cli` — a Go terminal client for `/api/chat`. First proof that Pnexus's API
+- `clients/cli` — a Go terminal client for `/api/chat`. First proof that PN Brain's API
   is genuinely client-agnostic: any language can talk to it without touching the
   Laravel core. Phase 5's Godot HUD, desktop, and mobile clients follow the same
   pattern — thin, language-appropriate, all hitting the same API.
@@ -237,7 +237,7 @@ retrieval quality is not the limiting factor, model size is.
 
 ## Capabilities and the permission gate
 
-Anything Pnexus can *do* is a Tool (`App\Brain\Tools\Contracts\Tool`), so one
+Anything PN Brain can *do* is a Tool (`App\Brain\Tools\Contracts\Tool`), so one
 permission rule and one audit trail cover every capability — filesystem, web,
 smart home, anything added later — instead of each integration inventing its own
 rules.
@@ -265,7 +265,7 @@ should be a visible, deliberate act.
 Verified end to end: safe tool auto-ran; mutating tool stayed `pending` with no
 file on disk; approval wrote it; rejection never wrote at all.
 
-**Writable area:** `PNEXUS-DATA/workspace` (mounted rw) is the only place the brain
+**Writable area:** `PN-BRAIN-DATA/workspace` (mounted rw) is the only place the brain
 can currently write. It lives inside the portable data root, so what the brain
 creates travels with it rather than scattering across the host.
 
@@ -275,7 +275,7 @@ mechanism that can refuse it.
 
 ## Naming
 
-Pnexus is an independent project — no business or brand tie to PN Scripts beyond where
+PN Brain is an independent project — no business or brand tie to PN Scripts beyond where
 the name came from. `app/Brain/` stays as the internal namespace for the core logic (a
 generic architectural term, like "core" or "engine"), which is normal even for a named
 product — it isn't user-facing.

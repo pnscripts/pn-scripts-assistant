@@ -5,7 +5,7 @@ namespace App\Brain\Memory\Contracts;
 /**
  * Similarity search over stored memories.
  *
- * This exists because vector search is the *only* part of Pnexus tied to
+ * This exists because vector search is the *only* part of PN Brain tied to
  * Postgres — everything else is storage-agnostic Eloquent. Keeping it behind an
  * interface is what allows the same codebase to run as a Docker service (pgvector)
  * and as a self-contained desktop app (SQLite). See ADR 0001.

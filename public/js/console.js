@@ -1,5 +1,5 @@
 /*
- * Pnexus console.
+ * PN Brain console.
  *
  * Vanilla, no framework and no build step: this ships inside a single
  * self-contained binary, and the whole surface is one chat plus a few polled
@@ -31,7 +31,7 @@ const el = (id) => document.getElementById(id);
 
 const state = {
     conversationId: null,
-    brainName: 'Pnexus',
+    brainName: 'PN Brain',
     busy: false,
 };
 

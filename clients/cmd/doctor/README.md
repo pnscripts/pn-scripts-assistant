@@ -1,12 +1,12 @@
-# pnexus-doctor (Go)
+# pn-brain-doctor (Go)
 
-Checks what Pnexus needs from this machine, and installs what's missing.
+Checks what PN Brain needs from this machine, and installs what's missing.
 
 ```bash
-pnexus-doctor              # report
-pnexus-doctor --install    # fix what can be fixed, asking before each step
-pnexus-doctor --install --yes
-pnexus-doctor --quiet      # silent when healthy; used by the launcher
+pn-brain-doctor              # report
+pn-brain-doctor --install    # fix what can be fixed, asking before each step
+pn-brain-doctor --install --yes
+pn-brain-doctor --quiet      # silent when healthy; used by the launcher
 ```
 
 ## Built to be run forever, not once
@@ -15,7 +15,7 @@ Setup tools usually assume a one-time install, which is wrong here: models get
 replaced, Docker gets upgraded, a distribution moves a library out from under
 you. So this reports current state on every run, and installing is simply
 "make reality match the list" — the same command works on a fresh machine and
-on one that's been running Pnexus for a year. `scripts/start-brain.sh` runs it
+on one that's been running PN Brain for a year. `scripts/start-brain.sh` runs it
 quietly on every launch, so drift surfaces when it happens rather than as a
 confusing failure later.
 

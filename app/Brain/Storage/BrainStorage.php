@@ -73,7 +73,7 @@ class BrainStorage
     private function advice(string $level): ?string
     {
         return match ($level) {
-            'critical' => 'This drive is nearly full. Pnexus will stop being able to learn, '
+            'critical' => 'This drive is nearly full. PN Brain will stop being able to learn, '
                 .'or even reply, once it fills. Connect another drive and extend storage now.',
             'low' => 'This drive is filling up. Connect another drive and extend storage '
                 .'before it becomes a problem.',

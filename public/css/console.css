@@ -1,5 +1,5 @@
 /*
- * Pnexus console.
+ * PN Brain console.
  *
  * Hand-written rather than Tailwind: this ships inside a single self-contained
  * binary, and a CSS build step would mean putting npm into the static build for

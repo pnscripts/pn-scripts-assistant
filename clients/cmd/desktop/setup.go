@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"pnexus/internal/preflight"
+	"pn-brain/internal/preflight"
 )
 
 // setupServer is a small HTTP server the desktop app runs itself, so first-run

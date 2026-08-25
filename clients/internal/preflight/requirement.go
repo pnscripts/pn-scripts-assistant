@@ -31,7 +31,7 @@ func (s State) Label() string {
 	}
 }
 
-// Requirement is one thing Pnexus needs in order to run properly.
+// Requirement is one thing PN Brain needs in order to run properly.
 //
 // Every requirement knows three things: how to see whether it is satisfied, how
 // to satisfy it, and what breaks if it isn't. That last part is why Consequence

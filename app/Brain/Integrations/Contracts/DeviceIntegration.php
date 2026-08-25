@@ -5,7 +5,7 @@ namespace App\Brain\Integrations\Contracts;
 /**
  * One smart-home platform: Home Assistant, Tuya, Hue, Zigbee, whatever comes next.
  *
- * This exists so adding a platform never means touching the brain. Pnexus should
+ * This exists so adding a platform never means touching the brain. PN Brain should
  * not know what a Hue bridge is; it should know that *something* can list
  * devices and change their state. Implement this, register it, done — the tools,
  * the permission gate and the audit trail come along for free.

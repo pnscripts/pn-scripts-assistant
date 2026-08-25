@@ -26,7 +26,7 @@ find_data_root() {
     for pattern in "${SEARCH_ROOTS[@]}"; do
         for dir in $pattern; do
             [ -d "$dir" ] || continue
-            candidate="$dir/PNEXUS-DATA"
+            candidate="$dir/PN-BRAIN-DATA"
             if [ -f "$candidate/$MARKER_NAME" ]; then
                 echo "$candidate"
                 return 0
@@ -68,9 +68,9 @@ fi
 # Check prerequisites every launch, not once at install time: models get
 # replaced and packages drift. Quiet when everything is fine, so this is
 # invisible until it matters.
-DOCTOR="$PROJECT_ROOT/dist/pnexus-doctor"
+DOCTOR="$PROJECT_ROOT/dist/pn-brain-doctor"
 if [ -x "$DOCTOR" ] && ! "$DOCTOR" --quiet; then
-    log "Something Pnexus needs is missing. Run: pnexus-doctor --install"
+    log "Something Pn-Brain needs is missing. Run: pn-brain-doctor --install"
     exit 1
 fi
 
@@ -82,13 +82,13 @@ if [ -z "$DATA_ROOT" ]; then
         echo "Where should a new one be created? Enter a drive/folder path:"
         read -r base
         [ -d "$base" ] || { log "Path does not exist: $base"; exit 1; }
-        DATA_ROOT="$base/PNEXUS-DATA"
+        DATA_ROOT="$base/PN-BRAIN-DATA"
         mkdir -p "$DATA_ROOT/postgres" "$DATA_ROOT/redis" "$DATA_ROOT/logs"
         brain_id="$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)"
         cat > "$DATA_ROOT/$MARKER_NAME" <<EOF
 {
   "id": "$brain_id",
-  "name": "pnexus",
+  "name": "pn-brain",
   "schema_version": 1,
   "created_at": "$(date -Iseconds)"
 }

@@ -54,7 +54,7 @@ class FetchUrlTool implements Tool
 
         $this->guardAgainstInternalTargets($url);
 
-        $response = Http::withHeaders(['User-Agent' => 'Pnexus/1.0 (personal assistant)'])
+        $response = Http::withHeaders(['User-Agent' => 'PN-Brain/1.0 (personal assistant)'])
             ->timeout(30)
             ->withOptions([
                 // Redirects are the obvious way around the pre-flight check, so

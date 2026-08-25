@@ -17,9 +17,9 @@ dist
 clients/dist
 
 # Compiled client binaries; the release workflow builds these separately per platform.
-clients/cmd/cli/pnexus
-clients/cmd/desktop/pnexus-desktop
-clients/cmd/doctor/pnexus-doctor
+clients/cmd/cli/pn-brain
+clients/cmd/desktop/pn-brain-desktop
+clients/cmd/doctor/pn-brain-doctor
 
 storage/logs/*
 storage/framework/cache/data/*

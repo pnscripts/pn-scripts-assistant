@@ -3,7 +3,7 @@
 return [
     // The assistant's identity — shown in clients and baked into its system prompt.
     // Change freely; nothing else depends on the specific value.
-    'name' => env('BRAIN_NAME', 'Pnexus'),
+    'name' => env('BRAIN_NAME', 'PN Brain'),
     'owner' => env('BRAIN_OWNER', 'Petar'),
 
     // Where the app *reads* these from, which is not the same as where they live

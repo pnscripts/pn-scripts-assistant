@@ -23,8 +23,8 @@ MARKER=".brain-root.json"
 have() { command -v "$1" >/dev/null 2>&1; }
 graphical() { have zenity && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; }
 
-info()  { graphical && zenity --info  --title="Pnexus storage" --width=430 --text="$1" || echo "[pnexus] $1"; }
-error() { graphical && zenity --error --title="Pnexus storage" --width=430 --text="$1" || echo "[pnexus] error: $1" >&2; }
+info()  { graphical && zenity --info  --title="Pn-Brain storage" --width=430 --text="$1" || echo "[pn-brain] $1"; }
+error() { graphical && zenity --error --title="Pn-Brain storage" --width=430 --text="$1" || echo "[pn-brain] error: $1" >&2; }
 
 current_root() {
     grep -E "^BRAIN_DATA_ROOT=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-
@@ -34,7 +34,7 @@ human() { numfmt --to=iec --suffix=B "$1" 2>/dev/null || echo "$1"; }
 
 # Every writable mounted drive other than the one already in use, with room to
 # spare. Root and system mounts are excluded: filling those breaks the computer,
-# not just Pnexus.
+# not just Pn-Brain.
 candidates() {
     local current="$1"
     df -PB1 --output=target,avail 2>/dev/null | tail -n +2 | while read -r target avail; do
@@ -56,7 +56,7 @@ main() {
     current="$(current_root)"
 
     if [ -z "$current" ] || [ ! -d "$current" ]; then
-        error "Pnexus does not have a data folder yet. Start Pnexus first."
+        error "Pn-Brain does not have a data folder yet. Start Pn-Brain first."
         exit 1
     fi
 
@@ -66,7 +66,7 @@ main() {
     mapfile -t options < <(candidates "$drive_of_current")
 
     if [ ${#options[@]} -eq 0 ]; then
-        info "No other drive is available.\n\nConnect an external drive, then run this again. Pnexus is currently using:\n$current"
+        info "No other drive is available.\n\nConnect an external drive, then run this again. Pn-Brain is currently using:\n$current"
         exit 0
     fi
 
@@ -81,11 +81,11 @@ main() {
 
     local chosen
     if graphical; then
-        chosen="$(zenity --list --title="Pnexus storage" --width=520 --height=300 \
-            --text="Pnexus is using:\n$current\n\nWhere should the brain move to?" \
+        chosen="$(zenity --list --title="Pn-Brain storage" --width=520 --height=300 \
+            --text="Pn-Brain is using:\n$current\n\nWhere should the brain move to?" \
             --column="Drive" --column="Space" "${rows[@]}" 2>/dev/null)"
     else
-        echo "Pnexus is using: $current"
+        echo "Pn-Brain is using: $current"
         echo "Available drives:"
         local i=1
         for entry in "${options[@]}"; do
@@ -99,17 +99,17 @@ main() {
 
     [ -z "${chosen:-}" ] && exit 0
 
-    local destination="$chosen/PNEXUS-DATA"
+    local destination="$chosen/PN-BRAIN-DATA"
 
     if [ -e "$destination" ]; then
-        error "There is already a PNEXUS-DATA folder on that drive.\n\n$destination\n\nMove or rename it first — refusing to overwrite a brain."
+        error "There is already a PN-BRAIN-DATA folder on that drive.\n\n$destination\n\nMove or rename it first — refusing to overwrite a brain."
         exit 1
     fi
 
     # Stop before copying. Postgres files copied while running are not a
     # database, they are a corrupt one.
     if ! "$PROJECT_ROOT/scripts/start-brain.sh" --down >/dev/null 2>&1; then
-        error "Could not stop Pnexus cleanly. Nothing has been moved."
+        error "Could not stop Pn-Brain cleanly. Nothing has been moved."
         exit 1
     fi
 
@@ -119,11 +119,11 @@ main() {
             cp -a "$current" "$destination" && moved=true
             echo 100
         ) | zenity --progress --pulsate --auto-close --no-cancel \
-                   --title="Pnexus storage" --width=430 \
+                   --title="Pn-Brain storage" --width=430 \
                    --text="Moving the brain to $chosen…\n\nThis can take a while. Do not unplug either drive."
         [ -d "$destination/$MARKER" ] || [ -f "$destination/$MARKER" ] && moved=true
     else
-        echo "[pnexus] copying $current -> $destination"
+        echo "[pn-brain] copying $current -> $destination"
         cp -a "$current" "$destination" && moved=true
     fi
 
@@ -139,11 +139,11 @@ main() {
     sed -i "s#^BRAIN_DATA_ROOT=.*#BRAIN_DATA_ROOT=$destination#" "$ENV_FILE"
 
     if ! "$PROJECT_ROOT/scripts/start-brain.sh" >/dev/null 2>&1; then
-        error "Moved, but Pnexus did not restart. Your data is safe in both places."
+        error "Moved, but Pn-Brain did not restart. Your data is safe in both places."
         exit 1
     fi
 
-    info "Pnexus now runs from:\n$destination\n\nThe old copy is still at:\n$current\n\nCheck everything works, then delete the old one yourself when you are satisfied."
+    info "Pn-Brain now runs from:\n$destination\n\nThe old copy is still at:\n$current\n\nCheck everything works, then delete the old one yourself when you are satisfied."
 }
 
 main "$@"

@@ -7,7 +7,7 @@ use App\Brain\Integrations\Contracts\DeviceIntegration;
 use RuntimeException;
 
 /**
- * Every smart-home platform Pnexus can talk to.
+ * Every smart-home platform PN Brain can talk to.
  *
  * Devices are addressed as "platform:id" so two platforms can each have a
  * device called "kitchen" without colliding, and so a device's origin is always

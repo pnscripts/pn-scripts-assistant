@@ -1,4 +1,4 @@
-// pnexus is a terminal client for the Pnexus API. It's the first of several
+// pn-brain is a terminal client for the PN Brain API. It's the first of several
 // clients that talk to the one brain (see ../../app/Brain) over HTTP — each
 // client picks whatever language fits its platform; only the brain itself is
 // single-sourced.
@@ -58,7 +58,7 @@ func statePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	d := filepath.Join(dir, "pnexus")
+	d := filepath.Join(dir, "pn-brain")
 	if err := os.MkdirAll(d, 0o755); err != nil {
 		return "", err
 	}

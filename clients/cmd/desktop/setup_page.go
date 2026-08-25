@@ -16,7 +16,7 @@ const setupPage = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Pnexus — Setup</title>
+<title>PN Brain — Setup</title>
 <style>
 :root{--bg:#070a0f;--raised:#0d1219;--input:#111823;--line:#1b2634;--text:#d6dee8;
 --dim:#7d8b9c;--faint:#4a5769;--accent:#4dd0e1;--warn:#f0b26b;--danger:#e06c75;--ok:#7bc47f}
@@ -64,7 +64,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 </head>
 <body>
 <div class="wrap">
-  <h1>Pnexus</h1>
+  <h1>PN Brain</h1>
   <p class="sub">Let's get your machine ready. This takes a few minutes, and only happens once.</p>
 
   <div class="machine" id="machine">checking your machine…</div>
@@ -79,7 +79,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
   <div class="footer">
     <span class="status" id="status"></span>
     <span class="spacer"></span>
-    <button id="continue" disabled>Continue to Pnexus</button>
+    <button id="continue" disabled>Continue to PN Brain</button>
   </div>
 </div>
 
@@ -172,7 +172,7 @@ function renderBrainChoice(state){
   const note = document.createElement("p");
   note.className = "sub";
   note.style.marginBottom = "14px";
-  note.textContent = "Pnexus needs a language model to think with. You can run one on this "
+  note.textContent = "PN Brain needs a language model to think with. You can run one on this "
     + "machine for free, or use a paid API. You can change this later, or use both.";
   box.appendChild(note);
 
@@ -294,7 +294,7 @@ async function refresh(){
 
 el("continue").onclick = async () => {
   el("continue").disabled = true;
-  el("status").textContent = "Starting Pnexus…";
+  el("status").textContent = "Starting PN Brain…";
   await fetch("/done");
 };
 

@@ -1,4 +1,4 @@
-// Command pnexus-doctor reports what Pnexus needs from this machine and can
+// Command pn-brain-doctor reports what PN Brain needs from this machine and can
 // install the missing pieces from a terminal.
 //
 // The desktop app does the same job in a window, sharing the same preflight
@@ -13,7 +13,7 @@ import (
 	"os"
 	"strings"
 
-	"pnexus/internal/preflight"
+	"pn-brain/internal/preflight"
 )
 
 const (
@@ -72,7 +72,7 @@ func reportMachine() {
 }
 
 func report(results []preflight.Result) (blocking, fixable int) {
-	fmt.Printf("\n%sPnexus — system check%s\n\n", bold, reset)
+	fmt.Printf("\n%sPN Brain — system check%s\n\n", bold, reset)
 	reportMachine()
 
 	for _, r := range results {
@@ -134,12 +134,12 @@ func main() {
 	if blocking == 0 {
 		fmt.Printf("\n%s✓ Ready.%s\n\n", green, reset)
 	} else {
-		fmt.Printf("\n%s%d requirement(s) must be met before Pnexus can run.%s\n", red, blocking, reset)
+		fmt.Printf("\n%s%d requirement(s) must be met before PN Brain can run.%s\n", red, blocking, reset)
 	}
 
 	if !*autoInstall {
 		if fixable > 0 {
-			fmt.Printf("%sRun 'pnexus-doctor --install' to fix %d of them automatically.%s\n\n", dim, fixable, reset)
+			fmt.Printf("%sRun 'pn-brain-doctor --install' to fix %d of them automatically.%s\n\n", dim, fixable, reset)
 		}
 
 		if blocking > 0 {

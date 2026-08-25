@@ -60,7 +60,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
-        run: go build -trimpath -ldflags="-s -w" -o "../dist/pnexus-doctor-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" ./cmd/doctor
+        run: go build -trimpath -ldflags="-s -w" -o "../dist/pn-brain-doctor-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" ./cmd/doctor
 
       - name: Build CLI
         working-directory: clients
@@ -68,7 +68,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
-        run: go build -trimpath -ldflags="-s -w" -o "../dist/pnexus-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" ./cmd/cli
+        run: go build -trimpath -ldflags="-s -w" -o "../dist/pn-brain-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" ./cmd/cli
 
       - uses: actions/upload-artifact@v4
         with:
@@ -107,7 +107,7 @@ jobs:
         working-directory: clients
         env:
           CGO_ENABLED: '1'
-        run: go build -trimpath -ldflags="-s -w" -o "../dist/pnexus-desktop-${{ matrix.target }}${{ matrix.ext }}" ./cmd/desktop
+        run: go build -trimpath -ldflags="-s -w" -o "../dist/pn-brain-desktop-${{ matrix.target }}${{ matrix.ext }}" ./cmd/desktop
 
       - uses: actions/upload-artifact@v4
         with:
@@ -137,16 +137,16 @@ jobs:
           printf '%s' "${{ github.token }}" > /tmp/gh_token
           DOCKER_BUILDKIT=1 docker build \
             --secret id=github_token,src=/tmp/gh_token \
-            -f static-build.Dockerfile -t pnexus-static .
+            -f static-build.Dockerfile -t pn-brain-static .
           rm -f /tmp/gh_token
 
       - name: Extract binary
         run: |
           mkdir -p dist
-          id=$(docker create pnexus-static)
-          docker cp "$id:/go/src/app/dist/frankenphp-linux-x86_64" dist/pnexus-brain-linux-x86_64
+          id=$(docker create pn-brain-static)
+          docker cp "$id:/go/src/app/dist/frankenphp-linux-x86_64" dist/pn-brain-brain-linux-x86_64
           docker rm "$id"
-          chmod +x dist/pnexus-brain-linux-x86_64
+          chmod +x dist/pn-brain-brain-linux-x86_64
           ls -lh dist/
 
       - uses: actions/upload-artifact@v4

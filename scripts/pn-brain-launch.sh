@@ -9,13 +9,13 @@
 # them from a shell is exactly what this project is trying to avoid. This script
 # needs neither: zenity and pkexec are part of the desktop session already.
 #
-# The terminal path remains for anyone who prefers it (pnexus-doctor --install),
+# The terminal path remains for anyone who prefers it (pn-brain-doctor --install),
 # but it is an option, not the route.
 set -uo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DOCTOR="$PROJECT_ROOT/dist/pnexus-doctor"
-DESKTOP_BIN="$PROJECT_ROOT/dist/pnexus-desktop"
+DOCTOR="$PROJECT_ROOT/dist/pn-brain-doctor"
+DESKTOP_BIN="$PROJECT_ROOT/dist/pn-brain-desktop"
 CLIENTS_DIR="$PROJECT_ROOT/clients"
 
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -26,17 +26,17 @@ graphical() { have zenity && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; }
 
 say_error() {
     if graphical; then
-        zenity --error --title="Pnexus" --width=420 --text="$1"
+        zenity --error --title="Pn-Brain" --width=420 --text="$1"
     else
-        echo "[pnexus] error: $1" >&2
+        echo "[pn-brain] error: $1" >&2
     fi
 }
 
 ask() {
     if graphical; then
-        zenity --question --title="Pnexus" --width=440 --text="$1"
+        zenity --question --title="Pn-Brain" --width=440 --text="$1"
     else
-        echo "[pnexus] $1 [y/N]"
+        echo "[pn-brain] $1 [y/N]"
         read -r reply
         [ "$reply" = "y" ] || [ "$reply" = "Y" ]
     fi
@@ -51,7 +51,7 @@ with_progress() {
     shift
 
     if ! graphical; then
-        echo "[pnexus] $message"
+        echo "[pn-brain] $message"
         "$@" >>"$LOG" 2>&1
         return $?
     fi
@@ -68,15 +68,15 @@ with_progress() {
             sleep 0.5
         done
     ) | zenity --progress --pulsate --auto-close --no-cancel \
-               --title="Pnexus" --width=420 --text="$message"
+               --title="Pn-Brain" --width=420 --text="$message"
 
     wait "$job"
 
     return "$(cat "$STATUS_FILE" 2>/dev/null || echo 1)"
 }
 
-LOG="${TMPDIR:-/tmp}/pnexus-setup.log"
-STATUS_FILE="${TMPDIR:-/tmp}/pnexus-setup.status"
+LOG="${TMPDIR:-/tmp}/pn-brain-setup.log"
+STATUS_FILE="${TMPDIR:-/tmp}/pn-brain-setup.status"
 : >"$LOG"
 
 # ---------------------------------------------------------------------------
@@ -85,13 +85,13 @@ STATUS_FILE="${TMPDIR:-/tmp}/pnexus-setup.status"
 
 if [ ! -x "$DOCTOR" ]; then
     if ! have go; then
-        say_error "Pnexus needs the Go toolchain to build its own tools.\n\nInstall Go, then start Pnexus again."
+        say_error "Pn-Brain needs the Go toolchain to build its own tools.\n\nInstall Go, then start Pn-Brain again."
         exit 1
     fi
 
-    with_progress "Preparing Pnexus…" \
-        env -C "$CLIENTS_DIR" go build -o "$PROJECT_ROOT/dist/pnexus-doctor" ./cmd/doctor \
-        || { say_error "Could not prepare Pnexus.\n\nDetails: $LOG"; exit 1; }
+    with_progress "Preparing Pn-Brain…" \
+        env -C "$CLIENTS_DIR" go build -o "$PROJECT_ROOT/dist/pn-brain-doctor" ./cmd/doctor \
+        || { say_error "Could not prepare Pn-Brain.\n\nDetails: $LOG"; exit 1; }
 fi
 
 # ---------------------------------------------------------------------------
@@ -101,13 +101,13 @@ fi
 if ! "$DOCTOR" --quiet >>"$LOG" 2>&1; then
     summary="$("$DOCTOR" 2>&1 | sed -e 's/\x1b\[[0-9;]*m//g')"
 
-    if ! ask "Pnexus needs a few things from this computer.\n\n$summary\n\nInstall them now?"; then
+    if ! ask "Pn-Brain needs a few things from this computer.\n\n$summary\n\nInstall them now?"; then
         exit 0
     fi
 
     # pkexec gives a graphical password prompt; the doctor picks it over sudo
     # automatically when there is no terminal to type into.
-    with_progress "Installing what Pnexus needs…" "$DOCTOR" --install --yes \
+    with_progress "Installing what Pn-Brain needs…" "$DOCTOR" --install --yes \
         || { say_error "Some things could not be installed.\n\nDetails: $LOG"; exit 1; }
 fi
 
@@ -120,7 +120,7 @@ needs_build=false
 
 if [ "$needs_build" = true ]; then
     if ! have go; then
-        say_error "Pnexus needs the Go toolchain to build its window.\n\nInstall Go, then start Pnexus again."
+        say_error "Pn-Brain needs the Go toolchain to build its window.\n\nInstall Go, then start Pn-Brain again."
         exit 1
     fi
 
@@ -129,7 +129,7 @@ if [ "$needs_build" = true ]; then
     # here does. Checking the general case would pass and then fail at the
     # compiler, so ask specifically.
     if ! pkg-config --exists webkit2gtk-4.1 gtk+-3.0 2>/dev/null; then
-        if ! ask "Pnexus needs the system web engine to draw its window.\n\nInstall it now? This asks for your password."; then
+        if ! ask "Pn-Brain needs the system web engine to draw its window.\n\nInstall it now? This asks for your password."; then
             exit 0
         fi
 
@@ -138,10 +138,10 @@ if [ "$needs_build" = true ]; then
             || { say_error "Could not install the web engine.\n\nDetails: $LOG"; exit 1; }
     fi
 
-    with_progress "Building the Pnexus window…" \
+    with_progress "Building the Pn-Brain window…" \
         env -C "$CLIENTS_DIR" CGO_ENABLED=1 go build -o "$DESKTOP_BIN" ./cmd/desktop \
         || {
-            say_error "Could not build the Pnexus window.\n\nDetails: $LOG"
+            say_error "Could not build the Pn-Brain window.\n\nDetails: $LOG"
             exit 1
         }
 fi

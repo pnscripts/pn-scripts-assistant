@@ -9,7 +9,7 @@ services:
         extra_hosts:
             - 'host.docker.internal:host-gateway'
         # Loopback only. Docker's default binds published ports to every
-        # interface, which put an unauthenticated Pnexus on the whole local
+        # interface, which put an unauthenticated Pn-Brain on the whole local
         # network: anyone on it could read the knowledge base, chat with the
         # brain — and read_file is a safe tool that runs without asking, over
         # mounts that include personal documents — and, worst of all, POST to

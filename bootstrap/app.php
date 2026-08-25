@@ -32,7 +32,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
  * In a normal Docker or source checkout nothing is set and the default path
  * applies, so this is inert outside standalone builds.
  */
-if ($storagePath = getenv('PNEXUS_STORAGE_PATH')) {
+if ($storagePath = getenv('PN_BRAIN_STORAGE_PATH')) {
     $app->useStoragePath($storagePath);
 }
 
@@ -49,11 +49,11 @@ if ($storagePath = getenv('PNEXUS_STORAGE_PATH')) {
  * environment to all of them, so configuration has to come from a file the app
  * can actually find.
  *
- * PNEXUS_ROOT is set by the launcher to the directory holding the binary; that
+ * PN_BRAIN_ROOT is set by the launcher to the directory holding the binary; that
  * folder holds .env, the SQLite database and storage, so the whole brain stays
  * one copyable directory.
  */
-if ($root = getenv('PNEXUS_ROOT')) {
+if ($root = getenv('PN_BRAIN_ROOT')) {
     $app->useEnvironmentPath($root);
 }
 

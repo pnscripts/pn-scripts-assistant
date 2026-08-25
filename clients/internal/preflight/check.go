@@ -19,7 +19,7 @@ func (r Result) Satisfied() bool {
 	return r.State == OK
 }
 
-// Blocking reports whether this alone stops Pnexus from running.
+// Blocking reports whether this alone stops PN Brain from running.
 func (r Result) Blocking() bool {
 	return r.State != OK && !r.Requirement.Optional
 }

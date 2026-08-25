@@ -1,4 +1,4 @@
-// Command pnexus-desktop is the native desktop application for Pnexus.
+// Command pn-brain-desktop is the native desktop application for PN Brain.
 //
 // It renders in the operating system's own web engine — WebKitGTK on Linux —
 // so this is a real application window, not a browser wearing a disguise. No
@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"pnexus/internal/preflight"
+	"pn-brain/internal/preflight"
 )
 
 const (
@@ -76,7 +76,7 @@ func waitForBrain(url string) error {
 		time.Sleep(time.Second)
 	}
 
-	return fmt.Errorf("Pnexus did not respond within %s", startupTimeout)
+	return fmt.Errorf("PN Brain did not respond within %s", startupTimeout)
 }
 
 func envOr(key, fallback string) string {
@@ -87,7 +87,7 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-// needsSetup reports whether the machine is missing something Pnexus needs, or
+// needsSetup reports whether the machine is missing something PN Brain needs, or
 // has no way to think at all.
 //
 // The second half matters as much as the first: every dependency can be present
@@ -152,12 +152,12 @@ func runSetup(envPath, brainURL string) error {
 		navigate <- brainURL
 	})
 
-	return openWindowWithNavigation(server.url(), "Pnexus — Setup", windowWidth, windowHeight, navigate)
+	return openWindowWithNavigation(server.url(), "PN Brain — Setup", windowWidth, windowHeight, navigate)
 }
 
 func main() {
-	url := flag.String("url", envOr("PNEXUS_URL", defaultURL), "Pnexus URL to open")
-	noStart := flag.Bool("no-start", false, "Don't try to start Pnexus if it isn't running")
+	url := flag.String("url", envOr("PN_BRAIN_URL", defaultURL), "PN Brain URL to open")
+	noStart := flag.Bool("no-start", false, "Don't try to start PN Brain if it isn't running")
 	skipSetup := flag.Bool("skip-setup", false, "Skip the first-run check")
 	flag.Parse()
 
@@ -174,14 +174,14 @@ func main() {
 
 	if !brainIsUp(*url) {
 		if *noStart {
-			fmt.Fprintf(os.Stderr, "Pnexus is not running at %s\n", *url)
+			fmt.Fprintf(os.Stderr, "PN Brain is not running at %s\n", *url)
 			os.Exit(1)
 		}
 
-		fmt.Println("Starting Pnexus...")
+		fmt.Println("Starting PN Brain...")
 
 		if err := startBrain(); err != nil {
-			fmt.Fprintf(os.Stderr, "Could not start Pnexus: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Could not start PN Brain: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -191,7 +191,7 @@ func main() {
 		}
 	}
 
-	if err := openWindow(*url, "Pnexus", windowWidth, windowHeight); err != nil {
+	if err := openWindow(*url, "PN Brain", windowWidth, windowHeight); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}

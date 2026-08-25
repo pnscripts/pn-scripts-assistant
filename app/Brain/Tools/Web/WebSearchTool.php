@@ -106,7 +106,7 @@ class WebSearchTool implements Tool
     private function searchDuckDuckGo(string $query): array
     {
         $response = Http::asForm()
-            ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; Pnexus/1.0)'])
+            ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; PN-Brain/1.0)'])
             ->timeout(30)
             ->post('https://html.duckduckgo.com/html/', ['q' => $query]);
 
