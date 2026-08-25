@@ -40,10 +40,19 @@ COPY --from=vendor /app .
 
 # PHP_EXTENSIONS is deliberately left unset: build-static.sh then runs
 # `spc dump-extensions` over composer.json/lock and derives exactly what the
-# installed packages declare. A hand-written list rots — the first attempt here
-# omitted ext-intl, which filament/support requires, and would have failed on it
-# next. Desktop mode's SQLite requirement is declared in composer.json instead,
-# where it is true regardless of how the app is built.
+# installed packages declare.
+#
+# Neither a hand-written list nor pure detection is sufficient on its own, and
+# both failures were seen here. The hand-written list omitted ext-intl, which
+# filament/support requires. Detection then omitted ext-curl, because Guzzle
+# does not require it — it falls back to PHP streams — so nothing in the
+# dependency graph asks for the one extension this application needs to reach a
+# model at all. That produced a binary which served the interface perfectly and
+# could not think.
+#
+# The answer is for the application to declare what it actually depends on, in
+# composer.json, where detection then picks it up: ext-curl, ext-pcntl (so the
+# queue worker can enforce job timeouts), ext-pdo_sqlite and ext-sqlite3.
 #
 # libzip pulls in bzip2, xz and zstd symbols, but the builder's default library
 # set excludes all three, so linking fails with undefined references. ext-zip

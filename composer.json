@@ -7,6 +7,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "ext-curl": "*",
+        "ext-pcntl": "*",
         "ext-pdo_sqlite": "*",
         "ext-sqlite3": "*",
         "filament/filament": "^3.3",
