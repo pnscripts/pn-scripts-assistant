@@ -151,6 +151,7 @@ async function refreshStatus() {
         el('stat-pending').textContent = s.memory.pending_lessons;
         el('stat-convos').textContent = s.memory.conversations;
         el('engine-meta').textContent = `${s.provider} · ${s.model}`;
+        renderStorage(s.storage);
         el('conn-dot').className = 'dot online';
         el('conn-text').textContent = `online · ${s.capabilities.length} capabilities`;
         document.title = s.name;
@@ -158,6 +159,28 @@ async function refreshStatus() {
         el('conn-dot').className = 'dot offline';
         el('conn-text').textContent = 'offline';
     }
+}
+
+const GB = 1024 ** 3;
+
+function renderStorage(storage) {
+    if (!storage) return;
+
+    const usedPct = storage.total_bytes
+        ? Math.round((storage.used_bytes / storage.total_bytes) * 100)
+        : 0;
+
+    const fill = el('storage-fill');
+    fill.style.width = usedPct + '%';
+    fill.className = storage.level === 'ok' ? '' : storage.level;
+
+    el('storage-text').textContent =
+        `${(storage.free_bytes / GB).toFixed(0)}GB free · brain using ` +
+        `${(storage.database_bytes / (1024 ** 2)).toFixed(0)}MB`;
+
+    const warning = el('storage-warning');
+    warning.hidden = !storage.advice;
+    if (storage.advice) el('storage-advice').textContent = storage.advice;
 }
 
 async function refreshApprovals() {

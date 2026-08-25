@@ -25,6 +25,16 @@
             <div class="stat"><span class="stat-value" id="stat-convos">—</span><span class="stat-label">conversations</span></div>
         </section>
 
+        <section class="panel" id="storage-panel">
+            <h2>Storage</h2>
+            <div class="storage-bar"><div id="storage-fill"></div></div>
+            <p class="storage-text" id="storage-text">—</p>
+            <div id="storage-warning" hidden>
+                <p class="storage-advice" id="storage-advice"></p>
+                <p class="storage-hint">Run <code>scripts/extend-storage.sh</code> to move the brain to another drive.</p>
+            </div>
+        </section>
+
         <section class="panel" id="approvals-panel" hidden>
             <h2>Needs you <span class="badge" id="approval-count">0</span></h2>
             <div id="approvals"></div>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Brain\Persona;
+use App\Brain\Storage\BrainStorage;
 use App\Brain\Tools\ToolExecutor;
 use App\Brain\Tools\ToolRegistry;
 use App\Models\Conversation;
@@ -18,7 +19,7 @@ use Illuminate\Http\JsonResponse;
  */
 class BrainStatusController extends Controller
 {
-    public function status(ToolRegistry $tools): JsonResponse
+    public function status(ToolRegistry $tools, BrainStorage $storage): JsonResponse
     {
         return response()->json([
             'name' => Persona::name(),
@@ -32,6 +33,7 @@ class BrainStatusController extends Controller
                 ->map(fn ($t) => ['name' => $t->name(), 'risk' => $t->risk()->value])
                 ->values(),
             'pending_approvals' => ToolInvocation::where('status', 'pending')->count(),
+            'storage' => $storage->status(),
             'provider' => config('llm.default_provider'),
             'model' => config('llm.'.config('llm.default_provider').'.model'),
         ]);
