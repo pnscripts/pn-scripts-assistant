@@ -34,9 +34,19 @@ FROM dunglas/frankenphp:static-builder-gnu
 WORKDIR /go/src/app/dist/app
 COPY --from=vendor /app .
 
-# Desktop mode runs on SQLite, so pdo_sqlite must be compiled in — a static
-# build has no runtime extension loading.
-ENV PHP_EXTENSIONS="pdo_sqlite,sqlite3,mbstring,openssl,curl,zip,fileinfo,filter,session,tokenizer,dom,xml,pcntl,sodium"
+# PHP_EXTENSIONS is deliberately left unset: build-static.sh then runs
+# `spc dump-extensions` over composer.json/lock and derives exactly what the
+# installed packages declare. A hand-written list rots — the first attempt here
+# omitted ext-intl, which filament/support requires, and would have failed on it
+# next. Desktop mode's SQLite requirement is declared in composer.json instead,
+# where it is true regardless of how the app is built.
+#
+# libzip pulls in bzip2, xz and zstd symbols, but the builder's default library
+# set excludes all three, so linking fails with undefined references. ext-zip
+# arrives via openspout (Filament's spreadsheet export), so the libraries have to
+# be added rather than the extension dropped. The defaults are repeated here
+# because setting this variable replaces them wholesale.
+ENV PHP_EXTENSION_LIBS="libavif,nghttp2,nghttp3,ngtcp2,watcher,bzip2,xz,zstd"
 
 WORKDIR /go/src/app
 RUN EMBED=dist/app/ ./build-static.sh
