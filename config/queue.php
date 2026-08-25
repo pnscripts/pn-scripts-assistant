@@ -69,7 +69,17 @@ return [
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
-            'block_for' => null,
+
+            /*
+             * Block on Redis instead of polling it. With null the worker wakes
+             * every few seconds to ask whether anything arrived, which costs a
+             * steady trickle of CPU forever to answer "no" — and on a personal
+             * machine that runs all day, work arrives a handful of times.
+             *
+             * Blocking is also the faster option: the worker wakes the moment a
+             * job is pushed rather than up to a sleep-interval later.
+             */
+            'block_for' => (int) env('REDIS_QUEUE_BLOCK_FOR', 30),
             'after_commit' => false,
         ],
 

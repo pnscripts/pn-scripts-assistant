@@ -56,7 +56,9 @@ services:
         depends_on:
             - pgsql
             - redis
-        entrypoint: ['php', '/var/www/html/artisan', 'queue:work', '--tries=1', '--sleep=3']
+        # No --sleep: with block_for set the worker blocks on Redis rather than
+        # waking to poll, so it costs nothing while there is nothing to do.
+        entrypoint: ['php', '/var/www/html/artisan', 'queue:work', '--tries=1']
     pgsql:
         image: 'pgvector/pgvector:pg16'
         # Loopback only: the database holds every conversation and everything
