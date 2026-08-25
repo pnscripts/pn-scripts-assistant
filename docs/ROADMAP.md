@@ -3,6 +3,32 @@
 Full plan: see the approved plan this repo was built from (Phase 0 + Phase 1 are done;
 everything below is what comes next, in order).
 
+## Choosing tools
+
+Switch approach when one is genuinely blocked; keep it when it works. Both halves
+matter, and the second is the easier one to get wrong — churn feels like progress.
+
+Switched, for reasons that were real:
+
+| From | To | Because |
+|---|---|---|
+| NativePHP / Electron | Go | needs Laravel ≤12; a window is not worth a framework downgrade |
+| `webview_go`, Wails | hand-written cgo | both pin webkit2gtk-4.0, which Ubuntu 24.04 does not ship |
+| Chromium `--app=` | GTK + WebKitGTK | it was a browser in a costume, not an app |
+| hand-written extension list | `spc dump-extensions` | the list rotted immediately, omitting ext-intl |
+
+**Kept: the Laravel core.** The friction in this project has been in distribution,
+not in the application — and every one of those failures was a local bug rather
+than a limitation of the framework: a stale package manifest naming a dev-only
+provider, `.env` read from inside the executable, PHP's 30-second limit against a
+CPU-bound model, and `dist/` recursively embedding itself. Rewriting a working
+brain in another language to fix bugs that are already fixed would have cost
+weeks and bought nothing.
+
+Where other languages genuinely earn their place: Go for the host agent (it must
+run outside Docker), platform-native code for Windows WebView2 and macOS
+WKWebView, and Python if PDF text extraction or OCR is ever added.
+
 - ~~**Phase 2** — Validator/Curator/Promotion pipeline; semantic recall.~~ **Done**, see below.
 - **Phase 3** — The real Jarvis-style web dashboard (chat + memory browser), replacing
   the temporary smoke-test page at `/`.
