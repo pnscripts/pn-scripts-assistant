@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Brain\Integrations\HomeAssistant\HomeAssistantIntegration;
 use App\Brain\Integrations\IntegrationRegistry;
+use App\Brain\Host\HostAgent;
 use App\Brain\Privacy;
+use App\Brain\Tools\Host\RunCommandTool;
 use App\Brain\Tools\Devices\ListDevicesTool;
 use App\Brain\Tools\Devices\SetDeviceStateTool;
 use App\Brain\Tools\Filesystem\ListDirectoryTool;
@@ -40,6 +42,11 @@ class ToolServiceProvider extends ServiceProvider
             return $registry;
         });
 
+        $this->app->singleton(HostAgent::class, fn () => new HostAgent(
+            baseUrl: config('brain.host_agent.url'),
+            token: config('brain.host_agent.token'),
+        ));
+
         $this->app->singleton(ToolRegistry::class, function ($app) {
             $registry = new ToolRegistry;
             $devices = $app->make(IntegrationRegistry::class);
@@ -54,6 +61,15 @@ class ToolServiceProvider extends ServiceProvider
                 $registry->register(new WebSearchTool);
             }
             $registry->register(new ListDevicesTool($devices));
+
+            // Only offered when the daemon is actually running. A tool that
+            // always fails is worse than one that isn't there: the model will
+            // keep trying it and reporting the failure as if it were an answer.
+            $host = $app->make(HostAgent::class);
+
+            if ($host->isAvailable()) {
+                $registry->register(new RunCommandTool($host));
+            }
 
             // Mutating — queued for your approval before anything happens.
             $registry->register(new WriteFileTool);
