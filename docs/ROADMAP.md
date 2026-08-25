@@ -115,6 +115,34 @@ The desktop app is **not** a third interface. It opens the console in a
 chromeless window; the console, the CLI and the desktop app are all clients of
 the same API, with no logic duplicated between them.
 
+## Standalone binary — where it actually stands
+
+Working, verified with no Docker, Postgres or Redis: the binary boots, all
+migrations apply to the intended SQLite file, the console renders at HTTP 200
+with its assets, and `/api/brain` and `/api/status` return correct JSON.
+
+**Not working: chat.** `ext-curl` is not compiled in, so Guzzle falls back to PHP
+streams and every request to a model fails. Adding `ext-curl` to composer.json is
+correct and stays — but it then breaks the final Caddy link step, and that error
+has never been captured: the first attempt truncated the log mid-line, and the
+verbose retry died earlier, on GitHub rate limiting, before reaching the linker.
+
+The evidence available: the first successful build *did* include curl, with
+default `PHP_EXTENSION_LIBS`. It broke only after `bzip2,xz,zstd` were added to
+fix libzip. So curl and those compression libraries conflict — but that is a
+hypothesis, and the last two failures came from acting on hypotheses instead of
+errors.
+
+**Why this is parked rather than pursued.** `static-php-cli` resolves upstream
+release URLs through the GitHub API, which allows sixty unauthenticated calls an
+hour; a build spends roughly twenty-five. That caps local iteration at two
+attempts an hour, against a ten-minute build. Six attempts were spent today.
+Iterating in CI costs nothing by comparison, because the runner has an
+authenticated token — the workflow already passes one as a BuildKit secret. The
+same is achievable locally by passing a personal token the same way.
+
+Nothing here blocks using Pnexus. Docker mode is complete.
+
 ## Two deployment targets, one codebase
 
 | | Server mode (today) | Desktop mode (`.env.desktop.example`) |
