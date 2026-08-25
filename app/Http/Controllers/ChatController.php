@@ -15,8 +15,23 @@ use Illuminate\Support\Facades\Log;
 
 class ChatController extends Controller
 {
+    /**
+     * PHP's default 30-second limit is written for requests that query a
+     * database and render a page. A reply here waits on a language model, and
+     * on a machine without a GPU a single answer can take longer than that on
+     * its own — before the agent loop calls a tool and asks again. Hitting the
+     * limit surfaces as a bare "Server Error" with nothing in the log, which
+     * looks like a crash rather than a timeout.
+     *
+     * Set per request rather than globally: everything else in this app should
+     * still be held to a sensible limit.
+     */
+    private const REPLY_TIME_LIMIT_SECONDS = 600;
+
     public function send(Request $request, AgentLoop $agent, MemoryStore $memory): JsonResponse
     {
+        set_time_limit(self::REPLY_TIME_LIMIT_SECONDS);
+
         $data = $request->validate([
             'conversation_id' => ['nullable', 'integer', 'exists:conversations,id'],
             'message' => ['required', 'string'],
