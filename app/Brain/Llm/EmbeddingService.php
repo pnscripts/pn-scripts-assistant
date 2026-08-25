@@ -34,10 +34,4 @@ class EmbeddingService
 
         return $vector;
     }
-
-    /** pgvector's literal format: '[0.1,0.2,...]' */
-    public function toVectorLiteral(array $vector): string
-    {
-        return '['.implode(',', array_map(fn ($v) => (float) $v, $vector)).']';
-    }
 }
