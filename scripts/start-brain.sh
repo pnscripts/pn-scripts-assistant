@@ -65,6 +65,15 @@ if [ "$ACTION" = "down" ]; then
     exit 0
 fi
 
+# Check prerequisites every launch, not once at install time: models get
+# replaced and packages drift. Quiet when everything is fine, so this is
+# invisible until it matters.
+DOCTOR="$PROJECT_ROOT/clients/doctor/pnexus-doctor"
+if [ -x "$DOCTOR" ] && ! "$DOCTOR" --quiet; then
+    log "Something Pnexus needs is missing. Run: pnexus-doctor --install"
+    exit 1
+fi
+
 if [ -z "$DATA_ROOT" ]; then
     if DATA_ROOT="$(find_data_root)"; then
         log "Found existing brain data at: $DATA_ROOT"
