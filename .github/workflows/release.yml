@@ -32,9 +32,11 @@ jobs:
       # portable enough for a desktop build.
       - run: php artisan test
 
-  clients:
+  # The CLI is pure standard library, so every target still cross-compiles from
+  # one Linux runner.
+  cli:
     needs: tests
-    name: Desktop & CLI (${{ matrix.goos }}/${{ matrix.goarch }})
+    name: CLI (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -52,16 +54,6 @@ jobs:
         with:
           go-version: '1.26'
 
-      # Both clients are pure standard library, so every target cross-compiles
-      # from Linux with no toolchain beyond Go itself.
-      - name: Build desktop app
-        working-directory: clients/desktop
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: '0'
-        run: go build -trimpath -ldflags="-s -w" -o "../../dist/pnexus-desktop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
-
       - name: Build CLI
         working-directory: clients/cli
         env:
@@ -72,7 +64,46 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: clients-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+
+  # The desktop app draws a real native window, which means cgo against the
+  # platform's own web engine — and cgo cannot be cross-compiled without a full
+  # cross toolchain. Each OS therefore builds on its own runner. Only Linux is
+  # implemented so far; add runners here as the other platforms are written.
+  desktop:
+    needs: tests
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: linux-amd64, ext: '' }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      # WebKitGTK 4.1 — Ubuntu 24.04 dropped 4.0 entirely, which is also why
+      # the maintained Go webview bindings cannot build here.
+      - name: Install webview headers
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - name: Build desktop app
+        working-directory: clients/desktop
+        env:
+          CGO_ENABLED: '1'
+        run: go build -trimpath -ldflags="-s -w" -o "../../dist/pnexus-desktop-${{ matrix.target }}${{ matrix.ext }}" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
           path: dist/*
 
   brain:
@@ -117,7 +148,7 @@ jobs:
 
   release:
     name: Publish release
-    needs: [tests, clients, brain]
+    needs: [tests, cli, desktop, brain]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
