@@ -1,4 +1,4 @@
-package main
+package setup
 
 import (
 	"bytes"
@@ -7,11 +7,11 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
 	"pn-brain/internal/preflight"
+	"pn-brain/internal/starter"
 )
 
 // setupServer is a small HTTP server the desktop app runs itself, so first-run
@@ -21,7 +21,7 @@ import (
 // brain cannot serve its own setup page on a machine that is missing the things
 // the brain needs to start. So the app carries just enough of a web server to
 // explain the situation and fix it, then hands the window over to the brain.
-type setupServer struct {
+type Server struct {
 	mu       sync.Mutex
 	log      bytes.Buffer
 	busy     bool
@@ -29,7 +29,7 @@ type setupServer struct {
 	listener net.Listener
 }
 
-func newSetupServer(envPath string) (*setupServer, error) {
+func New(envPath string) (*Server, error) {
 	// Port 0: the OS picks a free one. Hardcoding a port would collide with
 	// whatever else the user happens to be running.
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -37,14 +37,14 @@ func newSetupServer(envPath string) (*setupServer, error) {
 		return nil, err
 	}
 
-	return &setupServer{listener: l, envPath: envPath}, nil
+	return &Server{listener: l, envPath: envPath}, nil
 }
 
-func (s *setupServer) url() string {
+func (s *Server) URL() string {
 	return "http://" + s.listener.Addr().String()
 }
 
-func (s *setupServer) serve(onReady func()) {
+func (s *Server) Serve(onReady func()) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +87,33 @@ func (s *setupServer) serve(onReady func()) {
 		s.writeJSON(w, map[string]any{"ok": true})
 	})
 
+	// The starter answers questions while the real brain is still downloading.
+	// That gap is exactly when someone has the most questions about what is
+	// being installed on their machine, and the least reason to trust it.
+	mux.HandleFunc("/ask", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Question string `json:"question"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+
+			return
+		}
+
+		reply := starter.Ask(body.Question)
+
+		s.writeJSON(w, map[string]any{
+			"answer":   reply.Answer,
+			"matched":  reply.Matched,
+			"followup": reply.Followup,
+		})
+	})
+
+	mux.HandleFunc("/suggestions", func(w http.ResponseWriter, r *http.Request) {
+		s.writeJSON(w, map[string]any{"suggestions": starter.Suggestions()})
+	})
+
 	mux.HandleFunc("/done", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, map[string]any{"ok": true})
 		go onReady()
@@ -95,7 +122,7 @@ func (s *setupServer) serve(onReady func()) {
 	_ = http.Serve(s.listener, mux)
 }
 
-func (s *setupServer) writeJSON(w http.ResponseWriter, v any) {
+func (s *Server) writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
 }
@@ -111,7 +138,7 @@ type requirementView struct {
 	ManualHint  string `json:"manual_hint"`
 }
 
-func (s *setupServer) state() map[string]any {
+func (s *Server) state() map[string]any {
 	results := preflight.Check()
 	views := make([]requirementView, 0, len(results))
 
@@ -156,7 +183,7 @@ func (s *setupServer) state() map[string]any {
 	}
 }
 
-func (s *setupServer) install(name string) {
+func (s *Server) install(name string) {
 	s.mu.Lock()
 	if s.busy {
 		s.mu.Unlock()
@@ -195,7 +222,7 @@ func (s *setupServer) install(name string) {
 	}
 }
 
-func (s *setupServer) runModelPull(model string) {
+func (s *Server) runModelPull(model string) {
 	w := &syncWriter{s: s}
 	fmt.Fprintf(w, "Pulling %s — this downloads a few GB and can take a while.\n\n", model)
 
@@ -216,7 +243,7 @@ func (s *setupServer) runModelPull(model string) {
 // saveAPIKey writes the key into .env. It is never logged or echoed back: the
 // setup log is displayed in the window, and a key that appears there would be
 // a key shown to anyone looking over the user's shoulder.
-func (s *setupServer) saveAPIKey(key string) error {
+func (s *Server) saveAPIKey(key string) error {
 	if key == "" {
 		return fmt.Errorf("no key given")
 	}
@@ -250,7 +277,7 @@ func (s *setupServer) saveAPIKey(key string) error {
 	return os.WriteFile(s.envPath, []byte(strings.Join(lines, "\n")), 0o600)
 }
 
-func (s *setupServer) hasAPIKey() bool {
+func (s *Server) hasAPIKey() bool {
 	data, err := os.ReadFile(s.envPath)
 	if err != nil {
 		return false
@@ -267,7 +294,7 @@ func (s *setupServer) hasAPIKey() bool {
 
 // syncWriter funnels install output into the buffer the window polls.
 type syncWriter struct {
-	s *setupServer
+	s *Server
 }
 
 func (w *syncWriter) Write(p []byte) (int, error) {
@@ -275,14 +302,4 @@ func (w *syncWriter) Write(p []byte) (int, error) {
 	defer w.s.mu.Unlock()
 
 	return w.s.log.Write(p)
-}
-
-func defaultEnvPath() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return ".env"
-	}
-
-	// cmd/desktop/<binary> → repo root
-	return filepath.Join(filepath.Dir(exe), "..", "..", "..", ".env")
 }

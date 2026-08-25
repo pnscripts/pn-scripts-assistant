@@ -54,6 +54,12 @@ jobs:
         with:
           go-version: '1.26'
 
+      # The Go clients carry the setup flow and the starter, which are the
+      # first thing a new user meets.
+      - name: Test Go clients
+        working-directory: clients
+        run: go test ./internal/...
+
       - name: Build doctor
         working-directory: clients
         env:

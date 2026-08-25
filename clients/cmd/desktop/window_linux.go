@@ -99,7 +99,7 @@ func openWindowWithNavigation(url, title string, width, height int, navigate <-c
 	go func() {
 		for next := range navigate {
 			cNext := C.CString(next)
-			C.pn-brain_request_navigation(cNext)
+			C.pn - brain_request_navigation(cNext)
 			C.free(unsafe.Pointer(cNext))
 		}
 	}()
@@ -114,7 +114,7 @@ func openWindow(url, title string, width, height int) error {
 	cTitle := C.CString(title)
 	defer C.free(unsafe.Pointer(cTitle))
 
-	C.pn-brain_open_window(cURL, cTitle, C.int(width), C.int(height))
+	C.pn - brain_open_window(cURL, cTitle, C.int(width), C.int(height))
 
 	return nil
 }

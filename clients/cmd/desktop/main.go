@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"pn-brain/internal/preflight"
+	"pn-brain/internal/setup"
 )
 
 const (
@@ -133,14 +134,14 @@ func hasAPIKeyIn(envPath string) bool {
 // navigates to the brain — so setup happens entirely inside the program, with
 // no terminal involved.
 func runSetup(envPath, brainURL string) error {
-	server, err := newSetupServer(envPath)
+	server, err := setup.New(envPath)
 	if err != nil {
 		return fmt.Errorf("could not start setup: %w", err)
 	}
 
 	navigate := make(chan string, 1)
 
-	go server.serve(func() {
+	go server.Serve(func() {
 		if err := startBrain(); err != nil {
 			return
 		}
@@ -152,7 +153,18 @@ func runSetup(envPath, brainURL string) error {
 		navigate <- brainURL
 	})
 
-	return openWindowWithNavigation(server.url(), "PN Brain — Setup", windowWidth, windowHeight, navigate)
+	return openWindowWithNavigation(server.URL(), "PN Brain — Setup", windowWidth, windowHeight, navigate)
+}
+
+// defaultEnvPath finds the .env beside the repo, derived from the binary's
+// location rather than hardcoded.
+func defaultEnvPath() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ".env"
+	}
+
+	return filepath.Join(filepath.Dir(exe), "..", ".env")
 }
 
 func main() {

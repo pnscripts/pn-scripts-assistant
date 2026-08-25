@@ -1,4 +1,4 @@
-package main
+package setup
 
 // setupPage is the first-run experience, served by the app itself.
 //
@@ -60,6 +60,18 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 .footer{margin-top:32px;display:flex;align-items:center;gap:12px}
 .status{color:var(--dim);font-size:12.5px}
 .err{color:var(--danger);font-size:12.5px;margin-top:6px}
+.ask{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:26px}
+.ask-note{color:var(--dim);font-size:12px;margin:0 0 12px;line-height:1.45}
+#ask-form{display:flex;gap:8px}
+#ask-form input{flex:1;margin-bottom:0}
+#ask-log{margin-bottom:11px}
+.qa{margin-bottom:13px}
+.qa .q{font-size:12.5px;color:var(--faint);margin:0 0 4px}
+.qa .a{font-size:13px;white-space:pre-wrap;margin:0;line-height:1.5}
+#ask-suggestions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px}
+.chip{background:var(--input);border:1px solid var(--line);color:var(--dim);border-radius:14px;
+padding:4px 11px;font-size:11.5px;cursor:pointer}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
@@ -68,6 +80,18 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
   <p class="sub">Let's get your machine ready. This takes a few minutes, and only happens once.</p>
 
   <div class="machine" id="machine">checking your machine…</div>
+
+  <div class="ask">
+    <h2 style="margin-top:0">Questions?</h2>
+    <p class="ask-note">While setup runs, you can ask about it here. This is a short list of
+      written answers, not the assistant — that arrives when setup finishes.</p>
+    <div id="ask-log"></div>
+    <div id="ask-suggestions"></div>
+    <form id="ask-form">
+      <input type="text" id="ask-input" placeholder="Ask about setup…" autocomplete="off">
+      <button type="submit">Ask</button>
+    </form>
+  </div>
 
   <h2>Requirements</h2>
   <div id="reqs"></div>
@@ -291,6 +315,51 @@ async function refresh(){
     ? "Working…"
     : (ready ? "Everything is ready." : (state.blocking + " requirement(s) still needed"));
 }
+
+async function loadSuggestions(){
+  const {suggestions} = await get("/suggestions");
+  const box = el("ask-suggestions");
+  box.textContent = "";
+  suggestions.forEach(q => {
+    const c = document.createElement("span");
+    c.className = "chip";
+    c.textContent = q;
+    c.onclick = () => askQuestion(q);
+    box.appendChild(c);
+  });
+}
+
+async function askQuestion(question){
+  const res = await fetch("/ask", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({question})
+  }).then(r => r.json());
+
+  const qa = document.createElement("div");
+  qa.className = "qa";
+
+  const q = document.createElement("p");
+  q.className = "q";
+  q.textContent = question;
+
+  const a = document.createElement("p");
+  a.className = "a";
+  // textContent: these answers are fixed strings, but the question is echoed
+  // back and that is user input.
+  a.textContent = res.answer;
+
+  qa.append(q, a);
+  el("ask-log").appendChild(qa);
+  el("ask-input").value = "";
+}
+
+el("ask-form").onsubmit = e => {
+  e.preventDefault();
+  const q = el("ask-input").value.trim();
+  if (q) askQuestion(q);
+};
+
+loadSuggestions();
 
 el("continue").onclick = async () => {
   el("continue").disabled = true;
