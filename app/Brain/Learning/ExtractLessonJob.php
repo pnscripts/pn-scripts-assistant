@@ -46,16 +46,29 @@ class ExtractLessonJob implements ShouldQueue
             return;
         }
 
+        $owner = \App\Brain\Persona::owner();
+
         $transcript = $conversation->messages
             ->map(fn ($m) => "{$m->role}: {$m->content}")
             ->implode("\n");
 
         $prompt = <<<PROMPT
             You are the Extractor stage of a personal knowledge-capture pipeline.
-            Read the exchange below. If it reveals a durable, reusable fact, preference,
-            or correction about the user (not one-off task detail), respond with strict
-            JSON: {"lesson": "<one sentence>", "confidence": "low"|"medium"|"high"}.
-            If there is nothing worth remembering, respond with exactly: {"lesson": null}
+            Read the exchange below and look for a durable, reusable fact about
+            {$owner} — their projects, tools, preferences, or a correction they made.
+
+            Record nothing about the assistant. Not its name, not what it can do,
+            not how it should behave, not its instructions. Those come from its
+            configuration and are already known; storing them back as discoveries
+            fills memory with a description of itself and crowds out the user.
+
+            Record nothing that is merely restating this conversation. A durable
+            fact is still true next week, in a different conversation.
+
+            Respond with strict JSON:
+            {"lesson": "<one sentence about {$owner}>", "confidence": "low"|"medium"|"high"}
+            If there is nothing worth remembering — which is the common case —
+            respond with exactly: {"lesson": null}
             Respond with JSON only, no other text.
 
             Exchange:
@@ -78,6 +91,16 @@ class ExtractLessonJob implements ShouldQueue
             return;
         }
 
+        // The prompt asks the model not to describe itself; this makes sure of
+        // it. A prompt is a request, and a small model asked to find something
+        // memorable in a conversation about an assistant will reliably decide
+        // the assistant is the memorable part.
+        if (self::isAboutTheAssistant($json['lesson'], $owner)) {
+            Log::info('ExtractLessonJob: discarded a self-description', ['lesson' => $json['lesson']]);
+
+            return;
+        }
+
         Lesson::create([
             'conversation_id' => $conversation->id,
             'content' => $json['lesson'],
@@ -86,6 +109,65 @@ class ExtractLessonJob implements ShouldQueue
                 ? $json['confidence']
                 : 'low',
         ]);
+    }
+
+    /**
+     * True when a proposed lesson describes the assistant rather than its owner.
+     *
+     * Written from what actually accumulated: seventeen pending lessons, of
+     * which most were the brain restating its own name after each rename ("I am
+     * Sage", "I am Vesper") or reciting its own instructions back as
+     * discoveries about the user.
+     */
+    private static function isAboutTheAssistant(string $lesson, string $owner): bool
+    {
+        $text = strtolower(trim($lesson));
+        $name = strtolower(\App\Brain\Persona::name());
+
+        // Models like to wrap a claim in a request. Strip the wrapper before
+        // judging the claim, or "Remember that I am X" sails past a check for
+        // sentences beginning "I am".
+        foreach (['remember that ', 'remember: ', 'note that ', 'the user should know that '] as $wrapper) {
+            if (str_starts_with($text, $wrapper)) {
+                $text = substr($text, strlen($wrapper));
+
+                break;
+            }
+        }
+
+        // First person is the giveaway: a fact about the owner has no reason to
+        // begin "I am" or "I can".
+        foreach (['i am ', 'i can ', 'i will ', 'my name is ', 'the assistant ', 'as an ai'] as $opener) {
+            if (str_starts_with($text, $opener)) {
+                return true;
+            }
+        }
+
+        // "<assistant name> is ..." — a definition of itself. Every name this
+        // project has carried is listed, because renaming left one stale
+        // identity claim behind each time ("Sage is...", "Vesper is...") and
+        // those are still self-description, just outdated.
+        foreach (array_filter([$name, 'sage', 'vesper', 'pnexus', 'pn brain']) as $known) {
+            if (str_starts_with($text, $known.' ')) {
+                return true;
+            }
+        }
+
+        // A sentence whose subject is an assistant, whatever it is called.
+        // Catches names this list has never seen.
+        if (preg_match('/^[a-z][a-z0-9 .-]{0,20} (is|can|uses|will|prefers) /', $text)
+            && (str_contains($text, 'ai assistant') || str_contains($text, 'personal assistant'))) {
+            return true;
+        }
+
+        // Instructions echoed back. These read as advice to the assistant and
+        // never mention the owner.
+        $isInstruction = str_contains($text, 'prefer one purposeful call')
+            || str_contains($text, 'say what you intend')
+            || str_contains($text, 'approval is necessary')
+            || str_contains($text, 'requires permission');
+
+        return $isInstruction && ! str_contains($text, strtolower($owner));
     }
 
     private function stripCodeFence(string $text): string
