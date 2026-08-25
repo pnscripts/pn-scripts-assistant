@@ -16,21 +16,42 @@ everything below is what comes next, in order).
   rebuild.
 - **Phase 7** — Voice interface, other integrations.
 
-### Next up (agentic layer, in this order)
+### Next up
 
-1. **Agent loop** — let the model actually choose tools and read results back,
-   rather than tools only being callable from code. Needs a model competent at
-   tool use; the choice is exposed at runtime rather than hardcoded, since a 3B
-   local model and a frontier API model are not interchangeable here.
+1. ~~**Agent loop**~~ — **done**. `App\Brain\Agent\AgentLoop` lets the model choose
+   tools and read results back. Provider is chosen per request, since a 3B local
+   model and a frontier API model are not interchangeable at tool use.
 2. **Host agent (Go)** — a small daemon running on the host, outside Docker, so
-   the brain can reach the whole machine and the LAN. This is where Go genuinely
-   earns its place: it needs no runtime installed, and the container cannot do
-   this job. Every call it accepts still routes through the same permission gate.
+   the brain can reach the whole machine and the LAN. Where Go genuinely earns
+   its place: no runtime to install, and the container cannot do this job. Every
+   call it accepts still routes through the same permission gate.
 3. **Web tools** — fetch and search, `Safe` for reads.
 4. **Integration adapters** — one interface so smart-home platforms (Home
    Assistant, Tuya, Hue, Zigbee) and other services plug in without touching the
    core. Device control is `Mutating` by definition: switching on a heater is not
    a reversible read.
+
+## Two deployment targets, one codebase
+
+| | Server mode (today) | Desktop mode (`.env.desktop.example`) |
+|---|---|---|
+| Runtime | Docker Compose | One binary |
+| Database | Postgres + pgvector | SQLite |
+| Vector search | `<=>` operator, indexed | Cosine in PHP |
+| Queue | Redis | Database |
+| Scan paths | read-only mounts | absolute host paths |
+
+Both run the same code; the differences are configuration and two swappable
+drivers. `SCAN_*_PATH` is the host side of a compose mount, while
+`SCAN_*_READ_PATH` is where the app actually reads — the same folder in server
+mode, seen through a mount.
+
+**Release builds run in CI, not locally** (`.github/workflows/release.yml`).
+Compiling PHP statically needs ~10GB of scratch space; this development machine
+has under 9GB free on root, and filling root on Linux breaks more than the build.
+CI is also where cross-platform release artifacts belong. The workflow produces
+the self-contained brain binary plus desktop and CLI clients for Linux, macOS
+(Intel and Apple Silicon) and Windows.
 
 ## What's already built (Phase 0 + Phase 1)
 

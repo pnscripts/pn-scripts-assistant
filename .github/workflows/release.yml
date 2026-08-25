@@ -1,0 +1,102 @@
+name: Release
+
+# Builds every distributable artifact. Runs in CI rather than locally because a
+# static PHP build needs ~10GB of scratch space, and because release binaries
+# should come from a clean, reproducible machine rather than someone's laptop.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  clients:
+    name: Desktop & CLI (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64, ext: '' }
+          - { goos: linux,   goarch: arm64, ext: '' }
+          - { goos: darwin,  goarch: amd64, ext: '' }
+          - { goos: darwin,  goarch: arm64, ext: '' }
+          - { goos: windows, goarch: amd64, ext: '.exe' }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      # Both clients are pure standard library, so every target cross-compiles
+      # from Linux with no toolchain beyond Go itself.
+      - name: Build desktop app
+        working-directory: clients/desktop
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags="-s -w" -o "../../dist/pnexus-desktop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
+
+      - name: Build CLI
+        working-directory: clients/cli
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags="-s -w" -o "../../dist/pnexus-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clients-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+
+  brain:
+    name: Self-contained brain binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The static build fails partway through if the runner's default ~14GB
+      # isn't freed up first; this reclaims well over 20GB.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo rm -rf /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          df -h /
+
+      - name: Build static binary
+        run: docker build -f static-build.Dockerfile -t pnexus-static .
+
+      - name: Extract binary
+        run: |
+          mkdir -p dist
+          id=$(docker create pnexus-static)
+          docker cp "$id:/go/src/app/dist/frankenphp-linux-x86_64" dist/pnexus-brain-linux-x86_64
+          docker rm "$id"
+          chmod +x dist/pnexus-brain-linux-x86_64
+          ls -lh dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brain-linux-x86_64
+          path: dist/*
+
+  release:
+    name: Publish release
+    needs: [clients, brain]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
