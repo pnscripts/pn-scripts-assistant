@@ -3,10 +3,7 @@
 Full plan: see the approved plan this repo was built from (Phase 0 + Phase 1 are done;
 everything below is what comes next, in order).
 
-- **Phase 2** — Validator/Curator/Promotion pipeline with real confidence gates; an
-  "evolve brain" command; Lessons start actually becoming durable `knowledge_facts`.
-  This is where semantic recall (the `embedding` columns already in the schema) gets
-  populated and used.
+- ~~**Phase 2** — Validator/Curator/Promotion pipeline; semantic recall.~~ **Done**, see below.
 - **Phase 3** — The real Jarvis-style web dashboard (chat + memory browser), replacing
   the temporary smoke-test page at `/`.
 - **Phase 4** — Opt-in knowledge ingestion, reviewed before anything is promoted.
@@ -55,6 +52,39 @@ everything below is what comes next, in order).
   the types most likely to hold financial or identity documents (confirmed on this
   machine — there's a real accounting/invoices folder). Extend to real content
   extraction only for specific files/folders if actually needed, never as a default.
+
+## The learning loop (Phase 2, done)
+
+`php artisan brain:evolve` (add `--dry-run` to preview) walks quarantined Lessons
+through two roles, mirroring the reference system:
+
+1. **Validator** (`App\Brain\Learning\Validator`) — splits claims by *how they were
+   obtained*. Filesystem observations are re-checked against disk, so this is real
+   verification: if a project was deleted since the scan, the Lesson is rejected
+   instead of promoted. Chat-derived Lessons are model *inferences* and cannot be
+   machine-checked, so they stay quarantined for human approval — otherwise a 3B
+   local model would quietly write its own guesses into long-term memory as fact.
+2. **Curator** (`App\Brain\Learning\Curator`) — embeds each validated Lesson and
+   promotes it to `knowledge_facts`, skipping anything within 0.95 cosine similarity
+   of existing knowledge. Dedupe is semantic because the same fact genuinely arrives
+   in different words (many projects are mirrored between the external drive and
+   `~/Projects`).
+
+**Recall** closes the loop: `App\Brain\Memory\MemoryStore::recall()` embeds each
+incoming message and injects the most relevant knowledge into that turn's prompt.
+Injected per-turn rather than persisted, so corrected or deleted facts stop being
+repeated. Recall failure is non-fatal — the brain answers without memory rather than
+erroring.
+
+Embeddings are always local (`nomic-embed-text` via Ollama, 768-dim): every stored
+memory gets embedded, so a paid API would be both costly and a needless disclosure of
+everything the brain knows.
+
+First real run: 122 filesystem Lessons validated, 79 promoted, 43 caught as duplicates,
+10 chat Lessons held for review. Verified end-to-end by asking the brain which projects
+are written in Go — it answered from self-taught knowledge alone. Note: all 4 Go
+projects ranked top-4 in retrieval, but `llama3.2:3b` dropped one when summarizing;
+retrieval quality is not the limiting factor, model size is.
 
 ## Naming
 

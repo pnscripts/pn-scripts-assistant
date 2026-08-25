@@ -14,4 +14,11 @@ return [
         'api_key' => env('ANTHROPIC_API_KEY'),
         'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-5'),
     ],
+
+    // Always local — every stored memory gets embedded, so this must stay cheap
+    // and private. 768 dimensions, matching the vector() columns in the schema.
+    'embedding' => [
+        'model' => env('EMBEDDING_MODEL', 'nomic-embed-text'),
+        'dimensions' => 768,
+    ],
 ];

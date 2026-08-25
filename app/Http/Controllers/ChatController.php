@@ -4,15 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Brain\Learning\ExtractLessonJob;
 use App\Brain\Llm\LlmRouter;
+use App\Brain\Memory\MemoryStore;
 use App\Brain\Persona;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ChatController extends Controller
 {
-    public function send(Request $request, LlmRouter $router): JsonResponse
+    public function send(Request $request, LlmRouter $router, MemoryStore $memory): JsonResponse
     {
         $data = $request->validate([
             'conversation_id' => ['nullable', 'integer', 'exists:conversations,id'],
@@ -46,6 +48,17 @@ class ChatController extends Controller
             ->map(fn (Message $m) => ['role' => $m->role, 'content' => $m->content])
             ->all();
 
+        // Pull in anything already known that bears on this message, injected fresh
+        // each turn rather than persisted — memory changes between turns, and a stale
+        // copy baked into the transcript would go on being repeated after the
+        // underlying fact was corrected or removed.
+        if ($recalled = $this->recallContext($memory, $data['message'])) {
+            array_splice($history, count($history) - 1, 0, [[
+                'role' => 'system',
+                'content' => $recalled,
+            ]]);
+        }
+
         $response = $router->send($history, provider: $data['provider'] ?? null);
 
         Message::create([
@@ -64,5 +77,29 @@ class ChatController extends Controller
             'provider' => $response->provider,
             'model' => $response->model,
         ]);
+    }
+
+    /**
+     * Recall is a nice-to-have, not a precondition for replying: if the local
+     * embedding model is down, the brain should answer without memory rather
+     * than fail the whole request.
+     */
+    private function recallContext(MemoryStore $memory, string $message): ?string
+    {
+        try {
+            $facts = $memory->recall($message);
+        } catch (\Throwable $e) {
+            Log::warning('Recall failed; answering without memory.', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        if ($facts->isEmpty()) {
+            return null;
+        }
+
+        return "Relevant things you already know, recalled from your own memory:\n".
+            $facts->map(fn ($f) => '- '.$f->content)->implode("\n").
+            "\n\nUse these if they help. Do not mention this list itself.";
     }
 }
