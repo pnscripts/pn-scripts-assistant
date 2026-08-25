@@ -72,6 +72,23 @@ on or a lock opened has consequences no undo reaches. Approval prompts show the
 friendly name ("Turn on: Kitchen light"), because nobody can meaningfully approve
 `home-assistant:light.0x00124b`.
 
+## Why there are two interfaces
+
+The console (`/`) and the Filament admin (`/admin`) overlap on approvals and
+recent activity, and Filament is not cheap — roughly 30MB of vendor code and
+2MB of assets, a meaningful share of a binary meant to be handed to people.
+
+Kept anyway, deliberately. They serve different jobs: the console is for daily
+use — ask something, glance at state, approve the thing that's blocking — while
+Filament is where the slow work happens: reviewing a backlog of proposed
+Lessons, searching promoted knowledge, reading full conversation history.
+Rebuilding sortable, filterable, bulk-action tables by hand to save 30MB would
+be a poor trade.
+
+The desktop app is **not** a third interface. It opens the console in a
+chromeless window; the console, the CLI and the desktop app are all clients of
+the same API, with no logic duplicated between them.
+
 ## Two deployment targets, one codebase
 
 | | Server mode (today) | Desktop mode (`.env.desktop.example`) |
