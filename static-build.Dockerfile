@@ -29,6 +29,10 @@ RUN composer install \
       --optimize-autoloader \
       --ignore-platform-reqs
 
+# Belt and braces alongside .dockerignore: any cached package manifest that
+# survives here would list dev-only providers and kill the binary at boot.
+RUN rm -f bootstrap/cache/*.php
+
 FROM dunglas/frankenphp:static-builder-gnu
 
 WORKDIR /go/src/app/dist/app

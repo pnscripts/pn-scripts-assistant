@@ -20,6 +20,14 @@ storage/framework/sessions/*
 storage/framework/views/*
 *.sqlite
 
+# Generated from the *dev* dependency set, so it lists providers like
+# laravel/pail that --no-dev correctly leaves out — the app then dies at boot
+# looking for a class that isn't there. Regenerated in the build instead.
+bootstrap/cache/packages.php
+bootstrap/cache/services.php
+bootstrap/cache/config.php
+bootstrap/cache/routes-*.php
+
 .github
 docs
 tests

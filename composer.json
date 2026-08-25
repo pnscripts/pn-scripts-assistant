@@ -75,7 +75,11 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "_comment": "Dev-only packages. The static build regenerates the package manifest while embedding the app, and any dev provider listed there kills the binary at boot with a class-not-found for something --no-dev correctly never installed. Excluding them from discovery makes that impossible rather than relying on cache cleanup that the build then undoes.",
+            "dont-discover": [
+                "laravel/pail",
+                "laravel/sail"
+            ]
         }
     },
     "config": {
