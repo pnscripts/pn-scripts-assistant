@@ -53,6 +53,17 @@ COPY --from=vendor /app .
 ENV PHP_EXTENSION_LIBS="libavif,nghttp2,nghttp3,ngtcp2,watcher,bzip2,xz,zstd"
 
 WORKDIR /go/src/app
-RUN EMBED=dist/app/ ./build-static.sh
+
+# static-php-cli resolves release URLs for zlib, openssl, icu and friends through
+# the GitHub API, which allows 60 unauthenticated calls per hour per IP. A couple
+# of rebuilds in an afternoon exhausts that and the build dies mid-download with
+# a 403 — an environmental failure that looks alarmingly like a code one.
+#
+# Mounted as a secret rather than passed as an ARG: build args are visible in
+# `docker history`, and a token embedded in a distributable image is a token
+# published to whoever downloads it.
+RUN --mount=type=secret,id=github_token,required=false \
+    GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    EMBED=dist/app/ ./build-static.sh
 
 # Result: dist/frankenphp-linux-x86_64

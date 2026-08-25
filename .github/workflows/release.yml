@@ -90,8 +90,16 @@ jobs:
           sudo rm -rf /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
           df -h /
 
+      # The token is only for GitHub API reads (resolving upstream release URLs
+      # for zlib, openssl, icu…). Without it the build dies on a 403 after ~60
+      # unauthenticated calls. Passed as a secret so it stays out of the layers.
       - name: Build static binary
-        run: docker build -f static-build.Dockerfile -t pnexus-static .
+        run: |
+          printf '%s' "${{ github.token }}" > /tmp/gh_token
+          DOCKER_BUILDKIT=1 docker build \
+            --secret id=github_token,src=/tmp/gh_token \
+            -f static-build.Dockerfile -t pnexus-static .
+          rm -f /tmp/gh_token
 
       - name: Extract binary
         run: |
