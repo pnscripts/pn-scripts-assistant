@@ -39,6 +39,8 @@ func main() {
 		err = runServe(os.Args[2:])
 	case "rewrite-paths":
 		err = runRewritePaths(os.Args[2:])
+	case "promote":
+		err = runPromote(os.Args[2:])
 	case "import":
 		err = runImport(os.Args[2:])
 	case "status":
@@ -63,6 +65,7 @@ func usage() {
 
   brain serve               run the brain and serve its interface
   brain status              where the data lives and what is in it
+  brain promote             turn validated lessons into durable knowledge
   brain import <dir>        load a Postgres export into a fresh database
   brain rewrite-paths       repair stored paths after a move, then re-embed
 
@@ -200,18 +203,22 @@ func runServe(args []string) error {
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
+	// Ctrl-C and a service stop both arrive as signals; either should close the
+	// listener and let in-flight replies and learning finish rather than
+	// cutting them off.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
 	srv := server.New(b, logger)
+
+	b.Start(ctx)
+	defer b.Stop()
 
 	ln, err := server.Listen(cfg.Addr)
 	if err != nil {
 		return err
 	}
-
-	// Ctrl-C and a service stop both arrive as signals; either should close the
-	// listener and let in-flight replies finish rather than cutting them off.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	facts, _ := db.CountFacts()
 
@@ -372,6 +379,43 @@ func (m *multiFlag) String() string { return strings.Join(*m, ", ") }
 
 func (m *multiFlag) Set(v string) error {
 	*m = append(*m, v)
+
+	return nil
+}
+
+func runPromote(args []string) error {
+	fs := flag.NewFlagSet("promote", flag.ExitOnError)
+	limit := fs.Int("limit", 100, "how many lessons to consider")
+	fs.Parse(args)
+
+	db, root, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	cfg, err := config.Load(root.Path)
+	if err != nil {
+		return err
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
+
+	counts, err := db.CountLessonsByStatus()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\n  lessons: %v\n\n", counts)
+
+	promoted, duplicates, err := b.Learner.PromoteValidated(context.Background(), *limit)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("  promoted   %d\n", promoted)
+	fmt.Printf("  duplicates %d  (already known, rejected)\n\n", duplicates)
 
 	return nil
 }

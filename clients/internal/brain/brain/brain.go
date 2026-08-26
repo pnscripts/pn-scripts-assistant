@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/storage"
 	"pn-brain/internal/brain/store"
@@ -31,6 +32,10 @@ type Brain struct {
 	// the one the brain grows on, not the one the binary happens to sit on.
 	Root   string
 	DBPath string
+
+	// Learner runs the Extractor/Validator/Curator pipeline in the background.
+	// Nil when no local model is available, since extraction must stay local.
+	Learner *learning.Worker
 }
 
 // New assembles a brain from settings.
@@ -48,7 +53,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		providers = append(providers, llm.NewAnthropic(cfg.AnthropicKey, cfg.AnthropicModel))
 	}
 
-	return &Brain{
+	b := &Brain{
 		DB:     db,
 		Router: llm.NewRouter(mode, cfg.DefaultProvider, providers...),
 		Cfg:    cfg,
@@ -56,6 +61,36 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Log:    logger,
 		Root:   root,
 		DBPath: dbPath,
+	}
+
+	// Learning reads the conversation and must therefore stay on this machine
+	// in every privacy mode; it is wired to the local provider directly rather
+	// than through the router, so no configuration can point it elsewhere.
+	b.Learner = &learning.Worker{
+		DB:  db,
+		Log: logger,
+		Extractor: learning.Extractor{
+			Provider: ollama,
+			Owner:    cfg.Owner,
+			Name:     cfg.Name,
+		},
+		Curator: learning.Curator{DB: db, Embedder: ollama},
+	}
+
+	return b
+}
+
+// Start begins background work. Stop must be called to let it finish cleanly.
+func (b *Brain) Start(ctx context.Context) {
+	if b.Learner != nil {
+		b.Learner.Start(ctx)
+	}
+}
+
+// Stop waits for in-flight learning to finish.
+func (b *Brain) Stop() {
+	if b.Learner != nil {
+		b.Learner.Stop()
 	}
 }
 
@@ -189,6 +224,12 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 
 	if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, resp.Provider, resp.Model, resp.Content); err != nil {
 		return ChatReply{}, err
+	}
+
+	// Learning happens after the reply is on its way, never before it: the
+	// user waits on the answer, not on the brain deciding what to remember.
+	if b.Learner != nil {
+		b.Learner.Learn(conversationID)
 	}
 
 	ids := make([]int64, 0, len(recalled))
