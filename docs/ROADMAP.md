@@ -17,17 +17,46 @@ Switched, for reasons that were real:
 | Chromium `--app=` | GTK + WebKitGTK | it was a browser in a costume, not an app |
 | hand-written extension list | `spc dump-extensions` | the list rotted immediately, omitting ext-intl |
 
-**Kept: the Laravel core.** The friction in this project has been in distribution,
-not in the application — and every one of those failures was a local bug rather
-than a limitation of the framework: a stale package manifest naming a dev-only
-provider, `.env` read from inside the executable, PHP's 30-second limit against a
-CPU-bound model, and `dist/` recursively embedding itself. Rewriting a working
-brain in another language to fix bugs that are already fixed would have cost
-weeks and bought nothing.
+**Replaced: the Laravel core, by Go and SQLite.** This entry used to argue the
+opposite — that the friction was in distribution rather than the application, and
+that rewriting a working brain would cost weeks and buy nothing. The reasoning was
+sound and the conclusion was still wrong, because it answered the wrong question.
 
-Where other languages genuinely earn their place: Go for the host agent (it must
-run outside Docker), platform-native code for Windows WebView2 and macOS
-WKWebView, and Python if PDF text extraction or OCR is ever added.
+What it missed: the cost was never PHP, it was the four processes around it. The
+brain needed Docker running Postgres, pgvector and Redis alongside it, so it could
+not start on a machine without a container stack — and "install Docker first" is
+not an answer for a personal assistant. Every distribution failure in the table
+above traces back to that. The static build existed only to escape it, and the
+static build is what kept failing.
+
+Go removes the question rather than answering it. One binary, one SQLite file, no
+server, no daemon, no cgo. Vectors are float32 blobs and similarity is computed in
+process, which at this size is exact and cheaper than the network hop it replaced.
+
+Verified equivalent on the real data before the old system was removed: 79 facts,
+145 lessons, 26 conversations, 79 messages and 15 tool calls carried across, and
+the memory map rebuilt to the same 79 nodes and 177 links with the same strongest
+pair, 6↔8 at 0.949.
+
+The lesson worth keeping is not "rewrite sooner". It is that "keep what works" has
+to be checked against what the thing is *for*. The Laravel core worked; the product
+it added up to could not be downloaded and run, which was the entire point.
+
+**Dropped along the way: the host agent.** It existed only because Laravel ran
+inside a container and could not see the real filesystem. Running natively, the
+brain simply has access — one less daemon, one less token to protect, and one less
+process that can be left running when it should not be.
+
+**Found by the move: every memory held a container path.** All 79 facts recorded
+paths under `/mnt/scan`, which is where the owner's disk appeared *inside* the
+container. Outside it, those paths point nowhere, so the knowledge was accurate
+and unusable at the same time. `brain rewrite-paths` repairs them and re-embeds
+what it changed — rewriting the text alone would leave each vector describing the
+old wording, and nothing would ever surface that mismatch.
+
+Where other languages still earn their place: platform-native code for Windows
+WebView2 and macOS WKWebView, and Python if PDF text extraction or OCR is ever
+added.
 
 - ~~**Phase 2** — Validator/Curator/Promotion pipeline; semantic recall.~~ **Done**, see below.
 - **Phase 3** — The real Jarvis-style web dashboard (chat + memory browser), replacing

@@ -18,9 +18,14 @@ import (
 // that once got an entire extension blamed for a bug that was a 15-second
 // deadline.
 type Ollama struct {
-	BaseURL    string
-	ChatModel  string
-	EmbedName  string
+	BaseURL   string
+	ChatModel string
+	EmbedName string
+
+	// KeepAlive is passed to Ollama with each request; see ollamaChatRequest.
+	// Empty means Ollama's own default.
+	KeepAlive string
+
 	HTTPClient *http.Client
 }
 
@@ -34,6 +39,9 @@ func NewOllama(baseURL, chatModel, embedModel string) *Ollama {
 		BaseURL:   baseURL,
 		ChatModel: chatModel,
 		EmbedName: embedModel,
+		// Long enough to survive reading an answer and typing the next
+		// question, which is the gap that actually hurts.
+		KeepAlive: "30m",
 		// No Timeout on the client itself: the deadline belongs to the context,
 		// so a caller can allow a long first load and a short health check with
 		// the same client.
@@ -70,6 +78,15 @@ type ollamaChatRequest struct {
 	Messages []ollamaMessage `json:"messages"`
 	Stream   bool            `json:"stream"`
 	Tools    []ollamaTool    `json:"tools,omitempty"`
+
+	// KeepAlive is how long Ollama holds the model in memory after answering.
+	//
+	// The default is five minutes, which is shorter than the gaps between
+	// messages in a real conversation. On a machine without a GPU, reloading a
+	// 7B model costs about a minute, so a user who pauses to read an answer
+	// pays that minute again on their next question — and it presents as the
+	// assistant being slow rather than as a cache that expired.
+	KeepAlive string `json:"keep_alive,omitempty"`
 }
 
 type ollamaMessage struct {
@@ -109,7 +126,7 @@ func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
 		model = o.ChatModel
 	}
 
-	body := ollamaChatRequest{Model: model, Stream: false}
+	body := ollamaChatRequest{Model: model, Stream: false, KeepAlive: o.KeepAlive}
 
 	for _, m := range req.Messages {
 		body.Messages = append(body.Messages, ollamaMessage{Role: m.Role, Content: m.Content})
