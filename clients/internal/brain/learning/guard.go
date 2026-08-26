@@ -60,6 +60,48 @@ var instructions = []string{
 	"use tools when",
 }
 
+// MinimumLessonWords is the fewest words a durable fact can be made of.
+//
+// A fact about a person is a sentence: it has a subject and says something
+// about them. Anything shorter is the model echoing a fragment of the answer it
+// just gave — a bare path, a filename, a URL. One such lesson was captured in
+// practice, consisting of nothing but an absolute path, which is not knowledge
+// about anybody and would be recalled into future prompts as though it were.
+const MinimumLessonWords = 4
+
+// IsNotAFact reports whether a proposed lesson is too fragmentary to be one.
+//
+// Separate from IsAboutTheAssistant because it is a different failure: that one
+// catches the model describing itself, this one catches it describing nothing
+// at all.
+func IsNotAFact(lesson string) bool {
+	text := strings.TrimSpace(lesson)
+
+	if text == "" {
+		return true
+	}
+
+	words := strings.Fields(text)
+
+	if len(words) < MinimumLessonWords {
+		return true
+	}
+
+	// A sentence made only of a path or a URL and a couple of filler words is
+	// still not a claim about anybody.
+	var meaningful int
+
+	for _, w := range words {
+		if strings.HasPrefix(w, "/") || strings.HasPrefix(w, "http") || strings.Contains(w, "://") {
+			continue
+		}
+
+		meaningful++
+	}
+
+	return meaningful < MinimumLessonWords-1
+}
+
 // IsAboutTheAssistant reports whether a proposed lesson describes the assistant
 // rather than its owner.
 //

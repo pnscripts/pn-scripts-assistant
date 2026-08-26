@@ -693,24 +693,31 @@ func runTidy(args []string) error {
 	}
 
 	var doomed, kept []store.Lesson
+	reason := map[int64]string{}
 
 	for _, l := range lessons {
-		if learning.IsAboutTheAssistant(l.Content, cfg.Name, cfg.Owner) {
+		switch {
+		case learning.IsAboutTheAssistant(l.Content, cfg.Name, cfg.Owner):
+			reason[l.ID] = "describes the assistant"
 			doomed = append(doomed, l)
-
-			continue
+		case learning.IsNotAFact(l.Content):
+			// A bare path or filename: the model handing back the answer it
+			// just gave rather than learning anything.
+			reason[l.ID] = "not a fact, just a fragment"
+			doomed = append(doomed, l)
+		default:
+			kept = append(kept, l)
 		}
-
-		kept = append(kept, l)
 	}
 
 	fmt.Printf("\n  %d waiting for review\n\n", len(lessons))
 
 	if len(doomed) > 0 {
-		fmt.Println("  the assistant describing itself:")
+		fmt.Println("  not worth remembering:")
 
 		for _, l := range doomed {
-			fmt.Printf("    %4d  %s\n", l.ID, trim(oneLine(l.Content), 96))
+			fmt.Printf("    %4d  %-70s  (%s)\n",
+				l.ID, trim(oneLine(l.Content), 70), reason[l.ID])
 		}
 
 		fmt.Println()

@@ -219,3 +219,42 @@ func TestGuardDoesNotDiscardScannedFacts(t *testing.T) {
 		}
 	}
 }
+
+// Captured in practice: after answering "where does xplorer-golang-api live",
+// the extractor proposed remembering the path it had just said. That is the
+// model restating the conversation, not learning something about anybody.
+func TestFragmentsAreNotFacts(t *testing.T) {
+	notFacts := []string{
+		"/media/petar/c8fc2986-4b79-4d7b-9a8c-e6db653915ac/DEV/Projects/xplorer/xplorer-golang-api",
+		"xplorer-golang-api",
+		"https://github.com/PNScripts/pn-brain",
+		"the path /home/petar/Projects",
+		"",
+		"   ",
+		"Laravel",
+		"yes",
+	}
+
+	for _, s := range notFacts {
+		if !IsNotAFact(s) {
+			t.Errorf("accepted a fragment as a fact: %q", s)
+		}
+	}
+}
+
+// The rule must not swallow real facts, which are often short.
+func TestRealFactsSurviveTheFragmentCheck(t *testing.T) {
+	facts := []string{
+		"Petar prefers Laravel over Python",
+		"Petar runs PN Scripts in Sofia",
+		"The user prefers sarcastic responses",
+		`Petar has a Go project called "xplorer-golang-api" at /media/petar/DEV/Projects/xplorer/xplorer-golang-api, last modified 2026-03-07.`,
+		"Petar regularly uses the website pnscripts.local (1160 visits in browser history).",
+	}
+
+	for _, s := range facts {
+		if IsNotAFact(s) {
+			t.Errorf("discarded a real fact: %q", s)
+		}
+	}
+}

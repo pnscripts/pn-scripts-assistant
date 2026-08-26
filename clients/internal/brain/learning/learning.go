@@ -113,6 +113,12 @@ func (e Extractor) Extract(ctx context.Context, transcript string) (*Proposal, e
 		return nil, nil
 	}
 
+	// And not to restate the conversation. A bare path is what that looks like
+	// in practice: the model handing back the answer it just gave.
+	if IsNotAFact(p.Lesson) {
+		return nil, nil
+	}
+
 	if !validConfidence[p.Confidence] {
 		p.Confidence = "low"
 	}
