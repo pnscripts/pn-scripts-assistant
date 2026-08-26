@@ -1,6 +1,8 @@
 package speech
 
 import (
+	"context"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -229,5 +231,31 @@ func TestTheMeasuredRoomToneIsNotCalledSilent(t *testing.T) {
 
 	if level.Peak >= SpeechPeak {
 		t.Fatal("room tone would be reported as speech")
+	}
+}
+
+// pw-record's --target takes a serial or a name, never PipeWire's object id.
+// They differ for the same device, so passing the id targeted a serial that did
+// not exist and recording fell back to the default input — which is why every
+// attempt captured the wrong microphone while appearing to work.
+func TestMicrophoneIDIsANameNotANumber(t *testing.T) {
+	mics, err := Microphones(context.Background())
+	if err != nil {
+		t.Skipf("PipeWire unavailable: %v", err)
+	}
+
+	if len(mics) == 0 {
+		t.Skip("no inputs on this machine")
+	}
+
+	for _, m := range mics {
+		if m.ID == "" {
+			t.Errorf("microphone %q has no id", m.Name)
+		}
+
+		if _, err := strconv.Atoi(m.ID); err == nil {
+			t.Errorf("microphone %q has a numeric id %q; pw-record would read it as a serial",
+				m.Name, m.ID)
+		}
 	}
 }

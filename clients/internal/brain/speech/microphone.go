@@ -5,12 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 )
 
 // Microphone is an input the brain could listen through.
+//
+// ID is PipeWire's node.name, not its object id. They are different numbers for
+// the same device — the USB microphone here is object 33 and serial 50 — and
+// pw-record's --target reads a serial or a name, never an object id. Passing
+// the id silently targeted a serial that did not exist, so recording fell back
+// to the default input and every attempt captured the wrong device. The name is
+// unambiguous and survives reconnection.
 type Microphone struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
@@ -59,19 +65,20 @@ func Microphones(ctx context.Context) ([]Microphone, error) {
 			continue
 		}
 
-		name := str(props["node.description"])
-		if name == "" {
-			name = str(props["node.name"])
-		}
-
-		if name == "" {
+		nodeName := str(props["node.name"])
+		if nodeName == "" {
 			continue
 		}
 
+		label := str(props["node.description"])
+		if label == "" {
+			label = nodeName
+		}
+
 		out = append(out, Microphone{
-			ID:      strconv.Itoa(o.ID),
-			Name:    name,
-			Default: defaultName != "" && str(props["node.name"]) == defaultName,
+			ID:      nodeName,
+			Name:    label,
+			Default: defaultName != "" && nodeName == defaultName,
 		})
 	}
 
