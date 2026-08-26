@@ -288,9 +288,51 @@ func (s Site) Sentence(owner string) string {
 // about how they work.
 func (s Site) SourceKey() string { return "browser:" + s.Domain }
 
+// TopSitesInSummary is how many appear in the ranked summary.
+const TopSitesInSummary = 10
+
 // FromSites renders scanned sites as observations.
+//
+// One observation per site, plus one ranked summary of the top few — and the
+// summary is the point. Every per-site fact is worded almost identically
+// ("Petar regularly uses X (N visits)"), so they are all near-neighbours of each
+// other in embedding space, and a question like "which sites do I use most"
+// recalls an essentially arbitrary twelve of them. The model then ranks whatever
+// it happened to get, which produced an answer that put a site with 26 visits
+// above one with 282 and omitted the most-used site entirely.
+//
+// Semantic recall answers "do I use X". It cannot answer "which is most",
+// because that is a property of the whole set rather than of any member. The
+// summary puts the whole set into one fact, so recalling it once is enough.
 func FromSites(sites []Site, owner string) Observations {
-	out := make(Observations, 0, len(sites))
+	out := make(Observations, 0, len(sites)+1)
+
+	if owner == "" {
+		owner = "The owner"
+	}
+
+	if len(sites) > 0 {
+		top := sites
+		if len(top) > TopSitesInSummary {
+			top = top[:TopSitesInSummary]
+		}
+
+		var b strings.Builder
+
+		fmt.Fprintf(&b, "%s's most-used websites, in order of how often they are visited: ", owner)
+
+		for i, s := range top {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+
+			fmt.Fprintf(&b, "%s (%d)", s.Domain, s.Visits)
+		}
+
+		b.WriteString(".")
+
+		out = append(out, Observation{Content: b.String(), Source: "browser:__ranking__"})
+	}
 
 	for _, s := range sites {
 		out = append(out, Observation{Content: s.Sentence(owner), Source: s.SourceKey()})
