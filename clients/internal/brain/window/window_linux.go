@@ -1,6 +1,6 @@
-//go:build linux
+//go:build linux && cgo
 
-package main
+package window
 
 /*
 #cgo pkg-config: gtk+-3.0 webkit2gtk-4.1
@@ -8,7 +8,7 @@ package main
 #include <webkit2/webkit2.h>
 #include <stdlib.h>
 
-static void pn-brain_on_destroy(GtkWidget *widget, gpointer data) {
+static void pnbrain_on_destroy(GtkWidget *widget, gpointer data) {
     gtk_main_quit();
 }
 
@@ -17,33 +17,33 @@ static void pn-brain_on_destroy(GtkWidget *widget, gpointer data) {
 // bindings still pkg-config against webkit2gtk-4.0, which Ubuntu 24.04 does not
 // ship at all — only 4.1 exists. This is the whole of what PN Brain needs from a
 // desktop toolkit: one window, one web view, one URL.
-static WebKitWebView *pn-brain_view = NULL;
+static WebKitWebView *pnbrain_view = NULL;
 
 // Navigation has to happen on the GTK main loop, so a pending URL is left here
 // and picked up by a timer rather than being loaded from the Go goroutine that
 // produced it. Touching GTK from another thread is undefined behaviour.
-static char *pn-brain_pending_url = NULL;
-static GMutex pn-brain_pending_lock;
+static char *pnbrain_pending_url = NULL;
+static GMutex pnbrain_pending_lock;
 
-void pn-brain_request_navigation(const char *url) {
-    g_mutex_lock(&pn-brain_pending_lock);
-    g_free(pn-brain_pending_url);
-    pn-brain_pending_url = g_strdup(url);
-    g_mutex_unlock(&pn-brain_pending_lock);
+void pnbrain_request_navigation(const char *url) {
+    g_mutex_lock(&pnbrain_pending_lock);
+    g_free(pnbrain_pending_url);
+    pnbrain_pending_url = g_strdup(url);
+    g_mutex_unlock(&pnbrain_pending_lock);
 }
 
-static gboolean pn-brain_poll_navigation(gpointer data) {
+static gboolean pnbrain_poll_navigation(gpointer data) {
     char *url = NULL;
 
-    g_mutex_lock(&pn-brain_pending_lock);
-    if (pn-brain_pending_url != NULL) {
-        url = pn-brain_pending_url;
-        pn-brain_pending_url = NULL;
+    g_mutex_lock(&pnbrain_pending_lock);
+    if (pnbrain_pending_url != NULL) {
+        url = pnbrain_pending_url;
+        pnbrain_pending_url = NULL;
     }
-    g_mutex_unlock(&pn-brain_pending_lock);
+    g_mutex_unlock(&pnbrain_pending_lock);
 
-    if (url != NULL && pn-brain_view != NULL) {
-        webkit_web_view_load_uri(pn-brain_view, url);
+    if (url != NULL && pnbrain_view != NULL) {
+        webkit_web_view_load_uri(pnbrain_view, url);
         gtk_window_set_title(GTK_WINDOW(data), "PN Brain");
         g_free(url);
     }
@@ -51,7 +51,7 @@ static gboolean pn-brain_poll_navigation(gpointer data) {
     return G_SOURCE_CONTINUE;
 }
 
-static void pn-brain_open_window(const char *url, const char *title, int width, int height) {
+static void pnbrain_open_window(const char *url, const char *title, int width, int height) {
     if (!gtk_init_check(NULL, NULL)) {
         return;
     }
@@ -59,7 +59,7 @@ static void pn-brain_open_window(const char *url, const char *title, int width, 
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), title);
     gtk_window_set_default_size(GTK_WINDOW(window), width, height);
-    g_signal_connect(window, "destroy", G_CALLBACK(pn-brain_on_destroy), NULL);
+    g_signal_connect(window, "destroy", G_CALLBACK(pnbrain_on_destroy), NULL);
 
     WebKitWebView *view = WEBKIT_WEB_VIEW(webkit_web_view_new());
 
@@ -69,11 +69,11 @@ static void pn-brain_open_window(const char *url, const char *title, int width, 
     WebKitSettings *settings = webkit_web_view_get_settings(view);
     webkit_settings_set_enable_developer_extras(settings, TRUE);
 
-    pn-brain_view = view;
+    pnbrain_view = view;
     webkit_web_view_load_uri(view, url);
     gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
-    g_timeout_add(200, pn-brain_poll_navigation, window);
+    g_timeout_add(200, pnbrain_poll_navigation, window);
 
     gtk_widget_show_all(window);
     gtk_main();
@@ -95,7 +95,7 @@ func init() {
 // openWindowWithNavigation opens the window and, when a URL arrives on the
 // channel, navigates the same window to it — so first-run setup hands over to
 // the brain in place rather than closing and reopening.
-func openWindowWithNavigation(url, title string, width, height int, navigate <-chan string) error {
+func OpenWithNavigation(url, title string, width, height int, navigate <-chan string) error {
 	go func() {
 		for next := range navigate {
 			cNext := C.CString(next)
@@ -107,7 +107,7 @@ func openWindowWithNavigation(url, title string, width, height int, navigate <-c
 	return openWindow(url, title, width, height)
 }
 
-func openWindow(url, title string, width, height int) error {
+func Open(url, title string, width, height int) error {
 	cURL := C.CString(url)
 	defer C.free(unsafe.Pointer(cURL))
 
@@ -118,3 +118,6 @@ func openWindow(url, title string, width, height int) error {
 
 	return nil
 }
+
+// Available reports whether a native window can be opened by this build.
+func Available() bool { return true }

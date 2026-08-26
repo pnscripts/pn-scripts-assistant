@@ -13,52 +13,6 @@ import (
 func Requirements() []Requirement {
 	list := []Requirement{
 		{
-			Name:        "Docker",
-			Why:         "runs the brain, its database and queue",
-			Consequence: "PN Brain cannot start in server mode",
-			Check: func() (State, string) {
-				if !commandExists("docker") {
-					return Missing, ""
-				}
-
-				return OK, versionOf("docker", "--version")
-			},
-			InstallCmd: func() []string {
-				if runtime.GOOS != "linux" {
-					return nil
-				}
-
-				return aptInstall("docker.io", "docker-compose-v2")
-			},
-			NeedsRoot:  true,
-			ManualHint: "Install Docker Desktop from docker.com",
-		},
-		{
-			Name:        "Docker daemon",
-			Why:         "must be running, not just installed",
-			Consequence: "PN Brain cannot start in server mode",
-			Check: func() (State, string) {
-				if !commandExists("docker") {
-					return Missing, "docker not installed"
-				}
-
-				if versionOf("docker", "info", "--format", "{{.ServerVersion}}") == "" {
-					return Missing, "installed but not running"
-				}
-
-				return OK, "running"
-			},
-			InstallCmd: func() []string {
-				if runtime.GOOS != "linux" {
-					return nil
-				}
-
-				return []string{"sudo", "systemctl", "enable", "--now", "docker"}
-			},
-			NeedsRoot:  true,
-			ManualHint: "Start Docker Desktop",
-		},
-		{
 			Name:        "Ollama",
 			Why:         "runs language models locally, for free and privately",
 			Consequence: "only the paid API provider will work",

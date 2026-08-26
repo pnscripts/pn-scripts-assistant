@@ -24,17 +24,26 @@ import (
 	"pn-brain/internal/brain/paths"
 	"pn-brain/internal/brain/server"
 	"pn-brain/internal/brain/store"
+	"pn-brain/internal/brain/window"
 )
 
 func main() {
+	// No arguments means "run the app". Double-clicking an icon passes none,
+	// and that is the path most people will take.
 	if len(os.Args) < 2 {
-		usage()
-		os.Exit(2)
+		if err := runApp(nil); err != nil {
+			fmt.Fprintf(os.Stderr, "\n  %v\n\n", err)
+			os.Exit(1)
+		}
+
+		return
 	}
 
 	var err error
 
 	switch os.Args[1] {
+	case "app":
+		err = runApp(os.Args[2:])
 	case "serve":
 		err = runServe(os.Args[2:])
 	case "rewrite-paths":
@@ -63,7 +72,8 @@ func main() {
 func usage() {
 	fmt.Fprint(os.Stderr, `PN Brain
 
-  brain serve               run the brain and serve its interface
+  brain                     run the app: serve, and open the window
+  brain serve               serve only, without a window
   brain status              where the data lives and what is in it
   brain promote             turn validated lessons into durable knowledge
   brain import <dir>        load a Postgres export into a fresh database
@@ -416,6 +426,79 @@ func runPromote(args []string) error {
 
 	fmt.Printf("  promoted   %d\n", promoted)
 	fmt.Printf("  duplicates %d  (already known, rejected)\n\n", duplicates)
+
+	return nil
+}
+
+// runApp is the whole program for someone who just wants their assistant: the
+// brain starts, and a window opens onto it.
+//
+// Both live in this one process. Before Docker was removed this needed a
+// container stack, a launcher script and a separate desktop binary that polled
+// for the backend to come up; none of that exists now, and neither do the ways
+// it could half-start.
+func runApp(args []string) error {
+	fs := flag.NewFlagSet("app", flag.ExitOnError)
+	addr := fs.String("addr", "", "address to listen on (loopback only)")
+	fs.Parse(args)
+
+	db, root, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	cfg, err := config.Load(root.Path)
+	if err != nil {
+		return err
+	}
+
+	if *addr != "" {
+		cfg.Addr = *addr
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
+	b.Start(ctx)
+	defer b.Stop()
+
+	ln, err := server.Listen(cfg.Addr)
+	if err != nil {
+		return err
+	}
+
+	srv := server.New(b, logger)
+	serveErr := make(chan error, 1)
+
+	go func() { serveErr <- srv.Serve(ctx, ln) }()
+
+	url := "http://" + ln.Addr().String()
+
+	facts, _ := db.CountFacts()
+	fmt.Printf("\n  %s\n", cfg.Name)
+	fmt.Printf("  %d facts  ·  privacy: %s  ·  %s\n", facts, b.Mode, cfg.OllamaModel)
+	fmt.Printf("  %s\n\n", url)
+
+	if !window.Available() {
+		// Without a window the brain is a reduced program, not a broken one:
+		// it is serving, and any browser can reach it. Say so and keep running
+		// rather than exiting on a missing build dependency.
+		fmt.Fprintf(os.Stderr, "  %v\n\n", window.Open(url, cfg.Name, 1280, 860))
+
+		return <-serveErr
+	}
+
+	// The window owns the main thread from here; closing it ends the program,
+	// which is what closing an application's window should do.
+	if err := window.Open(url, cfg.Name, 1280, 860); err != nil {
+		return err
+	}
+
+	stop()
 
 	return nil
 }
