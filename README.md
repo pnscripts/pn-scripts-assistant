@@ -1,79 +1,102 @@
-# PN Brain
+# pn-brain
 
-A personal, self-learning AI assistant. Laravel core, hybrid local/API LLM routing, and
-a Lesson-quarantine learning pipeline modeled on the `.ai/` knowledge-promotion system
-from the `pnscripts` Laravel project. Full architecture and phase roadmap: see
-[docs/ROADMAP.md](docs/ROADMAP.md).
+A personal, self-learning AI assistant that runs entirely on your own machine.
 
-## Portability
+One binary. No database server, no container runtime, no cloud account. It
+remembers what it learns about you, and what it learns stays here.
 
-PN Brain's *data* (conversations, Lessons, promoted knowledge, Postgres/Redis files)
-lives outside this repo, in a portable `PN-BRAIN-DATA/` folder on an external drive,
-marked with `.brain-root.json`. This repo (the code) can be cloned onto any machine;
-`scripts/start-brain.sh` finds the data root wherever it currently is (or creates a new
-one) and points Docker at it — nothing is hardcoded to one computer or one drive.
+## What it does
+
+- **Answers with memory.** It recalls what it already knows about your projects
+  and documents, and uses that to answer — so "where does that project live"
+  gets a real path rather than a guess.
+- **Learns on its own.** It scans your code and documents, and proposes things
+  worth remembering after conversations. Anything it inferred waits for you to
+  approve; anything it can verify against the disk promotes itself.
+- **Acts, with permission.** It can read files, list directories, search and
+  read the web, and control a smart home. Anything that *changes* something
+  stops and asks first, showing exactly what will happen.
+- **Draws what it knows.** The interface renders a live map of memory, built
+  from real embedding similarity — not decoration.
+
+## Privacy
+
+This is the part that is enforced in code rather than promised in a prompt.
+
+| mode | what leaves the machine |
+|---|---|
+| `private` (default) | **nothing** — local model, local embeddings, no web |
+| `research` | search queries only; conversations and memory stay here |
+| `open` | what you type may go to a third-party model |
+
+**What the brain has learned about you never leaves, in any mode.** Not in
+`open`, not with any setting. Conversations are typed deliberately; memory is
+assembled from your disk without you composing it, so it is not ours to forward.
+There is no configuration that changes this.
+
+An unrecognised privacy value is treated as `private`, because the safe reading
+of a typo is the strict one.
+
+## Requirements
+
+- [Ollama](https://ollama.com) with a chat model and `nomic-embed-text`
+- For the native window: `libwebkit2gtk-4.1-dev` and `libgtk-3-dev` (Linux)
+
+Run `pn-brain-doctor` to see what is missing and install it.
 
 ## Running it
 
-Requires Docker. First time, or after plugging the drive into a different computer:
+Download the AppImage, make it executable, run it:
 
 ```bash
-scripts/start-brain.sh
+chmod +x PN-Brain-x86_64.AppImage
+./PN-Brain-x86_64.AppImage
 ```
 
-Then, once containers are up:
+Or build from source:
 
 ```bash
-docker compose exec laravel.test php artisan migrate
-docker compose exec laravel.test php artisan make:filament-user
+CGO_ENABLED=1 go build -C clients -o ../dist/pn-brain ./cmd/brain
 ```
 
-Visit `http://localhost:8090` for the temporary chat smoke-test page, or
-`http://localhost:8090/admin` for the Filament admin (Conversations, Lessons).
+`CGO_ENABLED=0` builds fine too — you get the brain without a native window,
+reachable in any browser at `127.0.0.1:8790`.
 
-To stop: `scripts/start-brain.sh --down`
+## Where the data lives
 
-## Configuration
+The brain finds itself. It looks for a `.brain-root.json` marker across mounted
+drives, so the data can live on an external disk, be unplugged, reattached at a
+different path, or moved to another computer — nothing is pinned to a machine.
+With no marker anywhere, it creates one under `~/.local/share/pn-brain`.
 
-Copy `.env.example` to `.env` (done automatically by `start-brain.sh` on first run) and
-set `ANTHROPIC_API_KEY` if you want the `anthropic` provider available. Local Ollama
-models (already installed on the host) are used via `http://host.docker.internal:11434`
-— no key needed, but slower since inference is CPU-only.
+Settings live beside the data in `brain.conf`, not beside the program, because
+they describe *this brain* rather than this installation.
 
-`BRAIN_NAME` / `BRAIN_OWNER` control the assistant's spoken identity (see
-`app/Brain/Persona.php`) — change them freely, nothing else depends on the value.
+## Commands
 
-`SCAN_DEV_PROJECTS_PATH` / `SCAN_HOME_PROJECTS_PATH` / `SCAN_DOCUMENTS_PATH` point at
-directories to learn from — mounted **read-only** into the app container (see
-`compose.yaml`), never written to. Run `php artisan brain:ingest-projects` or
-`brain:ingest-documents` to (re-)scan and propose Lessons for anything new. Documents
-are scanned metadata-only (name/type/size/date) — no content extraction for
-`.docx`/`.odt`/`.pdf`/`.xlsx`.
+The interface does everything; these exist for people who prefer a terminal.
 
-## API
+```
+pn-brain                    run the app: serve, and open the window
+pn-brain serve              serve only, without a window
+pn-brain status             where the data lives and what is in it
+pn-brain ingest <dir>...    learn about the projects and documents in a folder
+pn-brain promote            turn validated lessons into durable knowledge
+pn-brain tidy               clear self-descriptions out of the review queue
+pn-brain rewrite-paths      repair stored paths after a move, then re-embed
+pn-brain import <dir>       load a Postgres export into a fresh database
+```
 
-`POST /api/chat` — body: `{ "message": "...", "conversation_id": null, "provider": null }`.
-`provider` is optional (`"ollama"` or `"anthropic"`); omit it to use the configured
-default (`LLM_DEFAULT_PROVIDER` in `.env`).
+## How it is built
 
-`GET /api/brain` — `{ "name": "PN Brain", "owner": "Petar" }`. Lets every client introduce
-the assistant the same way without hardcoding its name.
+Go, and a SQLite file. Vectors are stored as float32 blobs and similarity is
+computed in process — exact, and cheaper than the network hop it replaced.
 
-## Clients
+It used to be Laravel with Postgres, pgvector and Redis in Docker. That worked,
+and it still could not be downloaded and run, which was the entire point. The
+reasoning behind the switch — and the reasoning behind *not* switching, which
+was wrong — is kept in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-PN Brain itself (routing, learning pipeline, database) is single-sourced in Laravel on
-purpose — one source of truth for the logic. Everything that just *talks* to it over
-the API is free to be whatever language fits its platform:
+## Licence
 
-| Client | Language | Status |
-|---|---|---|
-| [clients/cli](clients/cli) | Go | done — terminal chat client |
-| Jarvis-style HUD | Godot | planned (Phase 5) |
-| Desktop app | C#/.NET | planned (Phase 5) |
-| Mobile | Flutter/PWA | planned (Phase 5) |
-
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the full sequencing.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+See [LICENSE](LICENSE).

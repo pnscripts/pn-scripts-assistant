@@ -58,14 +58,23 @@ Where other languages still earn their place: platform-native code for Windows
 WebView2 and macOS WKWebView, and Python if PDF text extraction or OCR is ever
 added.
 
-- ~~**Phase 2** — Validator/Curator/Promotion pipeline; semantic recall.~~ **Done**, see below.
+## Where it stands
+
+The Laravel application is gone; everything it did runs in Go. What that covers:
+memory and recall, the Extractor/Validator/Curator pipeline, the project and
+document scanners, the agent loop with its approval gate, filesystem and web
+tools, Home Assistant, lesson review, and the memory map.
+
+- ~~**Phase 2** — Validator/Curator/Promotion pipeline; semantic recall.~~ **Done**.
 - **Phase 3** — The real Jarvis-style web dashboard (chat + memory browser), replacing
   the temporary smoke-test page at `/`.
 - **Phase 4** — Opt-in knowledge ingestion, reviewed before anything is promoted.
   Projects and Documents: done (see below). Still open: browser history, email
   (requires OAuth setup, not something to build silently).
-- **Phase 5** — Desktop app (Tauri) and mobile client (PWA or Flutter first), and an
-  optional Godot-built animated HUD front end for the visual "Jarvis" feel.
+- ~~**Phase 5** — Desktop app.~~ **Done on Linux**: GTK3 and WebKitGTK, in the same
+  binary that serves the interface. Windows (WebView2) and macOS (WKWebView) are
+  unimplemented — each needs platform-native code, which is where another language
+  genuinely earns its place. A mobile client would talk to the same HTTP API.
 - **Phase 6** — Multi-drive expansion: a drive registry in `PN-BRAIN-DATA`, so when more
   drives get connected, PN Brain can extend storage across them instead of requiring a
   rebuild.
