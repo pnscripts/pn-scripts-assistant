@@ -391,3 +391,48 @@ textarea:focus { border-color: var(--accent-dim); }
 }
 
 .boot { z-index: 1; }
+
+/* Drives the brain could move to. Listed always, not only when the disk is
+   filling: somebody deciding whether to plug a drive in wants to know what it
+   would gain them before the warning appears. */
+.drives {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.drive {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 10px;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.drive.current {
+    border-color: rgba(77, 208, 225, 0.35);
+    background: rgba(77, 208, 225, 0.05);
+}
+
+.drive-path {
+    font-family: ui-monospace, monospace;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.drive-free {
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.drive-note {
+    grid-column: 1 / -1;
+    color: var(--text-dim);
+    font-size: 10px;
+}

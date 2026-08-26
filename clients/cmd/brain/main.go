@@ -24,6 +24,7 @@ import (
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/paths"
 	"pn-brain/internal/brain/server"
+	"pn-brain/internal/brain/storage"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/window"
 	"pn-brain/internal/preflight"
@@ -53,6 +54,10 @@ func main() {
 		err = runRewritePaths(os.Args[2:])
 	case "ingest":
 		err = runIngest(os.Args[2:])
+	case "drives":
+		err = runDrives(os.Args[2:])
+	case "move":
+		err = runMove(os.Args[2:])
 	case "tidy":
 		err = runTidy(os.Args[2:])
 	case "promote":
@@ -84,6 +89,8 @@ func usage() {
   brain status              where the data lives and what is in it
   brain ingest <dir>...     learn about the projects and documents in a folder
   brain promote             turn validated lessons into durable knowledge
+  brain drives              where the brain could live, and how much room is left
+  brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
   brain import <dir>        load a Postgres export into a fresh database
   brain rewrite-paths       repair stored paths after a move, then re-embed
@@ -754,4 +761,105 @@ func runFirstRunSetup(settingsPath, name string) error {
 	}
 
 	return window.Open(srv.URL(), name+" — Setup", 900, 700)
+}
+
+func runDrives(args []string) error {
+	fs := flag.NewFlagSet("drives", flag.ExitOnError)
+	fs.Parse(args)
+
+	root, err := paths.FindOrCreate()
+	if err != nil {
+		return err
+	}
+
+	drives, err := storage.Drives(root.Path)
+	if err != nil {
+		return err
+	}
+
+	report := storage.Check(root.Path, root.DatabasePath())
+
+	fmt.Printf("\n  the brain is on %s — %.0fGB free of %.0fGB (%s)\n\n",
+		root.Path,
+		float64(report.FreeBytes)/(1<<30), float64(report.TotalBytes)/(1<<30),
+		report.Level)
+
+	if report.Advice != "" {
+		fmt.Printf("  %s\n\n", report.Advice)
+	}
+
+	fmt.Printf("  %-42s %8s %8s  %s\n", "MOUNTED AT", "SIZE", "FREE", "")
+
+	for _, d := range drives {
+		marks := []string{}
+
+		if d.Current {
+			marks = append(marks, "in use")
+		}
+
+		if d.Removable {
+			marks = append(marks, "removable")
+		}
+
+		if !d.Writable {
+			marks = append(marks, "not writable")
+		}
+
+		fmt.Printf("  %-42s %7.0fG %7.0fG  %s\n",
+			trim(d.MountPoint, 42),
+			float64(d.TotalBytes)/(1<<30),
+			float64(d.FreeBytes)/(1<<30),
+			strings.Join(marks, ", "))
+	}
+
+	fmt.Printf("\n  Move it with:  brain move <folder on another drive>\n\n")
+
+	return nil
+}
+
+// runMove relocates the brain. It refuses to run while the brain is serving,
+// because copying a SQLite file that something else is writing to produces a
+// file that looks fine and is not.
+func runMove(args []string) error {
+	fs := flag.NewFlagSet("move", flag.ExitOnError)
+	keep := fs.Bool("keep-source", false, "leave the original in place as a backup")
+	fs.Parse(args)
+
+	if fs.NArg() != 1 {
+		return errors.New("give the folder to move the brain to")
+	}
+
+	root, err := paths.Find()
+	if err != nil {
+		return fmt.Errorf("no brain found to move: %w", err)
+	}
+
+	destination := fs.Arg(0)
+
+	fmt.Printf("\n  from  %s\n  to    %s\n\n", root.Path, destination)
+
+	last := 0
+
+	rep, err := storage.Move(root.Path, destination, *keep, func(_ string, done, total int) {
+		// Percentage rather than filenames: a brain is thousands of small files
+		// and scrolling all of them tells nobody anything.
+		if pct := done * 100 / total; pct >= last+10 {
+			last = pct
+			fmt.Printf("  %d%%  (%d of %d files)\n", pct, done, total)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\n  moved %d files, %.1fGB, all %d verified\n",
+		rep.Files, float64(rep.Bytes)/(1<<30), rep.Verified)
+
+	if rep.SourceKept {
+		fmt.Printf("  the original is still at %s\n", rep.From)
+	}
+
+	fmt.Printf("\n  The brain will find itself there on the next start.\n\n")
+
+	return nil
 }

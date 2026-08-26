@@ -264,10 +264,67 @@ async function decideLesson(id, decision) {
     }
 
     refreshLessons();
+    refreshDrives();
     refreshStatus();
 
     // Remembering something adds a node, so the map is no longer current.
     if (window.brainMapReload) window.brainMapReload();
+}
+
+/*
+ * Where the brain could live.
+ *
+ * Shown always rather than only when the disk is filling: somebody deciding
+ * whether to plug a drive in wants to know what it would gain them before the
+ * warning appears, not after.
+ */
+async function refreshDrives() {
+    let data;
+
+    try {
+        data = await api.get('/api/drives');
+    } catch {
+        return;
+    }
+
+    const list = el('drives');
+    list.textContent = '';
+
+    (data.drives || []).forEach((d) => {
+        const row = document.createElement('div');
+        row.className = 'drive' + (d.current ? ' current' : '');
+
+        const where = document.createElement('span');
+        where.className = 'drive-path';
+        where.textContent = d.mount_point;
+
+        const free = document.createElement('span');
+        free.className = 'drive-free';
+        free.textContent = (d.free_bytes / GB).toFixed(0) + 'GB free';
+
+        row.append(where, free);
+
+        const marks = [];
+        if (d.current) marks.push('in use');
+        if (d.removable) marks.push('removable');
+        if (!d.writable) marks.push('not writable');
+
+        if (marks.length) {
+            const note = document.createElement('span');
+            note.className = 'drive-note';
+            note.textContent = marks.join(' · ');
+            row.appendChild(note);
+        }
+
+        list.appendChild(row);
+    });
+
+    if (data.how && (data.drives || []).length > 1) {
+        const how = document.createElement('p');
+        how.className = 'storage-hint';
+        how.textContent = data.how;
+        list.appendChild(how);
+    }
 }
 
 async function refreshApprovals() {
@@ -329,6 +386,7 @@ async function decide(id, decision) {
     }
     refreshApprovals();
     refreshLessons();
+    refreshDrives();
     refreshActivity();
     refreshStatus();
 }
@@ -417,6 +475,7 @@ el('input').addEventListener('input', (e) => {
     await restoreConversation();
     refreshApprovals();
     refreshLessons();
+    refreshDrives();
     refreshActivity();
     el('input').focus();
 
@@ -426,6 +485,7 @@ el('input').addEventListener('input', (e) => {
         refreshStatus();
         refreshApprovals();
         refreshLessons();
+        refreshDrives();
         refreshActivity();
     }, 5000);
 })();
