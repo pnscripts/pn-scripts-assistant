@@ -69,15 +69,25 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		DBPath: dbPath,
 	}
 
+	available := []tools.Tool{
+		tools.ReadFile{},
+		tools.ListDirectory{},
+		tools.WriteFile{},
+		tools.RunCommand{},
+	}
+
+	// The web tool is not registered at all in private mode, rather than
+	// registered and refused. A tool the model can see is a tool it will try,
+	// and an assistant that keeps proposing something it may never do is worse
+	// than one that simply cannot.
+	if mode.AllowsWeb() {
+		available = append(available, tools.FetchURL{})
+	}
+
 	b.Agent = &agent.Loop{
-		DB:  db,
-		Log: logger,
-		Registry: tools.NewRegistry(
-			tools.ReadFile{},
-			tools.ListDirectory{},
-			tools.WriteFile{},
-			tools.RunCommand{},
-		),
+		DB:       db,
+		Log:      logger,
+		Registry: tools.NewRegistry(available...),
 	}
 
 	// Learning reads the conversation and must therefore stay on this machine

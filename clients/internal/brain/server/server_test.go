@@ -313,3 +313,35 @@ func postJSON(t *testing.T, url string, into any) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// A tool the model can see is a tool it will try. In private mode the web tool
+// is not registered at all, rather than registered and refused — an assistant
+// that keeps proposing something it may never do is worse than one that simply
+// cannot.
+func TestWebToolExistsOnlyWhenPrivacyAllowsIt(t *testing.T) {
+	cases := map[string]bool{"private": false, "research": true, "open": true}
+
+	for privacy, wantWeb := range cases {
+		t.Run(privacy, func(t *testing.T) {
+			root := t.TempDir()
+
+			db, err := store.Open(filepath.Join(root, "brain.sqlite"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+
+			cfg := config.Default()
+			cfg.Privacy = privacy
+
+			b := brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"),
+				slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+			_, hasWeb := b.Agent.Registry.Get("fetch_url")
+
+			if hasWeb != wantWeb {
+				t.Errorf("privacy %q: fetch_url present = %v, want %v", privacy, hasWeb, wantWeb)
+			}
+		})
+	}
+}
