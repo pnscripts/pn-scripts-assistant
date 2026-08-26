@@ -198,6 +198,78 @@ function renderStorage(storage) {
     if (storage.advice) el('storage-advice').textContent = storage.advice;
 }
 
+/*
+ * Lessons the brain proposes to remember.
+ *
+ * These are inferences a model made about what Petar meant, and nothing can
+ * check them — which is why they wait here instead of promoting themselves.
+ * Accepting one runs the same duplicate check as an automatic promotion, so
+ * the one path a person touches is not the one path that creates duplicates.
+ */
+async function refreshLessons() {
+    let pending = [];
+    try {
+        pending = await api.get('/api/lessons');
+    } catch {
+        return;
+    }
+
+    const panel = el('lessons-panel');
+    const list = el('lessons');
+    list.textContent = '';
+    panel.hidden = pending.length === 0;
+    el('lesson-count').textContent = pending.length;
+
+    pending.forEach((lesson) => {
+        const card = document.createElement('div');
+        card.className = 'approval';
+
+        const content = document.createElement('p');
+        // textContent, never innerHTML: a language model wrote this string and
+        // it may contain anything at all.
+        content.textContent = lesson.content;
+
+        if (lesson.confidence) {
+            const badge = document.createElement('span');
+            badge.className = 'tool';
+            badge.textContent = lesson.confidence;
+            content.prepend(badge);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'approval-actions';
+
+        const accept = document.createElement('button');
+        accept.className = 'approve';
+        accept.textContent = 'Remember';
+        accept.onclick = () => decideLesson(lesson.id, 'accept');
+
+        const reject = document.createElement('button');
+        reject.className = 'reject';
+        reject.textContent = 'Discard';
+        reject.onclick = () => decideLesson(lesson.id, 'reject');
+
+        actions.append(accept, reject);
+        card.append(content, actions);
+        list.appendChild(card);
+    });
+}
+
+async function decideLesson(id, decision) {
+    try {
+        const result = await api.post(`/api/lessons/${id}/${decision}`);
+        addMessage('system', result.message || 'Done.', { cssClass: 'brain' });
+    } catch (err) {
+        addMessage('error', String(err.message || err), { cssClass: 'error' });
+    }
+
+    refreshLessons();
+    refreshStatus();
+
+    // Remembering something adds a node, so the map is no longer current.
+    if (window.brainMapReload) window.brainMapReload();
+}
+
 async function refreshApprovals() {
     let pending = [];
     try {
@@ -256,6 +328,7 @@ async function decide(id, decision) {
         addMessage('error', String(err.message || err), { cssClass: 'error' });
     }
     refreshApprovals();
+    refreshLessons();
     refreshActivity();
     refreshStatus();
 }
@@ -343,6 +416,7 @@ el('input').addEventListener('input', (e) => {
     await refreshStatus();
     await restoreConversation();
     refreshApprovals();
+    refreshLessons();
     refreshActivity();
     el('input').focus();
 
@@ -351,6 +425,7 @@ el('input').addEventListener('input', (e) => {
     setInterval(() => {
         refreshStatus();
         refreshApprovals();
+        refreshLessons();
         refreshActivity();
     }, 5000);
 })();

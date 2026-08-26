@@ -43,6 +43,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/conversations/latest", s.handleLatestConversation)
 	s.mux.HandleFunc("GET /api/approvals", s.handleApprovals)
 	s.mux.HandleFunc("POST /api/approvals/{id}/{decision}", s.handleDecision)
+	s.mux.HandleFunc("GET /api/lessons", s.handleLessons)
+	s.mux.HandleFunc("POST /api/lessons/{id}/{decision}", s.handleLessonDecision)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -220,6 +222,47 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, body)
+}
+
+// handleLessons lists what the brain proposes to remember but has not been
+// allowed to. These are model inferences, which nothing can verify — the whole
+// reason they wait for a person rather than promoting themselves.
+func (s *Server) handleLessons(w http.ResponseWriter, r *http.Request) {
+	lessons, err := s.brain.DB.LessonsByStatus("proposed", 100)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, lessons)
+}
+
+// handleLessonDecision accepts or rejects a proposed lesson.
+func (s *Server) handleLessonDecision(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "That is not a lesson id.")
+
+		return
+	}
+
+	decision := r.PathValue("decision")
+
+	if decision != "accept" && decision != "reject" {
+		fail(w, http.StatusBadRequest, `The decision must be "accept" or "reject".`)
+
+		return
+	}
+
+	result, err := s.brain.DecideLesson(r.Context(), id, decision == "accept")
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ok(w, result)
 }
 
 func (s *Server) handleMemoryMap(w http.ResponseWriter, r *http.Request) {

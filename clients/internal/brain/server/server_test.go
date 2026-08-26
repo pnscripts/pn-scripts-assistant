@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -344,4 +345,98 @@ func TestWebToolExistsOnlyWhenPrivacyAllowsIt(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A lesson a person accepts goes through the same duplicate check as an
+// automatic promotion. Without that, the one path a human touches would be the
+// only path that can create duplicates.
+func TestAcceptingALessonStillChecksForDuplicates(t *testing.T) {
+	ts, db, b := newServer(t)
+
+	// Stand in for the embedder so the test needs no model. Two texts sharing
+	// their first word embed identically, which is enough to exercise the
+	// threshold.
+	b.Learner.Curator.Embedder = fakeEmbedder{}
+
+	first, _ := db.AddLesson(0, "Petar prefers Laravel for backend work", "proposed", "high", "")
+	second, _ := db.AddLesson(0, "Petar prefers Laravel over Python", "proposed", "high", "")
+
+	var out map[string]any
+	postJSON(t, ts.URL+"/api/lessons/"+itoa(first)+"/accept", &out)
+
+	if out["status"] != "promoted" {
+		t.Fatalf("first accept gave %v", out)
+	}
+
+	postJSON(t, ts.URL+"/api/lessons/"+itoa(second)+"/accept", &out)
+
+	if out["duplicate"] != true {
+		t.Errorf("a restatement of a known fact was stored again: %v", out)
+	}
+
+	facts, _ := db.CountFacts()
+	if facts != 1 {
+		t.Errorf("%d facts stored, want 1", facts)
+	}
+}
+
+func TestLessonDecisionsAreFinal(t *testing.T) {
+	ts, db, _ := newServer(t)
+
+	id, _ := db.AddLesson(0, "something the model guessed", "proposed", "low", "")
+
+	var out map[string]any
+	postJSON(t, ts.URL+"/api/lessons/"+itoa(id)+"/reject", &out)
+
+	if out["status"] != "rejected" {
+		t.Fatalf("reject gave %v", out)
+	}
+
+	postJSON(t, ts.URL+"/api/lessons/"+itoa(id)+"/accept", &out)
+
+	if _, isError := out["error"]; !isError {
+		t.Error("a rejected lesson was accepted on a second request")
+	}
+}
+
+// Only model inferences wait for a person. A scanned observation is checked
+// against disk and promotes itself, so it must not clutter the review list.
+func TestOnlyProposedLessonsAreOfferedForReview(t *testing.T) {
+	ts, db, _ := newServer(t)
+
+	db.AddLesson(0, "a guess", "proposed", "low", "")
+	db.AddLesson(0, "a scanned project", "validated", "high", "project:/tmp")
+	db.AddLesson(0, "already stored", "promoted", "high", "")
+	db.AddLesson(0, "thrown out", "rejected", "low", "")
+
+	var lessons []store.Lesson
+	getJSON(t, ts.URL+"/api/lessons", &lessons)
+
+	if len(lessons) != 1 || lessons[0].Content != "a guess" {
+		t.Fatalf("review list holds %+v", lessons)
+	}
+}
+
+// fakeEmbedder maps text to a vector by its first word, so restatements of the
+// same fact collide and unrelated facts do not.
+type fakeEmbedder struct{}
+
+func (fakeEmbedder) EmbedModel() string { return "fake" }
+
+func (fakeEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
+	words := strings.Fields(strings.ToLower(text))
+
+	vec := make([]float32, 8)
+
+	for i, w := range words {
+		if i >= 2 {
+			break
+		}
+
+		for _, r := range w {
+			vec[int(r)%8] += 1
+		}
+	}
+
+	return vec, nil
 }
