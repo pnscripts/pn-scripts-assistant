@@ -26,6 +26,8 @@ import (
 	"pn-brain/internal/brain/server"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/window"
+	"pn-brain/internal/preflight"
+	"pn-brain/internal/setup"
 )
 
 func main() {
@@ -447,6 +449,7 @@ func runPromote(args []string) error {
 func runApp(args []string) error {
 	fs := flag.NewFlagSet("app", flag.ExitOnError)
 	addr := fs.String("addr", "", "address to listen on (loopback only)")
+	skipSetup := fs.Bool("skip-setup", false, "start even if the machine is missing something")
 	fs.Parse(args)
 
 	db, root, err := openDB()
@@ -468,6 +471,21 @@ func runApp(args []string) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// A machine with no model cannot answer anything, and the brain cannot
+	// serve its own setup page while it is the thing that is missing. So setup
+	// runs first, in its own window, and only hands over once the machine can
+	// actually run an assistant.
+	if !*skipSetup && missingEssentials() {
+		if err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
+			return err
+		}
+
+		// Settings may have changed during setup — an API key, a model.
+		if cfg, err = config.Load(root.Path); err != nil {
+			return err
+		}
+	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
 	b.Start(ctx)
@@ -697,3 +715,43 @@ func runTidy(args []string) error {
 }
 
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// missingEssentials reports whether anything the brain cannot work without is
+// absent.
+//
+// Optional requirements — the WebKit headers, for instance — do not count. A
+// brain without a native window still answers questions, and stopping to demand
+// a build dependency from somebody who only wants to ask it something would be
+// the program serving itself.
+func missingEssentials() bool {
+	return preflight.BlockingCount(preflight.Check()) > 0
+}
+
+// runFirstRunSetup shows the setup page and waits for it to finish.
+//
+// It carries its own tiny web server because of an ordering problem: the brain
+// cannot serve a page explaining that Ollama is missing while Ollama being
+// missing is what stops the brain from starting.
+func runFirstRunSetup(settingsPath, name string) error {
+	srv, err := setup.New(settingsPath)
+	if err != nil {
+		return fmt.Errorf("could not start setup: %w", err)
+	}
+
+	done := make(chan struct{})
+	go srv.Serve(func() { close(done) })
+
+	fmt.Printf("\n  This machine is missing something PN Brain needs.\n")
+	fmt.Printf("  Setup: %s\n\n", srv.URL())
+
+	if !window.Available() {
+		// Without a window the setup page is still reachable, and saying so is
+		// far better than blocking on a window that will never appear.
+		fmt.Fprintf(os.Stderr, "  %v\n\n", window.Open(srv.URL(), name+" — Setup", 900, 700))
+		<-done
+
+		return nil
+	}
+
+	return window.Open(srv.URL(), name+" — Setup", 900, 700)
+}

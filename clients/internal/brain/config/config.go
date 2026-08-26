@@ -210,3 +210,9 @@ func readFile(path string) (map[string]string, error) {
 
 	return out, scanner.Err()
 }
+
+// Path is where the settings file lives inside a data root.
+//
+// Exposed so callers that write settings — first-run setup, for one — do not
+// have to reconstruct the path and drift from it.
+func Path(root string) string { return filepath.Join(root, FileName) }

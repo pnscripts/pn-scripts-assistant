@@ -92,19 +92,19 @@ func init() {
 	runtime.LockOSThread()
 }
 
-// openWindowWithNavigation opens the window and, when a URL arrives on the
-// channel, navigates the same window to it — so first-run setup hands over to
-// the brain in place rather than closing and reopening.
+// OpenWithNavigation opens the window and, when a URL arrives on the channel,
+// navigates the same window to it — so first-run setup hands over to the brain
+// in place rather than closing one window and opening another.
 func OpenWithNavigation(url, title string, width, height int, navigate <-chan string) error {
 	go func() {
 		for next := range navigate {
 			cNext := C.CString(next)
-			C.pn - brain_request_navigation(cNext)
+			C.pnbrain_request_navigation(cNext)
 			C.free(unsafe.Pointer(cNext))
 		}
 	}()
 
-	return openWindow(url, title, width, height)
+	return Open(url, title, width, height)
 }
 
 func Open(url, title string, width, height int) error {
@@ -114,7 +114,7 @@ func Open(url, title string, width, height int) error {
 	cTitle := C.CString(title)
 	defer C.free(unsafe.Pointer(cTitle))
 
-	C.pn - brain_open_window(cURL, cTitle, C.int(width), C.int(height))
+	C.pnbrain_open_window(cURL, cTitle, C.int(width), C.int(height))
 
 	return nil
 }

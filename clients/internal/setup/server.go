@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -240,7 +241,7 @@ func (s *Server) runModelPull(model string) {
 	fmt.Fprintf(w, "\nDone. %s is ready.\n", model)
 }
 
-// saveAPIKey writes the key into .env. It is never logged or echoed back: the
+// saveAPIKey writes the key into the brain's settings file. It is never logged or echoed back: the
 // setup log is displayed in the window, and a key that appears there would be
 // a key shown to anyone looking over the user's shoulder.
 func (s *Server) saveAPIKey(key string) error {
@@ -252,9 +253,16 @@ func (s *Server) saveAPIKey(key string) error {
 		return fmt.Errorf("that does not look like an Anthropic key (they start with sk-ant-)")
 	}
 
+	// On a first run the settings file does not exist yet — which is exactly
+	// when somebody is most likely to be pasting in a key. A missing file means
+	// "no settings", not a failure.
 	data, err := os.ReadFile(s.envPath)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("could not read %s: %w", s.envPath, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(s.envPath), 0o755); err != nil {
+		return fmt.Errorf("could not create the settings folder: %w", err)
 	}
 
 	lines := strings.Split(string(data), "\n")
