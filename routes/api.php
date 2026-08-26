@@ -22,6 +22,7 @@ Route::get('/brain', fn () => response()->json([
 Route::get('/status', [BrainStatusController::class, 'status']);
 Route::get('/activity', [BrainStatusController::class, 'activity']);
 Route::get('/knowledge', [BrainStatusController::class, 'knowledge']);
+Route::get('/memory-map', [BrainStatusController::class, 'memoryMap']);
 
 Route::get('/conversations/latest', [BrainStatusController::class, 'latestConversation']);
 Route::get('/conversations/{conversation}', [BrainStatusController::class, 'conversation']);

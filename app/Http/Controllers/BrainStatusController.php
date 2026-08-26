@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Brain\Persona;
 use App\Brain\Privacy;
+use App\Brain\Memory\MemoryMap;
 use App\Brain\Storage\BrainStorage;
 use App\Brain\Tools\ToolExecutor;
 use App\Brain\Tools\ToolRegistry;
@@ -39,6 +40,12 @@ class BrainStatusController extends Controller
             'provider' => config('llm.default_provider'),
             'model' => config('llm.'.config('llm.default_provider').'.model'),
         ]);
+    }
+
+    /** The shape of memory, for the map the interface draws. */
+    public function memoryMap(MemoryMap $map): JsonResponse
+    {
+        return response()->json($map->build());
     }
 
     public function approvals(): JsonResponse

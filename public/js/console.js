@@ -126,6 +126,11 @@ async function send(text) {
 
         // A pause for approval is the interesting case, so surface it
         // immediately instead of waiting for the next poll.
+        // Show which memories the brain actually reached for.
+        if (data.recalled?.length && window.brainMapRecall) {
+            window.brainMapRecall(data.recalled);
+        }
+
         if (data.pending_approvals?.length) refreshApprovals();
         refreshStatus();
         refreshActivity();

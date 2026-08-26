@@ -71,9 +71,11 @@ class ChatController extends Controller
         // forward to a third party. What they type is their choice; this is not.
         $provider = $data['provider'] ?? config('llm.default_provider');
 
-        $recalled = Privacy::allowsMemoryFor($provider)
-            ? $this->recallContext($memory, $data['message'])
-            : null;
+        $recalledFacts = Privacy::allowsMemoryFor($provider)
+            ? $this->recallFacts($memory, $data['message'])
+            : collect();
+
+        $recalled = $this->formatRecall($recalledFacts);
 
         if ($recalled) {
             array_splice($history, count($history) - 1, 0, [[
@@ -104,6 +106,9 @@ class ChatController extends Controller
             'provider' => $result->provider,
             'model' => $result->model,
             'actions_taken' => $result->actionsTaken,
+            // Which memories were actually used, so the map can show them
+            // lighting up rather than animating at random.
+            'recalled' => $recalledFacts->pluck('id')->values(),
             'pending_approvals' => array_map(fn (ToolInvocation $i) => [
                 'id' => $i->id,
                 'summary' => $i->summary,
@@ -116,16 +121,19 @@ class ChatController extends Controller
      * embedding model is down, the brain should answer without memory rather
      * than fail the whole request.
      */
-    private function recallContext(MemoryStore $memory, string $message): ?string
+    private function recallFacts(MemoryStore $memory, string $message)
     {
         try {
-            $facts = $memory->recall($message);
+            return $memory->recall($message);
         } catch (\Throwable $e) {
             Log::warning('Recall failed; answering without memory.', ['error' => $e->getMessage()]);
 
-            return null;
+            return collect();
         }
+    }
 
+    private function formatRecall($facts): ?string
+    {
         if ($facts->isEmpty()) {
             return null;
         }

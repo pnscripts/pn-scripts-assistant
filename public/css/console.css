@@ -354,3 +354,40 @@ textarea:focus { border-color: var(--accent-dim); }
 .privacy-summary.research { color: var(--accent); }
 .privacy-summary.open { color: var(--warn); }
 .privacy-detail { margin: 0; font-size: 11.5px; color: var(--text-dim); line-height: 1.45; }
+
+/* ---------- brain map ---------- */
+
+/*
+ * Sits behind the conversation rather than beside it. The map is what the brain
+ * knows; the chat is what it is saying. Putting them in separate panels would
+ * make the map a widget, and it is meant to feel like the thing you are talking
+ * to.
+ *
+ * Held back to a low opacity on purpose. It is scenery for reading against, and
+ * text has to win — a background that competes with the words is a background
+ * that gets turned off.
+ */
+.main { position: relative; }
+
+#brainmap {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.85;
+    pointer-events: auto;
+    z-index: 0;
+}
+
+/* The conversation floats above the map, and only the text catches the mouse,
+   so hovering a node still works through the gaps. */
+.transcript, .composer, .hint { position: relative; z-index: 1; }
+.transcript { pointer-events: none; }
+.transcript .msg { pointer-events: auto; }
+
+/* Legible over a moving field without a hard panel behind it. */
+.msg .body {
+    text-shadow: 0 1px 12px rgba(7, 10, 20, 0.95), 0 0 3px rgba(7, 10, 20, 0.9);
+}
+
+.boot { z-index: 1; }

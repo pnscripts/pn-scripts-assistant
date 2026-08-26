@@ -59,7 +59,12 @@ COPY --from=vendor /app .
 # arrives via openspout (Filament's spreadsheet export), so the libraries have to
 # be added rather than the extension dropped. The defaults are repeated here
 # because setting this variable replaces them wholesale.
-ENV PHP_EXTENSION_LIBS="libavif,nghttp2,nghttp3,ngtcp2,watcher,bzip2,xz,zstd"
+# PHP_EXTENSION_LIBS deliberately left at its default.
+#
+# It was overridden once, to add bzip2/xz/zstd after libzip failed to link. Then
+# ext-curl was added and the link broke again, and curl took the blame. That was
+# wrong: the very first successful build had curl and the default library set.
+# The combination never tested was curl with the defaults, which is this.
 
 WORKDIR /go/src/app
 

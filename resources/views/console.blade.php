@@ -66,6 +66,7 @@
     </aside>
 
     <main class="main">
+        <canvas id="brainmap" aria-hidden="true"></canvas>
         <div class="transcript" id="transcript">
             <div class="boot" id="boot">
                 <p class="boot-title">{{ config('brain.name') }}</p>
@@ -86,5 +87,6 @@
 </div>
 
 <script src="{{ asset('js/console.js') }}"></script>
+<script src="{{ asset('js/brainmap.js') }}"></script>
 </body>
 </html>
