@@ -48,7 +48,12 @@ func newServer(t *testing.T) (*httptest.Server, *store.DB, *brain.Brain) {
 func TestListenRefusesNonLoopback(t *testing.T) {
 	// A brain bound to a public interface works perfectly for its owner while
 	// serving everything it knows to the network around it.
-	for _, addr := range []string{"0.0.0.0:8790", "192.168.1.10:8790", ":8790"} {
+	//
+	// Port 0 throughout: with a fixed port this test passed for the wrong
+	// reason whenever that port happened to be busy, since a refused bind and a
+	// refused address are both just an error here. It hid a real bug — ":port"
+	// binds to every interface and was being allowed.
+	for _, addr := range []string{"0.0.0.0:0", "192.168.1.10:0", ":0", "[::]:0"} {
 		ln, err := Listen(addr)
 
 		if err == nil {

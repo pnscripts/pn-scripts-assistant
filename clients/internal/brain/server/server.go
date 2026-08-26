@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"pn-brain/internal/brain/brain"
+	"pn-brain/internal/brain/storage"
 )
 
 // Server serves the interface and the API.
@@ -45,6 +46,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/approvals/{id}/{decision}", s.handleDecision)
 	s.mux.HandleFunc("GET /api/lessons", s.handleLessons)
 	s.mux.HandleFunc("POST /api/lessons/{id}/{decision}", s.handleLessonDecision)
+	s.mux.HandleFunc("GET /api/drives", s.handleDrives)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -76,8 +78,15 @@ func Listen(addr string) (net.Listener, error) {
 }
 
 func isLoopback(host string) bool {
-	switch strings.ToLower(host) {
-	case "localhost", "":
+	// An empty host is not "unspecified, therefore harmless" — in ":8790" it
+	// means every interface, which is precisely the case this refuses. Treating
+	// it as loopback made the guard pass the one address most likely to be
+	// typed by somebody who wanted a shortcut.
+	if host == "" {
+		return false
+	}
+
+	if strings.EqualFold(host, "localhost") {
 		return true
 	}
 
@@ -340,6 +349,28 @@ func (s *Server) handleLatestConversation(w http.ResponseWriter, r *http.Request
 	}
 
 	ok(w, map[string]any{"conversation": c, "messages": visible})
+}
+
+// handleDrives lists where the brain could live.
+//
+// Read-only on purpose. Moving is not exposed over HTTP: it copies gigabytes,
+// deletes the original, and must happen while nothing is writing to the
+// database — none of which belongs behind a request that can be retried,
+// cancelled by a closed window, or fired twice by an impatient click.
+func (s *Server) handleDrives(w http.ResponseWriter, r *http.Request) {
+	drives, err := storage.Drives(s.brain.Root)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{
+		"current": s.brain.Root,
+		"drives":  drives,
+		"storage": s.brain.Storage(),
+		"how":     "Run 'pn-brain move <folder>' to relocate the brain. It verifies every byte before removing the original.",
+	})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
