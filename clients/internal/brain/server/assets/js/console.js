@@ -142,7 +142,8 @@ async function send(text) {
         state.busy = false;
         el('send').disabled = false;
         el('orb').classList.remove('thinking');
-        el('input').focus();
+        el('listen').onclick = listen;
+    el('input').focus();
     }
 }
 
@@ -164,6 +165,7 @@ async function refreshStatus() {
         // Only offer to speak when there is something that can. A control for
         // a capability the machine lacks is a promise the app cannot keep.
         el('speak-field').hidden = !s.capabilities.includes('speech');
+        el('listen').hidden = !s.capabilities.includes('listening');
         document.title = s.name;
     } catch {
         el('conn-dot').className = 'dot offline';
@@ -218,6 +220,38 @@ function renderStorage(storage) {
  * audio. Failure is deliberately quiet: not hearing an answer that is already
  * on screen is a small thing, and an error box about it would be a larger one.
  */
+/*
+ * Listening.
+ *
+ * What comes back goes into the input box, not straight to the brain. A
+ * recogniser that mishears "delete the backups" should not have that reach
+ * something with tools before a person has read it.
+ */
+async function listen() {
+    const button = el('listen');
+    const input = el('input');
+    const wasPlaceholder = input.placeholder;
+
+    button.disabled = true;
+    button.textContent = '●';
+    input.placeholder = 'Listening…';
+
+    try {
+        const result = await api.post('/api/listen', { seconds: 6 });
+        input.value = (result.text || '').trim();
+        input.focus();
+
+        if (!input.value) input.placeholder = 'Heard nothing — try again';
+        else input.placeholder = wasPlaceholder;
+    } catch (err) {
+        addMessage('error', String(err.message || err), { cssClass: 'error' });
+        input.placeholder = wasPlaceholder;
+    } finally {
+        button.disabled = false;
+        button.textContent = '🎤';
+    }
+}
+
 function speak(text) {
     if (!el('speak-toggle') || !el('speak-toggle').checked || !text) return;
 
@@ -495,6 +529,7 @@ el('input').addEventListener('input', (e) => {
     refreshLessons();
     refreshDrives();
     refreshActivity();
+    el('listen').onclick = listen;
     el('input').focus();
 
     // Polling rather than websockets: approvals can be decided from the Filament

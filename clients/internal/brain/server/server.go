@@ -49,6 +49,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/lessons/{id}/{decision}", s.handleLessonDecision)
 	s.mux.HandleFunc("GET /api/drives", s.handleDrives)
 	s.mux.HandleFunc("POST /api/speak", s.handleSpeak)
+	s.mux.HandleFunc("POST /api/listen", s.handleListen)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -397,6 +398,33 @@ func (s *Server) handleSpeak(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"speaking": true})
+}
+
+// handleListen records from the microphone and returns what was said.
+//
+// It does not send the result anywhere: the transcript comes back to the
+// interface, which puts it in the input box for a person to read before it is
+// asked. A recogniser that mishears "delete the backups" should not have that
+// go straight to a brain with tools.
+func (s *Server) handleListen(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Seconds int `json:"seconds"`
+	}
+
+	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body)
+
+	if body.Seconds <= 0 {
+		body.Seconds = 6
+	}
+
+	text, err := speech.Listen(r.Context(), body.Seconds)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"text": text})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

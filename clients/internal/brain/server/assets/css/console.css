@@ -436,3 +436,27 @@ textarea:focus { border-color: var(--accent-dim); }
     color: var(--text-dim);
     font-size: 10px;
 }
+
+/* The microphone. Sits beside send, and is hidden entirely unless a recogniser
+   is installed — a control for something the machine cannot do is a promise
+   the app cannot keep. */
+#listen {
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 10px;
+}
+
+#listen:hover:not(:disabled) {
+    border-color: var(--accent-dim);
+    color: var(--text);
+}
+
+#listen:disabled {
+    color: var(--danger);
+    cursor: default;
+}

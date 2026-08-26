@@ -119,3 +119,53 @@ func TestListeningReportsWhatIsMissing(t *testing.T) {
 		}
 	}
 }
+
+// Whisper emits bracketed annotations for non-speech. Passing those on as a
+// question produces a confident answer to nothing.
+func TestAnnotationsAreNotTreatedAsSpeech(t *testing.T) {
+	silent := []string{
+		"[BLANK_AUDIO]",
+		"(silence)",
+		"*coughs*",
+		"[ Silence ]\n[BLANK_AUDIO]",
+		"",
+		"\n\n  \n",
+	}
+
+	for _, raw := range silent {
+		if got := CleanTranscript(raw); got != "" {
+			t.Errorf("CleanTranscript(%q) = %q, want empty", raw, got)
+		}
+	}
+}
+
+func TestRealSpeechSurvivesCleaning(t *testing.T) {
+	raw := "\n [BLANK_AUDIO]\n Where does the xplorer project live?\n"
+
+	got := CleanTranscript(raw)
+
+	if got != "Where does the xplorer project live?" {
+		t.Errorf("got %q", got)
+	}
+}
+
+// Recording longer than this means a forgotten open microphone.
+func TestRecordingIsBounded(t *testing.T) {
+	if MaxRecordSeconds > 60 {
+		t.Errorf("MaxRecordSeconds is %d; an open microphone should stop sooner", MaxRecordSeconds)
+	}
+}
+
+// The 1MB placeholders shipped with whisper.cpp would transcribe everything as
+// silence, and the failure would look like a broken microphone.
+func TestTestModelsAreNotMistakenForRealOnes(t *testing.T) {
+	r, why := FindRecogniser()
+
+	if r == nil {
+		t.Skipf("no recogniser installed: %s", why)
+	}
+
+	if strings.Contains(r.Model, "for-tests-") {
+		t.Errorf("selected a test placeholder as the model: %s", r.Model)
+	}
+}

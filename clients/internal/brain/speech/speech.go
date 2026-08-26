@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 )
@@ -157,25 +156,9 @@ func Readable(text string) string {
 	return s
 }
 
-// Listening reports why the brain cannot yet hear.
-//
-// Stated as a capability that is absent rather than one that is broken. Speech
-// recognition needs a model — Whisper or similar — that is not installed by
-// default and is measured in gigabytes, so it is a decision for the owner
-// rather than something to download on their behalf.
+// Listening reports whether the brain can hear, and why not when it cannot.
 func Listening() (bool, string) {
-	for _, candidate := range []string{"whisper", "whisper-cpp", "vosk-transcriber"} {
-		if _, err := exec.LookPath(candidate); err == nil {
-			return true, candidate
-		}
-	}
+	r, why := FindRecogniser()
 
-	hint := "Speech recognition needs a local model. On Linux: " +
-		"pipx install openai-whisper, or build whisper.cpp."
-
-	if runtime.GOOS == "darwin" {
-		hint = "Speech recognition needs a local model, for example: brew install whisper-cpp"
-	}
-
-	return false, hint
+	return r != nil, why
 }
