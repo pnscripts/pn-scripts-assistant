@@ -131,6 +131,7 @@ async function send(text) {
             window.brainMapRecall(data.recalled);
         }
 
+        speak(data.reply);
         if (data.pending_approvals?.length) refreshApprovals();
         refreshStatus();
         refreshActivity();
@@ -160,6 +161,9 @@ async function refreshStatus() {
         renderStorage(s.storage);
         el('conn-dot').className = 'dot online';
         el('conn-text').textContent = `online · ${s.capabilities.length} capabilities`;
+        // Only offer to speak when there is something that can. A control for
+        // a capability the machine lacks is a promise the app cannot keep.
+        el('speak-field').hidden = !s.capabilities.includes('speech');
         document.title = s.name;
     } catch {
         el('conn-dot').className = 'dot offline';
@@ -206,6 +210,20 @@ function renderStorage(storage) {
  * Accepting one runs the same duplicate check as an automatic promotion, so
  * the one path a person touches is not the one path that creates duplicates.
  */
+/*
+ * Reading a reply aloud.
+ *
+ * Local engines only — a cloud voice would post every reply, including whatever
+ * the brain recalled from this machine, to a third party to be turned into
+ * audio. Failure is deliberately quiet: not hearing an answer that is already
+ * on screen is a small thing, and an error box about it would be a larger one.
+ */
+function speak(text) {
+    if (!el('speak-toggle') || !el('speak-toggle').checked || !text) return;
+
+    api.post('/api/speak', { text }).catch(() => {});
+}
+
 async function refreshLessons() {
     let pending = [];
     try {

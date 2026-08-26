@@ -17,6 +17,7 @@ import (
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/smarthome"
+	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/tools"
@@ -393,6 +394,17 @@ func (b *Brain) Capabilities() []string {
 
 	if b.Mode.AllowsWeb() {
 		caps = append(caps, "web")
+	}
+
+	// Reported only when an engine is actually present. A capability listed
+	// without the thing behind it is worse than none, because the user asks
+	// for it.
+	if speech.Available() != nil {
+		caps = append(caps, "speech")
+	}
+
+	if listening, _ := speech.Listening(); listening {
+		caps = append(caps, "listening")
 	}
 
 	for _, a := range b.Router.Availabilities(context.Background()) {

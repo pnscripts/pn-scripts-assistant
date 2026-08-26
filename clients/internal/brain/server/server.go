@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"pn-brain/internal/brain/brain"
+	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
 )
 
@@ -47,6 +48,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/lessons", s.handleLessons)
 	s.mux.HandleFunc("POST /api/lessons/{id}/{decision}", s.handleLessonDecision)
 	s.mux.HandleFunc("GET /api/drives", s.handleDrives)
+	s.mux.HandleFunc("POST /api/speak", s.handleSpeak)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -371,6 +373,30 @@ func (s *Server) handleDrives(w http.ResponseWriter, r *http.Request) {
 		"storage": s.brain.Storage(),
 		"how":     "Run 'pn-brain move <folder>' to relocate the brain. It verifies every byte before removing the original.",
 	})
+}
+
+// handleSpeak reads a reply aloud through a local engine.
+//
+// Safe and ungated: it plays sound on the machine the request came from, which
+// is the same machine that made it. Nothing leaves, and nothing changes.
+func (s *Server) handleSpeak(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Text string `json:"text"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "Nothing to say.")
+
+		return
+	}
+
+	if err := speech.Speak(r.Context(), body.Text); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"speaking": true})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
