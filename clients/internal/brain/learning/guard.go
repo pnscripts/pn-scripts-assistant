@@ -14,9 +14,20 @@ var wrappers = []string{
 	"the user should know that ",
 }
 
-// firstPerson openers. A fact about the owner has no reason to begin "I am".
+// firstPerson openers.
+//
+// The rule is broader than it looks and deliberately so: the extractor is asked
+// for "one sentence about <owner>", and a sentence about somebody else does not
+// begin with "I". Every lesson starting in first person is therefore the
+// assistant talking about itself.
+//
+// The narrow version of this list — "i am", "i can", "i will" — was measured
+// against twelve real pending lessons and caught one of six self-descriptions.
+// It missed "I should not proceed with actions…" and "I should prioritize
+// one-purposeful calls…" purely because "should" was not enumerated.
 var firstPerson = []string{
-	"i am ", "i can ", "i will ", "my name is ", "the assistant ", "as an ai",
+	"i ", "i'", "my name is", "my capabilities", "my instructions",
+	"the assistant ", "as an ai",
 }
 
 // Every name this project has carried. Renaming left one stale identity claim
@@ -28,12 +39,25 @@ var formerNames = []string{"sage", "vesper", "pnexus", "pn brain"}
 // name this list has never seen.
 var assistantSubject = regexp.MustCompile(`^[a-z][a-z0-9 .-]{0,20} (is|can|uses|will|prefers) `)
 
-// instructions that read as advice to the assistant and never mention the owner.
+// instructions that read as advice to the assistant rather than a fact about
+// the owner.
+//
+// These are checked against the whole text and only count when the owner is not
+// named, because "Petar prefers that the assistant asks first" is a real
+// preference while "Always be mindful of my capabilities" is the assistant
+// reciting its own prompt.
 var instructions = []string{
 	"prefer one purposeful call",
+	"one-purposeful call",
 	"say what you intend",
 	"approval is necessary",
 	"requires permission",
+	"the tool will",
+	"use the tool",
+	"the tool's",
+	"always be mindful",
+	"my capabilities",
+	"use tools when",
 }
 
 // IsAboutTheAssistant reports whether a proposed lesson describes the assistant

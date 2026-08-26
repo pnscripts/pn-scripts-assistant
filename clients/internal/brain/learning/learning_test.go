@@ -160,3 +160,62 @@ func TestExtractorPromptRefusesSelfDescriptionAndAllowsNothing(t *testing.T) {
 		}
 	}
 }
+
+// The twelve lessons actually sitting unreviewed in the real brain, verbatim.
+//
+// Six of them are the assistant describing itself, and the narrow version of
+// the guard caught one. They are pinned here because they are what the guard is
+// for, and because a rule written from invented examples drifts away from the
+// output the model really produces.
+func TestGuardAgainstTheRealPendingLessons(t *testing.T) {
+	selfDescription := []string{
+		"The tool will list directory contents by default when asked; use specific tool calls to access other information",
+		"I should not proceed with actions without explaining my intent and gaining approval",
+		"When answering a question, use the tool's call to provide more information than just the result",
+		"Always be mindful of my capabilities and limitations, using tools when necessary",
+		"I can recognize a simple command from Petar",
+		"I should prioritize one-purposeful calls over speculative ones.",
+	}
+
+	for _, lesson := range selfDescription {
+		if !IsAboutTheAssistant(lesson, "PN Brain", "Petar") {
+			t.Errorf("self-description survived: %q", lesson)
+		}
+	}
+
+	aboutTheOwner := []string{
+		"The user prefers Laravel over Python for backend projects",
+		"When working on backend projects, the user prefers Laravel over Python.",
+		"User prefers sarcastic responses",
+		"Petar has two projects using Go, namely docs-saas-golang-api and xplorer-golang-api",
+		"Petar has two projects with golang-api, xplorer-hub and xplorer-golang-api",
+		"The folders within /media/petar/DEV/Projects/xplorer are separate projects",
+	}
+
+	for _, lesson := range aboutTheOwner {
+		if IsAboutTheAssistant(lesson, "PN Brain", "Petar") {
+			t.Errorf("real fact about the owner was discarded: %q", lesson)
+		}
+	}
+}
+
+// Broadening the first-person rule to any sentence starting "I" risks throwing
+// away real knowledge. Checked against the shape the scanners actually produce,
+// which is every one of the 79 facts in the real store.
+func TestGuardDoesNotDiscardScannedFacts(t *testing.T) {
+	scanned := []string{
+		`Petar has a Go project called "xplorer-golang-api" at /media/petar/DEV/Projects/xplorer/xplorer-golang-api, last modified 2026-03-07.`,
+		`Petar has a PHP/Composer project called "pnscripts.com" at /home/petar/Projects/Laravel/pnscripts/pnscripts.com, last modified 2025-08-01.`,
+		`Petar has a Word document called "XplorerServer.docx" at /home/petar/Documents/XplorerServer.docx, last modified 2024-02-11.`,
+		`Petar has a Node.js project called "_dev" at /media/petar/DEV/Projects/divacon.bg/themes/aeonmarket/_dev, last modified 2025-08-19.`,
+		// A README excerpt can contain anything, including first-person prose
+		// written by whoever authored the project.
+		`Petar has a Go project called "notes" at /home/petar/notes. README excerpt: # Notes. I wrote this to keep track of things.`,
+	}
+
+	for _, fact := range scanned {
+		if IsAboutTheAssistant(fact, "PN Brain", "Petar") {
+			t.Errorf("scanned fact was discarded: %q", fact)
+		}
+	}
+}
