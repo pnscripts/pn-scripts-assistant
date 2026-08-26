@@ -12,11 +12,13 @@ import (
 	"log/slog"
 	"strings"
 
+	"pn-brain/internal/brain/agent"
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/storage"
 	"pn-brain/internal/brain/store"
+	"pn-brain/internal/brain/tools"
 )
 
 // Brain is a running assistant.
@@ -36,6 +38,10 @@ type Brain struct {
 	// Learner runs the Extractor/Validator/Curator pipeline in the background.
 	// Nil when no local model is available, since extraction must stay local.
 	Learner *learning.Worker
+
+	// Agent runs tools. It stops rather than acting when a tool would change
+	// something, so approval stays a real gate rather than a notification.
+	Agent *agent.Loop
 }
 
 // New assembles a brain from settings.
@@ -61,6 +67,17 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Log:    logger,
 		Root:   root,
 		DBPath: dbPath,
+	}
+
+	b.Agent = &agent.Loop{
+		DB:  db,
+		Log: logger,
+		Registry: tools.NewRegistry(
+			tools.ReadFile{},
+			tools.ListDirectory{},
+			tools.WriteFile{},
+			tools.RunCommand{},
+		),
 	}
 
 	// Learning reads the conversation and must therefore stay on this machine
@@ -142,7 +159,11 @@ type ChatReply struct {
 	Provider       string  `json:"provider"`
 	Model          string  `json:"model"`
 	Recalled       []int64 `json:"recalled"`
-	ElapsedSeconds float64 `json:"elapsed_seconds"`
+
+	// ActionsTaken and PendingApprovals are what the interface shows beneath a
+	// reply: what the brain did, and what it is waiting to be allowed to do.
+	ActionsTaken     []string        `json:"actions_taken"`
+	PendingApprovals []agent.Pending `json:"pending_approvals"`
 }
 
 // Chat answers a message and records the exchange.
@@ -217,13 +238,18 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		)
 	}
 
-	resp, err := provider.Chat(ctx, llm.Request{Messages: messages})
+	result, err := b.Agent.Run(ctx, conversationID, provider, messages)
 	if err != nil {
 		return ChatReply{}, err
 	}
 
-	if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, resp.Provider, resp.Model, resp.Content); err != nil {
-		return ChatReply{}, err
+	// When the loop stopped for approval it has already written its own
+	// message; writing again would duplicate it in the transcript.
+	if !result.WaitingForApproval() {
+		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant,
+			result.Provider, result.Model, result.Reply); err != nil {
+			return ChatReply{}, err
+		}
 	}
 
 	// Learning happens after the reply is on its way, never before it: the
@@ -238,12 +264,13 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	}
 
 	return ChatReply{
-		ConversationID: conversationID,
-		Reply:          resp.Content,
-		Provider:       resp.Provider,
-		Model:          resp.Model,
-		Recalled:       ids,
-		ElapsedSeconds: resp.Elapsed.Seconds(),
+		ConversationID:   conversationID,
+		Reply:            result.Reply,
+		Provider:         result.Provider,
+		Model:            result.Model,
+		Recalled:         ids,
+		ActionsTaken:     result.ActionsTaken,
+		PendingApprovals: result.Pending,
 	}, nil
 }
 

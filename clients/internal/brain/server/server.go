@@ -42,6 +42,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/activity", s.handleActivity)
 	s.mux.HandleFunc("GET /api/conversations/latest", s.handleLatestConversation)
 	s.mux.HandleFunc("GET /api/approvals", s.handleApprovals)
+	s.mux.HandleFunc("POST /api/approvals/{id}/{decision}", s.handleDecision)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -178,12 +179,47 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleApprovals lists actions waiting for a person to allow them.
-//
-// The agent loop that produces these is not ported yet, so this returns an
-// empty list rather than a 404: the interface polls it, and a 404 would show as
-// a connection failure instead of "nothing waiting", which is the truth.
 func (s *Server) handleApprovals(w http.ResponseWriter, r *http.Request) {
-	ok(w, []any{})
+	pending, err := s.brain.PendingApprovals()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	// A bare array, because that is what the interface expects to count.
+	ok(w, pending)
+}
+
+// handleDecision records an approval or denial and carries out what was allowed.
+func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "That is not an action id.")
+
+		return
+	}
+
+	decision := r.PathValue("decision")
+
+	if decision != "approve" && decision != "deny" {
+		fail(w, http.StatusBadRequest, `The decision must be "approve" or "deny".`)
+
+		return
+	}
+
+	invocation, execErr := s.brain.Decide(r.Context(), id, decision == "approve")
+
+	// An action that ran and failed is still a completed decision, so the
+	// outcome is reported rather than turned into an HTTP error — the person
+	// needs to see what happened, not a status code.
+	body := map[string]any{"invocation": invocation}
+
+	if execErr != nil {
+		body["error"] = execErr.Error()
+	}
+
+	ok(w, body)
 }
 
 func (s *Server) handleMemoryMap(w http.ResponseWriter, r *http.Request) {
