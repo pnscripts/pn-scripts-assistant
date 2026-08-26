@@ -167,7 +167,7 @@ async function refreshStatus() {
         el('speak-field').hidden = !s.capabilities.includes('speech');
         const canListen = s.capabilities.includes('listening');
         el('listen').hidden = !canListen;
-        el('microphone').hidden = !canListen;
+        el('microphone-field').hidden = !canListen;
         if (canListen) loadMicrophones();
         document.title = s.name;
     } catch {
@@ -265,7 +265,7 @@ async function loadMicrophones() {
     const named = mics.find((m) => /mic/i.test(m.name));
     if (named) select.value = named.id;
 
-    select.hidden = mics.length === 0;
+    el('microphone-field').hidden = mics.length === 0;
     microphonesLoaded = true;
 }
 

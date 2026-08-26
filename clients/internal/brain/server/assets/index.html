@@ -66,6 +66,10 @@
                     <option value="anthropic">anthropic · api</option>
                 </select>
             </label>
+            <label class="field" id="microphone-field" hidden>
+                <span>Microphone</span>
+                <select id="microphone" aria-label="Microphone"></select>
+            </label>
             <label class="field" id="speak-field" hidden>
                 <span>Read replies aloud</span>
                 <input type="checkbox" id="speak-toggle">
@@ -85,7 +89,6 @@
 
         <form class="composer" id="composer" autocomplete="off">
             <textarea id="input" rows="1" placeholder="Say something…" aria-label="Message"></textarea>
-            <select id="microphone" hidden aria-label="Microphone" title="Which input to listen through"></select>
             <button type="button" id="listen" hidden aria-label="Speak a question"
                     title="Speak a question — it appears here for you to read before sending">🎤</button>
             <button type="submit" id="send" aria-label="Send">

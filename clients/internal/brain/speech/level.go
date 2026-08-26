@@ -2,6 +2,7 @@ package speech
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
 )
@@ -75,16 +76,40 @@ func MeasureWAV(path string) (Level, error) {
 	}, nil
 }
 
+// SpeechPeak is roughly where a spoken word registers.
+//
+// Below it, what was captured is almost certainly room tone: a fan, a hard
+// drive, traffic. This is the distinction that matters when nothing was
+// understood, because "the microphone heard the room" and "the microphone
+// heard you and whisper failed" send somebody to completely different places.
+//
+// Not a threshold anything is rejected on — only how the result is explained.
+const SpeechPeak = 8000
+
 // Explain turns a level and a transcript into something worth showing.
+//
+// It quotes the actual number. Somebody debugging a microphone needs to know
+// whether speaking louder changes anything, and a sentence that reads the same
+// at every volume tells them nothing.
 func Explain(level Level, transcript string) string {
-	switch {
-	case transcript != "":
+	if transcript != "" {
 		return ""
+	}
+
+	percent := int(level.Ratio * 100)
+
+	switch {
 	case level.Silent:
-		return "That input is silent — no sound reached it at all. " +
-			"Pick a different microphone from the list beside the button."
+		return "That input is silent — nothing reached it at all. " +
+			"Pick a different microphone in the Engine panel."
+	case level.Peak < SpeechPeak:
+		return fmt.Sprintf(
+			"Only room noise came through (peak %d%%). Nothing sounded like speech, "+
+				"so either the window closed before you spoke, or your voice is not "+
+				"reaching that input. Speaking should push this well past 25%%.", percent)
 	default:
-		return "Sound came through, but no words were made out. " +
-			"Try speaking closer, or a little louder."
+		return fmt.Sprintf(
+			"Speech-level sound came through (peak %d%%) but no words were made out. "+
+				"Try speaking a little more clearly, or closer to the microphone.", percent)
 	}
 }

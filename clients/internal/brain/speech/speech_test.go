@@ -169,3 +169,65 @@ func TestTestModelsAreNotMistakenForRealOnes(t *testing.T) {
 		t.Errorf("selected a test placeholder as the model: %s", r.Model)
 	}
 }
+
+// "Heard nothing" has causes that need opposite fixes. Conflating them sends
+// somebody to their audio settings when they simply need to speak.
+func TestAdviceDistinguishesSilenceFromRoomNoiseFromSpeech(t *testing.T) {
+	cases := []struct {
+		name  string
+		level Level
+		text  string
+		want  string
+	}{
+		{"understood", Level{Peak: 12000, Ratio: 0.37}, "hello there", ""},
+		{"nothing at all", Level{Peak: 200, Silent: true, Ratio: 0.006}, "", "silent"},
+		{"room tone only", Level{Peak: 3555, Ratio: 0.108}, "", "room noise"},
+		{"loud but unclear", Level{Peak: 20000, Ratio: 0.61}, "", "Speech-level"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := Explain(c.level, c.text)
+
+			if c.want == "" {
+				if got != "" {
+					t.Errorf("advised on a successful transcript: %q", got)
+				}
+
+				return
+			}
+
+			if !strings.Contains(got, c.want) {
+				t.Errorf("advice %q does not mention %q", got, c.want)
+			}
+		})
+	}
+}
+
+// A sentence that reads the same at every volume tells a person nothing about
+// whether speaking louder is helping.
+func TestAdviceQuotesTheActualLevel(t *testing.T) {
+	quiet := Explain(Level{Peak: 3555, Ratio: 0.108}, "")
+	louder := Explain(Level{Peak: 6000, Ratio: 0.183}, "")
+
+	if quiet == louder {
+		t.Error("advice is identical at different levels")
+	}
+
+	if !strings.Contains(quiet, "10%") || !strings.Contains(louder, "18%") {
+		t.Errorf("levels not reported:\n  %q\n  %q", quiet, louder)
+	}
+}
+
+// The real recording that started this: peak 3555 from an input that works.
+func TestTheMeasuredRoomToneIsNotCalledSilent(t *testing.T) {
+	level := Level{Peak: 3555, RMS: 996, Ratio: 3555.0 / 32767}
+
+	if level.Peak < SilenceThreshold {
+		t.Fatal("room tone would be reported as a dead input")
+	}
+
+	if level.Peak >= SpeechPeak {
+		t.Fatal("room tone would be reported as speech")
+	}
+}

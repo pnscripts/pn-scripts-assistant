@@ -437,9 +437,11 @@ textarea:focus { border-color: var(--accent-dim); }
     font-size: 10px;
 }
 
-/* The microphone. Sits beside send, and is hidden entirely unless a recogniser
-   is installed — a control for something the machine cannot do is a promise
-   the app cannot keep. */
+/* The microphone button, beside send. Hidden entirely unless a recogniser is
+   installed — a control for something the machine cannot do is a promise the
+   app cannot keep. Which input it uses is a setting and lives in the Engine
+   panel, not here: putting a select in this row let its intrinsic width, set by
+   the longest device name, squeeze the message box to nothing. */
 #listen {
     background: none;
     border: 1px solid var(--line);
