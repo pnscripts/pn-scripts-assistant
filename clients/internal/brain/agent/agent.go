@@ -79,8 +79,21 @@ func (l *Loop) Run(
 		}
 
 		if len(resp.ToolCalls) == 0 {
+			reply := presentable(resp.Content)
+
+			// A small model sometimes prints a tool call as prose instead of
+			// making one. presentable removes it, which can leave nothing at
+			// all — and silence reads as a crash. Say what happened instead,
+			// because a person who sees "no reply" has no idea whether to wait,
+			// retry, or check a log.
+			if reply == "" {
+				reply = "The model returned a tool call as text rather than making one, " +
+					"so there is no answer to show. Asking again usually works; a larger " +
+					"local model is more reliable at this."
+			}
+
 			return Result{
-				Reply:        presentable(resp.Content),
+				Reply:        reply,
 				Provider:     resp.Provider,
 				Model:        resp.Model,
 				ActionsTaken: actions,

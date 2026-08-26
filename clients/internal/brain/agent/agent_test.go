@@ -271,3 +271,29 @@ func quote(s string) string {
 
 	return string(b)
 }
+
+// Stripping a leaked tool call can leave nothing, and silence reads as a crash.
+func TestEmptyReplyIsExplainedRatherThanShownAsNothing(t *testing.T) {
+	loop, db := newLoop(t)
+
+	// Exactly what qwen2.5-coder:7b returns for "What is 2+2?": a tool call
+	// printed as prose rather than made as a call.
+	model := &scripted{replies: []llm.Response{
+		{Content: `{"name": "run_command", "arguments": {"argv": ["echo", "4"]}}`},
+	}}
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.Run(context.Background(), conv, model, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.Reply == "" {
+		t.Fatal("the user would have seen nothing at all")
+	}
+
+	if strings.Contains(res.Reply, "run_command") {
+		t.Errorf("raw tool-call JSON reached the user: %q", res.Reply)
+	}
+}
