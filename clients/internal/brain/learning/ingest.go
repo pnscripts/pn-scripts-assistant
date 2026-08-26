@@ -12,7 +12,11 @@ type IngestReport struct {
 	Rejected   int
 	Promoted   int
 	Duplicates int
-	Failed     int
+
+	// Waiting is what was recorded but needs a person before it becomes
+	// knowledge.
+	Waiting int
+	Failed  int
 }
 
 // Ingest records observations and runs them through the pipeline.
@@ -52,6 +56,11 @@ func (w *Worker) Ingest(ctx context.Context, observations Observations, progress
 		rep.Recorded++
 
 		if status != StatusValidated {
+			// Recorded but not promoted: it is waiting for a person. Counted
+			// separately, because a report saying "learned 0, known 0" when 33
+			// things went into a review queue is a report that lies by omission.
+			rep.Waiting++
+
 			continue
 		}
 

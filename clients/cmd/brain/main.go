@@ -88,6 +88,7 @@ func usage() {
   brain serve               serve only, without a window
   brain status              where the data lives and what is in it
   brain ingest <dir>...     learn about the projects and documents in a folder
+  brain ingest --browser    learn which websites you use (domains only, never URLs)
   brain promote             turn validated lessons into durable knowledge
   brain drives              where the brain could live, and how much room is left
   brain move <dir>          move the brain to another drive, verifying every byte
@@ -542,10 +543,11 @@ func runApp(args []string) error {
 func runIngest(args []string) error {
 	fs := flag.NewFlagSet("ingest", flag.ExitOnError)
 	docs := fs.Bool("documents", false, "scan for documents instead of projects")
+	browser := fs.Bool("browser", false, "scan browser history for the sites you use")
 	dry := fs.Bool("dry-run", false, "list what would be learned, without storing it")
 	fs.Parse(args)
 
-	if fs.NArg() == 0 {
+	if fs.NArg() == 0 && !*browser {
 		return errors.New("give at least one directory to scan")
 	}
 
@@ -561,6 +563,23 @@ func runIngest(args []string) error {
 	}
 
 	var observations learning.Observations
+
+	if *browser {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+
+		sites, err := learning.ScanBrowsers(home)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("  browser history — %d sites you use regularly\n", len(sites))
+		fmt.Printf("  (domains and visit counts only; no URLs are read or stored)\n")
+
+		observations = append(observations, learning.FromSites(sites, cfg.Owner)...)
+	}
 
 	for _, dir := range fs.Args() {
 		if *docs {
@@ -619,6 +638,11 @@ func runIngest(args []string) error {
 	fmt.Printf("\n  seen       %d\n", rep.Seen)
 	fmt.Printf("  learned    %d\n", rep.Promoted)
 	fmt.Printf("  known      %d  (duplicates, not stored twice)\n", rep.Duplicates)
+
+	if rep.Waiting > 0 {
+		fmt.Printf("  waiting    %d  (needs your judgement in the app)\n", rep.Waiting)
+	}
+
 	fmt.Printf("  vanished   %d  (path no longer exists)\n", rep.Rejected)
 
 	if rep.Failed > 0 {

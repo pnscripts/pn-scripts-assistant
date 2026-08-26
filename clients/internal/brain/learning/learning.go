@@ -132,7 +132,20 @@ func (e Extractor) Extract(ctx context.Context, transcript string) (*Proposal, e
 type Validator struct{}
 
 // StatusFor returns the status a lesson should take.
-func (Validator) StatusFor(source string) string {
+func (v Validator) StatusFor(source string) string {
+	// A browser observation has no path of its own — the evidence is the
+	// history database it was read from. It is still an observation rather than
+	// an inference, so it does not belong in a queue asking a person to confirm
+	// what a file plainly said. Staleness is handled the same way it is for
+	// projects: by scanning again.
+	if strings.HasPrefix(source, "browser:") {
+		if len(BrowserProfiles(homeDir())) == 0 {
+			return StatusRejected
+		}
+
+		return StatusValidated
+	}
+
 	path, ok := observedPath(source)
 	if !ok {
 		return StatusProposed
@@ -147,9 +160,23 @@ func (Validator) StatusFor(source string) string {
 
 // IsMachineVerifiable reports whether a claim can be checked without a person.
 func (Validator) IsMachineVerifiable(source string) bool {
+	if strings.HasPrefix(source, "browser:") {
+		return true
+	}
+
 	_, ok := observedPath(source)
 
 	return ok
+}
+
+// homeDir is separated so the Validator stays testable without a real home.
+func homeDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return home
 }
 
 // observedPath extracts the path a scanner recorded, if this lesson came from
@@ -221,6 +248,8 @@ func categoryFor(source string) string {
 		return "project"
 	case strings.HasPrefix(source, "document:"):
 		return "document"
+	case strings.HasPrefix(source, "browser:"):
+		return "website"
 	default:
 		return "conversation"
 	}
