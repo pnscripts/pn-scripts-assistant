@@ -50,6 +50,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/drives", s.handleDrives)
 	s.mux.HandleFunc("POST /api/speak", s.handleSpeak)
 	s.mux.HandleFunc("POST /api/listen", s.handleListen)
+	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -408,7 +409,8 @@ func (s *Server) handleSpeak(w http.ResponseWriter, r *http.Request) {
 // go straight to a brain with tools.
 func (s *Server) handleListen(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Seconds int `json:"seconds"`
+		Seconds int    `json:"seconds"`
+		Device  string `json:"device"`
 	}
 
 	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body)
@@ -417,14 +419,28 @@ func (s *Server) handleListen(w http.ResponseWriter, r *http.Request) {
 		body.Seconds = 6
 	}
 
-	text, err := speech.Listen(r.Context(), body.Seconds)
+	heard, err := speech.Listen(r.Context(), body.Seconds, body.Device)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	ok(w, map[string]any{"text": text})
+	ok(w, heard)
+}
+
+// handleMicrophones lists the inputs, so a person can pick the one they are
+// actually speaking into rather than trusting the system default — which on
+// this machine is an empty analog jack.
+func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {
+	mics, err := speech.Microphones(r.Context())
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"microphones": mics})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

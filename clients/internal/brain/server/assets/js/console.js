@@ -165,7 +165,10 @@ async function refreshStatus() {
         // Only offer to speak when there is something that can. A control for
         // a capability the machine lacks is a promise the app cannot keep.
         el('speak-field').hidden = !s.capabilities.includes('speech');
-        el('listen').hidden = !s.capabilities.includes('listening');
+        const canListen = s.capabilities.includes('listening');
+        el('listen').hidden = !canListen;
+        el('microphone').hidden = !canListen;
+        if (canListen) loadMicrophones();
         document.title = s.name;
     } catch {
         el('conn-dot').className = 'dot offline';
@@ -227,26 +230,86 @@ function renderStorage(storage) {
  * recogniser that mishears "delete the backups" should not have that reach
  * something with tools before a person has read it.
  */
+let microphonesLoaded = false;
+
+/*
+ * Which input to listen through.
+ *
+ * Offered as a choice rather than taken from the system default, because the
+ * default is frequently wrong: on this machine it is the built-in analog jack,
+ * which records near-silence while a USB microphone sits unused. That failure
+ * is indistinguishable from a broken recogniser.
+ */
+async function loadMicrophones() {
+    if (microphonesLoaded) return;
+
+    let mics = [];
+    try {
+        mics = (await api.get('/api/microphones')).microphones || [];
+    } catch {
+        return;
+    }
+
+    const select = el('microphone');
+    select.textContent = '';
+
+    mics.forEach((m) => {
+        const option = document.createElement('option');
+        option.value = m.id;
+        option.textContent = m.name + (m.default ? ' (system default)' : '');
+        select.appendChild(option);
+    });
+
+    // Prefer something that is plainly a microphone over the system default,
+    // which is often a jack with nothing in it.
+    const named = mics.find((m) => /mic/i.test(m.name));
+    if (named) select.value = named.id;
+
+    select.hidden = mics.length === 0;
+    microphonesLoaded = true;
+}
+
+const LISTEN_SECONDS = 6;
+
 async function listen() {
     const button = el('listen');
     const input = el('input');
-    const wasPlaceholder = input.placeholder;
 
     button.disabled = true;
-    button.textContent = '●';
-    input.placeholder = 'Listening…';
+    input.value = '';
+
+    // A visible countdown, because six seconds of nothing happening reads as a
+    // frozen button rather than as a microphone waiting to be spoken into.
+    let left = LISTEN_SECONDS;
+    input.placeholder = `Speak now — ${left}s`;
+
+    const ticking = setInterval(() => {
+        left -= 1;
+        input.placeholder = left > 0 ? `Speak now — ${left}s` : 'Working out what you said…';
+    }, 1000);
 
     try {
-        const result = await api.post('/api/listen', { seconds: 6 });
+        const result = await api.post('/api/listen', {
+            seconds: LISTEN_SECONDS,
+            device: el('microphone').value || '',
+        });
+
         input.value = (result.text || '').trim();
         input.focus();
 
-        if (!input.value) input.placeholder = 'Heard nothing — try again';
-        else input.placeholder = wasPlaceholder;
+        if (input.value) {
+            input.placeholder = 'Say something…';
+        } else {
+            // "Heard nothing" has two causes and they need different fixes:
+            // an input that captured silence, and a room nobody spoke in.
+            input.placeholder = 'Say something…';
+            addMessage('system', result.advice || 'Heard nothing — try again.', { cssClass: 'brain' });
+        }
     } catch (err) {
         addMessage('error', String(err.message || err), { cssClass: 'error' });
-        input.placeholder = wasPlaceholder;
+        input.placeholder = 'Say something…';
     } finally {
+        clearInterval(ticking);
         button.disabled = false;
         button.textContent = '🎤';
     }

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -91,25 +92,79 @@ func FindRecogniser() (*Recogniser, string) {
 // microphone stops on its own rather than recording the room indefinitely.
 const MaxRecordSeconds = 20
 
-// Record captures audio from the default microphone into a WAV file.
+// Record captures audio into a WAV file.
 //
 // 16kHz mono signed 16-bit, because that is what whisper expects; anything else
 // is resampled internally at best and misheard at worst.
-func Record(ctx context.Context, seconds int, path string) error {
-	if _, err := exec.LookPath("arecord"); err != nil {
-		return fmt.Errorf("arecord is not installed, so the microphone cannot be read")
-	}
-
+//
+// PipeWire is preferred and a device may be named, because ALSA's "default"
+// capture device is not reliably a microphone somebody is speaking into. On
+// this machine it is the built-in analog jack, which records near-silence while
+// a USB microphone sits unused — and that presents as a broken recogniser.
+func Record(ctx context.Context, seconds int, device, path string) error {
 	if seconds <= 0 || seconds > MaxRecordSeconds {
 		seconds = MaxRecordSeconds
 	}
 
-	cmd := exec.CommandContext(ctx, "arecord",
-		"-q", "-f", "S16_LE", "-r", "16000", "-c", "1",
-		"-d", fmt.Sprint(seconds), path)
+	if _, err := exec.LookPath("pw-record"); err == nil {
+		return recordPipeWire(ctx, seconds, device, path)
+	}
+
+	if _, err := exec.LookPath("arecord"); err != nil {
+		return fmt.Errorf("no way to record: neither pw-record nor arecord is installed")
+	}
+
+	args := []string{"-q", "-f", "S16_LE", "-r", "16000", "-c", "1", "-d", fmt.Sprint(seconds)}
+
+	if device != "" {
+		args = append(args, "-D", device)
+	}
+
+	cmd := exec.CommandContext(ctx, "arecord", append(args, path)...)
 
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("recording failed: %s", strings.TrimSpace(string(out)))
+	}
+
+	return nil
+}
+
+// recordPipeWire records for a fixed time.
+//
+// pw-record has no duration flag, so it is stopped by the clock here. It is
+// asked to stop politely first: killing it outright can leave the WAV header
+// unwritten, and a header-less file transcribes as nothing at all.
+func recordPipeWire(ctx context.Context, seconds int, device, path string) error {
+	args := []string{"--rate", "16000", "--channels", "1", "--format", "s16"}
+
+	if device != "" {
+		args = append(args, "--target", device)
+	}
+
+	cmd := exec.CommandContext(ctx, "pw-record", append(args, path)...)
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("could not start recording: %w", err)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	select {
+	case <-ctx.Done():
+		cmd.Process.Signal(syscall.SIGINT)
+		<-done
+
+		return ctx.Err()
+	case <-time.After(time.Duration(seconds) * time.Second):
+		cmd.Process.Signal(syscall.SIGINT)
+
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			cmd.Process.Kill()
+			<-done
+		}
 	}
 
 	return nil
@@ -176,11 +231,21 @@ func isAnnotation(line string) bool {
 	return false
 }
 
-// Listen records from the microphone and returns what was said.
-func Listen(ctx context.Context, seconds int) (string, error) {
+// Heard is the result of listening.
+type Heard struct {
+	Text  string `json:"text"`
+	Level Level  `json:"level"`
+
+	// Advice is empty when something was understood. Otherwise it says which
+	// kind of nothing happened.
+	Advice string `json:"advice,omitempty"`
+}
+
+// Listen records from a microphone and returns what was said.
+func Listen(ctx context.Context, seconds int, device string) (Heard, error) {
 	f, err := os.CreateTemp("", "pn-brain-listen-*.wav")
 	if err != nil {
-		return "", err
+		return Heard{}, err
 	}
 
 	path := f.Name()
@@ -188,9 +253,26 @@ func Listen(ctx context.Context, seconds int) (string, error) {
 
 	defer os.Remove(path)
 
-	if err := Record(ctx, seconds, path); err != nil {
-		return "", err
+	if err := Record(ctx, seconds, device, path); err != nil {
+		return Heard{}, err
 	}
 
-	return Transcribe(ctx, path)
+	level, err := MeasureWAV(path)
+	if err != nil {
+		return Heard{}, err
+	}
+
+	// Transcribing silence wastes seconds and invites whisper to invent
+	// something from the noise floor, which it does — "(waves crashing)" from
+	// an empty room on this machine.
+	if level.Silent {
+		return Heard{Level: level, Advice: Explain(level, "")}, nil
+	}
+
+	text, err := Transcribe(ctx, path)
+	if err != nil {
+		return Heard{Level: level}, err
+	}
+
+	return Heard{Text: text, Level: level, Advice: Explain(level, text)}, nil
 }
