@@ -82,7 +82,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	// and an assistant that keeps proposing something it may never do is worse
 	// than one that simply cannot.
 	if mode.AllowsWeb() {
-		available = append(available, tools.FetchURL{})
+		available = append(available,
+			tools.FetchURL{},
+			tools.WebSearch{BraveKey: cfg.BraveKey},
+		)
 	}
 
 	// Smart-home tools appear only when there is a house to talk to. Offering

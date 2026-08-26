@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -144,4 +145,82 @@ func TestReadableTextIsBounded(t *testing.T) {
 	if len([]rune(got)) > MaxFetchChars+40 {
 		t.Errorf("readable text is %d runes, want about %d", len([]rune(got)), MaxFetchChars)
 	}
+}
+
+func TestSearchIsSafeAndDescribesItself(t *testing.T) {
+	var s WebSearch
+
+	if s.Risk() != Safe {
+		t.Error("searching should not need approval")
+	}
+
+	if got := s.Summarize(json.RawMessage(`{"query":"golang mutex"}`)); !strings.Contains(got, "golang mutex") {
+		t.Errorf("summary is %q", got)
+	}
+}
+
+func TestSearchRequiresAQuery(t *testing.T) {
+	var s WebSearch
+
+	for _, args := range []string{`{"query":""}`, `{"query":"   "}`, `{}`} {
+		if _, err := s.Execute(context.Background(), json.RawMessage(args)); err == nil {
+			t.Errorf("accepted %s", args)
+		}
+	}
+}
+
+// A successful response that parses to nothing means the markup changed. Saying
+// "no results" would let the model conclude the web has nothing on the subject.
+func TestSearchReportsAChangedPageRatherThanNoResults(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("<html><body>completely different markup</body></html>"))
+	}))
+	defer ts.Close()
+
+	s := WebSearch{Client: ts.Client()}
+
+	// Point the scraper at the stand-in by overriding the transport.
+	s.Client = &http.Client{Transport: rewriteHost{ts.URL}}
+
+	_, err := s.Execute(context.Background(), json.RawMessage(`{"query":"anything"}`))
+	if err == nil {
+		t.Fatal("a changed page was reported as success")
+	}
+
+	if !strings.Contains(err.Error(), "layout") {
+		t.Errorf("error does not explain the cause: %v", err)
+	}
+}
+
+func TestDuckDuckGoRedirectsAreUnwrapped(t *testing.T) {
+	cases := map[string]string{
+		"//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fpage&rut=x": "https://example.com/page",
+		"https://example.com/direct":                                      "https://example.com/direct",
+		"//example.com/protocol-relative":                                 "https://example.com/protocol-relative",
+	}
+
+	for in, want := range cases {
+		if got := unwrapRedirect(in); got != want {
+			t.Errorf("unwrapRedirect(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestStripTagsLeavesReadableText(t *testing.T) {
+	got := stripTags(`<b>Go</b> &amp; <i>mutexes</i>&nbsp;explained`)
+
+	if got != "Go & mutexes explained" {
+		t.Errorf("got %q", got)
+	}
+}
+
+// rewriteHost sends every request to a test server instead of the real engine.
+type rewriteHost struct{ base string }
+
+func (r rewriteHost) RoundTrip(req *http.Request) (*http.Response, error) {
+	target, _ := url.Parse(r.base)
+	req.URL.Scheme = target.Scheme
+	req.URL.Host = target.Host
+
+	return http.DefaultTransport.RoundTrip(req)
 }

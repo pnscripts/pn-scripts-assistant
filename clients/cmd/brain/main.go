@@ -51,6 +51,8 @@ func main() {
 		err = runRewritePaths(os.Args[2:])
 	case "ingest":
 		err = runIngest(os.Args[2:])
+	case "tidy":
+		err = runTidy(os.Args[2:])
 	case "promote":
 		err = runPromote(os.Args[2:])
 	case "import":
@@ -80,6 +82,7 @@ func usage() {
   brain status              where the data lives and what is in it
   brain ingest <dir>...     learn about the projects and documents in a folder
   brain promote             turn validated lessons into durable knowledge
+  brain tidy                clear self-descriptions out of the review queue
   brain import <dir>        load a Postgres export into a fresh database
   brain rewrite-paths       repair stored paths after a move, then re-embed
 
@@ -609,3 +612,88 @@ func firstLine(s string) string {
 
 	return trim(s, 110)
 }
+
+// runTidy clears self-description out of the review queue.
+//
+// Extraction now refuses to record the assistant describing itself, but lessons
+// captured before that guard existed are still sitting there — six of the
+// twelve in this brain. Rejecting them by hand is busywork a person should not
+// have to do, and leaving them buries the ones that genuinely need judgement.
+//
+// It shows what it would do before doing it, because this deletes nothing a
+// person asked for and everything it touches was somebody's data.
+func runTidy(args []string) error {
+	fs := flag.NewFlagSet("tidy", flag.ExitOnError)
+	apply := fs.Bool("apply", false, "actually reject them (otherwise only lists)")
+	fs.Parse(args)
+
+	db, root, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	cfg, err := config.Load(root.Path)
+	if err != nil {
+		return err
+	}
+
+	lessons, err := db.LessonsByStatus(learning.StatusProposed, 500)
+	if err != nil {
+		return err
+	}
+
+	var doomed, kept []store.Lesson
+
+	for _, l := range lessons {
+		if learning.IsAboutTheAssistant(l.Content, cfg.Name, cfg.Owner) {
+			doomed = append(doomed, l)
+
+			continue
+		}
+
+		kept = append(kept, l)
+	}
+
+	fmt.Printf("\n  %d waiting for review\n\n", len(lessons))
+
+	if len(doomed) > 0 {
+		fmt.Println("  the assistant describing itself:")
+
+		for _, l := range doomed {
+			fmt.Printf("    %4d  %s\n", l.ID, trim(oneLine(l.Content), 96))
+		}
+
+		fmt.Println()
+	}
+
+	if len(kept) > 0 {
+		fmt.Println("  genuinely needs your judgement:")
+
+		for _, l := range kept {
+			fmt.Printf("    %4d  %s\n", l.ID, trim(oneLine(l.Content), 96))
+		}
+
+		fmt.Println()
+	}
+
+	if !*apply {
+		if len(doomed) > 0 {
+			fmt.Printf("  nothing changed. Run with --apply to reject those %d.\n\n", len(doomed))
+		}
+
+		return nil
+	}
+
+	for _, l := range doomed {
+		if err := db.SetLessonStatus(l.ID, learning.StatusRejected); err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("  rejected %d; %d left for you.\n\n", len(doomed), len(kept))
+
+	return nil
+}
+
+func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
