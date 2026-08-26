@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 )
@@ -97,4 +98,28 @@ func nullifyID(id int64) any {
 	}
 
 	return id
+}
+
+// Lesson loads one by id.
+func (d *DB) Lesson(id int64) (*Lesson, error) {
+	var l Lesson
+	var created string
+
+	err := d.sql.QueryRow(`
+		SELECT id, COALESCE(conversation_id,0), content, status,
+		       COALESCE(confidence,''), COALESCE(source,''), created_at
+		FROM lessons WHERE id = ?`, id).
+		Scan(&l.ID, &l.ConversationID, &l.Content, &l.Status, &l.Confidence, &l.Source, &created)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	l.CreatedAt, _ = time.Parse(time.RFC3339, created)
+
+	return &l, nil
 }

@@ -21,6 +21,7 @@ import (
 
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/paths"
 	"pn-brain/internal/brain/server"
 	"pn-brain/internal/brain/store"
@@ -48,6 +49,8 @@ func main() {
 		err = runServe(os.Args[2:])
 	case "rewrite-paths":
 		err = runRewritePaths(os.Args[2:])
+	case "ingest":
+		err = runIngest(os.Args[2:])
 	case "promote":
 		err = runPromote(os.Args[2:])
 	case "import":
@@ -75,6 +78,7 @@ func usage() {
   brain                     run the app: serve, and open the window
   brain serve               serve only, without a window
   brain status              where the data lives and what is in it
+  brain ingest <dir>...     learn about the projects and documents in a folder
   brain promote             turn validated lessons into durable knowledge
   brain import <dir>        load a Postgres export into a fresh database
   brain rewrite-paths       repair stored paths after a move, then re-embed
@@ -501,4 +505,107 @@ func runApp(args []string) error {
 	stop()
 
 	return nil
+}
+
+// runIngest is how the brain learns about a machine.
+//
+// Read-only: it looks at somebody's entire working life, and the one guarantee
+// worth making about that is that looking changes nothing.
+func runIngest(args []string) error {
+	fs := flag.NewFlagSet("ingest", flag.ExitOnError)
+	docs := fs.Bool("documents", false, "scan for documents instead of projects")
+	dry := fs.Bool("dry-run", false, "list what would be learned, without storing it")
+	fs.Parse(args)
+
+	if fs.NArg() == 0 {
+		return errors.New("give at least one directory to scan")
+	}
+
+	db, root, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	cfg, err := config.Load(root.Path)
+	if err != nil {
+		return err
+	}
+
+	var observations learning.Observations
+
+	for _, dir := range fs.Args() {
+		if *docs {
+			found, err := learning.ScanDocuments(dir)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("  %s — %d documents\n", dir, len(found))
+			observations = append(observations, learning.FromDocuments(found, cfg.Owner)...)
+
+			continue
+		}
+
+		found, err := learning.ScanProjects(dir)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("  %s — %d projects\n", dir, len(found))
+		observations = append(observations, learning.FromProjects(found, cfg.Owner)...)
+	}
+
+	if *dry {
+		fmt.Printf("\n  %d observations (nothing stored)\n\n", len(observations))
+
+		for i, o := range observations {
+			if i >= 10 {
+				fmt.Printf("  … and %d more\n", len(observations)-10)
+
+				break
+			}
+
+			fmt.Printf("  - %s\n", firstLine(o.Content))
+		}
+
+		fmt.Println()
+
+		return nil
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
+
+	fmt.Printf("\n  embedding %d observations…\n", len(observations))
+
+	rep, err := b.Learner.Ingest(context.Background(), observations, func(r learning.IngestReport) {
+		if r.Promoted%25 == 0 {
+			fmt.Printf("    %d learned, %d already known\n", r.Promoted, r.Duplicates)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\n  seen       %d\n", rep.Seen)
+	fmt.Printf("  learned    %d\n", rep.Promoted)
+	fmt.Printf("  known      %d  (duplicates, not stored twice)\n", rep.Duplicates)
+	fmt.Printf("  vanished   %d  (path no longer exists)\n", rep.Rejected)
+
+	if rep.Failed > 0 {
+		fmt.Printf("  failed     %d\n", rep.Failed)
+	}
+
+	fmt.Println()
+
+	return nil
+}
+
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+
+	return trim(s, 110)
 }
