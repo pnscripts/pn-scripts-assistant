@@ -1,13 +1,10 @@
 package storage
 
 import (
-	"bufio"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 )
 
 // Drive is somewhere the brain could live.
@@ -19,16 +16,6 @@ type Drive struct {
 	Removable  bool   `json:"removable"`
 	Current    bool   `json:"current"`
 	Writable   bool   `json:"writable"`
-}
-
-// pseudoFilesystems never hold data and must not be offered.
-var pseudoFilesystems = map[string]bool{
-	"proc": true, "sysfs": true, "devtmpfs": true, "devpts": true, "tmpfs": true,
-	"securityfs": true, "cgroup": true, "cgroup2": true, "pstore": true,
-	"efivarfs": true, "bpf": true, "autofs": true, "mqueue": true, "hugetlbfs": true,
-	"debugfs": true, "tracefs": true, "fusectl": true, "configfs": true,
-	"ramfs": true, "binfmt_misc": true, "squashfs": true, "overlay": true,
-	"nsfs": true, "fuse.portal": true, "fuse.gvfsd-fuse": true,
 }
 
 // MinimumUsableBytes is the smallest destination worth offering.
@@ -44,14 +31,12 @@ const MinimumUsableBytes = 5 << 30 // 5GB
 // written to, and mounting it needs root — so it is left out rather than
 // offered as something that will fail.
 func Drives(currentRoot string) ([]Drive, error) {
-	f, err := os.Open("/proc/mounts")
+	mounts, err := mountPoints()
 	if err != nil {
-		return nil, fmt.Errorf("could not read mounted filesystems: %w", err)
+		return nil, err
 	}
-	defer f.Close()
 
 	currentDevice := deviceOf(currentRoot)
-	seen := map[string]bool{}
 
 	// One entry per filesystem, not per mount point. Bind mounts and snap
 	// packages put the same disk under several paths — /var/snap/firefox/...
@@ -59,46 +44,27 @@ func Drives(currentRoot string) ([]Drive, error) {
 	// "move to another drive" that is the drive they are already on.
 	byDevice := map[string]Drive{}
 
-	scanner := bufio.NewScanner(f)
-
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 3 {
+	for _, m := range mounts {
+		total, free, err := spaceOn(m.Path)
+		if err != nil {
 			continue
 		}
 
-		mount := unescapeMount(fields[1])
-		fstype := fields[2]
-
-		if pseudoFilesystems[fstype] || seen[mount] {
-			continue
-		}
-
-		seen[mount] = true
-
-		var stat syscall.Statfs_t
-		if err := syscall.Statfs(mount, &stat); err != nil {
-			continue
-		}
-
-		block := uint64(stat.Bsize)
 		d := Drive{
-			MountPoint: mount,
-			Filesystem: fstype,
-			TotalBytes: stat.Blocks * block,
-			// Bavail, not Bfree: the difference is reserved for root and this
-			// process cannot use it.
-			FreeBytes: stat.Bavail * block,
-			Removable: isRemovable(mount),
-			Current:   deviceOf(mount) == currentDevice && currentDevice != "",
-			Writable:  canWrite(mount),
+			MountPoint: m.Path,
+			Filesystem: m.Type,
+			TotalBytes: total,
+			FreeBytes:  free,
+			Removable:  isRemovable(m.Path),
+			Current:    deviceOf(m.Path) == currentDevice && currentDevice != "",
+			Writable:   canWrite(m.Path),
 		}
 
 		if d.TotalBytes < MinimumUsableBytes {
 			continue
 		}
 
-		device := deviceOf(mount)
+		device := deviceOf(m.Path)
 
 		// Keep the shallowest path for a filesystem: "/" is a more useful and
 		// more honest answer than a snap's private bind mount of it.
@@ -109,10 +75,6 @@ func Drives(currentRoot string) ([]Drive, error) {
 		}
 
 		byDevice[device] = d
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
 	}
 
 	out := make([]Drive, 0, len(byDevice))
@@ -133,6 +95,12 @@ func Drives(currentRoot string) ([]Drive, error) {
 	})
 
 	return out, nil
+}
+
+// mount is one filesystem the system has mounted.
+type mount struct {
+	Path string
+	Type string
 }
 
 // isRemovable reports whether a mount point looks like external media.
@@ -162,26 +130,4 @@ func canWrite(dir string) bool {
 	os.Remove(probe)
 
 	return true
-}
-
-// deviceOf identifies the filesystem a path sits on, so two mount points on the
-// same device are not mistaken for two places to put things.
-func deviceOf(path string) string {
-	var stat syscall.Stat_t
-
-	if err := syscall.Stat(path, &stat); err != nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%d", stat.Dev)
-}
-
-// unescapeMount decodes the octal escapes /proc/mounts uses for spaces and
-// other awkward characters in a path.
-func unescapeMount(s string) string {
-	replacer := strings.NewReplacer(
-		`\040`, " ", `\011`, "\t", `\012`, "\n", `\134`, `\`,
-	)
-
-	return replacer.Replace(s)
 }

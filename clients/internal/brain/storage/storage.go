@@ -10,10 +10,7 @@
 // to do about it while there is still room to do it.
 package storage
 
-import (
-	"os"
-	"syscall"
-)
+import "os"
 
 // Report is what the interface displays.
 type Report struct {
@@ -43,9 +40,8 @@ const (
 func Check(root, databasePath string) Report {
 	r := Report{Path: root, Level: "ok"}
 
-	var fs syscall.Statfs_t
-
-	if err := syscall.Statfs(root, &fs); err != nil {
+	total, free, err := spaceOn(root)
+	if err != nil {
 		// Not being able to measure is not the same as being full. Report
 		// unknown rather than inventing a number that would drive the warning.
 		r.Level = "unknown"
@@ -54,11 +50,8 @@ func Check(root, databasePath string) Report {
 		return r
 	}
 
-	blockSize := uint64(fs.Bsize)
-	r.TotalBytes = fs.Blocks * blockSize
-	// Bavail, not Bfree: the difference is space reserved for root, which this
-	// process cannot use and so must not count as available.
-	r.FreeBytes = fs.Bavail * blockSize
+	r.TotalBytes = total
+	r.FreeBytes = free
 	r.UsedBytes = r.TotalBytes - r.FreeBytes
 
 	if info, err := os.Stat(databasePath); err == nil {

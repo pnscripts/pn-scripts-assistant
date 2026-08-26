@@ -327,6 +327,23 @@ func (b *Brain) recall(ctx context.Context, query string) []store.Scored {
 	return found
 }
 
+// RecalledFactLimit is how much of each fact goes into the prompt.
+//
+// Reply time on a CPU is dominated by prompt size, close to linearly: measured
+// against qwen2.5-coder:7b, 113 tokens of context answered in 13.5s and 1727
+// took 238s. Recall is the largest part of that prompt and the easiest to
+// shrink without losing anything.
+//
+// What gets cut is the tail of a README excerpt. The first sentence of a
+// scanned fact carries the name, the path and the date; past roughly this point
+// it is build-status badges and headings. Trimming twelve worst-case facts here
+// removes about two thirds of the context and none of the answer.
+//
+// The store keeps the full text. This is a prompt-shaping decision, not a
+// storage one — the knowledge browser still shows everything, and embeddings
+// were computed from the whole thing.
+const RecalledFactLimit = 260
+
 func formatRecall(facts []store.Scored) string {
 	if len(facts) == 0 {
 		return ""
@@ -337,12 +354,33 @@ func formatRecall(facts []store.Scored) string {
 	b.WriteString("Relevant things you already know, recalled from your own memory:\n")
 
 	for _, f := range facts {
-		b.WriteString("- " + f.Content + "\n")
+		b.WriteString("- " + trimForPrompt(f.Content, RecalledFactLimit) + "\n")
 	}
 
 	b.WriteString("\nUse these if they help. Do not mention this list itself.")
 
 	return b.String()
+}
+
+// trimForPrompt shortens a fact, preferring a sentence boundary so the model is
+// never handed a claim that stops mid-word and reads as though it were complete.
+func trimForPrompt(s string, limit int) string {
+	s = strings.Join(strings.Fields(s), " ")
+
+	r := []rune(s)
+	if len(r) <= limit {
+		return s
+	}
+
+	cut := string(r[:limit])
+
+	// Prefer to end where a sentence does, if one ends reasonably close to the
+	// limit rather than right at the start.
+	if i := strings.LastIndex(cut, ". "); i > limit/2 {
+		return cut[:i+1]
+	}
+
+	return cut + "…"
 }
 
 // Capabilities lists what this brain can currently do.
