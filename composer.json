@@ -2,12 +2,18 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "petar/pn-brain",
     "type": "project",
-    "description": "Pn-Brain — a personal, self-learning AI assistant with hybrid local/API LLM routing and a Lesson-quarantine learning pipeline.",
-    "keywords": ["laravel", "ai", "llm", "assistant", "self-learning", "pn-brain"],
+    "description": "Pn-Brain \u2014 a personal, self-learning AI assistant with hybrid local/API LLM routing and a Lesson-quarantine learning pipeline.",
+    "keywords": [
+        "laravel",
+        "ai",
+        "llm",
+        "assistant",
+        "self-learning",
+        "pn-brain"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.3",
-        "ext-curl": "*",
         "ext-pcntl": "*",
         "ext-pdo_sqlite": "*",
         "ext-sqlite3": "*",

@@ -42,29 +42,28 @@ COPY --from=vendor /app .
 # `spc dump-extensions` over composer.json/lock and derives exactly what the
 # installed packages declare.
 #
-# Neither a hand-written list nor pure detection is sufficient on its own, and
-# both failures were seen here. The hand-written list omitted ext-intl, which
-# filament/support requires. Detection then omitted ext-curl, because Guzzle
-# does not require it — it falls back to PHP streams — so nothing in the
-# dependency graph asks for the one extension this application needs to reach a
-# model at all. That produced a binary which served the interface perfectly and
-# could not think.
+# The hand-written list omitted ext-intl, which filament/support requires, so
+# detection from composer.json is what decides now. The application declares
+# what it genuinely depends on — ext-pcntl (so the queue worker can enforce job
+# timeouts), ext-pdo_sqlite and ext-sqlite3 — and detection picks those up.
 #
-# The answer is for the application to declare what it actually depends on, in
-# composer.json, where detection then picks it up: ext-curl, ext-pcntl (so the
-# queue worker can enforce job timeouts), ext-pdo_sqlite and ext-sqlite3.
+# ext-curl is deliberately NOT among them, after a long detour that is worth
+# recording so it is not repeated. It was added on the theory that it was "the
+# one extension this application needs to reach a model at all". That theory was
+# wrong and was never tested before being acted on. Guzzle selects
+# GuzzleHttp\Handler\StreamHandler when curl is absent, and PHP streams with
+# openssl reach both a local Ollama and api.anthropic.com over TLS. Measured
+# against the curl-less binary: chat returned HTTP 200 in 15.3s and embeddings
+# HTTP 200 in 1.3s with 768 dimensions.
 #
-# libzip pulls in bzip2, xz and zstd symbols, but the builder's default library
-# set excludes all three, so linking fails with undefined references. ext-zip
-# arrives via openspout (Filament's spreadsheet export), so the libraries have to
-# be added rather than the extension dropped. The defaults are repeated here
-# because setting this variable replaces them wholesale.
-# PHP_EXTENSION_LIBS deliberately left at its default.
+# What made curl look essential was a 15-second client timeout against a 7B
+# model that takes about a minute to load cold. The timeout was the bug. Adding
+# curl to fix it broke linking and cost several builds.
 #
-# It was overridden once, to add bzip2/xz/zstd after libzip failed to link. Then
-# ext-curl was added and the link broke again, and curl took the blame. That was
-# wrong: the very first successful build had curl and the default library set.
-# The combination never tested was curl with the defaults, which is this.
+# PHP_EXTENSION_LIBS is deliberately left at its default. It was overridden once
+# to add bzip2/xz/zstd after libzip failed to link, and that override — not
+# curl — is the likelier cause of the link failures that followed, since the
+# very first successful build used the defaults untouched.
 
 WORKDIR /go/src/app
 
