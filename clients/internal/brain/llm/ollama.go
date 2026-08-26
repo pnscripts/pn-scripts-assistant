@@ -1,0 +1,231 @@
+package llm
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+)
+
+// Ollama is a model running on this machine.
+//
+// Timeouts here are generous on purpose. On a CPU-only machine a 7B model takes
+// about a minute to load cold and then answers in seconds. A timeout tuned for
+// a hosted API turns that first load into a failure, and the failure looks like
+// a broken installation rather than a slow one — which is exactly the mistake
+// that once got an entire extension blamed for a bug that was a 15-second
+// deadline.
+type Ollama struct {
+	BaseURL    string
+	ChatModel  string
+	EmbedName  string
+	HTTPClient *http.Client
+}
+
+// NewOllama builds a client with defaults suited to local inference.
+func NewOllama(baseURL, chatModel, embedModel string) *Ollama {
+	if baseURL == "" {
+		baseURL = "http://127.0.0.1:11434"
+	}
+
+	return &Ollama{
+		BaseURL:   baseURL,
+		ChatModel: chatModel,
+		EmbedName: embedModel,
+		// No Timeout on the client itself: the deadline belongs to the context,
+		// so a caller can allow a long first load and a short health check with
+		// the same client.
+		HTTPClient: &http.Client{},
+	}
+}
+
+func (o *Ollama) Name() string { return Local }
+
+func (o *Ollama) EmbedModel() string { return o.EmbedName }
+
+// Available reports whether the daemon is reachable, with a short deadline of
+// its own so a health check never inherits a caller's long one.
+func (o *Ollama) Available(ctx context.Context) bool {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.BaseURL+"/api/tags", nil)
+	if err != nil {
+		return false
+	}
+
+	resp, err := o.HTTPClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK
+}
+
+type ollamaChatRequest struct {
+	Model    string          `json:"model"`
+	Messages []ollamaMessage `json:"messages"`
+	Stream   bool            `json:"stream"`
+	Tools    []ollamaTool    `json:"tools,omitempty"`
+}
+
+type ollamaMessage struct {
+	Role      string           `json:"role"`
+	Content   string           `json:"content"`
+	ToolCalls []ollamaToolCall `json:"tool_calls,omitempty"`
+}
+
+type ollamaTool struct {
+	Type     string         `json:"type"`
+	Function ollamaFunction `json:"function"`
+}
+
+type ollamaFunction struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+
+type ollamaToolCall struct {
+	Function struct {
+		Name string `json:"name"`
+		// Ollama returns arguments as an object, not a JSON string.
+		Arguments json.RawMessage `json:"arguments"`
+	} `json:"function"`
+}
+
+type ollamaChatResponse struct {
+	Model   string        `json:"model"`
+	Message ollamaMessage `json:"message"`
+	Error   string        `json:"error"`
+}
+
+func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
+	model := req.Model
+	if model == "" {
+		model = o.ChatModel
+	}
+
+	body := ollamaChatRequest{Model: model, Stream: false}
+
+	for _, m := range req.Messages {
+		body.Messages = append(body.Messages, ollamaMessage{Role: m.Role, Content: m.Content})
+	}
+
+	for _, t := range req.Tools {
+		body.Tools = append(body.Tools, ollamaTool{
+			Type: "function",
+			Function: ollamaFunction{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  t.Parameters,
+			},
+		})
+	}
+
+	started := time.Now()
+
+	var out ollamaChatResponse
+
+	if err := o.post(ctx, "/api/chat", body, &out); err != nil {
+		return Response{}, err
+	}
+
+	if out.Error != "" {
+		return Response{}, fmt.Errorf("ollama: %s", out.Error)
+	}
+
+	resp := Response{
+		Content:  out.Message.Content,
+		Model:    out.Model,
+		Provider: Local,
+		Elapsed:  time.Since(started),
+	}
+
+	for i, c := range out.Message.ToolCalls {
+		resp.ToolCalls = append(resp.ToolCalls, ToolCall{
+			ID:        fmt.Sprintf("call_%d", i),
+			Name:      c.Function.Name,
+			Arguments: c.Function.Arguments,
+		})
+	}
+
+	return resp, nil
+}
+
+type ollamaEmbedRequest struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+}
+
+type ollamaEmbedResponse struct {
+	Embedding []float32 `json:"embedding"`
+	Error     string    `json:"error"`
+}
+
+// Embed turns text into a vector using the local embedding model.
+//
+// Embedding stays local in every privacy mode. It is applied to the contents of
+// a person's disk, so sending it out would leak precisely the material the
+// privacy rules exist to keep here — and unlike a chat message, nobody typed it
+// with the intention of sending it anywhere.
+func (o *Ollama) Embed(ctx context.Context, text string) ([]float32, error) {
+	var out ollamaEmbedResponse
+
+	err := o.post(ctx, "/api/embeddings", ollamaEmbedRequest{Model: o.EmbedName, Prompt: text}, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	if out.Error != "" {
+		return nil, fmt.Errorf("ollama embeddings: %s", out.Error)
+	}
+
+	if len(out.Embedding) == 0 {
+		return nil, fmt.Errorf("ollama returned an empty embedding for model %q", o.EmbedName)
+	}
+
+	return out.Embedding, nil
+}
+
+func (o *Ollama) post(ctx context.Context, path string, body, into any) error {
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.BaseURL+path, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := o.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("reaching ollama at %s: %w", o.BaseURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var buf bytes.Buffer
+		buf.ReadFrom(resp.Body)
+
+		return fmt.Errorf("ollama returned %d: %s", resp.StatusCode, truncate(buf.String(), 300))
+	}
+
+	return json.NewDecoder(resp.Body).Decode(into)
+}
+
+func truncate(s string, n int) string {
+	r := []rune(s)
+
+	if len(r) <= n {
+		return s
+	}
+
+	return string(r[:n]) + "…"
+}
