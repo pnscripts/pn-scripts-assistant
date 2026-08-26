@@ -297,3 +297,105 @@ func TestEmptyReplyIsExplainedRatherThanShownAsNothing(t *testing.T) {
 		t.Errorf("raw tool-call JSON reached the user: %q", res.Reply)
 	}
 }
+
+// The real observed failure: qwen2.5-coder:7b decides correctly to list a
+// directory and then prints the call instead of making it.
+func TestToolCallWrittenAsTextIsRecovered(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "found.txt"), []byte("x"), 0o644)
+
+	loop, db := newLoop(t, tools.ListDirectory{})
+
+	model := &scripted{replies: []llm.Response{
+		{Content: `{"name": "list_directory", "arguments": {"path": ` + quote(dir) + `}}`},
+		{Content: "There is one file, found.txt."},
+	}}
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.Run(context.Background(), conv, model, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.Reply != "There is one file, found.txt." {
+		t.Fatalf("reply was %q", res.Reply)
+	}
+
+	if len(res.ActionsTaken) != 1 {
+		t.Fatalf("the recovered call did not run: %v", res.ActionsTaken)
+	}
+
+	last := model.seen[len(model.seen)-1]
+	fed := false
+
+	for _, m := range last.Messages {
+		if m.Role == llm.RoleTool && strings.Contains(m.Content, "found.txt") {
+			fed = true
+		}
+	}
+
+	if !fed {
+		t.Error("the recovered call's result was not fed back")
+	}
+}
+
+// A recovered Mutating call is still a Mutating call. Recovery must not become
+// a way around the approval gate.
+func TestRecoveredMutatingCallStillStopsForApproval(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "nope.txt")
+
+	loop, db := newLoop(t, tools.WriteFile{})
+
+	model := &scripted{replies: []llm.Response{
+		{Content: `{"name":"write_file","arguments":{"path":` + quote(target) + `,"content":"x"}}`},
+	}}
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.Run(context.Background(), conv, model, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(target); err == nil {
+		t.Fatal("a tool call recovered from text bypassed approval")
+	}
+
+	if !res.WaitingForApproval() {
+		t.Fatal("the recovered call did not stop for approval")
+	}
+}
+
+// Recovery must be strict, or prose about tools and JSON quoted from a file
+// start being treated as instructions to act.
+func TestRecoveryIsStrict(t *testing.T) {
+	loop, _ := newLoop(t, tools.ReadFile{}, tools.ListDirectory{})
+
+	reject := []string{
+		"You could use read_file for that.",
+		`Try {"name": "read_file"} to see it.`,
+		`{"name": "make_coffee", "arguments": {}}`,
+		`{"result": 4}`,
+		`{"tool": "read_file"}`,
+		"",
+		"{not json}",
+	}
+
+	for _, in := range reject {
+		if _, ok := loop.recoverToolCall(in); ok {
+			t.Errorf("recovered a call from %q", in)
+		}
+	}
+
+	// A fenced call is still a call; models fence it despite being asked not to.
+	if _, ok := loop.recoverToolCall("```json\n{\"name\":\"read_file\",\"arguments\":{\"path\":\"/tmp/x\"}}\n```"); !ok {
+		t.Error("did not recover a fenced tool call")
+	}
+
+	// "parameters" appears in the wild alongside "arguments".
+	call, ok := loop.recoverToolCall(`{"name":"read_file","parameters":{"path":"/tmp/x"}}`)
+	if !ok || !strings.Contains(string(call.Arguments), "/tmp/x") {
+		t.Errorf("did not recover a call using \"parameters\": %+v", call)
+	}
+}

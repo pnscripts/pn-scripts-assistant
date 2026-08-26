@@ -16,6 +16,7 @@ import (
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/llm"
+	"pn-brain/internal/brain/smarthome"
 	"pn-brain/internal/brain/storage"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/tools"
@@ -82,6 +83,15 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	// than one that simply cannot.
 	if mode.AllowsWeb() {
 		available = append(available, tools.FetchURL{})
+	}
+
+	// Smart-home tools appear only when there is a house to talk to. Offering
+	// them unconfigured would have the model promise to turn on lights it
+	// cannot reach.
+	home := smarthome.New(cfg.HomeAssistantURL, cfg.HomeAssistantToken)
+
+	if home.Configured() {
+		available = append(available, tools.ListDevices{Home: home}, tools.SetDevice{Home: home})
 	}
 
 	b.Agent = &agent.Loop{

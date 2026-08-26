@@ -267,3 +267,40 @@ func quote(s string) string {
 
 	return string(b)
 }
+
+// Approving "set lock.front to off" should not be how somebody discovers they
+// unlocked their front door.
+func TestUnlockingIsSpelledOutInTheApproval(t *testing.T) {
+	var s SetDevice
+
+	unlock := s.Summarize(json.RawMessage(`{"id":"lock.front","state":"on"}`))
+
+	if !strings.Contains(unlock, "UNLOCK") || !strings.Contains(unlock, "physically unlocks") {
+		t.Errorf("unlocking summarised as %q", unlock)
+	}
+
+	if lock := s.Summarize(json.RawMessage(`{"id":"lock.front","state":"off"}`)); !strings.Contains(lock, "LOCK") {
+		t.Errorf("locking summarised as %q", lock)
+	}
+
+	// An ordinary device still names itself and the change.
+	light := s.Summarize(json.RawMessage(`{"id":"light.kitchen","state":"on"}`))
+
+	for _, want := range []string{"light.kitchen", "on"} {
+		if !strings.Contains(light, want) {
+			t.Errorf("summary %q is missing %q", light, want)
+		}
+	}
+}
+
+// Reading the state of a house changes nothing; changing it is physical and
+// cannot always be undone.
+func TestSmartHomeRiskClassification(t *testing.T) {
+	if (ListDevices{}).Risk() != Safe {
+		t.Error("listing devices should not need approval")
+	}
+
+	if (SetDevice{}).Risk() != Mutating {
+		t.Error("changing a device must need approval")
+	}
+}

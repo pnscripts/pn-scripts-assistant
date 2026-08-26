@@ -34,6 +34,10 @@ type Config struct {
 	AnthropicKey    string
 	AnthropicModel  string
 
+	// Smart home. Empty means no smart-home tools are offered at all.
+	HomeAssistantURL   string
+	HomeAssistantToken string
+
 	// Serving.
 	Addr string
 
@@ -105,6 +109,8 @@ func Load(root string) (Config, error) {
 	assign(&cfg.AnthropicKey, "ANTHROPIC_API_KEY")
 	assign(&cfg.AnthropicModel, "ANTHROPIC_MODEL")
 	assign(&cfg.Addr, "BRAIN_ADDR")
+	assign(&cfg.HomeAssistantURL, "HOME_ASSISTANT_URL")
+	assign(&cfg.HomeAssistantToken, "HOME_ASSISTANT_TOKEN")
 
 	if v := get("RECALL_LIMIT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -141,7 +147,10 @@ func (c Config) Save(root string) error {
 	b.WriteString("EMBEDDING_MODEL=" + c.EmbedModel + "\n")
 	b.WriteString("ANTHROPIC_API_KEY=" + c.AnthropicKey + "\n")
 	b.WriteString("ANTHROPIC_MODEL=" + c.AnthropicModel + "\n\n")
-	b.WriteString("BRAIN_ADDR=" + c.Addr + "\n")
+	b.WriteString("BRAIN_ADDR=" + c.Addr + "\n\n")
+	b.WriteString("# Smart home. A long-lived access token from your Home Assistant profile.\n")
+	b.WriteString("HOME_ASSISTANT_URL=" + c.HomeAssistantURL + "\n")
+	b.WriteString("HOME_ASSISTANT_TOKEN=" + c.HomeAssistantToken + "\n")
 
 	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)

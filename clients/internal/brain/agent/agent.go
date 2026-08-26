@@ -78,6 +78,23 @@ func (l *Loop) Run(
 			return Result{}, err
 		}
 
+		// Local models regularly print a tool call as prose instead of making
+		// one. Measured against qwen2.5-coder:7b, two of five replies did this,
+		// including a correct decision to list a directory. Discarding that
+		// would throw away the model's actual intent and leave the brain
+		// looking incapable of using its own tools.
+		//
+		// Recovering it is safe because nothing downstream changes: the call
+		// goes through the same registry lookup and the same risk gate, so a
+		// Mutating tool still stops for approval whether the model asked for it
+		// properly or in prose.
+		if len(resp.ToolCalls) == 0 {
+			if recovered, ok := l.recoverToolCall(resp.Content); ok {
+				resp.ToolCalls = []llm.ToolCall{recovered}
+				resp.Content = ""
+			}
+		}
+
 		if len(resp.ToolCalls) == 0 {
 			reply := presentable(resp.Content)
 
@@ -184,6 +201,60 @@ func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []
 		ActionsTaken: actions,
 		Pending:      pending,
 	}
+}
+
+// recoverToolCall reads a tool call the model wrote as text.
+//
+// Deliberately strict: the whole reply must be one JSON object naming a tool
+// that actually exists. Anything looser would start treating prose about tools,
+// or JSON quoted from a file, as an instruction to act.
+func (l *Loop) recoverToolCall(content string) (llm.ToolCall, bool) {
+	text := strings.TrimSpace(content)
+
+	// Models often fence it even when asked not to.
+	if strings.HasPrefix(text, "```") {
+		if i := strings.IndexByte(text, '\n'); i >= 0 {
+			text = text[i+1:]
+		}
+
+		text = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(text), "```"))
+	}
+
+	if !strings.HasPrefix(text, "{") || !strings.HasSuffix(text, "}") {
+		return llm.ToolCall{}, false
+	}
+
+	var probe struct {
+		Name string `json:"name"`
+		// Both spellings appear in the wild.
+		Arguments json.RawMessage `json:"arguments"`
+		Params    json.RawMessage `json:"parameters"`
+	}
+
+	if err := json.Unmarshal([]byte(text), &probe); err != nil {
+		return llm.ToolCall{}, false
+	}
+
+	if probe.Name == "" {
+		return llm.ToolCall{}, false
+	}
+
+	if _, known := l.Registry.Get(probe.Name); !known {
+		return llm.ToolCall{}, false
+	}
+
+	args := probe.Arguments
+	if len(args) == 0 {
+		args = probe.Params
+	}
+
+	if len(args) == 0 {
+		args = json.RawMessage("{}")
+	}
+
+	l.Log.Info("recovered a tool call the model wrote as text", "tool", probe.Name)
+
+	return llm.ToolCall{ID: "recovered", Name: probe.Name, Arguments: args}, true
 }
 
 // specs describes the tools to the model, in the registry's stable order.
