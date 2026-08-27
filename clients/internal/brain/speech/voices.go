@@ -124,6 +124,18 @@ func piperVoiceFiles(p *Piper) []string {
 	return out
 }
 
+// localeNames give a voice a place rather than a code.
+var localeNames = map[string]string{
+	"en_GB": "British", "en_US": "American", "en_AU": "Australian",
+	"en_IE": "Irish", "en_IN": "Indian",
+	"bg_BG": "Bulgarian", "ru_RU": "Russian", "uk_UA": "Ukrainian",
+	"sr_RS": "Serbian", "mk_MK": "Macedonian",
+	"de_DE": "German", "fr_FR": "French", "es_ES": "Spanish",
+	"it_IT": "Italian", "pt_BR": "Brazilian", "pl_PL": "Polish",
+	"nl_NL": "Dutch", "tr_TR": "Turkish", "ro_RO": "Romanian",
+	"el_GR": "Greek", "cs_CZ": "Czech", "hu_HU": "Hungarian",
+}
+
 // humaniseVoice turns en_GB-northern_english_male-medium into something a
 // person would pick from a list.
 func humaniseVoice(id string) string {
@@ -133,10 +145,12 @@ func humaniseVoice(id string) string {
 		return id
 	}
 
-	locale := strings.NewReplacer(
-		"en_GB", "British", "en_US", "American", "en_AU", "Australian",
-		"en_IN", "Indian", "_", " ",
-	).Replace(parts[0])
+	locale, known := localeNames[parts[0]]
+	if !known {
+		// Better an unfamiliar code than a mangled one: "bg_BG" is at least
+		// recognisable, where the previous fallback turned it into "bg BG".
+		locale = parts[0]
+	}
 
 	name := strings.ReplaceAll(parts[1], "_", " ")
 	name = strings.ToUpper(name[:1]) + name[1:]

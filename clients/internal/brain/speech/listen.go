@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -37,13 +38,44 @@ func modelSearch(home string) []string {
 	}
 }
 
-// preferredModels, best-value first for a CPU. base.en is the sweet spot:
-// noticeably better than tiny, and roughly three times realtime on four cores.
+// preferredModels, best first for a CPU.
+//
+// The multilingual models come before their .en counterparts, and that ordering
+// matters more than it looks. An .en model given Bulgarian does not fail — it
+// forces the sounds into English words, so "здравей Петър" comes back as
+// "Strava pater". Somebody who only speaks English loses nothing by having the
+// multilingual model; somebody who does not loses everything by having the
+// other one.
 var preferredModels = []string{
-	"ggml-base.en.bin", "ggml-base.bin",
-	"ggml-small.en.bin", "ggml-small.bin",
-	"ggml-tiny.en.bin", "ggml-tiny.bin",
-	"ggml-medium.en.bin", "ggml-medium.bin",
+	"ggml-base.bin", "ggml-small.bin", "ggml-medium.bin",
+	"ggml-base.en.bin", "ggml-small.en.bin", "ggml-medium.en.bin",
+	"ggml-tiny.bin", "ggml-tiny.en.bin",
+}
+
+// language is the spoken language, as an ISO code. Empty means whisper decides.
+var (
+	language   string
+	languageMu sync.RWMutex
+)
+
+// SetLanguage fixes which language is being spoken.
+//
+// Worth setting rather than leaving to detection. Told nothing, whisper may
+// translate instead of transcribing — Bulgarian speech came back as "Hello,
+// Peter. I am your great assistant." rather than in Cyrillic — which is a
+// confusing failure because the words are right and the language is not.
+func SetLanguage(code string) {
+	languageMu.Lock()
+	language = code
+	languageMu.Unlock()
+}
+
+// Language reports the configured spoken language.
+func Language() string {
+	languageMu.RLock()
+	defer languageMu.RUnlock()
+
+	return language
 }
 
 // FindRecogniser locates a usable speech recogniser, or reports what is missing.
@@ -181,7 +213,13 @@ func Transcribe(ctx context.Context, wav string) (string, error) {
 	defer cancel()
 
 	// -nt drops timestamps; the brain wants the sentence, not a subtitle file.
-	cmd := exec.CommandContext(ctx, r.Command, "-m", r.Model, "-f", wav, "-nt", "-np")
+	args := []string{"-m", r.Model, "-f", wav, "-nt", "-np"}
+
+	if code := Language(); code != "" {
+		args = append(args, "-l", code)
+	}
+
+	cmd := exec.CommandContext(ctx, r.Command, args...)
 
 	out, err := cmd.Output()
 	if err != nil {

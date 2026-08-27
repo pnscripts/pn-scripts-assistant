@@ -424,6 +424,21 @@ async function loadVoices() {
 
     if (data.current) select.value = data.current;
 
+    // Which language is being spoken, which whisper needs told. Left to guess
+    // it sometimes translates instead of transcribing, so Bulgarian speech
+    // comes back as English prose with no error to explain it.
+    const language = el('language');
+    language.value = data.language || '';
+    el('language-field').hidden = false;
+
+    language.onchange = async () => {
+        try {
+            await api.post('/api/language', { code: language.value });
+        } catch (err) {
+            addMessage('error', String(err.message || err), { cssClass: 'error' });
+        }
+    };
+
     el('voice-field').hidden = voices.length < 2;
     voicesLoaded = true;
 

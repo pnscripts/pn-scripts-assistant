@@ -38,6 +38,13 @@ type Config struct {
 	// whichever the machine offers first.
 	Voice string
 
+	// Language is the spoken language, as an ISO code such as bg or en.
+	//
+	// Worth setting rather than left to detection: told nothing, whisper may
+	// translate rather than transcribe, so Bulgarian speech comes back as
+	// English prose — right words, wrong language, and no error to explain it.
+	Language string
+
 	// Web search. Without a key the brain falls back to scraping DuckDuckGo,
 	// which needs no account.
 	BraveKey string
@@ -118,6 +125,7 @@ func Load(root string) (Config, error) {
 	assign(&cfg.AnthropicModel, "ANTHROPIC_MODEL")
 	assign(&cfg.Addr, "BRAIN_ADDR")
 	assign(&cfg.Voice, "BRAIN_VOICE")
+	assign(&cfg.Language, "BRAIN_LANGUAGE")
 	assign(&cfg.BraveKey, "BRAVE_SEARCH_KEY")
 	assign(&cfg.HomeAssistantURL, "HOME_ASSISTANT_URL")
 	assign(&cfg.HomeAssistantToken, "HOME_ASSISTANT_TOKEN")
@@ -160,6 +168,9 @@ func (c Config) Save(root string) error {
 	b.WriteString("BRAIN_ADDR=" + c.Addr + "\n\n")
 	b.WriteString("# Which voice reads answers aloud. Empty means the first available.\n")
 	b.WriteString("BRAIN_VOICE=" + c.Voice + "\n\n")
+	b.WriteString("# The language you speak, as an ISO code (bg, en, de...). Empty lets\n")
+	b.WriteString("# whisper guess, which sometimes translates instead of transcribing.\n")
+	b.WriteString("BRAIN_LANGUAGE=" + c.Language + "\n\n")
 	b.WriteString("# Optional: a Brave Search API key. Without one, DuckDuckGo is scraped.\n")
 	b.WriteString("BRAVE_SEARCH_KEY=" + c.BraveKey + "\n\n")
 	b.WriteString("# Smart home. A long-lived access token from your Home Assistant profile.\n")

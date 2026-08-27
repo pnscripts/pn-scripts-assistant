@@ -342,3 +342,68 @@ func TestPiperIsPreferredOverEspeak(t *testing.T) {
 		t.Errorf("chose %s over piper", engine.Name)
 	}
 }
+
+// An English voice handed Cyrillic reads the letters out, so a Bulgarian answer
+// becomes spelling rather than speech.
+func TestVoiceFollowsTheScriptOfTheText(t *testing.T) {
+	if FindPiper() == nil {
+		t.Skip("piper is not installed")
+	}
+
+	installed := Voices()
+
+	var haveBulgarian bool
+
+	for _, v := range installed {
+		if strings.HasPrefix(v.ID, "bg_") {
+			haveBulgarian = true
+		}
+	}
+
+	if !haveBulgarian {
+		t.Skip("no Cyrillic voice installed")
+	}
+
+	SetVoice("en_US-amy-medium")
+
+	english := voiceForText("Which websites do I use most?")
+	if strings.HasPrefix(english.ID, "bg_") {
+		t.Errorf("English text got a Bulgarian voice: %s", english.ID)
+	}
+
+	bulgarian := voiceForText("Здравей Петър, как си днес?")
+	if !strings.HasPrefix(bulgarian.ID, "bg_") {
+		t.Errorf("Bulgarian text got %s, which cannot read Cyrillic", bulgarian.ID)
+	}
+}
+
+func TestScriptDetection(t *testing.T) {
+	cases := map[string]string{
+		"Hello there":   "latin",
+		"Здравей Петър": "cyrillic",
+		"Здравей, използвам Laravel днес": "cyrillic",
+		"I use pnscripts.local mostly":    "latin",
+		"":                                "",
+		"123 456":                         "",
+	}
+
+	for text, want := range cases {
+		if got := scriptOf(text); got != want {
+			t.Errorf("scriptOf(%q) = %q, want %q", text, got, want)
+		}
+	}
+}
+
+// A preference is a preference: it must only be overridden when the chosen
+// voice genuinely cannot carry the text.
+func TestChosenVoiceIsKeptWhenItCanSayTheText(t *testing.T) {
+	if FindPiper() == nil {
+		t.Skip("piper is not installed")
+	}
+
+	SetVoice("en_GB-alba-medium")
+
+	if got := voiceForText("An ordinary English sentence."); got.ID != "en_GB-alba-medium" {
+		t.Errorf("overrode the chosen voice with %s for English text", got.ID)
+	}
+}

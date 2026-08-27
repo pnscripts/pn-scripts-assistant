@@ -155,8 +155,9 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 
 	voice := p.Voice
 
-	// The owner's choice wins over whichever model happened to be found first.
-	if chosen := CurrentVoice(); chosen.Engine == "piper" && chosen.Path != "" {
+	// The voice follows the language of the text. An English model handed
+	// Cyrillic reads the letters out, so a Bulgarian answer becomes spelling.
+	if chosen := voiceForText(text); chosen.Engine == "piper" && chosen.Path != "" {
 		voice = chosen.Path
 	}
 

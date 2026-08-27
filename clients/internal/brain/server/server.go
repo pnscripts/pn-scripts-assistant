@@ -55,6 +55,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
 	s.mux.HandleFunc("POST /api/voice", s.handleSetVoice)
+	s.mux.HandleFunc("POST /api/language", s.handleSetLanguage)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -443,6 +444,30 @@ func (s *Server) handleListen(w http.ResponseWriter, r *http.Request) {
 	ok(w, heard)
 }
 
+// handleSetLanguage fixes which language is being spoken.
+func (s *Server) handleSetLanguage(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Code string `json:"code"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "That is not a language.")
+
+		return
+	}
+
+	speech.SetLanguage(body.Code)
+
+	cfg := s.brain.Cfg
+	cfg.Language = body.Code
+
+	if err := cfg.Save(s.brain.Root); err == nil {
+		s.brain.Cfg = cfg
+	}
+
+	ok(w, map[string]any{"language": body.Code})
+}
+
 // handleMicrophones lists the inputs, so a person can pick the one they are
 // actually speaking into rather than trusting the system default — which on
 // this machine is an empty analog jack.
@@ -479,8 +504,9 @@ func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
 // handleVoices lists what can read answers aloud.
 func (s *Server) handleVoices(w http.ResponseWriter, r *http.Request) {
 	ok(w, map[string]any{
-		"voices":  speech.Voices(),
-		"current": speech.CurrentVoice().ID,
+		"voices":   speech.Voices(),
+		"current":  speech.CurrentVoice().ID,
+		"language": speech.Language(),
 	})
 }
 

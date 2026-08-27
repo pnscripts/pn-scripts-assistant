@@ -104,8 +104,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Registry: tools.NewRegistry(available...),
 	}
 
-	// The owner's chosen voice, applied before anything can speak.
+	// The owner's chosen voice and language, applied before anything speaks or
+	// listens.
 	speech.SetVoice(cfg.Voice)
+	speech.SetLanguage(cfg.Language)
 
 	// Learning reads the conversation and must therefore stay on this machine
 	// in every privacy mode; it is wired to the local provider directly rather
