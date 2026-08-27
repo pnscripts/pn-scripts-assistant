@@ -2060,3 +2060,81 @@ select { font-size: 13.5px; }
     min-height: 170px;
     min-width: 120px;
 }
+
+/* ============================================================
+   What it is doing
+   ============================================================
+
+   A reply here can take minutes, and for all of that the interface used to show
+   one unchanging line. The elapsed time is the important half of this: a step
+   running for twelve seconds and a step running for four minutes look the same
+   without it and mean entirely different things. */
+
+.working {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 10px;
+    padding: 7px 11px;
+    border: 1px solid rgba(240, 178, 107, 0.3);
+    border-radius: 9px;
+    background: rgba(240, 178, 107, 0.07);
+    font-size: 12.5px;
+    color: var(--warn);
+}
+
+.working[hidden] { display: none; }
+
+.working-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--warn);
+    flex: none;
+    animation: talk-pulse 1.2s ease-in-out infinite;
+}
+
+.working-clock {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .working-dot { animation: none; }
+}
+
+/* ============================================================
+   The message box
+   ============================================================
+
+   The text was centred, which is what a search field does and not what a
+   message box does: a sentence being typed jumped sideways with every word.
+   Left-aligned, with the pill sized so it does not read as an empty strip
+   across the bottom of the screen. */
+
+.talk-pill textarea {
+    text-align: left;
+    padding: 9px 12px;
+    font-size: 15px;
+}
+
+.talk-pill textarea::placeholder { color: var(--text-faint); }
+
+.talk-pill {
+    padding: 8px 14px;
+    background: rgba(9, 22, 36, 0.85);
+    border-color: rgba(77, 208, 225, 0.22);
+}
+
+/* Lit while it is listening, so the box itself says the microphone is open
+   rather than leaving that to a panel on the other side of the screen. */
+.talk-pill.live { border-color: rgba(77, 208, 225, 0.65); }
+
+.talkbar { padding-top: 10px; }
+
+/* The tiles beside it were the same weight as the box itself; they are context,
+   not the thing you are using. */
+.tile { padding: 7px 11px; background: rgba(9, 20, 32, 0.5); }
+.tile-value { color: var(--text-dim); }

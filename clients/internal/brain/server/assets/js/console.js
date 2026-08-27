@@ -316,6 +316,13 @@ function toggleTalking() {
  * forgetting the current one's identity so the next message opens a new one,
  * and only this file knows that.
  */
+// Whether the conversation is being held by voice.
+//
+// Read by the progress line, which announces steps aloud only when somebody is
+// talking rather than typing: a person at the keyboard can see the screen and
+// has not asked to be talked at.
+window.brainIsTalking = () => talking.on === true;
+
 window.brainCommands = {
     talk: toggleTalking,
     newConversation() {

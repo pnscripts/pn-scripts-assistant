@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"pn-brain/internal/brain/llm"
+	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/tools"
 )
@@ -110,7 +111,17 @@ func (l *Loop) RunShaped(
 
 	var actions []string
 
+	// What is happening, for anything watching. A turn that uses a tool is
+	// several model calls with work between them, and on this machine that can
+	// run to minutes — long enough that an interface saying nothing is
+	// indistinguishable from one that has crashed.
+	progress.Begin()
+	defer progress.Done()
+
 	for step := 0; step < MaxSteps; step++ {
+		progress.Round(step + 1)
+		progress.Set("thinking", "Thinking")
+
 		resp, err := provider.Chat(ctx, llm.Request{Messages: messages, Tools: specs, MaxTokens: maxTokens})
 		if err != nil {
 			return Result{}, err
@@ -172,6 +183,8 @@ func (l *Loop) RunShaped(
 			// A Mutating tool is recorded and the turn stops. It is not run
 			// here under any circumstances.
 			if tool.Risk() == tools.Mutating {
+				progress.Set("waiting", "Waiting for you: "+summary)
+
 				id, err := l.DB.RecordInvocation(conversationID, tool.Name(), string(call.Arguments), summary, string(tools.Mutating))
 				if err != nil {
 					return Result{}, err
@@ -181,6 +194,8 @@ func (l *Loop) RunShaped(
 
 				continue
 			}
+
+			progress.Set("tool", summary)
 
 			output, err := tool.Execute(ctx, call.Arguments)
 			if err != nil {

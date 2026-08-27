@@ -22,6 +22,7 @@ import (
 
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/machine"
+	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
 )
@@ -55,6 +56,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/level", s.handleLevel)
 	s.mux.HandleFunc("GET /api/machine", s.handleMachine)
 	s.mux.HandleFunc("GET /api/search", s.handleSearch)
+	s.mux.HandleFunc("GET /api/progress", s.handleProgress)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
@@ -559,6 +561,24 @@ func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"microphones": mics})
+}
+
+// handleProgress says what the brain is doing at this moment.
+//
+// Polled while a reply is in flight. A turn here can take minutes — the model
+// runs on this machine's processor, and a turn that uses a tool is several
+// model calls — so the difference between "working" and "stuck" is a question
+// the interface has to be able to answer.
+func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
+	step := progress.Now()
+
+	ok(w, map[string]any{
+		"busy":    step.Busy,
+		"kind":    step.Kind,
+		"note":    step.Note,
+		"seconds": step.Seconds,
+		"round":   step.Round,
+	})
 }
 
 // handleSearch looks through what the brain knows.

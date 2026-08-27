@@ -216,6 +216,11 @@
 
                 <div class="card card-chat" style="grid-area: chat">
                     <h2>Conversation</h2>
+                    <p class="working" id="working" hidden>
+                        <span class="working-dot" aria-hidden="true"></span>
+                        <span id="working-note">Working</span>
+                        <span class="working-clock" id="working-clock"></span>
+                    </p>
                     <div class="transcript" id="transcript">
                         <div class="boot" id="boot">
                             <p class="boot-sub">Ask something, or tell me to look at something.</p>
@@ -421,6 +426,7 @@
 
 <script src="/js/console.js"></script>
 <script src="/js/dashboard.js"></script>
+<script src="/js/working.js"></script>
 <script type="module" src="/js/scenes.js"></script>
 </body>
 </html>
