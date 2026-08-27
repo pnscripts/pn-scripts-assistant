@@ -101,14 +101,30 @@
     function layout(data) {
         const categories = [...new Set(data.nodes.map((n) => n.category))];
 
-        // Each category gets its own region, so the eye can find "projects"
-        // without reading a legend. Within a region, position is settled by the
-        // force pass below.
+        // Categories are laid out as arcs around the rim, each arc sized by how
+        // many memories are in it.
+        //
+        // The first version gave every category a single fixed angle and let the
+        // force pass spread things out from there. With a hundred memories in
+        // two or three categories that produced two dense knots on one side of
+        // the ring and an empty rest, and the force pass could not fix it: the
+        // simulation cools within seconds, so wherever the seeding puts a node
+        // is very close to where it stays. Sizing the arcs by population fills
+        // the rim evenly while keeping each category contiguous, which is what
+        // made the regions worth having in the first place.
+        const order = data.nodes
+            .map((n, i) => ({ i, c: categories.indexOf(n.category) }))
+            .sort((a, b) => a.c - b.c || a.i - b.i);
+
+        const rank = new Map(order.map((o, place) => [o.i, place]));
+        const total = Math.max(data.nodes.length, 1);
+
         nodes = data.nodes.map((n, i) => {
-            const band = categories.indexOf(n.category);
-            const angle = (band / Math.max(categories.length, 1)) * Math.PI * 2
-                + (i / data.nodes.length) * 0.9;
-            const radius = Math.min(width, height) * (0.16 + Math.random() * 0.24);
+            const angle = (rank.get(i) / total) * Math.PI * 2;
+            // Seeded in the band the layout is held in, so the first frames are
+            // already composed instead of showing the graph climb out of the
+            // reactor it was previously seeded inside.
+            const radius = Math.min(width, height) * (0.47 + Math.random() * 0.13);
 
             return {
                 ...n,
@@ -171,31 +187,47 @@
             l.b.vx -= dx * force; l.b.vy -= dy * force;
         }
 
-        // The reactor sits at the centre, so the graph orbits rather than
-        // covering it. Without this the most striking part of the picture is
-        // permanently behind a hundred nodes.
-        const clearance = Math.min(width, height) * 0.28;
+        // The graph is held in a band outside the rings rather than merely
+        // pushed off the centre.
+        //
+        // Scattered across the whole canvas it fought the reactor: two things
+        // competing for the same space and neither reading clearly. Confined to
+        // an annulus it becomes a rim of memory around the instrument, which is
+        // both what it is and what the references do with their outer bands.
+        const unit = Math.min(width, height);
+        const inner = unit * 0.455;
+        const outer = unit * 0.62;
 
         for (const n of nodes) {
-            // A gentle pull inward keeps the graph on screen without a hard boundary.
-            n.vx += (centreX - n.x) * 0.0012;
-            n.vy += (centreY - n.y) * 0.0012;
+            // The band does the containing now, so the old pull toward the
+            // centre would only drag nodes back into the reactor.
 
             const dx = n.x - centreX;
             const dy = n.y - centreY;
-            const d = Math.sqrt(dx * dx + dy * dy) || 1;
-
-            if (d < clearance) {
-                const push = (clearance - d) * 0.02;
-
-                n.vx += (dx / d) * push;
-                n.vy += (dy / d) * push;
-            }
 
             n.vx *= 0.86;
             n.vy *= 0.86;
             n.x += n.vx * energy;
             n.y += n.vy * energy;
+
+            // Containment corrects the position, not the velocity.
+            //
+            // The simulation cools on purpose: energy decays so the graph
+            // settles instead of trembling forever. Anything expressed as a
+            // force therefore stops being applied within about fifteen seconds
+            // — which is what went wrong on the first attempt. The band was a
+            // force, energy ran out before the nodes reached it, and they froze
+            // in their opening scatter with clumps stranded in the corners. A
+            // position correction does not cool, so the band holds for as long
+            // as the window is open.
+            const bd = Math.sqrt(dx * dx + dy * dy) || 1;
+
+            if (bd < inner || bd > outer) {
+                const step = ((bd < inner ? inner : outer) - bd) * 0.06;
+
+                n.x += (dx / bd) * step;
+                n.y += (dy / bd) * step;
+            }
         }
 
         energy *= 0.994;
@@ -229,11 +261,18 @@
      * the brain is listening or speaking.
      */
     const RINGS = [
-        { r: 0.235, speed: -0.000042, width: 1.2, alpha: 0.40, gaps: 5, gapSize: 0.34, ticks: 0 },
-        { r: 0.200, speed: 0.000072, width: 1.0, alpha: 0.55, gaps: 1, gapSize: 0.00, ticks: 96 },
-        { r: 0.165, speed: -0.000115, width: 3.0, alpha: 0.32, gaps: 8, gapSize: 0.12, ticks: 0 },
-        { r: 0.130, speed: 0.000175, width: 1.2, alpha: 0.60, gaps: 3, gapSize: 0.42, ticks: 0 },
-        { r: 0.098, speed: -0.000270, width: 1.0, alpha: 0.45, gaps: 6, gapSize: 0.16, ticks: 0 },
+        // Outermost: thin, graduated, almost a scale.
+        { r: 0.430, speed: -0.000030, width: 1.2, alpha: 0.30, gaps: 1, gapSize: 0, ticks: 160, glow: 6 },
+        // The heavy one. Four bright arcs, wide gaps, strong bloom — this is
+        // the ring the references are built around.
+        { r: 0.380, speed: 0.000048, width: 7.0, alpha: 0.85, gaps: 4, gapSize: 0.62, glow: 26 },
+        { r: 0.335, speed: -0.000065, width: 1.6, alpha: 0.50, gaps: 1, gapSize: 0, dots: 90, glow: 8 },
+        { r: 0.300, speed: 0.000082, width: 3.5, alpha: 0.70, gaps: 7, gapSize: 0.16, glow: 16 },
+        { r: 0.255, speed: -0.000110, width: 1.4, alpha: 0.40, gaps: 1, gapSize: 0, ticks: 72, glow: 6 },
+        { r: 0.215, speed: 0.000150, width: 9.0, alpha: 0.55, gaps: 2, gapSize: 0.95, glow: 30 },
+        { r: 0.170, speed: -0.000200, width: 2.2, alpha: 0.75, gaps: 5, gapSize: 0.22, glow: 14 },
+        { r: 0.130, speed: 0.000260, width: 1.4, alpha: 0.55, gaps: 1, gapSize: 0, dots: 48, glow: 8 },
+        { r: 0.100, speed: -0.000340, width: 4.0, alpha: 0.80, gaps: 3, gapSize: 0.38, glow: 20 },
     ];
 
     /*
@@ -287,8 +326,36 @@
             const radius = unit * ring.r * (1 + (energy - 1) * 0.04);
             const angle = spin * ring.speed * 1000 * energy;
 
-            ctx.strokeStyle = talkState === 'speaking' ? '#7bc47f' : '#4dd0e1';
+            const colour = talkState === 'speaking' ? '#7bffa8' : '#5fe3f5';
+
+            ctx.strokeStyle = colour;
             ctx.lineWidth = ring.width;
+
+            // The bloom is what separates this from a wireframe. Canvas shadow
+            // is expensive, so it is applied per ring rather than per segment.
+            ctx.shadowColor = colour;
+            ctx.shadowBlur = (ring.glow || 0) * (0.7 + energy * 0.3);
+
+            // Rings of dots rather than a line, which the references use to
+            // break up the concentric bands.
+            if (ring.dots) {
+                ctx.globalAlpha = ring.alpha * (0.75 + energy * 0.25);
+                ctx.fillStyle = colour;
+
+                for (let i = 0; i < ring.dots; i++) {
+                    const a = angle + (i / ring.dots) * Math.PI * 2;
+                    const big = i % 6 === 0;
+
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(a) * radius, Math.sin(a) * radius,
+                        big ? ring.width * 1.1 : ring.width * 0.55, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.shadowBlur = 0;
+
+                continue;
+            }
 
             // Broken arcs rather than closed circles: a gap reads as machinery,
             // a full circle reads as a loading spinner.
@@ -302,9 +369,12 @@
                 ctx.stroke();
             }
 
+            ctx.shadowBlur = 0;
+
             if (ring.ticks) {
-                ctx.globalAlpha = ring.alpha * 0.7;
-                ctx.lineWidth = 1;
+                ctx.globalAlpha = ring.alpha * 0.8;
+                ctx.lineWidth = 1.3;
+                ctx.shadowBlur = 4;
 
                 for (let i = 0; i < ring.ticks; i++) {
                     const a = angle + (i / ring.ticks) * Math.PI * 2;
@@ -316,6 +386,8 @@
                     ctx.lineTo(Math.cos(a) * radius, Math.sin(a) * radius);
                     ctx.stroke();
                 }
+
+                ctx.shadowBlur = 0;
             }
         }
 
@@ -343,12 +415,17 @@
         ctx.arc(0, 0, reach, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.globalAlpha = 0.75 + recallPulse * 0.25;
-        ctx.strokeStyle = '#8fe9f2';
-        ctx.lineWidth = 1.8;
+        const coreColour = talkState === 'speaking' ? '#b6ffd0' : '#cdf6fb';
+
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = coreColour;
+        ctx.shadowColor = coreColour;
+        ctx.shadowBlur = 30;
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(0, 0, core, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
         // Inner detail. Three arcs and a filled centre, which is what makes it
         // read as a reactor rather than a circle.
@@ -363,11 +440,14 @@
             ctx.stroke();
         }
 
-        ctx.globalAlpha = 0.85 + recallPulse * 0.15;
-        ctx.fillStyle = '#bdf3f9';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = coreColour;
+        ctx.shadowBlur = 34;
         ctx.beginPath();
-        ctx.arc(0, 0, core * 0.2, 0, Math.PI * 2);
+        ctx.arc(0, 0, core * 0.34, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
 
         drawGauges(unit);
 
@@ -642,7 +722,7 @@
 
         // Links first, so nodes sit on top of them.
         for (const l of links) {
-            ctx.globalAlpha = 0.12 + (l.strength - 0.5) * 0.9;
+            ctx.globalAlpha = 0.10 + (l.strength - 0.5) * 0.55;
             ctx.strokeStyle = '#4dd0e1';
             ctx.lineWidth = 0.9;
             ctx.beginPath();
@@ -671,7 +751,7 @@
                 ctx.fill();
             }
 
-            ctx.globalAlpha = 0.82 + n.glow * 0.18;
+            ctx.globalAlpha = 0.55 + n.glow * 0.45;
             ctx.fillStyle = colour;
             ctx.shadowColor = colour;
             ctx.shadowBlur = 6 + n.glow * 14;
