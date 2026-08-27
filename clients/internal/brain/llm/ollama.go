@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -177,7 +178,91 @@ func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
 		})
 	}
 
+	// Some models write the call out as text instead of returning it.
+	//
+	// This is not a nicety. Asked to list a directory, qwen2.5-coder:7b through
+	// Ollama replies with tool_calls empty and the content set to the literal
+	// text {"name": "list_directory", "arguments": {"path": "/tmp"}}. Reading
+	// only the structured field throws every such call away, and the brain then
+	// tells its owner it has no access to their files — while holding tools
+	// that read any file on the machine. It is the most misleading failure in
+	// the program: the capability is there, the request to use it is there, and
+	// the two never meet.
+	if len(resp.ToolCalls) == 0 {
+		if call, ok := toolCallInText(resp.Content, req.Tools); ok {
+			resp.ToolCalls = []ToolCall{call}
+
+			// The text was the call, so it is not also an answer.
+			resp.Content = ""
+		}
+	}
+
 	return resp, nil
+}
+
+// toolCallInText recovers a tool call a model wrote as prose.
+//
+// Deliberately strict. The whole message must be the call — with nothing around
+// it but whitespace, a code fence, or the tool-call tags some templates use —
+// and the name must be one of the tools actually offered on this request. An
+// assistant that answers a question about JSON should not have its answer run,
+// and a loose reading of "contains a JSON object with a name field" would do
+// exactly that.
+func toolCallInText(content string, offered []ToolSpec) (ToolCall, bool) {
+	text := strings.TrimSpace(content)
+
+	// Templates that wrap the call in tags, and models that fence it as code.
+	for _, pair := range [][2]string{
+		{"<tool_call>", "</tool_call>"},
+		{"```json", "```"},
+		{"```", "```"},
+	} {
+		if strings.HasPrefix(text, pair[0]) && strings.HasSuffix(text, pair[1]) {
+			text = strings.TrimSpace(text[len(pair[0]) : len(text)-len(pair[1])])
+
+			break
+		}
+	}
+
+	if !strings.HasPrefix(text, "{") || !strings.HasSuffix(text, "}") {
+		return ToolCall{}, false
+	}
+
+	var written struct {
+		Name string `json:"name"`
+		// Both spellings are seen in the wild.
+		Arguments  json.RawMessage `json:"arguments"`
+		Parameters json.RawMessage `json:"parameters"`
+	}
+
+	if err := json.Unmarshal([]byte(text), &written); err != nil || written.Name == "" {
+		return ToolCall{}, false
+	}
+
+	known := false
+
+	for _, spec := range offered {
+		if spec.Name == written.Name {
+			known = true
+
+			break
+		}
+	}
+
+	if !known {
+		return ToolCall{}, false
+	}
+
+	arguments := written.Arguments
+	if len(arguments) == 0 {
+		arguments = written.Parameters
+	}
+
+	if len(arguments) == 0 {
+		arguments = json.RawMessage("{}")
+	}
+
+	return ToolCall{ID: "call_text", Name: written.Name, Arguments: arguments}, true
 }
 
 type ollamaEmbedRequest struct {
