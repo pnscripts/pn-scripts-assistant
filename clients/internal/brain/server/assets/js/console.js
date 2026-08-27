@@ -160,6 +160,19 @@ async function refreshStatus() {
         el('engine-meta').textContent = `${s.provider} · ${s.model}`;
         renderPrivacy(s.privacy);
         renderStorage(s.storage);
+
+        // The gauges around the reactor show these, so they move for a reason.
+        if (window.brainMapGauges) {
+            const used = s.storage && s.storage.total_bytes
+                ? 1 - s.storage.free_bytes / s.storage.total_bytes
+                : 0;
+
+            window.brainMapGauges({
+                storage: used,
+                // A full queue is ten waiting; more than that is still full.
+                queue: Math.min(1, (s.memory.pending_lessons || 0) / 10),
+            });
+        }
         el('conn-dot').className = 'dot online';
         el('conn-text').textContent = `online · ${s.capabilities.length} capabilities`;
         // Only offer to speak when there is something that can. A control for
@@ -351,6 +364,9 @@ async function talkLoop() {
             addMessage(state.brainName, reply.reply, { cssClass: 'brain' });
 
             if (window.brainMapRecall && reply.recalled) window.brainMapRecall(reply.recalled);
+        if (window.brainMapGauges) {
+            window.brainMapGauges({ recall: Math.min(1, (reply.recalled || []).length / 12) });
+        }
 
             if (!talking.on) break;
 

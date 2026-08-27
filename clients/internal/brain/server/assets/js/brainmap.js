@@ -40,6 +40,10 @@
     let running = true;
     let pointer = { x: -1e5, y: -1e5 };
 
+    // Rises when memories are recalled and decays afterwards, so the core
+    // brightens exactly when the brain has actually used what it knows.
+    let recallPulse = 0;
+
     /* ---------- sizing ---------- */
 
     function resize() {
@@ -167,10 +171,26 @@
             l.b.vx -= dx * force; l.b.vy -= dy * force;
         }
 
+        // The reactor sits at the centre, so the graph orbits rather than
+        // covering it. Without this the most striking part of the picture is
+        // permanently behind a hundred nodes.
+        const clearance = Math.min(width, height) * 0.28;
+
         for (const n of nodes) {
             // A gentle pull inward keeps the graph on screen without a hard boundary.
             n.vx += (centreX - n.x) * 0.0012;
             n.vy += (centreY - n.y) * 0.0012;
+
+            const dx = n.x - centreX;
+            const dy = n.y - centreY;
+            const d = Math.sqrt(dx * dx + dy * dy) || 1;
+
+            if (d < clearance) {
+                const push = (clearance - d) * 0.02;
+
+                n.vx += (dx / d) * push;
+                n.vy += (dy / d) * push;
+            }
 
             n.vx *= 0.86;
             n.vy *= 0.86;
@@ -179,6 +199,167 @@
         }
 
         energy *= 0.994;
+    }
+
+    /* ---------- the reactor ---------- */
+
+    /*
+     * Concentric rings behind the memory graph.
+     *
+     * This is the part that is deliberately decorative, and it is the only
+     * part. Everything drawn over it — nodes, links, the glow when something is
+     * recalled — is real: real memories, real embedding similarity, real use.
+     * The references this was drawn from are full of invented readouts, and
+     * inventing readouts is the one thing worth refusing, because a display
+     * that shows made-up numbers teaches you to ignore all of them.
+     *
+     * So the rings carry no data. They rotate, they frame the graph, and they
+     * are honest about being furniture.
+     */
+
+    const RINGS = [
+        { r: 0.235, speed: -0.00022, width: 1.2, alpha: 0.40, gaps: 5, gapSize: 0.34, ticks: 0 },
+        { r: 0.200, speed: 0.00038, width: 1.0, alpha: 0.55, gaps: 1, gapSize: 0.00, ticks: 96 },
+        { r: 0.165, speed: -0.00060, width: 3.0, alpha: 0.32, gaps: 8, gapSize: 0.12, ticks: 0 },
+        { r: 0.130, speed: 0.00090, width: 1.2, alpha: 0.60, gaps: 3, gapSize: 0.42, ticks: 0 },
+        { r: 0.098, speed: -0.00140, width: 1.0, alpha: 0.45, gaps: 6, gapSize: 0.16, ticks: 0 },
+    ];
+
+    let spin = 0;
+
+    function drawReactor(now) {
+        const cx = width / 2;
+        const cy = height / 2;
+        const unit = Math.min(width, height);
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        for (const ring of RINGS) {
+            const radius = unit * ring.r;
+            const angle = spin * ring.speed * 1000;
+
+            ctx.strokeStyle = '#4dd0e1';
+            ctx.lineWidth = ring.width;
+
+            // Broken arcs rather than closed circles: a gap reads as machinery,
+            // a full circle reads as a loading spinner.
+            for (let i = 0; i < ring.gaps; i++) {
+                const start = angle + (i / ring.gaps) * Math.PI * 2;
+                const end = start + (Math.PI * 2) / ring.gaps - ring.gapSize;
+
+                ctx.globalAlpha = ring.alpha;
+                ctx.beginPath();
+                ctx.arc(0, 0, radius, start, end);
+                ctx.stroke();
+            }
+
+            if (ring.ticks) {
+                ctx.globalAlpha = ring.alpha * 0.7;
+                ctx.lineWidth = 1;
+
+                for (let i = 0; i < ring.ticks; i++) {
+                    const a = angle + (i / ring.ticks) * Math.PI * 2;
+                    const long = i % 6 === 0;
+                    const inner = radius - (long ? 9 : 4);
+
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+                    ctx.lineTo(Math.cos(a) * radius, Math.sin(a) * radius);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // The core. Its brightness follows how much was just recalled, so the
+        // one thing at the centre of the picture is not decoration after all.
+        const core = unit * 0.055;
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, core * (2.4 + recallPulse * 2));
+
+        glow.addColorStop(0, `rgba(120, 235, 245, ${0.20 + recallPulse * 0.5})`);
+        glow.addColorStop(0.5, `rgba(77, 208, 225, ${0.07 + recallPulse * 0.18})`);
+        glow.addColorStop(1, 'rgba(77, 208, 225, 0)');
+
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, core * (2.4 + recallPulse * 2), 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalAlpha = 0.75 + recallPulse * 0.25;
+        ctx.strokeStyle = '#8fe9f2';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(0, 0, core, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner detail. Three arcs and a filled centre, which is what makes it
+        // read as a reactor rather than a circle.
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.55;
+
+        for (let i = 0; i < 3; i++) {
+            const a = -spin * 0.0009 + (i / 3) * Math.PI * 2;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, core * 0.62, a, a + 1.5);
+            ctx.stroke();
+        }
+
+        ctx.globalAlpha = 0.85 + recallPulse * 0.15;
+        ctx.fillStyle = '#bdf3f9';
+        ctx.beginPath();
+        ctx.arc(0, 0, core * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        drawGauges(unit);
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+    }
+
+    /*
+     * Radial gauges around the reactor.
+     *
+     * The references have rings of these everywhere, attached to nothing. These
+     * are attached to something: how full the drive is, how much of what the
+     * brain knows was just recalled, and how much of its review queue is
+     * waiting. A gauge that moves for a reason is worth looking at; one that
+     * moves because it looks good teaches you to stop looking.
+     */
+    const gauges = { storage: 0, recall: 0, queue: 0 };
+
+    window.brainMapGauges = function (values) {
+        Object.assign(gauges, values);
+    };
+
+    const GAUGE_ARCS = [
+        { key: 'storage', r: 0.265, from: -2.5, to: -1.2, colour: '#4dd0e1' },
+        { key: 'recall', r: 0.265, from: -0.5, to: 0.8, colour: '#8fe9f2' },
+        { key: 'queue', r: 0.265, from: 1.5, to: 2.8, colour: '#f0b26b' },
+    ];
+
+    function drawGauges(unit) {
+        for (const g of GAUGE_ARCS) {
+            const radius = unit * g.r;
+            const value = Math.max(0, Math.min(1, gauges[g.key] || 0));
+
+            // The track, so an empty gauge still reads as a gauge rather than
+            // as something missing.
+            ctx.globalAlpha = 0.10;
+            ctx.strokeStyle = g.colour;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, g.from, g.to);
+            ctx.stroke();
+
+            if (value <= 0) continue;
+
+            ctx.globalAlpha = 0.55;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, g.from, g.from + (g.to - g.from) * value);
+            ctx.stroke();
+        }
     }
 
     /* ---------- drawing ---------- */
@@ -206,6 +387,9 @@
 
     function draw() {
         ctx.clearRect(0, 0, width, height);
+
+        drawReactor();
+        recallPulse *= 0.985;
 
         // Threads between particles that drift close together.
         //
@@ -354,6 +538,8 @@
         // that may be running a model on the CPU.
         const interval = energy < 0.02 ? 50 : 16;
 
+        spin = now;
+
         if (now - last >= interval) {
             stepParticles();
             stepLayout();
@@ -370,6 +556,10 @@
         for (const n of nodes) {
             if (ids.includes(n.id)) n.glow = 1;
         }
+
+        // Scaled by how much was recalled, so a question answered from one
+        // memory does not look like one answered from a dozen.
+        recallPulse = Math.min(1, (ids.length || 0) / 10);
     };
 
     window.brainMapReload = async function () {
