@@ -99,7 +99,7 @@ export function startCore() {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
 
-    camera.position.set(0, 1.05, 4.25);
+    camera.position.set(0, 1.15, 5.15);
     camera.lookAt(0, 0, 0);
 
     /*
@@ -359,14 +359,22 @@ export function startCore() {
 
     const floor = [];
 
+    /*
+     * The floor is the widest thing in the scene, not the sphere.
+     *
+     * It was sized without checking that, and the outer rings ran off the left
+     * and right edges of the card and were cut off at the bottom — the one part
+     * of the picture that is supposed to sit the composition in a place ended
+     * up being the part that escaped it.
+     */
     for (let ring = 0; ring < 5; ring++) {
-        const spread = 0.95 + ring * 0.22;
+        const spread = 0.9 + ring * 0.17;
         const count = 96 + ring * 16;
 
         for (let step = 0; step < count; step++) {
             const a = (step / count) * Math.PI * 2;
 
-            floor.push(Math.cos(a) * spread * 1.45, -1.12, Math.sin(a) * spread * 0.95);
+            floor.push(Math.cos(a) * spread * 1.2, -1.12, Math.sin(a) * spread * 0.9);
         }
     }
 
