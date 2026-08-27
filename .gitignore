@@ -31,3 +31,8 @@ Thumbs.db
 /dist
 /clients/dist
 build/
+
+# Build tools fetched on demand, never committed: the Godot editor and its
+# export templates are about 1.4GB between them and are not part of the source.
+.tools/
+godot/.godot/
