@@ -2155,3 +2155,7 @@ select { font-size: 13.5px; }
 
 .model-action:hover:not(:disabled) { background: rgba(77, 208, 225, 0.16); }
 .model-action:disabled { opacity: 0.35; cursor: default; }
+
+/* The cost badge is wider than a letter, so the row icon has to give. */
+#updates-list .row-icon { width: auto; min-width: 34px; padding: 0 7px; font-size: 9.5px; }
+#updates-list .row-state { white-space: normal; }

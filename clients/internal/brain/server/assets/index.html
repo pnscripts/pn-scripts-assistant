@@ -122,6 +122,13 @@
             </svg>
             <span>System</span>
         </button>
+        <button type="button" class="nav-item" data-view="updates">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M12 4v9M12 4l-3.5 3.5M12 4l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>What it runs on</span>
+        </button>
         <button type="button" class="nav-item" data-view="privacy">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <rect x="5" y="10" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -380,6 +387,16 @@
             </div>
         </section>
 
+        <section class="view" data-view="updates" hidden>
+            <div class="view-inner">
+                <div class="card">
+                    <h2>What it runs on</h2>
+                    <p class="note" id="updates-note">Looking…</p>
+                    <div id="updates-list" class="rows"></div>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="privacy" hidden>
             <div class="view-inner">
                 <div class="card">
@@ -445,6 +462,7 @@
 <script src="/js/dashboard.js"></script>
 <script src="/js/working.js"></script>
 <script src="/js/models.js"></script>
+<script src="/js/updates.js"></script>
 <script type="module" src="/js/scenes.js"></script>
 </body>
 </html>

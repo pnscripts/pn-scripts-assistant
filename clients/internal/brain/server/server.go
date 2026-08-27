@@ -59,9 +59,11 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/search", s.handleSearch)
 	s.mux.HandleFunc("GET /api/progress", s.handleProgress)
 	s.mux.HandleFunc("GET /api/models", s.handleModels)
+	s.mux.HandleFunc("GET /api/updates", s.handleUpdates)
 	s.mux.HandleFunc("POST /api/models/measure", s.handleModelMeasure)
 	s.mux.HandleFunc("POST /api/models/use", s.handleModelUse)
 	s.mux.HandleFunc("POST /api/models/pull", s.handleModelPull)
+	s.mux.HandleFunc("POST /api/models/embedding", s.handleEmbeddingUse)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
@@ -688,6 +690,49 @@ func (s *Server) handleModelPull(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			s.log.Warn("could not pull a model", "model", body.Name, "error", err)
 		}
+	}()
+
+	ok(w, map[string]any{"started": body.Name})
+}
+
+// handleEmbeddingUse changes the model memories are indexed with.
+//
+// Rebuilds every vector as part of the change, because the two cannot be
+// separated: a table holding vectors from two models ranks by which model made
+// each row rather than by meaning. Runs detached — a few hundred facts is a few
+// hundred model calls — and reports itself on the progress line.
+func (s *Server) handleEmbeddingUse(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil || body.Name == "" {
+		fail(w, http.StatusBadRequest, "Which model?")
+
+		return
+	}
+
+	if !models.New(s.brain.Cfg.OllamaURL).Has(r.Context(), body.Name) {
+		fail(w, http.StatusBadRequest, body.Name+" is not installed.")
+
+		return
+	}
+
+	go func() {
+		defer progress.Done()
+
+		count, err := s.brain.ReEmbed(context.Background(), body.Name, func(done, total int) {
+			progress.Set("embedding", fmt.Sprintf("Re-indexing memories with %s — %d of %d",
+				body.Name, done, total))
+		})
+		if err != nil {
+			s.log.Warn("re-indexing failed; the previous model is still in use",
+				"model", body.Name, "error", err)
+
+			return
+		}
+
+		s.log.Info("re-indexed", "model", body.Name, "facts", count)
 	}()
 
 	ok(w, map[string]any{"started": body.Name})

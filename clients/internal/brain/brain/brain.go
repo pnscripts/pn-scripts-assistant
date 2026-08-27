@@ -648,3 +648,67 @@ func (b *Brain) Capabilities() []string {
 func (b *Brain) Storage() storage.Report {
 	return storage.Check(b.Root, b.DBPath)
 }
+
+// UseEmbeddingModel changes the model memories are indexed with, and rebuilds
+// every vector to match.
+//
+// This is why it is not a setting like the others. A search compares the
+// question's vector against every stored vector at once, and vectors from two
+// different models are not comparable — a table holding both would rank results
+// by which model happened to produce each row rather than by meaning. Changing
+// the model without rebuilding would not give worse recall, it would give
+// meaningless recall, and nothing would look wrong.
+//
+// So the rebuild is the operation, and the setting is a consequence of it. If
+// it fails partway the old model stays in use, because a half-rebuilt table is
+// the one state worse than either model.
+func (b *Brain) ReEmbed(ctx context.Context, model string, note func(done, total int)) (int, error) {
+	if b.ollama == nil {
+		return 0, fmt.Errorf("there is no local provider to embed with")
+	}
+
+	facts, err := b.DB.AllFacts()
+	if err != nil {
+		return 0, err
+	}
+
+	previous := b.ollama.EmbedName
+	b.ollama.EmbedName = model
+
+	embedder, err := b.Router.Embedder()
+	if err != nil {
+		b.ollama.EmbedName = previous
+
+		return 0, err
+	}
+
+	for i, fact := range facts {
+		if err := ctx.Err(); err != nil {
+			b.ollama.EmbedName = previous
+
+			return i, err
+		}
+
+		if note != nil {
+			note(i+1, len(facts))
+		}
+
+		vector, err := embedder.Embed(ctx, fact.Content)
+		if err != nil {
+			b.ollama.EmbedName = previous
+
+			return i, fmt.Errorf("re-embedding stopped at %d of %d: %w", i+1, len(facts), err)
+		}
+
+		if err := b.DB.ReplaceEmbedding(fact.ID, vector); err != nil {
+			b.ollama.EmbedName = previous
+
+			return i, err
+		}
+	}
+
+	b.Cfg.EmbedModel = model
+	b.Log.Info("memories re-indexed", "model", model, "facts", len(facts))
+
+	return len(facts), nil
+}

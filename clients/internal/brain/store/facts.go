@@ -305,3 +305,46 @@ func max64(a, b int64) int64 {
 func round3(f float64) float64 {
 	return float64(int64(f*1000+0.5)) / 1000
 }
+
+// AllFacts returns every fact's id and text, for re-embedding.
+//
+// Without the vectors: the caller is about to replace them, and loading a few
+// hundred blobs it is going to discard is work for nothing.
+func (d *DB) AllFacts() ([]Fact, error) {
+	rows, err := d.sql.Query(`
+		SELECT id, COALESCE(category, 'unknown'), content
+		FROM knowledge_facts
+		ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Fact
+
+	for rows.Next() {
+		var f Fact
+
+		if err := rows.Scan(&f.ID, &f.Category, &f.Content); err != nil {
+			return nil, err
+		}
+
+		out = append(out, f)
+	}
+
+	return out, rows.Err()
+}
+
+// ReplaceEmbedding writes a new vector for a fact.
+//
+// Used when the embedding model changes. Every vector has to be replaced or
+// none of them should be: a search compares the question's vector against all
+// of them at once, and a table holding two models' output would rank by which
+// model produced each row rather than by meaning.
+func (d *DB) ReplaceEmbedding(id int64, embedding []float32) error {
+	_, err := d.sql.Exec(
+		`UPDATE knowledge_facts SET embedding = ?, dimensions = ?, updated_at = ? WHERE id = ?`,
+		EncodeVector(embedding), len(embedding), time.Now().UTC().Format(time.RFC3339), id)
+
+	return err
+}

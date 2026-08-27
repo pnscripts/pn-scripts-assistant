@@ -2,6 +2,7 @@ package brain
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/progress"
+	"pn-brain/internal/brain/tools"
 )
 
 // Being told to learn something is an instruction, not a topic of conversation.
@@ -108,10 +110,7 @@ func (b *Brain) handleLearnInstruction(ctx context.Context, message string) (str
 				target.Link, b.Mode), true
 		}
 
-		return fmt.Sprintf(
-			"I can read %s when you ask me a question about it, but I don't have a way to "+
-				"take a whole site into memory yet. Point me at a folder or a file and I will "+
-				"read that now.", target.Link), true
+		return b.learnFromPage(ctx, target.Link)
 	}
 
 	if b.Learner == nil {
@@ -206,4 +205,65 @@ func describeLearning(path string, scanned int, report learning.IngestReport) st
 
 	return fmt.Sprintf("I read %s and found %d things. Of those, %s.",
 		path, scanned, strings.Join(parts, ", "))
+}
+
+// learnFromPage reads a page and proposes what it found.
+//
+// Everything from a page waits for a person, and that is the design rather than
+// caution for its own sake. The brain has read something written by somebody
+// else; the difference between "this page says so" and "this is true about my
+// owner" is exactly the judgement the review queue exists to hold. A brain that
+// swallowed a page whole would fill its memory with other people's claims and
+// then recall them as though they were its owner's.
+func (b *Brain) learnFromPage(ctx context.Context, link string) (string, bool) {
+	if b.Learner == nil {
+		return "I have no learning pipeline running, so there is nowhere to put what I read.", true
+	}
+
+	progress.Set("learning", "Reading "+link)
+	defer progress.Done()
+
+	// The fetch tool rather than a plain request: it carries the guard against
+	// being pointed at this machine's own network, and the size limit.
+	args, err := json.Marshal(map[string]string{"url": link})
+	if err != nil {
+		return "I could not put that link together: " + err.Error(), true
+	}
+
+	page, err := tools.FetchURL{}.Execute(ctx, args)
+	if err != nil {
+		return fmt.Sprintf("I could not read %s: %v", link, err), true
+	}
+
+	text := strings.TrimSpace(tools.ReadableText(page))
+
+	if len(text) < 200 {
+		return fmt.Sprintf(
+			"I fetched %s but there was almost no readable text on it — "+
+				"probably a page that builds itself in the browser. "+
+				"If you can point me at a plain article or a file, I can read that.", link), true
+	}
+
+	report, err := b.Learner.LearnFromText(ctx, text, link, func(at, total int) {
+		progress.Set("learning", fmt.Sprintf("Reading %s — passage %d of %d", link, at, total))
+	})
+	if err != nil {
+		return fmt.Sprintf("I read %s but could not finish learning from it: %v", link, err), true
+	}
+
+	if report.Recorded == 0 {
+		return fmt.Sprintf(
+			"I read %s — %d passages — and found nothing worth keeping. "+
+				"Is there something in particular on it you wanted me to take away?",
+			link, report.Seen), true
+	}
+
+	// Asked rather than announced. What is on the page is somebody else's
+	// writing, and which parts of it are worth the brain believing is a
+	// question with only one person who can answer it.
+	return fmt.Sprintf(
+		"I read %s and put %d things in your review queue — they are on the command centre "+
+			"under \"Waiting for you\". Would you like to go through them now, or shall I "+
+			"read more of the site first?",
+		link, report.Recorded), true
 }
