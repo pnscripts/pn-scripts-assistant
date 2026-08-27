@@ -52,6 +52,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/listen", s.handleListen)
 	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
+	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
 	s.mux.HandleFunc("POST /api/voice", s.handleSetVoice)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
@@ -465,6 +466,14 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, heard)
+}
+
+// handleGreeting is what the brain says on opening, without being asked.
+//
+// Composed rather than generated, so it is instant. Asking the model would cost
+// most of a minute before it said hello, which defeats the purpose.
+func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
+	ok(w, s.brain.Greet())
 }
 
 // handleVoices lists what can read answers aloud.
