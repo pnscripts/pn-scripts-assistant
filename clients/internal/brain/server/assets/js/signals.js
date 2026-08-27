@@ -32,6 +32,17 @@ export const signals = {
     wave: new Array(WAVE_POINTS).fill(0),
     position: 0,
     points: WAVE_POINTS,
+
+    /*
+     * What the brain is working on, from the same place the conversation line
+     * reads it.
+     *
+     * Asked here rather than in each thing that draws it, because there are now
+     * three: the line above the transcript, the core, and the voice card. Three
+     * pollers asking the same question three times a second to get the same
+     * answer would be silly, and worse, they could disagree.
+     */
+    work: { busy: false, kind: '', note: '', seconds: 0, round: 0 },
 };
 
 /*
@@ -71,6 +82,22 @@ async function poll() {
 setInterval(poll, LEVEL_INTERVAL);
 poll();
 
+/** How often to ask what it is working on. */
+const WORK_INTERVAL = 700;
+
+async function pollWork() {
+    if (document.hidden) return;
+
+    try {
+        signals.work = await fetch('/api/progress').then((r) => r.json());
+    } catch {
+        signals.work = { busy: false, kind: '', note: '', seconds: 0, round: 0 };
+    }
+}
+
+setInterval(pollWork, WORK_INTERVAL);
+pollWork();
+
 /** Called every frame by whichever scene is running. */
 export function easeSignals(delta) {
     signals.smooth += (signals.level - signals.smooth) * Math.min(1, delta * 9);
@@ -98,6 +125,11 @@ window.brainMapRecall = function (ids) {
     signals.recall = Math.min(1, used.length / 10);
 
     for (const fn of recallListeners) fn(used);
+};
+
+/** The working line reads this. */
+window.brainWork = function () {
+    return signals.work;
 };
 
 /** The traces beside the message box read this. */

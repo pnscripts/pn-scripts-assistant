@@ -17,8 +17,8 @@ const line = document.getElementById('working');
 const label = document.getElementById('working-note');
 const clock = document.getElementById('working-clock');
 
-/** How often to ask. Cheap — it reads one value the brain already holds. */
-const INTERVAL = 700;
+/** How often to redraw from the shared reading. */
+const INTERVAL = 400;
 
 /** Tools whose start is worth saying out loud, and how to say it. */
 const SPOKEN = {
@@ -81,14 +81,9 @@ function show(step) {
     if (step.kind === 'tool') announce(step.note);
 }
 
-async function poll() {
-    if (document.hidden) return;
-
-    try {
-        show(await fetch('/api/progress').then((r) => r.json()));
-    } catch {
-        show({ busy: false });
-    }
+// Read from the one place that asks, rather than asking again. See signals.js.
+function poll() {
+    show(window.brainWork ? window.brainWork() : { busy: false });
 }
 
 setInterval(poll, INTERVAL);

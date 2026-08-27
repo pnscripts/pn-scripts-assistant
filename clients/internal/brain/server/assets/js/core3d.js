@@ -268,9 +268,85 @@ export function startCore() {
         color: new THREE.Color(0.4, 0.85, 1),
     })));
 
+    /* ---------- the scanner ---------- */
+
+    /*
+     * A band that sweeps the sphere while the brain is working.
+     *
+     * This is the core's whole job when nothing is being said. A reply here can
+     * take minutes, and for all of that the globe turned at exactly the rate it
+     * turns when idle — so the one thing on screen that ought to say "this is
+     * alive" said nothing at all, and the honest question, is it working or is
+     * it stuck, had to be answered by a line of text elsewhere.
+     *
+     * It moves only while there is real work. A band that swept on a timer
+     * would look identical and mean nothing, and once one thing on a display
+     * means nothing the rest stops being believed.
+     */
+    const scanner = new THREE.Mesh(
+        new THREE.TorusGeometry(1, 0.012, 6, 96),
+        new THREE.MeshBasicMaterial({
+            color: 0x8fe9f2,
+            transparent: true,
+            opacity: 0,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+        }));
+
+    scanner.rotation.x = Math.PI / 2;
+    globe.add(scanner);
+
+    /** What each kind of work looks like. Colour carries the kind; the sweep
+     *  carries the fact that there is any. */
+    const WORK = {
+        thinking: { colour: 0x8fe9f2, seconds: 2.6 },
+        tool: { colour: 0xf0b26b, seconds: 1.5 },
+        learning: { colour: 0xb39ddb, seconds: 2.0 },
+        model: { colour: 0x7bc47f, seconds: 3.2 },
+        embedding: { colour: 0xb39ddb, seconds: 2.0 },
+        waiting: { colour: 0xf0b26b, seconds: 4.0 },
+    };
+
+    let sweep = 0;
+
+    function updateScanner(delta, now) {
+        const work = signals.work || {};
+        const style = WORK[work.kind] || WORK.thinking;
+
+        if (!work.busy) {
+            // Fades rather than switching off, so the end of a turn is a
+            // settling rather than a blink.
+            scanner.material.opacity = Math.max(0, scanner.material.opacity - delta * 2);
+            sweep = 0;
+
+            return;
+        }
+
+        sweep = (sweep + delta / style.seconds) % 1;
+
+        // Pole to pole. The band is widest at the equator because that is what
+        // a circle on a sphere does, which is also what makes it read as
+        // passing through the body rather than sliding across a picture of one.
+        const y = Math.cos(sweep * Math.PI);
+        const radius = Math.sqrt(Math.max(0.0001, 1 - y * y));
+
+        scanner.position.y = y * RADIUS;
+        scanner.scale.set(radius, radius, 1);
+        scanner.material.color.setHex(style.colour);
+
+        // Brightest crossing the middle, faint at the poles, so the sweep has a
+        // shape rather than a hard start and stop.
+        scanner.material.opacity = 0.35 + Math.sin(sweep * Math.PI) * 0.5;
+    }
+
     /* ---------- the loop ---------- */
 
     let last = performance.now();
+
+    // Turned by accumulated time rather than the clock, so that changing the
+    // rate speeds it up from where it is instead of jumping to wherever the
+    // clock says the faster rate would have put it by now.
+    let spin = 0;
 
     function resize() {
         const rect = canvas.getBoundingClientRect();
@@ -300,7 +376,8 @@ export function startCore() {
 
         const seconds = now / 1000;
 
-        globe.rotation.y = (seconds * Math.PI * 2) / SECONDS_PER_TURN;
+        spin += delta * (signals.work && signals.work.busy ? 2.6 : 1);
+        globe.rotation.y = (spin * Math.PI * 2) / SECONDS_PER_TURN;
 
         for (const t of travellers) {
             const a = (seconds * Math.PI * 2) / t.orbit.seconds + t.phase;
@@ -308,8 +385,12 @@ export function startCore() {
             t.spark.position.set(Math.cos(a) * t.orbit.rx, 0, Math.sin(a) * t.orbit.rz);
         }
 
-        // Brightness from sound that is really there.
-        const lit = 0.7 + signals.smooth * 2.2 + signals.recall * 0.8;
+        updateScanner(delta, now);
+
+        // Brightness from sound that is really there, lifted while working so
+        // the whole body reads as busy and not only the band crossing it.
+        const busy = signals.work && signals.work.busy ? 0.5 : 0;
+        const lit = 0.7 + signals.smooth * 2.2 + signals.recall * 0.8 + busy;
         const speaking = signals.state === 'speaking';
         const tint = speaking
             ? new THREE.Color(0.45, 1, 0.62)
