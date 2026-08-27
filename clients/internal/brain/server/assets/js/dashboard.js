@@ -302,21 +302,34 @@
     }
 
     function drawTrace(canvas, reading) {
-        const rect = traceSize.get(canvas) || measureTrace(canvas);
+        let rect = traceSize.get(canvas);
+
+        // Re-measure when the element is no longer the size it was cached at.
+        //
+        // The cache exists so layout is not forced on every frame, but a size
+        // taken once is wrong the moment the stylesheet moves the element —
+        // which is how these ended up drawing into a box of the wrong shape
+        // after the bar was rebuilt, and looking simply absent.
+        if (!rect || Math.abs(canvas.clientWidth - rect.w) > 1) {
+            rect = measureTrace(canvas);
+        }
 
         if (!rect) return;
 
         const ctx = canvas.getContext('2d');
 
-        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.clearRect(0, 0, rect.w, rect.h);
 
+        // A quiet room is a flat line, and a flat line has to be visible or the
+        // instrument reads as broken rather than as still. The colour says
+        // which of you is making the sound; the baseline says it is listening.
         const colour = reading.source === 'voice' ? '#7bffa8'
             : reading.source === 'mic' ? '#5fe3f5'
-                : '#2c4655';
+                : '#3d6b80';
 
-        const bars = Math.max(8, Math.floor(rect.width / 4));
-        const gap = rect.width / bars;
-        const middle = rect.height / 2;
+        const bars = Math.max(8, Math.floor(rect.w / 4));
+        const gap = rect.w / bars;
+        const middle = rect.h / 2;
 
         ctx.fillStyle = colour;
 
@@ -330,9 +343,9 @@
             const index = (reading.pos - 1 - age + reading.points * 2) % reading.points;
             const sample = reading.wave[index] || 0;
 
-            // A floor of one pixel, so a silent room is a line rather than an
+            // A floor of two pixels, so a silent room is a line rather than an
             // empty box that looks broken.
-            const h = Math.max(1, sample * (rect.height - 4));
+            const h = Math.max(2, sample * (rect.h - 4));
 
             ctx.fillRect(i * gap, middle - h / 2, Math.max(1, gap - 1.5), h);
         }

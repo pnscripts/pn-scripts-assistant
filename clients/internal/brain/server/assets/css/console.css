@@ -2168,3 +2168,174 @@ select { font-size: 13.5px; }
 .dash {
     grid-template-rows: minmax(0, 1.45fr) minmax(150px, 0.68fr) minmax(0, 0.95fr);
 }
+
+/* Thinner again. The middle row is sized to its contents now rather than to a
+   share of the screen: six capability tiles and four commands are two rows of
+   things, and anything beyond that was padding. */
+.dash {
+    grid-template-rows: minmax(0, 1.7fr) minmax(120px, 0.42fr) minmax(0, 1fr);
+}
+
+.dash > .card[style*="skills"],
+.dash > .card[style*="commands"],
+.card-chat { padding-top: 11px; padding-bottom: 11px; }
+
+#capabilities { gap: 6px; }
+.commands { gap: 5px; }
+.command { padding: 6px 9px; }
+
+/* Four commands in two columns, so they fit the thinner row rather than being
+   cut in half by it. */
+.commands {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.command { font-size: 12.5px; }
+
+/* Capability tiles get the same treatment: three across, two down, no scroll. */
+#capabilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* ============================================================
+   The bar along the bottom
+   ============================================================
+
+   One bar rather than three floating groups. It was a row of separate boxes
+   with a caption underneath, which read as several unrelated things that
+   happened to be at the same height; what it is is one strip: what is true
+   right now on the left, what you say in the middle, what you can do on the
+   right. */
+
+.talkbar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 0 18px;
+    height: 74px;
+    border-top: 1px solid rgba(77, 208, 225, 0.2);
+    background:
+        linear-gradient(to top, rgba(6, 14, 24, 0.96), rgba(9, 20, 32, 0.75));
+}
+
+/* The status strip: small, quiet, and separated by dots rather than boxes. */
+.talk-tiles {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: none;
+}
+
+.tile {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 14px 0 0;
+    margin-right: 14px;
+    border: none;
+    border-right: 1px solid rgba(77, 208, 225, 0.14);
+    border-radius: 0;
+    background: none;
+}
+
+.talk-tiles .tile:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+
+.tile svg { opacity: 0.55; }
+.tile-label { font-size: 8.5px; letter-spacing: 0.18em; }
+.tile-value { font-size: 12px; color: var(--text); }
+
+/* The message box is the thing you use, so it gets the width and the light. */
+.talk-pill {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 44px;
+    padding: 0 8px 0 18px;
+    border: 1px solid rgba(77, 208, 225, 0.28);
+    border-radius: 10px;
+    background: rgba(4, 12, 22, 0.9);
+    box-shadow: inset 0 0 22px rgba(77, 208, 225, 0.05);
+}
+
+.talk-pill:focus-within {
+    border-color: rgba(77, 208, 225, 0.6);
+    box-shadow: inset 0 0 22px rgba(77, 208, 225, 0.09), 0 0 22px rgba(77, 208, 225, 0.14);
+}
+
+.talk-pill.live { border-color: rgba(77, 208, 225, 0.7); }
+.talk-pill.voice { border-color: rgba(123, 255, 168, 0.6); }
+
+/* The traces sit inside the box now, flanking what you type, so the box itself
+   shows the microphone is open instead of a panel across the room doing it. */
+.talk-pill .wave { width: 64px; height: 26px; flex: none; opacity: 0.85; }
+
+.talk-pill .composer { flex: 1; gap: 8px; }
+.talk-pill textarea { padding: 0; font-size: 15px; line-height: 44px; max-height: 44px; }
+
+.talk-pill #send {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.talk-action {
+    flex: none;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(9, 22, 36, 0.8);
+}
+
+/* The caption moves out of the bar. It was a line of text under everything,
+   which is where a footnote goes, and it is not a footnote — it is the rule the
+   whole program runs on. It belongs where the actions are. */
+.talkbar .hint {
+    flex: none;
+    max-width: 190px;
+    margin: 0;
+    padding: 0;
+    text-align: left;
+    line-height: 1.35;
+    font-size: 9.5px;
+    color: var(--text-faint);
+}
+
+/* The caption had been squeezed into three lines of eight-point type in a
+   corner. It is the rule the whole program runs on, not a footnote, so it gets
+   a line to itself at a size somebody can read. */
+.talkbar .hint {
+    max-width: none;
+    font-size: 10.5px;
+    white-space: nowrap;
+}
+
+/* Room for it, and for the traces, by giving the status strip less. */
+.tile { max-width: 190px; }
+.tile-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ============================================================
+   The conversation gets the height
+   ============================================================
+
+   It is the thing the program is for, and it had a short band in the middle of
+   the screen while cards that hold six lines each had as much room. It now runs
+   the full height under the core, and what the brain knows moves to the right
+   column beside it.
+
+   Capabilities gave up its cell to make room. It listed the same six things as
+   the Core panel in the same states — the one card on the screen that was
+   telling you something you were already being told — so it moved to System,
+   where the detail belongs. */
+
+.dash {
+    grid-template-areas:
+        "core     reactor   activity"
+        "monitor  chat      knows"
+        "commands chat      waiting";
+    grid-template-rows: minmax(0, 1.5fr) minmax(0, 0.75fr) minmax(0, 0.95fr);
+}
+
+/* Given the height, the transcript can breathe again. */
+.card-chat { padding-top: 13px; padding-bottom: 13px; }
+.card-chat .transcript { gap: 16px; }
