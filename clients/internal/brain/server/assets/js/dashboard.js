@@ -97,6 +97,14 @@
         }
     }
 
+    // Attaching these is what makes the navigation work, and it went missing
+    // for a while: an edit that rewrote show() above swallowed the loop that
+    // used to follow it, so every entry in the column became inert while
+    // continuing to look exactly as before.
+    for (const item of navItems) {
+        item.addEventListener('click', () => show(item.dataset.view));
+    }
+
     /* ---------- quick commands ---------- */
 
     /*

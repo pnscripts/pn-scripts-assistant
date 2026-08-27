@@ -1928,3 +1928,22 @@ select { font-size: 13.5px; }
 .tile { display: flex; align-items: center; gap: 9px; }
 .tile svg { flex: none; color: var(--accent); opacity: 0.8; }
 .tile-text { min-width: 0; }
+
+/* The panel a hardware-accelerated core is placed over.
+   Its own background stays, so the seam between the window and the card is
+   invisible; what goes is the canvas, which would otherwise be drawing the same
+   thing behind an opaque window. */
+.card-core.has-surface #brainmap { display: none; }
+
+/* When the accelerated surface is up it draws the whole panel — background,
+   border, heading and title — so the page's own version of all of that has to
+   get out of the way. Anything left behind would be a second card showing
+   through the seams of the first. */
+.card-core.has-surface {
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.card-core.has-surface > h2,
+.card-core.has-surface .core-caption { display: none; }

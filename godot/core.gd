@@ -26,6 +26,20 @@ const SURFACE_POINTS := 900
 const LATITUDES := 9
 const LONGITUDES := 16
 
+## The panel's own colours, taken from the stylesheet so the two cannot drift.
+##
+## This surface draws the whole card — background, border, heading and title —
+## rather than only the globe. Drawing just the globe left a rectangle of
+## foreign window sitting in a hole in the page: square corners against rounded
+## ones, its own background against the card's, and the page's title hidden
+## behind it. A window that draws the entire panel has no seam to hide.
+const PANEL_TOP := Color("#142c42")
+const PANEL_BOTTOM := Color("#090f19")
+const PANEL_EDGE := Color("#4dd0e1")
+const HEADING := Color("#7fe4f2")
+const TITLE := Color("#cdf6fb")
+const CORNER := 12.0
+
 ## Where the brain answers. Loopback only, and only ever read from.
 const API := "http://127.0.0.1:8790"
 
@@ -38,6 +52,7 @@ var _points: MultiMeshInstance3D
 var _wire: MeshInstance3D
 var _orbits: Node3D
 var _http: HTTPRequest
+var _chrome: Control
 var _timer := 0.0
 
 ## The measured audio level, eased. Nothing here is driven by a timer.
@@ -49,6 +64,88 @@ var _speaking := false
 var _recall := 0.0
 
 
+## Draws the card the globe sits on.
+##
+## A nested class rather than a separate file: it is nine lines of drawing that
+## only this scene has any use for.
+class PanelChrome extends Control:
+	var heading := "CORE"
+	var title := ""
+	var subtitle := ""
+
+	# Built once and kept.
+	#
+	# It was built inside _draw, and came out white: a GradientTexture2D fills
+	# itself lazily, so drawing one in the same call that created it draws an
+	# empty texture, and _draw does not run again to correct it.
+	var _fill: GradientTexture2D
+
+	func _ready() -> void:
+		var background := Gradient.new()
+
+		background.offsets = PackedFloat32Array([0.0, 1.0])
+		background.colors = PackedColorArray([PANEL_TOP, PANEL_BOTTOM])
+
+		_fill = GradientTexture2D.new()
+		_fill.gradient = background
+		_fill.fill_from = Vector2(0.15, 0.0)
+		_fill.fill_to = Vector2(0.85, 1.0)
+		_fill.width = 128
+		_fill.height = 256
+
+	func _draw() -> void:
+		var box := Rect2(Vector2.ZERO, size)
+
+		# Rounded, like every other card. Square corners were the last thing
+		# giving away that this panel is a different window.
+		var card := StyleBoxFlat.new()
+
+		card.bg_color = PANEL_BOTTOM
+		card.border_color = Color(PANEL_EDGE.r, PANEL_EDGE.g, PANEL_EDGE.b, 0.16)
+		card.set_border_width_all(1)
+		card.set_corner_radius_all(int(CORNER))
+
+		draw_style_box(card, box)
+
+		# The wash across it, inset so the corners stay clean.
+		if _fill != null:
+			draw_texture_rect(_fill, box.grow(-CORNER), false)
+
+		var font := ThemeDB.fallback_font
+		var dot := Vector2(15.0, 20.0)
+
+		draw_circle(dot, 2.5, PANEL_EDGE)
+		draw_string(font, dot + Vector2(10.0, 4.0), heading,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 11, HEADING)
+
+		if title == "":
+			return
+
+		var middle := size.y * 0.5
+		var wide := size.x
+
+		# Drawn dark first, offset, then light on top.
+		#
+		# The title sits over a sphere covered in bright points, and pale text
+		# on that was unreadable — there was nothing behind it dark enough to
+		# read against. An outline gives it one wherever it happens to fall.
+		var shadow := Color(0.02, 0.05, 0.09, 0.9)
+
+		for step in [Vector2(1.5, 1.5), Vector2(-1.5, 1.5), Vector2(1.5, -1.5), Vector2(-1.5, -1.5)]:
+			draw_string(font, Vector2(0.0, middle + 8.0) + step, title,
+				HORIZONTAL_ALIGNMENT_CENTER, wide, 36, shadow)
+
+		draw_string(font, Vector2(0.0, middle + 8.0), title,
+			HORIZONTAL_ALIGNMENT_CENTER, wide, 36, Color(1, 1, 1))
+
+		for step in [Vector2(1.0, 1.0), Vector2(-1.0, -1.0)]:
+			draw_string(font, Vector2(0.0, middle + 36.0) + step, subtitle,
+				HORIZONTAL_ALIGNMENT_CENTER, wide, 12, shadow)
+
+		draw_string(font, Vector2(0.0, middle + 36.0), subtitle,
+			HORIZONTAL_ALIGNMENT_CENTER, wide, 12, TITLE)
+
+
 func _ready() -> void:
 	_build_camera()
 	_build_environment()
@@ -56,6 +153,7 @@ func _ready() -> void:
 	_globe = Node3D.new()
 	add_child(_globe)
 
+	_build_panel()
 	_build_halo()
 	_build_surface()
 	_build_wireframe()
@@ -66,6 +164,37 @@ func _ready() -> void:
 	add_child(_http)
 	_http.request_completed.connect(_on_level)
 
+	_announce_window()
+	_ask_status()
+
+
+## Tell the brain which window to attach.
+##
+## Sent to the brain rather than printed. Printing was the first attempt and it
+## worked in development and not at all once exported: a release build does not
+## write to stdout the way the editor does, so the brain sat waiting for a line
+## that was never going to arrive, and the core silently fell back to being
+## drawn in the page. An HTTP call has no such difference between builds.
+##
+## Reported rather than left to be found, either way. Finding it means searching
+## the window list by title, which picks the wrong one the moment two copies are
+## running — and there is no reason to guess at something the program already
+## knows about itself.
+func _announce_window() -> void:
+	var handle := DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE)
+
+	if handle == 0:
+		return
+
+	var announce := HTTPRequest.new()
+
+	add_child(announce)
+	announce.request(
+		API + "/api/surface/window",
+		["Content-Type: application/json"],
+		HTTPClient.METHOD_POST,
+		JSON.stringify({"id": handle}))
+
 
 func _build_camera() -> void:
 	var camera := Camera3D.new()
@@ -75,7 +204,7 @@ func _build_camera() -> void:
 
 	# Aimed after it is in the tree: look_at needs a global transform, and a
 	# node that has not been added yet does not have one.
-	camera.look_at_from_position(Vector3(0.0, 0.42, 3.75), Vector3.ZERO, Vector3.UP)
+	camera.look_at_from_position(Vector3(0.0, 0.55, 4.9), Vector3.ZERO, Vector3.UP)
 
 
 func _build_environment() -> void:
@@ -84,17 +213,38 @@ func _build_environment() -> void:
 
 	# The window is transparent so the page behind shows through: this sits over
 	# a card in the dashboard, not on a background of its own.
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0, 0, 0, 0)
+	# The card is the 3D background.
+	#
+	# A CanvasLayer always draws over 3D, whatever its layer number — so the
+	# first attempt at painting the card underneath simply hid the globe. This
+	# is the mode that exists for it: the canvas layers up to the given number
+	# become what the 3D is rendered against.
+	#
+	# Two earlier attempts are worth recording. Setting the card's colour on
+	# background_color did not work because that value is in linear space while
+	# the same colour in a stylesheet is sRGB, so a dark navy came out light
+	# blue — the right colour in the wrong space.
+	env.background_mode = Environment.BG_CANVAS
+	env.background_canvas_max_layer = -1
 
 	# Glow is the whole reason for doing this on the card. The 2D version faked
 	# it with layered strokes, because a real blur cost more than everything
 	# else on the page put together.
 	env.glow_enabled = true
-	env.glow_intensity = 1.5
-	env.glow_bloom = 0.5
-	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-	env.glow_hdr_threshold = 0.4
+	env.glow_intensity = 0.9
+
+	# Bloom is zero on purpose.
+	#
+	# It adds glow to everything regardless of how bright it is, so with a
+	# frame full of emissive points it lifted the whole background — the panel
+	# came out light blue instead of near-black, which looked like a wrong
+	# background colour and was not.
+	env.glow_bloom = 0.0
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
+
+	# Only things brighter than white bloom, which is what keeps the glow on
+	# the points and the orbit sparks rather than over the whole picture.
+	env.glow_hdr_threshold = 1.0
 
 	# Which blur levels contribute. Without any of these set, glow is enabled
 	# and does nothing, which is how it looked on the first run.
@@ -105,6 +255,24 @@ func _build_environment() -> void:
 
 	world.environment = env
 	add_child(world)
+
+
+## The panel: background, border and headings.
+##
+## Drawn under the 3D layer, so the globe sits on it exactly as it would on a
+## card in the page.
+func _build_panel() -> void:
+	var below := CanvasLayer.new()
+
+	below.layer = -1
+	add_child(below)
+
+	var chrome := PanelChrome.new()
+
+	chrome.set_anchors_preset(Control.PRESET_FULL_RECT)
+	below.add_child(chrome)
+
+	_chrome = chrome
 
 
 ## The halo.
@@ -142,8 +310,10 @@ func _build_halo() -> void:
 	halo.shaded = false
 	halo.transparent = true
 	halo.render_priority = -1
-	halo.pixel_size = 0.026
-	halo.modulate = Color(1, 1, 1, 0.9)
+	# 256 pixels at this size is about three world units across, which is a
+	# little wider than the sphere. It was four times that and filled the frame.
+	halo.pixel_size = 0.0125
+	halo.modulate = Color(1, 1, 1, 0.55)
 	halo.position = Vector3(0, 0, -1.6)
 
 	add_child(halo)
@@ -302,13 +472,18 @@ func _build_orbits() -> void:
 	# at the same angle and, because the periods are minutes long, spend the
 	# first several minutes bunched in one corner — which is exactly what it
 	# looked like.
+	# Flatter than they were, and leaning less.
+	#
+	# The panel is wide and short. Orbits tilted steeply enough to be nearly
+	# circular on screen ran off the top and bottom of it, which is what made
+	# the core look too big for the card it is in.
 	var shapes := [
-		{"rx": 2.05, "rz": 1.35, "lean": -0.26, "seconds": 300.0, "phase": 0.0},
-		{"rx": 1.80, "rz": 1.62, "lean": 0.34, "seconds": -220.0, "phase": TAU * 0.25},
-		{"rx": 2.20, "rz": 1.10, "lean": 0.12, "seconds": 380.0, "phase": TAU * 0.5},
-		{"rx": 1.95, "rz": 1.48, "lean": -0.55, "seconds": -460.0, "phase": TAU * 0.75},
-		{"rx": 2.30, "rz": 0.95, "lean": 0.52, "seconds": 520.0, "phase": TAU * 0.13},
-		{"rx": 1.70, "rz": 1.70, "lean": -0.12, "seconds": -340.0, "phase": TAU * 0.62},
+		{"rx": 2.05, "rz": 1.35, "lean": -0.16, "seconds": 300.0, "phase": 0.0},
+		{"rx": 1.80, "rz": 1.62, "lean": 0.20, "seconds": -220.0, "phase": TAU * 0.25},
+		{"rx": 2.20, "rz": 1.10, "lean": 0.07, "seconds": 380.0, "phase": TAU * 0.5},
+		{"rx": 1.95, "rz": 1.48, "lean": -0.30, "seconds": -460.0, "phase": TAU * 0.75},
+		{"rx": 2.30, "rz": 0.95, "lean": 0.28, "seconds": 520.0, "phase": TAU * 0.13},
+		{"rx": 1.70, "rz": 1.70, "lean": -0.06, "seconds": -340.0, "phase": TAU * 0.62},
 	]
 
 	for shape in shapes:
@@ -419,6 +594,33 @@ func _apply_brightness() -> void:
 	if wire != null:
 		wire.emission = tint
 		wire.albedo_color = Color(tint.r, tint.g, tint.b, 0.22 + _level * 0.3)
+
+
+## The brain's name and model, for the title on the card.
+##
+## Asked once at startup and then left alone: neither changes while the program
+## is running, and a panel that re-reads unchanging things on a timer is a panel
+## nobody trusts to be showing the current value of anything.
+func _ask_status() -> void:
+	var status := HTTPRequest.new()
+
+	add_child(status)
+	status.request_completed.connect(_on_status)
+	status.request(API + "/api/status")
+
+
+func _on_status(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	if code != 200 or _chrome == null:
+		return
+
+	var parsed = JSON.parse_string(body.get_string_from_utf8())
+
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+
+	_chrome.title = parsed.get("name", "")
+	_chrome.subtitle = "%s · %s" % [parsed.get("provider", ""), parsed.get("model", "")]
+	_chrome.queue_redraw()
 
 
 func _ask_level() -> void:

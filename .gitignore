@@ -36,3 +36,7 @@ build/
 # export templates are about 1.4GB between them and are not part of the source.
 .tools/
 godot/.godot/
+
+# The exported visual is a build product, not source.
+dist/pn-brain-visuals
+godot/export_presets.cfg

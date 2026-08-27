@@ -63,6 +63,17 @@ mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" \
 
 install -m 755 "$PROJECT_ROOT/dist/pn-brain" "$APPDIR/usr/bin/pn-brain"
 
+# The accelerated visual, if one has been exported.
+#
+# Optional in the strictest sense: the brain looks for it beside itself and
+# draws the core in the page when it is not there. That keeps the download at
+# seven megabytes for anyone who does not want a game engine in it, and lets
+# this file be built on a machine that has never seen Godot.
+if [ -f "$PROJECT_ROOT/dist/pn-brain-visuals" ]; then
+    install -m 755 "$PROJECT_ROOT/dist/pn-brain-visuals" "$APPDIR/usr/bin/pn-brain-visuals"
+    log "Including the accelerated visual"
+fi
+
 cat > "$APPDIR/pn-brain.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application

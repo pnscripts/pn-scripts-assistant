@@ -4,9 +4,90 @@ package window
 
 /*
 #cgo pkg-config: gtk+-3.0 webkit2gtk-4.1
+#cgo LDFLAGS: -lX11
 #include <gtk/gtk.h>
+#include <gdk/gdkx.h>
 #include <webkit2/webkit2.h>
+#include <X11/Xlib.h>
 #include <stdlib.h>
+
+// Putting another program's window inside this one.
+//
+// The interface is a web page, so a hardware-accelerated surface cannot be
+// placed inside one of its panels: there is no element that owns a piece of the
+// graphics card. What can be done on X11 is to take the other program's window
+// and make it a child of this one, then move it to wherever the panel happens
+// to be. The page reports where that is; everything else here is two X calls.
+//
+// A separate connection to the X server is opened for this. The GTK one belongs
+// to the main loop and may only be touched from it, whereas these calls arrive
+// from whichever goroutine is handling the request that caused them.
+static Window pnbrain_parent_xid = 0;
+static Display *pnbrain_x = NULL;
+static GMutex pnbrain_x_lock;
+
+static void pnbrain_capture_parent(GtkWidget *widget) {
+    GdkWindow *gw = gtk_widget_get_window(widget);
+
+    if (gw != NULL && GDK_IS_X11_WINDOW(gw)) {
+        pnbrain_parent_xid = GDK_WINDOW_XID(gw);
+    }
+}
+
+// Returns 0 when there is nothing to attach to yet, which happens if the
+// visual starts before the window has been realised.
+static int pnbrain_open_x(void) {
+    if (pnbrain_x == NULL) {
+        pnbrain_x = XOpenDisplay(NULL);
+    }
+
+    return pnbrain_x != NULL && pnbrain_parent_xid != 0;
+}
+
+int pnbrain_embed_surface(unsigned long child, int x, int y, int width, int height) {
+    int ok = 0;
+
+    g_mutex_lock(&pnbrain_x_lock);
+
+    if (pnbrain_open_x()) {
+        XReparentWindow(pnbrain_x, (Window)child, pnbrain_parent_xid, x, y);
+        XResizeWindow(pnbrain_x, (Window)child, width, height);
+        XMapWindow(pnbrain_x, (Window)child);
+        XSync(pnbrain_x, False);
+        ok = 1;
+    }
+
+    g_mutex_unlock(&pnbrain_x_lock);
+
+    return ok;
+}
+
+void pnbrain_place_surface(unsigned long child, int x, int y, int width, int height) {
+    g_mutex_lock(&pnbrain_x_lock);
+
+    if (pnbrain_open_x()) {
+        XMoveResizeWindow(pnbrain_x, (Window)child, x, y, width, height);
+        XSync(pnbrain_x, False);
+    }
+
+    g_mutex_unlock(&pnbrain_x_lock);
+}
+
+void pnbrain_show_surface(unsigned long child, int visible) {
+    g_mutex_lock(&pnbrain_x_lock);
+
+    if (pnbrain_open_x()) {
+        if (visible) {
+            XMapWindow(pnbrain_x, (Window)child);
+        } else {
+            XUnmapWindow(pnbrain_x, (Window)child);
+        }
+
+        XSync(pnbrain_x, False);
+    }
+
+    g_mutex_unlock(&pnbrain_x_lock);
+}
 
 static void pnbrain_on_destroy(GtkWidget *widget, gpointer data) {
     gtk_main_quit();
@@ -54,6 +135,10 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
 // Runs once, after the main loop has mapped the window.
 static gboolean pnbrain_maximise_once(gpointer data) {
     gtk_window_maximize(GTK_WINDOW(data));
+
+    // By now the window is realised and has an X id, which is what anything
+    // being embedded needs in order to become a child of it.
+    pnbrain_capture_parent(GTK_WIDGET(data));
 
     return G_SOURCE_REMOVE;
 }

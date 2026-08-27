@@ -24,6 +24,7 @@ import (
 	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
+	"pn-brain/internal/brain/visuals"
 )
 
 // Server serves the interface and the API.
@@ -32,7 +33,14 @@ type Server struct {
 	log    *slog.Logger
 	mux    *http.ServeMux
 	assets http.Handler
+
+	// surface is the accelerated visual, when there is one. Nil is the normal
+	// case on any machine without it, and everything that touches it copes.
+	surface *visuals.Surface
 }
+
+// UseSurface attaches an accelerated visual to the server.
+func (s *Server) UseSurface(surface *visuals.Surface) { s.surface = surface }
 
 // New builds the server and registers its routes.
 func New(b *brain.Brain, logger *slog.Logger) *Server {
@@ -55,6 +63,9 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/level", s.handleLevel)
 	s.mux.HandleFunc("GET /api/machine", s.handleMachine)
 	s.mux.HandleFunc("GET /api/search", s.handleSearch)
+	s.mux.HandleFunc("GET /api/surface", s.handleSurface)
+	s.mux.HandleFunc("POST /api/surface", s.handleSurface)
+	s.mux.HandleFunc("POST /api/surface/window", s.handleSurfaceWindow)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
@@ -559,6 +570,61 @@ func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"microphones": mics})
+}
+
+// handleSurface tells the accelerated visual where its panel is.
+//
+// The page is the only thing that knows: the panel's position comes out of a
+// grid layout that depends on the window size, the font metrics and which view
+// is showing. Rather than reimplement any of that outside the page, the page
+// measures its own panel and says.
+func (s *Server) handleSurface(w http.ResponseWriter, r *http.Request) {
+	if s.surface == nil {
+		ok(w, map[string]any{"running": false})
+
+		return
+	}
+
+	if r.Method == http.MethodGet {
+		ok(w, map[string]any{"running": s.surface.Running()})
+
+		return
+	}
+
+	var at visuals.Rect
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&at); err != nil {
+		fail(w, http.StatusBadRequest, "Not a position.")
+
+		return
+	}
+
+	s.surface.Place(at)
+
+	ok(w, map[string]any{"running": s.surface.Running()})
+}
+
+// handleSurfaceWindow receives the window the visual wants attached.
+func (s *Server) handleSurfaceWindow(w http.ResponseWriter, r *http.Request) {
+	if s.surface == nil {
+		fail(w, http.StatusNotFound, "Nothing is expecting a surface.")
+
+		return
+	}
+
+	var body struct {
+		ID uint64 `json:"id"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "Not a window.")
+
+		return
+	}
+
+	s.surface.Announce(body.ID)
+
+	ok(w, map[string]any{"attached": true})
 }
 
 // handleSearch looks through what the brain knows.

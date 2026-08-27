@@ -218,6 +218,19 @@
         if (lastMap) layout(lastMap);
     };
 
+    /*
+     * Turn the hand-drawn core off when something better is drawing it.
+     *
+     * The map keeps running either way: only the core moved to the graphics
+     * card. This is a switch rather than a deletion because the 2D core is
+     * still what runs on every machine without an accelerated one.
+     */
+    let drawReactorLayer = true;
+
+    window.brainMapReactor = function (on) {
+        drawReactorLayer = on;
+    };
+
     window.brainLevel = function () {
         return {
             source: live.source,
@@ -1294,7 +1307,7 @@
          * frame. The field of memories in the map panel is the real version of
          * what it was imitating.
          */
-        drawReactor();
+        if (drawReactorLayer) drawReactor();
 
         useLayer(layers.map);
         ctx.clearRect(0, 0, width, height);
