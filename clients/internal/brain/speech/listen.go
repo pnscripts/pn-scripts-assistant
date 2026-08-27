@@ -1,6 +1,7 @@
 package speech
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -94,6 +95,10 @@ func SetLanguage(code string) {
 	languageMu.Lock()
 	language = code
 	languageMu.Unlock()
+
+	// Somebody who has just said which language they speak should not be
+	// overruled by something guessed before they said it.
+	ForgetDetectedLanguage()
 }
 
 // Language reports the configured spoken language.
@@ -247,19 +252,22 @@ func Transcribe(ctx context.Context, wav string) (string, error) {
 	// does not fail — it produces fluent English that was never said. "Здравей,
 	// аз съм Петър" came back as "Hello, I'm Petr", which is the worst kind of
 	// wrong: confident, plausible, and unrelated to the words spoken.
-	code := Language()
-	if code == "" {
-		code = "auto"
-	}
-
-	args := []string{"-m", r.Model, "-f", wav, "-nt", "-np", "-l", code}
+	args := []string{"-m", r.Model, "-f", wav, "-nt", "-np", "-l", languageForTurn()}
 
 	cmd := exec.CommandContext(ctx, r.Command, args...)
+
+	// Whisper announces its detection on stderr. Reading it here means a
+	// normal transcription teaches the session its language, without the extra
+	// pass that asking separately would cost.
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("transcription failed: %w", err)
 	}
+
+	rememberDetection(stderr.String())
 
 	return CleanTranscript(string(out)), nil
 }

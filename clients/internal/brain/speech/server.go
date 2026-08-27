@@ -125,7 +125,20 @@ func serverReady(ctx context.Context) bool {
 }
 
 // TranscribeFast sends audio to the resident server, falling back to the CLI.
+//
+// When nothing is known about the language it asks once, separately, and keeps
+// the answer. The server does not report what it detected, so without this a
+// conversation would re-guess on every clip — which is what turned one sentence
+// into Bulgarian, Turkish and English at once.
 func TranscribeFast(ctx context.Context, wav string) (string, error) {
+	if Language() == "" && DetectedLanguage() == "" {
+		if code := detectLanguage(ctx, wav); code != "" {
+			detectedMu.Lock()
+			sessionLanguage = code
+			detectedMu.Unlock()
+		}
+	}
+
 	if text, err := transcribeViaServer(ctx, wav); err == nil {
 		return text, nil
 	}
@@ -155,12 +168,7 @@ func transcribeViaServer(ctx context.Context, wav string) (string, error) {
 
 	// Same reasoning as the command line: the server also assumes English
 	// unless told, so detection has to be asked for by name.
-	language := Language()
-	if language == "" {
-		language = "auto"
-	}
-
-	form.WriteField("language", language)
+	form.WriteField("language", languageForTurn())
 	form.Close()
 
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)

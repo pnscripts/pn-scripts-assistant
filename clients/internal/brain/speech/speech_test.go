@@ -505,3 +505,91 @@ func TestModelFollowsTheLanguage(t *testing.T) {
 		}
 	}
 }
+
+// Whisper decides the language of each clip independently, and a spoken turn is
+// a few seconds — too little to be sure. Across a conversation that produced
+// "ней olurs sustainable change": Bulgarian, Turkish and English in one
+// sentence, each fragment confidently labelled something different.
+func TestDetectionSticksForTheSession(t *testing.T) {
+	t.Cleanup(func() { SetLanguage(""); ForgetDetectedLanguage() })
+
+	SetLanguage("")
+	ForgetDetectedLanguage()
+
+	if got := languageForTurn(); got != "auto" {
+		t.Fatalf("first turn asks for %q, want auto", got)
+	}
+
+	rememberDetection("whisper_full_with_state: auto-detected language: bg (p = 0.850342)")
+
+	if got := DetectedLanguage(); got != "bg" {
+		t.Fatalf("detection not kept: %q", got)
+	}
+
+	if got := languageForTurn(); got != "bg" {
+		t.Errorf("later turns ask for %q, want bg", got)
+	}
+}
+
+// A weak guess repeated for a whole conversation is worse than a weak guess
+// used once: the mistake stops being a glitch and becomes the setting.
+func TestWeakDetectionIsNotKept(t *testing.T) {
+	t.Cleanup(func() { SetLanguage(""); ForgetDetectedLanguage() })
+
+	SetLanguage("")
+	ForgetDetectedLanguage()
+
+	rememberDetection("auto-detected language: tr (p = 0.31)")
+
+	if got := DetectedLanguage(); got != "" {
+		t.Errorf("kept a guess at 31%% confidence: %q", got)
+	}
+}
+
+// Having said which language they speak, somebody should not be overruled by
+// something detected before they said it.
+func TestSettingTheLanguageClearsAnEarlierGuess(t *testing.T) {
+	t.Cleanup(func() { SetLanguage(""); ForgetDetectedLanguage() })
+
+	SetLanguage("")
+	ForgetDetectedLanguage()
+	rememberDetection("auto-detected language: tr (p = 0.99)")
+
+	if DetectedLanguage() != "tr" {
+		t.Fatal("setup failed")
+	}
+
+	SetLanguage("bg")
+
+	if got := DetectedLanguage(); got != "" {
+		t.Errorf("stale guess %q survived the setting being changed", got)
+	}
+
+	if got := languageForTurn(); got != "bg" {
+		t.Errorf("turn asks for %q after the setting was changed", got)
+	}
+}
+
+// An explicit setting always wins; detection never overrides it.
+func TestConfiguredLanguageBeatsDetection(t *testing.T) {
+	t.Cleanup(func() { SetLanguage(""); ForgetDetectedLanguage() })
+
+	SetLanguage("bg")
+	rememberDetection("auto-detected language: en (p = 0.99)")
+
+	if got := languageForTurn(); got != "bg" {
+		t.Errorf("turn asks for %q despite bg being configured", got)
+	}
+}
+
+func TestProbabilityParsing(t *testing.T) {
+	cases := map[string]float64{"0.850342": 0.85, "0.31": 0.31, "1.0": 1.0, "0.6": 0.6}
+
+	for in, want := range cases {
+		got := parseProbability(in)
+
+		if got < want-0.01 || got > want+0.01 {
+			t.Errorf("parseProbability(%q) = %v, want about %v", in, got, want)
+		}
+	}
+}
