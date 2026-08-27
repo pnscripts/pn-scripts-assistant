@@ -462,6 +462,18 @@
 <script src="/js/working.js"></script>
 <script src="/js/models.js"></script>
 <script src="/js/updates.js"></script>
+<!-- The three.js addons import from the bare name "three", so the page has to
+     say where that is. An import map rather than a build step: this ships
+     inside one binary, and adding a bundler for two scenes would put npm into
+     the static build. -->
+<script type="importmap">
+{
+    "imports": {
+        "three": "/js/vendor/three.module.js",
+        "three/addons/": "/js/vendor/addons/"
+    }
+}
+</script>
 <script type="module" src="/js/scenes.js"></script>
 </body>
 </html>

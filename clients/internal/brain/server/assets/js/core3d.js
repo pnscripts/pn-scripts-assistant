@@ -14,8 +14,11 @@
  * last reply actually recalled. A still globe means nothing is happening.
  */
 
-import * as THREE from './vendor/three.module.js';
-import { signals, easeSignals } from './signals.js';
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { signals, easeSignals, onRecall } from './signals.js';
 
 const canvas = document.getElementById('brainmap');
 
@@ -99,6 +102,41 @@ export function startCore() {
     camera.position.set(0, 1.05, 4.25);
     camera.lookAt(0, 0, 0);
 
+    /*
+     * The panel's own background, painted in the scene.
+     *
+     * The canvas was transparent and the card's gradient showed through it.
+     * Once the bloom pass was added that stopped working — the composer renders
+     * into its own target and hands back an opaque frame, so the panel went
+     * black. Rather than fight that, the scene paints the same colours itself,
+     * which has the side benefit the 2D version needed too: bloom has to have
+     * something to bloom into, and against flat black a glow reads as a
+     * wireframe with a halo stuck on it.
+     */
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(40, 40),
+        new THREE.ShaderMaterial({
+            uniforms: { middle: { value: new THREE.Color(0x14324c) }, edge: { value: new THREE.Color(0x070d16) } },
+            vertexShader: `
+                varying vec2 spot;
+                void main() {
+                    spot = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }`,
+            fragmentShader: `
+                uniform vec3 middle;
+                uniform vec3 edge;
+                varying vec2 spot;
+                void main() {
+                    float away = distance(spot, vec2(0.5, 0.52)) * 2.2;
+                    gl_FragColor = vec4(mix(middle, edge, clamp(away, 0.0, 1.0)), 1.0);
+                }`,
+            depthWrite: false,
+        }));
+
+    ground.position.z = -14;
+    scene.add(ground);
+
     const globe = new THREE.Group();
 
     scene.add(globe);
@@ -127,13 +165,47 @@ export function startCore() {
 
     surfaceGeometry.setAttribute('position', new THREE.BufferAttribute(surface, 3));
 
-    const surfaceMaterial = new THREE.PointsMaterial({
-        size: 0.032,
-        map: dots,
+    /*
+     * A shader rather than PointsMaterial, for two things it cannot do.
+     *
+     * Points on the far side of the sphere are dimmed by their depth, which is
+     * what stops a wireframe globe reading as a flat disc of confetti. And each
+     * point breathes on its own slow cycle, so the surface is never quite
+     * still — the difference between a photograph of a globe and a globe.
+     */
+    const surfaceMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            map: { value: dots },
+            tint: { value: new THREE.Color(0.55, 0.9, 1) },
+            lit: { value: 1 },
+            time: { value: 0 },
+        },
+        vertexShader: `
+            uniform float time;
+            varying float depth;
+            varying float twinkle;
+            void main() {
+                vec4 seen = modelViewMatrix * vec4(position, 1.0);
+                depth = clamp((seen.z + 1.6) / 3.2, 0.0, 1.0);
+                twinkle = 0.75 + 0.25 * sin(time * 1.4 + position.x * 9.0 + position.y * 7.0);
+                gl_PointSize = (2.2 + 2.6 * depth) * twinkle * 5.0 / -seen.z;
+                gl_Position = projectionMatrix * seen;
+            }`,
+        fragmentShader: `
+            uniform sampler2D map;
+            uniform vec3 tint;
+            uniform float lit;
+            varying float depth;
+            varying float twinkle;
+            void main() {
+                vec4 dot = texture2D(map, gl_PointCoord);
+                if (dot.a < 0.03) discard;
+                float front = 0.3 + 0.7 * depth;
+                gl_FragColor = vec4(tint * lit * front * twinkle, dot.a * front);
+            }`,
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        color: new THREE.Color(0.55, 0.9, 1),
     });
 
     globe.add(new THREE.Points(surfaceGeometry, surfaceMaterial));
@@ -181,6 +253,50 @@ export function startCore() {
     });
 
     globe.add(new THREE.LineSegments(meshGeometry, meshMaterial));
+
+    /* ---------- the shell ---------- */
+
+    /*
+     * A skin over the sphere that glows at the edge and is clear through the
+     * middle.
+     *
+     * The wireframe alone reads as a cage: you see straight through it and
+     * nothing says there is a surface there. This is the effect that makes it
+     * a body — bright where you are looking along the surface, invisible where
+     * you are looking at it head on, which is what light does at a glancing
+     * angle on anything.
+     */
+    const shellMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            tint: { value: new THREE.Color(0.35, 0.8, 1) },
+            lit: { value: 1 },
+        },
+        vertexShader: `
+            varying vec3 normalOut;
+            varying vec3 towardsEye;
+            void main() {
+                vec4 seen = modelViewMatrix * vec4(position, 1.0);
+                normalOut = normalize(normalMatrix * normal);
+                towardsEye = normalize(-seen.xyz);
+                gl_Position = projectionMatrix * seen;
+            }`,
+        fragmentShader: `
+            uniform vec3 tint;
+            uniform float lit;
+            varying vec3 normalOut;
+            varying vec3 towardsEye;
+            void main() {
+                float facing = abs(dot(normalize(normalOut), normalize(towardsEye)));
+                float edge = pow(1.0 - facing, 3.4);
+                gl_FragColor = vec4(tint * lit, edge * 0.5);
+            }`,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.FrontSide,
+        blending: THREE.AdditiveBlending,
+    });
+
+    globe.add(new THREE.Mesh(new THREE.SphereGeometry(RADIUS * 1.005, 64, 48), shellMaterial));
 
     /* ---------- the halo ---------- */
 
@@ -268,6 +384,70 @@ export function startCore() {
         color: new THREE.Color(0.4, 0.85, 1),
     })));
 
+    /* ---------- arcs, when memories are used ---------- */
+
+    /*
+     * One arc leaps across the globe for every memory a reply actually used.
+     *
+     * Ornament in how it looks and information in when it appears: if the globe
+     * is quiet, nothing was recalled. That distinction is the whole reason any
+     * of this is allowed to be here — a flourish that fired on a schedule would
+     * look the same and mean nothing.
+     */
+    const arcs = [];
+    const ARC_LIFE = 2.4;
+
+    function spawnArc(seed) {
+        const from = new THREE.Vector3().setFromSphericalCoords(
+            RADIUS, Math.acos(1 - 2 * ((seed * 0.37) % 1)), seed * 2.4);
+        const to = new THREE.Vector3().setFromSphericalCoords(
+            RADIUS, Math.acos(1 - 2 * ((seed * 0.71 + 0.3) % 1)), seed * 3.1 + 2);
+
+        // Lifted off the surface at the middle, so it goes over the sphere
+        // rather than through it.
+        const middle = from.clone().add(to).multiplyScalar(0.5).setLength(RADIUS * 1.28);
+        const curve = new THREE.QuadraticBezierCurve3(from, middle, to);
+
+        const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(curve.getPoints(28)),
+            new THREE.LineBasicMaterial({
+                color: 0xdff8fd,
+                transparent: true,
+                opacity: 0,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+            }));
+
+        globe.add(line);
+        arcs.push({ line, age: 0 });
+    }
+
+    onRecall((ids) => {
+        const many = Math.min(ids.length, 9);
+
+        for (let i = 0; i < many; i++) spawnArc(performance.now() * 0.001 + i * 7.13);
+    });
+
+    function updateArcs(delta) {
+        for (let i = arcs.length - 1; i >= 0; i--) {
+            const arc = arcs[i];
+
+            arc.age += delta;
+
+            if (arc.age >= ARC_LIFE) {
+                globe.remove(arc.line);
+                arc.line.geometry.dispose();
+                arc.line.material.dispose();
+                arcs.splice(i, 1);
+
+                continue;
+            }
+
+            // Rises and falls, so an arc arrives rather than switching on.
+            arc.line.material.opacity = Math.sin((arc.age / ARC_LIFE) * Math.PI) * 0.9;
+        }
+    }
+
     /* ---------- the scanner ---------- */
 
     /*
@@ -339,6 +519,30 @@ export function startCore() {
         scanner.material.opacity = 0.35 + Math.sin(sweep * Math.PI) * 0.5;
     }
 
+    /* ---------- bloom ---------- */
+
+    /*
+     * Real bloom, rather than the fake one.
+     *
+     * Everything before this drew its own glow — a sprite behind the sphere, a
+     * gradient in a dot texture, arcs stroked twice at different widths. Those
+     * are imitations of what light does, each hand-placed, and they cannot
+     * respond to what is actually bright: a scanner crossing the equator or a
+     * cluster of arcs firing at once should light the whole panel, and painted
+     * glow never will because it does not know they are there.
+     *
+     * The threshold matters. Only what is brighter than the body blooms, so the
+     * mesh stays a mesh and the bright things — points, sparks, the scanner —
+     * are what spill light.
+     */
+    const composer = new EffectComposer(renderer);
+
+    composer.addPass(new RenderPass(scene, camera));
+
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.55);
+
+    composer.addPass(bloom);
+
     /* ---------- the loop ---------- */
 
     let last = performance.now();
@@ -357,6 +561,13 @@ export function startCore() {
 
         renderer.setPixelRatio(ratio);
         renderer.setSize(rect.width, rect.height, false);
+
+        // The bloom pass renders at its own size, and it is the expensive one:
+        // three quarters of the width is a quarter less work for a blur nobody
+        // can see the resolution of.
+        composer.setPixelRatio(ratio * 0.75);
+        composer.setSize(rect.width, rect.height);
+
         camera.aspect = rect.width / rect.height;
         camera.updateProjectionMatrix();
 
@@ -386,6 +597,7 @@ export function startCore() {
         }
 
         updateScanner(delta, now);
+        updateArcs(delta);
 
         // Brightness from sound that is really there, lifted while working so
         // the whole body reads as busy and not only the band crossing it.
@@ -396,12 +608,20 @@ export function startCore() {
             ? new THREE.Color(0.45, 1, 0.62)
             : new THREE.Color(0.55, 0.9, 1);
 
-        surfaceMaterial.color.copy(tint).multiplyScalar(Math.min(1.6, lit));
+        surfaceMaterial.uniforms.tint.value.copy(tint);
+        surfaceMaterial.uniforms.lit.value = Math.min(1.55, lit);
+        surfaceMaterial.uniforms.time.value = seconds;
         meshMaterial.color.copy(tint);
+        shellMaterial.uniforms.tint.value.copy(tint);
+        shellMaterial.uniforms.lit.value = Math.min(1.5, lit * 0.8);
         meshMaterial.opacity = 0.18 + signals.smooth * 0.3;
         halo.material.opacity = 0.6 + signals.smooth * 0.5;
 
-        renderer.render(scene, camera);
+        // Brighter while working, so a busy core spills more light than a
+        // quiet one without anything being drawn differently.
+        bloom.strength = 0.45 + signals.smooth * 0.5 + (busy ? 0.25 : 0) + signals.recall * 0.3;
+
+        composer.render();
     }
 
     requestAnimationFrame(frame);
