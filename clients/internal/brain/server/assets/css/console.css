@@ -623,3 +623,135 @@ select {
 @media (prefers-reduced-motion: reduce) {
     body::after { display: none; }
 }
+
+/* ============================================================
+   HUD, further
+   ============================================================ */
+
+/* Panel headings get a rule that runs to the edge, which is what makes a
+   stack of panels read as instrumentation rather than as a sidebar. */
+.panel h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.panel h2::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--hud-dim), transparent);
+}
+
+/* A slow sweep across the rail, so the surround is alive without anything
+   moving fast enough to pull the eye from the conversation. */
+.rail {
+    position: relative;
+    overflow: hidden;
+}
+
+.rail::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(77, 208, 225, 0.05) 48%,
+        rgba(77, 208, 225, 0.09) 50%,
+        rgba(77, 208, 225, 0.05) 52%,
+        transparent 100%
+    );
+    animation: rail-sweep 7s linear infinite;
+}
+
+@keyframes rail-sweep {
+    from { transform: translateY(-100%); }
+    to   { transform: translateY(100%); }
+}
+
+/* The identity block reads as a status header. */
+.identity h1 {
+    letter-spacing: 0.06em;
+    text-shadow: 0 0 18px rgba(77, 208, 225, 0.35);
+}
+
+.dot.online {
+    box-shadow: 0 0 10px 2px rgba(123, 196, 127, 0.55);
+}
+
+/* Storage bar as a segmented gauge rather than a solid fill. */
+.storage-bar {
+    border-radius: 0;
+    border: 1px solid var(--hud-dim);
+    background:
+        repeating-linear-gradient(
+            to right,
+            transparent 0 5px,
+            rgba(7, 10, 15, 0.9) 5px 7px
+        ),
+        rgba(77, 208, 225, 0.06);
+}
+
+#storage-fill {
+    border-radius: 0;
+    box-shadow: 0 0 12px rgba(77, 208, 225, 0.5);
+}
+
+/* Drives and lessons: bracketed rows. */
+.drive, .approval {
+    border-radius: 0;
+    border-color: var(--hud-dim);
+}
+
+.drive.current {
+    box-shadow: inset 0 0 18px rgba(77, 208, 225, 0.10);
+}
+
+/* Buttons square off with the rest. */
+button, .approval-actions button {
+    border-radius: 0;
+}
+
+/* The composer hint reads as a status line. */
+.hint {
+    font-family: var(--mono);
+    letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rail::after { animation: none; opacity: 0.4; }
+}
+
+/* Two rails, so the instrument surrounds the conversation rather than leaning
+   on one side of it. The left carries what the brain holds — memory, privacy,
+   storage, anything waiting. The right carries what it is doing now: recent
+   activity and the engine driving it. */
+.shell {
+    grid-template-columns: 300px 1fr 290px;
+}
+
+.rail-right {
+    border-right: none;
+    border-left: 1px solid var(--line);
+}
+
+/* The rail sweep runs the other way on the right, so the two are not obviously
+   the same animation twice. */
+.rail-right::after {
+    animation-duration: 9s;
+    animation-direction: reverse;
+}
+
+/* Below this there is not room for two columns of readouts beside a
+   conversation, so the right rail goes first — it is the more expendable of
+   the two, being about the moment rather than about what is known. */
+@media (max-width: 1180px) {
+    .shell { grid-template-columns: 300px 1fr; }
+    .rail-right { display: none; }
+}
+
+@media (max-width: 820px) {
+    .shell { grid-template-columns: 1fr; }
+}

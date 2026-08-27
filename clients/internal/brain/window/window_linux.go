@@ -51,6 +51,13 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
     return G_SOURCE_CONTINUE;
 }
 
+// Runs once, after the main loop has mapped the window.
+static gboolean pnbrain_maximise_once(gpointer data) {
+    gtk_window_maximize(GTK_WINDOW(data));
+
+    return G_SOURCE_REMOVE;
+}
+
 static void pnbrain_open_window(const char *url, const char *title, int width, int height) {
     if (!gtk_init_check(NULL, NULL)) {
         return;
@@ -75,7 +82,25 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
 
     g_timeout_add(200, pnbrain_poll_navigation, window);
 
+    // Maximised, not fullscreen. The brain map wants room and the rail is a
+    // column of readouts, so a small window wastes both — but fullscreen takes
+    // the title bar and the way out with it, which is a different promise than
+    // somebody double-clicking an icon is making.
     gtk_widget_show_all(window);
+
+    // Maximised once the window actually exists.
+    //
+    // Asking before it is mapped is ignored — mutter kept the default size
+    // twice over, once before show_all and once immediately after, because the
+    // window had been shown but not yet mapped. An idle callback runs after the
+    // main loop has done that, which is the first moment the request means
+    // anything.
+    //
+    // Maximised rather than fullscreen: the map wants room and the rails are
+    // columns of readouts, so a small window wastes both — but fullscreen takes
+    // the title bar and the way out with it, which is more than double-clicking
+    // an icon asks for.
+    g_idle_add(pnbrain_maximise_once, window);
     gtk_main();
 }
 */

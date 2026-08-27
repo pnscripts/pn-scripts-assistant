@@ -217,29 +217,77 @@
      * are honest about being furniture.
      */
 
+    /*
+     * Ring speeds.
+     *
+     * Slow on purpose. This sits behind a conversation somebody is reading, and
+     * anything turning fast enough to notice is competing with the words. These
+     * are roughly a fifth of what they were: the outermost takes about a minute
+     * to come round, and the innermost a little under fifteen seconds.
+     *
+     * Speed carries meaning instead — see talkEnergy, which lifts them while
+     * the brain is listening or speaking.
+     */
     const RINGS = [
-        { r: 0.235, speed: -0.00022, width: 1.2, alpha: 0.40, gaps: 5, gapSize: 0.34, ticks: 0 },
-        { r: 0.200, speed: 0.00038, width: 1.0, alpha: 0.55, gaps: 1, gapSize: 0.00, ticks: 96 },
-        { r: 0.165, speed: -0.00060, width: 3.0, alpha: 0.32, gaps: 8, gapSize: 0.12, ticks: 0 },
-        { r: 0.130, speed: 0.00090, width: 1.2, alpha: 0.60, gaps: 3, gapSize: 0.42, ticks: 0 },
-        { r: 0.098, speed: -0.00140, width: 1.0, alpha: 0.45, gaps: 6, gapSize: 0.16, ticks: 0 },
+        { r: 0.235, speed: -0.000042, width: 1.2, alpha: 0.40, gaps: 5, gapSize: 0.34, ticks: 0 },
+        { r: 0.200, speed: 0.000072, width: 1.0, alpha: 0.55, gaps: 1, gapSize: 0.00, ticks: 96 },
+        { r: 0.165, speed: -0.000115, width: 3.0, alpha: 0.32, gaps: 8, gapSize: 0.12, ticks: 0 },
+        { r: 0.130, speed: 0.000175, width: 1.2, alpha: 0.60, gaps: 3, gapSize: 0.42, ticks: 0 },
+        { r: 0.098, speed: -0.000270, width: 1.0, alpha: 0.45, gaps: 6, gapSize: 0.16, ticks: 0 },
     ];
+
+    /*
+     * What the reactor does while the brain is listening, thinking or speaking.
+     *
+     * The state is real — it comes from the conversation loop, not a timer — so
+     * the centre of the picture tells you what the brain is doing without you
+     * reading the button. Listening breathes slowly. Thinking turns faster and
+     * steadily. Speaking pulses with the voice.
+     */
+    let talkState = 'idle';
+    let talkEnergy = 0;
+
+    window.brainMapState = function (state) {
+        talkState = state || 'idle';
+    };
+
+    function stepTalkEnergy(now) {
+        const target = { listening: 0.45, thinking: 1, speaking: 0.8 }[talkState] || 0;
+
+        // Eased rather than switched, so a change of state is a swell instead
+        // of a jump.
+        talkEnergy += (target - talkEnergy) * 0.05;
+
+        switch (talkState) {
+            case 'listening':
+                // A slow breath, the way something waiting looks.
+                return 1 + Math.sin(now / 900) * 0.25 * talkEnergy;
+            case 'speaking':
+                // Faster and less even, closer to speech.
+                return 1 + (Math.sin(now / 180) + Math.sin(now / 310)) * 0.3 * talkEnergy;
+            case 'thinking':
+                return 1 + 2.2 * talkEnergy;
+            default:
+                return 1 + talkEnergy;
+        }
+    }
 
     let spin = 0;
 
-    function drawReactor(now) {
+    function drawReactor() {
         const cx = width / 2;
         const cy = height / 2;
         const unit = Math.min(width, height);
+        const energy = stepTalkEnergy(spin);
 
         ctx.save();
         ctx.translate(cx, cy);
 
         for (const ring of RINGS) {
-            const radius = unit * ring.r;
-            const angle = spin * ring.speed * 1000;
+            const radius = unit * ring.r * (1 + (energy - 1) * 0.04);
+            const angle = spin * ring.speed * 1000 * energy;
 
-            ctx.strokeStyle = '#4dd0e1';
+            ctx.strokeStyle = talkState === 'speaking' ? '#7bc47f' : '#4dd0e1';
             ctx.lineWidth = ring.width;
 
             // Broken arcs rather than closed circles: a gap reads as machinery,
@@ -248,7 +296,7 @@
                 const start = angle + (i / ring.gaps) * Math.PI * 2;
                 const end = start + (Math.PI * 2) / ring.gaps - ring.gapSize;
 
-                ctx.globalAlpha = ring.alpha;
+                ctx.globalAlpha = ring.alpha * (0.75 + energy * 0.25);
                 ctx.beginPath();
                 ctx.arc(0, 0, radius, start, end);
                 ctx.stroke();
@@ -273,17 +321,26 @@
 
         // The core. Its brightness follows how much was just recalled, so the
         // one thing at the centre of the picture is not decoration after all.
-        const core = unit * 0.055;
-        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, core * (2.4 + recallPulse * 2));
+        const core = unit * 0.055 * (1 + (energy - 1) * 0.12);
+        const reach = core * (2.4 + recallPulse * 2 + (energy - 1) * 0.8);
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
 
-        glow.addColorStop(0, `rgba(120, 235, 245, ${0.20 + recallPulse * 0.5})`);
-        glow.addColorStop(0.5, `rgba(77, 208, 225, ${0.07 + recallPulse * 0.18})`);
-        glow.addColorStop(1, 'rgba(77, 208, 225, 0)');
+        const lit = 0.20 + recallPulse * 0.5 + (energy - 1) * 0.22;
+
+        if (talkState === 'speaking') {
+            glow.addColorStop(0, `rgba(150, 240, 170, ${lit})`);
+            glow.addColorStop(0.5, `rgba(123, 196, 127, ${0.07 + recallPulse * 0.18})`);
+            glow.addColorStop(1, 'rgba(123, 196, 127, 0)');
+        } else {
+            glow.addColorStop(0, `rgba(120, 235, 245, ${lit})`);
+            glow.addColorStop(0.5, `rgba(77, 208, 225, ${0.07 + recallPulse * 0.18})`);
+            glow.addColorStop(1, 'rgba(77, 208, 225, 0)');
+        }
 
         ctx.globalAlpha = 1;
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(0, 0, core * (2.4 + recallPulse * 2), 0, Math.PI * 2);
+        ctx.arc(0, 0, reach, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.globalAlpha = 0.75 + recallPulse * 0.25;
@@ -362,6 +419,130 @@
         }
     }
 
+    /* ---------- the frame ---------- */
+
+    /*
+     * The instrument surround: an outer graduated ring and corner brackets.
+     *
+     * There was a rotating sweep here. It was removed because it made the whole
+     * thing read as radar, and this is not a radar — nothing is being scanned
+     * for, nothing arrives from a bearing. It is a reactor with a memory graph
+     * around it, and a sweeping line told a different story than the truth.
+     *
+     * All of it is ornament and none of it carries a number. That line is held
+     * everywhere in this file — the rings, the sweep and the graduations exist
+     * to make the thing feel like an instrument, while every value shown
+     * anywhere on the canvas is something the brain actually measured.
+     */
+
+    function drawOuterFrame() {
+        const cx = width / 2;
+        const cy = height / 2;
+        const unit = Math.min(width, height);
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        // A wide ring near the edge of the canvas, graduated like a bearing
+        // scale, turning slowly against the inner rings.
+        const outer = unit * 0.455;
+        const angle = spin * 0.00006;
+
+        ctx.strokeStyle = '#4dd0e1';
+        ctx.globalAlpha = 0.14;
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i < 120; i++) {
+            const a = angle + (i / 120) * Math.PI * 2;
+            const major = i % 10 === 0;
+            const len = major ? 14 : 6;
+
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * (outer - len), Math.sin(a) * (outer - len));
+            ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer);
+            ctx.stroke();
+        }
+
+        // Four arcs just inside it, with wide gaps at the diagonals.
+        ctx.globalAlpha = 0.20;
+        ctx.lineWidth = 1.6;
+
+        for (let q = 0; q < 4; q++) {
+            const start = -angle * 2.2 + q * (Math.PI / 2) + 0.28;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, outer - 26, start, start + Math.PI / 2 - 0.56);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+
+        drawCornerBrackets();
+    }
+
+    // Brackets at the canvas corners, which is what makes the whole surface
+    // read as a viewport rather than a background.
+    function drawCornerBrackets() {
+        const m = 18;
+        const len = 34;
+
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = '#4dd0e1';
+        ctx.lineWidth = 1.4;
+
+        const corners = [
+            [m, m, 1, 1],
+            [width - m, m, -1, 1],
+            [m, height - m, 1, -1],
+            [width - m, height - m, -1, -1],
+        ];
+
+        for (const [x, y, dx, dy] of corners) {
+            ctx.beginPath();
+            ctx.moveTo(x + dx * len, y);
+            ctx.lineTo(x, y);
+            ctx.lineTo(x, y + dy * len);
+            ctx.stroke();
+        }
+
+        ctx.globalAlpha = 1;
+    }
+
+    // A reticle on whatever the pointer is over, so hovering feels like
+    // targeting rather than like a tooltip.
+    function drawReticle(node) {
+        const r = 20;
+
+        ctx.save();
+        ctx.translate(node.x, node.y);
+        ctx.rotate(spin * 0.0012);
+
+        ctx.globalAlpha = 0.7;
+        ctx.strokeStyle = '#8fe9f2';
+        ctx.lineWidth = 1.2;
+
+        for (let q = 0; q < 4; q++) {
+            const start = q * (Math.PI / 2) + 0.35;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, r, start, start + Math.PI / 2 - 0.7);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.moveTo(node.x - r - 8, node.y);
+        ctx.lineTo(node.x - r + 2, node.y);
+        ctx.moveTo(node.x + r - 2, node.y);
+        ctx.lineTo(node.x + r + 8, node.y);
+        ctx.stroke();
+
+        ctx.globalAlpha = 1;
+    }
+
     /* ---------- drawing ---------- */
 
     /** How far apart two particles may drift and still be joined. */
@@ -388,6 +569,7 @@
     function draw() {
         ctx.clearRect(0, 0, width, height);
 
+        drawOuterFrame();
         drawReactor();
         recallPulse *= 0.985;
 
@@ -489,16 +671,22 @@
                 ctx.fill();
             }
 
-            ctx.globalAlpha = 0.78 + n.glow * 0.22;
+            ctx.globalAlpha = 0.82 + n.glow * 0.18;
             ctx.fillStyle = colour;
+            ctx.shadowColor = colour;
+            ctx.shadowBlur = 6 + n.glow * 14;
             ctx.beginPath();
             ctx.arc(n.x, n.y, size, 0, Math.PI * 2);
             ctx.fill();
+            ctx.shadowBlur = 0;
 
             n.glow *= 0.97;
         }
 
-        if (hovered) drawLabel(hovered);
+        if (hovered) {
+            drawReticle(hovered);
+            drawLabel(hovered);
+        }
 
         ctx.globalAlpha = 1;
     }

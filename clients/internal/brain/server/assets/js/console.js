@@ -108,6 +108,10 @@ async function send(text) {
 
     const placeholder = showThinking();
 
+    // A typed message lights the reactor too, so the picture reflects what the
+    // brain is doing whether or not anybody is talking to it.
+    if (window.brainMapState) window.brainMapState('thinking');
+
     try {
         const data = await api.post('/api/chat', {
             conversation_id: state.conversationId,
@@ -132,6 +136,11 @@ async function send(text) {
         }
 
         speak(data.reply);
+
+        if (window.brainMapState) {
+            window.brainMapState(talking.on ? 'listening' : 'idle');
+        }
+
         if (data.pending_approvals?.length) refreshApprovals();
         refreshStatus();
         refreshActivity();
@@ -297,6 +306,10 @@ function toggleTalking() {
 }
 
 function setTalkButton(state) {
+    // The reactor shows this too, so the centre of the picture says what the
+    // brain is doing without anybody reading the button.
+    if (window.brainMapState) window.brainMapState(state);
+
     const button = el('talk');
     const label = el('talk-label');
 
