@@ -70,14 +70,6 @@
                 <span>Microphone</span>
                 <select id="microphone" aria-label="Microphone"></select>
             </label>
-            <label class="field" id="conversation-field" hidden>
-                <span>Conversation mode</span>
-                <input type="checkbox" id="conversation-toggle">
-            </label>
-            <label class="field" id="speak-field" hidden>
-                <span>Read replies aloud</span>
-                <input type="checkbox" id="speak-toggle">
-            </label>
             <p class="engine-meta" id="voice-status"></p>
             <p class="engine-meta" id="engine-meta">—</p>
         </section>
@@ -94,8 +86,11 @@
 
         <form class="composer" id="composer" autocomplete="off">
             <textarea id="input" rows="1" placeholder="Say something…" aria-label="Message"></textarea>
-            <button type="button" id="listen" hidden aria-label="Speak a question"
-                    title="Speak a question — it appears here for you to read before sending">🎤</button>
+            <button type="button" id="talk" hidden aria-pressed="false"
+                    aria-label="Talk to the brain"
+                    title="Talk instead of typing. It listens until you stop, answers aloud, and listens again.">
+                <span class="talk-dot"></span><span id="talk-label">Talk</span>
+            </button>
             <button type="submit" id="send" aria-label="Send">
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                     <path d="M3 12l18-9-9 18-2-7-7-2z" fill="currentColor"/>

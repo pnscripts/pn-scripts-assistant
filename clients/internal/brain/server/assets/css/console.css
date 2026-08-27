@@ -437,28 +437,72 @@ textarea:focus { border-color: var(--accent-dim); }
     font-size: 10px;
 }
 
-/* The microphone button, beside send. Hidden entirely unless a recogniser is
-   installed — a control for something the machine cannot do is a promise the
-   app cannot keep. Which input it uses is a setting and lives in the Engine
-   panel, not here: putting a select in this row let its intrinsic width, set by
-   the longest device name, squeeze the message box to nothing. */
-#listen {
-    background: none;
+
+/* The talk button.
+   
+   Beside the message box rather than in the settings panel, because talking is
+   not a preference — it is how you are using the thing at that moment. One
+   control replaced three: a conversation toggle, a speak-replies toggle and a
+   push-to-talk button, which between them made the simple case ("I want to talk
+   to it") a decision about three checkboxes.
+   
+   Hidden entirely unless the machine can both hear and speak. Half of a
+   conversation is not worth offering. */
+#talk {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    height: 42px;
+    padding: 0 14px;
+    background: var(--bg-input);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     color: var(--text-dim);
+    font: inherit;
+    font-size: 13px;
     cursor: pointer;
-    font-size: 15px;
-    line-height: 1;
-    padding: 0 10px;
+    transition: border-color 0.15s, color 0.15s;
 }
 
-#listen:hover:not(:disabled) {
-    border-color: var(--accent-dim);
-    color: var(--text);
+#talk:hover { border-color: var(--accent-dim); color: var(--text); }
+
+/* The dot carries the state, so the button reads at a glance without anybody
+   having to notice the label changed. */
+.talk-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    flex: none;
 }
 
-#listen:disabled {
-    color: var(--danger);
-    cursor: default;
+#talk[data-state="listening"] {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+#talk[data-state="listening"] .talk-dot {
+    background: var(--accent);
+    animation: talk-pulse 1.4s ease-in-out infinite;
+}
+
+#talk[data-state="thinking"] { border-color: var(--accent-dim); color: var(--text); }
+#talk[data-state="thinking"] .talk-dot {
+    background: var(--warn);
+    animation: talk-pulse 2.2s ease-in-out infinite;
+}
+
+#talk[data-state="speaking"] { border-color: var(--ok); color: var(--ok); }
+#talk[data-state="speaking"] .talk-dot { background: var(--ok); }
+
+#talk[data-state="stopping"] { color: var(--text-faint); }
+
+@keyframes talk-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.35; transform: scale(0.8); }
+}
+
+/* Somebody who has asked for less motion has asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+    .talk-dot { animation: none !important; }
 }

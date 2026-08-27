@@ -142,16 +142,7 @@ async function send(text) {
         state.busy = false;
         el('send').disabled = false;
         el('orb').classList.remove('thinking');
-        el('listen').onclick = listen;
-
-    el('conversation-toggle').onchange = (e) => {
-        if (e.target.checked) {
-            conversationLoop();
-        } else {
-            conversation.stop = true;
-            setVoiceStatus('Finishing this turn…');
-        }
-    };
+        el('talk').onclick = toggleTalking;
     el('input').focus();
     }
 }
@@ -173,14 +164,14 @@ async function refreshStatus() {
         el('conn-text').textContent = `online · ${s.capabilities.length} capabilities`;
         // Only offer to speak when there is something that can. A control for
         // a capability the machine lacks is a promise the app cannot keep.
-        el('speak-field').hidden = !s.capabilities.includes('speech');
-        const canListen = s.capabilities.includes('listening');
-        el('listen').hidden = !canListen;
-        el('microphone-field').hidden = !canListen;
-        // Conversation needs both halves: hearing you and answering aloud.
-        el('conversation-field').hidden =
-            !(canListen && s.capabilities.includes('speech'));
-        if (canListen) loadMicrophones();
+        // Talking needs both halves: hearing you and answering aloud.
+        const canTalk = s.capabilities.includes('listening')
+            && s.capabilities.includes('speech');
+
+        el('talk').hidden = !canTalk;
+        el('microphone-field').hidden = !canTalk;
+
+        if (canTalk) loadMicrophones();
         document.title = s.name;
     } catch {
         el('conn-dot').className = 'dot offline';
@@ -255,17 +246,50 @@ function renderStorage(storage) {
  * the model choose tools at all: anything that changes something still stops for
  * approval. A misheard sentence can waste a reply; it cannot delete a file.
  */
-const conversation = { running: false, stop: false };
+const talking = { on: false, running: false };
 
-async function conversationLoop() {
-    if (conversation.running) return;
+function toggleTalking() {
+    if (talking.running) {
+        // Stops after the turn in flight; cutting a reply off mid-sentence
+        // would be worse than a moment's wait.
+        talking.on = false;
+        setTalkButton('stopping');
+        setVoiceStatus('Finishing this turn…');
 
-    conversation.running = true;
-    conversation.stop = false;
+        return;
+    }
+
+    talking.on = true;
+    talkLoop();
+}
+
+function setTalkButton(state) {
+    const button = el('talk');
+    const label = el('talk-label');
+
+    if (!button || !label) return;
+
+    button.dataset.state = state;
+    button.setAttribute('aria-pressed', state === 'idle' ? 'false' : 'true');
+
+    label.textContent = {
+        idle: 'Talk',
+        listening: 'Listening',
+        thinking: 'Thinking',
+        speaking: 'Speaking',
+        stopping: 'Stopping',
+    }[state] || 'Talk';
+}
+
+async function talkLoop() {
+    if (talking.running) return;
+
+    talking.running = true;
 
     try {
-        while (!conversation.stop) {
-            setVoiceStatus('Listening — speak when ready');
+        while (talking.on) {
+            setTalkButton('listening');
+            setVoiceStatus('Speak when ready');
 
             let heard;
             try {
@@ -275,7 +299,7 @@ async function conversationLoop() {
                 break;
             }
 
-            if (conversation.stop) break;
+            if (!talking.on) break;
 
             const said = (heard.text || '').trim();
 
@@ -287,6 +311,7 @@ async function conversationLoop() {
             }
 
             addMessage('you', said);
+            setTalkButton('thinking');
             setVoiceStatus('Thinking…');
 
             let reply;
@@ -307,9 +332,13 @@ async function conversationLoop() {
 
             if (window.brainMapRecall && reply.recalled) window.brainMapRecall(reply.recalled);
 
-            if (conversation.stop) break;
+            if (!talking.on) break;
 
+            // Written and spoken, always — the transcript is the record and
+            // the voice is how you hear it without looking.
+            setTalkButton('speaking');
             setVoiceStatus('Speaking…');
+
             try {
                 await api.post('/api/speak', { text: reply.reply });
             } catch {
@@ -320,10 +349,10 @@ async function conversationLoop() {
             await new Promise((r) => setTimeout(r, estimateSpokenMs(reply.reply)));
         }
     } finally {
-        conversation.running = false;
+        talking.on = false;
+        talking.running = false;
+        setTalkButton('idle');
         setVoiceStatus('');
-        const toggle = el('conversation-toggle');
-        if (toggle) toggle.checked = false;
     }
 }
 
@@ -379,54 +408,19 @@ async function loadMicrophones() {
     microphonesLoaded = true;
 }
 
-const LISTEN_SECONDS = 6;
 
-async function listen() {
-    const button = el('listen');
-    const input = el('input');
-
-    button.disabled = true;
-    input.value = '';
-
-    // A visible countdown, because six seconds of nothing happening reads as a
-    // frozen button rather than as a microphone waiting to be spoken into.
-    let left = LISTEN_SECONDS;
-    input.placeholder = `Speak now — ${left}s`;
-
-    const ticking = setInterval(() => {
-        left -= 1;
-        input.placeholder = left > 0 ? `Speak now — ${left}s` : 'Working out what you said…';
-    }, 1000);
-
-    try {
-        const result = await api.post('/api/listen', {
-            seconds: LISTEN_SECONDS,
-            device: el('microphone').value || '',
-        });
-
-        input.value = (result.text || '').trim();
-        input.focus();
-
-        if (input.value) {
-            input.placeholder = 'Say something…';
-        } else {
-            // "Heard nothing" has two causes and they need different fixes:
-            // an input that captured silence, and a room nobody spoke in.
-            input.placeholder = 'Say something…';
-            addMessage('system', result.advice || 'Heard nothing — try again.', { cssClass: 'brain' });
-        }
-    } catch (err) {
-        addMessage('error', String(err.message || err), { cssClass: 'error' });
-        input.placeholder = 'Say something…';
-    } finally {
-        clearInterval(ticking);
-        button.disabled = false;
-        button.textContent = '🎤';
-    }
-}
-
+/*
+ * Reading a reply aloud.
+ *
+ * Not a separate preference any more. If you are talking to it, it talks back —
+ * having to switch that on separately was a setting nobody wants to think
+ * about. Typed messages stay silent, which is what typing means.
+ *
+ * Failure is deliberately quiet: not hearing an answer that is already on
+ * screen is a small thing, and an error box about it would be a larger one.
+ */
 function speak(text) {
-    if (!el('speak-toggle') || !el('speak-toggle').checked || !text) return;
+    if (!talking.on || !text) return;
 
     api.post('/api/speak', { text }).catch(() => {});
 }
@@ -702,16 +696,7 @@ el('input').addEventListener('input', (e) => {
     refreshLessons();
     refreshDrives();
     refreshActivity();
-    el('listen').onclick = listen;
-
-    el('conversation-toggle').onchange = (e) => {
-        if (e.target.checked) {
-            conversationLoop();
-        } else {
-            conversation.stop = true;
-            setVoiceStatus('Finishing this turn…');
-        }
-    };
+    el('talk').onclick = toggleTalking;
     el('input').focus();
 
     // Polling rather than websockets: approvals can be decided from the Filament
