@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -398,4 +399,39 @@ func TestRecoveryIsStrict(t *testing.T) {
 	if !ok || !strings.Contains(string(call.Arguments), "/tmp/x") {
 		t.Errorf("did not recover a call using \"parameters\": %+v", call)
 	}
+}
+
+// Schemas are written indented for people to read, and every tab and newline is
+// a token charged on every call. Compacting changes nothing the model sees.
+func TestToolSchemasAreSentCompact(t *testing.T) {
+	loop, _ := newLoop(t, tools.ReadFile{}, tools.WriteFile{}, tools.RunCommand{}, tools.ListDirectory{})
+
+	var raw, sent int
+
+	for _, spec := range loop.specs() {
+		tool, _ := loop.Registry.Get(spec.Name)
+		raw += len(tool.Parameters())
+		sent += len(spec.Parameters)
+
+		// Compacting must not damage the schema.
+		var schema map[string]any
+
+		if err := json.Unmarshal(spec.Parameters, &schema); err != nil {
+			t.Errorf("%s schema is no longer valid JSON: %v", spec.Name, err)
+		}
+
+		if schema["type"] != "object" {
+			t.Errorf("%s lost its type", spec.Name)
+		}
+
+		if bytes.ContainsAny(spec.Parameters, "\n\t") {
+			t.Errorf("%s schema still carries formatting whitespace", spec.Name)
+		}
+	}
+
+	if sent >= raw {
+		t.Errorf("compacting saved nothing: %d bytes sent against %d written", sent, raw)
+	}
+
+	t.Logf("schemas: %d bytes written, %d sent (%d%% smaller)", raw, sent, 100-sent*100/raw)
 }

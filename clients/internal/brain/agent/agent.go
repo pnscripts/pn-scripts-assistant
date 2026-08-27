@@ -11,11 +11,13 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/store"
@@ -39,6 +41,9 @@ type Loop struct {
 	DB       *store.DB
 	Registry *tools.Registry
 	Log      *slog.Logger
+
+	specsOnce   sync.Once
+	cachedSpecs []llm.ToolSpec
 }
 
 // Pending is an action waiting for approval.
@@ -291,19 +296,43 @@ func (l *Loop) recoverToolCall(content string) (llm.ToolCall, bool) {
 }
 
 // specs describes the tools to the model, in the registry's stable order.
+//
+// The schemas are compacted and the result cached. They are written across
+// several indented lines for people to read, and every tab and newline in them
+// is a token the model is charged for on every single call — measured here at
+// 336 tokens of schema, of which roughly half was whitespace. On a CPU
+// processing ten tokens a second that is real time spent transmitting
+// indentation.
 func (l *Loop) specs() []llm.ToolSpec {
-	all := l.Registry.All()
-	out := make([]llm.ToolSpec, 0, len(all))
+	l.specsOnce.Do(func() {
+		all := l.Registry.All()
+		out := make([]llm.ToolSpec, 0, len(all))
 
-	for _, t := range all {
-		out = append(out, llm.ToolSpec{
-			Name:        t.Name(),
-			Description: t.Description(),
-			Parameters:  t.Parameters(),
-		})
+		for _, t := range all {
+			out = append(out, llm.ToolSpec{
+				Name:        t.Name(),
+				Description: t.Description(),
+				Parameters:  compactJSON(t.Parameters()),
+			})
+		}
+
+		l.cachedSpecs = out
+	})
+
+	return l.cachedSpecs
+}
+
+// compactJSON strips formatting whitespace, leaving the schema unchanged.
+func compactJSON(raw json.RawMessage) json.RawMessage {
+	var buf bytes.Buffer
+
+	if err := json.Compact(&buf, raw); err != nil {
+		// Unparseable here means the tool declared invalid JSON, which its own
+		// test catches. Send it as written rather than dropping the tool.
+		return raw
 	}
 
-	return out
+	return json.RawMessage(buf.Bytes())
 }
 
 func toolResult(call llm.ToolCall, output string) llm.Message {
