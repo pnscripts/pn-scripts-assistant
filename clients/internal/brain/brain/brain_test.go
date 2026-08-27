@@ -1,6 +1,8 @@
 package brain
 
 import (
+	"context"
+	"crypto/sha256"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -142,4 +144,117 @@ func testBrain(t *testing.T) *Brain {
 
 	return New(db, cfg, root, filepath.Join(root, "brain.sqlite"),
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// The greeting says four things are waiting, so "remember them" is the obvious
+// next sentence. Before this the model answered "I will remember these
+// instructions" and did nothing at all.
+func TestRememberThemActuallyRemembers(t *testing.T) {
+	b := testBrain(t)
+	b.Learner.Curator.Embedder = fixedEmbedder{}
+
+	b.DB.AddLesson(0, "Petar prefers Laravel over Python", "proposed", "high", "")
+	b.DB.AddLesson(0, "Petar works from Sofia", "proposed", "high", "")
+
+	answer, handled := b.handleLessonInstruction(context.Background(), "Okay, remember them.")
+
+	if !handled {
+		t.Fatal("the instruction was not recognised")
+	}
+
+	if !strings.Contains(answer, "2") {
+		t.Errorf("answer does not say what happened: %q", answer)
+	}
+
+	pending, _ := b.DB.CountPendingLessons()
+	if pending != 0 {
+		t.Errorf("%d lessons still waiting after being told to remember them", pending)
+	}
+
+	facts, _ := b.DB.CountFacts()
+	if facts != 2 {
+		t.Errorf("%d facts stored, want 2", facts)
+	}
+}
+
+func TestForgetThemDiscards(t *testing.T) {
+	b := testBrain(t)
+
+	b.DB.AddLesson(0, "a guess", "proposed", "low", "")
+
+	answer, handled := b.handleLessonInstruction(context.Background(), "forget them")
+
+	if !handled {
+		t.Fatal("not recognised")
+	}
+
+	if !strings.Contains(strings.ToLower(answer), "discard") {
+		t.Errorf("answer is %q", answer)
+	}
+
+	if pending, _ := b.DB.CountPendingLessons(); pending != 0 {
+		t.Errorf("%d still pending", pending)
+	}
+
+	if facts, _ := b.DB.CountFacts(); facts != 0 {
+		t.Errorf("%d facts stored despite being told to forget", facts)
+	}
+}
+
+// A false positive silently rewrites what the brain believes about its owner,
+// so the match has to be narrow.
+func TestOrdinarySentencesAreNotInstructions(t *testing.T) {
+	b := testBrain(t)
+	b.DB.AddLesson(0, "a guess", "proposed", "low", "")
+
+	notInstructions := []string{
+		"Remind me to forget about the meeting tomorrow morning",
+		"What do you remember about my Go projects?",
+		"I keep them in the drawer next to my desk downstairs",
+		"Do you remember when we discussed the Laravel upgrade last week?",
+		"Can you help me remember my password",
+		"Tell me what you would like to remember and why",
+	}
+
+	for _, message := range notInstructions {
+		if _, handled := b.handleLessonInstruction(context.Background(), message); handled {
+			t.Errorf("treated as an instruction: %q", message)
+		}
+	}
+
+	if pending, _ := b.DB.CountPendingLessons(); pending != 1 {
+		t.Error("the queue was changed by a sentence that was not an instruction")
+	}
+}
+
+// With nothing waiting, "remember that" is somebody talking about something
+// else entirely.
+func TestInstructionIsIgnoredWithAnEmptyQueue(t *testing.T) {
+	b := testBrain(t)
+
+	if _, handled := b.handleLessonInstruction(context.Background(), "remember them"); handled {
+		t.Error("handled an instruction with an empty queue")
+	}
+}
+
+// fixedEmbedder gives every distinct text its own direction.
+//
+// Summing character codes was not enough: two sentences that both begin
+// "Petar " came out similar enough to be treated as the same fact. A hash
+// spreads them properly, which is what a real embedder does for genuinely
+// different statements.
+type fixedEmbedder struct{}
+
+func (fixedEmbedder) EmbedModel() string { return "fixed" }
+
+func (fixedEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
+	sum := sha256.Sum256([]byte(text))
+
+	vec := make([]float32, 8)
+
+	for i := range vec {
+		vec[i] = float32(sum[i]) - 128
+	}
+
+	return vec, nil
 }

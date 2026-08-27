@@ -304,6 +304,22 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		return ChatReply{}, err
 	}
 
+	// An instruction about the review queue is answered here, before the model
+	// is involved. It is deterministic, it takes no time, and until now the
+	// model would say "I will remember these instructions" and do nothing —
+	// which is the worst of the three possible outcomes.
+	if answer, handled := b.handleLessonInstruction(ctx, req.Message); handled {
+		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", answer); err != nil {
+			return ChatReply{}, err
+		}
+
+		return ChatReply{
+			ConversationID: conversationID,
+			Reply:          answer,
+			Provider:       provider.Name(),
+		}, nil
+	}
+
 	history, err := b.DB.History(conversationID)
 	if err != nil {
 		return ChatReply{}, err
