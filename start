@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Easy start from the repo: ./start
+exec "$(cd "$(dirname "$0")" && pwd)/scripts/pn-brain-launch.sh" "$@"

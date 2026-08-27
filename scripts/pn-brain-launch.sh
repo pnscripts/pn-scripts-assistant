@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+#
+# One click / one command to start the global Brain.
+#
+# Rebuilds from this tree when the source is newer than the binary, then opens
+# the window. If the brain is already running, it just brings the page up.
+# Double-clicking the desktop icon lands here; so does `pn-brain` on PATH.
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BIN="$PROJECT_ROOT/dist/pn-brain"
+CLIENTS="$PROJECT_ROOT/clients"
+URL="http://127.0.0.1:8790"
+
+export PATH="/usr/local/go/bin:$HOME/.local/bin:$PATH"
+
+say() { printf '\033[36m→\033[0m %s\n' "$1"; }
+fail() {
+    printf '\033[31m✗\033[0m %s\n' "$1" >&2
+    if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+        command -v notify-send >/dev/null && notify-send --urgency=critical "PN Brain" "$1" || true
+    fi
+    exit 1
+}
+
+already_running() {
+    command -v curl >/dev/null 2>&1 && curl -fsS --max-time 0.4 "$URL" >/dev/null 2>&1
+}
+
+needs_rebuild() {
+    [[ -x "$BIN" ]] || return 0
+    # Any newer Go or embedded asset means the running binary is stale.
+    if find "$CLIENTS" \( -name '*.go' -o -name '*.js' -o -name '*.css' -o -name '*.html' \) \
+        -newer "$BIN" -print -quit | grep -q .; then
+        return 0
+    fi
+    return 1
+}
+
+rebuild() {
+    command -v go >/dev/null 2>&1 || fail "Go is not on PATH. Install it, or add /usr/local/go/bin."
+    mkdir -p "$PROJECT_ROOT/dist"
+
+    local cgo=1
+    if ! command -v pkg-config >/dev/null 2>&1 || ! pkg-config --exists gtk+-3.0 webkit2gtk-4.1 2>/dev/null; then
+        cgo=0
+        say "Building without a native window (WebKit headers missing)."
+    fi
+
+    say "Building the brain (cgo=$cgo)"
+    CGO_ENABLED="$cgo" go build -C "$CLIENTS" \
+        -trimpath \
+        -o "$BIN" ./cmd/brain \
+        || fail "Build failed. Run it from a terminal to see the compiler error."
+}
+
+install_shortcuts() {
+    mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+    ln -sfn "$PROJECT_ROOT/scripts/pn-brain-launch.sh" "$HOME/.local/bin/pn-brain"
+    ln -sfn "$PROJECT_ROOT/scripts/pn-brain-launch.sh" "$HOME/.local/bin/brain"
+
+    local desktop="$HOME/.local/share/applications/pn-brain.desktop"
+    cat > "$desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=PN Brain
+GenericName=AI Assistant
+Comment=Personal self-learning AI assistant
+Exec=$PROJECT_ROOT/scripts/pn-brain-launch.sh
+Icon=applications-science
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=ai;assistant;brain;chat;pnbrain;
+DESKTOP
+    chmod +x "$desktop"
+}
+
+if already_running; then
+    say "Already running at $URL"
+    if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+        command -v notify-send >/dev/null && notify-send "PN Brain" "Already running — opening $URL" || true
+        command -v xdg-open >/dev/null && xdg-open "$URL" >/dev/null 2>&1 || true
+    fi
+    exit 0
+fi
+
+if needs_rebuild; then
+    rebuild
+else
+    say "Binary is current"
+fi
+
+install_shortcuts
+
+[[ -x "$BIN" ]] || fail "No binary at $BIN"
+
+# Remaining args go to the brain itself: `pn-brain serve`, `pn-brain status`, …
+exec "$BIN" "$@"

@@ -73,6 +73,22 @@ network, which undoes the careful part.
 
 ## Running it
 
+From this repo, one command (rebuilds if the source is newer, then opens the window):
+
+```bash
+./start
+```
+
+After the first run, the same thing is on your PATH and in the app menu as **PN Brain**:
+
+```bash
+pn-brain
+# or
+brain
+```
+
+If it is already running, that opens `http://127.0.0.1:8790` instead of starting a second copy.
+
 Download the AppImage, make it executable, run it:
 
 ```bash
