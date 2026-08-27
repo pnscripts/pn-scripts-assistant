@@ -181,6 +181,21 @@ already succeeded, and don't ask for permission in prose when calling the
 tool will ask properly.`, name, owner, owner, owner, owner)
 }
 
+// spokenSystemPrompt is who the assistant is, said briefly.
+func (b *Brain) spokenSystemPrompt() string {
+	name := b.Cfg.Name
+	if name == "" {
+		name = "PN Brain"
+	}
+
+	owner := b.Cfg.Owner
+	if owner == "" {
+		owner = "your owner"
+	}
+
+	return fmt.Sprintf(spokenPersona, name, owner)
+}
+
 // ChatRequest is one message from a person.
 type ChatRequest struct {
 	ConversationID int64  `json:"conversation_id"`
@@ -219,10 +234,16 @@ const (
 	SpokenHistoryTurns = 4
 )
 
-// spokenStyle is added for a turn that will be heard.
-const spokenStyle = `This reply will be read aloud, so keep it to one or two
-sentences. Say the answer plainly and stop. Do not list, do not enumerate, and
-do not read out long paths or URLs — name the thing instead.`
+// spokenPersona replaces the full one for a spoken turn.
+//
+// The full persona is about 255 tokens and describes tool use and approval
+// prompts at length — none of which applies when tools are not offered. At ten
+// tokens a second that description costs half a minute per turn to say nothing
+// relevant.
+const spokenPersona = `You are %s, %s's personal assistant. You are speaking
+aloud, so answer in one or two plain sentences and stop. Do not list or
+enumerate. Do not read out paths or URLs — name the thing instead. Say when you
+do not know.`
 
 // ChatReply is what goes back to the interface.
 type ChatReply struct {
@@ -310,12 +331,15 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	}
 
 	if req.Spoken {
-		// Ahead of the newest user message, like recall, so it reads as
-		// direction for this answer rather than a change of personality.
-		messages = append(messages[:len(messages)-1],
-			llm.Message{Role: llm.RoleSystem, Content: spokenStyle},
-			messages[len(messages)-1],
-		)
+		// Swap the stored persona for the short one rather than adding to it.
+		// Appending would pay for both.
+		for i := range messages {
+			if messages[i].Role == llm.RoleSystem {
+				messages[i].Content = b.spokenSystemPrompt()
+
+				break
+			}
+		}
 	}
 
 	factLimit := RecalledFactLimit
@@ -337,7 +361,10 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		limit = SpokenReplyTokens
 	}
 
-	result, err := b.Agent.RunWithLimit(ctx, conversationID, provider, messages, limit)
+	// Tools are withheld from a spoken turn: their schemas cost more time than
+	// the answer does, and nobody talking to an assistant is asking it to write
+	// a file. Anything that does need a tool can be typed.
+	result, err := b.Agent.RunShaped(ctx, conversationID, provider, messages, limit, !req.Spoken)
 	if err != nil {
 		return ChatReply{}, err
 	}

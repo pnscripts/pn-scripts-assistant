@@ -79,7 +79,29 @@ func (l *Loop) RunWithLimit(
 	messages []llm.Message,
 	maxTokens int,
 ) (Result, error) {
-	specs := l.specs()
+	return l.RunShaped(ctx, conversationID, provider, messages, maxTokens, true)
+}
+
+// RunShaped is the full form: the caller decides whether tools are offered.
+//
+// Withholding them is not a small saving. The schemas come to about 533 tokens
+// and are sent on every call, which on a CPU processing ten tokens a second is
+// most of a minute before the model has read the question. For a spoken turn
+// that is a bad trade — somebody talking wants an answer, not a file written —
+// so voice asks without them and gets the time back.
+func (l *Loop) RunShaped(
+	ctx context.Context,
+	conversationID int64,
+	provider llm.Provider,
+	messages []llm.Message,
+	maxTokens int,
+	withTools bool,
+) (Result, error) {
+	var specs []llm.ToolSpec
+
+	if withTools {
+		specs = l.specs()
+	}
 
 	var actions []string
 
