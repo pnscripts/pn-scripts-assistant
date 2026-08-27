@@ -27,7 +27,6 @@ import (
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
 	"pn-brain/internal/brain/store"
-	"pn-brain/internal/brain/visuals"
 	"pn-brain/internal/brain/window"
 	"pn-brain/internal/preflight"
 	"pn-brain/internal/setup"
@@ -510,15 +509,6 @@ func runApp(args []string) error {
 	}
 
 	srv := server.New(b, logger)
-
-	// The accelerated visual, where the machine has one. It draws the core on
-	// the graphics card in a window that is then placed over the panel the page
-	// reserves for it. Optional in every sense: where it is missing the page
-	// draws the same thing itself.
-	surface := visuals.Start(ctx, logger)
-	defer surface.Stop()
-
-	srv.UseSurface(surface)
 
 	serveErr := make(chan error, 1)
 

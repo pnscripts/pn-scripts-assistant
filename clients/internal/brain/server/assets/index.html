@@ -199,8 +199,19 @@
 
                 <div class="card card-map" style="grid-area: map">
                     <h2>Memory map</h2>
-                    <canvas id="memorymap" aria-hidden="true"></canvas>
+                    <canvas id="memorymap"></canvas>
+                    <p class="map-hover" id="memory-hover" hidden></p>
                     <div class="legend" id="legend"></div>
+
+                    <aside class="memory-detail" id="memory-detail" hidden>
+                        <button type="button" class="memory-detail-close" id="memory-detail-close"
+                                aria-label="Close">×</button>
+                        <span class="memory-detail-category" id="memory-detail-category">—</span>
+                        <p class="memory-detail-text" id="memory-detail-text"></p>
+                        <button type="button" class="memory-ask" id="memory-ask">Ask about this</button>
+                        <h3>Closest to it</h3>
+                        <div id="memory-detail-related"></div>
+                    </aside>
                 </div>
 
                 <div class="card card-chat" style="grid-area: chat">
@@ -409,8 +420,7 @@
 </div>
 
 <script src="/js/console.js"></script>
-<script src="/js/brainmap.js"></script>
 <script src="/js/dashboard.js"></script>
-<script src="/js/surface.js"></script>
+<script type="module" src="/js/scenes.js"></script>
 </body>
 </html>
