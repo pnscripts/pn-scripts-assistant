@@ -152,6 +152,15 @@ func transcribeViaServer(ctx context.Context, wav string) (string, error) {
 	}
 
 	form.WriteField("response_format", "json")
+
+	// Same reasoning as the command line: the server also assumes English
+	// unless told, so detection has to be asked for by name.
+	language := Language()
+	if language == "" {
+		language = "auto"
+	}
+
+	form.WriteField("language", language)
 	form.Close()
 
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)

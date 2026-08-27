@@ -40,27 +40,88 @@ func scriptOf(text string) string {
 
 // voiceForText picks the best installed voice for what is about to be said.
 //
-// The owner's choice is honoured whenever it can carry the text. It is only
-// overridden when the script plainly does not match — which is the difference
-// between respecting a preference and reading Cyrillic letter by letter.
+// Three things decide it, in order of how reliable they are.
+//
+// The script is decisive when it disagrees: an English voice reading Cyrillic
+// spells the letters out, and no preference is worth that.
+//
+// The configured spoken language is the next best signal. Somebody who has said
+// they speak German is being answered in German, and telling German apart from
+// Dutch by looking at the letters is not something worth attempting.
+//
+// Otherwise the owner's choice stands. Overriding a preference on a guess is
+// worse than occasionally using an English voice for a French sentence.
 func voiceForText(text string) Voice {
 	chosen := CurrentVoice()
 	script := scriptOf(text)
+	installed := Voices()
 
-	if script == "" || voiceMatchesScript(chosen, script) {
+	// The script is wrong for the chosen voice: it would spell rather than
+	// speak, so something else has to say it.
+	if script != "" && !voiceMatchesScript(chosen, script) {
+		if v, found := voiceForLanguage(installed, Language(), script); found {
+			return v
+		}
+
+		for _, v := range installed {
+			// Only a voice whose language is actually known, so the system
+			// voice is not picked for a script nobody has checked it against.
+			if v.Engine == "piper" && voiceMatchesScript(v, script) {
+				return v
+			}
+		}
+
+		// Nothing installed can say it properly. The chosen voice mangling the
+		// words is still better than silence.
 		return chosen
 	}
 
-	for _, v := range Voices() {
-		if voiceMatchesScript(v, script) {
+	// The script is fine, but the owner speaks a language this voice is not
+	// for — and there is a voice that is.
+	if code := Language(); code != "" && !voiceIsForLanguage(chosen, code) {
+		if v, found := voiceForLanguage(installed, code, script); found {
 			return v
 		}
 	}
 
-	// Nothing installed can say it properly. The chosen voice mangling the
-	// words is still better than silence, and the interface says which voices
-	// are installed.
 	return chosen
+}
+
+// voiceForLanguage finds an installed voice for an ISO code.
+func voiceForLanguage(installed []Voice, code, script string) (Voice, bool) {
+	if code == "" {
+		return Voice{}, false
+	}
+
+	for _, v := range installed {
+		if !voiceIsForLanguage(v, code) {
+			continue
+		}
+
+		// A voice for the right language but the wrong script would still
+		// spell; that can happen when a language is written both ways.
+		if script != "" && !voiceMatchesScript(v, script) {
+			continue
+		}
+
+		return v, true
+	}
+
+	return Voice{}, false
+}
+
+// voiceIsForLanguage reports whether a voice is known to speak a given ISO code.
+//
+// Only piper voices can answer this, because their language is part of their
+// identity. The system voice follows the desktop's settings, which this cannot
+// see — and assuming it could handle anything let it be chosen for Cyrillic,
+// where it would spell rather than speak. Unknown is treated as no.
+func voiceIsForLanguage(v Voice, code string) bool {
+	if v.Engine != "piper" {
+		return false
+	}
+
+	return strings.HasPrefix(strings.ToLower(v.ID), strings.ToLower(code)+"_")
 }
 
 // cyrillicLocales are the voice prefixes that read Cyrillic.
@@ -68,7 +129,8 @@ var cyrillicLocales = []string{"bg_", "ru_", "uk_", "sr_", "mk_", "be_", "kk_"}
 
 func voiceMatchesScript(v Voice, script string) bool {
 	// The system voice follows the desktop's language rather than a model, so
-	// it is treated as able to attempt anything.
+	// what it can read is unknown. It is left alone when it is the deliberate
+	// choice, but never selected over a voice whose language is known.
 	if v.Engine != "piper" {
 		return true
 	}

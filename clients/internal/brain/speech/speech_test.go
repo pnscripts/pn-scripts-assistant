@@ -407,3 +407,101 @@ func TestChosenVoiceIsKeptWhenItCanSayTheText(t *testing.T) {
 		t.Errorf("overrode the chosen voice with %s for English text", got.ID)
 	}
 }
+
+// Somebody who has said they speak German is being answered in German, and
+// telling German from Dutch by looking at the letters is not worth attempting.
+func TestVoiceFollowsTheConfiguredLanguage(t *testing.T) {
+	installed := Voices()
+
+	var haveGerman bool
+
+	for _, v := range installed {
+		if strings.HasPrefix(v.ID, "de_") {
+			haveGerman = true
+		}
+	}
+
+	if !haveGerman {
+		t.Skip("no German voice installed")
+	}
+
+	SetVoice("en_US-amy-medium")
+	SetLanguage("de")
+
+	t.Cleanup(func() { SetLanguage("") })
+
+	got := voiceForText("Guten Morgen, wie geht es dir heute?")
+
+	if !strings.HasPrefix(got.ID, "de_") {
+		t.Errorf("German text with German configured got %s", got.ID)
+	}
+}
+
+// Script still wins: a preference is not worth spelling Cyrillic out.
+func TestScriptOverridesTheConfiguredLanguage(t *testing.T) {
+	var haveBulgarian bool
+
+	for _, v := range Voices() {
+		if strings.HasPrefix(v.ID, "bg_") {
+			haveBulgarian = true
+		}
+	}
+
+	if !haveBulgarian {
+		t.Skip("no Bulgarian voice installed")
+	}
+
+	SetVoice("en_US-amy-medium")
+	SetLanguage("en")
+
+	t.Cleanup(func() { SetLanguage("") })
+
+	got := voiceForText("Здравей, как си?")
+
+	if !strings.HasPrefix(got.ID, "bg_") {
+		t.Errorf("Cyrillic text got %s, which would spell it", got.ID)
+	}
+}
+
+// whisper-cli defaults -l to "en", not to detection. Passing nothing asserts
+// English, and asserting English about Bulgarian speech produces fluent English
+// that was never said — confident, plausible and unrelated to the words spoken.
+func TestUnsetLanguageMeansAutoNotEnglish(t *testing.T) {
+	SetLanguage("")
+	t.Cleanup(func() { SetLanguage("") })
+
+	if got := Language(); got != "" {
+		t.Fatalf("Language() = %q with nothing set", got)
+	}
+
+	// The value that reaches whisper must be "auto"; anything else, including
+	// nothing at all, means English.
+	code := Language()
+	if code == "" {
+		code = "auto"
+	}
+
+	if code != "auto" {
+		t.Errorf("unset language becomes %q, want auto", code)
+	}
+}
+
+// The small model transcribes Bulgarian nearly perfectly and takes three times
+// as long. English does not need it, and every other language does.
+func TestModelFollowsTheLanguage(t *testing.T) {
+	t.Cleanup(func() { SetLanguage("") })
+
+	SetLanguage("en")
+
+	if got := modelPreference()[0]; got != "ggml-base.bin" {
+		t.Errorf("English prefers %s, want the faster base model", got)
+	}
+
+	for _, code := range []string{"bg", "ru", "de", ""} {
+		SetLanguage(code)
+
+		if got := modelPreference()[0]; got != "ggml-small.bin" {
+			t.Errorf("language %q prefers %s, want the accurate small model", code, got)
+		}
+	}
+}

@@ -40,16 +40,42 @@ func modelSearch(home string) []string {
 
 // preferredModels, best first for a CPU.
 //
-// The multilingual models come before their .en counterparts, and that ordering
-// matters more than it looks. An .en model given Bulgarian does not fail — it
-// forces the sounds into English words, so "здравей Петър" comes back as
+// Two orderings, both chosen from measurements on Bulgarian speech.
+//
+// Multilingual before .en: an .en model given Bulgarian does not fail, it
+// forces the sounds into English words, so "здравей Петър" came back as
 // "Strava pater". Somebody who only speaks English loses nothing by having the
-// multilingual model; somebody who does not loses everything by having the
-// other one.
+// multilingual model; somebody who does not loses everything by the other.
+//
+// small before base: on the same sentence base produced "Здравей, Асм Петер і
+// Днес Работй по проектам" and small produced "Здравей, аз съм Петер и днес
+// работи по проекта" — two word errors against a mangled sentence. base is
+// adequate for English and not for much else, and transcription is not what a
+// reply is waiting for: the model stays resident, so the cost is paid on a few
+// seconds of audio rather than on the minute of thinking that follows.
 var preferredModels = []string{
-	"ggml-base.bin", "ggml-small.bin", "ggml-medium.bin",
-	"ggml-base.en.bin", "ggml-small.en.bin", "ggml-medium.en.bin",
+	"ggml-small.bin", "ggml-base.bin", "ggml-medium.bin",
+	"ggml-small.en.bin", "ggml-base.en.bin", "ggml-medium.en.bin",
 	"ggml-tiny.bin", "ggml-tiny.en.bin",
+}
+
+// englishModels are preferred when English is the configured language.
+//
+// The smaller model is three times faster and, on English, no worse in any way
+// that showed. It is only on other languages that it falls apart — which is
+// exactly when the slower one earns its seconds.
+var englishModels = []string{
+	"ggml-base.bin", "ggml-base.en.bin", "ggml-small.bin", "ggml-small.en.bin",
+	"ggml-tiny.bin", "ggml-tiny.en.bin",
+}
+
+// modelPreference is the order to look in, given what is being spoken.
+func modelPreference() []string {
+	if strings.EqualFold(Language(), "en") {
+		return englishModels
+	}
+
+	return preferredModels
 }
 
 // language is the spoken language, as an ISO code. Empty means whisper decides.
@@ -100,7 +126,7 @@ func FindRecogniser() (*Recogniser, string) {
 	}
 
 	for _, dir := range modelSearch(home) {
-		for _, name := range preferredModels {
+		for _, name := range modelPreference() {
 			path := filepath.Join(dir, name)
 
 			// Test models shipped with whisper.cpp are a megabyte of nothing
@@ -213,11 +239,20 @@ func Transcribe(ctx context.Context, wav string) (string, error) {
 	defer cancel()
 
 	// -nt drops timestamps; the brain wants the sentence, not a subtitle file.
-	args := []string{"-m", r.Model, "-f", wav, "-nt", "-np"}
-
-	if code := Language(); code != "" {
-		args = append(args, "-l", code)
+	// The language is always passed, and "auto" is a real value rather than
+	// the absence of one.
+	//
+	// whisper-cli defaults -l to "en", not to detection. Passing nothing
+	// therefore asserts English, and asserting English about Bulgarian speech
+	// does not fail — it produces fluent English that was never said. "Здравей,
+	// аз съм Петър" came back as "Hello, I'm Petr", which is the worst kind of
+	// wrong: confident, plausible, and unrelated to the words spoken.
+	code := Language()
+	if code == "" {
+		code = "auto"
 	}
+
+	args := []string{"-m", r.Model, "-f", wav, "-nt", "-np", "-l", code}
 
 	cmd := exec.CommandContext(ctx, r.Command, args...)
 
