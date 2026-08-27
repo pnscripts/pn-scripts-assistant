@@ -341,6 +341,20 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	// is involved. It is deterministic, it takes no time, and until now the
 	// model would say "I will remember these instructions" and do nothing —
 	// which is the worst of the three possible outcomes.
+	// Being told to learn from something is carried out here rather than
+	// described to the model, which would answer that it will and then not.
+	if answer, handled := b.handleLearnInstruction(ctx, req.Message); handled {
+		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", answer); err != nil {
+			return ChatReply{}, err
+		}
+
+		return ChatReply{
+			ConversationID: conversationID,
+			Reply:          answer,
+			Provider:       provider.Name(),
+		}, nil
+	}
+
 	if answer, handled := b.handleLessonInstruction(ctx, req.Message); handled {
 		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", answer); err != nil {
 			return ChatReply{}, err
