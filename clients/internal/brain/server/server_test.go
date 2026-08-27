@@ -200,7 +200,7 @@ func TestStatusCarriesEverythingTheInterfaceReads(t *testing.T) {
 func TestInterfaceIsServedFromTheBinary(t *testing.T) {
 	ts, _, _ := newServer(t)
 
-	for _, path := range []string{"/", "/css/console.css", "/js/console.js", "/js/brainmap.js"} {
+	for _, path := range []string{"/", "/css/console.css", "/js/console.js", "/js/core3d.js"} {
 		resp, err := http.Get(ts.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -453,7 +453,7 @@ func (fakeEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
 func TestAssetsCarryCacheValidators(t *testing.T) {
 	ts, _, _ := newServer(t)
 
-	for _, path := range []string{"/js/console.js", "/js/brainmap.js", "/css/console.css"} {
+	for _, path := range []string{"/js/console.js", "/js/core3d.js", "/css/console.css"} {
 		resp, err := http.Get(ts.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -506,7 +506,7 @@ func TestAssetsHaveDistinctETags(t *testing.T) {
 
 	seen := map[string]string{}
 
-	for _, path := range []string{"/js/console.js", "/js/brainmap.js", "/css/console.css"} {
+	for _, path := range []string{"/js/console.js", "/js/core3d.js", "/css/console.css"} {
 		resp, _ := http.Get(ts.URL + path)
 		resp.Body.Close()
 
