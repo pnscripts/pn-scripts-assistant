@@ -519,7 +519,12 @@
     let talkEnergy = 0;
 
     window.brainMapState = function (state) {
+        const was = talkState;
+
         talkState = state || 'idle';
+
+        // A ring goes out when the brain starts talking, once, on the change.
+        if (talkState === 'speaking' && was !== 'speaking') spawnPulse();
     };
 
     function stepTalkEnergy(now) {
@@ -606,8 +611,16 @@
         // change. Written as a period rather than as radians per millisecond,
         // for the reason given on turn().
         seconds: 150,
-        // How far the sphere is tilted towards the viewer: zero is edge on, one
-        // is looking down the pole.
+        /*
+         * How far the sphere is tilted towards the viewer, in radians.
+         *
+         * It used to be a bare factor applied to both the height of a latitude
+         * circle and its flattening, which is wrong: those are the cosine and
+         * the sine of the same angle, not the same number twice. Using one
+         * value for both squashed every latitude towards the equator, and the
+         * surface points — placed evenly over a sphere — came out as a band
+         * around the middle of a disc that was empty at the top and bottom.
+         */
         tilt: 0.30,
         latitudes: 9,
         longitudes: 18,
@@ -653,6 +666,134 @@
         ctx.stroke();
     }
 
+    /*
+     * Things that happen on the globe, and why they are not decoration.
+     *
+     * Two effects are driven by real events rather than by a timer. An arc
+     * leaps across the sphere for each memory a reply actually used, and a ring
+     * goes out from it when the brain starts speaking. Both are ornament in how
+     * they look and information in when they appear: if the globe is quiet,
+     * nothing was recalled and nothing is being said.
+     *
+     * This is the distinction the rest of the interface is built on. A pulse
+     * that fired on a schedule would look identical and mean nothing, and once
+     * one thing on a display means nothing, the honest parts of it stop being
+     * believed too.
+     */
+    const arcs = [];
+    const pulses = [];
+
+    const ARC_LIFE = 2600;
+    const PULSE_LIFE = 2200;
+
+    /*
+     * A point on the sphere, as seen.
+     *
+     * Orthographic: take the point on a unit sphere, tip it towards the viewer
+     * about the horizontal axis, and drop the depth. `front` is that depth —
+     * positive on the near side, which is what decides whether a point is drawn
+     * over the mesh or behind it.
+     */
+    function surface(lat, lon, R) {
+        const sinT = Math.sin(GLOBE.tilt);
+        const cosT = Math.cos(GLOBE.tilt);
+
+        return {
+            x: Math.cos(lat) * Math.sin(lon) * R,
+            y: (Math.sin(lat) * cosT - Math.cos(lat) * Math.cos(lon) * sinT) * R,
+            front: Math.sin(lat) * sinT + Math.cos(lat) * Math.cos(lon) * cosT,
+        };
+    }
+
+    // One arc for each memory used, from somewhere on the sphere to somewhere
+    // else. Where is arbitrary; that it happened is not.
+    function spawnArcs(count) {
+        const now = performance.now();
+
+        for (let i = 0; i < Math.min(count, 9); i++) {
+            const seed = now * 0.001 + i * 7.13;
+
+            arcs.push({
+                born: now,
+                lat1: Math.sin(seed) * 1.2,
+                lon1: seed * 2.4,
+                lat2: Math.sin(seed * 1.7 + 2) * 1.2,
+                lon2: seed * 3.1 + 1.9,
+            });
+        }
+
+        if (arcs.length > 24) arcs.splice(0, arcs.length - 24);
+    }
+
+    function spawnPulse() {
+        pulses.push({ born: performance.now() });
+
+        if (pulses.length > 4) pulses.shift();
+    }
+
+    function drawArcs(R, phase, colour, lit) {
+        const now = performance.now();
+
+        for (let i = arcs.length - 1; i >= 0; i--) {
+            const arc = arcs[i];
+            const age = (now - arc.born) / ARC_LIFE;
+
+            if (age >= 1) {
+                arcs.splice(i, 1);
+
+                continue;
+            }
+
+            // Rises and falls, so an arc arrives rather than switching on.
+            const strength = Math.sin(age * Math.PI);
+
+            ctx.globalAlpha = strength * 0.85 * lit;
+            ctx.strokeStyle = '#dff8fd';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+
+            const STEPS = 14;
+
+            for (let step = 0; step <= STEPS; step++) {
+                const t = step / STEPS;
+                const lat = arc.lat1 + (arc.lat2 - arc.lat1) * t;
+                const lon = arc.lon1 + (arc.lon2 - arc.lon1) * t + phase;
+
+                // Lifted off the surface in the middle, so the arc reads as
+                // going over the sphere rather than through it.
+                const lift = 1 + Math.sin(t * Math.PI) * 0.22;
+                const at = surface(lat, lon, R * lift);
+
+                if (step === 0) ctx.moveTo(at.x, at.y); else ctx.lineTo(at.x, at.y);
+            }
+
+            ctx.stroke();
+        }
+    }
+
+    function drawPulses(R, colour, lit) {
+        const now = performance.now();
+
+        for (let i = pulses.length - 1; i >= 0; i--) {
+            const age = (now - pulses[i].born) / PULSE_LIFE;
+
+            if (age >= 1) {
+                pulses.splice(i, 1);
+
+                continue;
+            }
+
+            const r = R * (1 + age * 1.4);
+
+            ctx.globalAlpha = (1 - age) * 0.5 * lit;
+            ctx.strokeStyle = colour;
+            ctx.lineWidth = 1 + (1 - age) * 1.4;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, r, r * (0.30 + age * 0.16), 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
     function drawGlobe(unit, energy) {
         const R = unit * 0.30;
         const lit = 0.6 + (energy - 1) * 0.45 + recallPulse * 0.3;
@@ -691,7 +832,7 @@
             for (let i = 0; i < dots; i++) {
                 const a = (i / dots) * Math.PI * 2;
                 const x = Math.cos(a) * rx;
-                const y = R * 1.02 + Math.sin(a) * ry;
+                const y = R * 1.06 + Math.sin(a) * ry;
 
                 ctx.moveTo(x + 0.9, y);
                 ctx.arc(x, y, 0.9, 0, Math.PI * 2);
@@ -725,8 +866,8 @@
 
             if (rx < 1) continue;
 
-            ctx.ellipse(0, R * Math.sin(lat) * GLOBE.tilt, rx,
-                Math.max(0.6, rx * GLOBE.tilt), 0, 0, Math.PI * 2);
+            ctx.ellipse(0, R * Math.sin(lat) * Math.cos(GLOBE.tilt), rx,
+                Math.max(0.6, rx * Math.sin(GLOBE.tilt)), 0, 0, Math.PI * 2);
         }
 
         ctx.stroke();
@@ -767,25 +908,50 @@
             ctx.beginPath();
 
             for (let i = 0; i < GLOBE.points; i++) {
+                // The golden angle in longitude against an even spread in the
+                // sine of latitude, which is what distributes points evenly
+                // over a sphere instead of crowding them at the poles.
                 const lat = Math.asin((i / GLOBE.points) * 2 - 1);
                 const lon = phase + i * 2.39996;
-                const front = Math.cos(lat) * Math.cos(lon);
+                const at = surface(lat, lon, R);
 
-                if ((pass === 0) === (front > 0)) continue;
+                if ((pass === 0) === (at.front > 0)) continue;
 
-                const x = Math.cos(lat) * Math.sin(lon) * R;
-                const y = Math.sin(lat) * R * GLOBE.tilt
-                    - Math.cos(lat) * Math.cos(lon) * R * GLOBE.tilt * 0.5;
+                // Lit from up and to the left, and each point breathing on its
+                // own slow cycle, so the surface is never quite still.
+                const light = 0.35 + 0.65 * Math.max(0,
+                    at.front * 0.7 - (at.x / R) * 0.4 - (at.y / R) * 0.45);
+                const twinkle = 0.82 + 0.18 * Math.sin(spin / 900 + i);
+                const size = pass === 0 ? 0.75 : (0.65 + light * 1.4) * twinkle;
 
-                // Brighter where the light is, which is up and to the left.
-                const size = pass === 0 ? 0.75 : 0.9 + Math.abs(front) * 1.0;
-
-                ctx.moveTo(x + size, y);
-                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.moveTo(at.x + size, at.y);
+                ctx.arc(at.x, at.y, size, 0, Math.PI * 2);
             }
 
             ctx.fill();
         }
+
+        /*
+         * A bright meridian sweeping the sphere.
+         *
+         * Ornament, and the one piece of pure ornament left in the core. It
+         * earns its place by making the direction of rotation unmistakable,
+         * which a symmetrical mesh cannot show on its own.
+         */
+        const sweep = turn(GLOBE.seconds * 0.5);
+        const facing = Math.cos(sweep);
+
+        if (facing > 0) {
+            ctx.globalAlpha = facing * 0.5 * lit;
+            ctx.strokeStyle = '#dff8fd';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, Math.max(0.6, facing * R), R, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        drawArcs(R, phase, colour, lit);
+        drawPulses(R, colour, lit);
 
         // Orbits, and one bright point running each of them.
         for (const o of ORBITS) {
@@ -797,13 +963,20 @@
             ctx.stroke();
 
             const a = turn(o.seconds);
-            const px = Math.cos(a) * R * o.rx;
-            const py = Math.sin(a) * R * o.ry;
 
-            drawFlare(
-                px * Math.cos(o.lean) - py * Math.sin(o.lean),
-                px * Math.sin(o.lean) + py * Math.cos(o.lean),
-                R * 0.10, colour, 0.9 * lit);
+            // A short trail behind each point, which is what turns a dot moving
+            // slowly into something that reads as travelling.
+            for (let t = 3; t >= 0; t--) {
+                const back = a - t * 0.045 * Math.sign(o.seconds);
+                const px = Math.cos(back) * R * o.rx;
+                const py = Math.sin(back) * R * o.ry;
+
+                drawFlare(
+                    px * Math.cos(o.lean) - py * Math.sin(o.lean),
+                    px * Math.sin(o.lean) + py * Math.cos(o.lean),
+                    R * (t === 0 ? 0.11 : 0.05), colour,
+                    (t === 0 ? 0.95 : 0.16 / t) * lit);
+            }
         }
 
         ctx.globalAlpha = 1;
@@ -1397,6 +1570,9 @@
         for (const n of nodes) {
             if (ids.includes(n.id)) n.glow = 1;
         }
+
+        // One arc across the globe for each memory the reply actually used.
+        spawnArcs(ids.length || 0);
 
         // Scaled by how much was recalled, so a question answered from one
         // memory does not look like one answered from a dozen.
