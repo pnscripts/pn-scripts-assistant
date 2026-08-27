@@ -1,6 +1,8 @@
 package preflight
 
 import (
+	"os"
+	"path/filepath"
 	"runtime"
 )
 
@@ -103,6 +105,20 @@ func Requirements() []Requirement {
 				Consequence: "the brain will listen and answer, but stay silent",
 				Optional:    true,
 				Check: func() (State, string) {
+					// piper first: it is a neural voice and sounds like one,
+					// where espeak-ng is formant synthesis and sounds like
+					// that. Reported by name so it is obvious which is in use.
+					if home, err := os.UserHomeDir(); err == nil {
+						for _, dir := range []string{
+							filepath.Join(home, ".local", "src", "piper"),
+							filepath.Join(home, ".local", "share", "piper"),
+						} {
+							if voices, _ := filepath.Glob(filepath.Join(dir, "voices", "*.onnx")); len(voices) > 0 {
+								return OK, "piper (neural)"
+							}
+						}
+					}
+
 					// speech-dispatcher is not evidence of a voice. spd-say
 					// hands text to it and exits 0 whether or not anything can
 					// say the words; with no engine behind it, speech-dispatcher

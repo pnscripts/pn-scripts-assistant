@@ -2,6 +2,7 @@ package speech
 
 import (
 	"context"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -297,5 +298,47 @@ func TestAvailabilityMatchesWhatIsInstalled(t *testing.T) {
 
 	if engine != nil && engine.NeedsEngine && !installed {
 		t.Errorf("reported %s as usable with no voice installed", engine.Name)
+	}
+}
+
+// Ubuntu ships an unrelated package called piper that configures gaming mice.
+// Handing it a sentence would fail confusingly, so the voice is only accepted
+// with a model beside it.
+func TestPiperNeedsAVoiceModel(t *testing.T) {
+	p := FindPiper()
+
+	if p == nil {
+		t.Skip("piper is not installed")
+	}
+
+	if p.Voice == "" {
+		t.Fatal("piper accepted without a voice model")
+	}
+
+	if !strings.HasSuffix(p.Voice, ".onnx") {
+		t.Errorf("voice is %q, which is not a model", p.Voice)
+	}
+
+	// The companion json holds the sample rate; without it piper cannot load.
+	if _, err := os.Stat(p.Voice + ".json"); err != nil {
+		t.Errorf("voice has no companion json: %v", err)
+	}
+}
+
+// A neural voice is what somebody would actually want reading answers aloud,
+// so it must win over formant synthesis when both are installed.
+func TestPiperIsPreferredOverEspeak(t *testing.T) {
+	if FindPiper() == nil {
+		t.Skip("piper is not installed")
+	}
+
+	engine := Available()
+
+	if engine == nil {
+		t.Fatal("no engine chosen despite piper being installed")
+	}
+
+	if engine.Name != "piper" {
+		t.Errorf("chose %s over piper", engine.Name)
 	}
 }

@@ -35,13 +35,6 @@ type Engine struct {
 // engines in preference order: quality first, then whatever is present.
 var engines = []Engine{
 	{
-		// Neural voices, and by far the best sounding of these. Not installed
-		// by default anywhere, so it is looked for rather than assumed.
-		Name:    "piper",
-		Command: "piper",
-		Args:    func(text string) []string { return []string{"--output-raw"} },
-	},
-	{
 		// speech-dispatcher: present on most desktop Linux installs, and it
 		// routes through whatever the desktop already has configured.
 		Name:        "speech-dispatcher",
@@ -84,6 +77,15 @@ var (
 // So a real voice is required behind the client.
 func Available() *Engine {
 	once.Do(func() {
+		// A neural voice if one is installed. espeak-ng is formant synthesis
+		// and sounds it; piper is what somebody would actually want reading
+		// answers to them.
+		if p := FindPiper(); p != nil {
+			detected = &Engine{Name: "piper", Command: p.Binary}
+
+			return
+		}
+
 		for i := range engines {
 			if _, err := exec.LookPath(engines[i].Command); err != nil {
 				continue
@@ -147,6 +149,10 @@ func SpeakAndWait(ctx context.Context, text string) error {
 		return nil
 	}
 
+	if engine.Name == "piper" {
+		return FindPiper().Speak(ctx, spoken)
+	}
+
 	args := engine.Args(spoken)
 
 	if engine.Command == "spd-say" {
@@ -176,6 +182,14 @@ func Speak(ctx context.Context, text string) error {
 
 	spoken := Readable(text)
 	if spoken == "" {
+		return nil
+	}
+
+	if engine.Name == "piper" {
+		// Piper synthesises faster than it plays, so there is nothing to gain
+		// from returning early and a microphone to protect by not doing so.
+		go FindPiper().Speak(context.WithoutCancel(ctx), spoken)
+
 		return nil
 	}
 
