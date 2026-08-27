@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -110,6 +111,7 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 	}
 
 	cmd := exec.CommandContext(ctx, "pw-record", append(args, path)...)
+	dieWithParent(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return turn, fmt.Errorf("could not start recording: %w", err)
@@ -118,16 +120,30 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 
-	stop := func() {
-		cmd.Process.Signal(syscall.SIGINT)
+	// Deferred as well as called explicitly.
+	//
+	// Every ordinary way out of the loop below stops the recorder on its way,
+	// and each of those calls is where it belongs — the turn is over at that
+	// point, not when the function happens to return. But relying on that alone
+	// means any path added later that forgets leaves a recorder running with
+	// the microphone open, which is a quiet failure nobody notices until the
+	// machine is full of them. Once is what makes both safe.
+	var once sync.Once
 
-		select {
-		case <-done:
-		case <-time.After(3 * time.Second):
-			cmd.Process.Kill()
-			<-done
-		}
+	stop := func() {
+		once.Do(func() {
+			cmd.Process.Signal(syscall.SIGINT)
+
+			select {
+			case <-done:
+			case <-time.After(3 * time.Second):
+				cmd.Process.Kill()
+				<-done
+			}
+		})
 	}
+
+	defer stop()
 
 	const header = 44
 
@@ -144,6 +160,10 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 	ticker := time.NewTicker(FrameDuration)
 	defer ticker.Stop()
 
+	// Every return below is an end of listening, so the meter is cleared here
+	// rather than at each of them.
+	defer clearLevel("mic")
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -158,6 +178,45 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 
 		rms, next := frameRMS(path, offset)
 		offset = next
+
+		// The interface shows this, so it is published every frame including
+		// during warm-up and calibration: the meter is reporting what the
+		// microphone hears, which is true regardless of whether this frame is
+		// yet allowed to decide anything about the turn.
+		//
+		// The threshold goes with it. It is the level this room has already
+		// been measured never to fall below, and without it a display cannot
+		// tell the fan from a voice — which is the same problem this loop has,
+		// solved the same way.
+		floor := 0.0
+		if threshold != math.MaxInt {
+			floor = float64(threshold)
+		}
+
+		publishLevelWithFloor("mic", float64(rms), floor)
+
+		// The brain must not transcribe its own voice.
+		//
+		// On speakers the microphone hears whatever the brain is saying, and
+		// with nothing stopping it the reply gets treated as the next thing the
+		// user said. The conversation loop already speaks and listens strictly
+		// in turn, but that only covers the conversation: the greeting, a voice
+		// sample and a typed reply are all spoken without waiting, and any of
+		// them can overlap an open microphone. Being asked at the moment it
+		// matters is more reliable than any of the places one could try to
+		// arrange the turns.
+		//
+		// While the voice is playing the turn is held at its beginning: the
+		// warm-up is kept open and the room measurement is thrown away, because
+		// a noise floor measured with the brain talking over it would be far too
+		// high and the user would then have to shout to be heard.
+		if Speaking() {
+			started = time.Now()
+			floorSamples = floorSamples[:0]
+			threshold = math.MaxInt
+
+			continue
+		}
 
 		// Still settling: advance the read position so the click is not
 		// re-examined later, but let it decide nothing.

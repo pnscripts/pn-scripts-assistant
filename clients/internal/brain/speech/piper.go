@@ -166,24 +166,111 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 	synth.Stdin = strings.NewReader(text)
 	synth.Stderr = io.Discard
 
+	// The sound is measured on its way past, so the interface can respond to
+	// the voice that is actually being produced. See voiceMeter for why this
+	// is not simply read off the pipe as it flows.
+	level := newVoiceMeter(p.Rate)
+
+	play := exec.CommandContext(ctx, player.Command, player.Args(p.Rate)...)
+	play.Stderr = io.Discard
+
+	return pumpAudio(synth, play, level, audioHooks{
+		playing:   level.start,
+		generated: level.seal,
+		done:      level.finish,
+	})
+}
+
+// pumpAudio carries the synthesiser's output to the player, showing everything
+// that passes to meter, and does not return until the sound has been heard.
+//
+// The plumbing is separated out and written by hand because doing the obvious
+// thing here silently cuts the end off every sentence, and it is worth being
+// precise about why.
+//
+// The obvious version sets play.Stdin to an io.TeeReader wrapping the
+// synthesiser's StdoutPipe. Two documented behaviours then collide. Because the
+// reader is not an *os.File, os/exec cannot hand it to the child directly, so
+// it runs a goroutine copying from it into a pipe of its own. And StdoutPipe's
+// contract says Wait closes the pipe as soon as the command exits, so it is
+// wrong to call Wait before every read has finished. Piper generates far faster
+// than the sound plays, so it exits while the copying goroutine is still
+// blocked writing into a player that is only consuming at the speed of speech.
+// Waiting on the synthesiser at that moment closes the pipe under the goroutine
+// and throws away everything still in it — up to a pipe buffer of audio, which
+// is well over a second of talking. The voice simply stops mid-sentence.
+//
+// Handing the player a real file descriptor takes os/exec's goroutine out of it
+// and puts the copy here, where it can be waited for before anything is closed.
+// audioHooks are the three moments the caller may care about.
+//
+// Named rather than positional because "generated" and "done" are easy to
+// confuse and mean very different things: the first is when the synthesiser has
+// produced everything, the second is when the sound has finished being heard,
+// and on a slow machine they can be seconds apart.
+type audioHooks struct {
+	// playing fires when the player has started.
+	playing func()
+	// generated fires when every byte has left the synthesiser.
+	generated func()
+	// done fires when the sound has finished.
+	done func()
+}
+
+func pumpAudio(synth, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
 	audio, err := synth.StdoutPipe()
 	if err != nil {
 		return err
 	}
 
-	play := exec.CommandContext(ctx, player.Command, player.Args(p.Rate)...)
-	play.Stdin = audio
-	play.Stderr = io.Discard
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+
+	// An *os.File, so os/exec passes it to the child as-is.
+	play.Stdin = pr
 
 	if err := synth.Start(); err != nil {
-		return fmt.Errorf("could not start piper: %w", err)
+		pr.Close()
+		pw.Close()
+
+		return fmt.Errorf("could not start the synthesiser: %w", err)
 	}
 
 	if err := play.Start(); err != nil {
+		pr.Close()
+		pw.Close()
 		synth.Process.Kill()
 		synth.Wait()
 
-		return fmt.Errorf("could not start %s: %w", player.Command, err)
+		return fmt.Errorf("could not start %s: %w", play.Path, err)
+	}
+
+	// The player has its own copy now.
+	pr.Close()
+
+	copied := make(chan struct{})
+
+	go func() {
+		defer close(copied)
+
+		io.Copy(io.MultiWriter(pw, meter), audio)
+
+		// Closing the write end is what tells the player the sound has ended.
+		pw.Close()
+	}()
+
+	if hooks.playing != nil {
+		hooks.playing()
+	}
+
+	// Every byte is out of the synthesiser before it is waited for. This
+	// ordering is the whole point of the function.
+	<-copied
+
+	if hooks.generated != nil {
+		hooks.generated()
 	}
 
 	synth.Wait()
@@ -191,5 +278,11 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 	// Waiting on the player, not the synthesiser: piper finishes generating
 	// well before the sound has been heard, and conversation mode must not
 	// reopen the microphone until the room is quiet again.
-	return play.Wait()
+	err = play.Wait()
+
+	if hooks.done != nil {
+		hooks.done()
+	}
+
+	return err
 }

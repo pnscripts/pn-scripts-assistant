@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"pn-brain/internal/brain/brain"
+	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
 )
@@ -51,6 +52,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/speak", s.handleSpeak)
 	s.mux.HandleFunc("POST /api/listen", s.handleListen)
 	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
+	s.mux.HandleFunc("GET /api/level", s.handleLevel)
+	s.mux.HandleFunc("GET /api/machine", s.handleMachine)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
@@ -555,6 +558,40 @@ func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"microphones": mics})
+}
+
+// handleMachine reports what the computer is doing.
+//
+// Separate from status because it changes on a completely different timescale:
+// the load is worth re-reading every couple of seconds, and the rest of the
+// status is not.
+func (s *Server) handleMachine(w http.ResponseWriter, r *http.Request) {
+	load := machine.Current()
+
+	ok(w, map[string]any{
+		"cpu_percent":        load.CPUPercent,
+		"cores":              load.Cores,
+		"memory_used_bytes":  load.MemoryUsedBytes,
+		"memory_total_bytes": load.MemoryTotalBytes,
+		"memory_percent":     load.MemoryPercent(),
+		"available":          load.Available,
+	})
+}
+
+// handleLevel reports the live audio level.
+//
+// Polled frequently by the interface, so it does no work beyond reading a
+// value two audio paths are already computing for their own reasons. It
+// deliberately reports silence rather than an error when nothing is running:
+// "no sound" is the normal answer most of the time, not a failure.
+func (s *Server) handleLevel(w http.ResponseWriter, r *http.Request) {
+	reading := speech.LiveLevel()
+
+	ok(w, map[string]any{
+		"source": reading.Source,
+		"level":  reading.Level,
+		"floor":  reading.Floor,
+	})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

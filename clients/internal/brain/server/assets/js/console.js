@@ -163,9 +163,6 @@ async function refreshStatus() {
         const s = await api.get('/api/status');
         state.brainName = s.name || state.brainName;
         el('brain-name').textContent = s.name;
-        el('stat-facts').textContent = s.memory.facts;
-        el('stat-pending').textContent = s.memory.pending_lessons;
-        el('stat-convos').textContent = s.memory.conversations;
         el('engine-meta').textContent = `${s.provider} · ${s.model}`;
         renderPrivacy(s.privacy);
         renderStorage(s.storage);
@@ -220,6 +217,13 @@ function renderPrivacy(privacy) {
     if (!privacy) return;
 
     const summary = el('privacy-summary');
+
+    // The panels live in views that can be switched away from, so anything
+    // that renders into one has to cope with it not being there. Throwing here
+    // would abort the rest of refreshStatus and quietly stop the whole status
+    // panel updating.
+    if (!summary) return;
+
     summary.textContent = privacy.summary;
     summary.className = 'privacy-summary ' + privacy.mode;
     el('privacy-detail').textContent = privacy.detail;
@@ -304,6 +308,27 @@ function toggleTalking() {
     talking.on = true;
     talkLoop();
 }
+
+/*
+ * The two things the command centre's quick commands need.
+ *
+ * Exposed here rather than reimplemented there: starting a conversation means
+ * forgetting the current one's identity so the next message opens a new one,
+ * and only this file knows that.
+ */
+window.brainCommands = {
+    talk: toggleTalking,
+    newConversation() {
+        state.conversationId = null;
+
+        const transcript = el('transcript');
+
+        if (transcript) transcript.innerHTML = '';
+
+        addMessage(state.brainName, 'New conversation. What would you like to do?',
+            { cssClass: 'brain' });
+    },
+};
 
 function setTalkButton(state) {
     // The reactor shows this too, so the centre of the picture says what the

@@ -7,84 +7,104 @@
     <link rel="stylesheet" href="/css/console.css">
 </head>
 <body>
+<!--
+    The command console.
+
+    Laid out as an instrument panel: a status bar across the top, a column of
+    places to go on the left, the thing you are talking to in the middle, and
+    what it is doing on the right. That arrangement is the ordinary vocabulary
+    of control-room software and is used here as such — none of the naming,
+    marks or artwork of any particular product or film appears anywhere in it,
+    and nothing here is presented as belonging to anyone but this program.
+
+    The other thing not taken from the genre is its habit of inventing readouts.
+    Every figure on this page is measured: the processor and memory from the
+    kernel, the disk from the filesystem, the audio from the samples, the counts
+    from the database. Where something cannot be measured it says so rather than
+    showing a number that moves.
+-->
 <div class="shell">
 
-    <aside class="rail">
-        <div class="identity">
+    <header class="topbar">
+        <div class="brand">
             <div class="orb" id="orb" aria-hidden="true"><span></span><span></span><span></span></div>
-            <div class="identity-text">
+            <div class="brand-text">
                 <h1 id="brain-name">{{ .Name }}</h1>
-                <p class="status-line"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span></p>
+                <p class="brand-sub">local assistant</p>
             </div>
         </div>
+
+        <div class="pill" id="status-pill">
+            <span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span>
+        </div>
+
+        <div class="topbar-gap"></div>
+
+        <div class="pill pill-quiet" id="privacy-pill">
+            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M12 2l7 3v6c0 5-3 8-7 11-4-3-7-6-7-11V5z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span id="privacy-pill-text">—</span>
+        </div>
+
+        <div class="clock">
+            <span id="clock-date">—</span>
+            <strong id="clock-time">—</strong>
+        </div>
+    </header>
+
+    <nav class="nav">
+        <button type="button" class="nav-item is-active" data-view="console">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M4 5h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M8 20h8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>Command centre</span>
+        </button>
+        <button type="button" class="nav-item" data-view="memory">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+            </svg>
+            <span>Memory map</span>
+        </button>
+        <button type="button" class="nav-item" data-view="system">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M5 19V9 M12 19V5 M19 19v-7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+            <span>System</span>
+        </button>
+        <button type="button" class="nav-item" data-view="privacy">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <rect x="5" y="10" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M8 10V7a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>Privacy</span>
+        </button>
+
+        <div class="nav-gap"></div>
 
         <section class="panel">
-            <h2>Memory</h2>
-            <div class="stat"><span class="stat-value" id="stat-facts">—</span><span class="stat-label">facts known</span></div>
-            <div class="stat"><span class="stat-value" id="stat-pending">—</span><span class="stat-label">awaiting review</span></div>
-            <div class="stat"><span class="stat-value" id="stat-convos">—</span><span class="stat-label">conversations</span></div>
-        </section>
-
-        <section class="panel" id="privacy-panel">
-            <h2>Privacy</h2>
-            <p class="privacy-summary" id="privacy-summary">—</p>
-            <p class="privacy-detail" id="privacy-detail"></p>
-        </section>
-
-        <section class="panel" id="storage-panel">
-            <h2>Storage</h2>
-            <div class="storage-bar"><div id="storage-fill"></div></div>
-            <p class="storage-text" id="storage-text">—</p>
-            <div id="storage-warning" hidden>
-                <p class="storage-advice" id="storage-advice"></p>
+            <h2>Held</h2>
+            <div class="kv">
+                <div class="k">Facts</div><div class="v" id="stat-facts">—</div>
+                <div class="k">Conversations</div><div class="v" id="stat-convos">—</div>
+                <div class="k">Awaiting review</div><div class="v" id="stat-pending">—</div>
             </div>
-            <div id="drives" class="drives"></div>
         </section>
 
-        <section class="panel" id="approvals-panel" hidden>
-            <h2>Needs you <span class="badge" id="approval-count">0</span></h2>
-            <div id="approvals"></div>
-        </section>
-
-        <section class="panel" id="lessons-panel" hidden>
-            <h2>Wants to remember <span class="badge" id="lesson-count">0</span></h2>
-            <div id="lessons"></div>
-        </section>
-
-
-    </aside>
-
-    <main class="main">
-        <canvas id="brainmap" aria-hidden="true"></canvas>
-        <div class="transcript" id="transcript">
-            <div class="boot" id="boot">
-                <p class="boot-title">{{ .Name }}</p>
-                <p class="boot-sub">Ask something, or tell me to look at something.</p>
-            </div>
-        </div>
-
-        <form class="composer" id="composer" autocomplete="off">
-            <textarea id="input" rows="1" placeholder="Say something…" aria-label="Message"></textarea>
+        <section class="panel voice-card">
+            <h2>Voice</h2>
+            <canvas id="voicewave" class="voicewave" aria-hidden="true"></canvas>
+            <p class="voice-state" id="voice-state">Idle</p>
             <button type="button" id="talk" hidden aria-pressed="false"
                     aria-label="Talk to the brain"
                     title="Talk instead of typing. It listens until you stop, answers aloud, and listens again.">
                 <span class="talk-dot"></span><span id="talk-label">Talk</span>
             </button>
-            <button type="submit" id="send" aria-label="Send">
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                    <path d="M3 12l18-9-9 18-2-7-7-2z" fill="currentColor"/>
-                </svg>
-            </button>
-        </form>
-        <p class="hint">Reads run on their own. Anything that changes something waits for you.</p>
-    </main>
-
-    <aside class="rail rail-right">
-        <section class="panel grow">
-            <h2>Activity</h2>
-            <div id="activity" class="activity"></div>
         </section>
-        <section class="panel">
+
+        <section class="card engine-card">
             <h2>Engine</h2>
             <label class="field">
                 <span>Provider</span>
@@ -119,10 +139,212 @@
             <p class="engine-meta" id="voice-status"></p>
             <p class="engine-meta" id="engine-meta">—</p>
         </section>
-    </aside>
+    </nav>
+
+    <main class="main">
+
+        <!-- The command centre.
+
+             Three columns of cards, the subject in the middle. Every tile is
+             backed by something measured; there is no tile here whose numbers
+             come from a timer. -->
+        <section class="view" data-view="console">
+            <div class="dash">
+
+                <!-- Row one: what it is, what it is doing, what just happened. -->
+                <div class="card" style="grid-area: core">
+                    <h2>Core</h2>
+                    <div class="rows" id="core-rows"></div>
+                </div>
+
+                <div class="card card-core" style="grid-area: reactor">
+                    <canvas id="brainmap" aria-hidden="true"></canvas>
+                    <div class="core-caption">
+                        <p class="core-title" id="core-title">{{ .Name }}</p>
+                        <p class="core-sub" id="core-sub">—</p>
+                    </div>
+                </div>
+
+                <div class="card" style="grid-area: activity">
+                    <h2>Activity</h2>
+                    <div id="activity" class="activity"></div>
+                </div>
+
+                <!-- Row two: what it can do, what it is waiting on, what you can do. -->
+                <div class="card" style="grid-area: skills">
+                    <h2>Capabilities</h2>
+                    <div id="capabilities" class="chips"></div>
+                </div>
+
+                <div class="card card-map" style="grid-area: map">
+                    <h2>Memory map</h2>
+                    <canvas id="memorymap" aria-hidden="true"></canvas>
+                    <div class="legend" id="legend"></div>
+                </div>
+
+                <div class="card card-chat" style="grid-area: chat">
+                    <h2>Conversation</h2>
+                    <div class="transcript" id="transcript">
+                        <div class="boot" id="boot">
+                            <p class="boot-sub">Ask something, or tell me to look at something.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="grid-area: waiting">
+                    <h2>Waiting for you <span class="badge" id="waiting-count">0</span></h2>
+                    <div id="approvals-panel" hidden>
+                        <div id="approvals"></div>
+                    </div>
+                    <div id="lessons-panel" hidden>
+                        <div id="lessons"></div>
+                    </div>
+                    <p class="activity-empty" id="waiting-empty">Nothing needs a decision.</p>
+                    <span id="approval-count" hidden>0</span>
+                    <span id="lesson-count" hidden>0</span>
+                </div>
+
+                <div class="card" style="grid-area: commands">
+                    <h2>Quick commands</h2>
+                    <div class="commands">
+                        <button type="button" class="command" data-command="new">
+                            <span class="row-icon">+</span><span>Start a new conversation</span>
+                        </button>
+                        <button type="button" class="command" data-command="talk">
+                            <span class="row-icon">V</span><span>Talk instead of typing</span>
+                        </button>
+                        <button type="button" class="command" data-command="memory">
+                            <span class="row-icon">M</span><span>Open the memory map</span>
+                        </button>
+                        <button type="button" class="command" data-command="system">
+                            <span class="row-icon">S</span><span>Show the machine</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Row three: the measurements. -->
+                <div class="card" style="grid-area: monitor">
+                    <h2>System monitor</h2>
+                    <div class="gauges">
+                        <div class="gauge">
+                            <svg viewBox="0 0 44 44" aria-hidden="true">
+                                <circle class="gauge-track" cx="22" cy="22" r="18"/>
+                                <circle class="gauge-fill" id="gauge-cpu" cx="22" cy="22" r="18"/>
+                            </svg>
+                            <span class="gauge-value" id="cpu-value">—</span>
+                            <span class="gauge-label">cpu</span>
+                        </div>
+                        <div class="gauge">
+                            <svg viewBox="0 0 44 44" aria-hidden="true">
+                                <circle class="gauge-track" cx="22" cy="22" r="18"/>
+                                <circle class="gauge-fill" id="gauge-ram" cx="22" cy="22" r="18"/>
+                            </svg>
+                            <span class="gauge-value" id="ram-value">—</span>
+                            <span class="gauge-label">memory</span>
+                        </div>
+                        <div class="gauge">
+                            <svg viewBox="0 0 44 44" aria-hidden="true">
+                                <circle class="gauge-track" cx="22" cy="22" r="18"/>
+                                <circle class="gauge-fill" id="gauge-disk" cx="22" cy="22" r="18"/>
+                            </svg>
+                            <span class="gauge-value" id="disk-value">—</span>
+                            <span class="gauge-label">disk</span>
+                        </div>
+                    </div>
+                    <p class="note tiny" id="machine-note"></p>
+                </div>
+
+                <div class="card" style="grid-area: knows">
+                    <h2>What it knows</h2>
+                    <div class="insight">
+                        <div class="bars" id="category-breakdown"></div>
+                        <div class="insight-figures">
+                            <div><span class="figure" id="fig-facts">—</span><span class="figure-label">memories</span></div>
+                            <div><span class="figure" id="fig-convos">—</span><span class="figure-label">conversations</span></div>
+                            <div><span class="figure" id="fig-pending">—</span><span class="figure-label">awaiting review</span></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <section class="view" data-view="system" hidden>
+            <div class="view-inner view-grid">
+                <div class="card">
+                    <h2>Storage</h2>
+                    <div class="storage-bar"><div id="storage-fill"></div></div>
+                    <p class="storage-text" id="storage-text">—</p>
+                    <div id="storage-warning" hidden>
+                        <p class="storage-advice" id="storage-advice"></p>
+                    </div>
+                    <div id="drives" class="drives"></div>
+                </div>
+                <div class="card">
+                    <h2>Model status</h2>
+                    <div class="rows" id="provider-rows"></div>
+                </div>
+                <div class="card">
+                    <h2>Machine</h2>
+                    <div id="machine-detail" class="kv"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" data-view="privacy" hidden>
+            <div class="view-inner">
+                <div class="card">
+                    <h2>Privacy</h2>
+                    <p class="privacy-summary" id="privacy-summary">—</p>
+                    <p class="privacy-detail" id="privacy-detail"></p>
+                    <div id="privacy-facts" class="kv"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="talkbar">
+        <div class="talk-tiles">
+            <div class="tile">
+                <span class="tile-label">Privacy</span>
+                <span class="tile-value" id="tile-privacy">—</span>
+            </div>
+            <div class="tile">
+                <span class="tile-label">Storage</span>
+                <span class="tile-value" id="tile-storage">—</span>
+            </div>
+            <div class="tile">
+                <span class="tile-label">Model</span>
+                <span class="tile-value" id="tile-model">—</span>
+            </div>
+        </div>
+
+        <div class="talk-pill" id="talk-pill">
+            <canvas id="wave-left" class="wave" aria-hidden="true"></canvas>
+
+            <form class="composer" id="composer" autocomplete="off">
+                <textarea id="input" rows="1" placeholder="Say something…" aria-label="Message"></textarea>
+                <button type="submit" id="send" aria-label="Send">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path d="M3 12l18-9-9 18-2-7-7-2z" fill="currentColor"/>
+                    </svg>
+                </button>
+            </form>
+
+            <canvas id="wave-right" class="wave" aria-hidden="true"></canvas>
+        </div>
+
+        <button type="button" class="talk-action" id="new-conversation">
+            <span class="row-icon">+</span><span>New conversation</span>
+        </button>
+
+        <p class="hint">Reads run on their own. Anything that changes something waits for you.</p>
+    </footer>
+
 </div>
 
 <script src="/js/console.js"></script>
 <script src="/js/brainmap.js"></script>
+<script src="/js/dashboard.js"></script>
 </body>
 </html>
