@@ -2159,3 +2159,12 @@ select { font-size: 13.5px; }
 /* The cost badge is wider than a letter, so the row icon has to give. */
 #updates-list .row-icon { width: auto; min-width: 34px; padding: 0 7px; font-size: 9.5px; }
 #updates-list .row-state { white-space: normal; }
+
+/* The middle row is thinner.
+   Its three cards — capabilities, the conversation, quick commands — were all
+   carrying more height than their contents needed, so the row read as a band of
+   empty space across the middle of the screen. The height goes to the row above
+   and below it, which have things in them that grow. */
+.dash {
+    grid-template-rows: minmax(0, 1.45fr) minmax(150px, 0.68fr) minmax(0, 0.95fr);
+}
