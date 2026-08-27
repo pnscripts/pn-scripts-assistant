@@ -171,7 +171,19 @@ async function refreshStatus() {
         el('talk').hidden = !canTalk;
         el('microphone-field').hidden = !canTalk;
 
-        if (canTalk) loadMicrophones();
+        if (canTalk) {
+            loadMicrophones();
+
+            // On by default: somebody who has a microphone and a voice
+            // installed wants to talk to it, and having to switch that on
+            // every time is a small tax on the thing they came for. Started
+            // once per session, and only if they have not already stopped it.
+            if (!talkingStartedOnce) {
+                talkingStartedOnce = true;
+                talking.on = true;
+                talkLoop();
+            }
+        }
         document.title = s.name;
     } catch {
         el('conn-dot').className = 'dot offline';
@@ -247,6 +259,11 @@ function renderStorage(storage) {
  * approval. A misheard sentence can waste a reply; it cannot delete a file.
  */
 const talking = { on: false, running: false };
+
+// Whether the loop has been started automatically this session. Without it,
+// every status refresh — every five seconds — would restart a conversation the
+// user had just switched off.
+let talkingStartedOnce = false;
 
 function toggleTalking() {
     if (talking.running) {
@@ -340,13 +357,18 @@ async function talkLoop() {
             setVoiceStatus('Speaking…');
 
             try {
-                await api.post('/api/speak', { text: reply.reply });
+                // wait: true holds until the voice has actually stopped. On
+                // speakers the microphone hears the brain, and estimating the
+                // duration from the word count — which this replaced — was
+                // wrong in both directions: too short and it transcribed
+                // itself, too long and every exchange dragged.
+                await api.post('/api/speak', { text: reply.reply, wait: true });
             } catch {
                 // Not being heard is not a reason to end the conversation.
             }
 
-            // Long enough that the brain is not listening to its own voice.
-            await new Promise((r) => setTimeout(r, estimateSpokenMs(reply.reply)));
+            // A short settle for the tail of the audio and the room's echo.
+            await new Promise((r) => setTimeout(r, ECHO_SETTLE_MS));
         }
     } finally {
         talking.on = false;
@@ -356,13 +378,9 @@ async function talkLoop() {
     }
 }
 
-// Roughly how long a synthetic voice takes to read something, so the microphone
-// does not open while the brain is still talking and transcribe its own reply.
-function estimateSpokenMs(text) {
-    const words = (text || '').trim().split(/\s+/).length;
-
-    return Math.min(30000, 400 + words * 380);
-}
+// Long enough for the tail of the audio and a room's echo to die away, short
+// enough not to be felt as a pause.
+const ECHO_SETTLE_MS = 350;
 
 function setVoiceStatus(text) {
     const hint = el('voice-status');

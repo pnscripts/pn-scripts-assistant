@@ -259,3 +259,43 @@ func TestMicrophoneIDIsANameNotANumber(t *testing.T) {
 		}
 	}
 }
+
+// spd-say is a client, not a voice. It exits 0 having queued text that
+// speech-dispatcher may hand to sd_dummy, a module whose purpose is to accept
+// speech and make no sound. Reporting speech as available on that basis is what
+// produced a brain that claimed to talk and did not.
+func TestSpeechDispatcherIsNotEvidenceOfAVoice(t *testing.T) {
+	var client Engine
+
+	for _, e := range engines {
+		if e.Command == "spd-say" {
+			client = e
+
+			break
+		}
+	}
+
+	if client.Command == "" {
+		t.Fatal("speech-dispatcher is no longer among the engines")
+	}
+
+	if !client.NeedsEngine {
+		t.Error("spd-say is treated as proof that something can speak")
+	}
+
+	// The engines that genuinely make sound must not be.
+	for _, e := range engines {
+		if e.Command != "spd-say" && e.NeedsEngine {
+			t.Errorf("%s is marked as needing an engine behind it", e.Command)
+		}
+	}
+}
+
+func TestAvailabilityMatchesWhatIsInstalled(t *testing.T) {
+	engine := Available()
+	installed := anyVoiceInstalled()
+
+	if engine != nil && engine.NeedsEngine && !installed {
+		t.Errorf("reported %s as usable with no voice installed", engine.Name)
+	}
+}

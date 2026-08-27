@@ -24,7 +24,12 @@ const (
 	FrameDuration = 100 * time.Millisecond
 
 	// SilenceToEnd is how long quiet must last before a turn is considered over.
-	SilenceToEnd = 1100 * time.Millisecond
+	//
+	// A comma is around 300ms and a full stop nearer 700, so this has to sit
+	// above the first and near the second: shorter and it interrupts mid
+	// sentence, longer and every single turn carries the delay. 800ms ends a
+	// finished sentence without waiting through the next.
+	SilenceToEnd = 800 * time.Millisecond
 
 	// MinSpeechDuration guards against a cough or a door closing ending the
 	// turn immediately with nothing usable in it.

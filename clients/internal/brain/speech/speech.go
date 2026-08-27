@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Engine is a text-to-speech program available on this machine.
@@ -25,6 +26,10 @@ type Engine struct {
 	Name    string
 	Command string
 	Args    func(text string) []string
+
+	// NeedsEngine marks a client that only forwards text to something else,
+	// and is therefore no evidence that anything can speak.
+	NeedsEngine bool
 }
 
 // engines in preference order: quality first, then whatever is present.
@@ -39,9 +44,10 @@ var engines = []Engine{
 	{
 		// speech-dispatcher: present on most desktop Linux installs, and it
 		// routes through whatever the desktop already has configured.
-		Name:    "speech-dispatcher",
-		Command: "spd-say",
-		Args:    func(text string) []string { return []string{"--", text} },
+		Name:        "speech-dispatcher",
+		Command:     "spd-say",
+		Args:        func(text string) []string { return []string{"--", text} },
+		NeedsEngine: true,
 	},
 	{
 		Name:    "espeak-ng",
@@ -67,18 +73,47 @@ var (
 )
 
 // Available returns the engine this machine can use, or nil.
+//
+// spd-say being present is not enough, and assuming it was is why this brain
+// reported speech as a capability while producing silence. spd-say is a client:
+// it hands text to speech-dispatcher and exits 0 whether or not anything can
+// say it. On this machine speech-dispatcher had its espeak-ng adapter but not
+// the espeak-ng engine, so it fell back to sd_dummy — a module whose entire
+// purpose is to accept speech and make no sound.
+//
+// So a real voice is required behind the client.
 func Available() *Engine {
 	once.Do(func() {
 		for i := range engines {
-			if _, err := exec.LookPath(engines[i].Command); err == nil {
-				detected = &engines[i]
-
-				return
+			if _, err := exec.LookPath(engines[i].Command); err != nil {
+				continue
 			}
+
+			if engines[i].NeedsEngine && !anyVoiceInstalled() {
+				continue
+			}
+
+			detected = &engines[i]
+
+			return
 		}
 	})
 
 	return detected
+}
+
+// voices are the programs that turn text into sound. speech-dispatcher drives
+// one of these; with none of them it drives sd_dummy and says nothing.
+var voices = []string{"espeak-ng", "espeak", "pico2wave", "flite"}
+
+func anyVoiceInstalled() bool {
+	for _, v := range voices {
+		if _, err := exec.LookPath(v); err == nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 // MaxSpokenChars bounds one utterance.
@@ -87,6 +122,44 @@ func Available() *Engine {
 // to four minutes of it, and there is no way to skim. The reply is on screen;
 // this is for hearing the gist without looking.
 const MaxSpokenChars = 600
+
+// SpeakAndWait reads text aloud and returns when it has finished being said.
+//
+// Conversation mode needs this rather than Speak. On speakers — not headphones
+// — the microphone hears whatever the brain is saying, so listening must not
+// resume until the voice has actually stopped. Estimating that from the word
+// count, which is what this replaced, is a guess that is wrong in both
+// directions: too short and the brain transcribes itself, too long and every
+// exchange drags.
+//
+// The waiting is done by the engine. spd-say -w returns when the message has
+// been spoken; the others block for as long as they are speaking anyway.
+func SpeakAndWait(ctx context.Context, text string) error {
+	engine := Available()
+	if engine == nil {
+		return fmt.Errorf(
+			"no speech engine found. speech-dispatcher on its own only queues text; " +
+				"it needs a voice behind it. On Linux: sudo apt install espeak-ng")
+	}
+
+	spoken := Readable(text)
+	if spoken == "" {
+		return nil
+	}
+
+	args := engine.Args(spoken)
+
+	if engine.Command == "spd-say" {
+		// -w waits for the message to be spoken rather than queueing it.
+		args = append([]string{"-w"}, args...)
+	}
+
+	// A cap, so a stuck engine cannot hold a conversation open forever.
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	return exec.CommandContext(ctx, engine.Command, args...).Run()
+}
 
 // Speak reads text aloud, returning once the engine has been handed the text.
 //
@@ -97,8 +170,8 @@ func Speak(ctx context.Context, text string) error {
 	engine := Available()
 	if engine == nil {
 		return fmt.Errorf(
-			"no speech engine found. On Linux install one with: " +
-				"sudo apt install speech-dispatcher espeak-ng")
+			"no speech engine found. speech-dispatcher on its own only queues text; " +
+				"it needs a voice behind it. On Linux: sudo apt install espeak-ng")
 	}
 
 	spoken := Readable(text)
