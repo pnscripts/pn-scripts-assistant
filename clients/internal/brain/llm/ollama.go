@@ -183,6 +183,16 @@ func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
 type ollamaEmbedRequest struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`
+
+	// KeepAlive matters more here than it looks.
+	//
+	// Recall embeds the question before every single reply, and without this
+	// the embedding model is loaded with Ollama's default lifetime while the
+	// chat model is evicted to make room. The next step then reloads 4.7GB
+	// from disk to answer. Measured on this machine: the same question takes
+	// 14 seconds when the chat model is already resident and 49 through the
+	// brain, and the difference is that reload — paid on every turn.
+	KeepAlive string `json:"keep_alive,omitempty"`
 }
 
 type ollamaEmbedResponse struct {
@@ -199,7 +209,11 @@ type ollamaEmbedResponse struct {
 func (o *Ollama) Embed(ctx context.Context, text string) ([]float32, error) {
 	var out ollamaEmbedResponse
 
-	err := o.post(ctx, "/api/embeddings", ollamaEmbedRequest{Model: o.EmbedName, Prompt: text}, &out)
+	err := o.post(ctx, "/api/embeddings", ollamaEmbedRequest{
+		Model:     o.EmbedName,
+		Prompt:    text,
+		KeepAlive: o.KeepAlive,
+	}, &out)
 	if err != nil {
 		return nil, err
 	}
