@@ -109,6 +109,13 @@
             </svg>
             <span>Memory map</span>
         </button>
+        <button type="button" class="nav-item" data-view="models">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>Models</span>
+        </button>
         <button type="button" class="nav-item" data-view="system">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M5 19V9 M12 19V5 M19 19v-7" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -306,6 +313,16 @@
             </div>
         </section>
 
+        <section class="view" data-view="models" hidden>
+            <div class="view-inner">
+                <div class="card">
+                    <h2>Models</h2>
+                    <p class="note" id="models-note">Looking…</p>
+                    <div id="models-list" class="rows"></div>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="system" hidden>
             <div class="view-inner view-grid">
                 <div class="card">
@@ -427,6 +444,7 @@
 <script src="/js/console.js"></script>
 <script src="/js/dashboard.js"></script>
 <script src="/js/working.js"></script>
+<script src="/js/models.js"></script>
 <script type="module" src="/js/scenes.js"></script>
 </body>
 </html>

@@ -28,6 +28,12 @@ type Brain struct {
 	DB     *store.DB
 	Router *llm.Router
 	Cfg    config.Config
+
+	// ollama is kept so the chat model can be changed without a restart. The
+	// choice of model is a decision somebody makes while using the brain,
+	// having seen how the alternatives behave on their own machine, and
+	// restarting to try one is enough friction to stop them trying.
+	ollama *llm.Ollama
 	Mode   llm.Mode
 	Log    *slog.Logger
 
@@ -62,6 +68,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	}
 
 	b := &Brain{
+		ollama: ollama,
 		DB:     db,
 		Router: llm.NewRouter(mode, cfg.DefaultProvider, providers...),
 		Cfg:    cfg,
@@ -124,6 +131,30 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	}
 
 	return b
+}
+
+// UseModel switches the model replies are generated with.
+//
+// Takes effect on the next reply, with no restart: choosing a model is a
+// decision somebody makes while using the brain, having seen how the
+// alternatives behave on their own machine, and having to restart to try one is
+// enough friction to stop them trying.
+//
+// The embedding model is deliberately not switchable this way. Every memory in
+// the database was embedded with the current one, and vectors from two
+// different models cannot be compared — changing it would not give different
+// recall, it would silently make recall meaningless.
+func (b *Brain) UseModel(name string) error {
+	if b.ollama == nil {
+		return fmt.Errorf("there is no local provider to change")
+	}
+
+	b.ollama.ChatModel = name
+	b.Cfg.OllamaModel = name
+
+	b.Log.Info("chat model changed", "model", name)
+
+	return nil
 }
 
 // Start begins background work. Stop must be called to let it finish cleanly.

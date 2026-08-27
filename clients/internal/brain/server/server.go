@@ -22,6 +22,7 @@ import (
 
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/machine"
+	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
@@ -57,6 +58,10 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/machine", s.handleMachine)
 	s.mux.HandleFunc("GET /api/search", s.handleSearch)
 	s.mux.HandleFunc("GET /api/progress", s.handleProgress)
+	s.mux.HandleFunc("GET /api/models", s.handleModels)
+	s.mux.HandleFunc("POST /api/models/measure", s.handleModelMeasure)
+	s.mux.HandleFunc("POST /api/models/use", s.handleModelUse)
+	s.mux.HandleFunc("POST /api/models/pull", s.handleModelPull)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
@@ -579,6 +584,113 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 		"seconds": step.Seconds,
 		"round":   step.Round,
 	})
+}
+
+// handleModels reports what is installed and what is in use.
+func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
+	client := models.New(s.brain.Cfg.OllamaURL)
+
+	installed, err := client.List(r.Context())
+	if err != nil {
+		fail(w, http.StatusServiceUnavailable, "Ollama is not answering: "+err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{
+		"installed": installed,
+		"chat":      s.brain.Cfg.OllamaModel,
+		"embedding": s.brain.Cfg.EmbedModel,
+		"required":  []string{s.brain.Cfg.OllamaModel, s.brain.Cfg.EmbedModel},
+	})
+}
+
+// handleModelMeasure times one model and sees how it asks for a tool.
+//
+// Run here rather than described, because which model to use is a real decision
+// and the numbers that decide it depend entirely on this machine. A model that
+// is quick on a graphics card and unusable on four processor cores is not
+// something a recommendation can tell you.
+func (s *Server) handleModelMeasure(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil || body.Name == "" {
+		fail(w, http.StatusBadRequest, "Which model?")
+
+		return
+	}
+
+	progress.Set("model", "Testing "+body.Name)
+	defer progress.Done()
+
+	result, err := models.New(s.brain.Cfg.OllamaURL).Measure(r.Context(), body.Name)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
+
+		return
+	}
+
+	ok(w, result)
+}
+
+// handleModelUse switches the model replies are generated with.
+func (s *Server) handleModelUse(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil || body.Name == "" {
+		fail(w, http.StatusBadRequest, "Which model?")
+
+		return
+	}
+
+	client := models.New(s.brain.Cfg.OllamaURL)
+
+	if !client.Has(r.Context(), body.Name) {
+		fail(w, http.StatusBadRequest, body.Name+" is not installed.")
+
+		return
+	}
+
+	if err := s.brain.UseModel(body.Name); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"chat": body.Name})
+}
+
+// handleModelPull downloads a model, reporting progress as it goes.
+func (s *Server) handleModelPull(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil || body.Name == "" {
+		fail(w, http.StatusBadRequest, "Which model?")
+
+		return
+	}
+
+	// Detached from the request: a download of several gigabytes outlives any
+	// sensible HTTP timeout, and the page follows it on the progress line.
+	go func() {
+		defer progress.Done()
+
+		client := models.New(s.brain.Cfg.OllamaURL)
+
+		if err := client.Pull(context.Background(), body.Name, func(note string) {
+			progress.Set("model", note)
+		}); err != nil {
+			s.log.Warn("could not pull a model", "model", body.Name, "error", err)
+		}
+	}()
+
+	ok(w, map[string]any{"started": body.Name})
 }
 
 // handleSearch looks through what the brain knows.

@@ -22,7 +22,9 @@ import (
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/learning"
+	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/paths"
+	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/server"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
@@ -509,6 +511,35 @@ func runApp(args []string) error {
 	}
 
 	srv := server.New(b, logger)
+
+	// Make sure there is something to run on, at every start rather than only
+	// the first. On a machine that has never had this before there is nothing
+	// installed at all; on one that has, a model may have been deleted since —
+	// and a brain whose embedding model has gone remembers nothing while
+	// carrying on as though it does.
+	//
+	// In the background, so the window opens straight away and the download
+	// reports itself on the progress line rather than behind a blank screen.
+	go func() {
+		client := models.New(cfg.OllamaURL)
+
+		chosen, err := models.Ensure(ctx, client, cfg.OllamaModel, cfg.EmbedModel, func(note string) {
+			progress.Set("model", note)
+		})
+
+		progress.Done()
+
+		if err != nil {
+			logger.Warn("could not make sure of the models", "error", err)
+
+			return
+		}
+
+		if chosen != cfg.OllamaModel {
+			logger.Info("using the model that is installed", "model", chosen)
+			b.UseModel(chosen)
+		}
+	}()
 
 	serveErr := make(chan error, 1)
 
