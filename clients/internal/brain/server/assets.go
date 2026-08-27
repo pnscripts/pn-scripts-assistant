@@ -2,11 +2,15 @@ package server
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,6 +30,18 @@ var assets embed.FS
 var indexTemplate = template.Must(template.ParseFS(assets, "assets/index.html"))
 
 // assetHandler serves the interface.
+//
+// Every response carries a validator and no-cache, and the reason is a bug that
+// wasted a lot of time. The index said no-cache; the stylesheet and the scripts
+// said nothing at all. A browser given no instruction caches heuristically and
+// indefinitely, so the window kept running a version of console.js from several
+// builds earlier — the server was serving the new file and nobody was reading
+// it. Interface changes appeared not to work, repeatedly, for reasons that had
+// nothing to do with the changes.
+//
+// no-cache does not mean "do not store". It means revalidate before use, which
+// with an ETag costs one 304 and guarantees the window is never running code
+// older than the binary serving it.
 func assetHandler(logger *slog.Logger) http.Handler {
 	sub, err := fs.Sub(assets, "assets")
 	if err != nil {
@@ -45,9 +61,53 @@ func assetHandler(logger *slog.Logger) http.Handler {
 			return
 		}
 
+		if tag := assetETag(sub, r.URL.Path); tag != "" {
+			w.Header().Set("ETag", tag)
+		}
+
+		w.Header().Set("Cache-Control", "no-cache")
+
 		files.ServeHTTP(w, r)
 	})
 }
+
+// assetETag identifies an asset by its contents.
+//
+// The files are compiled into the binary and cannot change while it runs, so
+// the hash is computed once per path and kept.
+func assetETag(files fs.FS, path string) string {
+	name := strings.TrimPrefix(path, "/")
+
+	etagOnce.Do(func() { etags = map[string]string{} })
+
+	etagMu.RLock()
+	tag, known := etags[name]
+	etagMu.RUnlock()
+
+	if known {
+		return tag
+	}
+
+	raw, err := fs.ReadFile(files, name)
+	if err != nil {
+		return ""
+	}
+
+	sum := sha256.Sum256(raw)
+	tag = `"` + hex.EncodeToString(sum[:8]) + `"`
+
+	etagMu.Lock()
+	etags[name] = tag
+	etagMu.Unlock()
+
+	return tag
+}
+
+var (
+	etags    map[string]string
+	etagOnce sync.Once
+	etagMu   sync.RWMutex
+)
 
 // renderIndex writes the page with the brain's name filled in.
 func (s *Server) renderIndex(w http.ResponseWriter, r *http.Request) {

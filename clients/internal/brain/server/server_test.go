@@ -445,3 +445,77 @@ func (fakeEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
 
 	return vec, nil
 }
+
+// Interface changes appeared not to work, repeatedly, because the scripts were
+// served with no cache instruction at all. A browser given none caches
+// heuristically and indefinitely, so the window ran code from several builds
+// earlier while the server served the current file to nobody.
+func TestAssetsCarryCacheValidators(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	for _, path := range []string{"/js/console.js", "/js/brainmap.js", "/css/console.css"} {
+		resp, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp.Body.Close()
+
+		if got := resp.Header.Get("Cache-Control"); got != "no-cache" {
+			t.Errorf("%s Cache-Control = %q, want no-cache", path, got)
+		}
+
+		if resp.Header.Get("ETag") == "" {
+			t.Errorf("%s has no ETag, so a browser cannot revalidate it", path)
+		}
+	}
+}
+
+// Revalidation has to actually work, or no-cache just means fetching
+// everything every time.
+func TestUnchangedAssetsRevalidateCheaply(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	first, err := http.Get(ts.URL + "/js/console.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	first.Body.Close()
+	tag := first.Header.Get("ETag")
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/js/console.js", nil)
+	req.Header.Set("If-None-Match", tag)
+
+	second, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	second.Body.Close()
+
+	if second.StatusCode != http.StatusNotModified {
+		t.Errorf("revalidation returned %d, want 304", second.StatusCode)
+	}
+}
+
+// Two different files must not share an identity, or updating one would leave
+// the other stale.
+func TestAssetsHaveDistinctETags(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	seen := map[string]string{}
+
+	for _, path := range []string{"/js/console.js", "/js/brainmap.js", "/css/console.css"} {
+		resp, _ := http.Get(ts.URL + path)
+		resp.Body.Close()
+
+		tag := resp.Header.Get("ETag")
+
+		if other, clash := seen[tag]; clash {
+			t.Errorf("%s and %s share the ETag %s", path, other, tag)
+		}
+
+		seen[tag] = path
+	}
+}

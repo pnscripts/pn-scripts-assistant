@@ -97,6 +97,50 @@ func Requirements() []Requirement {
 				InstallCmd: func() []string { return aptInstall("libwebkit2gtk-4.1-dev", "libgtk-3-dev") },
 				NeedsRoot:  true,
 			},
+			Requirement{
+				Name:        "Voice (speaking)",
+				Why:         "lets the brain read its answers aloud",
+				Consequence: "the brain will listen and answer, but stay silent",
+				Optional:    true,
+				Check: func() (State, string) {
+					// speech-dispatcher is not evidence of a voice. spd-say
+					// hands text to it and exits 0 whether or not anything can
+					// say the words; with no engine behind it, speech-dispatcher
+					// falls back to sd_dummy, whose entire purpose is to accept
+					// speech and make no sound. The engine is what matters.
+					for _, engine := range []string{"espeak-ng", "espeak", "pico2wave", "flite"} {
+						if commandExists(engine) {
+							return OK, engine
+						}
+					}
+
+					return Missing, ""
+				},
+				InstallCmd: func() []string { return aptInstall("espeak-ng") },
+				NeedsRoot:  true,
+			},
+			Requirement{
+				Name:        "Voice (listening)",
+				Why:         "lets you talk to the brain instead of typing",
+				Consequence: "the Talk button will not appear",
+				Optional:    true,
+				Check: func() (State, string) {
+					for _, r := range []string{"whisper-cli", "whisper-cpp", "whisper"} {
+						if commandExists(r) {
+							return OK, r
+						}
+					}
+
+					return Missing, ""
+				},
+				// whisper.cpp is built from source and its model is a separate
+				// download, so there is no package to install. Putting a clone
+				// and a compile behind a button would be a larger promise than
+				// this tool should make.
+				InstallCmd: nil,
+				ManualHint: "Build whisper.cpp, put whisper-cli on your PATH, then: " +
+					"bash models/download-ggml-model.sh base.en",
+			},
 		)
 	}
 
