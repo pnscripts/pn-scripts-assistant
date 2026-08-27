@@ -1,0 +1,295 @@
+package speech
+
+import (
+	"context"
+	"encoding/binary"
+	"fmt"
+	"math"
+	"os"
+	"os/exec"
+	"sort"
+	"syscall"
+	"time"
+)
+
+// Conversation timings.
+//
+// These are the difference between talking to something and operating it. Too
+// short a silence and it cuts you off mid-thought; too long and every exchange
+// drags. The numbers below come from how people actually pause: a comma is
+// around 300ms, a full stop nearer 700ms, so waiting about a second after
+// speech ends catches the end of a sentence without waiting through the next.
+const (
+	// FrameDuration is how often the level is checked.
+	FrameDuration = 100 * time.Millisecond
+
+	// SilenceToEnd is how long quiet must last before a turn is considered over.
+	SilenceToEnd = 1100 * time.Millisecond
+
+	// MinSpeechDuration guards against a cough or a door closing ending the
+	// turn immediately with nothing usable in it.
+	MinSpeechDuration = 400 * time.Millisecond
+
+	// PatienceBeforeSpeech is how long to wait for somebody to start. Long
+	// enough to gather a thought, short enough that a mistaken click does not
+	// leave the microphone open.
+	PatienceBeforeSpeech = 8 * time.Second
+
+	// MaxTurnDuration stops a turn that never falls quiet — a television in the
+	// room, a fan close to the microphone.
+	MaxTurnDuration = 45 * time.Second
+
+	// WarmUp is audio ignored at the start.
+	//
+	// Opening a capture stream makes a click, and it is loud: measured at RMS
+	// 1653 here against a speech threshold of 350. Without this the turn begins
+	// by hearing itself start, decides somebody spoke, and ends 1.1 seconds
+	// later having recorded nothing but the click.
+	WarmUp = 500 * time.Millisecond
+)
+
+// Speech detection is calibrated, not fixed.
+//
+// A single threshold cannot work: room tone here measures RMS 679 on a
+// microphone at full gain and under 100 on the same microphone at its default
+// gain, so any constant is either deaf in one room or triggered by the fan in
+// another. The noise floor is measured at the start of every turn instead, and
+// speech is whatever rises clearly above it.
+const (
+	// NoiseMargin is how far above the floor a frame must sit to count as
+	// speech. Speech is several times louder than room tone; a fan is not.
+	NoiseMargin = 3.5
+
+	// MinSpeechFloor stops a silent input from calibrating so low that its own
+	// hiss registers as talking.
+	MinSpeechFloor = 500
+
+	// CalibrationFrames is how many frames after the warm-up establish the
+	// floor. Half a second of the room before anybody speaks.
+	CalibrationFrames = 5
+)
+
+// Turn is what one spoken turn amounted to.
+type Turn struct {
+	Path        string
+	SpokeFor    time.Duration
+	PeakRMS     int
+	HeardSpeech bool
+
+	// NoiseFloor and Threshold are what the room measured and what was
+	// therefore required to count as speech. Reported because "it did not hear
+	// me" is unanswerable without them.
+	NoiseFloor int
+	Threshold  int
+}
+
+// RecordTurn records until the speaker stops, rather than for a fixed time.
+//
+// This is what makes a conversation possible. A fixed six-second window forces
+// somebody to pace their sentence to a timer, and cuts off anything longer —
+// which is not talking, it is dictating into a stopwatch.
+//
+// The level is read from the file as pw-record writes it, so no extra process
+// or pipe is needed and the recording is already on disk when the turn ends.
+func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
+	turn := Turn{Path: path}
+
+	if _, err := exec.LookPath("pw-record"); err != nil {
+		return turn, fmt.Errorf("pw-record is needed for conversation mode")
+	}
+
+	args := []string{"--rate", "16000", "--channels", "1", "--format", "s16"}
+
+	if device != "" {
+		args = append(args, "--target", device)
+	}
+
+	cmd := exec.CommandContext(ctx, "pw-record", append(args, path)...)
+
+	if err := cmd.Start(); err != nil {
+		return turn, fmt.Errorf("could not start recording: %w", err)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	stop := func() {
+		cmd.Process.Signal(syscall.SIGINT)
+
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			cmd.Process.Kill()
+			<-done
+		}
+	}
+
+	const header = 44
+
+	var (
+		offset      int64 = header
+		speechSince time.Time
+		quietSince  time.Time
+		started     = time.Now()
+
+		floorSamples []int
+		threshold    = math.MaxInt
+	)
+
+	ticker := time.NewTicker(FrameDuration)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			stop()
+
+			return turn, ctx.Err()
+		case err := <-done:
+			// pw-record exited on its own; whatever it wrote is the turn.
+			return turn, err
+		case <-ticker.C:
+		}
+
+		rms, next := frameRMS(path, offset)
+		offset = next
+
+		// Still settling: advance the read position so the click is not
+		// re-examined later, but let it decide nothing.
+		if time.Since(started) < WarmUp {
+			continue
+		}
+
+		// Listen to the room before deciding what counts as louder than it.
+		if len(floorSamples) < CalibrationFrames {
+			floorSamples = append(floorSamples, rms)
+
+			if len(floorSamples) == CalibrationFrames {
+				threshold = speechThreshold(floorSamples)
+				turn.NoiseFloor = median(floorSamples)
+				turn.Threshold = threshold
+			}
+
+			continue
+		}
+
+		if rms > turn.PeakRMS {
+			turn.PeakRMS = rms
+		}
+
+		speaking := rms >= threshold
+
+		switch {
+		case speaking:
+			quietSince = time.Time{}
+
+			if speechSince.IsZero() {
+				speechSince = time.Now()
+			}
+
+			turn.HeardSpeech = true
+		case turn.HeardSpeech:
+			if quietSince.IsZero() {
+				quietSince = time.Now()
+			}
+
+			spoke := time.Since(speechSince)
+
+			if time.Since(quietSince) >= SilenceToEnd && spoke >= MinSpeechDuration {
+				turn.SpokeFor = spoke
+				stop()
+
+				return turn, nil
+			}
+		default:
+			// Nobody has started yet.
+			if time.Since(started) >= PatienceBeforeSpeech {
+				stop()
+
+				return turn, nil
+			}
+		}
+
+		if time.Since(started) >= MaxTurnDuration {
+			turn.SpokeFor = time.Since(speechSince)
+			stop()
+
+			return turn, nil
+		}
+	}
+}
+
+// frameRMS reads whatever has been written since offset and reports its volume.
+//
+// Returns the new offset so the next call reads only what is new — the file
+// grows continuously, and re-reading it whole every tenth of a second would
+// turn a long turn into quadratic work.
+func frameRMS(path string, offset int64) (int, int64) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, offset
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil || info.Size() <= offset {
+		return 0, offset
+	}
+
+	length := info.Size() - offset
+
+	// A frame is 1600 samples at 16kHz; anything much larger is a backlog and
+	// only the most recent part describes what is being said now.
+	const maxFrame = 16000 * 2
+
+	if length > maxFrame {
+		offset = info.Size() - maxFrame
+		length = maxFrame
+	}
+
+	buf := make([]byte, length)
+
+	n, err := f.ReadAt(buf, offset)
+	if n <= 0 {
+		return 0, offset
+	}
+
+	buf = buf[:n&^1]
+
+	var sum float64
+
+	for i := 0; i+1 < len(buf); i += 2 {
+		v := float64(int16(binary.LittleEndian.Uint16(buf[i:])))
+		sum += v * v
+	}
+
+	if len(buf) == 0 {
+		return 0, offset + int64(n)
+	}
+
+	return int(math.Sqrt(sum / float64(len(buf)/2))), offset + int64(n)
+}
+
+// speechThreshold decides what counts as louder than the room.
+func speechThreshold(floor []int) int {
+	level := int(float64(median(floor)) * NoiseMargin)
+
+	if level < MinSpeechFloor {
+		return MinSpeechFloor
+	}
+
+	return level
+}
+
+// median is used rather than a mean so one stray click during calibration does
+// not raise the bar for the whole turn.
+func median(values []int) int {
+	if len(values) == 0 {
+		return 0
+	}
+
+	sorted := append([]int(nil), values...)
+	sort.Ints(sorted)
+
+	return sorted[len(sorted)/2]
+}

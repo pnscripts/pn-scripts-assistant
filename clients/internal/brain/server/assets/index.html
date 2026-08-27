@@ -70,10 +70,15 @@
                 <span>Microphone</span>
                 <select id="microphone" aria-label="Microphone"></select>
             </label>
+            <label class="field" id="conversation-field" hidden>
+                <span>Conversation mode</span>
+                <input type="checkbox" id="conversation-toggle">
+            </label>
             <label class="field" id="speak-field" hidden>
                 <span>Read replies aloud</span>
                 <input type="checkbox" id="speak-toggle">
             </label>
+            <p class="engine-meta" id="voice-status"></p>
             <p class="engine-meta" id="engine-meta">—</p>
         </section>
     </aside>

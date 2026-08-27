@@ -51,6 +51,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/speak", s.handleSpeak)
 	s.mux.HandleFunc("POST /api/listen", s.handleListen)
 	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
+	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -432,6 +433,28 @@ func (s *Server) handleListen(w http.ResponseWriter, r *http.Request) {
 // handleMicrophones lists the inputs, so a person can pick the one they are
 // actually speaking into rather than trusting the system default — which on
 // this machine is an empty analog jack.
+// handleTurn listens until the speaker stops, rather than for a fixed time.
+//
+// This is what conversation mode calls. It blocks for as long as somebody is
+// talking, which is why the server's write timeout is generous — a turn plus a
+// reply is minutes on a CPU.
+func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Device string `json:"device"`
+	}
+
+	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body)
+
+	heard, err := speech.ListenForTurn(r.Context(), body.Device)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ok(w, heard)
+}
+
 func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {
 	mics, err := speech.Microphones(r.Context())
 	if err != nil {

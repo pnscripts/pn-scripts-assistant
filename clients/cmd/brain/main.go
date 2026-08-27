@@ -24,6 +24,7 @@ import (
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/paths"
 	"pn-brain/internal/brain/server"
+	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/window"
@@ -54,6 +55,8 @@ func main() {
 		err = runRewritePaths(os.Args[2:])
 	case "ingest":
 		err = runIngest(os.Args[2:])
+	case "mic-test":
+		err = runMicTest(os.Args[2:])
 	case "drives":
 		err = runDrives(os.Args[2:])
 	case "move":
@@ -90,6 +93,7 @@ func usage() {
   brain ingest <dir>...     learn about the projects and documents in a folder
   brain ingest --browser    learn which websites you use (domains only, never URLs)
   brain promote             turn validated lessons into durable knowledge
+  brain mic-test            listen once and report what the microphone heard
   brain drives              where the brain could live, and how much room is left
   brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
@@ -891,6 +895,96 @@ func runMove(args []string) error {
 	}
 
 	fmt.Printf("\n  The brain will find itself there on the next start.\n\n")
+
+	return nil
+}
+
+// runMicTest listens for one turn and reports the numbers behind it.
+//
+// "It cannot hear me" is unanswerable without them: the room's noise floor,
+// what therefore counted as speech, and how loud the loudest moment actually
+// was. Three numbers separate a muted microphone from a quiet voice from a
+// recogniser that heard fine and understood nothing.
+func runMicTest(args []string) error {
+	fs := flag.NewFlagSet("mic-test", flag.ExitOnError)
+	device := fs.String("device", "", "input to listen through (default: the app's choice)")
+	fs.Parse(args)
+
+	ctx := context.Background()
+
+	mics, err := speech.Microphones(ctx)
+	if err != nil {
+		return err
+	}
+
+	target := *device
+
+	if target == "" {
+		// Prefer something plainly named a microphone over the system default,
+		// which is often a jack with nothing in it.
+		for _, m := range mics {
+			if strings.Contains(strings.ToLower(m.Name), "mic") {
+				target = m.ID
+
+				break
+			}
+		}
+	}
+
+	fmt.Println("\n  inputs:")
+
+	for _, m := range mics {
+		mark := "  "
+		if m.ID == target {
+			mark = "->"
+		}
+
+		fmt.Printf("   %s %s%s\n", mark, m.Name, map[bool]string{true: "  (system default)"}[m.Default])
+	}
+
+	f, err := os.CreateTemp("", "pn-brain-mictest-*.wav")
+	if err != nil {
+		return err
+	}
+
+	path := f.Name()
+	f.Close()
+
+	defer os.Remove(path)
+
+	fmt.Printf("\n  Speak now — it stops when you stop.\n\n")
+
+	turn, err := speech.RecordTurn(ctx, target, path)
+	if err != nil {
+		return err
+	}
+
+	level, _ := speech.MeasureWAV(path)
+
+	fmt.Printf("  room noise floor   %d\n", turn.NoiseFloor)
+	fmt.Printf("  speech needed      %d\n", turn.Threshold)
+	fmt.Printf("  loudest you got    %d\n", turn.PeakRMS)
+	fmt.Printf("  peak of full scale %d%%\n\n", int(level.Ratio*100))
+
+	if !turn.HeardSpeech {
+		fmt.Println("  Nothing rose above the room. Either the input is not the one you")
+		fmt.Println("  are speaking into, or its gain is too low.")
+
+		return nil
+	}
+
+	text, err := speech.TranscribeFast(ctx, path)
+	if err != nil {
+		return err
+	}
+
+	if text == "" {
+		fmt.Println("  Heard you, but made out no words. Try speaking more clearly.")
+
+		return nil
+	}
+
+	fmt.Printf("  Heard: %q\n\n", text)
 
 	return nil
 }

@@ -51,6 +51,14 @@ type Request struct {
 
 	// Model overrides the provider's default when set.
 	Model string
+
+	// MaxTokens caps the reply. Zero means the provider's default.
+	//
+	// It exists for spoken replies. Generation on a CPU is the slowest part of
+	// an exchange and scales with how much is produced, so a reply meant to be
+	// heard rather than read should be short — which makes it both faster and
+	// better suited to being spoken.
+	MaxTokens int
 }
 
 // Response is what came back.

@@ -79,6 +79,9 @@ type ollamaChatRequest struct {
 	Stream   bool            `json:"stream"`
 	Tools    []ollamaTool    `json:"tools,omitempty"`
 
+	// Options carries generation settings, chiefly num_predict.
+	Options map[string]any `json:"options,omitempty"`
+
 	// KeepAlive is how long Ollama holds the model in memory after answering.
 	//
 	// The default is five minutes, which is shorter than the gaps between
@@ -127,6 +130,10 @@ func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
 	}
 
 	body := ollamaChatRequest{Model: model, Stream: false, KeepAlive: o.KeepAlive}
+
+	if req.MaxTokens > 0 {
+		body.Options = map[string]any{"num_predict": req.MaxTokens}
+	}
 
 	for _, m := range req.Messages {
 		body.Messages = append(body.Messages, ollamaMessage{Role: m.Role, Content: m.Content})

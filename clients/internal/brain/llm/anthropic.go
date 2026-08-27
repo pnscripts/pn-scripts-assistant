@@ -88,7 +88,12 @@ func (a *Anthropic) Chat(ctx context.Context, req Request) (Response, error) {
 		model = a.Model
 	}
 
-	body := anthropicRequest{Model: model, MaxTokens: 4096}
+	maxTokens := 4096
+	if req.MaxTokens > 0 {
+		maxTokens = req.MaxTokens
+	}
+
+	body := anthropicRequest{Model: model, MaxTokens: maxTokens}
 
 	// Anthropic takes the system prompt as its own field rather than as a
 	// message, so it is lifted out of the conversation here.

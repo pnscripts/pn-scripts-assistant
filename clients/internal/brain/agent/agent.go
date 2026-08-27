@@ -68,12 +68,23 @@ func (l *Loop) Run(
 	provider llm.Provider,
 	messages []llm.Message,
 ) (Result, error) {
+	return l.RunWithLimit(ctx, conversationID, provider, messages, 0)
+}
+
+// RunWithLimit is Run with a cap on how much the model may produce.
+func (l *Loop) RunWithLimit(
+	ctx context.Context,
+	conversationID int64,
+	provider llm.Provider,
+	messages []llm.Message,
+	maxTokens int,
+) (Result, error) {
 	specs := l.specs()
 
 	var actions []string
 
 	for step := 0; step < MaxSteps; step++ {
-		resp, err := provider.Chat(ctx, llm.Request{Messages: messages, Tools: specs})
+		resp, err := provider.Chat(ctx, llm.Request{Messages: messages, Tools: specs, MaxTokens: maxTokens})
 		if err != nil {
 			return Result{}, err
 		}

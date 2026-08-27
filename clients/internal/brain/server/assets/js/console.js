@@ -143,6 +143,15 @@ async function send(text) {
         el('send').disabled = false;
         el('orb').classList.remove('thinking');
         el('listen').onclick = listen;
+
+    el('conversation-toggle').onchange = (e) => {
+        if (e.target.checked) {
+            conversationLoop();
+        } else {
+            conversation.stop = true;
+            setVoiceStatus('Finishing this turn…');
+        }
+    };
     el('input').focus();
     }
 }
@@ -168,6 +177,9 @@ async function refreshStatus() {
         const canListen = s.capabilities.includes('listening');
         el('listen').hidden = !canListen;
         el('microphone-field').hidden = !canListen;
+        // Conversation needs both halves: hearing you and answering aloud.
+        el('conversation-field').hidden =
+            !(canListen && s.capabilities.includes('speech'));
         if (canListen) loadMicrophones();
         document.title = s.name;
     } catch {
@@ -230,6 +242,104 @@ function renderStorage(storage) {
  * recogniser that mishears "delete the backups" should not have that reach
  * something with tools before a person has read it.
  */
+/*
+ * Conversation mode.
+ *
+ * Listen until the speaker stops, send, speak the reply, listen again. The loop
+ * is what makes it a conversation rather than a series of dictations, and every
+ * step of it is visible in the transcript so it is never unclear whether the
+ * brain is listening, thinking, or waiting.
+ *
+ * Transcripts are sent without confirmation here, which the push-to-talk button
+ * deliberately does not do. That is safe for the same reason it is safe to let
+ * the model choose tools at all: anything that changes something still stops for
+ * approval. A misheard sentence can waste a reply; it cannot delete a file.
+ */
+const conversation = { running: false, stop: false };
+
+async function conversationLoop() {
+    if (conversation.running) return;
+
+    conversation.running = true;
+    conversation.stop = false;
+
+    try {
+        while (!conversation.stop) {
+            setVoiceStatus('Listening — speak when ready');
+
+            let heard;
+            try {
+                heard = await api.post('/api/turn', { device: el('microphone').value || '' });
+            } catch (err) {
+                addMessage('error', String(err.message || err), { cssClass: 'error' });
+                break;
+            }
+
+            if (conversation.stop) break;
+
+            const said = (heard.text || '').trim();
+
+            if (!said) {
+                // Nothing was said. Say why once and keep listening, rather
+                // than filling the transcript with the same notice.
+                setVoiceStatus(heard.advice || 'Heard nothing — still listening');
+                continue;
+            }
+
+            addMessage('you', said);
+            setVoiceStatus('Thinking…');
+
+            let reply;
+            try {
+                reply = await api.post('/api/chat', {
+                    conversation_id: state.conversationId,
+                    message: said,
+                    provider: el('provider').value || '',
+                    spoken: true,
+                });
+            } catch (err) {
+                addMessage('error', String(err.message || err), { cssClass: 'error' });
+                break;
+            }
+
+            state.conversationId = reply.conversation_id;
+            addMessage(state.brainName, reply.reply, { cssClass: 'brain' });
+
+            if (window.brainMapRecall && reply.recalled) window.brainMapRecall(reply.recalled);
+
+            if (conversation.stop) break;
+
+            setVoiceStatus('Speaking…');
+            try {
+                await api.post('/api/speak', { text: reply.reply });
+            } catch {
+                // Not being heard is not a reason to end the conversation.
+            }
+
+            // Long enough that the brain is not listening to its own voice.
+            await new Promise((r) => setTimeout(r, estimateSpokenMs(reply.reply)));
+        }
+    } finally {
+        conversation.running = false;
+        setVoiceStatus('');
+        const toggle = el('conversation-toggle');
+        if (toggle) toggle.checked = false;
+    }
+}
+
+// Roughly how long a synthetic voice takes to read something, so the microphone
+// does not open while the brain is still talking and transcribe its own reply.
+function estimateSpokenMs(text) {
+    const words = (text || '').trim().split(/\s+/).length;
+
+    return Math.min(30000, 400 + words * 380);
+}
+
+function setVoiceStatus(text) {
+    const hint = el('voice-status');
+    if (hint) hint.textContent = text;
+}
+
 let microphonesLoaded = false;
 
 /*
@@ -593,6 +703,15 @@ el('input').addEventListener('input', (e) => {
     refreshDrives();
     refreshActivity();
     el('listen').onclick = listen;
+
+    el('conversation-toggle').onchange = (e) => {
+        if (e.target.checked) {
+            conversationLoop();
+        } else {
+            conversation.stop = true;
+            setVoiceStatus('Finishing this turn…');
+        }
+    };
     el('input').focus();
 
     // Polling rather than websockets: approvals can be decided from the Filament

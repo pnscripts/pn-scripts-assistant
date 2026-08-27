@@ -126,6 +126,16 @@ func (b *Brain) Start(ctx context.Context) {
 	if b.Learner != nil {
 		b.Learner.Start(ctx)
 	}
+
+	// A resident recogniser, started in the background because loading its
+	// model takes seconds and nothing should wait on it. Without one, every
+	// spoken turn reloads 141MB of weights before looking at any audio — which
+	// is bearable once and ruinous in a conversation.
+	go func() {
+		if err := speech.StartResident(ctx); err != nil {
+			b.Log.Info("no resident recogniser; transcription will be slower", "reason", err)
+		}
+	}()
 }
 
 // Stop waits for in-flight learning to finish.
@@ -133,6 +143,8 @@ func (b *Brain) Stop() {
 	if b.Learner != nil {
 		b.Learner.Stop()
 	}
+
+	speech.StopResident()
 }
 
 // SystemPrompt is who this assistant is.
@@ -174,7 +186,43 @@ type ChatRequest struct {
 	ConversationID int64  `json:"conversation_id"`
 	Message        string `json:"message"`
 	Provider       string `json:"provider"`
+
+	// Spoken marks a turn that will be heard rather than read.
+	//
+	// It changes two things. The model is asked for a couple of sentences, and
+	// the reply is capped — which is what makes a spoken exchange bearable on a
+	// CPU, since generation is the slow part and it scales with length. A page
+	// of prose read aloud by a synthetic voice is nobody's idea of an answer.
+	Spoken bool `json:"spoken"`
 }
+
+// Spoken turns are shaped by one measurement: on this machine the model
+// processes about seven tokens a second, so the size of the prompt is the reply
+// time almost exactly. 1727 tokens of context took 238 seconds; 113 took 13.
+//
+// Capping the answer barely helped, because generating a short answer was never
+// the slow part. Cutting what is sent is the only lever that moves this, so a
+// spoken turn gets fewer memories, shorter ones, and only the last few turns of
+// conversation.
+const (
+	// SpokenReplyTokens caps the answer. Two or three sentences.
+	SpokenReplyTokens = 90
+
+	// SpokenRecallLimit is how many memories a spoken turn may use.
+	SpokenRecallLimit = 4
+
+	// SpokenFactLimit trims each of them harder than a typed turn would.
+	SpokenFactLimit = 150
+
+	// SpokenHistoryTurns is how much of the conversation is replayed. Enough to
+	// follow a thread, far short of the whole transcript.
+	SpokenHistoryTurns = 4
+)
+
+// spokenStyle is added for a turn that will be heard.
+const spokenStyle = `This reply will be read aloud, so keep it to one or two
+sentences. Say the answer plainly and stop. Do not list, do not enumerate, and
+do not read out long paths or URLs — name the thing instead.`
 
 // ChatReply is what goes back to the interface.
 type ChatReply struct {
@@ -237,6 +285,10 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		return ChatReply{}, err
 	}
 
+	if req.Spoken {
+		history = recentTurns(history, SpokenHistoryTurns)
+	}
+
 	messages := make([]llm.Message, 0, len(history)+1)
 
 	for _, m := range history {
@@ -251,9 +303,27 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 
 	if llm.AllowsMemoryFor(provider.Name()) {
 		recalled = b.recall(ctx, req.Message)
+
+		if req.Spoken && len(recalled) > SpokenRecallLimit {
+			recalled = recalled[:SpokenRecallLimit]
+		}
 	}
 
-	if preamble := formatRecall(recalled); preamble != "" {
+	if req.Spoken {
+		// Ahead of the newest user message, like recall, so it reads as
+		// direction for this answer rather than a change of personality.
+		messages = append(messages[:len(messages)-1],
+			llm.Message{Role: llm.RoleSystem, Content: spokenStyle},
+			messages[len(messages)-1],
+		)
+	}
+
+	factLimit := RecalledFactLimit
+	if req.Spoken {
+		factLimit = SpokenFactLimit
+	}
+
+	if preamble := formatRecallLimited(recalled, factLimit); preamble != "" {
 		// Placed immediately before the newest user message, so it reads as
 		// context for the question rather than as part of the conversation.
 		messages = append(messages[:len(messages)-1],
@@ -262,7 +332,12 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		)
 	}
 
-	result, err := b.Agent.Run(ctx, conversationID, provider, messages)
+	limit := 0
+	if req.Spoken {
+		limit = SpokenReplyTokens
+	}
+
+	result, err := b.Agent.RunWithLimit(ctx, conversationID, provider, messages, limit)
 	if err != nil {
 		return ChatReply{}, err
 	}
@@ -345,7 +420,38 @@ func (b *Brain) recall(ctx context.Context, query string) []store.Scored {
 // were computed from the whole thing.
 const RecalledFactLimit = 260
 
+// recentTurns keeps the system prompt and the last few exchanges.
+//
+// The system prompt is not optional — it is who the assistant is — but the
+// twentieth-most-recent message is, and on a CPU it costs as much to process as
+// the question being asked.
+func recentTurns(history []store.Message, turns int) []store.Message {
+	var kept []store.Message
+
+	for _, m := range history {
+		if m.Role == llm.RoleSystem {
+			kept = append(kept, m)
+		}
+	}
+
+	var recent []store.Message
+
+	for i := len(history) - 1; i >= 0 && len(recent) < turns*2; i-- {
+		if history[i].Role == llm.RoleSystem {
+			continue
+		}
+
+		recent = append([]store.Message{history[i]}, recent...)
+	}
+
+	return append(kept, recent...)
+}
+
 func formatRecall(facts []store.Scored) string {
+	return formatRecallLimited(facts, RecalledFactLimit)
+}
+
+func formatRecallLimited(facts []store.Scored, limit int) string {
 	if len(facts) == 0 {
 		return ""
 	}
@@ -355,7 +461,7 @@ func formatRecall(facts []store.Scored) string {
 	b.WriteString("Relevant things you already know, recalled from your own memory:\n")
 
 	for _, f := range facts {
-		b.WriteString("- " + trimForPrompt(f.Content, RecalledFactLimit) + "\n")
+		b.WriteString("- " + trimForPrompt(f.Content, limit) + "\n")
 	}
 
 	b.WriteString("\nUse these if they help. Do not mention this list itself.")
