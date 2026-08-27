@@ -426,6 +426,35 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 // Failure is not fatal. Recall is a nice-to-have, not a precondition for
 // replying: if the local embedding model is down, the brain should answer
 // without memory rather than fail the whole request.
+// Search finds memories that mean something similar to the query.
+//
+// The same path a reply uses to remember things, exposed so the interface can
+// offer a search box that searches what the brain actually knows rather than
+// matching letters. Asking for "the hosting box" finds a memory that says
+// "server" without either word appearing in the other.
+func (b *Brain) Search(ctx context.Context, query string, limit int) []store.Scored {
+	if strings.TrimSpace(query) == "" {
+		return nil
+	}
+
+	embedder, err := b.Router.Embedder()
+	if err != nil {
+		return nil
+	}
+
+	vec, err := embedder.Embed(ctx, query)
+	if err != nil {
+		return nil
+	}
+
+	found, err := b.DB.Search(vec, limit, b.Cfg.RecallFloor)
+	if err != nil {
+		return nil
+	}
+
+	return found
+}
+
 func (b *Brain) recall(ctx context.Context, query string) []store.Scored {
 	embedder, err := b.Router.Embedder()
 	if err != nil {

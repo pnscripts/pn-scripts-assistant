@@ -76,6 +76,17 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     WebKitSettings *settings = webkit_web_view_get_settings(view);
     webkit_settings_set_enable_developer_extras(settings, TRUE);
 
+    // The acceleration policy is deliberately left alone.
+    //
+    // It was set to ALWAYS on the theory that the page was being composited in
+    // software, because no separate GPU process appears in the process list.
+    // That theory was wrong: WebKitGTK does this inside the web process, and it
+    // already holds five handles on /dev/dri and has EGL, GLES and gbm mapped.
+    // The card was in use the whole time.
+    //
+    // Forcing the policy measurably made things worse — the renderer went from
+    // about a fifth of a processor core to nearly half — so the default stands.
+
     pnbrain_view = view;
     webkit_web_view_load_uri(view, url);
     gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));

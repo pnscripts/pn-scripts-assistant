@@ -1642,3 +1642,289 @@ select { font-size: 13.5px; }
         "monitor  knows     waiting";
     grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 0.9fr);
 }
+
+/* ============================================================
+   Command centre, second pass
+   ============================================================
+
+   Closer to the reference in the places it was still obviously different: the
+   identity belongs in the left column rather than across the top, the clock
+   belongs in the middle of the status bar, and the bar's right-hand end carries
+   a search, three controls and who this brain belongs to.
+
+   Everything added here does something. The search searches what the brain
+   knows, by meaning; the three buttons go where they say; the name is the
+   owner's, read from the running program. */
+
+.shell {
+    grid-template-columns: 244px minmax(0, 1fr);
+    grid-template-areas:
+        "nav top"
+        "nav main"
+        "bot bot";
+}
+
+.nav { padding-top: 0; }
+
+/* The identity, as a card at the head of the column. */
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 -12px 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(77, 208, 225, 0.16);
+    background: linear-gradient(160deg, rgba(24, 58, 84, 0.6), rgba(9, 16, 26, 0.4));
+}
+
+.brand-text h1 { font-size: 17px; letter-spacing: 0.13em; }
+
+.topbar { gap: 14px; padding: 0 16px; }
+
+/* The status pill is cut across one corner, which is what stops a row of
+   rounded boxes reading as a web form. */
+.pill-status {
+    border-radius: 0;
+    clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+    border-color: rgba(123, 196, 127, 0.35);
+    background: rgba(123, 196, 127, 0.06);
+    color: var(--ok);
+}
+
+.clock { align-items: center; }
+.clock strong { font-size: 20px; letter-spacing: 0.08em; }
+
+.search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 260px;
+    padding: 6px 12px;
+    border: 1px solid rgba(77, 208, 225, 0.18);
+    border-radius: 999px;
+    background: rgba(9, 20, 32, 0.7);
+    color: var(--text-faint);
+}
+
+.search:focus-within { border-color: rgba(77, 208, 225, 0.55); color: var(--accent); }
+
+.search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: none;
+    outline: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+}
+
+.icon-buttons { display: flex; gap: 7px; }
+
+.icon-button {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(77, 208, 225, 0.18);
+    border-radius: 9px;
+    background: rgba(9, 20, 32, 0.7);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.icon-button:hover { color: var(--accent); border-color: rgba(77, 208, 225, 0.5); }
+
+.icon-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--warn);
+    color: #241503;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    line-height: 16px;
+    text-align: center;
+}
+
+.operator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 6px 5px 13px;
+    border: 1px solid rgba(77, 208, 225, 0.22);
+    border-radius: 999px;
+    background: rgba(9, 20, 32, 0.7);
+}
+
+.operator-text { line-height: 1.2; text-align: right; }
+.operator-text strong { display: block; font-size: 12.5px; font-weight: 600; color: var(--text); }
+
+.operator-text span {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.operator-mark {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(77, 208, 225, 0.14);
+    color: var(--accent);
+}
+
+/* The voice control, as a round button with the level around it. */
+#talk {
+    flex-direction: column;
+    gap: 7px;
+    height: auto;
+    padding: 12px 0 10px;
+    border: none;
+    background: none;
+}
+
+#talk:hover { border: none; }
+
+.talk-ring {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid rgba(77, 208, 225, 0.4);
+    background: radial-gradient(circle at 50% 40%, rgba(77, 208, 225, 0.22), rgba(9, 20, 32, 0.9));
+    box-shadow: 0 0 0 6px rgba(77, 208, 225, 0.06), 0 0 22px rgba(77, 208, 225, 0.22);
+    color: var(--accent);
+    transition: box-shadow 0.25s, border-color 0.25s;
+}
+
+#talk[data-state="listening"] .talk-ring {
+    border-color: rgba(77, 208, 225, 0.85);
+    box-shadow: 0 0 0 8px rgba(77, 208, 225, 0.10), 0 0 32px rgba(77, 208, 225, 0.45);
+}
+
+#talk[data-state="speaking"] .talk-ring {
+    border-color: rgba(123, 255, 168, 0.8);
+    color: var(--ok);
+    box-shadow: 0 0 0 8px rgba(123, 196, 127, 0.10), 0 0 32px rgba(123, 255, 168, 0.4);
+}
+
+#talk .talk-dot { display: none; }
+
+.focus-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 9px 0;
+    border: 1px solid rgba(77, 208, 225, 0.2);
+    border-radius: 9px;
+    background: rgba(77, 208, 225, 0.07);
+    color: var(--accent);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+.focus-button:hover { background: rgba(77, 208, 225, 0.13); }
+
+/* Focus: the conversation, and nothing else. */
+.dash.focus-talk {
+    grid-template-areas:
+        "chat chat chat"
+        "chat chat chat"
+        "chat chat chat";
+}
+
+.dash.focus-talk > .card { display: none; }
+.dash.focus-talk > .card-chat { display: flex; }
+
+/* ---------- the feed ---------- */
+
+#activity { gap: 7px; }
+
+.feed-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 9px;
+    border: 1px solid rgba(77, 208, 225, 0.12);
+    border-radius: 9px;
+    background: rgba(9, 20, 32, 0.6);
+}
+
+.feed-item .row-text { flex: 1; min-width: 0; }
+.feed-item .row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.feed-tag {
+    flex: none;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--text-faint);
+}
+
+.feed-item.executed .feed-tag { color: var(--ok); }
+.feed-item.pending  .feed-tag { color: var(--warn); }
+.feed-item.failed   .feed-tag { color: var(--danger); }
+
+.feed-item.pending .row-icon {
+    background: rgba(240, 178, 107, 0.12);
+    color: var(--warn);
+    border-color: rgba(240, 178, 107, 0.3);
+}
+
+/* The bell points here, so it has to be findable when it does. */
+.card.flash {
+    border-color: rgba(240, 178, 107, 0.7);
+    box-shadow: 0 0 26px rgba(240, 178, 107, 0.25);
+}
+
+/* ---------- monitor rings: label and value together, inside ---------- */
+
+.gauge svg { max-width: 92px; }
+.gauge-fill, .gauge-track { stroke-width: 3.5; }
+
+.gauge-value {
+    transform: translate(-50%, -72%);
+    font-size: 15px;
+    color: var(--text);
+}
+
+.gauge-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, 26%);
+    margin: 0;
+    font-size: 9px;
+}
+
+/* ---------- what it knows: figures stacked, as the reference has them ---------- */
+
+.insight { grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
+.insight-figures { flex-direction: column; gap: 10px; justify-content: center; }
+.figure { font-size: 21px; }
+
+/* The two lines inside a ring need air between them, or they read as one
+   smudge at a glance — which is the only way anyone reads a gauge. */
+.gauge-value { transform: translate(-50%, -86%); }
+.gauge-label { transform: translate(-50%, 22%); }
+
+/* Bottom-bar tiles carry an icon, as the reference's do. */
+.tile { display: flex; align-items: center; gap: 9px; }
+.tile svg { flex: none; color: var(--accent); opacity: 0.8; }
+.tile-text { min-width: 0; }

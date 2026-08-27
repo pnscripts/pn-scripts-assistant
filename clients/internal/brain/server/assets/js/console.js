@@ -768,20 +768,69 @@ async function refreshActivity() {
         return;
     }
 
+    /*
+     * Each entry is an icon, two lines and a tag.
+     *
+     * The tag is the entry's own kind and outcome — a tool that ran, a message,
+     * something waiting on a decision — not a severity invented to give the
+     * column some colour. When everything is ordinary, everything is the same
+     * colour, and that is the useful state to be able to recognise.
+     */
+    const KINDS = {
+        message: ['MSG', 'said'],
+        tool: ['RUN', 'ran'],
+        lesson: ['MEM', 'learned'],
+        approval: ['ASK', 'waiting'],
+    };
+
     items.forEach((item) => {
         const row = document.createElement('div');
-        row.className = `activity-item ${item.status}`;
+        row.className = `feed-item ${item.status || ''}`;
 
-        const mark = document.createElement('span');
-        mark.className = 'mark';
-        mark.textContent = MARKS[item.status] || '·';
+        const icon = document.createElement('span');
+        icon.className = 'row-icon';
+        icon.textContent = (KINDS[item.kind] || ['·'])[0];
 
         const text = document.createElement('span');
-        text.textContent = item.summary || item.tool;
+        text.className = 'row-text';
 
-        row.append(mark, text);
+        const title = document.createElement('span');
+        title.className = 'row-name';
+        title.textContent = item.summary || item.tool || '—';
+
+        const when = document.createElement('span');
+        when.className = 'row-state';
+        when.textContent = [(KINDS[item.kind] || [null, item.kind])[1], ago(item.when)]
+            .filter(Boolean).join(' · ');
+
+        text.append(title, when);
+
+        const tag = document.createElement('span');
+        tag.className = `feed-tag ${item.status || ''}`;
+        tag.textContent = (item.status || item.kind || '').toUpperCase();
+
+        row.append(icon, text, tag);
         box.appendChild(row);
     });
+}
+
+/*
+ * How long ago, in words.
+ *
+ * Rounded on purpose. "Four minutes ago" is what somebody wants from a feed;
+ * a timestamp to the second is a thing to decode.
+ */
+function ago(when) {
+    if (!when) return '';
+
+    const seconds = (Date.now() - new Date(when).getTime()) / 1000;
+
+    if (!isFinite(seconds) || seconds < 0) return '';
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+
+    return `${Math.round(seconds / 86400)}d ago`;
 }
 
 // Returns whether anything was restored, so the caller knows whether a

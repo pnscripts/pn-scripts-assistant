@@ -75,7 +75,13 @@
         const focusMap = name === 'memory';
         const view = focusMap ? 'console' : name;
 
-        if (dash) dash.classList.toggle('focus-map', focusMap);
+        if (dash) {
+            dash.classList.toggle('focus-map', focusMap);
+
+            // Going anywhere leaves focus mode, or the destination would be
+            // hidden behind it.
+            if (!focusMap) dash.classList.remove('focus-talk');
+        }
 
         for (const item of views) item.hidden = item.dataset.view !== view;
 
@@ -116,6 +122,102 @@
     const newButton = el('new-conversation');
 
     if (newButton) newButton.addEventListener('click', commands.new);
+
+    /* ---------- search ---------- */
+
+    /*
+     * Searches what the brain knows, by meaning.
+     *
+     * The query goes through the same embedding and comparison a reply uses to
+     * remember things, so asking for "the hosting box" finds a memory that says
+     * "server". A box that matched letters would look identical and be a much
+     * poorer thing.
+     *
+     * Debounced, because every keystroke would otherwise embed a word — and
+     * embedding runs on the same processor as the model.
+     */
+    const searchBox = el('search');
+    const searchForm = el('search-form');
+
+    let searchTimer = null;
+
+    async function runSearch() {
+        const q = (searchBox.value || '').trim();
+
+        if (q.length < 2) {
+            if (window.brainMapRecall) window.brainMapRecall([]);
+
+            return;
+        }
+
+        try {
+            const found = await get('/api/search?q=' + encodeURIComponent(q));
+            const ids = (found.results || []).map((r) => r.id);
+
+            // The answer is shown on the map: the memories that match light up.
+            // That is more use than a list, because it also shows where they
+            // sit in relation to everything else.
+            if (window.brainMapRecall) window.brainMapRecall(ids);
+
+            if (ids.length) show('memory');
+        } catch {
+            /* A failed search is not worth interrupting anything for. */
+        }
+    }
+
+    if (searchBox) {
+        searchBox.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(runSearch, 400);
+        });
+    }
+
+    if (searchForm) {
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            clearTimeout(searchTimer);
+            runSearch();
+        });
+    }
+
+    /* ---------- the buttons in the status bar ---------- */
+
+    for (const button of document.querySelectorAll('.icon-button[data-view]')) {
+        button.addEventListener('click', () => show(button.dataset.view));
+    }
+
+    const bell = el('bell');
+
+    if (bell) {
+        bell.addEventListener('click', () => {
+            const card = document.querySelector('[style*="waiting"]');
+
+            if (!card) return;
+
+            show('console');
+            card.classList.add('flash');
+            setTimeout(() => card.classList.remove('flash'), 1400);
+            card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        });
+    }
+
+    const focusButton = el('focus-button');
+
+    if (focusButton) {
+        focusButton.addEventListener('click', () => {
+            if (!dash) return;
+
+            const on = !dash.classList.contains('focus-talk');
+
+            dash.classList.remove('focus-map');
+            dash.classList.toggle('focus-talk', on);
+            focusButton.querySelector('span').textContent = on
+                ? 'Back to the command centre'
+                : 'Focus on the conversation';
+
+            show('console');
+        });
+    }
 
     /* ---------- what the brain is doing ---------- */
 
@@ -405,13 +507,7 @@
             ? `${gigabytes(storage.free_bytes)} free`
             : 'unknown');
 
-        const privacy = status.privacy || {};
-        const pill = el('privacy-pill');
-
-        if (pill) {
-            pill.className = `pill pill-quiet ${privacy.mode || ''}`;
-            el('privacy-pill-text').textContent = privacy.summary || privacy.mode || '—';
-        }
+        text('owner-name', status.owner || status.name || '—');
 
         const waitingCount = el('waiting-count');
         const waitingEmpty = el('waiting-empty');
@@ -424,6 +520,13 @@
 
             waitingCount.textContent = total;
             waitingCount.hidden = total === 0;
+
+            const badge = el('bell-count');
+
+            if (badge) {
+                badge.textContent = total;
+                badge.hidden = total === 0;
+            }
 
             if (waitingEmpty) waitingEmpty.hidden = total > 0;
         }

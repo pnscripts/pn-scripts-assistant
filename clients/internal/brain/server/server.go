@@ -54,6 +54,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
 	s.mux.HandleFunc("GET /api/level", s.handleLevel)
 	s.mux.HandleFunc("GET /api/machine", s.handleMachine)
+	s.mux.HandleFunc("GET /api/search", s.handleSearch)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
@@ -558,6 +559,29 @@ func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"microphones": mics})
+}
+
+// handleSearch looks through what the brain knows.
+//
+// By meaning rather than by letters: the query is embedded and compared against
+// the memories the same way a reply recalls them. A box that matched substrings
+// would be a different and much less useful thing wearing the same clothes.
+func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+
+	found := s.brain.Search(r.Context(), query, 12)
+	results := make([]map[string]any, 0, len(found))
+
+	for _, f := range found {
+		results = append(results, map[string]any{
+			"id":       f.ID,
+			"category": f.Category,
+			"content":  f.Content,
+			"score":    f.Score,
+		})
+	}
+
+	ok(w, map[string]any{"results": results})
 }
 
 // handleMachine reports what the computer is doing.
