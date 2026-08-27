@@ -34,6 +34,10 @@ type Config struct {
 	AnthropicKey    string
 	AnthropicModel  string
 
+	// Voice is which installed voice reads answers aloud, by id. Empty means
+	// whichever the machine offers first.
+	Voice string
+
 	// Web search. Without a key the brain falls back to scraping DuckDuckGo,
 	// which needs no account.
 	BraveKey string
@@ -113,6 +117,7 @@ func Load(root string) (Config, error) {
 	assign(&cfg.AnthropicKey, "ANTHROPIC_API_KEY")
 	assign(&cfg.AnthropicModel, "ANTHROPIC_MODEL")
 	assign(&cfg.Addr, "BRAIN_ADDR")
+	assign(&cfg.Voice, "BRAIN_VOICE")
 	assign(&cfg.BraveKey, "BRAVE_SEARCH_KEY")
 	assign(&cfg.HomeAssistantURL, "HOME_ASSISTANT_URL")
 	assign(&cfg.HomeAssistantToken, "HOME_ASSISTANT_TOKEN")
@@ -153,6 +158,8 @@ func (c Config) Save(root string) error {
 	b.WriteString("ANTHROPIC_API_KEY=" + c.AnthropicKey + "\n")
 	b.WriteString("ANTHROPIC_MODEL=" + c.AnthropicModel + "\n\n")
 	b.WriteString("BRAIN_ADDR=" + c.Addr + "\n\n")
+	b.WriteString("# Which voice reads answers aloud. Empty means the first available.\n")
+	b.WriteString("BRAIN_VOICE=" + c.Voice + "\n\n")
 	b.WriteString("# Optional: a Brave Search API key. Without one, DuckDuckGo is scraped.\n")
 	b.WriteString("BRAVE_SEARCH_KEY=" + c.BraveKey + "\n\n")
 	b.WriteString("# Smart home. A long-lived access token from your Home Assistant profile.\n")

@@ -52,6 +52,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/listen", s.handleListen)
 	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
+	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
+	s.mux.HandleFunc("POST /api/voice", s.handleSetVoice)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
@@ -463,6 +465,50 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, heard)
+}
+
+// handleVoices lists what can read answers aloud.
+func (s *Server) handleVoices(w http.ResponseWriter, r *http.Request) {
+	ok(w, map[string]any{
+		"voices":  speech.Voices(),
+		"current": speech.CurrentVoice().ID,
+	})
+}
+
+// handleSetVoice chooses a voice and remembers it.
+//
+// Written to the settings file as well as applied, because a voice somebody
+// picked should still be theirs after a restart — and settings live with the
+// data, so it travels with the brain to another machine.
+func (s *Server) handleSetVoice(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "That is not a voice.")
+
+		return
+	}
+
+	speech.SetVoice(body.ID)
+
+	cfg := s.brain.Cfg
+	cfg.Voice = body.ID
+
+	if err := cfg.Save(s.brain.Root); err != nil {
+		// The voice is in use either way; only remembering it failed.
+		ok(w, map[string]any{
+			"current": speech.CurrentVoice().ID,
+			"warning": "Using it now, but it could not be saved: " + err.Error(),
+		})
+
+		return
+	}
+
+	s.brain.Cfg = cfg
+
+	ok(w, map[string]any{"current": speech.CurrentVoice().ID})
 }
 
 func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {

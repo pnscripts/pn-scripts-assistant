@@ -171,6 +171,9 @@ async function refreshStatus() {
         el('talk').hidden = !canTalk;
         el('microphone-field').hidden = !canTalk;
 
+        el('voice-field').hidden = !s.capabilities.includes('speech');
+        if (s.capabilities.includes('speech')) loadVoices();
+
         if (canTalk) {
             loadMicrophones();
 
@@ -385,6 +388,53 @@ const ECHO_SETTLE_MS = 350;
 function setVoiceStatus(text) {
     const hint = el('voice-status');
     if (hint) hint.textContent = text;
+}
+
+let voicesLoaded = false;
+
+/*
+ * Which voice reads answers aloud.
+ *
+ * Loaded once and remembered on the server, so a voice somebody picked is
+ * still theirs after a restart. Changing it speaks a sample immediately —
+ * choosing a voice from a list of names without hearing any of them is
+ * choosing blind.
+ */
+async function loadVoices() {
+    if (voicesLoaded) return;
+
+    let data;
+    try {
+        data = await api.get('/api/voices');
+    } catch {
+        return;
+    }
+
+    const select = el('voice');
+    const voices = data.voices || [];
+
+    select.textContent = '';
+
+    voices.forEach((v) => {
+        const option = document.createElement('option');
+        option.value = v.id;
+        option.textContent = v.name;
+        select.appendChild(option);
+    });
+
+    if (data.current) select.value = data.current;
+
+    el('voice-field').hidden = voices.length < 2;
+    voicesLoaded = true;
+
+    select.onchange = async () => {
+        try {
+            await api.post('/api/voice', { id: select.value });
+            await api.post('/api/speak', { text: 'This is how I sound.' });
+        } catch (err) {
+            addMessage('error', String(err.message || err), { cssClass: 'error' });
+        }
+    };
 }
 
 let microphonesLoaded = false;

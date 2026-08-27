@@ -149,8 +149,15 @@ func SpeakAndWait(ctx context.Context, text string) error {
 		return nil
 	}
 
-	if engine.Name == "piper" {
+	// A chosen system voice overrides piper even when piper is installed.
+	if engine.Name == "piper" && CurrentVoice().Engine == "piper" {
 		return FindPiper().Speak(ctx, spoken)
+	}
+
+	if engine.Name == "piper" {
+		if fallback := fallbackEngine(); fallback != nil {
+			engine = fallback
+		}
 	}
 
 	args := engine.Args(spoken)
@@ -185,12 +192,18 @@ func Speak(ctx context.Context, text string) error {
 		return nil
 	}
 
-	if engine.Name == "piper" {
+	if engine.Name == "piper" && CurrentVoice().Engine == "piper" {
 		// Piper synthesises faster than it plays, so there is nothing to gain
 		// from returning early and a microphone to protect by not doing so.
 		go FindPiper().Speak(context.WithoutCancel(ctx), spoken)
 
 		return nil
+	}
+
+	if engine.Name == "piper" {
+		if fallback := fallbackEngine(); fallback != nil {
+			engine = fallback
+		}
 	}
 
 	cmd := exec.CommandContext(ctx, engine.Command, engine.Args(spoken)...)

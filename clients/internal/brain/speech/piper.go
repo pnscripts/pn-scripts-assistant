@@ -153,8 +153,15 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 		return fmt.Errorf("no way to play audio: none of pw-play, aplay or paplay is installed")
 	}
 
+	voice := p.Voice
+
+	// The owner's choice wins over whichever model happened to be found first.
+	if chosen := CurrentVoice(); chosen.Engine == "piper" && chosen.Path != "" {
+		voice = chosen.Path
+	}
+
 	synth := exec.CommandContext(ctx, p.Binary,
-		"--model", p.Voice, "--output-raw")
+		"--model", voice, "--output-raw")
 	synth.Stdin = strings.NewReader(text)
 	synth.Stderr = io.Discard
 
