@@ -1446,7 +1446,11 @@ textarea:focus {
     grid-template-rows: minmax(0, 1fr) minmax(190px, 0.95fr) auto;
 }
 
-.card-chat { min-height: 0; }
+.card-chat {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
 
 .card-chat .transcript {
     flex: 1;
@@ -2074,7 +2078,8 @@ select { font-size: 13.5px; }
     display: flex;
     align-items: center;
     gap: 9px;
-    margin: 0 0 10px;
+    margin: 10px 0 0;
+    flex: none;
     padding: 7px 11px;
     border: 1px solid rgba(240, 178, 107, 0.3);
     border-radius: 9px;

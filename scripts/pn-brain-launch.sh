@@ -7,7 +7,8 @@
 # Double-clicking the desktop icon lands here; so does `pn-brain` on PATH.
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
 BIN="$PROJECT_ROOT/dist/pn-brain"
 CLIENTS="$PROJECT_ROOT/clients"
 URL="http://127.0.0.1:8790"
@@ -57,7 +58,6 @@ rebuild() {
 install_shortcuts() {
     mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
     ln -sfn "$PROJECT_ROOT/scripts/pn-brain-launch.sh" "$HOME/.local/bin/pn-brain"
-    ln -sfn "$PROJECT_ROOT/scripts/pn-brain-launch.sh" "$HOME/.local/bin/brain"
 
     local desktop="$HOME/.local/share/applications/pn-brain.desktop"
     cat > "$desktop" <<DESKTOP
