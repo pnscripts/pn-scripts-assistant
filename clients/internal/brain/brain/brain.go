@@ -115,6 +115,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		available = append(available, tools.ListDevices{Home: home}, tools.SetDevice{Home: home})
 	}
 
+	// Added after the brain exists, because it changes the brain's own settings
+	// and so needs a handle to it.
+	available = append(available, tools.SetWakeWord{Brain: b})
+
 	b.Agent = &agent.Loop{
 		DB:       db,
 		Log:      logger,
@@ -141,6 +145,25 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	}
 
 	return b
+}
+
+// WakeWord is what has to be said before the brain answers, or empty.
+func (b *Brain) WakeWord() string { return b.Cfg.WakeWord }
+
+// SetWakeWord changes what has to be said before the brain answers.
+//
+// Empty turns it off. Saved immediately, because a setting that lasts until the
+// next restart and then reverts is worse than one never offered.
+func (b *Brain) SetWakeWord(word string) error {
+	b.Cfg.WakeWord = strings.TrimSpace(word)
+
+	if err := b.Cfg.Save(b.Root); err != nil {
+		return err
+	}
+
+	b.Log.Info("wake word changed", "word", b.Cfg.WakeWord)
+
+	return nil
 }
 
 // UseModel switches the model replies are generated with.

@@ -491,7 +491,13 @@
             },
             {
                 mark: 'L', name: 'Listening',
-                state: can('listening') ? 'ready' : 'unavailable',
+                // What it is waiting for, when it is waiting for something.
+                // A brain that only answers to a word must say which word, or
+                // somebody whose word is not being heard has no way to find
+                // out why nothing is happening.
+                state: !can('listening') ? 'unavailable'
+                    : status.wake_word ? `answers to “${status.wake_word}”`
+                        : 'ready',
                 tone: can('listening') ? 'ok' : 'off',
             },
             {

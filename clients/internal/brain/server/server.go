@@ -198,8 +198,13 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	conversations, _ := s.brain.DB.CountConversations()
 
 	ok(w, map[string]any{
-		"name":         s.brain.Cfg.Name,
-		"owner":        s.brain.Cfg.Owner,
+		"name":  s.brain.Cfg.Name,
+		"owner": s.brain.Cfg.Owner,
+		// What it is waiting to hear, when it is waiting for anything. Shown in
+		// the interface, because a brain that only answers to a word must say
+		// which word — otherwise somebody whose word is not being transcribed
+		// has no way to find out why nothing is happening.
+		"wake_word":    s.brain.Cfg.WakeWord,
 		"provider":     s.brain.Cfg.DefaultProvider,
 		"model":        s.brain.Cfg.OllamaModel,
 		"privacy":      s.brain.Mode.Describe(),
