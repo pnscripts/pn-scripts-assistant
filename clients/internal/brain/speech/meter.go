@@ -165,3 +165,37 @@ func LiveLevel() Reading {
 
 	return Reading{}
 }
+
+// Recording reports whether a microphone is open right now.
+//
+// Asked by the learning worker, which runs a model call of its own after every
+// reply — and reopening the microphone happens immediately after, so the two
+// were overlapping. On four cores, an extraction and a transcription running
+// together means the transcription is slow and the person waiting has no idea
+// why. Nothing the learner does is anything anybody asked for, so it is the one
+// that waits.
+func Recording() bool {
+	recording.mu.RLock()
+	defer recording.mu.RUnlock()
+
+	return recording.open > 0
+}
+
+var recording struct {
+	mu   sync.RWMutex
+	open int
+}
+
+func recordingStarted() {
+	recording.mu.Lock()
+	recording.open++
+	recording.mu.Unlock()
+}
+
+func recordingStopped() {
+	recording.mu.Lock()
+	if recording.open > 0 {
+		recording.open--
+	}
+	recording.mu.Unlock()
+}

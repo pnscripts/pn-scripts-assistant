@@ -164,6 +164,12 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 	// rather than at each of them.
 	defer clearLevel("mic")
 
+	// And background learning holds off while this is open: it runs a model
+	// call of its own, and on four cores the two together make transcription
+	// slow for no reason the person waiting can see.
+	recordingStarted()
+	defer recordingStopped()
+
 	for {
 		select {
 		case <-ctx.Done():

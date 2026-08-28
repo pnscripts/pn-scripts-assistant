@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"pn-brain/internal/brain/speech"
 	"strings"
 	"sync"
 	"time"
@@ -97,6 +98,14 @@ func (w *Worker) run(ctx context.Context) {
 			if !open {
 				return
 			}
+
+			// Nothing anybody asked for depends on this, so it gives way to
+			// anything that does. Learning runs a model call, and it is queued
+			// the instant a reply is finished — which is the instant the
+			// microphone reopens for the next thing said. The two were
+			// competing for four cores, and the one that lost was the
+			// transcription somebody was waiting on.
+			waitForQuiet(ctx)
 
 			if err := w.process(ctx, id); err != nil {
 				// A failure to learn is not a failure of the brain. It is
@@ -210,4 +219,24 @@ func (w *Worker) PromoteValidated(ctx context.Context, limit int) (promoted, dup
 	}
 
 	return promoted, duplicates, nil
+}
+
+// HoldOff is how long learning will wait for the microphone to close.
+//
+// Bounded rather than indefinite: a stuck recorder must not mean the brain
+// silently stops learning altogether, and a minute of waiting is already far
+// longer than any turn.
+const HoldOff = 60 * time.Second
+
+// waitForQuiet holds until nothing is being recorded, or the wait runs out.
+func waitForQuiet(ctx context.Context) {
+	deadline := time.Now().Add(HoldOff)
+
+	for speech.Recording() && time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
