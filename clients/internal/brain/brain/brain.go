@@ -162,6 +162,14 @@ func (b *Brain) UseModel(name string) error {
 	b.ollama.ChatModel = name
 	b.Cfg.OllamaModel = name
 
+	// Written down, or the choice lasts until the next restart and then quietly
+	// reverts. That is exactly what happened: a model was chosen in the panel,
+	// used for the rest of the session, and the brain came back on the old one
+	// with nothing saying it had changed back.
+	if err := b.Cfg.Save(b.Root); err != nil {
+		b.Log.Warn("the model was changed but could not be saved", "error", err)
+	}
+
 	b.Log.Info("chat model changed", "model", name)
 
 	return nil
@@ -219,6 +227,11 @@ you don't need to ask permission to notice it — that happens automatically.
 You have tools and can act, not just talk. Use them when a question is
 better answered by looking than by guessing: read the file, list the
 directory, check. Prefer one purposeful call over several speculative ones.
+
+Most things said to you are conversation and need no tool at all. A
+greeting, a thank-you, a question about what you think — answer those in
+words. Reach for a tool when the answer depends on something you would
+otherwise have to guess at, not to demonstrate that you have tools.
 
 Anything that changes something — writing a file, running a command —
 pauses for %s's approval before it happens. That is normal, not an
@@ -351,6 +364,27 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	// is involved. It is deterministic, it takes no time, and until now the
 	// model would say "I will remember these instructions" and do nothing —
 	// which is the worst of the three possible outcomes.
+	/*
+	 * Start the chat model loading now, alongside everything else.
+	 *
+	 * The two model loads in a turn were serial: recall embeds the question
+	 * first, which on a cold start means loading and running the embedding
+	 * model, and only when that is done does the chat model begin loading.
+	 * Measured here, that was twenty-one seconds before the chat model was even
+	 * asked for, on a reply that took under two minutes in total.
+	 *
+	 * Neither load is waiting on the other — they are both waiting on disk — so
+	 * they can happen at once. Started in the background and never waited for:
+	 * if it fails, the ordinary path loads the model as it always did.
+	 */
+	if b.ollama != nil {
+		go func() {
+			if err := b.ollama.Warm(context.WithoutCancel(ctx)); err != nil {
+				b.Log.Debug("could not warm the chat model", "error", err)
+			}
+		}()
+	}
+
 	// Being told to learn from something is carried out here rather than
 	// described to the model, which would answer that it will and then not.
 	if answer, handled := b.handleLearnInstruction(ctx, req.Message); handled {

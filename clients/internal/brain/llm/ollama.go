@@ -267,3 +267,27 @@ func truncate(s string, n int) string {
 
 	return string(r[:n]) + "…"
 }
+
+// Warm asks Ollama to load the chat model without generating anything.
+//
+// Worth doing because the two model loads in a turn were happening one after
+// the other. Recall embeds the question first, which on a cold start means
+// loading the embedding model and running it — measured at about twenty
+// seconds — and only then does the chat model begin loading, for another
+// thirty. Nothing about that is parallel, and both are waiting on disk rather
+// than on each other.
+//
+// Starting this the moment a message arrives overlaps the two, so the chat
+// model is ready at roughly the moment the context is. It is a request with no
+// messages, which Ollama treats as "load and hold" rather than as a question.
+func (o *Ollama) Warm(ctx context.Context) error {
+	body := ollamaChatRequest{
+		Model:     o.ChatModel,
+		Stream:    false,
+		KeepAlive: o.KeepAlive,
+	}
+
+	var out ollamaChatResponse
+
+	return o.post(ctx, "/api/chat", body, &out)
+}

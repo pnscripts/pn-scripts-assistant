@@ -456,82 +456,19 @@ export function startCore() {
         }
     }
 
-    /* ---------- the scanner ---------- */
-
     /*
-     * A band that sweeps the sphere while the brain is working.
+     * No sweeping band.
      *
-     * This is the core's whole job when nothing is being said. A reply here can
-     * take minutes, and for all of that the globe turned at exactly the rate it
-     * turns when idle — so the one thing on screen that ought to say "this is
-     * alive" said nothing at all, and the honest question, is it working or is
-     * it stuck, had to be answered by a line of text elsewhere.
+     * There was one, going pole to pole while the brain worked, and it was
+     * removed on the owner's judgement: sitting behind a conversation, a thing
+     * that keeps travelling across the field of view reads as a metronome. It
+     * pulls the eye on a rhythm that has nothing to do with what is happening.
      *
-     * It moves only while there is real work. A band that swept on a timer
-     * would look identical and mean nothing, and once one thing on a display
-     * means nothing the rest stops being believed.
+     * The colour says it instead, which is the whole of what needed saying:
+     * orange while it is working, green while it is speaking, and its ordinary
+     * blue the rest of the time. A colour change is seen at a glance and then
+     * stops asking for attention, which is what a status light should do.
      */
-    const scanner = new THREE.Mesh(
-        new THREE.TorusGeometry(1, 0.012, 6, 96),
-        new THREE.MeshBasicMaterial({
-            color: 0x8fe9f2,
-            transparent: true,
-            opacity: 0,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending,
-        }));
-
-    scanner.rotation.x = Math.PI / 2;
-    globe.add(scanner);
-
-    /*
-     * How fast the band sweeps for each kind of work.
-     *
-     * The colour is no longer in this table. It comes from the appearance
-     * setting, which its owner can change by asking — the whole reason that
-     * setting exists is that asking for it used to be answered with "Understood"
-     * and nothing else.
-     */
-    const WORK = {
-        thinking: 2.6,
-        tool: 1.5,
-        learning: 2.0,
-        model: 3.2,
-        embedding: 2.0,
-        waiting: 4.0,
-    };
-
-    let sweep = 0;
-
-    function updateScanner(delta, now) {
-        const work = signals.work || {};
-        const seconds = WORK[work.kind] || WORK.thinking;
-
-        if (!work.busy) {
-            // Fades rather than switching off, so the end of a turn is a
-            // settling rather than a blink.
-            scanner.material.opacity = Math.max(0, scanner.material.opacity - delta * 2);
-            sweep = 0;
-
-            return;
-        }
-
-        sweep = (sweep + delta / seconds) % 1;
-
-        // Pole to pole. The band is widest at the equator because that is what
-        // a circle on a sphere does, which is also what makes it read as
-        // passing through the body rather than sliding across a picture of one.
-        const y = Math.cos(sweep * Math.PI);
-        const radius = Math.sqrt(Math.max(0.0001, 1 - y * y));
-
-        scanner.position.y = y * RADIUS;
-        scanner.scale.set(radius, radius, 1);
-        scanner.material.color.set(signals.look.thinking_line);
-
-        // Brightest crossing the middle, faint at the poles, so the sweep has a
-        // shape rather than a hard start and stop.
-        scanner.material.opacity = 0.35 + Math.sin(sweep * Math.PI) * 0.5;
-    }
 
     /* ---------- bloom ---------- */
 
@@ -610,7 +547,6 @@ export function startCore() {
             t.spark.position.set(Math.cos(a) * t.orbit.rx, 0, Math.sin(a) * t.orbit.rz);
         }
 
-        updateScanner(delta, now);
         updateArcs(delta);
 
         // Brightness from sound that is really there, lifted while working so
@@ -625,11 +561,16 @@ export function startCore() {
          * the microphone happens to be open is thinking, and that is the thing
          * worth saying.
          */
+        /*
+         * Three states, said with colour alone.
+         *
+         * Working first: a turn that is thinking while the microphone happens
+         * to be open is thinking, and that is the thing worth saying.
+         */
         const tint = new THREE.Color(
             working ? signals.look.thinking_core
                 : signals.state === 'speaking' ? signals.look.speaking
-                    : signals.state === 'listening' ? signals.look.listening
-                        : signals.look.idle);
+                    : signals.look.idle);
 
         surfaceMaterial.uniforms.tint.value.copy(tint);
         surfaceMaterial.uniforms.lit.value = Math.min(1.55, lit);
