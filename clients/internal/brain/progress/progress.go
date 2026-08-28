@@ -83,6 +83,18 @@ func Done() {
 	current.mu.Unlock()
 }
 
+// Answering reports whether a reply is being worked on.
+//
+// Distinct from Busy, which is true for background work as well. Anything that
+// is not what somebody is waiting for should give way to something that is, and
+// it needs to be able to tell the difference.
+func Answering() bool {
+	current.mu.RLock()
+	defer current.mu.RUnlock()
+
+	return current.busy && (current.kind == "thinking" || current.kind == "tool" || current.kind == "waiting")
+}
+
 // Now reports the current step.
 func Now() Step {
 	current.mu.RLock()

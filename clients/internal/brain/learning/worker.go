@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/speech"
 	"strings"
 	"sync"
@@ -107,7 +108,19 @@ func (w *Worker) run(ctx context.Context) {
 			// transcription somebody was waiting on.
 			waitForQuiet(ctx)
 
-			if err := w.process(ctx, id); err != nil {
+			// Said out loud, because it was not.
+			//
+			// Learning runs a model call and reported nothing while it did, so
+			// the interface showed an idle brain on a machine that was clearly
+			// working — which reads as stuck. Anything that takes a minute of
+			// this machine has to say it is happening.
+			progress.Set("learning", "Learning from the last conversation")
+
+			err := w.process(ctx, id)
+
+			progress.Done()
+
+			if err != nil {
 				// A failure to learn is not a failure of the brain. It is
 				// logged and the conversation is left alone; nothing the user
 				// asked for depends on this.
@@ -232,7 +245,10 @@ const HoldOff = 60 * time.Second
 func waitForQuiet(ctx context.Context) {
 	deadline := time.Now().Add(HoldOff)
 
-	for speech.Recording() && time.Now().Before(deadline) {
+	// Gives way to a microphone that is open and to a reply being worked on.
+	// Neither is something the learner should be competing with: one is
+	// somebody speaking and the other is somebody waiting.
+	for (speech.Recording() || progress.Answering()) && time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
 			return
