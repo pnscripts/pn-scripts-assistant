@@ -767,6 +767,13 @@
             setGauge('gauge-cpu', 'cpu-value', load.cpu_percent);
             setGauge('gauge-ram', 'ram-value', load.memory_percent);
 
+            // Negative means the card could not be asked, which the gauge shows
+            // as unknown rather than as nought — a card reporting zero and a
+            // card that cannot be read look identical on a dial and are not.
+            setGauge('gauge-gpu', 'gpu-value', load.gpu_known ? load.gpu_percent : -1);
+
+            renderDrives(load.drives || []);
+
             const detail = el('machine-detail');
 
             if (detail) {
@@ -777,6 +784,9 @@
                     ['Memory in use', load.memory_total_bytes
                         ? `${gigabytes(load.memory_used_bytes)} of ${gigabytes(load.memory_total_bytes)}`
                         : 'not measurable'],
+                    ['Graphics', load.gpu_known
+                        ? `${load.gpu_percent.toFixed(0)}% of its top clock`
+                        : 'not readable on this card'],
                 ];
 
                 detail.innerHTML = '';
@@ -804,6 +814,44 @@
         } catch {
             setGauge('gauge-cpu', 'cpu-value', -1);
             setGauge('gauge-ram', 'ram-value', -1);
+        }
+    }
+
+    /*
+     * Every drive, not only the one the brain lives on.
+     *
+     * An external disk filling up is the same kind of fact as memory filling
+     * up, and on this machine the brain's own data is on one — so leaving them
+     * out of the monitor meant the most likely thing to run out was the one
+     * thing not being watched.
+     */
+    function renderDrives(drives) {
+        const host = el('monitor-drives');
+
+        if (!host) return;
+
+        host.innerHTML = '';
+
+        for (const drive of drives) {
+            const row = document.createElement('div');
+
+            row.className = 'drive' + (drive.current ? ' current' : '');
+
+            const path = document.createElement('span');
+            path.className = 'drive-path';
+            path.textContent = drive.mount_point + (drive.removable ? '  ·  removable' : '');
+
+            const free = document.createElement('span');
+            free.className = 'drive-free';
+
+            const used = drive.total_bytes
+                ? Math.round(((drive.total_bytes - drive.free_bytes) / drive.total_bytes) * 100)
+                : 0;
+
+            free.textContent = `${gigabytes(drive.free_bytes)} free · ${used}% used`;
+
+            row.append(path, free);
+            host.append(row);
         }
     }
 

@@ -13,6 +13,7 @@ import "runtime"
 func current() Load {
 	return Load{
 		CPUPercent: -1,
+		GPUPercent: -1,
 		Cores:      runtime.NumCPU(),
 		Available:  false,
 	}

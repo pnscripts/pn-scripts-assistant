@@ -21,6 +21,7 @@ func current() Load {
 	}
 
 	load.MemoryUsedBytes, load.MemoryTotalBytes = memory()
+	load.GPUPercent, load.GPUName, load.GPUKnown = gpuUsage()
 
 	return load
 }
@@ -188,4 +189,69 @@ func memory() (used, total uint64) {
 	}
 
 	return total - available, total
+}
+
+// gpuUsage reads how busy the graphics card is.
+//
+// Intel and AMD expose this through the kernel's DRM sysfs; NVIDIA does not,
+// and its own tool is a separate install. Where it cannot be read the caller is
+// told so rather than shown a zero, because a graphics card that reports 0%
+// and one that cannot be asked look identical on a dial and mean completely
+// different things.
+func gpuUsage() (float64, string, bool) {
+	name := gpuName()
+
+	// Intel's driver publishes a frequency, not a busy percentage. What can
+	// honestly be derived is how close it is running to its maximum, which is
+	// a fair answer to "is the card working".
+	current, okCurrent := readNumber("/sys/class/drm/card1/gt_cur_freq_mhz")
+	most, okMost := readNumber("/sys/class/drm/card1/gt_max_freq_mhz")
+
+	if !okCurrent || !okMost {
+		current, okCurrent = readNumber("/sys/class/drm/card0/gt_cur_freq_mhz")
+		most, okMost = readNumber("/sys/class/drm/card0/gt_max_freq_mhz")
+	}
+
+	if okCurrent && okMost && most > 0 {
+		return (current / most) * 100, name, true
+	}
+
+	// AMD publishes a real busy percentage.
+	for _, path := range []string{
+		"/sys/class/drm/card0/device/gpu_busy_percent",
+		"/sys/class/drm/card1/device/gpu_busy_percent",
+	} {
+		if busy, ok := readNumber(path); ok {
+			return busy, name, true
+		}
+	}
+
+	return -1, name, false
+}
+
+func gpuName() string {
+	for _, path := range []string{
+		"/sys/class/drm/card0/device/label",
+		"/sys/class/drm/card1/device/label",
+	} {
+		if raw, err := os.ReadFile(path); err == nil {
+			return strings.TrimSpace(string(raw))
+		}
+	}
+
+	return ""
+}
+
+func readNumber(path string) (float64, bool) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0, false
+	}
+
+	v, err := strconv.ParseFloat(strings.TrimSpace(string(raw)), 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return v, true
 }

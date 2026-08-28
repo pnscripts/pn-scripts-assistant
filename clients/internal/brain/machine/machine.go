@@ -24,6 +24,15 @@ type Load struct {
 	MemoryUsedBytes  uint64 `json:"memory_used_bytes"`
 	MemoryTotalBytes uint64 `json:"memory_total_bytes"`
 
+	// GPUPercent is how hard the graphics card is working, 0 to 100, or
+	// negative when it cannot be read. What "working" means differs by vendor:
+	// AMD reports a real busy figure, Intel publishes a clock speed and this is
+	// how close it is running to its maximum. Both answer "is the card doing
+	// anything", which is the question.
+	GPUPercent float64 `json:"gpu_percent"`
+	GPUName    string  `json:"gpu_name"`
+	GPUKnown   bool    `json:"gpu_known"`
+
 	// Available is false when this platform cannot report any of it.
 	Available bool `json:"available"`
 }

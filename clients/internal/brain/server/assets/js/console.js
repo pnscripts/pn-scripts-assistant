@@ -294,6 +294,21 @@ const talking = { on: false, running: false };
 // user had just switched off.
 let talkingStartedOnce = false;
 
+/*
+ * How long the brain stays in the conversation after being addressed.
+ *
+ * Long enough to ask a follow-up without saying the name again, short enough
+ * that the room does not walk back in five minutes later. Measured from the
+ * last thing said to it, not from the start.
+ */
+const ENGAGED_FOR = 45000;
+
+let spokeAt = 0;
+
+function engaged() {
+    return Date.now() - spokeAt < ENGAGED_FOR;
+}
+
 function toggleTalking() {
     if (talking.running) {
         // Stops after the turn in flight; cutting a reply off mid-sentence
@@ -371,7 +386,10 @@ async function talkLoop() {
 
             let heard;
             try {
-                heard = await api.post('/api/turn', { device: el('microphone').value || '' });
+                heard = await api.post('/api/turn', {
+                    device: el('microphone').value || '',
+                    engaged: engaged(),
+                });
             } catch (err) {
                 addMessage('error', String(err.message || err), { cssClass: 'error' });
                 break;
@@ -379,12 +397,29 @@ async function talkLoop() {
 
             if (!talking.on) break;
 
-            const said = (heard.text || '').trim();
+            const said = (heard.transcript || '').trim();
+
+            /*
+             * Nothing said to the room is a turn.
+             *
+             * Until the brain has been addressed by name it hears everything —
+             * a television, somebody else talking, its own voice off the
+             * speakers — and every one of those used to become a question it
+             * answered. Now they pass, and nothing about them reaches the
+             * transcript.
+             */
+            if (!heard.addressed) {
+                setVoiceStatus(`Say “${heard.name || 'the name'}” to start`);
+                continue;
+            }
+
+            // Addressed, so the conversation is open until it goes quiet.
+            spokeAt = Date.now();
 
             if (!said) {
-                // Nothing was said. Say why once and keep listening, rather
-                // than filling the transcript with the same notice.
-                setVoiceStatus(heard.advice || 'Heard nothing — still listening');
+                // The name on its own: somebody getting its attention before
+                // saying what they want.
+                setVoiceStatus('Listening…');
                 continue;
             }
 

@@ -274,7 +274,10 @@ func TestRegisteredTools(t *testing.T) {
 		names = append(names, tool.Name())
 	}
 
-	want := []string{"list_directory", "read_file", "run_command", "write_file"}
+	// set_appearance is new: the brain can change what the interface looks
+	// like when asked, because being asked to and saying "Understood" without
+	// doing anything was the failure that put it here.
+	want := []string{"list_directory", "read_file", "run_command", "set_appearance", "write_file"}
 
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Errorf("tools are %v, want %v", names, want)

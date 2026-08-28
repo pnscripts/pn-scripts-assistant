@@ -27,6 +27,7 @@ import (
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
+	"pn-brain/internal/brain/wake"
 )
 
 // Server serves the interface and the API.
@@ -495,6 +496,11 @@ func (s *Server) handleSetLanguage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Device string `json:"device"`
+
+		// Engaged is whether the brain is already in a conversation, in which
+		// case anything said counts. Having to say the name before every
+		// sentence is not a conversation.
+		Engaged bool `json:"engaged"`
 	}
 
 	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body)
@@ -506,7 +512,27 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, heard)
+	/*
+	 * Was that meant for the brain?
+	 *
+	 * Decided here rather than in the page, because the page would have to be
+	 * told the name and how to match it, and there would then be two places
+	 * that both had to agree about what counts as being addressed.
+	 *
+	 * Until it has been addressed the brain hears the room and does nothing
+	 * with it — a television, somebody else talking, or its own voice coming
+	 * back off the speakers. Every one of those used to become a turn.
+	 */
+	addressed := wake.Listen(heard.Text, s.brain.Cfg.Name, body.Engaged)
+
+	ok(w, map[string]any{
+		"transcript": addressed.Text,
+		"heard":      heard.Text,
+		"addressed":  addressed.Addressed,
+		"advice":     heard.Advice,
+		"level":      heard.Level,
+		"name":       s.brain.Cfg.Name,
+	})
 }
 
 // handleGreeting is what the brain says on opening, without being asked.
@@ -819,12 +845,21 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleMachine(w http.ResponseWriter, r *http.Request) {
 	load := machine.Current()
 
+	// The drives come with it: an external disk filling up is the same kind of
+	// fact as memory filling up, and the brain's own data may well be living on
+	// one of them.
+	drives, _ := storage.Drives(s.brain.Root)
+
 	ok(w, map[string]any{
 		"cpu_percent":        load.CPUPercent,
 		"cores":              load.Cores,
 		"memory_used_bytes":  load.MemoryUsedBytes,
 		"memory_total_bytes": load.MemoryTotalBytes,
 		"memory_percent":     load.MemoryPercent(),
+		"gpu_percent":        load.GPUPercent,
+		"gpu_name":           load.GPUName,
+		"gpu_known":          load.GPUKnown,
+		"drives":             drives,
 		"available":          load.Available,
 	})
 }
