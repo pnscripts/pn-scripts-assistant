@@ -43,6 +43,21 @@ export const signals = {
      * answer would be silly, and worse, they could disagree.
      */
     work: { busy: false, kind: '', note: '', seconds: 0, round: 0 },
+
+    /*
+     * What the core is coloured with.
+     *
+     * Kept here because it can change while the program is running: its owner
+     * can ask for a different colour out loud and the brain sets it, so the
+     * page has to notice rather than reading it once at startup.
+     */
+    look: {
+        thinking_line: '#7bffa8',
+        thinking_core: '#f0b26b',
+        speaking: '#7bffa8',
+        listening: '#5fe3f5',
+        idle: '#5fe3f5',
+    },
 };
 
 /*
@@ -97,6 +112,23 @@ async function pollWork() {
 
 setInterval(pollWork, WORK_INTERVAL);
 pollWork();
+
+async function pollLook() {
+    if (document.hidden) return;
+
+    try {
+        const look = await fetch('/api/appearance').then((r) => r.json());
+
+        if (look && look.idle) signals.look = look;
+    } catch {
+        // Keeping the colours it already has is the right failure here.
+    }
+}
+
+// Slowly: this changes when somebody asks for it to, which is rare, but it has
+// to change without a restart or asking would not feel like doing.
+setInterval(pollLook, 2000);
+pollLook();
 
 /** Called every frame by whichever scene is running. */
 export function easeSignals(delta) {

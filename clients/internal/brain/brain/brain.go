@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"pn-brain/internal/brain/agent"
+	"pn-brain/internal/brain/appearance"
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/llm"
@@ -28,6 +29,9 @@ type Brain struct {
 	DB     *store.DB
 	Router *llm.Router
 	Cfg    config.Config
+
+	// Look is what the core is coloured with, changeable by asking.
+	Look *appearance.Store
 
 	// ollama is kept so the chat model can be changed without a restart. The
 	// choice of model is a decision somebody makes while using the brain,
@@ -56,6 +60,10 @@ type Brain struct {
 func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logger) *Brain {
 	mode := llm.ParseMode(cfg.Privacy)
 
+	// What the interface looks like, so that being asked to change it is
+	// something the brain can do rather than something it agrees to.
+	look := appearance.Open(root)
+
 	ollama := llm.NewOllama(cfg.OllamaURL, cfg.OllamaModel, cfg.EmbedModel)
 
 	providers := []llm.Provider{ollama}
@@ -68,6 +76,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	}
 
 	b := &Brain{
+		Look:   look,
 		ollama: ollama,
 		DB:     db,
 		Router: llm.NewRouter(mode, cfg.DefaultProvider, providers...),
@@ -79,6 +88,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	}
 
 	available := []tools.Tool{
+		tools.SetAppearance{Look: look},
 		tools.ReadFile{},
 		tools.ListDirectory{},
 		tools.WriteFile{},

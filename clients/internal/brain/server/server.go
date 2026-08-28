@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"pn-brain/internal/brain/appearance"
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/models"
@@ -60,6 +61,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/progress", s.handleProgress)
 	s.mux.HandleFunc("GET /api/models", s.handleModels)
 	s.mux.HandleFunc("GET /api/updates", s.handleUpdates)
+	s.mux.HandleFunc("GET /api/appearance", s.handleAppearance)
+	s.mux.HandleFunc("POST /api/appearance", s.handleSetAppearance)
 	s.mux.HandleFunc("POST /api/models/measure", s.handleModelMeasure)
 	s.mux.HandleFunc("POST /api/models/use", s.handleModelUse)
 	s.mux.HandleFunc("POST /api/models/pull", s.handleModelPull)
@@ -736,6 +739,53 @@ func (s *Server) handleEmbeddingUse(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	ok(w, map[string]any{"started": body.Name})
+}
+
+// handleAppearance reports what the core is coloured with.
+//
+// Polled by the page so a change asked for out loud shows up while the sentence
+// confirming it is still being spoken.
+func (s *Server) handleAppearance(w http.ResponseWriter, r *http.Request) {
+	if s.brain.Look == nil {
+		ok(w, appearance.Default())
+
+		return
+	}
+
+	ok(w, s.brain.Look.Current())
+}
+
+// handleSetAppearance changes a colour without going through the model.
+//
+// The same operation the tool performs, reachable directly. Asking out loud is
+// the point of the tool, but a minute of a local model thinking is a long way
+// to go to change a colour, and anything the brain can do to this program its
+// owner should be able to do without asking permission from it.
+func (s *Server) handleSetAppearance(w http.ResponseWriter, r *http.Request) {
+	if s.brain.Look == nil {
+		fail(w, http.StatusNotFound, "There is no interface to change.")
+
+		return
+	}
+
+	var body struct {
+		Part   string `json:"part"`
+		Colour string `json:"colour"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "Which part, and which colour?")
+
+		return
+	}
+
+	if _, err := s.brain.Look.Set(body.Part, body.Colour); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ok(w, s.brain.Look.Current())
 }
 
 // handleSearch looks through what the brain knows.

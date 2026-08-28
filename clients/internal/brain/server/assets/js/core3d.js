@@ -484,22 +484,28 @@ export function startCore() {
     scanner.rotation.x = Math.PI / 2;
     globe.add(scanner);
 
-    /** What each kind of work looks like. Colour carries the kind; the sweep
-     *  carries the fact that there is any. */
+    /*
+     * How fast the band sweeps for each kind of work.
+     *
+     * The colour is no longer in this table. It comes from the appearance
+     * setting, which its owner can change by asking — the whole reason that
+     * setting exists is that asking for it used to be answered with "Understood"
+     * and nothing else.
+     */
     const WORK = {
-        thinking: { colour: 0x8fe9f2, seconds: 2.6 },
-        tool: { colour: 0xf0b26b, seconds: 1.5 },
-        learning: { colour: 0xb39ddb, seconds: 2.0 },
-        model: { colour: 0x7bc47f, seconds: 3.2 },
-        embedding: { colour: 0xb39ddb, seconds: 2.0 },
-        waiting: { colour: 0xf0b26b, seconds: 4.0 },
+        thinking: 2.6,
+        tool: 1.5,
+        learning: 2.0,
+        model: 3.2,
+        embedding: 2.0,
+        waiting: 4.0,
     };
 
     let sweep = 0;
 
     function updateScanner(delta, now) {
         const work = signals.work || {};
-        const style = WORK[work.kind] || WORK.thinking;
+        const seconds = WORK[work.kind] || WORK.thinking;
 
         if (!work.busy) {
             // Fades rather than switching off, so the end of a turn is a
@@ -510,7 +516,7 @@ export function startCore() {
             return;
         }
 
-        sweep = (sweep + delta / style.seconds) % 1;
+        sweep = (sweep + delta / seconds) % 1;
 
         // Pole to pole. The band is widest at the equator because that is what
         // a circle on a sphere does, which is also what makes it read as
@@ -520,7 +526,7 @@ export function startCore() {
 
         scanner.position.y = y * RADIUS;
         scanner.scale.set(radius, radius, 1);
-        scanner.material.color.setHex(style.colour);
+        scanner.material.color.set(signals.look.thinking_line);
 
         // Brightest crossing the middle, faint at the poles, so the sweep has a
         // shape rather than a hard start and stop.
@@ -609,12 +615,21 @@ export function startCore() {
 
         // Brightness from sound that is really there, lifted while working so
         // the whole body reads as busy and not only the band crossing it.
-        const busy = signals.work && signals.work.busy ? 0.5 : 0;
+        const working = signals.work && signals.work.busy;
+        const busy = working ? 0.5 : 0;
         const lit = 0.7 + signals.smooth * 2.2 + signals.recall * 0.8 + busy;
-        const speaking = signals.state === 'speaking';
-        const tint = speaking
-            ? new THREE.Color(0.45, 1, 0.62)
-            : new THREE.Color(0.55, 0.9, 1);
+
+        /*
+         * What the sphere is coloured, in the order that answers "what is it
+         * doing" soonest. Working comes first: a turn that is thinking while
+         * the microphone happens to be open is thinking, and that is the thing
+         * worth saying.
+         */
+        const tint = new THREE.Color(
+            working ? signals.look.thinking_core
+                : signals.state === 'speaking' ? signals.look.speaking
+                    : signals.state === 'listening' ? signals.look.listening
+                        : signals.look.idle);
 
         surfaceMaterial.uniforms.tint.value.copy(tint);
         surfaceMaterial.uniforms.lit.value = Math.min(1.55, lit);
