@@ -523,7 +523,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	 * with it — a television, somebody else talking, or its own voice coming
 	 * back off the speakers. Every one of those used to become a turn.
 	 */
-	addressed := wake.Listen(heard.Text, s.brain.Cfg.Name, body.Engaged)
+	addressed := wake.Listen(heard.Text, s.brain.Cfg.WakeWord, body.Engaged)
 
 	ok(w, map[string]any{
 		"transcript": addressed.Text,
@@ -531,7 +531,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		"addressed":  addressed.Addressed,
 		"advice":     heard.Advice,
 		"level":      heard.Level,
-		"name":       s.brain.Cfg.Name,
+		"name":       s.brain.Cfg.WakeWord,
 	})
 }
 

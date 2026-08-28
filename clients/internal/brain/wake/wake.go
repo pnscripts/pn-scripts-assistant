@@ -25,8 +25,19 @@ type Heard struct {
 
 // Listen decides whether a transcript was meant for the brain.
 //
+// An empty name means everything is. That is the default, and it is the default
+// because requiring the name was tried and got in the way: transcription has to
+// get the name right before anything can match it, and a name that is an
+// abbreviation — or spoken in one language while the transcript is being made
+// in another — is exactly the kind of thing it gets wrong. The result is an
+// assistant that ignores its owner, which is a far worse failure than one that
+// occasionally answers the television.
+//
+// The capability is kept rather than deleted, because the reason for wanting it
+// was sound. It is switched on by naming a word to listen for.
+//
 // engaged is whether it is already in a conversation, in which case anything
-// said counts. Otherwise the name has to appear.
+// said counts.
 func Listen(transcript, name string, engaged bool) Heard {
 	text := strings.TrimSpace(transcript)
 
@@ -34,7 +45,7 @@ func Listen(transcript, name string, engaged bool) Heard {
 		return Heard{}
 	}
 
-	if engaged {
+	if strings.TrimSpace(name) == "" || engaged {
 		return Heard{Addressed: true, Text: text}
 	}
 

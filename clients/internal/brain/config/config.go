@@ -29,10 +29,16 @@ type Config struct {
 	// Models.
 	DefaultProvider string
 	OllamaURL       string
-	OllamaModel     string
-	EmbedModel      string
-	AnthropicKey    string
-	AnthropicModel  string
+	// WakeWord is what has to be said before the brain answers, or empty for
+	// it to answer anything it hears. Empty by default: requiring a name means
+	// transcription has to get that name right first, and when it does not the
+	// assistant simply ignores its owner.
+	WakeWord string
+
+	OllamaModel    string
+	EmbedModel     string
+	AnthropicKey   string
+	AnthropicModel string
 
 	// Voice is which installed voice reads answers aloud, by id. Empty means
 	// whichever the machine offers first.
@@ -77,6 +83,7 @@ func Default() Config {
 		Privacy:         "private",
 		DefaultProvider: "ollama",
 		OllamaURL:       "http://127.0.0.1:11434",
+		WakeWord:        "",
 		OllamaModel:     "qwen2.5-coder:7b",
 		EmbedModel:      "nomic-embed-text",
 		AnthropicModel:  "",
@@ -119,6 +126,7 @@ func Load(root string) (Config, error) {
 	assign(&cfg.Privacy, "BRAIN_PRIVACY")
 	assign(&cfg.DefaultProvider, "LLM_DEFAULT_PROVIDER")
 	assign(&cfg.OllamaURL, "OLLAMA_BASE_URL")
+	assign(&cfg.WakeWord, "BRAIN_WAKE_WORD")
 	assign(&cfg.OllamaModel, "OLLAMA_DEFAULT_MODEL")
 	assign(&cfg.EmbedModel, "EMBEDDING_MODEL")
 	assign(&cfg.AnthropicKey, "ANTHROPIC_API_KEY")
@@ -159,6 +167,10 @@ func (c Config) Save(root string) error {
 	b.WriteString("BRAIN_OWNER=" + c.Owner + "\n\n")
 	b.WriteString("# private | research | open   (anything unrecognised is treated as private)\n")
 	b.WriteString("BRAIN_PRIVACY=" + c.Privacy + "\n\n")
+	b.WriteString("# A word that must be said before it answers. Empty means it answers\n")
+	b.WriteString("# anything it hears, which is the default: requiring a name means\n")
+	b.WriteString("# transcription has to get that name right before anything can match.\n")
+	b.WriteString("BRAIN_WAKE_WORD=" + c.WakeWord + "\n\n")
 	b.WriteString("LLM_DEFAULT_PROVIDER=" + c.DefaultProvider + "\n")
 	b.WriteString("OLLAMA_BASE_URL=" + c.OllamaURL + "\n")
 	b.WriteString("OLLAMA_DEFAULT_MODEL=" + c.OllamaModel + "\n")

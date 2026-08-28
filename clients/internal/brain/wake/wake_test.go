@@ -2,6 +2,26 @@ package wake
 
 import "testing"
 
+// With no word set, everything said is for the brain.
+//
+// This is the default and the important case: requiring a name was tried and
+// got in the way, because transcription has to get the name right before
+// anything can match it — and an assistant that ignores its owner is a far
+// worse failure than one that occasionally answers the television.
+func TestWithNoWordItAnswersAnything(t *testing.T) {
+	for _, said := range []string{
+		"what do you know about me",
+		"so then I told him it was fine",
+		"здравей, какво знаеш за мен",
+	} {
+		heard := Listen(said, "", false)
+
+		if !heard.Addressed || heard.Text != said {
+			t.Errorf("%q gave %+v, want it passed through", said, heard)
+		}
+	}
+}
+
 // The name gets its attention, and what follows is the request.
 func TestBeingAddressed(t *testing.T) {
 	cases := []struct {
