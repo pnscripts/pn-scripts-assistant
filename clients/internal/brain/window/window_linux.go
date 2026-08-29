@@ -65,6 +65,18 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
 
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), title);
+
+    // The icon the switcher and the dock show. Loaded from the AppImage's own
+    // directory when there is one, so a packaged build carries its mark and a
+    // build from source simply goes without rather than failing.
+    const char *appdir = g_getenv("APPDIR");
+
+    if (appdir != NULL) {
+        char *icon = g_build_filename(appdir, "pn-brain.png", NULL);
+
+        gtk_window_set_icon_from_file(GTK_WINDOW(window), icon, NULL);
+        g_free(icon);
+    }
     gtk_window_set_default_size(GTK_WINDOW(window), width, height);
     g_signal_connect(window, "destroy", G_CALLBACK(pnbrain_on_destroy), NULL);
 

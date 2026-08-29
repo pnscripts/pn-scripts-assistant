@@ -11,6 +11,17 @@
  * So the test is run here, against the machine it will actually run on, and the
  * result is shown rather than a claim about the model.
  */
+/*
+ * Wrapped, because the plain scripts share one global scope.
+ *
+ * Names like list, note and render are the obvious ones to reach for in a file
+ * that fills a panel, and two files reaching for the same one is a SyntaxError
+ * — which does not fail the line, it fails the whole file. This one was dead
+ * for that reason, and nothing on screen said so: the panel simply stayed
+ * empty, which looks like having no data rather than like a broken script.
+ */
+(function () {
+
 
 const list = document.getElementById('models-list');
 const note = document.getElementById('models-note');
@@ -130,3 +141,5 @@ async function choose(name) {
 document.querySelector('.nav-item[data-view="models"]')?.addEventListener('click', load);
 
 load();
+
+})();

@@ -81,18 +81,21 @@ cp "$APPDIR/pn-brain.desktop" "$APPDIR/usr/share/applications/"
 
 # An AppImage without an icon shows as a blank square in every launcher and
 # looks broken before it has run.
-if command -v convert >/dev/null 2>&1; then
-    convert -size 256x256 xc:'#070a0f' \
-        -fill '#4dd0e1' -draw "circle 128,128 128,58" \
-        -fill '#070a0f' -draw "circle 128,128 128,84" \
-        "$APPDIR/pn-brain.png" 2>/dev/null || true
-fi
-
-if [ ! -f "$APPDIR/pn-brain.png" ]; then
+#
+# The real one is committed rather than generated here, because it is the mark
+# the interface wears and the two should not be able to drift apart. It is drawn
+# by scripts/make-icon.py, from the same geometry the core is built from, so
+# regenerating it is a deliberate act rather than a side effect of packaging.
+if [ -f "$PROJECT_ROOT/assets/pn-brain.png" ]; then
+    cp "$PROJECT_ROOT/assets/pn-brain.png" "$APPDIR/pn-brain.png"
+else
+    warn "No icon at assets/pn-brain.png; the launcher will show a blank square"
     printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82' \
         > "$APPDIR/pn-brain.png"
 fi
+
 cp "$APPDIR/pn-brain.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/" 2>/dev/null || true
+install -D -m 644 "$APPDIR/pn-brain.png" "$APPDIR/usr/share/icons/hicolor/512x512/apps/pn-brain.png" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # AppRun: what happens on a double click

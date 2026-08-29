@@ -426,10 +426,19 @@ export function startCore() {
          * Working first: a turn that is thinking while the microphone happens
          * to be open is thinking, and that is the thing worth saying.
          */
+        /*
+         * Four states, in the order that answers soonest.
+         *
+         * Working first: a turn that is thinking while the microphone happens
+         * to be open is thinking, and that is the thing worth saying. Then its
+         * own voice, then yours, then rest.
+         */
         const tint = new THREE.Color(
             working ? signals.look.thinking_core
                 : signals.state === 'speaking' ? signals.look.speaking
-                    : signals.look.idle);
+                    : signals.state === 'listening' && signals.smooth > 0.02
+                        ? signals.look.listening
+                        : signals.look.idle);
 
         irisMaterial.uniforms.tint.value.copy(tint);
         irisMaterial.uniforms.lit.value = Math.min(1.7, lit);

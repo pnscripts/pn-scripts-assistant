@@ -29,6 +29,11 @@ type Config struct {
 	// Models.
 	DefaultProvider string
 	OllamaURL       string
+	// New is true when there was no settings file to read: nobody has set this
+	// brain up yet. The interface uses it to ask for a name once, rather than
+	// silently calling itself whatever the default happens to be.
+	New bool
+
 	// WakeWord is what has to be said before the brain answers, or empty for
 	// it to answer anything it hears. Empty by default: requiring a name means
 	// transcription has to get that name right first, and when it does not the
@@ -100,7 +105,13 @@ func Default() Config {
 func Load(root string) (Config, error) {
 	cfg := Default()
 
-	values, err := readFile(filepath.Join(root, FileName))
+	path := filepath.Join(root, FileName)
+
+	if _, err := os.Stat(path); err != nil {
+		cfg.New = true
+	}
+
+	values, err := readFile(path)
 	if err != nil {
 		return cfg, err
 	}

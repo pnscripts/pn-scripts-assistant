@@ -63,6 +63,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/models", s.handleModels)
 	s.mux.HandleFunc("GET /api/updates", s.handleUpdates)
 	s.mux.HandleFunc("GET /api/appearance", s.handleAppearance)
+	s.mux.HandleFunc("POST /api/settings", s.handleSettings)
 	s.mux.HandleFunc("POST /api/appearance", s.handleSetAppearance)
 	s.mux.HandleFunc("POST /api/models/measure", s.handleModelMeasure)
 	s.mux.HandleFunc("POST /api/models/use", s.handleModelUse)
@@ -205,6 +206,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		// which word — otherwise somebody whose word is not being transcribed
 		// has no way to find out why nothing is happening.
 		"wake_word":    s.brain.Cfg.WakeWord,
+		"first_run":    s.brain.Cfg.New,
 		"provider":     s.brain.Cfg.DefaultProvider,
 		"model":        s.brain.Cfg.OllamaModel,
 		"privacy":      s.brain.Mode.Describe(),
@@ -817,6 +819,69 @@ func (s *Server) handleSetAppearance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, s.brain.Look.Current())
+}
+
+// handleSettings changes what the brain is called and how it behaves.
+//
+// The same things the brain can change when asked, reachable directly — because
+// a minute of a local model thinking is a long way to go to rename something,
+// and anything the brain can do to this program its owner should be able to do
+// without asking it.
+//
+// Only the fields present in the request are touched, so a form that knows
+// about three settings cannot blank a fourth it has never heard of.
+func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name     *string `json:"name"`
+		Owner    *string `json:"owner"`
+		WakeWord *string `json:"wake_word"`
+		Privacy  *string `json:"privacy"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "Those are not settings.")
+
+		return
+	}
+
+	if body.Name != nil {
+		if name := strings.TrimSpace(*body.Name); name != "" {
+			s.brain.Cfg.Name = name
+		}
+	}
+
+	if body.Owner != nil {
+		if owner := strings.TrimSpace(*body.Owner); owner != "" {
+			s.brain.Cfg.Owner = owner
+		}
+	}
+
+	if body.WakeWord != nil {
+		s.brain.Cfg.WakeWord = strings.TrimSpace(*body.WakeWord)
+	}
+
+	if body.Privacy != nil {
+		if mode := strings.TrimSpace(*body.Privacy); mode != "" {
+			s.brain.Cfg.Privacy = mode
+		}
+	}
+
+	// Saved as soon as it is set, and the file existing is what stops the
+	// interface asking to be introduced a second time.
+	s.brain.Cfg.New = false
+
+	if err := s.brain.Cfg.Save(s.brain.Root); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{
+		"name":      s.brain.Cfg.Name,
+		"owner":     s.brain.Cfg.Owner,
+		"wake_word": s.brain.Cfg.WakeWord,
+		"privacy":   s.brain.Cfg.Privacy,
+	})
 }
 
 // handleSearch looks through what the brain knows.

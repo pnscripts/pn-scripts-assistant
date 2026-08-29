@@ -39,14 +39,23 @@ type Look struct {
 }
 
 // Default is what it looks like before anybody asks for anything else.
+// Default is what it looks like before anybody asks for anything else.
+//
+// Four states, four colours, chosen to be told apart at a glance rather than to
+// sit nicely together: resting, hearing you, thinking, and speaking. A palette
+// where two states are neighbouring blues is a palette that answers "what is it
+// doing" with "something".
 func Default() Look {
 	return Look{
 		ThinkingLine: "#7bffa8",
+		// Working.
 		ThinkingCore: "#f0b26b",
-		Speaking:     "#7bffa8",
-		Listening:    "#ff5a28",
-		// The colour it rests in, taken from the film the form is taken from.
-		Idle: "#ff5a28",
+		// Its own voice.
+		Speaking: "#7bffa8",
+		// Yours.
+		Listening: "#c98bff",
+		// At rest.
+		Idle: "#3d8ce8",
 	}
 }
 
