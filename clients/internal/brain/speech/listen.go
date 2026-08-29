@@ -320,6 +320,21 @@ type Heard struct {
 	// Advice is empty when something was understood. Otherwise it says which
 	// kind of nothing happened.
 	Advice string `json:"advice,omitempty"`
+
+	/*
+	 * What the detector actually measured.
+	 *
+	 * Carried out of here because "I said its name and nothing happened" has
+	 * several completely different causes that look identical from the
+	 * outside: the room never crossed the threshold, or it did and the
+	 * transcript came back empty, or it came back as a different word. Without
+	 * these numbers all three are the same silence.
+	 */
+	HeardSpeech bool `json:"heard_speech"`
+	PeakRMS     int  `json:"peak_rms"`
+	NoiseFloor  int  `json:"noise_floor"`
+	Threshold   int  `json:"threshold"`
+	SpokeForMS  int  `json:"spoke_for_ms"`
 }
 
 // Listen records from a microphone and returns what was said.

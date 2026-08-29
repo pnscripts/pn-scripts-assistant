@@ -192,8 +192,127 @@ if (naming) {
     });
 }
 
-document.querySelector('.nav-item[data-view="system"]')?.addEventListener('click', load);
+
+/*
+ * What the microphone made of the room, and what became of it.
+ *
+ * This panel exists because of a specific afternoon: the brain stopped
+ * answering to its name and there was no way, from inside the program, to find
+ * out why. Four different faults look identical from a chair — the room never
+ * crossed the threshold, it crossed and no words came back, words came back
+ * without the name in them, or the name was there under a spelling nobody
+ * expected. The transcript and three numbers tell them apart immediately.
+ *
+ * It was the fourth: a microphone that writes "PN Brain" down as "Piembring".
+ * Which is why each line offers to add what it heard to the list of names —
+ * the fix for that is a word, and it should not require knowing where the
+ * settings file lives.
+ */
+async function loadHeard() {
+    const rows = el('heard-rows');
+
+    if (!rows) return;
+
+    let data;
+
+    try {
+        data = await api.get('/api/heard');
+    } catch {
+        return;
+    }
+
+    rows.innerHTML = '';
+
+    const note = el('heard-note');
+
+    if (!data.turns || !data.turns.length) {
+        if (note) {
+            note.textContent = data.wake_word
+                ? `Nothing heard yet. It is listening for \u201c${data.wake_word}\u201d.`
+                : 'Nothing heard yet.';
+        }
+
+        return;
+    }
+
+    if (note) {
+        note.textContent = `It answers to: ${(data.names || []).join(', ') || 'anything'}`;
+    }
+
+    for (const turn of data.turns) {
+        const row = document.createElement('div');
+        row.className = `row heard-row${turn.addressed ? ' is-addressed' : ''}`;
+
+        const when = new Date(turn.at).toLocaleTimeString();
+        const said = (turn.text || '').trim();
+
+        const what = document.createElement('div');
+        what.className = 'heard-what';
+        what.textContent = said ? `\u201c${said}\u201d` : '(no words)';
+
+        const why = document.createElement('div');
+        why.className = 'heard-why';
+        why.textContent = `${when} \u00b7 ${turn.why} \u00b7 loudest ${turn.peak_rms}, `
+            + `room ${turn.noise_floor}, needed ${turn.threshold}`;
+
+        const text = document.createElement('div');
+        text.appendChild(what);
+        text.appendChild(why);
+        row.appendChild(text);
+
+        /*
+         * One word is the whole fix, when the fix is a mishearing.
+         *
+         * Offered only for a line that has words in it and was not acted on:
+         * adding a name it already answers to would do nothing, and adding
+         * silence would break it.
+         */
+        if (said && !turn.addressed) {
+            const first = said.split(/[\s,.!?]+/)[0];
+
+            if (first) {
+                const add = document.createElement('button');
+                add.type = 'button';
+                add.className = 'model-action';
+                add.textContent = `Also answer to \u201c${first}\u201d`;
+                add.addEventListener('click', async () => {
+                    add.disabled = true;
+
+                    const now = el('set-wake').value.trim();
+
+                    try {
+                        await api.post('/api/settings', {
+                            wake_word: now ? `${now}, ${first}` : first,
+                        });
+                        await load();
+                        await loadHeard();
+                    } catch (err) {
+                        add.disabled = false;
+                        add.textContent = String(err.message || err);
+                    }
+                });
+                row.appendChild(add);
+            }
+        }
+
+        rows.appendChild(row);
+    }
+}
+
+document.querySelector('.nav-item[data-view="system"]')?.addEventListener('click', () => {
+    load();
+    loadHeard();
+});
+
+// Refreshed while the panel is open, because the whole point is watching what
+// happens when somebody says the name.
+setInterval(() => {
+    const view = document.querySelector('.view[data-view="system"]');
+
+    if (view && !view.hidden) loadHeard();
+}, 3000);
 
 load();
+loadHeard();
 
 })();

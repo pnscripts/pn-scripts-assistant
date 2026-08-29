@@ -36,6 +36,10 @@ type Server struct {
 	log    *slog.Logger
 	mux    *http.ServeMux
 	assets http.Handler
+
+	// What the microphone has recently made of the room, so that a turn which
+	// went nowhere can be looked at instead of guessed about.
+	heard heardLog
 }
 
 // New builds the server and registers its routes.
@@ -44,6 +48,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 
 	s.mux.HandleFunc("POST /api/chat", s.handleChat)
 	s.mux.HandleFunc("GET /api/status", s.handleStatus)
+	s.mux.HandleFunc("GET /api/heard", s.handleHeard)
 	s.mux.HandleFunc("GET /api/memory-map", s.handleMemoryMap)
 	s.mux.HandleFunc("GET /api/knowledge", s.handleKnowledge)
 	s.mux.HandleFunc("GET /api/activity", s.handleActivity)
@@ -543,14 +548,43 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	ends := body.Engaged && strings.TrimSpace(s.brain.Cfg.WakeWord) != "" &&
 		wake.Ends(heard.Text)
 
+	acted := addressed.Addressed && !ends
+
+	turn := Overheard{
+		At:          time.Now(),
+		Text:        heard.Text,
+		Addressed:   acted,
+		HeardSpeech: heard.HeardSpeech,
+		PeakRMS:     heard.PeakRMS,
+		NoiseFloor:  heard.NoiseFloor,
+		Threshold:   heard.Threshold,
+		SpokeForMS:  heard.SpokeForMS,
+	}
+
+	turn.Why = why(turn, acted, strings.TrimSpace(s.brain.Cfg.WakeWord))
+	s.heard.add(turn)
+
 	ok(w, map[string]any{
 		"transcript": addressed.Text,
 		"heard":      heard.Text,
-		"addressed":  addressed.Addressed && !ends,
+		"addressed":  acted,
 		"ends":       ends,
 		"advice":     heard.Advice,
 		"level":      heard.Level,
 		"name":       s.brain.Cfg.WakeWord,
+	})
+}
+
+// handleHeard reports what the microphone recently made of the room.
+//
+// The answer to "I said its name and nothing happened", which is otherwise
+// unanswerable: the transcript and the levels say which of the several
+// different silences it was.
+func (s *Server) handleHeard(w http.ResponseWriter, r *http.Request) {
+	ok(w, map[string]any{
+		"turns":     s.heard.recent(),
+		"wake_word": s.brain.Cfg.WakeWord,
+		"names":     wake.Names(s.brain.Cfg.WakeWord),
 	})
 }
 

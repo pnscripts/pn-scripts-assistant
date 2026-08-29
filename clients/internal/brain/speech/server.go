@@ -225,14 +225,30 @@ func ListenForTurn(ctx context.Context, device string) (Heard, error) {
 		return Heard{}, err
 	}
 
+	// What the detector measured, on every path out of here, so that a turn
+	// that heard nothing is as legible as one that did.
+	measured := Heard{
+		Level:       level,
+		HeardSpeech: turn.HeardSpeech,
+		PeakRMS:     turn.PeakRMS,
+		NoiseFloor:  turn.NoiseFloor,
+		Threshold:   turn.Threshold,
+		SpokeForMS:  int(turn.SpokeFor / time.Millisecond),
+	}
+
 	if !turn.HeardSpeech {
-		return Heard{Level: level, Advice: Explain(level, "")}, nil
+		measured.Advice = Explain(level, "")
+
+		return measured, nil
 	}
 
 	text, err := TranscribeFast(ctx, path)
 	if err != nil {
-		return Heard{Level: level}, err
+		return measured, err
 	}
 
-	return Heard{Text: text, Level: level, Advice: Explain(level, text)}, nil
+	measured.Text = text
+	measured.Advice = Explain(level, text)
+
+	return measured, nil
 }

@@ -70,9 +70,36 @@ const (
 	// hiss registers as talking.
 	MinSpeechFloor = 500
 
-	// CalibrationFrames is how many frames after the warm-up establish the
-	// floor. Half a second of the room before anybody speaks.
+	// CalibrationFrames is how many frames must be in hand before the loop is
+	// willing to decide anything. Half a second.
 	CalibrationFrames = 5
+
+	/*
+	 * FloorWindow and FloorPercentile are how the room is measured.
+	 *
+	 * Not from the first half-second, which is what this used to do and which
+	 * fails in the one case that matters: somebody who says the name the moment
+	 * the microphone opens. Their voice becomes the measurement, the bar is set
+	 * three and a half times above their own speech, and nothing they say for
+	 * the rest of the turn can ever clear it. Measured in the room this was
+	 * written in: floor 1917, threshold 6709, peak 3741 — a turn that heard a
+	 * person perfectly well and reported hearing nothing.
+	 *
+	 * Taking one of the quietest frames of a rolling window cannot fail that
+	 * way. Speech is not continuous — there are gaps between words, between
+	 * sentences, and to breathe — so the quiet handful of the last few seconds
+	 * is the room, whether or not anybody was talking when the microphone
+	 * opened. It also recovers on its own: the estimate falls as soon as the
+	 * gaps arrive, instead of being fixed for the turn by whatever the first
+	 * half-second happened to contain.
+	 *
+	 * A count rather than a proportion, because a proportion has to assume how
+	 * much of the window is speech and is wrong whenever somebody talks more
+	 * densely than assumed. This only needs the room to be audible three times
+	 * in four seconds, which is a weaker thing to require.
+	 */
+	FloorWindow = 40
+	FloorQuiet  = 3
 )
 
 // Turn is what one spoken turn amounted to.
@@ -153,9 +180,19 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 		quietSince  time.Time
 		started     = time.Now()
 
-		floorSamples []int
-		threshold    = math.MaxInt
+		recent    []int
+		threshold = math.MaxInt
+
+		// The quietest this turn ever found the room, for the next turn to
+		// start from.
+		lowestSeen = math.MaxInt
 	)
+
+	defer func() {
+		if lowestSeen != math.MaxInt {
+			rememberRoom(lowestSeen)
+		}
+	}()
 
 	ticker := time.NewTicker(FrameDuration)
 	defer ticker.Stop()
@@ -183,6 +220,22 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 		}
 
 		rms, next := frameRMS(path, offset)
+
+		/*
+		 * Every frame, when asked for.
+		 *
+		 * Off unless the variable is set. It is here because the fault that
+		 * made the brain stop answering to its name could not be found from
+		 * outside this loop: the room was being measured from somebody's own
+		 * voice, and from a chair that is indistinguishable from a microphone
+		 * that is not working. Frame level and frame size told the difference
+		 * in one run, after two wrong guesses.
+		 */
+		if os.Getenv("PN_BRAIN_VAD_TRACE") != "" {
+			fmt.Fprintf(os.Stderr, "TRACE rms=%d bytes=%d since=%dms\n",
+				rms, next-offset, time.Since(started)/time.Millisecond)
+		}
+
 		offset = next
 
 		// The interface shows this, so it is published every frame including
@@ -218,7 +271,7 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 		// high and the user would then have to shout to be heard.
 		if Speaking() {
 			started = time.Now()
-			floorSamples = floorSamples[:0]
+			recent = recent[:0]
 			threshold = math.MaxInt
 
 			continue
@@ -230,18 +283,33 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 			continue
 		}
 
-		// Listen to the room before deciding what counts as louder than it.
-		if len(floorSamples) < CalibrationFrames {
-			floorSamples = append(floorSamples, rms)
+		/*
+		 * The room, measured continuously rather than once.
+		 *
+		 * Every frame goes into the window, including the loud ones: it is a
+		 * percentile, so speech raises it only when speech is nearly all there
+		 * is, and the gaps between words pull it back down within a second.
+		 */
+		recent = append(recent, rms)
 
-			if len(floorSamples) == CalibrationFrames {
-				threshold = speechThreshold(floorSamples)
-				turn.NoiseFloor = median(floorSamples)
-				turn.Threshold = threshold
-			}
+		if len(recent) > FloorWindow {
+			recent = recent[len(recent)-FloorWindow:]
+		}
 
+		// Nothing decided until there is enough of the room to judge by.
+		if len(recent) < CalibrationFrames {
 			continue
 		}
+
+		seen := quietest(recent, FloorQuiet)
+
+		if seen < lowestSeen {
+			lowestSeen = seen
+		}
+
+		turn.NoiseFloor = roomFloor(seen)
+		threshold = speechThreshold(turn.NoiseFloor)
+		turn.Threshold = threshold
 
 		if rms > turn.PeakRMS {
 			turn.PeakRMS = rms
@@ -341,14 +409,103 @@ func frameRMS(path string, offset int64) (int, int64) {
 }
 
 // speechThreshold decides what counts as louder than the room.
-func speechThreshold(floor []int) int {
-	level := int(float64(median(floor)) * NoiseMargin)
+func speechThreshold(floor int) int {
+	level := int(float64(floor) * NoiseMargin)
 
 	if level < MinSpeechFloor {
 		return MinSpeechFloor
 	}
 
 	return level
+}
+
+/*
+ * What this room measured last time anybody listened to it.
+ *
+ * A turn lasts eight seconds and the window is four, so somebody who talks
+ * without a real gap for the whole of it leaves nothing quiet to measure, and
+ * the estimate becomes their own voice again — rarer than measuring only the
+ * first half second, but the same fault. The room, though, is the same room it
+ * was ten seconds ago. Keeping the last good measurement means a turn that
+ * cannot see the room can still use it.
+ *
+ * Updated once per turn rather than per frame. Per frame was the first attempt
+ * and it does nothing: the loop calls this ten times a second, so any gradual
+ * approach to a loud reading arrives within a second and the bar goes up while
+ * the person is still talking.
+ */
+var remembered struct {
+	mu    sync.Mutex
+	floor int
+}
+
+// roomFloor is what to treat as the room, given what this turn can see of it.
+//
+// The lower of the two, because a quieter reading is always evidence: either
+// the room is quieter than the last turn found, or this turn is looking at a
+// gap the last one did not have.
+func roomFloor(seen int) int {
+	remembered.mu.Lock()
+	defer remembered.mu.Unlock()
+
+	if remembered.floor == 0 || seen < remembered.floor {
+		return seen
+	}
+
+	return remembered.floor
+}
+
+// rememberRoom records what a finished turn found, for the next one to start
+// from.
+//
+// Falls at once and rises by a quarter at most, so a room that has genuinely
+// got louder is followed within a few turns while a single turn of wall-to-wall
+// speech cannot raise the bar above the person speaking.
+func rememberRoom(lowest int) {
+	if lowest <= 0 {
+		return
+	}
+
+	remembered.mu.Lock()
+	defer remembered.mu.Unlock()
+
+	switch {
+	case remembered.floor == 0 || lowest < remembered.floor:
+		remembered.floor = lowest
+	default:
+		if ceiling := remembered.floor * 5 / 4; lowest > ceiling {
+			remembered.floor = ceiling
+		} else {
+			remembered.floor = lowest
+		}
+	}
+}
+
+// quietest returns the nth lowest reading, which is this room with nobody
+// talking over it.
+//
+// Not the lowest: a single dropped frame reads as near silence, and taking it
+// would put the bar on the floor and make every rustle a sentence. The third
+// quietest needs three of them to agree.
+func quietest(values []int, nth int) int {
+	if len(values) == 0 {
+		return 0
+	}
+
+	sorted := append([]int(nil), values...)
+	sort.Ints(sorted)
+
+	at := nth - 1
+
+	if at >= len(sorted) {
+		at = len(sorted) - 1
+	}
+
+	if at < 0 {
+		at = 0
+	}
+
+	return sorted[at]
 }
 
 // median is used rather than a mean so one stray click during calibration does
