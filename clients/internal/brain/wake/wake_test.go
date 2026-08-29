@@ -230,3 +230,46 @@ func TestSayingThatIsAll(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * A name that is not written in the Latin alphabet.
+ *
+ * The spoken language here can be Bulgarian, in which case the transcript
+ * comes back in Cyrillic and so does the name. Nothing in the matching is
+ * allowed to assume otherwise — the letters are compared as runes and case is
+ * folded by the standard library, which handles both alphabets.
+ *
+ * Written down because the way this breaks is somebody making normalise cheaper
+ * by walking bytes or restricting it to a-z, which passes every other test in
+ * this file and leaves a Bulgarian speaker with a brain that never answers.
+ */
+func TestANameInAnotherAlphabet(t *testing.T) {
+	const called = "PN Brain, Брейн, Мозък"
+
+	cases := []struct {
+		said string
+		want string
+	}{
+		{"Брейн, колко е часът", "колко е часът"},
+		{"колко е часът, Брейн", "колко е часът"},
+		{"Мозък запомни това", "запомни това"},
+	}
+
+	for _, c := range cases {
+		heard := Listen(c.said, called, false)
+
+		if !heard.Addressed {
+			t.Errorf("%q was not taken as addressed", c.said)
+
+			continue
+		}
+
+		if heard.Text != c.want {
+			t.Errorf("%q left %q, want %q", c.said, heard.Text, c.want)
+		}
+	}
+
+	if Listen("днес времето е хубаво", called, false).Addressed {
+		t.Error("it woke on a sentence that does not carry its name")
+	}
+}
