@@ -522,3 +522,76 @@ func TestAssetsHaveDistinctETags(t *testing.T) {
 		seen[tag] = path
 	}
 }
+
+/*
+ * Being asked for a name once, and then never again.
+ *
+ * The interface shows the naming overlay when the status says first_run, and
+ * the status says first_run when there was no settings file to read. The part
+ * worth pinning down is the end of it: Save has a value receiver, so it cannot
+ * clear the flag on the running config by itself. The handler has to, and if it
+ * ever stops, the overlay comes back on every reload — which reads as the brain
+ * having forgotten its own name, on a machine where forgetting nothing is the
+ * whole point.
+ */
+func TestFirstRunAsksForANameOnlyOnce(t *testing.T) {
+	ts, _, b := newServer(t)
+
+	b.Cfg.New = true
+
+	status := func() map[string]any {
+		t.Helper()
+
+		res, err := http.Get(ts.URL + "/api/status")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+
+		var out map[string]any
+		if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+
+		return out
+	}
+
+	if first, _ := status()["first_run"].(bool); !first {
+		t.Fatal("a brain with no settings file should ask to be introduced")
+	}
+
+	res, err := http.Post(ts.URL+"/api/settings", "application/json",
+		strings.NewReader(`{"name":"Ariel","owner":"Petar"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("naming it returned %d", res.StatusCode)
+	}
+
+	after := status()
+
+	if first, _ := after["first_run"].(bool); first {
+		t.Error("it asked to be introduced again after being given a name")
+	}
+
+	if name, _ := after["name"].(string); name != "Ariel" {
+		t.Errorf("it is called %q, not the name it was given", name)
+	}
+
+	// And on the next start, which is a fresh Load of the file just written.
+	reloaded, err := config.Load(b.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if reloaded.New {
+		t.Error("it would ask to be introduced again on the next start")
+	}
+
+	if reloaded.Name != "Ariel" {
+		t.Errorf("the name did not survive a restart: %q", reloaded.Name)
+	}
+}
