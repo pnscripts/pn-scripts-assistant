@@ -648,6 +648,23 @@ button.reject:hover { border-color: var(--danger); color: var(--danger); }
 .field { display: block; font-size: 11.5px; color: var(--text-dim); margin-bottom: 9px; }
 .field span { display: block; margin-bottom: 5px; }
 
+.voice-hint {
+    margin: 0 0 8px;
+    font-size: 10.5px;
+    line-height: 1.4;
+    text-align: center;
+    color: var(--text-faint);
+    min-height: 1.4em;
+}
+
+.field-note {
+    display: block;
+    margin-top: 5px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: var(--text-faint);
+}
+
 /*
  * appearance:none is not cosmetic here.
  *
@@ -873,6 +890,16 @@ textarea:focus {
     background: var(--text-faint);
     flex: none;
 }
+
+/*
+ * Waiting is not listening, and it should not look like it.
+ *
+ * Both have the microphone open, but waiting is hearing the room and throwing
+ * it away. Drawn quiet and unlit, so a glance says the brain is not hanging on
+ * the conversation happening in front of it.
+ */
+#talk[data-state="waiting"] { border-color: var(--line); color: var(--text-dim); }
+#talk[data-state="waiting"] .talk-dot { background: var(--text-faint); }
 
 #talk[data-state="listening"] { border-color: var(--accent); color: var(--accent); }
 

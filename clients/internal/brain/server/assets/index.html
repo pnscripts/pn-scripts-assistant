@@ -169,6 +169,13 @@
             <h2>Voice</h2>
             <canvas id="voicewave" class="voicewave" aria-hidden="true"></canvas>
             <p class="voice-state" id="voice-state">Idle</p>
+            <!--
+                Whose turn it is, under the microphone rather than over in the
+                engine panel where this used to be. A line telling somebody
+                which name to say is no use on the other side of the screen
+                from the button they are looking at.
+            -->
+            <p class="voice-hint" id="voice-status"></p>
             <button type="button" id="talk" hidden aria-pressed="false"
                     aria-label="Talk to the brain"
                     title="Talk instead of typing. It listens until you stop, answers aloud, and listens again.">
@@ -356,8 +363,12 @@
                             <input id="set-owner" type="text" autocomplete="off">
                         </label>
                         <label class="field">
-                            <span>Wake word — empty means it answers everything it hears</span>
+                            <span>What it answers to</span>
                             <input id="set-wake" type="text" autocomplete="off" placeholder="none">
+                            <small class="field-note">Separate several with commas. Add whatever
+                                the microphone actually writes down — if it hears “Brain” as
+                                “Bryan”, put Bryan here too. Empty means it answers everything
+                                it hears, which suits a headset and not a room.</small>
                         </label>
                         <label class="field">
                             <span>Privacy</span>
@@ -422,7 +433,6 @@
                 <span>Microphone</span>
                 <select id="microphone" aria-label="Microphone"></select>
             </label>
-            <p class="engine-meta" id="voice-status"></p>
             <p class="engine-meta" id="engine-meta">—</p>
         </section>
                 <div class="card">

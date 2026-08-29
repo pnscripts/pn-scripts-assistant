@@ -237,6 +237,11 @@
      * "what is happening now" is how they end up disagreeing.
      */
     const stateWords = {
+        // Waiting is the microphone being open and the room being discarded.
+        // It reads differently from Listening on purpose: the two look the
+        // same from outside, and only one of them means the brain is paying
+        // attention to you.
+        waiting: 'Waiting for its name',
         listening: 'Listening',
         thinking: 'Thinking',
         speaking: 'Speaking',

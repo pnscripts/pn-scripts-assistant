@@ -31,7 +31,7 @@ func TestBeingAddressed(t *testing.T) {
 		{"PN Brain, what time is it?", "what time is it?"},
 		{"Brain, what time is it?", "what time is it?"},
 		{"brain what do you know about me", "what do you know about me"},
-		{"Hey PN Brain — are you there", "— are you there"},
+		{"Hey PN Brain — are you there", "are you there"},
 		{"Brain", ""},
 	}
 
@@ -94,5 +94,139 @@ func TestASingleWordName(t *testing.T) {
 func TestSilenceIsNotAnAddress(t *testing.T) {
 	if Listen("   ", "PN Brain", false).Addressed {
 		t.Error("silence was taken as being addressed")
+	}
+}
+
+// The name is as often at the end of a sentence as the start.
+//
+// "What time is it, brain" used to be taken as addressed and then handed on
+// with nothing in it, because the name was found anywhere in the line but the
+// request was only ever read from after it. The brain woke up, said it was
+// listening, and threw the question away.
+func TestTheNameAtTheEnd(t *testing.T) {
+	cases := []struct {
+		said string
+		want string
+	}{
+		{"what time is it, brain", "what time is it"},
+		{"turn the lights off brain", "turn the lights off"},
+		{"brain what time is it", "what time is it"},
+		{"remember this, brain, it matters", "remember this, it matters"},
+	}
+
+	for _, c := range cases {
+		heard := Listen(c.said, "PN Brain", false)
+
+		if !heard.Addressed {
+			t.Errorf("%q was not taken as addressed", c.said)
+
+			continue
+		}
+
+		if heard.Text != c.want {
+			t.Errorf("%q left %q, want %q", c.said, heard.Text, c.want)
+		}
+	}
+}
+
+// A word that merely contains the name is not the name.
+//
+// The room is full of these. Matching letter-by-letter through the sentence had
+// a film saying "brains" wake a brain called Brain — and the whole point of
+// having a name is that the film does not get one.
+func TestAWordThatOnlyContainsTheName(t *testing.T) {
+	for _, said := range []string{
+		"brains are interesting",
+		"he was brainstorming all morning",
+		"the birdbrain flew off",
+	} {
+		if heard := Listen(said, "PN Brain", false); heard.Addressed {
+			t.Errorf("%q woke it", said)
+		}
+	}
+}
+
+/*
+ * What the microphone actually writes down.
+ *
+ * This is why listening for a name was switched off the first time: whisper
+ * hears "Brain" and writes "Bryan", the brain ignores its owner, and the owner
+ * has no way to know why.
+ *
+ * Forgiving a wrong letter was tried here and does not survive the arithmetic.
+ * "Bryan" is two edits from "Brain" while "rain" is one, so no distance rule
+ * both catches the mishearing and leaves the weather alone. The owner listing
+ * what their microphone writes is exact, and it is the only version of this
+ * that does not guess.
+ */
+func TestTheNamesItIsGiven(t *testing.T) {
+	const called = "PN Brain, Bryan, Brian"
+
+	for _, said := range []string{
+		"Bryan what time is it",
+		"Brian what time is it",
+		"brain what time is it",
+		"PN Brain what time is it",
+	} {
+		heard := Listen(said, called, false)
+
+		if !heard.Addressed {
+			t.Errorf("%q was not taken as addressed", said)
+
+			continue
+		}
+
+		if heard.Text != "what time is it" {
+			t.Errorf("%q left %q", said, heard.Text)
+		}
+	}
+
+	// And nothing else, however close it sounds.
+	for _, said := range []string{
+		"the rain in spain",
+		"brains are interesting",
+		"the train is late",
+	} {
+		if Listen(said, called, false).Addressed {
+			t.Errorf("%q woke it", said)
+		}
+	}
+}
+
+// Getting somebody's attention is not part of what you are asking them.
+func TestAttentionWordsAreNotTheRequest(t *testing.T) {
+	for _, said := range []string{
+		"hey brain what time is it",
+		"okay brain what time is it",
+		"hello brain what time is it",
+	} {
+		if heard := Listen(said, "PN Brain", false); heard.Text != "what time is it" {
+			t.Errorf("%q left %q", said, heard.Text)
+		}
+	}
+}
+
+// Leaving a conversation.
+//
+// Being engaged means everything said for the next minute is the brain's
+// business. In a room with other people in it, that is exactly long enough to
+// turn to somebody else and have the brain answer instead.
+func TestSayingThatIsAll(t *testing.T) {
+	for _, said := range []string{
+		"thanks", "Thank you.", "that's all", "stop listening", "goodbye",
+	} {
+		if !Ends(said) {
+			t.Errorf("%q did not end the conversation", said)
+		}
+	}
+
+	for _, said := range []string{
+		"thanks for that, what else do you know",
+		"stop the timer",
+		"what time is it",
+	} {
+		if Ends(said) {
+			t.Errorf("%q ended the conversation and should not have", said)
+		}
 	}
 }

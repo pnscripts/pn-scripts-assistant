@@ -18,23 +18,17 @@ import (
 type Heard struct {
 	// Addressed is true when the brain should act on this.
 	Addressed bool
-	// Text is what was said, with the name taken off the front when it was
-	// used only to get attention: "Brain, what time is it" asks the time.
+	// Text is what was said with the name taken out of it, from wherever in
+	// the sentence it appeared: both "Brain, what time is it" and "what time
+	// is it, brain" ask the time.
 	Text string
 }
 
 // Listen decides whether a transcript was meant for the brain.
 //
-// An empty name means everything is. That is the default, and it is the default
-// because requiring the name was tried and got in the way: transcription has to
-// get the name right before anything can match it, and a name that is an
-// abbreviation — or spoken in one language while the transcript is being made
-// in another — is exactly the kind of thing it gets wrong. The result is an
-// assistant that ignores its owner, which is a far worse failure than one that
-// occasionally answers the television.
-//
-// The capability is kept rather than deleted, because the reason for wanting it
-// was sound. It is switched on by naming a word to listen for.
+// An empty name means everything is, which is the right behaviour for a
+// headset and the wrong one for a room. With a name set, nothing that does not
+// carry it gets through.
 //
 // engaged is whether it is already in a conversation, in which case anything
 // said counts.
@@ -49,49 +43,135 @@ func Listen(transcript, name string, engaged bool) Heard {
 		return Heard{Addressed: true, Text: text}
 	}
 
-	spoken := normalise(text)
+	words := strings.Fields(text)
 
 	for _, candidate := range Names(name) {
-		at := strings.Index(spoken, candidate)
+		at, length := find(words, strings.Fields(candidate))
 
 		if at < 0 {
 			continue
 		}
 
-		// Everything after the name is the request. If nothing follows, the
-		// name on its own is how somebody gets attention before speaking.
-		rest := strings.TrimSpace(afterWord(text, candidate))
+		// A word of attention in front of the name belongs to the name, not to
+		// the request: "okay brain, turn the lights off" is not asking about
+		// okay.
+		from := at
 
-		return Heard{Addressed: true, Text: rest}
+		if at > 0 && filler[normalise(words[at-1])] {
+			from = at - 1
+		}
+
+		// What is left once the name is out of it — from both sides, because
+		// the name is as often at the end as the start, and taking only what
+		// followed it threw the question away.
+		rest := append(append([]string{}, words[:from]...), words[at+length:]...)
+
+		return Heard{Addressed: true, Text: tidy(strings.Join(rest, " "))}
 	}
 
 	return Heard{Text: text}
 }
 
-// Names are the ways somebody might say the brain's name.
+// Ends reports a sentence that closes the conversation.
 //
-// The last word on its own is included because that is what people actually
-// say: an assistant called "PN Brain" gets called "Brain". Transcription is
-// also imperfect, and a single common word survives it far better than a pair
-// where one half is an abbreviation.
-func Names(name string) []string {
-	full := normalise(name)
-
-	if full == "" {
-		return nil
+// Without this, being engaged means the next forty seconds of the room are the
+// brain's business: turn to say something to somebody else and it answers. A
+// person leaving a conversation says so, and it costs nothing to listen for it.
+func Ends(text string) bool {
+	switch tidy(normalise(text)) {
+	case "thanks", "thank you", "thanks brain", "thank you brain",
+		"that is all", "thats all", "that will be all",
+		"stop", "stop listening", "never mind", "nevermind",
+		"goodbye", "bye", "bye bye", "go to sleep":
+		return true
 	}
 
-	out := []string{full}
+	return false
+}
 
-	if parts := strings.Fields(full); len(parts) > 1 {
-		last := parts[len(parts)-1]
+// Names are the ways somebody might say the brain's name.
+//
+// Separated by commas, so its owner can list what it actually gets called.
+// That list is the answer to transcription being imperfect, and it is a better
+// answer than the one tried first: forgiving a wrong letter automatically.
+//
+// Forgiving one letter cannot work here, and the arithmetic says why. Whisper
+// writes "Brain" as "Bryan", which is two edits away, not one — while "rain"
+// is one edit away and is a word a film will say. Any rule loose enough to
+// catch the mishearing is loose enough to wake on the weather. Whoever owns
+// the brain knows what their microphone writes down, and can say so; the
+// interface shows them what it heard and ignored so they can find out.
+//
+// The last word of a name is included on its own because that is what people
+// actually say: an assistant called "PN Brain" gets called "Brain".
+func Names(name string) []string {
+	var out []string
 
-		if len(last) >= 3 {
-			out = append(out, last)
+	seen := map[string]bool{}
+
+	add := func(candidate string) {
+		if candidate == "" || seen[candidate] {
+			return
+		}
+
+		seen[candidate] = true
+		out = append(out, candidate)
+	}
+
+	for _, part := range strings.Split(name, ",") {
+		full := normalise(part)
+
+		if full == "" {
+			continue
+		}
+
+		add(full)
+
+		if words := strings.Fields(full); len(words) > 1 {
+			if last := words[len(words)-1]; len([]rune(last)) >= 3 {
+				add(last)
+			}
 		}
 	}
 
 	return out
+}
+
+// filler is what people put in front of a name to get attention.
+var filler = map[string]bool{
+	"hey": true, "hi": true, "hello": true, "ok": true, "okay": true, "yo": true,
+}
+
+// find locates the name in what was said, as whole words.
+//
+// Whole words because matching letter-by-letter through the sentence had a
+// television saying "brains" wake a brain called Brain, and then hand it an
+// empty request, since the part that pulled the name back out did match whole
+// words. One rule for both, and the two cannot disagree.
+//
+// Returns where the name starts and how many words it took, or -1.
+func find(words, wanted []string) (int, int) {
+	if len(wanted) == 0 {
+		return -1, 0
+	}
+
+	for i := 0; i+len(wanted) <= len(words); i++ {
+		match := true
+
+		for j, part := range wanted {
+			if normalise(words[i+j]) != part {
+				match = false
+
+				break
+			}
+		}
+
+		if match {
+			return i, len(wanted)
+		}
+	}
+
+	return -1, 0
 }
 
 // normalise lowers the case and drops anything that is not a letter, digit or
@@ -111,30 +191,18 @@ func normalise(text string) string {
 	return strings.Join(strings.Fields(b.String()), " ")
 }
 
-// afterWord returns what follows the name in the original text.
+// tidy cleans up what is left after a word has been lifted out of a sentence.
 //
-// Works on the original rather than the normalised copy so that punctuation and
-// capitalisation in the request survive: what the brain is asked should read the
-// way it was said.
-func afterWord(text, name string) string {
-	words := strings.Fields(text)
-	wanted := strings.Fields(name)
+// Separators go, because lifting the name out of "what time is it, brain"
+// leaves a comma hanging off the end of the question. What ends a sentence
+// stays: a question mark is part of what was asked, not punctuation left
+// behind by the edit.
+func tidy(text string) string {
+	const (
+		joins = ",;:-—–"
+		ends  = ".!?"
+	)
 
-	for i := 0; i+len(wanted) <= len(words); i++ {
-		match := true
-
-		for j, part := range wanted {
-			if normalise(words[i+j]) != part {
-				match = false
-
-				break
-			}
-		}
-
-		if match {
-			return strings.Join(words[i+len(wanted):], " ")
-		}
-	}
-
-	return ""
+	return strings.TrimSpace(strings.TrimRight(
+		strings.TrimLeft(strings.TrimSpace(text), joins+ends+" "), joins+" "))
 }

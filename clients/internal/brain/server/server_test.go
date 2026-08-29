@@ -595,3 +595,78 @@ func TestFirstRunAsksForANameOnlyOnce(t *testing.T) {
 		t.Errorf("the name did not survive a restart: %q", reloaded.Name)
 	}
 }
+
+/*
+ * A brain that has a name should answer to it.
+ *
+ * Naming it on first run and then finding it ignores that name reads as
+ * broken, not as a setting left at its default — so the name it is given
+ * becomes the name it listens for.
+ *
+ * The part that needs care is not doing that over the top of somebody's work.
+ * What it answers to is a list, because a microphone writes a name down
+ * differently every so often and the fix is to add what it actually wrote.
+ * A rename must not throw that list away.
+ */
+func TestWhatItAnswersToFollowsItsName(t *testing.T) {
+	name := func(t *testing.T, ts *httptest.Server, body string) {
+		t.Helper()
+
+		res, err := http.Post(ts.URL+"/api/settings", "application/json",
+			strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("settings returned %d", res.StatusCode)
+		}
+	}
+
+	t.Run("an unset one takes the name", func(t *testing.T) {
+		ts, _, b := newServer(t)
+		b.Cfg.WakeWord = ""
+
+		name(t, ts, `{"name":"Ariel"}`)
+
+		if b.Cfg.WakeWord != "Ariel" {
+			t.Errorf("it answers to %q, not to the name it was just given", b.Cfg.WakeWord)
+		}
+	})
+
+	t.Run("renaming carries it along", func(t *testing.T) {
+		ts, _, b := newServer(t)
+		b.Cfg.Name = "Ariel"
+		b.Cfg.WakeWord = "Ariel"
+
+		name(t, ts, `{"name":"Tau"}`)
+
+		if b.Cfg.WakeWord != "Tau" {
+			t.Errorf("renamed to Tau but still answers to %q", b.Cfg.WakeWord)
+		}
+	})
+
+	t.Run("a tuned list survives a rename", func(t *testing.T) {
+		ts, _, b := newServer(t)
+		b.Cfg.Name = "Ariel"
+		b.Cfg.WakeWord = "Ariel, Arielle, Aerial"
+
+		name(t, ts, `{"name":"Tau"}`)
+
+		if b.Cfg.WakeWord != "Ariel, Arielle, Aerial" {
+			t.Errorf("a rename overwrote the names it had been taught: %q", b.Cfg.WakeWord)
+		}
+	})
+
+	t.Run("asking for both, the explicit one wins", func(t *testing.T) {
+		ts, _, b := newServer(t)
+		b.Cfg.WakeWord = ""
+
+		name(t, ts, `{"name":"Tau","wake_word":"Tau, Tao"}`)
+
+		if b.Cfg.WakeWord != "Tau, Tao" {
+			t.Errorf("it answers to %q, not to what was asked for", b.Cfg.WakeWord)
+		}
+	})
+}

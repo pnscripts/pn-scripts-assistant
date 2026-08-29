@@ -532,10 +532,22 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	 */
 	addressed := wake.Listen(heard.Text, s.brain.Cfg.WakeWord, body.Engaged)
 
+	/*
+	 * And was that the end of it?
+	 *
+	 * Being engaged means everything said for the next minute counts, which in
+	 * a room with other people in it is long enough to turn away and have the
+	 * brain answer somebody else's sentence. Saying thank you is how a person
+	 * leaves a conversation, so it is how this one ends too.
+	 */
+	ends := body.Engaged && strings.TrimSpace(s.brain.Cfg.WakeWord) != "" &&
+		wake.Ends(heard.Text)
+
 	ok(w, map[string]any{
 		"transcript": addressed.Text,
 		"heard":      heard.Text,
-		"addressed":  addressed.Addressed,
+		"addressed":  addressed.Addressed && !ends,
+		"ends":       ends,
 		"advice":     heard.Advice,
 		"level":      heard.Level,
 		"name":       s.brain.Cfg.WakeWord,
@@ -846,6 +858,21 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 	if body.Name != nil {
 		if name := strings.TrimSpace(*body.Name); name != "" {
+			/*
+			 * Naming it also gives it something to answer to.
+			 *
+			 * Only when nothing has been set, so this can never overwrite a
+			 * list somebody has tuned. The alternative is a brain that has a
+			 * name and does not respond to it, which on first run reads as
+			 * broken rather than as a setting left at its default.
+			 */
+			untouched := strings.TrimSpace(s.brain.Cfg.WakeWord) == "" ||
+				strings.EqualFold(s.brain.Cfg.WakeWord, s.brain.Cfg.Name)
+
+			if untouched {
+				s.brain.Cfg.WakeWord = name
+			}
+
 			s.brain.Cfg.Name = name
 		}
 	}

@@ -32,6 +32,8 @@ const el = (id) => document.getElementById(id);
 const state = {
     conversationId: null,
     brainName: 'PN Brain',
+    // What has to be said before it answers, or empty to answer everything.
+    wakeWord: '',
     busy: false,
 };
 
@@ -162,6 +164,7 @@ async function refreshStatus() {
     try {
         const s = await api.get('/api/status');
         state.brainName = s.name || state.brainName;
+        state.wakeWord = s.wake_word || '';
         el('brain-name').textContent = s.name;
         el('engine-meta').textContent = `${s.provider} · ${s.model}`;
         renderPrivacy(s.privacy);
@@ -295,11 +298,16 @@ const talking = { on: false, running: false };
 let talkingStartedOnce = false;
 
 /*
- * How long the brain stays in the conversation after being addressed.
+ * How long the brain stays in the conversation after the last exchange.
  *
  * Long enough to ask a follow-up without saying the name again, short enough
- * that the room does not walk back in five minutes later. Measured from the
- * last thing said to it, not from the start.
+ * that the room does not walk back in five minutes later.
+ *
+ * From the end of the exchange, not the start of it, and that distinction is
+ * the whole feature on this machine. A reply here takes minutes: measured from
+ * the moment somebody spoke, the window had always expired by the time the
+ * brain stopped talking, so every single follow-up needed the name again and
+ * the conversation never actually stayed open.
  */
 const ENGAGED_FOR = 45000;
 
@@ -307,6 +315,17 @@ let spokeAt = 0;
 
 function engaged() {
     return Date.now() - spokeAt < ENGAGED_FOR;
+}
+
+// Called at both ends of a turn: hearing the name opens the window so a long
+// think does not close it, and finishing the reply reopens it so the follow-up
+// is measured from when there was actually a chance to speak.
+function stayEngaged() {
+    spokeAt = Date.now();
+}
+
+function disengage() {
+    spokeAt = 0;
 }
 
 function toggleTalking() {
@@ -367,6 +386,7 @@ function setTalkButton(state) {
 
     label.textContent = {
         idle: 'Talk',
+        waiting: 'Waiting',
         listening: 'Listening',
         thinking: 'Thinking',
         speaking: 'Speaking',
@@ -381,8 +401,20 @@ async function talkLoop() {
 
     try {
         while (talking.on) {
-            setTalkButton('listening');
-            setVoiceStatus('Speak when ready');
+            /*
+             * Two different states that both have the microphone open.
+             *
+             * Waiting is hearing the room and discarding it. Listening is being
+             * in a conversation. Telling them apart is the difference between
+             * a brain that looks like it is hanging on every word in the room
+             * and one that visibly is not.
+             */
+            const open = engaged() || !state.wakeWord;
+
+            setTalkButton(open ? 'listening' : 'waiting');
+            setVoiceStatus(open
+                ? 'Speak when ready'
+                : `Say \u201c${state.wakeWord}\u201d to start`);
 
             let heard;
             try {
@@ -408,13 +440,39 @@ async function talkLoop() {
              * answered. Now they pass, and nothing about them reaches the
              * transcript.
              */
+            if (heard.ends) {
+                // Somebody said thank you. That is how a person leaves a
+                // conversation, and staying engaged past it means answering
+                // whatever they say to somebody else next.
+                disengage();
+                setVoiceStatus(`Say “${state.wakeWord}” to start`);
+                continue;
+            }
+
             if (!heard.addressed) {
-                setVoiceStatus(`Say “${heard.name || 'the name'}” to start`);
+                /*
+                 * Shown, not merely dropped.
+                 *
+                 * A name the microphone writes down differently is the reason
+                 * this was switched off once before, and the failure is
+                 * invisible from outside: the brain never answers and nobody
+                 * can see why. Putting what it heard on screen is how its owner
+                 * finds out that whisper writes their brain's name as something
+                 * else — and the setting takes a list, so they can add it.
+                 *
+                 * None of this is written down or sent anywhere. It is on
+                 * screen until the next thing is said, and then it is gone.
+                 */
+                const ignored = (heard.heard || '').trim();
+
+                setVoiceStatus(ignored
+                    ? `Heard “${short(ignored)}” · say “${state.wakeWord}” to start`
+                    : `Say “${state.wakeWord || 'the name'}” to start`);
                 continue;
             }
 
             // Addressed, so the conversation is open until it goes quiet.
-            spokeAt = Date.now();
+            stayEngaged();
 
             if (!said) {
                 // The name on its own: somebody getting its attention before
@@ -468,6 +526,9 @@ async function talkLoop() {
 
             // A short settle for the tail of the audio and the room's echo.
             await new Promise((r) => setTimeout(r, ECHO_SETTLE_MS));
+
+            // Now there is a chance to reply, so the window starts here.
+            stayEngaged();
         }
     } finally {
         talking.on = false;
@@ -480,6 +541,12 @@ async function talkLoop() {
 // Long enough for the tail of the audio and a room's echo to die away, short
 // enough not to be felt as a pause.
 const ECHO_SETTLE_MS = 350;
+
+// Enough of an overheard line to recognise it, not enough to put somebody
+// else's conversation on the screen.
+function short(text) {
+    return text.length > 38 ? `${text.slice(0, 38).trimEnd()}\u2026` : text;
+}
 
 function setVoiceStatus(text) {
     const hint = el('voice-status');
