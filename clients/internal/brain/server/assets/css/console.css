@@ -2345,12 +2345,15 @@ select { font-size: 13.5px; }
 .card-chat { padding-top: 13px; padding-bottom: 13px; }
 .card-chat .transcript { gap: 16px; }
 
-/* Four gauges in a row rather than three and a straggler, and room under them
-   for the drives — an external disk filling up is the same kind of fact as
-   memory filling up, and on this machine the brain's own data lives on one. */
-.gauges { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-.gauge svg { max-width: 62px; }
-.gauge-value { font-size: 12.5px; }
+/* The name sits under the form, not across it.
+   Centred it landed over the iris, which is the one part of this shape that
+   has to be unobstructed — it is the thing that reads as looking back at you,
+   and a word written through the middle of it makes it a logo. */
+.card-core .core-caption {
+    top: auto;
+    bottom: 26px;
+    transform: none;
+}
 
-#monitor-drives { margin-top: 12px; gap: 5px; }
-#monitor-drives .drive { padding: 6px 9px; font-size: 10.5px; }
+.card-core .core-title { font-size: 22px; letter-spacing: 0.5em; text-indent: 0.5em; }
+.card-core .core-sub { font-size: 9.5px; }

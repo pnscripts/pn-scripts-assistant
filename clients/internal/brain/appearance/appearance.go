@@ -44,8 +44,9 @@ func Default() Look {
 		ThinkingLine: "#7bffa8",
 		ThinkingCore: "#f0b26b",
 		Speaking:     "#7bffa8",
-		Listening:    "#5fe3f5",
-		Idle:         "#5fe3f5",
+		Listening:    "#ff5a28",
+		// The colour it rests in, taken from the film the form is taken from.
+		Idle: "#ff5a28",
 	}
 }
 

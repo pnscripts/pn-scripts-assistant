@@ -22,24 +22,7 @@ import { signals, easeSignals, onRecall } from './signals.js';
 
 const canvas = document.getElementById('brainmap');
 
-/** Seconds for the sphere to come round once. */
-const SECONDS_PER_TURN = 150;
 
-/** Written as periods rather than as angular speeds, for a reason recorded in
- *  the project's history: expressed the other way, one of these numbers was
- *  wrong by a factor of two hundred and fifty and survived two readings. */
-const ORBITS = [
-    { rx: 2.05, rz: 1.35, lean: -0.55, tip: 0.30, seconds: 300 },
-    { rx: 1.80, rz: 1.62, lean: 0.42, tip: -0.22, seconds: -220 },
-    { rx: 2.20, rz: 1.10, lean: 0.12, tip: 0.62, seconds: 380 },
-    { rx: 1.95, rz: 1.48, lean: -0.34, tip: -0.50, seconds: -460 },
-    { rx: 2.30, rz: 0.95, lean: 0.62, tip: 0.10, seconds: 520 },
-    { rx: 1.70, rz: 1.70, lean: -0.10, tip: -0.68, seconds: -340 },
-];
-
-const SURFACE_POINTS = 900;
-const LATITUDES = 9;
-const LONGITUDES = 18;
 const RADIUS = 1;
 
 /** A soft round dot, drawn once and used by every point sprite. */
@@ -143,162 +126,125 @@ export function startCore() {
 
     const dots = dotTexture();
 
-    /* ---------- the surface ---------- */
+    /*
+     * The form: a triangle pointing down, around an eye.
+     *
+     * Taken from the film this was asked to look like. Two things carry it and
+     * both matter — the inverted triangle, which is the silhouette you
+     * recognise from across a room, and the iris inside it, which is where the
+     * light comes from and the thing that reads as looking back at you.
+     *
+     * It faces the viewer rather than turning in space. A sphere had to rotate
+     * to show it was alive; this does not, because an eye is already the most
+     * alive thing a shape can be, and turning it would only make it a wheel.
+     */
+    const face = new THREE.Group();
 
-    const surface = new Float32Array(SURFACE_POINTS * 3);
-    const golden = Math.PI * (3 - Math.sqrt(5));
+    globe.add(face);
 
-    for (let i = 0; i < SURFACE_POINTS; i++) {
-        // The golden angle against an even spread in the sine of latitude, which
-        // is what distributes points evenly over a sphere rather than crowding
-        // them at the poles.
-        const y = 1 - (i / (SURFACE_POINTS - 1)) * 2;
-        const ring = Math.sqrt(Math.max(0, 1 - y * y));
-        const angle = golden * i;
+    /** How far the triangle's points sit from the middle. */
+    const REACH = 1.9;
 
-        surface[i * 3] = Math.cos(angle) * ring * RADIUS;
-        surface[i * 3 + 1] = y * RADIUS;
-        surface[i * 3 + 2] = Math.sin(angle) * ring * RADIUS;
+    /** Where the corners are, with one at the bottom. */
+    function triangle(reach) {
+        const points = [];
+
+        for (let i = 0; i < 3; i++) {
+            const a = -Math.PI / 2 + (i / 3) * Math.PI * 2;
+
+            points.push(new THREE.Vector3(Math.cos(a) * reach, Math.sin(a) * reach, 0));
+        }
+
+        points.push(points[0].clone());
+
+        return new THREE.BufferGeometry().setFromPoints(points);
     }
 
-    const surfaceGeometry = new THREE.BufferGeometry();
-
-    surfaceGeometry.setAttribute('position', new THREE.BufferAttribute(surface, 3));
-
-    /*
-     * A shader rather than PointsMaterial, for two things it cannot do.
-     *
-     * Points on the far side of the sphere are dimmed by their depth, which is
-     * what stops a wireframe globe reading as a flat disc of confetti. And each
-     * point breathes on its own slow cycle, so the surface is never quite
-     * still — the difference between a photograph of a globe and a globe.
-     */
-    const surfaceMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            map: { value: dots },
-            tint: { value: new THREE.Color(0.55, 0.9, 1) },
-            lit: { value: 1 },
-            time: { value: 0 },
-        },
-        vertexShader: `
-            uniform float time;
-            varying float depth;
-            varying float twinkle;
-            void main() {
-                vec4 seen = modelViewMatrix * vec4(position, 1.0);
-                depth = clamp((seen.z + 1.6) / 3.2, 0.0, 1.0);
-                twinkle = 0.75 + 0.25 * sin(time * 1.4 + position.x * 9.0 + position.y * 7.0);
-                gl_PointSize = (2.2 + 2.6 * depth) * twinkle * 5.0 / -seen.z;
-                gl_Position = projectionMatrix * seen;
-            }`,
-        fragmentShader: `
-            uniform sampler2D map;
-            uniform vec3 tint;
-            uniform float lit;
-            varying float depth;
-            varying float twinkle;
-            void main() {
-                vec4 dot = texture2D(map, gl_PointCoord);
-                if (dot.a < 0.03) discard;
-                float front = 0.3 + 0.7 * depth;
-                gl_FragColor = vec4(tint * lit * front * twinkle, dot.a * front);
-            }`,
+    const frameMaterial = new THREE.LineBasicMaterial({
+        color: new THREE.Color(1, 0.32, 0.16),
         transparent: true,
+        opacity: 0.9,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
     });
 
-    globe.add(new THREE.Points(surfaceGeometry, surfaceMaterial));
-
-    /* ---------- the mesh ---------- */
-
-    const mesh = [];
-    const steps = 64;
-
-    for (let i = 1; i < LATITUDES; i++) {
-        const lat = (i / LATITUDES) * Math.PI - Math.PI / 2;
-        const y = Math.sin(lat) * RADIUS;
-        const ring = Math.cos(lat) * RADIUS;
-
-        for (let step = 0; step < steps; step++) {
-            const a = (step / steps) * Math.PI * 2;
-            const b = ((step + 1) / steps) * Math.PI * 2;
-
-            mesh.push(Math.cos(a) * ring, y, Math.sin(a) * ring);
-            mesh.push(Math.cos(b) * ring, y, Math.sin(b) * ring);
-        }
-    }
-
-    for (let i = 0; i < LONGITUDES; i++) {
-        const lon = (i / LONGITUDES) * Math.PI;
-
-        for (let step = 0; step < steps; step++) {
-            const a = (step / steps) * Math.PI * 2;
-            const b = ((step + 1) / steps) * Math.PI * 2;
-
-            mesh.push(Math.cos(a) * Math.sin(lon) * RADIUS, Math.sin(a) * RADIUS, Math.cos(a) * Math.cos(lon) * RADIUS);
-            mesh.push(Math.cos(b) * Math.sin(lon) * RADIUS, Math.sin(b) * RADIUS, Math.cos(b) * Math.cos(lon) * RADIUS);
-        }
-    }
-
-    const meshGeometry = new THREE.BufferGeometry();
-
-    meshGeometry.setAttribute('position', new THREE.Float32BufferAttribute(mesh, 3));
-
-    const meshMaterial = new THREE.LineBasicMaterial({
-        color: new THREE.Color(0.35, 0.8, 1),
-        transparent: true,
-        opacity: 0.24,
-        depthWrite: false,
-    });
-
-    globe.add(new THREE.LineSegments(meshGeometry, meshMaterial));
-
-    /* ---------- the shell ---------- */
+    // Two of them, one just inside the other. A single line reads as a shape
+    // drawn on the screen; a pair reads as something built.
+    face.add(new THREE.Line(triangle(REACH), frameMaterial));
+    face.add(new THREE.Line(triangle(REACH * 0.9), frameMaterial));
 
     /*
-     * A skin over the sphere that glows at the edge and is clear through the
-     * middle.
+     * The iris.
      *
-     * The wireframe alone reads as a cage: you see straight through it and
-     * nothing says there is a surface there. This is the effect that makes it
-     * a body — bright where you are looking along the surface, invisible where
-     * you are looking at it head on, which is what light does at a glancing
-     * angle on anything.
+     * Rings of decreasing radius around a dark centre, each a little brighter
+     * than the last, turning slowly and not together. The dark middle is the
+     * part that makes it an eye: without it this is a target, and with it the
+     * light has somewhere to be coming from.
      */
-    const shellMaterial = new THREE.ShaderMaterial({
+    const irisMaterial = new THREE.ShaderMaterial({
         uniforms: {
-            tint: { value: new THREE.Color(0.35, 0.8, 1) },
+            tint: { value: new THREE.Color(1, 0.35, 0.12) },
             lit: { value: 1 },
         },
         vertexShader: `
-            varying vec3 normalOut;
-            varying vec3 towardsEye;
+            varying float across;
             void main() {
-                vec4 seen = modelViewMatrix * vec4(position, 1.0);
-                normalOut = normalize(normalMatrix * normal);
-                towardsEye = normalize(-seen.xyz);
-                gl_Position = projectionMatrix * seen;
+                across = uv.y;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }`,
         fragmentShader: `
             uniform vec3 tint;
             uniform float lit;
-            varying vec3 normalOut;
-            varying vec3 towardsEye;
+            varying float across;
             void main() {
-                float facing = abs(dot(normalize(normalOut), normalize(towardsEye)));
-                float edge = pow(1.0 - facing, 3.4);
-                gl_FragColor = vec4(tint * lit, edge * 0.5);
+                // Brightest along the middle of the band, so each ring has an
+                // edge that fades rather than a hard rim.
+                float edge = sin(across * 3.14159);
+
+                gl_FragColor = vec4(tint * lit, edge * 0.9);
             }`,
         transparent: true,
         depthWrite: false,
-        side: THREE.FrontSide,
+        side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
     });
 
-    globe.add(new THREE.Mesh(new THREE.SphereGeometry(RADIUS * 1.005, 64, 48), shellMaterial));
+    const iris = new THREE.Group();
 
-    /* ---------- the halo ---------- */
+    face.add(iris);
+
+    const rings = [];
+
+    for (let i = 0; i < 5; i++) {
+        const radius = 0.74 - i * 0.115;
+        const band = new THREE.Mesh(
+            new THREE.TorusGeometry(radius, 0.028 + i * 0.006, 8, 128),
+            irisMaterial);
+
+        iris.add(band);
+        rings.push({ band, turn: (i % 2 ? -1 : 1) * (14 + i * 5) });
+    }
+
+    /*
+     * The pupil: a dark disc with a hot rim.
+     *
+     * Drawn opaque and in front, because everything else here is additive and
+     * additive light cannot make anything darker. Without something that
+     * actually occludes, the middle fills in and the eye closes.
+     */
+    const pupil = new THREE.Mesh(
+        new THREE.CircleGeometry(0.235, 64),
+        new THREE.MeshBasicMaterial({ color: 0x08060a, transparent: true, opacity: 0.92 }));
+
+    pupil.position.z = 0.02;
+    face.add(pupil);
+
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.235, 0.02, 8, 96), irisMaterial);
+
+    rim.position.z = 0.03;
+    face.add(rim);
+
+    /* ---------- the glow behind it ---------- */
 
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
         map: haloTexture(),
@@ -308,89 +254,9 @@ export function startCore() {
         opacity: 0.85,
     }));
 
-    halo.scale.set(3.4, 3.4, 1);
-    halo.position.z = -0.3;
+    halo.scale.set(5.0, 5.0, 1);
+    halo.position.z = -0.5;
     scene.add(halo);
-
-    /* ---------- orbits, and a point running each ---------- */
-
-    const travellers = [];
-
-    ORBITS.forEach((orbit, index) => {
-        const path = [];
-
-        for (let step = 0; step <= 160; step++) {
-            const a = (step / 160) * Math.PI * 2;
-
-            path.push(Math.cos(a) * orbit.rx, 0, Math.sin(a) * orbit.rz);
-        }
-
-        const geometry = new THREE.BufferGeometry();
-
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(path, 3));
-
-        const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({
-            color: new THREE.Color(0.4, 0.85, 1),
-            transparent: true,
-            opacity: 0.22,
-            depthWrite: false,
-        }));
-
-        line.rotation.set(orbit.lean, 0, orbit.tip);
-        scene.add(line);
-
-        const spark = new THREE.Sprite(new THREE.SpriteMaterial({
-            map: dots,
-            transparent: true,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending,
-            color: new THREE.Color(0.75, 0.97, 1),
-        }));
-
-        spark.scale.set(0.13, 0.13, 1);
-        line.add(spark);
-
-        // Set apart, or six points that all begin at the same angle spend the
-        // first several minutes bunched in one corner.
-        travellers.push({ orbit, spark, phase: (index / ORBITS.length) * Math.PI * 2 });
-    });
-
-    /* ---------- the floor ---------- */
-
-    const floor = [];
-
-    /*
-     * The floor is the widest thing in the scene, not the sphere.
-     *
-     * It was sized without checking that, and the outer rings ran off the left
-     * and right edges of the card and were cut off at the bottom — the one part
-     * of the picture that is supposed to sit the composition in a place ended
-     * up being the part that escaped it.
-     */
-    for (let ring = 0; ring < 5; ring++) {
-        const spread = 0.9 + ring * 0.17;
-        const count = 96 + ring * 16;
-
-        for (let step = 0; step < count; step++) {
-            const a = (step / count) * Math.PI * 2;
-
-            floor.push(Math.cos(a) * spread * 1.2, -1.12, Math.sin(a) * spread * 0.9);
-        }
-    }
-
-    const floorGeometry = new THREE.BufferGeometry();
-
-    floorGeometry.setAttribute('position', new THREE.Float32BufferAttribute(floor, 3));
-
-    scene.add(new THREE.Points(floorGeometry, new THREE.PointsMaterial({
-        size: 0.022,
-        map: dots,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        opacity: 0.5,
-        color: new THREE.Color(0.4, 0.85, 1),
-    })));
 
     /* ---------- arcs, when memories are used ---------- */
 
@@ -538,14 +404,7 @@ export function startCore() {
 
         const seconds = now / 1000;
 
-        spin += delta * (signals.work && signals.work.busy ? 2.6 : 1);
-        globe.rotation.y = (spin * Math.PI * 2) / SECONDS_PER_TURN;
-
-        for (const t of travellers) {
-            const a = (seconds * Math.PI * 2) / t.orbit.seconds + t.phase;
-
-            t.spark.position.set(Math.cos(a) * t.orbit.rx, 0, Math.sin(a) * t.orbit.rz);
-        }
+        // The form faces the viewer and does not turn. What moves is inside it.
 
         updateArcs(delta);
 
@@ -572,14 +431,20 @@ export function startCore() {
                 : signals.state === 'speaking' ? signals.look.speaking
                     : signals.look.idle);
 
-        surfaceMaterial.uniforms.tint.value.copy(tint);
-        surfaceMaterial.uniforms.lit.value = Math.min(1.55, lit);
-        surfaceMaterial.uniforms.time.value = seconds;
-        meshMaterial.color.copy(tint);
-        shellMaterial.uniforms.tint.value.copy(tint);
-        shellMaterial.uniforms.lit.value = Math.min(1.5, lit * 0.8);
-        meshMaterial.opacity = 0.18 + signals.smooth * 0.3;
-        halo.material.opacity = 0.6 + signals.smooth * 0.5;
+        irisMaterial.uniforms.tint.value.copy(tint);
+        irisMaterial.uniforms.lit.value = Math.min(1.7, lit);
+
+        frameMaterial.color.copy(tint);
+        frameMaterial.opacity = 0.7 + signals.smooth * 0.3;
+
+        halo.material.color.copy(tint);
+        halo.material.opacity = 0.5 + signals.smooth * 0.55 + signals.recall * 0.3;
+
+        // The rings turn, slowly and not together. This is the only motion in
+        // the form, and it is what keeps an eye from looking painted on.
+        for (const ring of rings) {
+            ring.band.rotation.z = seconds / ring.turn;
+        }
 
         // Brighter while working, so a busy core spills more light than a
         // quiet one without anything being drawn differently.
