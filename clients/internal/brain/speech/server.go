@@ -298,6 +298,30 @@ func ListenForTurn(ctx context.Context, device string) (Heard, error) {
 		return measured, nil
 	}
 
+	/*
+	 * The header first, because the recorder never got to finish it.
+	 *
+	 * A turn ends when somebody stops talking, and the recorder is killed on
+	 * the spot — so the two lengths in the file still say it holds nothing.
+	 * Everything in this program reads the samples directly and never noticed;
+	 * whisper reads the header and refuses the file.
+	 */
+	if _, err := RepairWAV(path); err != nil {
+		return measured, err
+	}
+
+	/*
+	 * Turned up before it is transcribed.
+	 *
+	 * The detector and the recogniser want very different amounts of signal,
+	 * and the gap between them is what "loud enough, but no words came back"
+	 * was: peaks of 2012 and 6392 were understood, peaks of 215 and 282 came
+	 * back empty, from the same voice in the same room.
+	 */
+	if gain, err := Normalise(path); err == nil && gain > 1 {
+		measured.Gain = gain
+	}
+
 	text, err := TranscribeFast(ctx, path)
 	if err != nil {
 		return measured, err

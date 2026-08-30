@@ -335,6 +335,11 @@ type Heard struct {
 	NoiseFloor  int  `json:"noise_floor"`
 	Threshold   int  `json:"threshold"`
 	SpokeForMS  int  `json:"spoke_for_ms"`
+
+	// Gain is how much the recording had to be turned up to be understood.
+	// Worth showing: a turn that needed eight times its own volume is telling
+	// its owner something about where they are sitting.
+	Gain float64 `json:"gain,omitempty"`
 }
 
 // Listen records from a microphone and returns what was said.
