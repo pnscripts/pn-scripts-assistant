@@ -62,6 +62,15 @@ func fileGlobExists(pattern string) bool {
 // no terminal to type a password into — a graphical prompt is the only way this
 // can work from inside the app rather than from a shell.
 func Install(r Requirement, w io.Writer) error {
+	// The things that are a download and an unpacking rather than a command.
+	if r.InstallFunc != nil {
+		return r.InstallFunc(w)
+	}
+
+	if r.InstallCmd == nil {
+		return fmt.Errorf("%s must be installed manually: %s", r.Name, r.ManualHint)
+	}
+
 	argv := r.InstallCmd()
 	if argv == nil {
 		return fmt.Errorf("%s must be installed manually: %s", r.Name, r.ManualHint)

@@ -1,0 +1,373 @@
+package preflight
+
+import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+/*
+ * Installing the things that have no package.
+ *
+ * Ollama, piper and whisper.cpp are all distributed as an archive from their
+ * own project, and the usual instruction for each is to pipe a remote script
+ * into a shell. This does not do that, and will not: a script fetched and run
+ * unread can do anything at all, and an application that teaches its owner to
+ * accept that has taught them something worse than it fixed.
+ *
+ * What happens instead is narrow and inspectable. A file is downloaded over
+ * HTTPS from the project's own release host, its size is checked, and the
+ * archive is unpacked into the user's own directory. Nothing downloaded is
+ * executed during installation, nothing needs a password, and nothing outside
+ * the home directory is touched.
+ */
+
+// allowedHosts are the projects whose own releases may be fetched.
+//
+// A list, so that a redirect to somewhere else fails rather than being
+// followed. Everything here is the upstream project for a thing the owner has
+// asked to install.
+var allowedHosts = map[string]bool{
+	"ollama.com":     true,
+	"github.com":     true,
+	"huggingface.co": true,
+}
+
+/*
+ * allowedSuffixes are the content hosts those projects redirect to.
+ *
+ * A release download from github.com does not come from github.com: it answers
+ * with a redirect to a signed URL on release-assets.githubusercontent.com, and
+ * which subdomain that is has changed at least twice. Matching the parent
+ * domain is safe in a way that matching a substring would not be — nobody else
+ * can be given a name under githubusercontent.com — and it is checked with a
+ * leading dot so that a host merely ending in those letters does not qualify.
+ *
+ * Found by running the installer rather than by reading it: the first attempt
+ * refused its own download halfway through.
+ */
+var allowedSuffixes = []string{
+	".githubusercontent.com",
+	".huggingface.co",
+	".hf.co",
+}
+
+// mostBytes bounds a download, so a wrong URL cannot fill the disk.
+const mostBytes = 3 << 30 // 3GB
+
+/*
+ * download fetches one file, reporting progress as it goes.
+ *
+ * The progress matters more than it looks. These are hundreds of megabytes on
+ * a home connection, and a button that does nothing visible for four minutes
+ * is a button somebody presses again.
+ */
+func download(from, to string, w io.Writer) error {
+	if err := allowed(from); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
+		return err
+	}
+
+	client := &http.Client{
+		Timeout: 2 * time.Hour,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// Redirects are normal here — release hosts hand off to a CDN —
+			// but each hop is checked rather than trusted because the first
+			// one was.
+			return allowed(req.URL.String())
+		},
+	}
+
+	res, err := client.Get(from)
+	if err != nil {
+		return fmt.Errorf("fetching %s: %w", from, err)
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s answered %s", from, res.Status)
+	}
+
+	file, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	fmt.Fprintf(w, "Downloading %s\n", filepath.Base(from))
+
+	counted := &progress{out: w, total: res.ContentLength, every: 4 * time.Second}
+
+	if _, err := io.Copy(file, io.TeeReader(io.LimitReader(res.Body, mostBytes), counted)); err != nil {
+		return fmt.Errorf("downloading %s: %w", from, err)
+	}
+
+	fmt.Fprintf(w, "Downloaded %s\n", readable(counted.done))
+
+	return nil
+}
+
+// allowed refuses anything that is not HTTPS to a project's own release host.
+func allowed(raw string) error {
+	at, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("%q is not an address", raw)
+	}
+
+	if at.Scheme != "https" {
+		return fmt.Errorf("refusing to fetch over %s; only https", at.Scheme)
+	}
+
+	host := at.Hostname()
+
+	if allowedHosts[host] {
+		return nil
+	}
+
+	for _, suffix := range allowedSuffixes {
+		if strings.HasSuffix(host, suffix) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("refusing to fetch from %s: not a project this installs from", host)
+}
+
+// progress reports how far a download has got.
+type progress struct {
+	out   io.Writer
+	total int64
+	done  int64
+	every time.Duration
+	last  time.Time
+}
+
+func (p *progress) Write(b []byte) (int, error) {
+	p.done += int64(len(b))
+
+	if time.Since(p.last) >= p.every {
+		p.last = time.Now()
+
+		if p.total > 0 {
+			fmt.Fprintf(p.out, "  %s of %s\n", readable(p.done), readable(p.total))
+		} else {
+			fmt.Fprintf(p.out, "  %s\n", readable(p.done))
+		}
+	}
+
+	return len(b), nil
+}
+
+func readable(n int64) string {
+	switch {
+	case n >= 1<<30:
+		return fmt.Sprintf("%.1fGB", float64(n)/(1<<30))
+	case n >= 1<<20:
+		return fmt.Sprintf("%.0fMB", float64(n)/(1<<20))
+	default:
+		return fmt.Sprintf("%dKB", n/1024)
+	}
+}
+
+/*
+ * unpackTarGz extracts an archive into a directory.
+ *
+ * Every entry's path is checked against the destination before anything is
+ * written. An archive can name a file as ../../.bashrc, and an extractor that
+ * simply joins the paths will cheerfully write it — the oldest bug in the
+ * format, and the reason this is written out rather than shelled to tar.
+ */
+func unpackTarGz(archive, into string, strip int, w io.Writer) error {
+	f, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("%s is not a gzip archive: %w", filepath.Base(archive), err)
+	}
+
+	defer gz.Close()
+
+	return extractTar(gz, into, strip, w)
+}
+
+// unpackTar is the same for an archive that has already been decompressed —
+// zstd, for instance, which is handed to the system's own program.
+func unpackTar(archive, into string, strip int, w io.Writer) error {
+	f, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	return extractTar(f, into, strip, w)
+}
+
+// extractTar is the part that checks every path, whatever decompressed it.
+func extractTar(from io.Reader, into string, strip int, w io.Writer) error {
+	if err := os.MkdirAll(into, 0o755); err != nil {
+		return err
+	}
+
+	reader := tar.NewReader(from)
+	files := 0
+
+	for {
+		header, err := reader.Next()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		name := stripLeading(header.Name, strip)
+		if name == "" {
+			continue
+		}
+
+		target, err := safeJoin(into, name)
+		if err != nil {
+			return err
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := writeEntry(target, reader, header.FileInfo().Mode()); err != nil {
+				return err
+			}
+
+			files++
+		case tar.TypeSymlink:
+			// Only within the destination, for the same reason as above.
+			if _, err := safeJoin(into, filepath.Join(filepath.Dir(name), header.Linkname)); err != nil {
+				continue
+			}
+
+			_ = os.Remove(target)
+			_ = os.Symlink(header.Linkname, target)
+		}
+	}
+
+	fmt.Fprintf(w, "Unpacked %d files into %s\n", files, into)
+
+	return nil
+}
+
+// unpackZip is the same for the projects that ship a zip.
+func unpackZip(archive, into string, strip int, w io.Writer) error {
+	r, err := zip.OpenReader(archive)
+	if err != nil {
+		return err
+	}
+
+	defer r.Close()
+
+	files := 0
+
+	for _, entry := range r.File {
+		name := stripLeading(entry.Name, strip)
+		if name == "" || strings.HasSuffix(entry.Name, "/") {
+			continue
+		}
+
+		target, err := safeJoin(into, name)
+		if err != nil {
+			return err
+		}
+
+		body, err := entry.Open()
+		if err != nil {
+			return err
+		}
+
+		err = writeEntry(target, body, entry.Mode())
+
+		body.Close()
+
+		if err != nil {
+			return err
+		}
+
+		files++
+	}
+
+	fmt.Fprintf(w, "Unpacked %d files into %s\n", files, into)
+
+	return nil
+}
+
+func writeEntry(target string, from io.Reader, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
+
+	out, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode.Perm())
+	if err != nil {
+		return err
+	}
+
+	defer out.Close()
+
+	_, err = io.Copy(out, io.LimitReader(from, mostBytes))
+
+	return err
+}
+
+/*
+ * safeJoin refuses a path that would land outside the destination.
+ *
+ * An archive can name an entry ../../.bashrc, and an extractor that joins the
+ * paths without checking writes it. This is the oldest bug in the format and it
+ * is still found in new code every year.
+ */
+func safeJoin(into, name string) (string, error) {
+	target := filepath.Join(into, name)
+
+	rel, err := filepath.Rel(into, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("archive entry %q would write outside %s", name, into)
+	}
+
+	return target, nil
+}
+
+// stripLeading removes the first n path components, which is how these archives
+// are shipped: everything inside one directory named after the release.
+func stripLeading(name string, n int) string {
+	name = filepath.Clean(strings.TrimPrefix(name, "./"))
+
+	for i := 0; i < n; i++ {
+		slash := strings.Index(name, "/")
+		if slash < 0 {
+			return ""
+		}
+
+		name = name[slash+1:]
+	}
+
+	return name
+}

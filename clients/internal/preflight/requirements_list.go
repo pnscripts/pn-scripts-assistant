@@ -25,11 +25,17 @@ func Requirements() []Requirement {
 
 				return OK, versionOf("ollama", "--version")
 			},
-			// Piping a remote script into a shell is exactly the pattern this
-			// tool should not normalise, so Ollama is left as a manual step
-			// with a link rather than an automated curl-into-sh.
-			InstallCmd: nil,
-			ManualHint: "Install from ollama.com/download",
+			/*
+			 * Fetched as an archive, not as a script piped into a shell.
+			 *
+			 * The published instruction is curl-into-root, which is the one
+			 * pattern this program should least of all teach its owner to
+			 * accept. The same release is downloadable; it goes into the home
+			 * directory, needs no password, and is started as a user service
+			 * so that installing it means it is actually running.
+			 */
+			InstallFunc: installOllama,
+			ManualHint:  "Install from ollama.com/download",
 		},
 		{
 			Name:        "Chat model",
@@ -132,8 +138,17 @@ func Requirements() []Requirement {
 
 					return Missing, ""
 				},
-				InstallCmd: func() []string { return aptInstall("espeak-ng") },
-				NeedsRoot:  true,
+				/*
+				 * The neural voice, not the package.
+				 *
+				 * espeak-ng is one apt away and sounds like a machine from
+				 * 1985. The difference between the two is the difference
+				 * between somebody using the voice and somebody turning it
+				 * off, and this is meant for people who will never go looking
+				 * for a better one.
+				 */
+				InstallFunc: installPiper,
+				ManualHint:  "Install piper, or: sudo apt install espeak-ng",
 			},
 			Requirement{
 				Name:        "Voice (listening)",
@@ -149,11 +164,20 @@ func Requirements() []Requirement {
 
 					return Missing, ""
 				},
-				// whisper.cpp is built from source and its model is a separate
-				// download, so there is no package to install. Putting a clone
-				// and a compile behind a button would be a larger promise than
-				// this tool should make.
-				InstallCmd: nil,
+				/*
+				 * Built here, because there is no Linux binary to download.
+				 *
+				 * This was left as a manual step on the grounds that a clone
+				 * and a compile is a larger promise than the tool should make.
+				 * That is true of the promise and false of the alternative:
+				 * for somebody who has never opened a terminal, "build
+				 * whisper.cpp and put it on your PATH" is not an instruction,
+				 * it is a wall. The build tools come from the system's package
+				 * manager — the one step that asks for a password — and
+				 * everything after it happens in the home directory.
+				 */
+				InstallFunc: installWhisper,
+				NeedsRoot:   true,
 				ManualHint: "Build whisper.cpp, put whisper-cli on your PATH, then: " +
 					"bash models/download-ggml-model.sh base.en",
 			},

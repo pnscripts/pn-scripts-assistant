@@ -2,6 +2,7 @@ package preflight
 
 import (
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 )
@@ -55,6 +56,16 @@ type Requirement struct {
 	// scripted, and pretending otherwise wastes the user's time.
 	InstallCmd func() []string
 
+	/*
+	 * InstallFunc is for the things that are more than one command.
+	 *
+	 * Ollama, the voice and the recogniser are each a download from their own
+	 * project, unpacked into the home directory, and in one case a build. None
+	 * of that fits in an argv, and the alternative — telling somebody to open a
+	 * terminal — is the wall this whole page exists to remove.
+	 */
+	InstallFunc func(io.Writer) error
+
 	// NeedsRoot marks installs that will prompt for a password.
 	NeedsRoot bool
 
@@ -63,6 +74,10 @@ type Requirement struct {
 }
 
 func (r Requirement) Installable() bool {
+	if r.InstallFunc != nil {
+		return true
+	}
+
 	return r.InstallCmd != nil
 }
 
