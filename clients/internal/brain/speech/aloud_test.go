@@ -1,6 +1,9 @@
 package speech
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 /*
  * Sentences are cut where a person would pause, not at every full stop.
@@ -132,5 +135,66 @@ func TestThinkingIsNotSpoken(t *testing.T) {
 
 	if a.pending.String() != "The disk is filling up." {
 		t.Errorf("left %q", a.pending.String())
+	}
+}
+
+/*
+ * Cutting in stops the rest of the answer, not just the sentence being said.
+ *
+ * Stopping the sound and then saying the remaining four sentences anyway would
+ * be worse than never stopping at all: the person interrupted because they
+ * wanted to say something, and being answered by the rest of the previous
+ * answer is the machine insisting on finishing its point.
+ */
+func TestCuttingInAbandonsTheRest(t *testing.T) {
+	ClearInterrupt()
+
+	defer ClearInterrupt()
+
+	// Built by hand rather than with NewAloud, which would start a goroutine
+	// that tries to speak. The queue is what is being checked.
+	a := &Aloud{
+		ctx:   context.Background(),
+		queue: make(chan string, 8),
+		done:  make(chan struct{}),
+	}
+
+	a.Write("First sentence. ")
+
+	if len(a.queue) != 1 {
+		t.Fatalf("the first sentence was not queued (%d)", len(a.queue))
+	}
+
+	Interrupt()
+
+	a.Write("Second sentence. Third sentence. ")
+
+	if len(a.queue) != 1 {
+		t.Errorf("queued %d sentences after being interrupted; should have queued none more",
+			len(a.queue)-1)
+	}
+
+	if !Interrupted() {
+		t.Error("the interruption was not remembered")
+	}
+
+	// And the next turn listens again.
+	ClearInterrupt()
+
+	if Interrupted() {
+		t.Error("a new turn still thinks it was interrupted")
+	}
+}
+
+// Interrupting when nothing is being said is harmless.
+func TestInterruptingSilence(t *testing.T) {
+	ClearInterrupt()
+
+	defer ClearInterrupt()
+
+	Interrupt() // no utterance registered; must not panic
+
+	if !Interrupted() {
+		t.Error("the interruption was not recorded")
 	}
 }

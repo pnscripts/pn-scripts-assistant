@@ -129,6 +129,18 @@ const (
 	 */
 	FloorWindow = 40
 	FloorQuiet  = 3
+
+	/*
+	 * BargeMargin is how far above its own voice somebody has to be to cut in.
+	 *
+	 * Measured against what the microphone hears while the brain is speaking,
+	 * not against the room, because with speakers those are very different
+	 * numbers. Too low and the brain interrupts itself on its own echo, which
+	 * ends every answer after one sentence; too high and cutting in means
+	 * shouting. Twice its own level is a person leaning in and talking over it,
+	 * which is exactly the gesture this is for.
+	 */
+	BargeMargin = 2.0
 )
 
 // Turn is what one spoken turn amounted to.
@@ -215,6 +227,10 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 		// The quietest this turn ever found the room, for the next turn to
 		// start from.
 		lowestSeen = math.MaxInt
+
+		// What the microphone hears while the brain itself is talking, which
+		// is what somebody cutting in has to be louder than.
+		echo []int
 	)
 
 	defer func() {
@@ -299,8 +315,43 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 		// a noise floor measured with the brain talking over it would be far too
 		// high and the user would then have to shout to be heard.
 		if Speaking() {
+			/*
+			 * Listening while it talks, so it can be interrupted.
+			 *
+			 * This used to throw the frame away and hold the turn at its
+			 * beginning, which is why an answer once started was always going
+			 * to be finished: on this machine that can be a minute of speech,
+			 * and sitting through a wrong answer to its end before being able
+			 * to say so is not a conversation.
+			 *
+			 * The microphone hears both voices and there is no echo
+			 * cancellation here, so what it hears while speaking is measured
+			 * and the person has to be clearly above it. On headphones that
+			 * measurement is only the room and anything said cuts in; on
+			 * speakers it is the brain's own voice, and cutting in means
+			 * actually talking over it.
+			 */
+			echo = append(echo, rms)
+
+			if len(echo) > FloorWindow {
+				echo = echo[len(echo)-FloorWindow:]
+			}
+
+			if len(echo) >= CalibrationFrames && rms > loudestEcho(echo)*BargeMargin {
+				Interrupt()
+
+				// The turn starts here, with the interruption as its first
+				// sound, so nothing said while cutting in is lost.
+				started = time.Now().Add(-WarmUp)
+				recent = recent[:0]
+				threshold = MinSpeechFloor
+
+				continue
+			}
+
 			started = time.Now()
 			recent = recent[:0]
+			echo = echo[:0]
 			threshold = math.MaxInt
 
 			continue
@@ -508,6 +559,32 @@ func rememberRoom(lowest int) {
 			remembered.floor = lowest
 		}
 	}
+}
+
+/*
+ * loudestEcho is how loud the brain's own voice comes back.
+ *
+ * A high percentile rather than the maximum: one clipped frame of its own
+ * output would otherwise set the bar for interrupting far above anything a
+ * person can do, and the failure would look like the microphone ignoring them.
+ */
+func loudestEcho(frames []int) int {
+	sorted := append([]int(nil), frames...)
+	sort.Ints(sorted)
+
+	at := len(sorted) * 9 / 10
+
+	if at >= len(sorted) {
+		at = len(sorted) - 1
+	}
+
+	// A floor, so a silent stretch of its own speech does not make every rustle
+	// an interruption.
+	if sorted[at] < MinSpeechFloor {
+		return MinSpeechFloor
+	}
+
+	return sorted[at]
 }
 
 // quietest returns the nth lowest reading, which is this room with nobody

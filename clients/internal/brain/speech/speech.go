@@ -150,6 +150,19 @@ func SpeakAndWait(ctx context.Context, text string) error {
 		return nil
 	}
 
+	/*
+	 * Every utterance gets a context that can be cancelled.
+	 *
+	 * That cancellation is the whole of being interruptible: the synthesiser
+	 * and the player are both started from it, so cancelling stops the sound
+	 * within a frame rather than at the end of the sentence.
+	 */
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	speakingStarted(cancel)
+	defer speakingStopped()
+
 	// A chosen system voice overrides piper even when piper is installed.
 	if engine.Name == "piper" && CurrentVoice().Engine == "piper" {
 		return FindPiper().Speak(ctx, spoken)
@@ -169,10 +182,10 @@ func SpeakAndWait(ctx context.Context, text string) error {
 	}
 
 	// A cap, so a stuck engine cannot hold a conversation open forever.
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
+	capped, stopCap := context.WithTimeout(ctx, 2*time.Minute)
+	defer stopCap()
 
-	return exec.CommandContext(ctx, engine.Command, args...).Run()
+	return exec.CommandContext(capped, engine.Command, args...).Run()
 }
 
 // Speak reads text aloud, returning once the engine has been handed the text.
@@ -192,6 +205,19 @@ func Speak(ctx context.Context, text string) error {
 	if spoken == "" {
 		return nil
 	}
+
+	/*
+	 * Every utterance gets a context that can be cancelled.
+	 *
+	 * That cancellation is the whole of being interruptible: the synthesiser
+	 * and the player are both started from it, so cancelling stops the sound
+	 * within a frame rather than at the end of the sentence.
+	 */
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	speakingStarted(cancel)
+	defer speakingStopped()
 
 	if engine.Name == "piper" && CurrentVoice().Engine == "piper" {
 		// Piper synthesises faster than it plays, so there is nothing to gain

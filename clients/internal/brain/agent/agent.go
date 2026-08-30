@@ -47,6 +47,10 @@ type Loop struct {
 	 */
 	Aloud func(ctx context.Context) TalkAloud
 
+	// Interrupted reports that its owner cut in, so the rest of an answer can
+	// be abandoned rather than written out to nobody.
+	Interrupted func() bool
+
 	/*
 	 * Model chooses which model answers a turn, or is nil to leave it alone.
 	 *
@@ -568,6 +572,11 @@ func (l *Loop) streamAloud(
 	)
 
 	resp, err := streamer.ChatStream(ctx, request, func(text string) {
+		// Cut in on: the rest of this answer is not wanted.
+		if l.Interrupted != nil && l.Interrupted() {
+			return
+		}
+
 		if !decided {
 			opening.WriteString(text)
 

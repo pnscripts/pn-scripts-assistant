@@ -181,3 +181,41 @@ func TestBeingHeardInAQuietRoom(t *testing.T) {
 		t.Errorf("a silent input set the bar at %d, which its own hiss would clear", bar)
 	}
 }
+
+/*
+ * How loud somebody has to be to cut in while it is talking.
+ *
+ * The microphone hears both voices and there is no echo cancellation on this
+ * machine, so the bar is set from what it hears while the brain speaks rather
+ * than from the room. Too low and it interrupts itself on its own echo, ending
+ * every answer after one sentence; too high and cutting in means shouting.
+ */
+func TestTheBarForCuttingIn(t *testing.T) {
+	// Its own voice coming back off the speakers, with the usual variation.
+	echo := []int{900, 1100, 1000, 1200, 950, 1050, 1150, 1000, 980, 1100}
+
+	bar := float64(loudestEcho(echo)) * BargeMargin
+
+	// Its own voice must not clear the bar, or it interrupts itself.
+	for _, own := range echo {
+		if float64(own) > bar {
+			t.Errorf("its own voice at %d clears the bar of %.0f; it would cut itself off",
+				own, bar)
+		}
+	}
+
+	// A person leaning in and talking over it must.
+	if float64(2600) < bar {
+		t.Errorf("somebody at 2600 could not interrupt a voice measured at ~1100 (bar %.0f)", bar)
+	}
+
+	/*
+	 * And on headphones, where the microphone hears only the room, anything
+	 * said cuts in. A floor keeps a rustle from doing it.
+	 */
+	quiet := []int{30, 40, 35, 45, 38, 42, 33, 39, 41, 36}
+
+	if got := loudestEcho(quiet); got < MinSpeechFloor {
+		t.Errorf("with headphones the bar fell to %d, where a rustle would interrupt", got)
+	}
+}

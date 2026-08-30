@@ -675,7 +675,15 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 			return speech.NewAloud(ctx)
 		}
 
-		defer func() { b.Agent.Aloud = nil }()
+		b.Agent.Interrupted = speech.Interrupted
+
+		// A new turn starts listening again, whatever happened to the last one.
+		speech.ClearInterrupt()
+
+		defer func() {
+			b.Agent.Aloud = nil
+			b.Agent.Interrupted = nil
+		}()
 	}
 
 	result, err := b.Agent.RunShaped(ctx, conversationID, provider, messages, limit, true)

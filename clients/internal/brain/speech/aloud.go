@@ -63,6 +63,18 @@ func (a *Aloud) Write(text string) {
 		return
 	}
 
+	/*
+	 * Nothing more is queued once its owner has cut in.
+	 *
+	 * Stopping the sound and then saying the remaining four sentences anyway
+	 * would be worse than never stopping: the person interrupted because they
+	 * wanted to say something, and being answered by the rest of the previous
+	 * answer is the machine insisting on finishing its point.
+	 */
+	if Interrupted() {
+		return
+	}
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -173,7 +185,7 @@ func (a *Aloud) run() {
 	defer close(a.done)
 
 	for sentence := range a.queue {
-		if a.ctx.Err() != nil {
+		if a.ctx.Err() != nil || Interrupted() {
 			return
 		}
 
