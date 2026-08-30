@@ -123,6 +123,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.SetWakeWord{Brain: b},
 		tools.ListWaiting{Queue: queueOf{b}},
 		tools.DecideWaiting{Queue: queueOf{b}},
+		tools.Remind{Diary: diaryOf{b}},
+		tools.ListReminders{Diary: diaryOf{b}},
+		tools.ForgetReminder{Diary: diaryOf{b}},
 	)
 
 	b.Agent = &agent.Loop{
@@ -209,6 +212,9 @@ func (b *Brain) Start(ctx context.Context) {
 	if b.Learner != nil {
 		b.Learner.Start(ctx)
 	}
+
+	// The only thing here that speaks without being spoken to first.
+	go b.watchReminders(ctx)
 
 	// A resident recogniser, started in the background because loading its
 	// model takes seconds and nothing should wait on it. Without one, every

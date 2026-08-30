@@ -189,4 +189,25 @@ var migrations = []string{
 	);
 	CREATE INDEX idx_invocations_status ON tool_invocations(status, id);
 	`,
+
+	// 2: things the brain has to be somewhere for.
+	//
+	// Kept here rather than in a calendar service because the promise is that
+	// nothing leaves this machine, and an appointment is exactly the kind of
+	// thing that quietly would. at is RFC3339 like every other timestamp, so it
+	// sorts as text and reads correctly in an export.
+	//
+	// said_at, not a boolean: knowing when somebody was told is the difference
+	// between a reminder that fires once and one that repeats itself forever
+	// after a restart.
+	`
+	CREATE TABLE reminders (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		what       TEXT NOT NULL,
+		at         TEXT NOT NULL,
+		said_at    TEXT,
+		created_at TEXT NOT NULL
+	);
+	CREATE INDEX idx_reminders_at ON reminders(said_at, at);
+	`,
 }
