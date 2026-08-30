@@ -95,6 +95,8 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.RunCommand{},
 		tools.EditFile{},
 		tools.SearchFiles{},
+		tools.ReadDocument{},
+		tools.LookAtScreen{OllamaURL: cfg.OllamaURL},
 	}
 
 	// The web tool is not registered at all in private mode, rather than

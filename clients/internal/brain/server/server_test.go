@@ -282,9 +282,9 @@ func TestRegisteredTools(t *testing.T) {
 	// because it had no way to reach its own queue.
 	want := []string{
 		"decide_waiting", "edit_file", "forget_reminder", "list_directory",
-		"list_reminders", "list_waiting", "read_file", "remind_me",
-		"run_command", "search_files", "set_appearance", "set_wake_word",
-		"write_file",
+		"list_reminders", "list_waiting", "look_at_screen", "read_document",
+		"read_file", "remind_me", "run_command", "search_files",
+		"set_appearance", "set_wake_word", "write_file",
 	}
 
 	if strings.Join(names, ",") != strings.Join(want, ",") {
