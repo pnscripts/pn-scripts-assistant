@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
@@ -547,17 +548,43 @@ func runApp(args []string) error {
 			return nil
 		}
 
-		return fmt.Errorf(
-			"%s is already running on this data root but is not answering on %s. "+
-				"Close it and try again", cfg.Name, cfg.Addr)
+		/*
+		 * Holding the root and not answering: almost always a copy on its way
+		 * out, which still holds it while the learning worker stops, the
+		 * database closes and the microphone is let go. Waiting a few seconds
+		 * costs nothing and covers a restart, or somebody closing the window
+		 * and pressing the icon again straight away.
+		 */
+		if lock, err = server.ClaimWaiting(root.Path, 8*time.Second); err != nil {
+			return fmt.Errorf(
+				"%s is already running on this data root but is not answering on %s. "+
+					"Close it and try again", cfg.Name, cfg.Addr)
+		}
 	}
 
-	defer lock.Release()
+	if lock != nil {
+		defer lock.Release()
+	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	/*
+	 * A signal has to close the window, not just cancel everything behind it.
+	 *
+	 * The main loop owns the process: gtk_main() does not return because a
+	 * context was cancelled, so without this the program stops serving and goes
+	 * on existing. It then still holds the lock on its data root, which stops
+	 * the next copy from starting — so "close it and open it again" becomes
+	 * impossible, which is the one thing it must never be. Seen once at eleven
+	 * minutes after a signal, asleep in a graphics wait.
+	 */
+	go func() {
+		<-ctx.Done()
+		window.Close()
+	}()
 
 	// A machine with no model cannot answer anything, and the brain cannot
 	// serve its own setup page while it is the thing that is missing. So setup

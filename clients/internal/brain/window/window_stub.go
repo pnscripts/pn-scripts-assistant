@@ -7,6 +7,9 @@ import (
 	"runtime"
 )
 
+// Close does nothing in a build with no window to shut.
+func Close() {}
+
 // Present does nothing in a build with no window to bring forward.
 func Present() {}
 

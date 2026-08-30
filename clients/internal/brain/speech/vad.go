@@ -62,9 +62,24 @@ const (
 // another. The noise floor is measured at the start of every turn instead, and
 // speech is whatever rises clearly above it.
 const (
-	// NoiseMargin is how far above the floor a frame must sit to count as
-	// speech. Speech is several times louder than room tone; a fan is not.
-	NoiseMargin = 3.5
+	/*
+	 * NoiseMargin is how far above the room a frame must sit to be speech.
+	 *
+	 * Three and a half was chosen against a room whose noise floor was a fan,
+	 * and it works perfectly there. It fails completely in the room this is
+	 * actually for: with a film playing, the floor is the film — measured at
+	 * 1400 — and somebody talking over it reaches 2500 to 4600, which is a
+	 * clear one and a half to three times the room and nowhere near three and
+	 * a half. The bar sat at 5000 and every single word went under it.
+	 *
+	 * A fan is steady, so it never beats even a small margin. A film is not
+	 * steady, so it will beat this one and be transcribed — but the name is
+	 * what decides whether anything is answered, and a line of dialogue that
+	 * gets written down and thrown away costs a little processor time and
+	 * nothing else. Being unable to hear the person is the worse failure by a
+	 * long way.
+	 */
+	NoiseMargin = 1.7
 
 	// MinSpeechFloor stops a silent input from calibrating so low that its own
 	// hiss registers as talking.

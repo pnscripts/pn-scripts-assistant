@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 /*
@@ -68,4 +69,58 @@ func TestAKilledCopyLeavesNothingToClean(t *testing.T) {
 	}
 
 	next.Release()
+}
+
+/*
+ * A copy on its way out still holds the root for a moment.
+ *
+ * Stopping means letting the learning worker finish, closing the database and
+ * letting go of the microphone, and the lock is held throughout. Anything
+ * started inside that window — a restart, or somebody who closed the window and
+ * pressed the icon again straight away — found the root held and refused to
+ * start, which reads as the program being broken rather than half a second
+ * early. It happened while testing the change that introduced the lock.
+ */
+func TestItWaitsForACopyThatIsQuitting(t *testing.T) {
+	root := t.TempDir()
+
+	quitting, err := Claim(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Let go shortly, the way a brain finishing its shutdown does.
+	go func() {
+		time.Sleep(250 * time.Millisecond)
+		quitting.Release()
+	}()
+
+	start := time.Now()
+
+	lock, err := ClaimWaiting(root, 5*time.Second)
+	if err != nil {
+		t.Fatalf("it gave up on a root that was let go after a moment: %v", err)
+	}
+
+	defer lock.Release()
+
+	if time.Since(start) < 200*time.Millisecond {
+		t.Error("it claimed a root that was still held")
+	}
+}
+
+// But it does not wait forever for one that is staying.
+func TestItGivesUpOnACopyThatIsStaying(t *testing.T) {
+	root := t.TempDir()
+
+	staying, err := Claim(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer staying.Release()
+
+	if _, err := ClaimWaiting(root, 300*time.Millisecond); !errors.Is(err, ErrAlreadyRunning) {
+		t.Fatalf("it took a root that another copy is still holding: %v", err)
+	}
 }

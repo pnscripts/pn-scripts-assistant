@@ -68,6 +68,37 @@ func Claim(root string) (*Lock, error) {
 	return &Lock{file: f}, nil
 }
 
+/*
+ * ClaimWaiting takes the lock, waiting a little for a copy that is on its way
+ * out.
+ *
+ * A brain that has just been asked to quit still holds its data root for the
+ * moment it takes to stop the learning worker, close the database and let go of
+ * the microphone. Anything started inside that window — a restart, or somebody
+ * who closed the window and immediately pressed the icon again — found the lock
+ * held and refused to start, which reads as the program being broken rather
+ * than as it being half a second early.
+ *
+ * Only used once the copy holding the lock has been found not to answer.
+ * A healthy one is raised instead, and that path never waits.
+ */
+func ClaimWaiting(root string, patience time.Duration) (*Lock, error) {
+	deadline := time.Now().Add(patience)
+
+	for {
+		lock, err := Claim(root)
+		if err == nil || !errors.Is(err, ErrAlreadyRunning) {
+			return lock, err
+		}
+
+		if time.Now().After(deadline) {
+			return nil, err
+		}
+
+		time.Sleep(150 * time.Millisecond)
+	}
+}
+
 // Release gives up the claim.
 func (l *Lock) Release() error {
 	if l == nil || l.file == nil {

@@ -120,3 +120,31 @@ func TestTheRoomIsRememberedBetweenTurns(t *testing.T) {
 		t.Errorf("a room that stayed loud was never followed: still %d", got)
 	}
 }
+
+/*
+ * Talking over a film.
+ *
+ * The room this is for has a television in it, so the floor is not a fan but
+ * whatever is playing. Somebody talking over it is plainly louder than it and
+ * nothing like several times louder: measured here at 1400 for the room and
+ * 2500 to 4600 for a person, which the original margin of three and a half put
+ * completely out of reach. Every turn reported that nothing had crossed the
+ * threshold while somebody was talking into the microphone.
+ */
+func TestBeingHeardOverSomethingPlaying(t *testing.T) {
+	const film = 1400
+
+	// Every peak measured in that room while somebody was speaking.
+	for _, spoke := range []int{2549, 2662, 2669, 2875, 2886, 2934, 3009, 3555, 3571, 3758} {
+		if bar := speechThreshold(film); spoke < bar {
+			t.Errorf("speech at %d over a room of %d needed %d, so it was not heard",
+				spoke, film, bar)
+		}
+	}
+
+	// A steady room tone is still not speech. A fan does not vary, so it never
+	// reaches even this margin above itself.
+	if bar := speechThreshold(film); film >= bar {
+		t.Errorf("the room itself (%d) clears its own bar (%d)", film, bar)
+	}
+}

@@ -24,11 +24,28 @@ static WebKitWebView *pnbrain_view = NULL;
 // produced it. Touching GTK from another thread is undefined behaviour.
 static char *pnbrain_pending_url = NULL;
 static gboolean pnbrain_pending_present = FALSE;
+static gboolean pnbrain_pending_quit = FALSE;
 static GMutex pnbrain_pending_lock;
 
 // Asked for by a second copy of the program that has just been started and is
 // about to exit, so that double-clicking the icon again brings this window
 // forward instead of doing nothing visible.
+// Asked for when the program has been told to stop.
+//
+// Without this, a signal cancels everything on the Go side while gtk_main()
+// carries on holding the process open — and a process that has stopped serving
+// but has not exited still holds the lock on its data root, so the next copy
+// will not start either. Measured once at eleven minutes, asleep in a graphics
+// wait, refusing to let anything else run.
+//
+// Line comments, not a block: this whole preamble is one C comment, and a
+// nested block comment ends it early and takes the rest of the file with it.
+void pnbrain_request_quit(void) {
+    g_mutex_lock(&pnbrain_pending_lock);
+    pnbrain_pending_quit = TRUE;
+    g_mutex_unlock(&pnbrain_pending_lock);
+}
+
 void pnbrain_request_present(void) {
     g_mutex_lock(&pnbrain_pending_lock);
     pnbrain_pending_present = TRUE;
@@ -45,6 +62,7 @@ void pnbrain_request_navigation(const char *url) {
 static gboolean pnbrain_poll_navigation(gpointer data) {
     char *url = NULL;
     gboolean present = FALSE;
+    gboolean quit = FALSE;
 
     g_mutex_lock(&pnbrain_pending_lock);
     if (pnbrain_pending_url != NULL) {
@@ -53,7 +71,14 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
     }
     present = pnbrain_pending_present;
     pnbrain_pending_present = FALSE;
+    quit = pnbrain_pending_quit;
     g_mutex_unlock(&pnbrain_pending_lock);
+
+    if (quit) {
+        gtk_main_quit();
+
+        return G_SOURCE_REMOVE;
+    }
 
     if (present) {
         gtk_window_present(GTK_WINDOW(data));
@@ -182,6 +207,15 @@ func Open(url, title string, width, height int) error {
 	C.pnbrain_open_window(cURL, cTitle, C.int(width), C.int(height))
 
 	return nil
+}
+
+// Close asks the window to shut, so the program can exit.
+//
+// The main loop owns the process: until it returns, nothing else does, and a
+// program that has stopped serving but has not exited is worse than one still
+// running — it holds its data root and stops the next copy from starting.
+func Close() {
+	C.pnbrain_request_quit()
 }
 
 // Present brings the window to the front.
