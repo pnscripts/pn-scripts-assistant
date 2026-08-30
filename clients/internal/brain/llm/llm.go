@@ -62,7 +62,19 @@ type Request struct {
 }
 
 // Response is what came back.
+// Streamer is a provider that can answer a piece at a time.
+//
+// Separate from Provider because not every provider can, and a turn that needs
+// tools must not stream anyway — so the loop asks for this only when it can
+// actually use it.
+type Streamer interface {
+	ChatStream(ctx context.Context, req Request, onText func(string)) (Response, error)
+}
+
 type Response struct {
+	// Spoken is true when the answer was already said aloud as it was written,
+	// so that whoever asked does not say the whole thing a second time.
+	Spoken bool
 	Content   string
 	ToolCalls []ToolCall
 	Model     string

@@ -81,9 +81,23 @@ const (
 	 */
 	NoiseMargin = 1.7
 
-	// MinSpeechFloor stops a silent input from calibrating so low that its own
-	// hiss registers as talking.
-	MinSpeechFloor = 500
+	/*
+	 * MinSpeechFloor stops a silent input calibrating so low that its own hiss
+	 * registers as talking.
+	 *
+	 * It has to be a number rather than a multiple, because a multiple of
+	 * almost-nothing is almost-nothing. But it was 500, which was measured
+	 * against a loud room, and in a quiet one it is the only rule that applies:
+	 * with the room at 40 it demanded speech twelve times louder than the room,
+	 * when the margin everywhere else in this file is 1.7.
+	 *
+	 * The numbers that set this: a quiet room here measures 36 to 55, and
+	 * somebody talking at an ordinary volume a little away from the microphone
+	 * peaks at 300 to 630. Every word of that went under 500 and the brain
+	 * reported hearing nothing at all. At 150 the room is still four times
+	 * below the bar and ordinary speech is comfortably above it.
+	 */
+	MinSpeechFloor = 150
 
 	// CalibrationFrames is how many frames must be in hand before the loop is
 	// willing to decide anything. Half a second.

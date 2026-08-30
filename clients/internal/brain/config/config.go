@@ -52,6 +52,19 @@ type Config struct {
 	AlwaysName bool
 
 	OllamaModel    string
+
+	/*
+	 * AutoModel lets the brain answer small talk with a smaller, quicker model.
+	 *
+	 * Every answer is computed on this processor, so the size of the model is
+	 * the whole of the wait, and a greeting does not need the model that can
+	 * edit files. Only recognisably conversational turns are sent to it —
+	 * anything that means doing something goes to the usual one.
+	 */
+	AutoModel bool
+
+	// FastModel is the small one, or empty to pick whichever is installed.
+	FastModel string
 	EmbedModel     string
 	AnthropicKey   string
 	AnthropicModel string
@@ -158,6 +171,7 @@ func Default() Config {
 		WakeWord:        DefaultWakeWord,
 		AlwaysName:      true,
 		OllamaModel:     "qwen2.5-coder:7b",
+		AutoModel:       true,
 		EmbedModel:      "nomic-embed-text",
 		AnthropicModel:  "",
 		// Loopback only. Binding to every interface once exposed this brain's
@@ -206,6 +220,12 @@ func Load(root string) (Config, error) {
 	assign(&cfg.DefaultProvider, "LLM_DEFAULT_PROVIDER")
 	assign(&cfg.OllamaURL, "OLLAMA_BASE_URL")
 	assign(&cfg.WakeWord, "BRAIN_WAKE_WORD")
+	assign(&cfg.FastModel, "OLLAMA_FAST_MODEL")
+
+	if v := get("BRAIN_AUTO_MODEL"); v != "" {
+		cfg.AutoModel = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
 	assign(&cfg.MailHost, "MAIL_HOST")
 	assign(&cfg.MailUser, "MAIL_USER")
 	assign(&cfg.MailPassword, "MAIL_PASSWORD")
@@ -263,6 +283,9 @@ func (c Config) Save(root string) error {
 	b.WriteString("# transcription has to get that name right before anything can match.\n")
 	b.WriteString("BRAIN_WAKE_WORD=" + c.WakeWord + "\n")
 	b.WriteString("BRAIN_ALWAYS_NAME=" + boolText(c.AlwaysName) + "\n\n")
+
+	b.WriteString("BRAIN_AUTO_MODEL=" + boolText(c.AutoModel) + "\n")
+	b.WriteString("OLLAMA_FAST_MODEL=" + c.FastModel + "\n\n")
 
 	b.WriteString("MAIL_HOST=" + c.MailHost + "\n")
 	b.WriteString("MAIL_PORT=" + intText(c.MailPort) + "\n")

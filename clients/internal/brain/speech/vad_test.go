@@ -148,3 +148,36 @@ func TestBeingHeardOverSomethingPlaying(t *testing.T) {
 		t.Errorf("the room itself (%d) clears its own bar (%d)", film, bar)
 	}
 }
+
+/*
+ * An ordinary voice in a quiet room.
+ *
+ * The other half of the film problem, and it took the film stopping to see it.
+ * With the room quiet the measured floor is around 40, so the margin gives a
+ * bar of 68 — and the absolute minimum, written against a loud room, overrode
+ * that with 500. Somebody talking normally a little away from the microphone
+ * peaks at 300 to 630, so every word went under the bar and the brain reported
+ * that nothing had crossed it.
+ */
+func TestBeingHeardInAQuietRoom(t *testing.T) {
+	const quiet = 44
+
+	// Every peak measured while somebody was speaking, with the room quiet.
+	for _, spoke := range []int{283, 310, 323, 342, 352, 395, 398, 518, 630} {
+		if bar := speechThreshold(quiet); spoke < bar {
+			t.Errorf("speech at %d in a room of %d needed %d, so it was not heard",
+				spoke, quiet, bar)
+		}
+	}
+
+	// The room itself still does not clear its own bar, by a wide margin.
+	if bar := speechThreshold(quiet); quiet*3 >= bar {
+		t.Errorf("a room of %d is too close to the bar of %d; rustling would trigger it",
+			quiet, bar)
+	}
+
+	// And a silent input does not hear its own hiss.
+	if bar := speechThreshold(4); bar < 100 {
+		t.Errorf("a silent input set the bar at %d, which its own hiss would clear", bar)
+	}
+}

@@ -1,0 +1,211 @@
+package speech
+
+import (
+	"context"
+	"strings"
+	"sync"
+	"unicode"
+)
+
+/*
+ * Speaking an answer while it is still being written.
+ *
+ * A reply here is produced at about ten tokens a second, so three sentences is
+ * most of a minute of silence followed by all of it at once. That is not a
+ * conversation; it is a form submission with a voice on the end.
+ *
+ * Said sentence by sentence as they arrive, the first words come a few seconds
+ * after the question — which is roughly how long a person takes to start
+ * answering, and is the whole difference between talking to something and
+ * waiting for it.
+ */
+
+// Aloud speaks text as it arrives, one sentence at a time and in order.
+type Aloud struct {
+	ctx context.Context
+
+	mu      sync.Mutex
+	pending strings.Builder
+	queue   chan string
+	done    chan struct{}
+	started bool
+
+	// spoken is everything actually said, for the record afterwards.
+	spoken strings.Builder
+}
+
+// NewAloud starts a speaker. Close must be called.
+func NewAloud(ctx context.Context) *Aloud {
+	a := &Aloud{
+		ctx: ctx,
+		// Small: the point is to stay close behind the writing, not to build a
+		// backlog of sentences nobody has heard yet.
+		queue: make(chan string, 8),
+		done:  make(chan struct{}),
+	}
+
+	go a.run()
+
+	return a
+}
+
+/*
+ * Write takes the next piece of the answer.
+ *
+ * Pieces arrive a few characters at a time, so they are gathered until there is
+ * a whole sentence. Speaking a fragment is worse than waiting for the rest of
+ * it: the synthesiser puts the wrong tune on half a clause, and the pause
+ * afterwards lands in the middle of the thought.
+ */
+func (a *Aloud) Write(text string) {
+	if text == "" {
+		return
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.pending.WriteString(text)
+
+	for {
+		sentence, rest, found := cutSentence(a.pending.String())
+		if !found {
+			break
+		}
+
+		a.pending.Reset()
+		a.pending.WriteString(rest)
+
+		if strings.TrimSpace(sentence) == "" {
+			continue
+		}
+
+		a.started = true
+
+		select {
+		case a.queue <- sentence:
+		case <-a.ctx.Done():
+			return
+		}
+	}
+}
+
+// Close says whatever is left and waits for the voice to finish.
+func (a *Aloud) Close() {
+	a.mu.Lock()
+
+	last := strings.TrimSpace(a.pending.String())
+
+	a.pending.Reset()
+
+	if last != "" {
+		a.started = true
+
+		select {
+		case a.queue <- last:
+		case <-a.ctx.Done():
+		}
+	}
+
+	a.mu.Unlock()
+
+	close(a.queue)
+	<-a.done
+}
+
+// Started reports whether anything was said, so a caller knows not to speak the
+// whole answer again afterwards.
+func (a *Aloud) Started() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return a.started
+}
+
+// run speaks the queue in order.
+//
+// Strictly one at a time: two sentences spoken at once is not a faster answer,
+// it is two voices.
+func (a *Aloud) run() {
+	defer close(a.done)
+
+	for sentence := range a.queue {
+		if a.ctx.Err() != nil {
+			return
+		}
+
+		if err := SpeakAndWait(a.ctx, sentence); err != nil {
+			// A voice that failed is not a reason to lose the rest of the
+			// answer; the text is on screen either way.
+			return
+		}
+
+		a.mu.Lock()
+		a.spoken.WriteString(sentence)
+		a.mu.Unlock()
+	}
+}
+
+/*
+ * cutSentence takes one complete sentence off the front.
+ *
+ * A full stop is only the end of a sentence when something follows it that
+ * looks like a new one — otherwise every decimal point and every "e.g." starts
+ * the voice off mid-number. Waiting for the following space costs nothing,
+ * because the next characters are already on their way.
+ */
+func cutSentence(text string) (sentence, rest string, found bool) {
+	for i, r := range text {
+		if r != '.' && r != '!' && r != '?' && r != '\n' {
+			continue
+		}
+
+		after := text[i+len(string(r)):]
+
+		if r != '\n' {
+			// Needs a space or a newline after it to be an ending.
+			if after == "" {
+				continue
+			}
+
+			next := []rune(after)[0]
+
+			if !unicode.IsSpace(next) {
+				continue
+			}
+
+			// A single letter before a full stop is an initial, not an end.
+			if i > 0 && isInitial(text[:i]) {
+				continue
+			}
+		}
+
+		sentence = strings.TrimSpace(text[:i+len(string(r))])
+		rest = strings.TrimLeft(after, " \t")
+
+		// Too short to be worth saying on its own; wait for more.
+		if len([]rune(sentence)) < 2 {
+			continue
+		}
+
+		return sentence, rest, true
+	}
+
+	return "", text, false
+}
+
+// isInitial reports that the character before a full stop is a lone letter,
+// as in "J. Smith" — which is not the end of a sentence.
+func isInitial(before string) bool {
+	r := []rune(before)
+
+	if len(r) == 0 || !unicode.IsLetter(r[len(r)-1]) {
+		return false
+	}
+
+	if len(r) == 1 {
+		return true
+	}
+
+	return unicode.IsSpace(r[len(r)-2])
+}

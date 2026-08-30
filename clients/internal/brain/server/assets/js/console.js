@@ -522,12 +522,25 @@ async function talkLoop() {
             setVoiceStatus('Speaking…');
 
             try {
-                // wait: true holds until the voice has actually stopped. On
-                // speakers the microphone hears the brain, and estimating the
-                // duration from the word count — which this replaced — was
-                // wrong in both directions: too short and it transcribed
-                // itself, too long and every exchange dragged.
-                await api.post('/api/speak', { text: reply.reply, wait: true });
+                /*
+                 * Already said, most of the time.
+                 *
+                 * A spoken turn is now read out sentence by sentence while it
+                 * is still being written, so by the time the reply arrives here
+                 * it has usually already been heard. Saying it again would
+                 * repeat the whole answer to somebody who just listened to it.
+                 *
+                 * The fall-back matters: a turn that used a tool cannot be
+                 * streamed, so that one still arrives unsaid.
+                 */
+                if (!reply.already_spoken) {
+                    // wait: true holds until the voice has actually stopped. On
+                    // speakers the microphone hears the brain, and estimating
+                    // the duration from the word count — which this replaced —
+                    // was wrong in both directions: too short and it
+                    // transcribed itself, too long and every exchange dragged.
+                    await api.post('/api/speak', { text: reply.reply, wait: true });
+                }
             } catch {
                 // Not being heard is not a reason to end the conversation.
             }

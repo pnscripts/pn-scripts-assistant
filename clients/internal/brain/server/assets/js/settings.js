@@ -57,6 +57,7 @@ async function load() {
         el('set-wake').value = status.wake_word || '';
         el('set-privacy').value = (status.privacy && status.privacy.mode) || 'private';
         el('set-always').checked = status.always_name !== false;
+        el('set-auto-model').checked = status.auto_model !== false;
     }
 
     renderColours();
@@ -170,6 +171,7 @@ if (form) {
             wake_word: el('set-wake').value,
             privacy: el('set-privacy').value,
             always_name: el('set-always').checked,
+            auto_model: el('set-auto-model').checked,
         }, el('set-note'));
     });
 }

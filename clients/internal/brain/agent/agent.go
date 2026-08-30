@@ -39,6 +39,23 @@ const ToolOutputLimit = 4000
 
 // Loop runs a turn to completion, or to the point where a person is needed.
 type Loop struct {
+	/*
+	 * Aloud starts speaking an answer before it has finished being written.
+	 *
+	 * Set only for turns being held out loud. Nil for anything typed, where
+	 * there is nothing to gain and a voice nobody asked for.
+	 */
+	Aloud func(ctx context.Context) TalkAloud
+
+	/*
+	 * Model chooses which model answers a turn, or is nil to leave it alone.
+	 *
+	 * Set by the brain, which knows what is installed. It is asked once per
+	 * turn rather than once per step, so a turn that uses a tool does not
+	 * change model halfway through and forget how it was going to finish.
+	 */
+	Model func(message string) llm.Choice
+
 	DB       *store.DB
 	Registry *tools.Registry
 	Log      *slog.Logger
@@ -56,6 +73,10 @@ type Pending struct {
 
 // Result is the outcome of one turn.
 type Result struct {
+	// AlreadySpoken is true when the answer was said aloud as it was written,
+	// so the caller must not say the whole thing again.
+	AlreadySpoken bool
+
 	Reply        string
 	Provider     string
 	Model        string
@@ -103,13 +124,42 @@ func (l *Loop) RunShaped(
 	maxTokens int,
 	withTools bool,
 ) (Result, error) {
-	var specs []llm.ToolSpec
+	var actions []string
 
-	if withTools {
-		specs = l.specs()
+	/*
+	 * Which model, decided once for the whole turn.
+	 *
+	 * Once, not per step: a turn that calls a tool is several model calls, and
+	 * swapping model between them means the one that reads the tool's answer is
+	 * not the one that asked for it.
+	 */
+	var model string
+
+	// Tools are offered unless the turn is plainly conversational. Describing
+	// them costs hundreds of tokens of prompt on a processor that manages ten a
+	// second, and "good morning" needs none of them.
+	offerTools := withTools
+
+	if l.Model != nil {
+		choice := l.Model(lastUserMessage(messages))
+		model = choice.Model
+		offerTools = withTools && choice.Tools
+
+		// Held to its job for this turn only, where a smaller model needs it.
+		if choice.Guidance != "" {
+			messages = append(messages,
+				llm.Message{Role: llm.RoleSystem, Content: choice.Guidance})
+		}
+
+		l.Log.Info("model for this turn",
+			"model", choice.Model, "why", choice.Why, "tools", offerTools)
 	}
 
-	var actions []string
+	var specs []llm.ToolSpec
+
+	if offerTools {
+		specs = l.specs()
+	}
 
 	// What is happening, for anything watching. A turn that uses a tool is
 	// several model calls with work between them, and on this machine that can
@@ -122,7 +172,28 @@ func (l *Loop) RunShaped(
 		progress.Round(step + 1)
 		progress.Set("thinking", "Thinking")
 
-		resp, err := provider.Chat(ctx, llm.Request{Messages: messages, Tools: specs, MaxTokens: maxTokens})
+		request := llm.Request{
+			Messages: messages, Tools: specs, MaxTokens: maxTokens, Model: model,
+		}
+
+		/*
+		 * When there is nothing to decide, say it as it is written.
+		 *
+		 * Only with no tools offered: a turn that might call one has to be read
+		 * whole before anything can happen, because a tool call is not
+		 * speakable and half of one is not anything. Without tools the answer
+		 * is words and nothing else, so the voice can start on the first
+		 * sentence while the rest is still being produced — which is the
+		 * difference between talking to something and waiting for it.
+		 */
+		var resp llm.Response
+		var err error
+
+		if l.Aloud != nil && len(specs) == 0 {
+			resp, err = l.streamAloud(ctx, provider, request)
+		} else {
+			resp, err = provider.Chat(ctx, request)
+		}
 		if err != nil {
 			return Result{}, err
 		}
@@ -159,10 +230,11 @@ func (l *Loop) RunShaped(
 			}
 
 			return Result{
-				Reply:        reply,
-				Provider:     resp.Provider,
-				Model:        resp.Model,
-				ActionsTaken: actions,
+				Reply:         reply,
+				Provider:      resp.Provider,
+				Model:         resp.Model,
+				ActionsTaken:  actions,
+				AlreadySpoken: resp.Spoken,
 			}, nil
 		}
 
@@ -370,6 +442,57 @@ func jsonCandidates(content string) []string {
 	out = append(out, text)
 
 	return out
+}
+
+// lastUserMessage is what the person actually said this turn, which is what
+// the choice of model is made from — not the whole conversation, which carries
+// every earlier subject with it.
+func lastUserMessage(messages []llm.Message) string {
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == llm.RoleUser {
+			return messages[i].Content
+		}
+	}
+
+	return ""
+}
+
+/*
+ * TalkAloud is something that speaks text as it arrives.
+ *
+ * An interface so the agent does not depend on the speech package, which brings
+ * a process, a socket and an audio device with it — none of which belongs in
+ * the test for a conversation loop.
+ */
+type TalkAloud interface {
+	Write(text string)
+	Close()
+	Started() bool
+}
+
+// streamAloud runs one model call, speaking it as it is written.
+func (l *Loop) streamAloud(
+	ctx context.Context, provider llm.Provider, request llm.Request,
+) (llm.Response, error) {
+	streamer, ok := provider.(llm.Streamer)
+	if !ok {
+		return provider.Chat(ctx, request)
+	}
+
+	voice := l.Aloud(ctx)
+	defer voice.Close()
+
+	progress.Set("answering", "Answering")
+
+	resp, err := streamer.ChatStream(ctx, request, voice.Write)
+	if err != nil {
+		return resp, err
+	}
+
+	// Recorded on the response so the caller knows not to say it all again.
+	resp.Spoken = voice.Started()
+
+	return resp, nil
 }
 
 // specs describes the tools to the model, in the registry's stable order.

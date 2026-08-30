@@ -76,10 +76,21 @@ func (LookAtScreen) Summarize(raw json.RawMessage) string {
 	return "Look at your screen"
 }
 
-// visionModels are the ones known to take images, best first.
+/*
+ * visionModels are the ones known to take images, smallest useful first.
+ *
+ * Smallest, not best. On a machine with no graphics card every resident model
+ * competes for the same four cores, and loading a twelve-billion-parameter
+ * model to read a screenshot evicts the one holding the conversation and then
+ * sits on eight gigabytes for half an hour afterwards. Measured here: two
+ * language servers at 223% and 75% of a four-core processor, and every reply
+ * after it crawling.
+ *
+ * The small one describes a screen perfectly well.
+ */
 var visionModels = []string{
-	"gemma3:12b", "gemma3:4b", "llava:13b", "llava:7b", "llava",
-	"qwen2.5vl", "minicpm-v", "moondream",
+	"gemma3:4b", "moondream", "llava:7b", "llava", "minicpm-v",
+	"qwen2.5vl", "gemma3:12b", "llava:13b",
 }
 
 func (t LookAtScreen) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -224,6 +235,11 @@ func (t LookAtScreen) ask(ctx context.Context, model, question string, image []b
 		"prompt": question,
 		"images": []string{base64.StdEncoding.EncodeToString(image)},
 		"stream": false,
+
+		// Let go of it straight away. Looking at the screen is occasional, and
+		// a vision model left resident for half an hour is memory and processor
+		// taken from every reply after it.
+		"keep_alive": "30s",
 	})
 	if err != nil {
 		return "", err

@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -121,6 +124,107 @@ type ollamaChatResponse struct {
 	Model   string        `json:"model"`
 	Message ollamaMessage `json:"message"`
 	Error   string        `json:"error"`
+}
+
+/*
+ * ChatStream answers a turn a piece at a time.
+ *
+ * The whole point is what can be started before the answer is finished. This
+ * machine produces about ten tokens a second, so a three-sentence reply is most
+ * of a minute of silence followed by all of it at once — which is not a
+ * conversation, it is a form submission. Handed the pieces as they arrive, the
+ * voice can begin on the first sentence while the rest is still being written,
+ * and the wait before somebody hears anything falls from most of a minute to a
+ * few seconds.
+ *
+ * Streaming is only used where there is nothing to decide: a turn that might
+ * call a tool has to be read whole before anything can happen, because a tool
+ * call is not speakable and half of one is not anything.
+ */
+func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string)) (Response, error) {
+	model := req.Model
+	if model == "" {
+		model = o.ChatModel
+	}
+
+	body := ollamaChatRequest{Model: model, Stream: true, KeepAlive: o.KeepAlive}
+
+	if req.MaxTokens > 0 {
+		body.Options = map[string]any{"num_predict": req.MaxTokens}
+	}
+
+	for _, m := range req.Messages {
+		body.Messages = append(body.Messages, ollamaMessage{Role: m.Role, Content: m.Content})
+	}
+
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return Response{}, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		o.BaseURL+"/api/chat", bytes.NewReader(raw))
+	if err != nil {
+		return Response{}, err
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+
+	res, err := o.HTTPClient.Do(request)
+	if err != nil {
+		return Response{}, fmt.Errorf("reaching ollama at %s: %w", o.BaseURL, err)
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return Response{}, fmt.Errorf("ollama answered %s", res.Status)
+	}
+
+	var whole strings.Builder
+
+	// One JSON object per line, each carrying the next few characters.
+	decoder := json.NewDecoder(res.Body)
+
+	for {
+		var chunk struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+			Done  bool   `json:"done"`
+			Error string `json:"error"`
+		}
+
+		if err := decoder.Decode(&chunk); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			return Response{}, fmt.Errorf("reading the answer: %w", err)
+		}
+
+		if chunk.Error != "" {
+			return Response{}, fmt.Errorf("%s", chunk.Error)
+		}
+
+		if chunk.Message.Content != "" {
+			whole.WriteString(chunk.Message.Content)
+
+			if onText != nil {
+				onText(chunk.Message.Content)
+			}
+		}
+
+		if chunk.Done {
+			break
+		}
+	}
+
+	return Response{
+		Content:  whole.String(),
+		Provider: "ollama",
+		Model:    model,
+	}, nil
 }
 
 func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {

@@ -101,7 +101,7 @@ func TestNoModelThatCanSeeIsSaidPlainly(t *testing.T) {
 }
 
 // The best installed model wins, rather than the first one listed.
-func TestTheBetterEyeIsPreferred(t *testing.T) {
+func TestTheCheaperEyeIsPreferred(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"models": []map[string]string{
@@ -119,7 +119,9 @@ func TestTheBetterEyeIsPreferred(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if model != "gemma3:12b" {
-		t.Errorf("picked %q over the better model that is installed", model)
+	// The small one, not the big one: on a processor, a twelve-billion model
+	// loaded to read a screenshot evicts the model holding the conversation.
+	if model != "gemma3:4b" {
+		t.Errorf("picked %q rather than the small model that costs least", model)
 	}
 }

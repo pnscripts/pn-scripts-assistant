@@ -11,13 +11,16 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
+	"time"
 
 	"pn-brain/internal/brain/agent"
 	"pn-brain/internal/brain/appearance"
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/learning"
-	"pn-brain/internal/brain/mail"
 	"pn-brain/internal/brain/llm"
+	"pn-brain/internal/brain/mail"
+	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/smarthome"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
@@ -47,6 +50,11 @@ type Brain struct {
 	// the one the brain grows on, not the one the binary happens to sit on.
 	Root   string
 	DBPath string
+
+	// The small model used for small talk, looked up once. Empty means there
+	// is none installed and everything goes to the usual one.
+	fastOnce  sync.Once
+	fastFound string
 
 	// Learner runs the Extractor/Validator/Curator pipeline in the background.
 	// Nil when no local model is available, since extraction must stay local.
@@ -151,6 +159,19 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		DB:       db,
 		Log:      logger,
 		Registry: tools.NewRegistry(available...),
+
+		// Read from the live settings each turn, so switching it off in the
+		// interface takes effect without a restart.
+		Model: func(message string) llm.Choice {
+			if !b.Cfg.AutoModel {
+				return llm.Choice{Model: b.Cfg.OllamaModel, Why: "chosen by you"}
+			}
+
+			return llm.ChooseModel(message, llm.Sizes{
+				Capable: b.Cfg.OllamaModel,
+				Fast:    b.fastModel(),
+			})
+		},
 	}
 
 	// The owner's chosen voice and language, applied before anything speaks or
@@ -173,6 +194,49 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	}
 
 	return b
+}
+
+/*
+ * fastModel is the small model to use for conversation.
+ *
+ * Looked up once and remembered, because it means asking ollama what is
+ * installed and that is a round trip nobody should pay for on the way to
+ * saying good morning. A machine with nothing small returns empty, and then
+ * everything goes to the usual model, which is the right answer rather than a
+ * failure.
+ */
+func (b *Brain) fastModel() string {
+	if b.Cfg.FastModel != "" {
+		return b.Cfg.FastModel
+	}
+
+	b.fastOnce.Do(func() {
+		client := models.New(b.Cfg.OllamaURL)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		installed, err := client.List(ctx)
+		if err != nil {
+			b.Log.Info("could not ask what models are installed", "error", err)
+
+			return
+		}
+
+		names := make([]string, 0, len(installed))
+
+		for _, m := range installed {
+			names = append(names, m.Name)
+		}
+
+		b.fastFound = llm.PickFast(names)
+
+		if b.fastFound != "" {
+			b.Log.Info("small talk will be answered by a quicker model", "model", b.fastFound)
+		}
+	})
+
+	return b.fastFound
 }
 
 // mailAccount reads the mailbox out of the settings.
@@ -386,6 +450,10 @@ type ChatReply struct {
 	// reply: what the brain did, and what it is waiting to be allowed to do.
 	ActionsTaken     []string        `json:"actions_taken"`
 	PendingApprovals []agent.Pending `json:"pending_approvals"`
+
+	// AlreadySpoken is true when the answer was said aloud as it was written,
+	// so the page must not send it to be spoken a second time.
+	AlreadySpoken bool `json:"already_spoken"`
 }
 
 // Chat answers a message and records the exchange.
@@ -541,10 +609,35 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		limit = SpokenReplyTokens
 	}
 
-	// Tools are withheld from a spoken turn: their schemas cost more time than
-	// the answer does, and nobody talking to an assistant is asking it to write
-	// a file. Anything that does need a tool can be typed.
-	result, err := b.Agent.RunShaped(ctx, conversationID, provider, messages, limit, !req.Spoken)
+	/*
+	 * Tools are offered on spoken turns too.
+	 *
+	 * They used to be withheld from anything said out loud, to save the time it
+	 * costs to describe them — which meant that speaking to this brain could
+	 * never make it do anything, only talk. "Approve everything", said aloud,
+	 * could not have worked however well every other part of the chain behaved.
+	 *
+	 * What was said decides now, not how it arrived: small talk is answered
+	 * without them either way, and anything that means doing something gets
+	 * them whether it was typed or spoken.
+	 */
+	/*
+	 * A spoken turn is said as it is written.
+	 *
+	 * Set only for a turn that will be heard. The wait before anybody hears
+	 * anything is the whole of how a conversation feels, and on this machine
+	 * an answer takes long enough that hearing the first sentence early is the
+	 * difference between talking to something and submitting a form to it.
+	 */
+	if req.Spoken {
+		b.Agent.Aloud = func(ctx context.Context) agent.TalkAloud {
+			return speech.NewAloud(ctx)
+		}
+
+		defer func() { b.Agent.Aloud = nil }()
+	}
+
+	result, err := b.Agent.RunShaped(ctx, conversationID, provider, messages, limit, true)
 	if err != nil {
 		return ChatReply{}, err
 	}
@@ -577,6 +670,7 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		Recalled:         ids,
 		ActionsTaken:     result.ActionsTaken,
 		PendingApprovals: result.Pending,
+		AlreadySpoken:    result.AlreadySpoken,
 	}, nil
 }
 

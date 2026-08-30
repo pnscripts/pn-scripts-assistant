@@ -228,6 +228,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"wake_word":    s.brain.Cfg.WakeWord,
 		"first_run":    s.brain.Cfg.New,
 		"always_name":  s.brain.Cfg.AlwaysName,
+		"auto_model":   s.brain.Cfg.AutoModel,
 		"provider":     s.brain.Cfg.DefaultProvider,
 		"model":        s.brain.Cfg.OllamaModel,
 		"privacy":      s.brain.Mode.Describe(),
@@ -1033,6 +1034,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 		// AlwaysName is whether the name is needed on every sentence.
 		AlwaysName *bool `json:"always_name"`
+
+		// AutoModel is whether small talk may go to a quicker model.
+		AutoModel *bool `json:"auto_model"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
@@ -1083,6 +1087,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		s.brain.Cfg.AlwaysName = *body.AlwaysName
 	}
 
+	if body.AutoModel != nil {
+		s.brain.Cfg.AutoModel = *body.AutoModel
+	}
+
 	// Saved as soon as it is set, and the file existing is what stops the
 	// interface asking to be introduced a second time.
 	s.brain.Cfg.New = false
@@ -1099,6 +1107,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		"wake_word":   s.brain.Cfg.WakeWord,
 		"privacy":     s.brain.Cfg.Privacy,
 		"always_name": s.brain.Cfg.AlwaysName,
+		"auto_model":  s.brain.Cfg.AutoModel,
 	})
 }
 
