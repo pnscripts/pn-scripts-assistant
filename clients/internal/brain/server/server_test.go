@@ -15,6 +15,7 @@ import (
 
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/wake"
 	"pn-brain/internal/brain/tools"
@@ -825,5 +826,63 @@ func TestABlankPasswordBoxKeepsTheSavedOne(t *testing.T) {
 
 	if b.Cfg.MailUser != "petar@example.com" {
 		t.Errorf("the rest of the form did not save: %q", b.Cfg.MailUser)
+	}
+}
+
+/*
+ * The core is coloured from this endpoint, so the endpoint has to carry it.
+ *
+ * The handler builds its own object field by field rather than marshalling the
+ * step, so adding a field to the step changes nothing here — which is how the
+ * whole distinction between background and foreground work came to be correct
+ * everywhere except on the wire, where it is the only place it matters.
+ */
+func TestProgressSaysWhetherAnybodyIsWaiting(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	progress.Done()
+	progress.SetBackground("learning", "Learning from the last conversation")
+
+	defer progress.Done()
+
+	res, err := http.Get(ts.URL + "/api/progress")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer res.Body.Close()
+
+	var out map[string]any
+
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, carried := out["background"]; !carried {
+		t.Fatal("the page is never told which kind of work this is")
+	}
+
+	if background, _ := out["background"].(bool); !background {
+		t.Error("learning after a conversation is reported as work somebody is waiting for")
+	}
+
+	// And a real turn is reported as one.
+	progress.Begin()
+
+	res2, err := http.Get(ts.URL + "/api/progress")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer res2.Body.Close()
+
+	var turn map[string]any
+
+	if err := json.NewDecoder(res2.Body).Decode(&turn); err != nil {
+		t.Fatal(err)
+	}
+
+	if background, _ := turn["background"].(bool); background {
+		t.Error("a turn its owner is waiting for was reported as background work")
 	}
 }

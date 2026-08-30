@@ -410,7 +410,16 @@ export function startCore() {
 
         // Brightness from sound that is really there, lifted while working so
         // the whole body reads as busy and not only the band crossing it.
-        const working = signals.work && signals.work.busy;
+        /*
+         * Only work somebody is waiting on colours the core.
+         *
+         * Learning from the last conversation runs a minute after every
+         * exchange, and colouring the core for it means opening the program and
+         * finding it already amber and apparently thinking about a question
+         * nobody asked. The working line still says what it is doing; the core
+         * is reserved for the turn its owner is waiting for.
+         */
+        const working = signals.work && signals.work.busy && !signals.work.background;
         const busy = working ? 0.5 : 0;
         const lit = 0.7 + signals.smooth * 2.2 + signals.recall * 0.8 + busy;
 

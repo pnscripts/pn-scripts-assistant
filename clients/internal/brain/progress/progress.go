@@ -29,15 +29,30 @@ type Step struct {
 	// How many model calls this turn has taken, which is what makes a slow
 	// turn slow and is worth being able to see.
 	Round int `json:"round"`
+
+	/*
+	 * Background is work the brain gave itself.
+	 *
+	 * It has to be told apart from work somebody is waiting on, because the
+	 * core is coloured by this: learning from the last conversation runs a
+	 * minute after every exchange, and without the distinction the brain sits
+	 * there amber and apparently thinking about a question nobody asked. Its
+	 * owner opens the program and finds it already busy with them.
+	 *
+	 * Still reported, and still shown — just not as though somebody is waiting
+	 * for it.
+	 */
+	Background bool `json:"background"`
 }
 
 var current struct {
-	mu      sync.RWMutex
-	busy    bool
-	kind    string
-	note    string
-	round   int
-	started time.Time
+	mu         sync.RWMutex
+	busy       bool
+	kind       string
+	note       string
+	round      int
+	background bool
+	started    time.Time
 }
 
 // Begin marks the start of a turn.
@@ -47,6 +62,7 @@ func Begin() {
 	current.kind = "thinking"
 	current.note = "Thinking"
 	current.round = 0
+	current.background = false
 	current.started = time.Now()
 	current.mu.Unlock()
 }
@@ -64,6 +80,29 @@ func Set(kind, note string) {
 
 	current.kind = kind
 	current.note = note
+	current.background = false
+	current.mu.Unlock()
+}
+
+/*
+ * SetBackground records work the brain gave itself.
+ *
+ * The same as Set except that nothing is waiting on it, which is what stops the
+ * core from turning the colour it uses for "I am working on what you asked".
+ * Used by the learning worker, which runs after every conversation and would
+ * otherwise leave the brain looking permanently busy.
+ */
+func SetBackground(kind, note string) {
+	current.mu.Lock()
+
+	if !current.busy {
+		current.busy = true
+		current.started = time.Now()
+	}
+
+	current.kind = kind
+	current.note = note
+	current.background = true
 	current.mu.Unlock()
 }
 
@@ -105,10 +144,11 @@ func Now() Step {
 	}
 
 	return Step{
-		Busy:    true,
-		Kind:    current.kind,
-		Note:    current.note,
-		Seconds: time.Since(current.started).Seconds(),
-		Round:   current.round,
+		Busy:       true,
+		Kind:       current.kind,
+		Note:       current.note,
+		Seconds:    time.Since(current.started).Seconds(),
+		Round:      current.round,
+		Background: current.background,
 	}
 }

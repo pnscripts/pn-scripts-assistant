@@ -812,6 +812,9 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 		"note":    step.Note,
 		"seconds": step.Seconds,
 		"round":   step.Round,
+		// The core is coloured by this: work the brain gave itself must not
+		// look like work somebody is waiting on.
+		"background": step.Background,
 	})
 }
 

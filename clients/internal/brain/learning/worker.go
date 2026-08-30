@@ -114,7 +114,7 @@ func (w *Worker) run(ctx context.Context) {
 			// the interface showed an idle brain on a machine that was clearly
 			// working — which reads as stuck. Anything that takes a minute of
 			// this machine has to say it is happening.
-			progress.Set("learning", "Learning from the last conversation")
+			progress.SetBackground("learning", "Learning from the last conversation")
 
 			err := w.process(ctx, id)
 
