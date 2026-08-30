@@ -392,6 +392,39 @@
                     </form>
                 </div>
                 <div class="card">
+                    <h2>Mailbox</h2>
+                    <p class="note">Fill these in yourself and the brain can read and write
+                        your mail. Use an <strong>app password</strong>, not your account
+                        password — every provider worth using issues them, they can be
+                        revoked on their own, and they cannot be used to take the account
+                        over. It is kept in the settings file beside the brain and sent
+                        only to your own mail server.</p>
+                    <form id="mail-form">
+                        <label class="field">
+                            <span>Your address</span>
+                            <input id="mail-user" type="email" autocomplete="off"
+                                   placeholder="you@example.com">
+                        </label>
+                        <label class="field">
+                            <span>App password</span>
+                            <input id="mail-password" type="password" autocomplete="off"
+                                   placeholder="leave blank to keep the one already saved">
+                        </label>
+                        <label class="field">
+                            <span>Incoming server (IMAP)</span>
+                            <input id="mail-host" type="text" autocomplete="off"
+                                   placeholder="imap.gmail.com">
+                        </label>
+                        <label class="field">
+                            <span>Outgoing server (SMTP)</span>
+                            <input id="mail-smtp" type="text" autocomplete="off"
+                                   placeholder="smtp.gmail.com">
+                        </label>
+                        <button type="submit" class="model-action">Save mailbox</button>
+                        <p class="engine-meta" id="mail-note"></p>
+                    </form>
+                </div>
+                <div class="card">
                     <h2>Applications menu</h2>
                     <p class="note" id="menu-note">—</p>
                     <button type="button" class="model-action" id="menu-add">

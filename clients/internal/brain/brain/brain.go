@@ -16,6 +16,7 @@ import (
 	"pn-brain/internal/brain/appearance"
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/learning"
+	"pn-brain/internal/brain/mail"
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/smarthome"
 	"pn-brain/internal/brain/speech"
@@ -110,6 +111,22 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		)
 	}
 
+	/*
+	 * Mail tools appear only when there is a mailbox.
+	 *
+	 * Same reason as the smart home: a tool the model can see is a tool it will
+	 * try, and offering to read mail it cannot reach produces a brain that
+	 * promises to check and then reports an error every time.
+	 */
+	if account := mailAccount(cfg); account.Configured() {
+		read := func() mail.Account { return mailAccount(b.Cfg) }
+
+		available = append(available,
+			tools.ReadEmail{Account: read},
+			tools.SendEmail{Account: read},
+		)
+	}
+
 	// Smart-home tools appear only when there is a house to talk to. Offering
 	// them unconfigured would have the model promise to turn on lights it
 	// cannot reach.
@@ -156,6 +173,22 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	}
 
 	return b
+}
+
+// mailAccount reads the mailbox out of the settings.
+//
+// Taken from the live config each time rather than captured once, so a mailbox
+// filled in while the brain is running works without a restart.
+func mailAccount(cfg config.Config) mail.Account {
+	return mail.Account{
+		Host:     cfg.MailHost,
+		Port:     cfg.MailPort,
+		User:     cfg.MailUser,
+		Password: cfg.MailPassword,
+		From:     cfg.MailFrom,
+		SMTPHost: cfg.SMTPHost,
+		SMTPPort: cfg.SMTPPort,
+	}
 }
 
 // WakeWord is what has to be said before the brain answers, or empty.

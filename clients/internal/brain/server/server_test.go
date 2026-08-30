@@ -760,3 +760,70 @@ func TestTheNameItShipsListeningFor(t *testing.T) {
 		t.Errorf("named Ariel but still answers to %q", b.Cfg.WakeWord)
 	}
 }
+
+/*
+ * The mailbox password is never sent back to the page.
+ *
+ * A page that echoed it would put it in the page source, in the accessibility
+ * tree, and in every screenshot of this window — including the ones this
+ * program can now take of its own screen and hand to a model.
+ */
+func TestTheMailPasswordNeverLeavesTheSettingsFile(t *testing.T) {
+	ts, _, b := newServer(t)
+
+	b.Cfg.MailUser = "petar@example.com"
+	b.Cfg.MailHost = "imap.example.com"
+	b.Cfg.MailPassword = "hunter2-app-password"
+
+	res, err := http.Get(ts.URL + "/api/mail")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer res.Body.Close()
+
+	body, _ := io.ReadAll(res.Body)
+
+	if strings.Contains(string(body), "hunter2") {
+		t.Fatalf("the password came back to the page: %s", body)
+	}
+
+	var out map[string]any
+
+	if err := json.Unmarshal(body, &out); err != nil {
+		t.Fatal(err)
+	}
+
+	if has, _ := out["has_password"].(bool); !has {
+		t.Error("the page cannot tell that a password is saved")
+	}
+}
+
+/*
+ * Saving the form with the password box empty keeps the saved one.
+ *
+ * The form never shows the password, so somebody changing only the server name
+ * submits a blank box — and clearing it there would silently break the mailbox
+ * they just finished setting up.
+ */
+func TestABlankPasswordBoxKeepsTheSavedOne(t *testing.T) {
+	ts, _, b := newServer(t)
+
+	b.Cfg.MailPassword = "already-saved"
+
+	res, err := http.Post(ts.URL+"/api/mail", "application/json",
+		strings.NewReader(`{"user":"petar@example.com","host":"imap.example.com","password":""}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res.Body.Close()
+
+	if b.Cfg.MailPassword != "already-saved" {
+		t.Errorf("the saved password was wiped by an empty box: %q", b.Cfg.MailPassword)
+	}
+
+	if b.Cfg.MailUser != "petar@example.com" {
+		t.Errorf("the rest of the form did not save: %q", b.Cfg.MailUser)
+	}
+}

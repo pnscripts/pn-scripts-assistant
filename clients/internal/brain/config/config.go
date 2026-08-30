@@ -67,6 +67,22 @@ type Config struct {
 	// English prose — right words, wrong language, and no error to explain it.
 	Language string
 
+	/*
+	 * The owner's mailbox.
+	 *
+	 * Filled in by the person who owns it, in Settings, and never by the
+	 * assistant. MailPassword should be an app password rather than the
+	 * account's own — every provider worth using issues them, they can be
+	 * revoked on their own, and they cannot be used to take the account over.
+	 */
+	MailHost     string
+	MailPort     int
+	MailUser     string
+	MailPassword string
+	MailFrom     string
+	SMTPHost     string
+	SMTPPort     int
+
 	// Web search. Without a key the brain falls back to scraping DuckDuckGo,
 	// which needs no account.
 	BraveKey string
@@ -93,6 +109,27 @@ type Config struct {
  * list of spellings never converges on it. "Brain" comes back as "Brain".
  */
 const DefaultWakeWord = "Brain"
+
+// assignInt sets a number from a setting, leaving it alone when unset or
+// unreadable — a typo should not silently become port zero.
+func assignInt(target *int, text string) {
+	if text == "" {
+		return
+	}
+
+	if n, err := strconv.Atoi(strings.TrimSpace(text)); err == nil {
+		*target = n
+	}
+}
+
+// intText writes a number, or nothing at all when it has not been set.
+func intText(n int) string {
+	if n == 0 {
+		return ""
+	}
+
+	return strconv.Itoa(n)
+}
 
 // boolText writes a setting the way the file reads it back.
 func boolText(on bool) string {
@@ -169,6 +206,14 @@ func Load(root string) (Config, error) {
 	assign(&cfg.DefaultProvider, "LLM_DEFAULT_PROVIDER")
 	assign(&cfg.OllamaURL, "OLLAMA_BASE_URL")
 	assign(&cfg.WakeWord, "BRAIN_WAKE_WORD")
+	assign(&cfg.MailHost, "MAIL_HOST")
+	assign(&cfg.MailUser, "MAIL_USER")
+	assign(&cfg.MailPassword, "MAIL_PASSWORD")
+	assign(&cfg.MailFrom, "MAIL_FROM")
+	assign(&cfg.SMTPHost, "SMTP_HOST")
+
+	assignInt(&cfg.MailPort, get("MAIL_PORT"))
+	assignInt(&cfg.SMTPPort, get("SMTP_PORT"))
 
 	if v := get("BRAIN_ALWAYS_NAME"); v != "" {
 		cfg.AlwaysName = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
@@ -218,6 +263,14 @@ func (c Config) Save(root string) error {
 	b.WriteString("# transcription has to get that name right before anything can match.\n")
 	b.WriteString("BRAIN_WAKE_WORD=" + c.WakeWord + "\n")
 	b.WriteString("BRAIN_ALWAYS_NAME=" + boolText(c.AlwaysName) + "\n\n")
+
+	b.WriteString("MAIL_HOST=" + c.MailHost + "\n")
+	b.WriteString("MAIL_PORT=" + intText(c.MailPort) + "\n")
+	b.WriteString("MAIL_USER=" + c.MailUser + "\n")
+	b.WriteString("MAIL_PASSWORD=" + c.MailPassword + "\n")
+	b.WriteString("MAIL_FROM=" + c.MailFrom + "\n")
+	b.WriteString("SMTP_HOST=" + c.SMTPHost + "\n")
+	b.WriteString("SMTP_PORT=" + intText(c.SMTPPort) + "\n\n")
 	b.WriteString("LLM_DEFAULT_PROVIDER=" + c.DefaultProvider + "\n")
 	b.WriteString("OLLAMA_BASE_URL=" + c.OllamaURL + "\n")
 	b.WriteString("OLLAMA_DEFAULT_MODEL=" + c.OllamaModel + "\n")

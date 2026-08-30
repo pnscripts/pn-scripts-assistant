@@ -271,6 +271,63 @@ function wireMenu() {
 
 wireMenu();
 
+/*
+ * The mailbox.
+ *
+ * The password field is never filled in from the server, and a blank one means
+ * "keep what is saved" rather than "clear it". A page that echoed the password
+ * back would put it in the page source, in the accessibility tree, and in any
+ * screenshot of this window.
+ */
+async function loadMail() {
+    if (!el('mail-user')) return;
+
+    let status;
+
+    try {
+        status = await api.get('/api/mail');
+    } catch {
+        return;
+    }
+
+    el('mail-user').value = status.user || '';
+    el('mail-host').value = status.host || '';
+    el('mail-smtp').value = status.smtp || '';
+    el('mail-password').placeholder = status.has_password
+        ? 'saved \u00b7 leave blank to keep it'
+        : 'app password';
+
+    el('mail-note').textContent = status.configured
+        ? 'Ready. Ask it to check your email.'
+        : 'Not set up yet.';
+}
+
+const mailForm = el('mail-form');
+
+if (mailForm) {
+    mailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const note = el('mail-note');
+
+        note.textContent = 'Saving\u2026';
+
+        try {
+            await api.post('/api/mail', {
+                user: el('mail-user').value.trim(),
+                password: el('mail-password').value,
+                host: el('mail-host').value.trim(),
+                smtp: el('mail-smtp').value.trim(),
+            });
+
+            el('mail-password').value = '';
+            await loadMail();
+        } catch (err) {
+            note.textContent = String(err.message || err);
+        }
+    });
+}
+
 async function loadHeard() {
     const rows = el('heard-rows');
 
@@ -366,6 +423,7 @@ document.querySelector('.nav-item[data-view="system"]')?.addEventListener('click
     load();
     loadHeard();
     loadMenu();
+    loadMail();
 });
 
 // Refreshed while the panel is open, because the whole point is watching what
@@ -379,5 +437,6 @@ setInterval(() => {
 load();
 loadHeard();
 loadMenu();
+loadMail();
 
 })();

@@ -60,6 +60,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/status", s.handleStatus)
 	s.mux.HandleFunc("GET /api/heard", s.handleHeard)
 	s.mux.HandleFunc("POST /api/present", s.handlePresent)
+	s.mux.HandleFunc("GET /api/mail", s.handleMailStatus)
+	s.mux.HandleFunc("POST /api/mail", s.handleMail)
 	s.mux.HandleFunc("GET /api/desktop", s.handleDesktopStatus)
 	s.mux.HandleFunc("POST /api/desktop", s.handleDesktop)
 	s.mux.HandleFunc("GET /api/memory-map", s.handleMemoryMap)
@@ -675,6 +677,60 @@ func (s *Server) handleDesktop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"installed": true, "entry": entry})
+}
+
+/*
+ * handleMailStatus reports the mailbox without ever reporting the password.
+ *
+ * has_password rather than the password itself. A page that echoed it back
+ * would put it in the page source, in the accessibility tree, and in every
+ * screenshot of this window — including the ones this program can now take of
+ * its own screen.
+ */
+func (s *Server) handleMailStatus(w http.ResponseWriter, r *http.Request) {
+	cfg := s.brain.Cfg
+
+	ok(w, map[string]any{
+		"user":         cfg.MailUser,
+		"host":         cfg.MailHost,
+		"smtp":         cfg.SMTPHost,
+		"has_password": cfg.MailPassword != "",
+		"configured":   cfg.MailHost != "" && cfg.MailUser != "" && cfg.MailPassword != "",
+	})
+}
+
+// handleMail saves the mailbox its owner typed in.
+func (s *Server) handleMail(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		User     string `json:"user"`
+		Password string `json:"password"`
+		Host     string `json:"host"`
+		SMTP     string `json:"smtp"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "Those are not mailbox settings.")
+
+		return
+	}
+
+	s.brain.Cfg.MailUser = strings.TrimSpace(body.User)
+	s.brain.Cfg.MailHost = strings.TrimSpace(body.Host)
+	s.brain.Cfg.SMTPHost = strings.TrimSpace(body.SMTP)
+
+	// Blank means keep what is saved, not clear it: the form never shows the
+	// password, so submitting the form must not wipe it.
+	if body.Password != "" {
+		s.brain.Cfg.MailPassword = body.Password
+	}
+
+	if err := s.brain.Cfg.Save(s.brain.Root); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	s.handleMailStatus(w, r)
 }
 
 // handleGreeting is what the brain says on opening, without being asked.
