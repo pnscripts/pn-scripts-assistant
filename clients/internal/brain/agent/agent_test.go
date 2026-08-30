@@ -435,3 +435,91 @@ func TestToolSchemasAreSentCompact(t *testing.T) {
 
 	t.Logf("schemas: %d bytes written, %d sent (%d%% smaller)", raw, sent, 100-sent*100/raw)
 }
+
+/*
+ * A tool call introduced by a sentence.
+ *
+ * This is what small models actually do, and it cost a whole evening. Asked to
+ * approve everything waiting, qwen2.5-coder:7b produced exactly the right call
+ * with exactly the right arguments — and put "Sure, I'll approve everything for
+ * you." in front of it. Recovery required the whole reply to be one JSON
+ * object, so the call was dropped, and the brain told its owner it had done
+ * something it had not done.
+ */
+func TestAToolCallAfterASentence(t *testing.T) {
+	loop := &Loop{
+		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Registry: tools.NewRegistry(tools.ReadFile{}),
+	}
+
+	replies := []string{
+		"Sure, I'll do that for you.\n\n```json\n{\"name\": \"read_file\", \"arguments\": {\"path\": \"/tmp/a\"}}\n```",
+		"```json\n{\"name\": \"read_file\", \"arguments\": {\"path\": \"/tmp/a\"}}\n```",
+		"Let me look.\n```\n{\"name\": \"read_file\", \"arguments\": {\"path\": \"/tmp/a\"}}\n```\nThat should do it.",
+		"{\"name\": \"read_file\", \"arguments\": {\"path\": \"/tmp/a\"}}",
+	}
+
+	for _, reply := range replies {
+		call, ok := loop.recoverToolCall(reply)
+		if !ok {
+			t.Errorf("dropped the call in %q", reply)
+
+			continue
+		}
+
+		if call.Name != "read_file" {
+			t.Errorf("recovered %q from %q", call.Name, reply)
+		}
+
+		if !strings.Contains(string(call.Arguments), "/tmp/a") {
+			t.Errorf("lost the arguments from %q: %s", reply, call.Arguments)
+		}
+	}
+}
+
+// But talking about a tool is still not calling one.
+//
+// The looser reading was tried — every pair of braces anywhere in the reply —
+// and it turns an explanation into an action, which is how an assistant starts
+// doing things nobody asked for.
+func TestTalkingAboutAToolIsStillNotCallingOne(t *testing.T) {
+	loop := &Loop{
+		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Registry: tools.NewRegistry(tools.ReadFile{}),
+	}
+
+	for _, reply := range []string{
+		`Try {"name": "read_file"} to see it.`,
+		`The format is {"name": "read_file", "arguments": {"path": "..."}} in prose.`,
+		`I could use read_file for that. Shall I?`,
+	} {
+		if _, ok := loop.recoverToolCall(reply); ok {
+			t.Errorf("acted on an explanation: %q", reply)
+		}
+	}
+}
+
+/*
+ * The plumbing does not belong on screen, or in the voice.
+ *
+ * A model that announces the call and then prints it leaves its owner reading
+ * "Understood." followed by a wall of braces — and the voice reads the braces
+ * out. The sentence is the answer; the JSON escaped.
+ */
+func TestTheCallIsNotShownToThePerson(t *testing.T) {
+	cases := []struct {
+		reply string
+		want  string
+	}{
+		{"Understood.\n\n{\n  \"name\": \"decide_waiting\",\n  \"arguments\": {}\n}", "Understood."},
+		{"Sure, I'll do that.\n\n```json\n{\"name\": \"read_file\"}\n```", "Sure, I'll do that."},
+		{"{\"name\": \"read_file\"}", ""},
+		{"Here is what I found: the file has three lines.", "Here is what I found: the file has three lines."},
+	}
+
+	for _, c := range cases {
+		if got := presentable(c.reply); got != c.want {
+			t.Errorf("presentable(%q) = %q, want %q", c.reply, got, c.want)
+		}
+	}
+}

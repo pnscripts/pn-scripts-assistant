@@ -262,52 +262,114 @@ func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []
 // that actually exists. Anything looser would start treating prose about tools,
 // or JSON quoted from a file, as an instruction to act.
 func (l *Loop) recoverToolCall(content string) (llm.ToolCall, bool) {
-	text := strings.TrimSpace(content)
-
-	// Models often fence it even when asked not to.
-	if strings.HasPrefix(text, "```") {
-		if i := strings.IndexByte(text, '\n'); i >= 0 {
-			text = text[i+1:]
+	for _, candidate := range jsonCandidates(content) {
+		var probe struct {
+			Name string `json:"name"`
+			// Both spellings appear in the wild.
+			Arguments json.RawMessage `json:"arguments"`
+			Params    json.RawMessage `json:"parameters"`
 		}
 
-		text = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(text), "```"))
+		if err := json.Unmarshal([]byte(candidate), &probe); err != nil {
+			continue
+		}
+
+		if probe.Name == "" {
+			continue
+		}
+
+		// The guard that makes looking inside prose safe at all: the object has
+		// to name a tool this brain actually has. Quoted JSON from a file, or a
+		// model describing a tool it imagined, does not.
+		if _, known := l.Registry.Get(probe.Name); !known {
+			continue
+		}
+
+		args := probe.Arguments
+		if len(args) == 0 {
+			args = probe.Params
+		}
+
+		if len(args) == 0 {
+			args = json.RawMessage("{}")
+		}
+
+		l.Log.Info("recovered a tool call the model wrote as text", "tool", probe.Name)
+
+		return llm.ToolCall{ID: "recovered", Name: probe.Name, Arguments: args}, true
 	}
 
-	if !strings.HasPrefix(text, "{") || !strings.HasSuffix(text, "}") {
-		return llm.ToolCall{}, false
+	return llm.ToolCall{}, false
+}
+
+/*
+ * jsonCandidates pulls the places a tool call may legitimately be written.
+ *
+ * The whole reply, and the inside of any fenced code block. Nothing else — in
+ * particular not every pair of braces in the text, which was tried and is
+ * wrong: a model explaining itself writes things like
+ *
+ *     Try {"name": "read_file"} to see it.
+ *
+ * and treating that as an instruction to act is how an assistant starts doing
+ * things nobody asked for. There is a test that says so.
+ *
+ * A fence, though, is the model formatting a call rather than talking about
+ * one, and that is the case that mattered here. "Approve everything waiting"
+ * did nothing for as long as it did because the model got it entirely right —
+ * correct tool, correct arguments — and introduced it the way a person would:
+ *
+ *     Sure, I'll approve everything for you.
+ *
+ *     ```json
+ *     {"name": "decide_waiting", "arguments": {"decision": "approve"}}
+ *     ```
+ *
+ * One sentence of politeness in front, and the call was dropped. The brain then
+ * said it would do the thing and did not do it, which is the worst outcome
+ * available to it.
+ */
+func jsonCandidates(content string) []string {
+	text := strings.TrimSpace(content)
+
+	if text == "" {
+		return nil
 	}
 
-	var probe struct {
-		Name string `json:"name"`
-		// Both spellings appear in the wild.
-		Arguments json.RawMessage `json:"arguments"`
-		Params    json.RawMessage `json:"parameters"`
+	var out []string
+
+	// Fenced blocks first: a fence is the model formatting a call, which is a
+	// stronger signal than the shape of the reply as a whole.
+	rest := text
+
+	for {
+		open := strings.Index(rest, "```")
+		if open < 0 {
+			break
+		}
+
+		body := rest[open+3:]
+
+		// The fence may be tagged, as in ```json.
+		if i := strings.IndexByte(body, '\n'); i >= 0 {
+			body = body[i+1:]
+		}
+
+		close := strings.Index(body, "```")
+		if close < 0 {
+			out = append(out, strings.TrimSpace(body))
+
+			break
+		}
+
+		out = append(out, strings.TrimSpace(body[:close]))
+		rest = body[close+3:]
 	}
 
-	if err := json.Unmarshal([]byte(text), &probe); err != nil {
-		return llm.ToolCall{}, false
-	}
+	// And the reply itself, for a model that answered with nothing else.
+	out = append(out, text)
 
-	if probe.Name == "" {
-		return llm.ToolCall{}, false
-	}
-
-	if _, known := l.Registry.Get(probe.Name); !known {
-		return llm.ToolCall{}, false
-	}
-
-	args := probe.Arguments
-	if len(args) == 0 {
-		args = probe.Params
-	}
-
-	if len(args) == 0 {
-		args = json.RawMessage("{}")
-	}
-
-	l.Log.Info("recovered a tool call the model wrote as text", "tool", probe.Name)
-
-	return llm.ToolCall{ID: "recovered", Name: probe.Name, Arguments: args}, true
+	return out
 }
 
 // specs describes the tools to the model, in the registry's stable order.
@@ -372,17 +434,57 @@ func presentable(content string) string {
 
 	// A reply that is nothing but a JSON object with a "name" field is a tool
 	// call leaking into prose, not an answer.
-	if strings.HasPrefix(text, "{") && strings.HasSuffix(text, "}") {
-		var probe map[string]any
+	if looksLikeACall(text) {
+		return ""
+	}
 
-		if err := json.Unmarshal([]byte(text), &probe); err == nil {
-			if _, hasName := probe["name"]; hasName {
-				return ""
-			}
-		}
+	/*
+	 * And the same thing with a sentence in front of it.
+	 *
+	 * Small models like to announce the call and then print it, which leaves
+	 * the owner reading "Understood." followed by a wall of JSON braces. The
+	 * announcement is the answer; the JSON is plumbing that escaped, and it is
+	 * shown on screen and read aloud by the voice if it is left in.
+	 */
+	if fence := strings.Index(text, "```"); fence > 0 && looksLikeACall(text[fence:]) {
+		return strings.TrimSpace(text[:fence])
+	}
+
+	if brace := strings.LastIndex(text, "\n{"); brace > 0 && looksLikeACall(text[brace+1:]) {
+		return strings.TrimSpace(text[:brace])
 	}
 
 	return text
+}
+
+// looksLikeACall reports text that is a written-out tool call and nothing else.
+func looksLikeACall(text string) bool {
+	text = strings.TrimSpace(text)
+
+	// Unwrap a fence, which is how a model most often writes one.
+	if strings.HasPrefix(text, "```") {
+		body := text[3:]
+
+		if i := strings.IndexByte(body, '\n'); i >= 0 {
+			body = body[i+1:]
+		}
+
+		text = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(body), "```"))
+	}
+
+	if !strings.HasPrefix(text, "{") || !strings.HasSuffix(text, "}") {
+		return false
+	}
+
+	var probe map[string]any
+
+	if err := json.Unmarshal([]byte(text), &probe); err != nil {
+		return false
+	}
+
+	_, hasName := probe["name"]
+
+	return hasName
 }
 
 func truncate(s string, n int) string {

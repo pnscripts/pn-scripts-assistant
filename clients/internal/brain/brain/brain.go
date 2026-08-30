@@ -115,9 +115,13 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		available = append(available, tools.ListDevices{Home: home}, tools.SetDevice{Home: home})
 	}
 
-	// Added after the brain exists, because it changes the brain's own settings
-	// and so needs a handle to it.
-	available = append(available, tools.SetWakeWord{Brain: b})
+	// Added after the brain exists, because they change the brain's own
+	// settings or act on its own queue, and so need a handle to it.
+	available = append(available,
+		tools.SetWakeWord{Brain: b},
+		tools.ListWaiting{Queue: queueOf{b}},
+		tools.DecideWaiting{Queue: queueOf{b}},
+	)
 
 	b.Agent = &agent.Loop{
 		DB:       db,

@@ -275,10 +275,15 @@ func TestRegisteredTools(t *testing.T) {
 		names = append(names, tool.Name())
 	}
 
-	// set_appearance is new: the brain can change what the interface looks
-	// like when asked, because being asked to and saying "Understood" without
-	// doing anything was the failure that put it here.
-	want := []string{"list_directory", "read_file", "run_command", "set_appearance", "set_wake_word", "write_file"}
+	// set_appearance, and now the two queue tools, are here for the same
+	// reason: being asked to do something and answering "Understood" without
+	// doing it is the failure this list exists to stop. Told to approve
+	// everything waiting, the brain said it would and then did nothing at all,
+	// because it had no way to reach its own queue.
+	want := []string{
+		"decide_waiting", "list_directory", "list_waiting", "read_file",
+		"run_command", "set_appearance", "set_wake_word", "write_file",
+	}
 
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Errorf("tools are %v, want %v", names, want)
