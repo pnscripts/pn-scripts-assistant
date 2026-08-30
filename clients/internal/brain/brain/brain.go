@@ -110,6 +110,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.EditFile{},
 		tools.SearchFiles{},
 		tools.ReadDocument{},
+		tools.WriteDocument{},
 		tools.LookAtScreen{OllamaURL: cfg.OllamaURL},
 	}
 
