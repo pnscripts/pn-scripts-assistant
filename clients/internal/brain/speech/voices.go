@@ -15,6 +15,68 @@ type Voice struct {
 	Name   string `json:"name"`
 	Engine string `json:"engine"`
 	Path   string `json:"-"`
+
+	// Sex is "woman", "man" or empty when it is not known.
+	//
+	// Here because "would you like a woman's voice or a man's" is the question
+	// people actually have, and "alba, amy, lessac, northern_english_male" is
+	// not an answer to it — it is a list of names that has to be researched
+	// before it can be chosen from.
+	Sex string `json:"sex,omitempty"`
+}
+
+/*
+ * voiceSex is who each of the known voices sounds like.
+ *
+ * A list rather than a rule, because the names carry no pattern: alba and amy
+ * are women, lessac and thorsten are men, and nothing about the words says so.
+ * Anything not named here is offered without a description rather than guessed
+ * at.
+ */
+var voiceSex = map[string]string{
+	"en_GB-alba-medium":                 "woman",
+	"en_US-amy-medium":                  "woman",
+	"en_US-kathleen-low":                "woman",
+	"en_GB-jenny_dioco-medium":          "woman",
+	"en_GB-southern_english_female-low": "woman",
+	"it_IT-paola-medium":                "woman",
+	"fr_FR-siwis-medium":                "woman",
+
+	"en_US-lessac-medium":                "man",
+	"en_GB-northern_english_male-medium": "man",
+	"en_US-ryan-medium":                  "man",
+	"en_US-joe-medium":                   "man",
+	"de_DE-thorsten-medium":              "man",
+	"bg_BG-dimitar-medium":               "man",
+	"ru_RU-dmitri-medium":                "man",
+	"es_ES-davefx-medium":                "man",
+}
+
+/*
+ * PickVoice returns the best installed voice of the kind asked for.
+ *
+ * Preferring one that matches the spoken language, because a British voice
+ * reading Bulgarian is worse than either. Empty when there is none of that
+ * kind, which the caller reports rather than silently substituting the other.
+ */
+func PickVoice(sex, language string) string {
+	var fallback string
+
+	for _, v := range Voices() {
+		if v.Sex != sex {
+			continue
+		}
+
+		if language != "" && strings.HasPrefix(strings.ToLower(v.ID), strings.ToLower(language)+"_") {
+			return v.ID
+		}
+
+		if fallback == "" {
+			fallback = v.ID
+		}
+	}
+
+	return fallback
 }
 
 // chosenVoice is the one the owner picked, by ID. Empty means whatever the
@@ -69,6 +131,7 @@ func Voices() []Voice {
 			id := strings.TrimSuffix(filepath.Base(path), ".onnx")
 
 			out = append(out, Voice{
+				Sex:    voiceSex[id],
 				ID:     id,
 				Name:   humaniseVoice(id),
 				Engine: "piper",

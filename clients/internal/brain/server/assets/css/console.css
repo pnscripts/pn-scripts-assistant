@@ -729,6 +729,9 @@ button.reject:hover { border-color: var(--danger); color: var(--danger); }
     user-select: all;
 }
 
+.voice-choice { display: flex; gap: 8px; }
+.voice-choice .model-action { flex: 1; }
+
 .field-check {
     display: grid;
     grid-template-columns: auto 1fr;

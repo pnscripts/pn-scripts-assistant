@@ -306,6 +306,25 @@ function wireMenu() {
 
 wireMenu();
 
+// A woman's voice or a man's, which is the question people actually have.
+document.querySelectorAll('.voice-choice [data-sex]').forEach((button) => {
+    button.addEventListener('click', async () => {
+        const note = el('set-note');
+
+        button.disabled = true;
+
+        try {
+            const chosen = await api.post('/api/voice/sex', { sex: button.dataset.sex });
+
+            if (note) note.textContent = `Now using ${chosen.voice}.`;
+        } catch (err) {
+            if (note) note.textContent = String(err.message || err);
+        } finally {
+            button.disabled = false;
+        }
+    });
+});
+
 /*
  * The mailbox.
  *

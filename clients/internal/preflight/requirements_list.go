@@ -151,6 +151,21 @@ func Requirements() []Requirement {
 				ManualHint:  "Install piper, or: sudo apt install espeak-ng",
 			},
 			Requirement{
+				Name:        "Using the computer",
+				Why:         "lets the brain open windows, click, type and scroll for you",
+				Consequence: "it can read the screen but not act on it",
+				Optional:    true,
+				Check: func() (State, string) {
+					if commandExists("xdotool") {
+						return OK, "xdotool"
+					}
+
+					return Missing, ""
+				},
+				InstallCmd: func() []string { return aptInstall("xdotool") },
+				NeedsRoot:  true,
+			},
+			Requirement{
 				Name:        "Voice (listening)",
 				Why:         "lets you talk to the brain instead of typing",
 				Consequence: "the Talk button will not appear",

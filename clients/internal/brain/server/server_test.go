@@ -282,22 +282,47 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"decide_waiting", "edit_file", "forget_reminder", "list_directory",
-		"list_models", "list_reminders", "list_waiting", "look_at_screen", "read_document",
-		"read_file", "remind_me", "run_command", "search_files",
-		"set_appearance", "set_wake_word", "write_document", "write_file",
+		"click", "decide_waiting", "edit_file", "forget_reminder",
+		"list_directory", "list_models", "list_reminders", "list_waiting",
+		"list_windows", "look_at_screen", "open_app", "read_document",
+		"read_file", "remind_me", "run_command", "scroll", "search_files",
+		"set_appearance", "set_wake_word", "type_text", "write_document",
+		"write_file",
 	}
 
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Errorf("tools are %v, want %v", names, want)
 	}
 
-	// And the dangerous ones must still be gated.
-	for _, n := range []string{"write_file", "run_command"} {
-		tool, _ := b.Agent.Registry.Get(n)
+	/*
+	 * And the ones that act on the machine must still be gated.
+	 *
+	 * click and type_text belong in this list more than anything else does. A
+	 * click can send a message, empty a folder or confirm a purchase, and
+	 * nothing about the click itself says which — the only thing standing
+	 * between the model and any of those is that somebody is asked first.
+	 */
+	for _, n := range []string{
+		"write_file", "run_command", "click", "type_text", "open_app",
+		"write_document",
+	} {
+		tool, registered := b.Agent.Registry.Get(n)
+		if !registered {
+			t.Errorf("%s is not registered at all", n)
+
+			continue
+		}
 
 		if tool.Risk() != tools.Mutating {
 			t.Errorf("%s is not gated", n)
+		}
+	}
+
+	// Mail is only registered when a mailbox is set up, so it is checked only
+	// when it is there — but if it is there, sending must ask first.
+	if tool, registered := b.Agent.Registry.Get("send_email"); registered {
+		if tool.Risk() != tools.Mutating {
+			t.Error("send_email is not gated, and a sent message cannot be recalled")
 		}
 	}
 }

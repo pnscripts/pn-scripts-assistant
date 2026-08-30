@@ -110,6 +110,11 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.EditFile{},
 		tools.SearchFiles{},
 		tools.ReadDocument{},
+		tools.ListWindows{},
+		tools.OpenApp{},
+		tools.Click{},
+		tools.TypeText{},
+		tools.Scroll{},
 		tools.WriteDocument{},
 		tools.LookAtScreen{OllamaURL: cfg.OllamaURL},
 	}
@@ -403,6 +408,14 @@ error. Say plainly what you intend to do and why; don't pretend an action
 already succeeded, and don't ask for permission in prose when calling the
 tool will ask properly.
 
+Some things are asked about before they are done, not after. Sending a
+message to anybody, deleting or overwriting anything, spending money,
+changing an account or its settings, and telling anyone something
+private about %s — for those, say what you are about to do and wait to
+be told to go ahead. Not a summary of it: the actual message, the actual
+file, the actual amount. Somebody agreeing to "send an email to Anna"
+has agreed to nothing.
+
 Never state what is on this machine from memory. What is waiting, what
 reminders exist, which models are installed, what a file contains, what
 is in the mailbox — every one of those has a tool, and the tool is the
@@ -412,7 +425,7 @@ first and answer from what it returns.
 If you did not call it, say so and stop. "Let me check" is a complete
 and correct answer; a list you made up is not, and it is worse than
 saying nothing because it cannot be told apart from a real one.`,
-		name, owner, owner, owner, owner)
+		name, owner, owner, owner, owner, owner)
 }
 
 // spokenSystemPrompt is who the assistant is, said briefly.
@@ -427,7 +440,7 @@ func (b *Brain) spokenSystemPrompt() string {
 		owner = "your owner"
 	}
 
-	return fmt.Sprintf(spokenPersona, name, owner)
+	return fmt.Sprintf(spokenPersona, name, owner, owner)
 }
 
 // ChatRequest is one message from a person.
@@ -474,10 +487,37 @@ const (
 // prompts at length — none of which applies when tools are not offered. At ten
 // tokens a second that description costs half a minute per turn to say nothing
 // relevant.
-const spokenPersona = `You are %s, %s's personal assistant. You are speaking
-aloud, so answer in one or two plain sentences and stop. Do not list or
-enumerate. Do not read out paths or URLs — name the thing instead. Say when you
-do not know.`
+/*
+ * spokenPersona is who it is when it is being listened to rather than read.
+ *
+ * Written to sound like somebody competent who is busy, because that is what
+ * this is for. The failure mode of an assistant that talks is not being too
+ * terse, it is the opposite: the courtesies, the restating of the question, the
+ * offer of further help at the end of every answer. Read on a screen that is
+ * mildly annoying. Read aloud, on a machine that produces about seven words a
+ * second, it is most of the wait.
+ *
+ * Short, because every word costs real time here. Every line in it is aimed at
+ * a specific thing the model does otherwise.
+ */
+const spokenPersona = `You are %s, %s's assistant, speaking aloud.
+
+Sound like a capable person who is busy: calm, direct, and brief. One or two
+sentences, then stop. No lists, no headings, no paths or URLs read out — name
+the thing instead.
+
+Never open with "Certainly", "Of course", "Sure", "Great question", or by
+repeating what was just asked. Do not end by offering further help; if more is
+needed, %s will say so.
+
+While a tool is running, say what you are doing in a few words — "checking the
+file", "looking at your mail" — and nothing more. Do not narrate the steps.
+
+When a request could mean two different things, ask which, in one short
+question. Guessing wastes a minute here; asking costs three seconds.
+
+Say plainly when you do not know or cannot do something. Never invent what is
+on this machine.`
 
 // ChatReply is what goes back to the interface.
 type ChatReply struct {

@@ -97,6 +97,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
 	s.mux.HandleFunc("GET /api/voices", s.handleVoices)
 	s.mux.HandleFunc("POST /api/voice", s.handleSetVoice)
+	s.mux.HandleFunc("POST /api/voice/sex", s.handleVoiceSex)
 	s.mux.HandleFunc("POST /api/language", s.handleSetLanguage)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
 
@@ -788,6 +789,62 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 // most of a minute before it said hello, which defeats the purpose.
 func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
 	ok(w, s.brain.Greet())
+}
+
+/*
+ * handleVoiceSex picks a voice by the only question people actually ask.
+ *
+ * "Would you like a woman's voice or a man's" is answerable; "alba, amy,
+ * lessac, northern_english_male" is a list of names that has to be researched
+ * first. The full list stays for anybody who wants a particular one.
+ */
+func (s *Server) handleVoiceSex(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Sex string `json:"sex"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "Ask for a woman's voice or a man's.")
+
+		return
+	}
+
+	sex := strings.ToLower(strings.TrimSpace(body.Sex))
+
+	if sex != "woman" && sex != "man" {
+		fail(w, http.StatusBadRequest, "Ask for a woman's voice or a man's.")
+
+		return
+	}
+
+	id := speech.PickVoice(sex, s.brain.Cfg.Language)
+	if id == "" {
+		fail(w, http.StatusNotFound, fmt.Sprintf(
+			"There is no %s's voice installed. The others are listed under Engine.", sex))
+
+		return
+	}
+
+	speech.SetVoice(id)
+
+	s.brain.Cfg.Voice = id
+
+	if err := s.brain.Cfg.Save(s.brain.Root); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	// Spoken back, because a voice chosen from a list of names without hearing
+	// one is chosen blind.
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+
+		_ = speech.SpeakAndWait(ctx, "This is how I sound.")
+	}()
+
+	ok(w, map[string]any{"voice": id, "sex": sex})
 }
 
 // handleVoices lists what can read answers aloud.
