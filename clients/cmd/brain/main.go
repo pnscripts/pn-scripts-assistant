@@ -21,6 +21,7 @@ import (
 
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/desktop"
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/paths"
@@ -71,6 +72,8 @@ func main() {
 		err = runImport(os.Args[2:])
 	case "status":
 		err = runStatus(os.Args[2:])
+	case "menu":
+		err = runMenu(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -86,6 +89,46 @@ func main() {
 	}
 }
 
+/*
+ * runMenu puts the brain in the applications menu.
+ *
+ * The same thing the System tab does, for somebody who would rather type it —
+ * and for the very first launch, where a person who has just downloaded one
+ * file has nothing to click yet.
+ */
+func runMenu(args []string) error {
+	fs := flag.NewFlagSet("menu", flag.ExitOnError)
+	remove := fs.Bool("remove", false, "take the entry out of the menu again")
+	fs.Parse(args)
+
+	if *remove {
+		if err := desktop.Remove(); err != nil {
+			return err
+		}
+
+		fmt.Print("\n  Taken out of the applications menu.\n\n")
+
+		return nil
+	}
+
+	cfg := config.Config{Name: "PN Brain"}
+
+	if root, err := paths.Find(); err == nil {
+		if loaded, err := config.Load(root.Path); err == nil {
+			cfg = loaded
+		}
+	}
+
+	entry, err := desktop.Install(cfg.Name)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\n  %s is in the applications menu.\n  %s\n\n", cfg.Name, entry)
+
+	return nil
+}
+
 func usage() {
 	fmt.Fprint(os.Stderr, `PN Brain
 
@@ -99,6 +142,8 @@ func usage() {
   brain drives              where the brain could live, and how much room is left
   brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
+  brain menu                put the brain in the applications menu
+  brain menu --remove       take it out again
   brain import <dir>        load a Postgres export into a fresh database
   brain rewrite-paths       repair stored paths after a move, then re-embed
 

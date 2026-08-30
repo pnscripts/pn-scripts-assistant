@@ -1,0 +1,226 @@
+// Package desktop puts the brain in the applications menu.
+//
+// A single downloaded file that runs when you double-click it is the right
+// shape for this program, but it is not how anybody launches anything twice.
+// The second time, they press the key with the Ubuntu logo on it and type the
+// first few letters of the name — and a program that is not in that list may as
+// well not be installed.
+//
+// Everything here writes to the user's own directories. Nothing needs a
+// password, nothing touches anything outside the home directory, and removing
+// it is the same two files going away again.
+package desktop
+
+import (
+	"embed"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+/*
+ * The icon travels inside the binary.
+ *
+ * The alternative is a file beside it, which works until somebody moves the one
+ * file this program is supposed to be — and then the menu entry points at an
+ * icon that is not there, which shows as a blank square with no explanation.
+ * Drawn by scripts/make-icon.py from the same geometry as the core.
+ */
+//go:embed icons/*.png
+var icons embed.FS
+
+// Sizes the icon is drawn at, largest first.
+var Sizes = []int{512, 256, 128, 64, 48}
+
+// EntryName is the desktop entry's file name, and the icon's name in the theme.
+const EntryName = "pn-brain"
+
+// Where returns the paths this would write, without writing them.
+func Where() (entry string, iconDir string) {
+	data := dataHome()
+
+	return filepath.Join(data, "applications", EntryName+".desktop"),
+		filepath.Join(data, "icons", "hicolor")
+}
+
+// Installed reports whether the menu entry is there and points at this program.
+//
+// "Points at this program" matters: an entry left behind by a copy that has
+// since been moved or deleted is worse than no entry, because it is in the menu
+// and does nothing when pressed.
+func Installed() bool {
+	entry, _ := Where()
+
+	body, err := os.ReadFile(entry)
+	if err != nil {
+		return false
+	}
+
+	me, err := self()
+	if err != nil {
+		return false
+	}
+
+	return strings.Contains(string(body), "Exec="+me+"\n")
+}
+
+/*
+ * Install writes the menu entry and the icons, and returns where the entry went.
+ *
+ * name is what the brain is called, so the menu says what its owner named it
+ * rather than what this program is called.
+ */
+func Install(name string) (string, error) {
+	self, err := self()
+	if err != nil {
+		return "", err
+	}
+
+	entry, iconRoot := Where()
+
+	for _, size := range Sizes {
+		body, err := icons.ReadFile(fmt.Sprintf("icons/pn-brain-%d.png", size))
+		if err != nil {
+			return "", fmt.Errorf("reading the %dpx icon: %w", size, err)
+		}
+
+		at := filepath.Join(iconRoot, fmt.Sprintf("%dx%d", size, size), "apps",
+			EntryName+".png")
+
+		if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
+			return "", err
+		}
+
+		if err := os.WriteFile(at, body, 0o644); err != nil {
+			return "", fmt.Errorf("writing %s: %w", at, err)
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(entry), 0o755); err != nil {
+		return "", err
+	}
+
+	if err := os.WriteFile(entry, []byte(entryText(name, self)), 0o644); err != nil {
+		return "", fmt.Errorf("writing %s: %w", entry, err)
+	}
+
+	refresh(iconRoot, filepath.Dir(entry))
+
+	return entry, nil
+}
+
+// Remove takes the entry and the icons out again.
+func Remove() error {
+	entry, iconRoot := Where()
+
+	if err := os.Remove(entry); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	for _, size := range Sizes {
+		at := filepath.Join(iconRoot, fmt.Sprintf("%dx%d", size, size), "apps",
+			EntryName+".png")
+
+		if err := os.Remove(at); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+
+	refresh(iconRoot, filepath.Dir(entry))
+
+	return nil
+}
+
+/*
+ * entryText is the menu entry itself.
+ *
+ * StartupWMClass is not optional here. Without it the window this program opens
+ * is not connected to the icon that launched it, so the dock shows two things —
+ * the launcher and a second, unnamed entry with a blank icon — and pressing the
+ * launcher again opens nothing while the window sits there already.
+ */
+func entryText(name, exec string) string {
+	if strings.TrimSpace(name) == "" {
+		name = "PN Brain"
+	}
+
+	// Newlines in either would end the line and start something else; a name is
+	// typed by a person and goes in a file with a line-based format.
+	name = strings.NewReplacer("\n", " ", "\r", " ").Replace(name)
+	exec = strings.NewReplacer("\n", "", "\r", "").Replace(exec)
+
+	return "[Desktop Entry]\n" +
+		"Type=Application\n" +
+		"Version=1.0\n" +
+		"Name=" + name + "\n" +
+		"Comment=A private assistant that runs entirely on this machine\n" +
+		"Exec=" + exec + "\n" +
+		"Icon=" + EntryName + "\n" +
+		"Terminal=false\n" +
+		// One main category only: two of them puts the program in the menu
+		// twice, which desktop-file-validate warns about and a person notices.
+		"Categories=Utility;\n" +
+		"Keywords=assistant;brain;voice;memory;\n" +
+		"StartupNotify=true\n" +
+		"StartupWMClass=pn-brain\n"
+}
+
+// refresh tells the desktop to look again.
+//
+// Both commands are optional: GNOME notices a new file by itself within a few
+// seconds, and these only make it immediate. A machine without them is not an
+// error, it is a machine where the icon appears a moment later.
+func refresh(iconRoot, appDir string) {
+	if tool, err := exec.LookPath("gtk-update-icon-cache"); err == nil {
+		_ = exec.Command(tool, "-f", "-t", iconRoot).Run()
+	}
+
+	if tool, err := exec.LookPath("update-desktop-database"); err == nil {
+		_ = exec.Command(tool, appDir).Run()
+	}
+}
+
+/*
+ * self is the path a menu entry should run.
+ *
+ * Inside an AppImage this is not what the program thinks it is. An AppImage
+ * mounts itself under /tmp and runs from there, so asking the operating system
+ * where this executable is gives a path like /tmp/.mount_PN-Braxyz/usr/bin/brain
+ * — which is gone the moment the program exits, leaving a menu entry that does
+ * nothing at all when pressed. The runtime puts the real path of the file
+ * somebody downloaded in APPIMAGE, and that is the one to run.
+ */
+func self() (string, error) {
+	if at := os.Getenv("APPIMAGE"); at != "" {
+		return at, nil
+	}
+
+	at, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("finding this program on disk: %w", err)
+	}
+
+	// A symlink into a directory that later gets tidied away leaves an entry
+	// that does nothing, so the entry records where the file actually is.
+	if resolved, err := filepath.EvalSymlinks(at); err == nil {
+		at = resolved
+	}
+
+	return at, nil
+}
+
+// dataHome is where a user's own applications and icons live.
+func dataHome() string {
+	if dir := os.Getenv("XDG_DATA_HOME"); dir != "" {
+		return dir
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".local/share"
+	}
+
+	return filepath.Join(home, ".local", "share")
+}

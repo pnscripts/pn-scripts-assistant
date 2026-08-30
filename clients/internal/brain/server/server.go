@@ -23,6 +23,7 @@ import (
 	"pn-brain/internal/brain/appearance"
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/desktop"
 	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/progress"
@@ -59,6 +60,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/status", s.handleStatus)
 	s.mux.HandleFunc("GET /api/heard", s.handleHeard)
 	s.mux.HandleFunc("POST /api/present", s.handlePresent)
+	s.mux.HandleFunc("GET /api/desktop", s.handleDesktopStatus)
+	s.mux.HandleFunc("POST /api/desktop", s.handleDesktop)
 	s.mux.HandleFunc("GET /api/memory-map", s.handleMemoryMap)
 	s.mux.HandleFunc("GET /api/knowledge", s.handleKnowledge)
 	s.mux.HandleFunc("GET /api/activity", s.handleActivity)
@@ -624,6 +627,54 @@ func (s *Server) decide(text string, claimed bool) (wake.Heard, bool) {
 	ends := engaged && strings.TrimSpace(s.brain.Cfg.WakeWord) != "" && wake.Ends(text)
 
 	return heard, ends
+}
+
+// handleDesktopStatus reports whether the brain is in the applications menu.
+func (s *Server) handleDesktopStatus(w http.ResponseWriter, r *http.Request) {
+	entry, _ := desktop.Where()
+
+	ok(w, map[string]any{
+		"installed": desktop.Installed(),
+		"entry":     entry,
+	})
+}
+
+/*
+ * handleDesktop puts the brain in the applications menu, or takes it out.
+ *
+ * Here rather than only in the command line because of the promise the rest of
+ * this program makes: everything works from inside it, and a terminal is for
+ * people who want one. "Open a shell and write a .desktop file" is exactly the
+ * kind of instruction that ends with somebody not having the program in their
+ * menu.
+ */
+func (s *Server) handleDesktop(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Remove bool `json:"remove"`
+	}
+
+	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body)
+
+	if body.Remove {
+		if err := desktop.Remove(); err != nil {
+			fail(w, http.StatusInternalServerError, err.Error())
+
+			return
+		}
+
+		ok(w, map[string]any{"installed": false})
+
+		return
+	}
+
+	entry, err := desktop.Install(s.brain.Cfg.Name)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"installed": true, "entry": entry})
 }
 
 // handleGreeting is what the brain says on opening, without being asked.

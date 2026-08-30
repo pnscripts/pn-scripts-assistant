@@ -210,6 +210,67 @@ if (naming) {
  * the fix for that is a word, and it should not require knowing where the
  * settings file lives.
  */
+/*
+ * Being in the applications menu.
+ *
+ * A single file that runs when double-clicked is the right shape for this
+ * program and the wrong shape for launching it a second time: nobody goes
+ * looking for the file again, they press the Ubuntu key and type a few
+ * letters. Offered here rather than only as a command, because the promise is
+ * that everything works from inside the program.
+ */
+async function loadMenu() {
+    const note = el('menu-note');
+    const add = el('menu-add');
+    const remove = el('menu-remove');
+
+    if (!note || !add || !remove) return;
+
+    let status;
+
+    try {
+        status = await api.get('/api/desktop');
+    } catch {
+        return;
+    }
+
+    note.textContent = status.installed
+        ? `In the menu. Press the Ubuntu key and type its name. \u00b7 ${status.entry}`
+        : 'Not in the menu yet. Adding it writes one file and a set of icons '
+            + 'into your own home directory — nothing else on the machine changes.';
+
+    add.hidden = status.installed;
+    remove.hidden = !status.installed;
+}
+
+function wireMenu() {
+    const press = async (button, body, working) => {
+        if (!button) return;
+
+        button.addEventListener('click', async () => {
+            const was = button.textContent;
+
+            button.disabled = true;
+            button.textContent = working;
+
+            try {
+                await api.post('/api/desktop', body);
+                await loadMenu();
+            } catch (err) {
+                el('menu-note').textContent = String(err.message || err);
+            } finally {
+                button.disabled = false;
+                button.textContent = was;
+            }
+        });
+    };
+
+    press(el('menu-add'), {}, 'Adding\u2026');
+    press(el('menu-remove'), { remove: true }, 'Removing\u2026');
+}
+
+wireMenu();
+
 async function loadHeard() {
     const rows = el('heard-rows');
 
@@ -304,6 +365,7 @@ async function loadHeard() {
 document.querySelector('.nav-item[data-view="system"]')?.addEventListener('click', () => {
     load();
     loadHeard();
+    loadMenu();
 });
 
 // Refreshed while the panel is open, because the whole point is watching what
@@ -316,5 +378,6 @@ setInterval(() => {
 
 load();
 loadHeard();
+loadMenu();
 
 })();
