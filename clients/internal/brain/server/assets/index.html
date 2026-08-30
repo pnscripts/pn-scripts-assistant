@@ -274,22 +274,21 @@
                     <span id="lesson-count" hidden>0</span>
                 </div>
 
-                <div class="card" style="grid-area: commands">
-                    <h2>Quick commands</h2>
-                    <div class="commands">
-                        <button type="button" class="command" data-command="new">
-                            <span class="row-icon">+</span><span>Start a new conversation</span>
-                        </button>
-                        <button type="button" class="command" data-command="talk">
-                            <span class="row-icon">V</span><span>Talk instead of typing</span>
-                        </button>
-                        <button type="button" class="command" data-command="memory">
-                            <span class="row-icon">M</span><span>Open the memory map</span>
-                        </button>
-                        <button type="button" class="command" data-command="system">
-                            <span class="row-icon">S</span><span>Show the machine</span>
-                        </button>
+                <!--
+                    Where the quick commands were.
+                    Four buttons for things reachable from the rail beside them
+                    is not what that space is for; what was said before, and
+                    what the brain is doing right now, is.
+                -->
+                <div class="card" style="grid-area: knows">
+                    <h2>Conversations</h2>
+                    <div class="thinking-now" id="thinking-now" hidden>
+                        <span class="thinking-dot" aria-hidden="true"></span>
+                        <span id="thinking-now-text">Thinking</span>
+                        <span class="thinking-clock" id="thinking-now-clock"></span>
                     </div>
+                    <div id="history-rows" class="rows"></div>
+                    <p class="activity-empty" id="history-empty">Nothing said yet.</p>
                 </div>
 
                 <!-- Row three: the measurements. -->
@@ -324,7 +323,7 @@
                     <p class="note tiny" id="machine-note"></p>
                 </div>
 
-                <div class="card" style="grid-area: knows">
+                <div class="card" style="grid-area: commands">
                     <h2>What it knows</h2>
                     <div class="insight">
                         <div class="bars" id="category-breakdown"></div>
@@ -590,6 +589,7 @@
 <script src="/js/models.js"></script>
 <script src="/js/updates.js"></script>
 <script src="/js/settings.js"></script>
+<script src="/js/history.js"></script>
 <!-- The three.js addons import from the bare name "three", so the page has to
      say where that is. An import map rather than a build step: this ships
      inside one binary, and adding a bundler for two scenes would put npm into

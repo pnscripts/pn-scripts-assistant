@@ -986,6 +986,39 @@ async function restoreConversation() {
     }
 }
 
+/*
+ * Opening a conversation from the history beside it.
+ *
+ * Replaces what is on screen rather than adding to it, and takes the
+ * conversation's identity with it, so carrying on from an old exchange
+ * continues that one instead of quietly starting another.
+ */
+window.brainOpenConversation = async function (id) {
+    let convo;
+
+    try {
+        convo = await api.get(`/api/conversations/${id}`);
+    } catch (err) {
+        addMessage('error', String(err.message || err), { cssClass: 'error' });
+
+        return;
+    }
+
+    const transcript = el('transcript');
+
+    if (transcript) transcript.innerHTML = '';
+
+    state.conversationId = convo.id;
+
+    (convo.messages || []).forEach((m) => {
+        addMessage(
+            m.role === 'user' ? 'you' : state.brainName,
+            m.content,
+            { cssClass: m.role === 'user' ? 'you' : 'brain' }
+        );
+    });
+};
+
 /* ---------- wiring ---------- */
 
 el('composer').addEventListener('submit', (e) => {

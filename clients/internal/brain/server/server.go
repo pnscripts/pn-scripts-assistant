@@ -68,6 +68,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/knowledge", s.handleKnowledge)
 	s.mux.HandleFunc("GET /api/activity", s.handleActivity)
 	s.mux.HandleFunc("GET /api/conversations/latest", s.handleLatestConversation)
+	s.mux.HandleFunc("GET /api/conversations", s.handleConversations)
+	s.mux.HandleFunc("GET /api/conversations/{id}", s.handleConversation)
 	s.mux.HandleFunc("GET /api/approvals", s.handleApprovals)
 	s.mux.HandleFunc("POST /api/approvals/{id}/{decision}", s.handleDecision)
 	s.mux.HandleFunc("GET /api/lessons", s.handleLessons)
@@ -732,6 +734,37 @@ func (s *Server) handleMail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.handleMailStatus(w, r)
+}
+
+// handleConversations lists what was talked about, newest first.
+func (s *Server) handleConversations(w http.ResponseWriter, r *http.Request) {
+	recent, err := s.brain.DB.RecentConversations(20)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"conversations": recent})
+}
+
+// handleConversation returns one conversation to be read again.
+func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "That is not a conversation id.")
+
+		return
+	}
+
+	messages, err := s.brain.DB.History(id)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"id": id, "messages": messages})
 }
 
 // handleGreeting is what the brain says on opening, without being asked.

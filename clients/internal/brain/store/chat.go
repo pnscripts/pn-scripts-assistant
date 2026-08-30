@@ -165,3 +165,68 @@ func nullify(s string) any {
 
 	return s
 }
+
+// Recent is one conversation as a list shows it.
+type Recent struct {
+	ID   int64     `json:"id"`
+	When time.Time `json:"when"`
+
+	// Opening is the first thing the person said, which is what a conversation
+	// is actually remembered by — far better than a title nobody wrote.
+	Opening string `json:"opening"`
+
+	// Turns is how much was said, so a real exchange is distinguishable from
+	// a greeting that went nowhere.
+	Turns int `json:"turns"`
+}
+
+/*
+ * RecentConversations lists what was talked about, newest first.
+ *
+ * Ordered by the last message rather than when the conversation was created:
+ * one that was returned to an hour later is more recent than one started after
+ * it and abandoned.
+ *
+ * Conversations with nothing in them are left out. They are created by opening
+ * the program and never saying anything, and a list mostly made of those is
+ * not a history of anything.
+ */
+func (d *DB) RecentConversations(limit int) ([]Recent, error) {
+	rows, err := d.sql.Query(`
+		SELECT c.id,
+		       MAX(m.created_at) AS last_at,
+		       COUNT(m.id)       AS turns,
+		       (SELECT content FROM messages
+		         WHERE conversation_id = c.id AND role = 'user'
+		         ORDER BY id LIMIT 1) AS opening
+		FROM conversations c
+		JOIN messages m ON m.conversation_id = c.id
+		GROUP BY c.id
+		HAVING opening IS NOT NULL AND TRIM(opening) <> ''
+		ORDER BY last_at DESC
+		LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var out []Recent
+
+	for rows.Next() {
+		var (
+			r      Recent
+			lastAt string
+		)
+
+		if err := rows.Scan(&r.ID, &lastAt, &r.Turns, &r.Opening); err != nil {
+			return nil, err
+		}
+
+		r.When, _ = time.Parse(time.RFC3339, lastAt)
+
+		out = append(out, r)
+	}
+
+	return out, rows.Err()
+}
