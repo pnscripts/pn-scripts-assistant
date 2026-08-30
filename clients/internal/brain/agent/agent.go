@@ -456,6 +456,24 @@ func jsonCandidates(content string) []string {
 		rest = body[close+3:]
 	}
 
+	/*
+	 * A call written on its own line at the end, after a sentence.
+	 *
+	 * This is the shape that produced "To see what is waiting for you, please
+	 * give me the command:" followed by nothing at all. The model announced
+	 * the call and then wrote it out bare, with no fence — so the display
+	 * stripped it, because presentable already knew to look there, and
+	 * recovery did not, because it did not. Two functions disagreeing about
+	 * where a call can be is exactly how one gets thrown away.
+	 *
+	 * Only at the very end, and only as its own object. That is what keeps
+	 * "try {"name": "read_file"} to see it" from being an instruction: it is
+	 * in the middle of a sentence with words after it.
+	 */
+	if brace := strings.LastIndex(text, "\n{"); brace > 0 {
+		out = append(out, strings.TrimSpace(text[brace+1:]))
+	}
+
 	// And the reply itself, for a model that answered with nothing else.
 	out = append(out, text)
 

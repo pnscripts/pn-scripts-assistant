@@ -673,3 +673,55 @@ func TestACallAfterTheModelsThinking(t *testing.T) {
 		t.Error("acted on something the model only thought about")
 	}
 }
+
+/*
+ * A call announced in a sentence and then written out bare.
+ *
+ * This produced "To see what is waiting for you, please give me the command:"
+ * and then nothing whatsoever. The model had written the call on the next line
+ * without a fence; the display knew to strip it from the end and recovery did
+ * not know to look there, so the sentence survived and the call did not. Two
+ * functions disagreeing about where a call can be is how one gets lost.
+ */
+func TestACallWrittenBareAfterASentence(t *testing.T) {
+	loop := &Loop{
+		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Registry: tools.NewRegistry(tools.ReadFile{}),
+	}
+
+	replies := []string{
+		"To see the file, here is the command:\n\n" +
+			`{"name": "read_file", "arguments": {"path": "/tmp/a"}}`,
+		"I'll look at it now.\n" +
+			`{"name": "read_file", "arguments": {"path": "/tmp/a"}}`,
+	}
+
+	for _, reply := range replies {
+		call, ok := loop.recoverToolCall(reply)
+		if !ok {
+			t.Errorf("dropped the call in %q", reply)
+
+			continue
+		}
+
+		if call.Name != "read_file" || !strings.Contains(string(call.Arguments), "/tmp/a") {
+			t.Errorf("recovered %q with %s", call.Name, call.Arguments)
+		}
+	}
+
+	/*
+	 * Whatever is recovered, the reply must not keep the JSON in it.
+	 *
+	 * The display and the recovery have to agree: if one strips something the
+	 * other did not act on, the owner is left reading half a sentence.
+	 */
+	for _, reply := range replies {
+		if _, ok := loop.recoverToolCall(reply); ok {
+			continue
+		}
+
+		if strings.Contains(presentable(reply), "{") {
+			t.Errorf("neither acted on nor hidden: %q", presentable(reply))
+		}
+	}
+}

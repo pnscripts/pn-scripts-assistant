@@ -912,3 +912,36 @@ func TestChoosingAModelTakesEffectAtOnce(t *testing.T) {
 		t.Errorf("the model was changed to qwen3:latest but it still uses %q", after)
 	}
 }
+
+/*
+ * The prompt has to forbid inventing what is on the machine.
+ *
+ * Asked "what is waiting for me?", with the tools offered and the right model
+ * chosen, it answered with a confident list: call your mother at four, write a
+ * report by Friday, schedule a team meeting. None of it existed. One lesson was
+ * actually waiting.
+ *
+ * That is the worst failure available to this program. A refusal is obvious and
+ * a wrong answer is arguable, but an invented list of somebody's own commitments
+ * is indistinguishable from a real one — and it is the kind of thing they would
+ * act on.
+ */
+func TestThePromptForbidsInventingTheMachinesState(t *testing.T) {
+	_, _, b := newServer(t)
+
+	prompt := strings.ToLower(b.SystemPrompt())
+
+	for _, must := range []string{"never state", "from memory", "call the tool"} {
+		if !strings.Contains(prompt, must) {
+			t.Errorf("the prompt does not say %q, so a model may answer from imagination", must)
+		}
+	}
+
+	// And it has to name the things it must not invent, because "do not make
+	// things up" is advice a model agrees with and ignores.
+	for _, named := range []string{"waiting", "reminders", "models", "mailbox"} {
+		if !strings.Contains(prompt, named) {
+			t.Errorf("the prompt does not name %q among the things it cannot know", named)
+		}
+	}
+}
