@@ -11,7 +11,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -47,8 +50,22 @@ func StartResident(ctx context.Context) error {
 		return fmt.Errorf("%s", why)
 	}
 
+	/*
+	 * An existing server is stopped rather than adopted.
+	 *
+	 * Reusing one that is already listening looks like the thrifty choice and
+	 * leaks a process forever: the instance that started it recorded the handle
+	 * and every instance after it did not, so when the last one exits there is
+	 * nobody left who knows how to stop the thing. Found by closing the program
+	 * and seeing a whisper-server still resident, holding its model, reparented
+	 * to init, started three hours and a dozen restarts earlier.
+	 *
+	 * Only one copy of the brain runs at a time, so the recogniser has exactly
+	 * one owner. Taking the few seconds to load the model again is the price of
+	 * it always being ours to stop.
+	 */
 	if serverReady(ctx) {
-		return nil
+		stopStrayServers()
 	}
 
 	binary := filepath.Join(filepath.Dir(r.Command), "whisper-server")
@@ -69,6 +86,16 @@ func StartResident(ctx context.Context) error {
 	cmd := exec.Command(binary, "-m", r.Model, "--host", host, "--port", port, "-t", "4")
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
+
+	/*
+	 * And it dies with whoever started it, however that ends.
+	 *
+	 * StopResident covers the orderly exit. This covers the other kind — a
+	 * crash, a kill -9, a session ending — after which nothing would be left to
+	 * do the stopping. The same guard the microphone recorder already has, for
+	 * the same reason: twenty-six orphaned recorders were once found this way.
+	 */
+	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("could not start whisper-server: %w", err)
@@ -91,6 +118,35 @@ func StartResident(ctx context.Context) error {
 	}
 
 	return fmt.Errorf("whisper-server did not become ready")
+}
+
+/*
+ * stopStrayServers ends a recogniser left behind by an earlier run.
+ *
+ * By name, which is blunt, and correct here: this program allows exactly one
+ * copy of itself at a time, and the recogniser it starts listens on a port only
+ * it uses. Anything answering there now is a leftover of a previous run of this
+ * same program.
+ */
+func stopStrayServers() {
+	out, err := exec.Command("pgrep", "-x", "whisper-server").Output()
+	if err != nil {
+		return
+	}
+
+	for _, line := range strings.Fields(string(out)) {
+		pid, err := strconv.Atoi(line)
+		if err != nil || pid <= 1 {
+			continue
+		}
+
+		if p, err := os.FindProcess(pid); err == nil {
+			_ = p.Kill()
+		}
+	}
+
+	// It holds the port for a moment after it dies.
+	time.Sleep(500 * time.Millisecond)
 }
 
 // StopResident shuts the server down.
