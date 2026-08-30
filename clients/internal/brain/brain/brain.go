@@ -56,6 +56,11 @@ type Brain struct {
 	fastOnce  sync.Once
 	fastFound string
 
+	// modelsResident is whether both models are held in memory at once, which
+	// is what makes switching between them free rather than a reload.
+	mu             sync.Mutex
+	modelsResident bool
+
 	// Learner runs the Extractor/Validator/Curator pipeline in the background.
 	// Nil when no local model is available, since extraction must stay local.
 	Learner *learning.Worker
@@ -314,6 +319,10 @@ func (b *Brain) Start(ctx context.Context) {
 
 	// The only thing here that speaks without being spoken to first.
 	go b.watchReminders(ctx)
+
+	// Both models loaded and kept loaded, so choosing between them costs
+	// nothing at the moment of choosing.
+	go b.keepModelsWarm(ctx)
 
 	// A resident recogniser, started in the background because loading its
 	// model takes seconds and nothing should wait on it. Without one, every

@@ -400,6 +400,18 @@
                     </form>
                 </div>
                 <div class="card">
+                    <h2>Models in use</h2>
+                    <p class="note" id="models-note">—</p>
+                    <div id="models-warning" hidden>
+                        <p class="storage-advice">Both models cannot be held in memory at
+                            once on this machine, so every switch between them reloads one —
+                            which costs more than choosing the smaller one saves. Ollama is
+                            set to keep two models, and the memory used for remembering takes
+                            one of those. Raising it to three fixes it; there is room.</p>
+                        <pre class="fix-command" id="models-fix"></pre>
+                    </div>
+                </div>
+                <div class="card">
                     <h2>Mailbox</h2>
                     <p class="note">Fill these in yourself and the brain can read and write
                         your mail. Use an <strong>app password</strong>, not your account

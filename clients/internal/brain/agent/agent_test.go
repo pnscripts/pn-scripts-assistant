@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -521,5 +523,84 @@ func TestTheCallIsNotShownToThePerson(t *testing.T) {
 		if got := presentable(c.reply); got != c.want {
 			t.Errorf("presentable(%q) = %q, want %q", c.reply, got, c.want)
 		}
+	}
+}
+
+/*
+ * A streamed turn must not be spoken until it is clear it is an answer.
+ *
+ * A model about to call a tool opens with a brace or a fence. Half a tool call
+ * read out loud is a string of punctuation, which is the one outcome worse than
+ * saying nothing.
+ */
+func TestWaitingToSeeWhetherItIsAnAnswer(t *testing.T) {
+	cases := []struct {
+		opening string
+		prose   bool
+		settled bool
+	}{
+		{`{"name": "read_file"`, false, true},
+		{"```json", false, true},
+		{"[", false, true},
+		{"Good morning, Petar", true, true},
+		{"I have checked and", true, true},
+
+		// Not yet enough to tell.
+		{"Good", false, false},
+		{"", false, false},
+		{"   ", false, false},
+	}
+
+	for _, c := range cases {
+		prose, settled := isProse(c.opening)
+
+		if settled != c.settled {
+			t.Errorf("%q: settled=%v, want %v", c.opening, settled, c.settled)
+
+			continue
+		}
+
+		if settled && prose != c.prose {
+			t.Errorf("%q: prose=%v, want %v", c.opening, prose, c.prose)
+		}
+	}
+}
+
+/*
+ * The tools go with a streamed turn.
+ *
+ * The first version of streaming left them out, which would have been a quiet
+ * disaster: every turn that meant doing something would have streamed
+ * beautifully and been unable to do any of it.
+ */
+func TestAStreamedTurnStillCarriesItsTools(t *testing.T) {
+	var sent struct {
+		Tools  []map[string]any `json:"tools"`
+		Stream bool             `json:"stream"`
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&sent)
+		_, _ = w.Write([]byte(`{"message":{"content":"Hello."},"done":true}` + "\n"))
+	}))
+
+	defer server.Close()
+
+	client := llm.NewOllama(server.URL, "qwen2.5-coder:7b", "nomic-embed-text")
+
+	_, err := client.ChatStream(context.Background(), llm.Request{
+		Messages: []llm.Message{{Role: llm.RoleUser, Content: "hi"}},
+		Tools:    []llm.ToolSpec{{Name: "read_file", Description: "read a file"}},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !sent.Stream {
+		t.Error("the request did not ask for a stream")
+	}
+
+	if len(sent.Tools) != 1 {
+		t.Fatalf("the tools were dropped from the streamed request: %+v", sent.Tools)
 	}
 }

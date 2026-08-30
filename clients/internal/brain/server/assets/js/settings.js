@@ -51,6 +51,33 @@ async function load() {
         }
     }
 
+    /*
+     * Which model answers what, and whether switching between them is free.
+     *
+     * The failure this shows is otherwise invisible and reads as the program
+     * being slow: a switch evicts the other model, the next turn reloads
+     * several gigabytes, and nothing says why.
+     */
+    if (el('models-note') && status.models) {
+        const m = status.models;
+
+        el('models-note').textContent = m.small_talk
+            ? `${m.answering} answers, ${m.small_talk} handles small talk`
+            : `${m.answering} answers everything; no smaller model is installed`;
+
+        const warning = el('models-warning');
+
+        if (warning) {
+            warning.hidden = !m.small_talk || m.both_resident;
+
+            el('models-fix').textContent =
+                'sudo mkdir -p /etc/systemd/system/ollama.service.d && '
+                + "printf '[Service]\\nEnvironment=\"OLLAMA_MAX_LOADED_MODELS=3\"\\n' "
+                + '| sudo tee /etc/systemd/system/ollama.service.d/models.conf && '
+                + 'sudo systemctl daemon-reload && sudo systemctl restart ollama';
+        }
+    }
+
     if (el('set-name')) {
         el('set-name').value = status.name || '';
         el('set-owner').value = status.owner || '';

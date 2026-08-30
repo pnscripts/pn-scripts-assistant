@@ -688,6 +688,20 @@ button.reject:hover { border-color: var(--danger); color: var(--danger); }
     min-height: 1.4em;
 }
 
+.fix-command {
+    margin: 7px 0 0;
+    padding: 8px 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-family: var(--mono, monospace);
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: all;
+}
+
 .field-check {
     display: grid;
     grid-template-columns: auto 1fr;

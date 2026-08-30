@@ -189,7 +189,16 @@ func (l *Loop) RunShaped(
 		var resp llm.Response
 		var err error
 
-		if l.Aloud != nil && len(specs) == 0 {
+		/*
+		 * Streamed whenever the provider can, tools or not.
+		 *
+		 * Holding back every turn that might call a tool meant that exactly the
+		 * turns worth waiting for — the ones that do something — were the ones
+		 * that said nothing for minutes. And a model that is going to call a
+		 * tool says so in its first characters: an opening brace, or a fence.
+		 * That is enough to tell the two apart before a word has been spoken.
+		 */
+		if l.Aloud != nil {
 			resp, err = l.streamAloud(ctx, provider, request)
 		} else {
 			resp, err = provider.Chat(ctx, request)
@@ -484,15 +493,85 @@ func (l *Loop) streamAloud(
 
 	progress.Set("answering", "Answering")
 
-	resp, err := streamer.ChatStream(ctx, request, voice.Write)
+	/*
+	 * Nothing is spoken until it is clear this is an answer and not a call.
+	 *
+	 * A model about to call a tool opens with a brace or a fence, so a short
+	 * look at the first characters separates the two — and half a tool call
+	 * read out loud is a string of punctuation, which is the one outcome worse
+	 * than silence.
+	 */
+	var (
+		opening strings.Builder
+		decided bool
+		speak   bool
+	)
+
+	resp, err := streamer.ChatStream(ctx, request, func(text string) {
+		if !decided {
+			opening.WriteString(text)
+
+			verdict, settled := isProse(opening.String())
+			if !settled {
+				return
+			}
+
+			decided, speak = true, verdict
+
+			if speak {
+				voice.Write(opening.String())
+			}
+
+			return
+		}
+
+		if speak {
+			voice.Write(text)
+		}
+	})
 	if err != nil {
 		return resp, err
+	}
+
+	// Everything arrived before the question was settled: short answers do
+	// that, and they are still answers.
+	if !decided {
+		if verdict, _ := isProse(opening.String()); verdict {
+			voice.Write(opening.String())
+		}
 	}
 
 	// Recorded on the response so the caller knows not to say it all again.
 	resp.Spoken = voice.Started()
 
 	return resp, nil
+}
+
+/*
+ * isProse decides whether what has begun to arrive is an answer or a tool call.
+ *
+ * Returns whether it is prose, and whether there is yet enough to say. A model
+ * writing a call opens with a brace or a fence; one answering opens with a
+ * word. A dozen characters settles it either way, which at ten tokens a second
+ * is about a second of held breath.
+ */
+func isProse(sofar string) (prose, settled bool) {
+	trimmed := strings.TrimLeft(sofar, " \t\r\n")
+
+	if trimmed == "" {
+		// Only whitespace so far, and whitespace decides nothing.
+		return false, len(sofar) > 40
+	}
+
+	switch trimmed[0] {
+	case '{', '[':
+		return false, true
+	case '`':
+		return false, true
+	}
+
+	// Enough of a word to be sure it is one.
+	return true, len(trimmed) >= 12
 }
 
 // specs describes the tools to the model, in the registry's stable order.

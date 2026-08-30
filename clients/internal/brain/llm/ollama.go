@@ -157,6 +157,25 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 		body.Messages = append(body.Messages, ollamaMessage{Role: m.Role, Content: m.Content})
 	}
 
+	/*
+	 * The tools travel with a streamed turn too.
+	 *
+	 * Leaving them out was the first version of this and it would have been a
+	 * quiet disaster: every turn that meant doing something would have been
+	 * streamed beautifully and been unable to do any of it, which is precisely
+	 * the failure this program has already been through twice.
+	 */
+	for _, t := range req.Tools {
+		body.Tools = append(body.Tools, ollamaTool{
+			Type: "function",
+			Function: ollamaFunction{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  t.Parameters,
+			},
+		})
+	}
+
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return Response{}, err
@@ -181,7 +200,10 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 		return Response{}, fmt.Errorf("ollama answered %s", res.Status)
 	}
 
-	var whole strings.Builder
+	var (
+		whole strings.Builder
+		calls []ToolCall
+	)
 
 	// One JSON object per line, each carrying the next few characters.
 	decoder := json.NewDecoder(res.Body)
@@ -189,7 +211,8 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 	for {
 		var chunk struct {
 			Message struct {
-				Content string `json:"content"`
+				Content   string           `json:"content"`
+				ToolCalls []ollamaToolCall `json:"tool_calls"`
 			} `json:"message"`
 			Done  bool   `json:"done"`
 			Error string `json:"error"`
@@ -215,15 +238,25 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 			}
 		}
 
+		// A call arrives whole rather than in pieces, and it means this turn is
+		// an action rather than an answer.
+		for _, c := range chunk.Message.ToolCalls {
+			calls = append(calls, ToolCall{
+				Name:      c.Function.Name,
+				Arguments: c.Function.Arguments,
+			})
+		}
+
 		if chunk.Done {
 			break
 		}
 	}
 
 	return Response{
-		Content:  whole.String(),
-		Provider: "ollama",
-		Model:    model,
+		Content:   whole.String(),
+		ToolCalls: calls,
+		Provider:  "ollama",
+		Model:     model,
 	}, nil
 }
 
@@ -385,8 +418,17 @@ func truncate(s string, n int) string {
 // model is ready at roughly the moment the context is. It is a request with no
 // messages, which Ollama treats as "load and hold" rather than as a question.
 func (o *Ollama) Warm(ctx context.Context) error {
+	return o.WarmModel(ctx, o.ChatModel)
+}
+
+// WarmModel loads one model and holds it, without asking it anything.
+func (o *Ollama) WarmModel(ctx context.Context, model string) error {
+	if model == "" {
+		return nil
+	}
+
 	body := ollamaChatRequest{
-		Model:     o.ChatModel,
+		Model:     model,
 		Stream:    false,
 		KeepAlive: o.KeepAlive,
 	}
@@ -394,4 +436,44 @@ func (o *Ollama) Warm(ctx context.Context) error {
 	var out ollamaChatResponse
 
 	return o.post(ctx, "/api/chat", body, &out)
+}
+
+// Loaded is a model Ollama currently holds in memory.
+type Loaded struct {
+	Name string
+	Size int64
+}
+
+// Resident reports which models are loaded right now.
+func (o *Ollama) Resident(ctx context.Context) ([]Loaded, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.BaseURL+"/api/ps", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := o.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("reaching ollama at %s: %w", o.BaseURL, err)
+	}
+
+	defer res.Body.Close()
+
+	var out struct {
+		Models []struct {
+			Name string `json:"name"`
+			Size int64  `json:"size"`
+		} `json:"models"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+
+	loaded := make([]Loaded, 0, len(out.Models))
+
+	for _, m := range out.Models {
+		loaded = append(loaded, Loaded{Name: m.Name, Size: m.Size})
+	}
+
+	return loaded, nil
 }

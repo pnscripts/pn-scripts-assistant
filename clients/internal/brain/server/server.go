@@ -231,6 +231,11 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"first_run":    s.brain.Cfg.New,
 		"always_name":  s.brain.Cfg.AlwaysName,
 		"auto_model":   s.brain.Cfg.AutoModel,
+		"models": map[string]any{
+			"answering":     s.brain.Cfg.OllamaModel,
+			"small_talk":    s.brain.Fast(),
+			"both_resident": s.brain.ModelsBothResident(),
+		},
 		"provider":     s.brain.Cfg.DefaultProvider,
 		"model":        s.brain.Cfg.OllamaModel,
 		"privacy":      s.brain.Mode.Describe(),
