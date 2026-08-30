@@ -16,6 +16,7 @@ import (
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/store"
+	"pn-brain/internal/brain/wake"
 	"pn-brain/internal/brain/tools"
 )
 
@@ -669,4 +670,86 @@ func TestWhatItAnswersToFollowsItsName(t *testing.T) {
 			t.Errorf("it answers to %q, not to what was asked for", b.Cfg.WakeWord)
 		}
 	})
+}
+
+/*
+ * Being called by name every time.
+ *
+ * Staying engaged after one exchange is what a conversation wants and what a
+ * room with other people in it cannot have: for the next minute, everything
+ * anybody says is treated as addressed, so the brain answers the television and
+ * the person sitting next to it.
+ *
+ * Decided on this side rather than by trusting the page not to claim it, since
+ * this is the setting that stops that happening.
+ */
+func TestCallingItByNameEveryTime(t *testing.T) {
+	_, _, b := newServer(t)
+	srv := New(b, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	b.Cfg.WakeWord = "Brain"
+	b.Cfg.AlwaysName = true
+
+	// The page claims it is still in a conversation. With the name required,
+	// that claim buys nothing.
+	if heard, _ := srv.decide("what time is it", true); heard.Addressed {
+		t.Error("a sentence without the name was answered while the name is required")
+	}
+
+	if heard, _ := srv.decide("brain what time is it", true); !heard.Addressed {
+		t.Error("a sentence carrying the name was not answered")
+	}
+
+	// With the setting off, the same claim keeps the conversation open.
+	b.Cfg.AlwaysName = false
+
+	if heard, _ := srv.decide("what time is it", true); !heard.Addressed {
+		t.Error("a follow-up was ignored while the conversation was meant to be open")
+	}
+
+	// And leaving the conversation only means anything while in one.
+	if _, ends := srv.decide("thanks", true); !ends {
+		t.Error("saying thank you did not end the conversation")
+	}
+
+	b.Cfg.AlwaysName = true
+
+	if _, ends := srv.decide("thanks", true); ends {
+		t.Error("a conversation that was never open was ended")
+	}
+}
+
+// What a brain answers to before anybody has said otherwise.
+//
+// One ordinary word, because that is what transcription reliably gets right:
+// whisper writes this program's own name down as "Piembring" one time and
+// "Piendren" the next, so no list of spellings ever converges on it.
+func TestTheNameItShipsListeningFor(t *testing.T) {
+	if config.DefaultWakeWord == "" {
+		t.Fatal("it ships answering to everything it hears, which suits a headset, not a room")
+	}
+
+	if got := wake.Names(config.DefaultWakeWord); len(got) == 0 {
+		t.Fatalf("the default wake word yields no names to match: %q", config.DefaultWakeWord)
+	}
+
+	if !wake.Listen("brain, what time is it", config.DefaultWakeWord, false).Addressed {
+		t.Error("it does not answer to the name it ships with")
+	}
+
+	// And naming it replaces the shipped default rather than leaving a brain
+	// called Ariel that only answers to Brain.
+	ts, _, b := newServer(t)
+	b.Cfg.WakeWord = config.DefaultWakeWord
+
+	res, err := http.Post(ts.URL+"/api/settings", "application/json",
+		strings.NewReader(`{"name":"Ariel"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+
+	if b.Cfg.WakeWord != "Ariel" {
+		t.Errorf("named Ariel but still answers to %q", b.Cfg.WakeWord)
+	}
 }

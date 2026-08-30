@@ -34,6 +34,8 @@ const state = {
     brainName: 'PN Brain',
     // What has to be said before it answers, or empty to answer everything.
     wakeWord: '',
+    // Whether the name is needed on every sentence rather than once.
+    alwaysName: true,
     busy: false,
 };
 
@@ -165,6 +167,7 @@ async function refreshStatus() {
         const s = await api.get('/api/status');
         state.brainName = s.name || state.brainName;
         state.wakeWord = s.wake_word || '';
+        state.alwaysName = s.always_name !== false;
         el('brain-name').textContent = s.name;
         el('engine-meta').textContent = `${s.provider} · ${s.model}`;
         renderPrivacy(s.privacy);
@@ -314,6 +317,11 @@ const ENGAGED_FOR = 45000;
 let spokeAt = 0;
 
 function engaged() {
+    // Set to be called every time, nothing stays open: each sentence has to
+    // carry the name. In a room with a television in it that is the difference
+    // between an assistant and a participant.
+    if (state.alwaysName) return false;
+
     return Date.now() - spokeAt < ENGAGED_FOR;
 }
 

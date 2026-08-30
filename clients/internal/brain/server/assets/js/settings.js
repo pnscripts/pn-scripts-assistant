@@ -56,6 +56,7 @@ async function load() {
         el('set-owner').value = status.owner || '';
         el('set-wake').value = status.wake_word || '';
         el('set-privacy').value = (status.privacy && status.privacy.mode) || 'private';
+        el('set-always').checked = status.always_name !== false;
     }
 
     renderColours();
@@ -168,6 +169,7 @@ if (form) {
             owner: el('set-owner').value,
             wake_word: el('set-wake').value,
             privacy: el('set-privacy').value,
+            always_name: el('set-always').checked,
         }, el('set-note'));
     });
 }

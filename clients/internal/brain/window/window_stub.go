@@ -7,6 +7,9 @@ import (
 	"runtime"
 )
 
+// Present does nothing in a build with no window to bring forward.
+func Present() {}
+
 // Available reports whether a native window can be opened by this build.
 func Available() bool { return false }
 

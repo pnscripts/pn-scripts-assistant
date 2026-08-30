@@ -35,10 +35,21 @@ type Config struct {
 	New bool
 
 	// WakeWord is what has to be said before the brain answers, or empty for
-	// it to answer anything it hears. Empty by default: requiring a name means
-	// transcription has to get that name right first, and when it does not the
-	// assistant simply ignores its owner.
+	// it to answer anything it hears.
+	//
+	// A comma-separated list, because a microphone writes a name down
+	// differently from one sentence to the next and the fix is to add what it
+	// actually wrote.
 	WakeWord string
+
+	// AlwaysName requires the name on every sentence, rather than staying in
+	// the conversation for a while after being addressed.
+	//
+	// On by default, because the room this was written for has a television in
+	// it and other people. Staying engaged means the next forty-five seconds of
+	// whatever anybody says is the brain's business, and in a room like that it
+	// answers the film.
+	AlwaysName bool
 
 	OllamaModel    string
 	EmbedModel     string
@@ -73,6 +84,25 @@ type Config struct {
 	RecallFloor float64
 }
 
+/*
+ * DefaultWakeWord is what a brain answers to before anybody has said otherwise.
+ *
+ * A single ordinary word, because that is the one thing transcription reliably
+ * gets right. The full name of this program is written down by whisper as
+ * "Piembring" one time and "Piendren" the next — never the same way twice, so a
+ * list of spellings never converges on it. "Brain" comes back as "Brain".
+ */
+const DefaultWakeWord = "Brain"
+
+// boolText writes a setting the way the file reads it back.
+func boolText(on bool) string {
+	if on {
+		return "1"
+	}
+
+	return "0"
+}
+
 // FileName is the settings file inside a data root.
 const FileName = "brain.conf"
 
@@ -88,7 +118,8 @@ func Default() Config {
 		Privacy:         "private",
 		DefaultProvider: "ollama",
 		OllamaURL:       "http://127.0.0.1:11434",
-		WakeWord:        "",
+		WakeWord:        DefaultWakeWord,
+		AlwaysName:      true,
 		OllamaModel:     "qwen2.5-coder:7b",
 		EmbedModel:      "nomic-embed-text",
 		AnthropicModel:  "",
@@ -138,6 +169,10 @@ func Load(root string) (Config, error) {
 	assign(&cfg.DefaultProvider, "LLM_DEFAULT_PROVIDER")
 	assign(&cfg.OllamaURL, "OLLAMA_BASE_URL")
 	assign(&cfg.WakeWord, "BRAIN_WAKE_WORD")
+
+	if v := get("BRAIN_ALWAYS_NAME"); v != "" {
+		cfg.AlwaysName = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
 	assign(&cfg.OllamaModel, "OLLAMA_DEFAULT_MODEL")
 	assign(&cfg.EmbedModel, "EMBEDDING_MODEL")
 	assign(&cfg.AnthropicKey, "ANTHROPIC_API_KEY")
@@ -181,7 +216,8 @@ func (c Config) Save(root string) error {
 	b.WriteString("# A word that must be said before it answers. Empty means it answers\n")
 	b.WriteString("# anything it hears, which is the default: requiring a name means\n")
 	b.WriteString("# transcription has to get that name right before anything can match.\n")
-	b.WriteString("BRAIN_WAKE_WORD=" + c.WakeWord + "\n\n")
+	b.WriteString("BRAIN_WAKE_WORD=" + c.WakeWord + "\n")
+	b.WriteString("BRAIN_ALWAYS_NAME=" + boolText(c.AlwaysName) + "\n\n")
 	b.WriteString("LLM_DEFAULT_PROVIDER=" + c.DefaultProvider + "\n")
 	b.WriteString("OLLAMA_BASE_URL=" + c.OllamaURL + "\n")
 	b.WriteString("OLLAMA_DEFAULT_MODEL=" + c.OllamaModel + "\n")

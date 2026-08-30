@@ -481,6 +481,34 @@ func runApp(args []string) error {
 		cfg.Addr = *addr
 	}
 
+	/*
+	 * One at a time.
+	 *
+	 * Two copies on one data root are two processes writing the same database,
+	 * two learning workers, and two microphone loops both recording the room
+	 * and both answering it. Somebody clicking the icon a second time wants the
+	 * window they already have, so that is what they get.
+	 */
+	lock, err := server.Claim(root.Path)
+	if err != nil {
+		if !errors.Is(err, server.ErrAlreadyRunning) {
+			return err
+		}
+
+		if server.Raise(cfg.Addr) {
+			fmt.Fprintf(os.Stderr, "\n  %s is already running — brought it to the front.\n\n",
+				cfg.Name)
+
+			return nil
+		}
+
+		return fmt.Errorf(
+			"%s is already running on this data root but is not answering on %s. "+
+				"Close it and try again", cfg.Name, cfg.Addr)
+	}
+
+	defer lock.Release()
+
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -511,6 +539,10 @@ func runApp(args []string) error {
 	}
 
 	srv := server.New(b, logger)
+
+	// So a second copy can ask this one to show itself rather than opening
+	// another window onto the same brain.
+	srv.OnPresent(window.Present)
 
 	// Make sure there is something to run on, at every start rather than only
 	// the first. On a machine that has never had this before there is nothing

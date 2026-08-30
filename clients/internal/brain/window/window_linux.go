@@ -23,7 +23,17 @@ static WebKitWebView *pnbrain_view = NULL;
 // and picked up by a timer rather than being loaded from the Go goroutine that
 // produced it. Touching GTK from another thread is undefined behaviour.
 static char *pnbrain_pending_url = NULL;
+static gboolean pnbrain_pending_present = FALSE;
 static GMutex pnbrain_pending_lock;
+
+// Asked for by a second copy of the program that has just been started and is
+// about to exit, so that double-clicking the icon again brings this window
+// forward instead of doing nothing visible.
+void pnbrain_request_present(void) {
+    g_mutex_lock(&pnbrain_pending_lock);
+    pnbrain_pending_present = TRUE;
+    g_mutex_unlock(&pnbrain_pending_lock);
+}
 
 void pnbrain_request_navigation(const char *url) {
     g_mutex_lock(&pnbrain_pending_lock);
@@ -34,13 +44,20 @@ void pnbrain_request_navigation(const char *url) {
 
 static gboolean pnbrain_poll_navigation(gpointer data) {
     char *url = NULL;
+    gboolean present = FALSE;
 
     g_mutex_lock(&pnbrain_pending_lock);
     if (pnbrain_pending_url != NULL) {
         url = pnbrain_pending_url;
         pnbrain_pending_url = NULL;
     }
+    present = pnbrain_pending_present;
+    pnbrain_pending_present = FALSE;
     g_mutex_unlock(&pnbrain_pending_lock);
+
+    if (present) {
+        gtk_window_present(GTK_WINDOW(data));
+    }
 
     if (url != NULL && pnbrain_view != NULL) {
         webkit_web_view_load_uri(pnbrain_view, url);
@@ -165,6 +182,15 @@ func Open(url, title string, width, height int) error {
 	C.pnbrain_open_window(cURL, cTitle, C.int(width), C.int(height))
 
 	return nil
+}
+
+// Present brings the window to the front.
+//
+// Called when a second copy of the program is started: rather than opening
+// another window onto the same brain, the one already running comes forward and
+// the new process exits.
+func Present() {
+	C.pnbrain_request_present()
 }
 
 // Available reports whether a native window can be opened by this build.

@@ -22,6 +22,7 @@ import (
 
 	"pn-brain/internal/brain/appearance"
 	"pn-brain/internal/brain/brain"
+	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/progress"
@@ -40,7 +41,15 @@ type Server struct {
 	// What the microphone has recently made of the room, so that a turn which
 	// went nowhere can be looked at instead of guessed about.
 	heard heardLog
+
+	// present brings the window forward. Set by whatever owns the window, so
+	// that a second copy of the program can ask this one to show itself rather
+	// than opening another.
+	present func()
 }
+
+// OnPresent sets what to do when another copy asks this one to come forward.
+func (s *Server) OnPresent(show func()) { s.present = show }
 
 // New builds the server and registers its routes.
 func New(b *brain.Brain, logger *slog.Logger) *Server {
@@ -49,6 +58,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/chat", s.handleChat)
 	s.mux.HandleFunc("GET /api/status", s.handleStatus)
 	s.mux.HandleFunc("GET /api/heard", s.handleHeard)
+	s.mux.HandleFunc("POST /api/present", s.handlePresent)
 	s.mux.HandleFunc("GET /api/memory-map", s.handleMemoryMap)
 	s.mux.HandleFunc("GET /api/knowledge", s.handleKnowledge)
 	s.mux.HandleFunc("GET /api/activity", s.handleActivity)
@@ -212,6 +222,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		// has no way to find out why nothing is happening.
 		"wake_word":    s.brain.Cfg.WakeWord,
 		"first_run":    s.brain.Cfg.New,
+		"always_name":  s.brain.Cfg.AlwaysName,
 		"provider":     s.brain.Cfg.DefaultProvider,
 		"model":        s.brain.Cfg.OllamaModel,
 		"privacy":      s.brain.Mode.Describe(),
@@ -535,18 +546,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	 * with it — a television, somebody else talking, or its own voice coming
 	 * back off the speakers. Every one of those used to become a turn.
 	 */
-	addressed := wake.Listen(heard.Text, s.brain.Cfg.WakeWord, body.Engaged)
-
-	/*
-	 * And was that the end of it?
-	 *
-	 * Being engaged means everything said for the next minute counts, which in
-	 * a room with other people in it is long enough to turn away and have the
-	 * brain answer somebody else's sentence. Saying thank you is how a person
-	 * leaves a conversation, so it is how this one ends too.
-	 */
-	ends := body.Engaged && strings.TrimSpace(s.brain.Cfg.WakeWord) != "" &&
-		wake.Ends(heard.Text)
+	addressed, ends := s.decide(heard.Text, body.Engaged)
 
 	acted := addressed.Addressed && !ends
 
@@ -586,6 +586,44 @@ func (s *Server) handleHeard(w http.ResponseWriter, r *http.Request) {
 		"wake_word": s.brain.Cfg.WakeWord,
 		"names":     wake.Names(s.brain.Cfg.WakeWord),
 	})
+}
+
+// handlePresent brings the window forward, for a second copy that has just
+// been started and is about to exit.
+func (s *Server) handlePresent(w http.ResponseWriter, r *http.Request) {
+	if s.present == nil {
+		fail(w, http.StatusNotImplemented, "This brain has no window to bring forward.")
+
+		return
+	}
+
+	s.present()
+
+	ok(w, map[string]any{"presented": true})
+}
+
+/*
+ * decide works out whether a transcript was meant for the brain.
+ *
+ * Separate from the handler because the handler needs a microphone and a room,
+ * and this needs neither — and because it is the rule that decides whether a
+ * television gets answered, which is worth being able to state a test about.
+ *
+ * claimed is the page saying it is still in a conversation. It is a claim
+ * rather than a fact: when the name is required every time, it buys nothing.
+ * Refused here rather than trusted, because one place has to be able to say no.
+ */
+func (s *Server) decide(text string, claimed bool) (wake.Heard, bool) {
+	engaged := claimed && !s.brain.Cfg.AlwaysName
+
+	heard := wake.Listen(text, s.brain.Cfg.WakeWord, engaged)
+
+	// Saying thank you is how a person leaves a conversation, so it is how
+	// this one ends too — otherwise the rest of the minute belongs to whoever
+	// they turned to speak to next.
+	ends := engaged && strings.TrimSpace(s.brain.Cfg.WakeWord) != "" && wake.Ends(text)
+
+	return heard, ends
 }
 
 // handleGreeting is what the brain says on opening, without being asked.
@@ -882,6 +920,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		Owner    *string `json:"owner"`
 		WakeWord *string `json:"wake_word"`
 		Privacy  *string `json:"privacy"`
+
+		// AlwaysName is whether the name is needed on every sentence.
+		AlwaysName *bool `json:"always_name"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
@@ -901,7 +942,8 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			 * broken rather than as a setting left at its default.
 			 */
 			untouched := strings.TrimSpace(s.brain.Cfg.WakeWord) == "" ||
-				strings.EqualFold(s.brain.Cfg.WakeWord, s.brain.Cfg.Name)
+				strings.EqualFold(s.brain.Cfg.WakeWord, s.brain.Cfg.Name) ||
+				strings.EqualFold(s.brain.Cfg.WakeWord, config.DefaultWakeWord)
 
 			if untouched {
 				s.brain.Cfg.WakeWord = name
@@ -927,6 +969,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if body.AlwaysName != nil {
+		s.brain.Cfg.AlwaysName = *body.AlwaysName
+	}
+
 	// Saved as soon as it is set, and the file existing is what stops the
 	// interface asking to be introduced a second time.
 	s.brain.Cfg.New = false
@@ -938,10 +984,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{
-		"name":      s.brain.Cfg.Name,
-		"owner":     s.brain.Cfg.Owner,
-		"wake_word": s.brain.Cfg.WakeWord,
-		"privacy":   s.brain.Cfg.Privacy,
+		"name":        s.brain.Cfg.Name,
+		"owner":       s.brain.Cfg.Owner,
+		"wake_word":   s.brain.Cfg.WakeWord,
+		"privacy":     s.brain.Cfg.Privacy,
+		"always_name": s.brain.Cfg.AlwaysName,
 	})
 }
 

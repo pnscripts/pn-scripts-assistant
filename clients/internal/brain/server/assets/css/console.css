@@ -688,6 +688,17 @@ button.reject:hover { border-color: var(--danger); color: var(--danger); }
     min-height: 1.4em;
 }
 
+.field-check {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 8px;
+    align-items: center;
+}
+
+.field-check input { width: 14px; height: 14px; margin: 0; }
+.field-check span { margin-bottom: 0; }
+.field-check .field-note { grid-column: 2; margin-top: 4px; }
+
 .field-note {
     display: block;
     margin-top: 5px;
