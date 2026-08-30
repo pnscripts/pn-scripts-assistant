@@ -268,18 +268,26 @@ var ReasonCandidates = []string{
 /*
  * WorkCandidates can actually call a tool, best first.
  *
- * Measured on this machine, not assumed from size. gemma3 is the largest model
- * installed here and ollama refuses it outright — "does not support tools" — so
- * a brain given that job would talk well and be unable to act at all.
- * deepseek-r1 is worse: it accepts the schema and then never reaches for it,
- * and nothing anywhere reports an error.
+ * Measured on this machine rather than assumed from size, and the measurements
+ * are worth writing down because they are all counter-intuitive.
  *
- * qwen3 asks properly. qwen2.5-coder writes the call out as prose, which is
- * recovered but not always — which is why it is second here despite being
- * quicker.
+ * gemma3 is the largest model installed here and ollama refuses it outright —
+ * "does not support tools" — so a brain given that job would talk well and be
+ * unable to act at all. deepseek-r1 is worse: it accepts the schema and then
+ * never reaches for it, and nothing anywhere reports an error.
+ *
+ * qwen3 asks properly and was tried as the default for exactly that reason. In
+ * a real turn, with tools and a conversation behind it, it did not finish a
+ * single question in twenty-five minutes — it wraps its working in <think>
+ * tags and thinks at length, and on a processor that is the whole of the cost.
+ * qwen2.5-coder answered the same question in eight and a half.
+ *
+ * So the quicker one leads. It writes its calls out as prose rather than
+ * asking properly, which used to lose them; that is handled now, including
+ * when a model puts its deliberation in front.
  */
 var WorkCandidates = []string{
-	"qwen3", "qwen2.5-coder:7b", "qwen2.5-coder", "llama3.1:8b",
+	"qwen2.5-coder:7b", "qwen2.5-coder", "qwen3", "llama3.1:8b",
 }
 
 // PickTalk returns the best small model that is actually installed.
