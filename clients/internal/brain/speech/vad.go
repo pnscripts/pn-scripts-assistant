@@ -174,6 +174,17 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 
 	args := []string{"--rate", "16000", "--channels", "1", "--format", "s16"}
 
+	/*
+	 * With nothing chosen, prefer the echo-cancelled input.
+	 *
+	 * This is what makes interrupting work: the assistant's own voice is
+	 * subtracted from what the microphone hears, so it can keep listening while
+	 * it speaks instead of going deaf for the length of every answer.
+	 */
+	if device == "" {
+		device = PreferredMicrophone(ctx)
+	}
+
 	if device != "" {
 		args = append(args, "--target", device)
 	}

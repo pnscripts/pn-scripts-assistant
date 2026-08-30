@@ -118,3 +118,35 @@ func str(v any) string {
 
 	return s
 }
+
+/*
+ * PreferredMicrophone is the input to record from when nobody has chosen one.
+ *
+ * An echo-cancelled source wins over anything else, and it is the difference
+ * between an assistant that can be interrupted and one that cannot. A
+ * microphone in front of a speaker hears the assistant's own voice, so the
+ * listening loop had to stop whenever it spoke — and a loop that is not
+ * listening cannot be interrupted. With the assistant's own output subtracted,
+ * it can listen and speak at the same time, the way a person on a telephone
+ * does.
+ *
+ * Returns empty when there is no such source, and then whatever was configured
+ * or is the system default is used as before.
+ */
+func PreferredMicrophone(ctx context.Context) string {
+	mics, err := Microphones(ctx)
+	if err != nil {
+		return ""
+	}
+
+	for _, m := range mics {
+		// By name, set in the config this program writes, rather than by the
+		// description — which is translated on a machine in another language
+		// and would silently stop matching.
+		if strings.Contains(m.ID, "echo_cancelled") || strings.Contains(m.ID, "echo-cancel") {
+			return m.ID
+		}
+	}
+
+	return ""
+}
