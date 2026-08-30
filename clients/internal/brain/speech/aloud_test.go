@@ -102,3 +102,35 @@ func TestPiecesBecomeSentences(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * The voice does not read the model thinking to itself.
+ *
+ * A reasoning model narrates its deliberation before answering. Held back
+ * while the block is open, and the answer after it spoken normally.
+ */
+func TestThinkingIsNotSpoken(t *testing.T) {
+	a := &Aloud{}
+
+	a.pending.WriteString("<think>Let me work this out. It could be several things.")
+
+	if !a.skipThinking() {
+		t.Fatal("an open thinking block was treated as speakable")
+	}
+
+	if a.pending.String() != "" {
+		t.Errorf("something was left to say: %q", a.pending.String())
+	}
+
+	// Once it closes, what follows is an answer.
+	a.pending.Reset()
+	a.pending.WriteString("<think>working</think>The disk is filling up.")
+
+	if a.skipThinking() {
+		t.Error("a closed thinking block still held everything back")
+	}
+
+	if a.pending.String() != "The disk is filling up." {
+		t.Errorf("left %q", a.pending.String())
+	}
+}

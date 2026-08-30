@@ -53,8 +53,8 @@ type Brain struct {
 
 	// The small model used for small talk, looked up once. Empty means there
 	// is none installed and everything goes to the usual one.
-	fastOnce  sync.Once
-	fastFound string
+	rolesOnce sync.Once
+	roles     llm.Sizes
 
 	// modelsResident is whether both models are held in memory at once, which
 	// is what makes switching between them free rather than a reload.
@@ -172,10 +172,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 				return llm.Choice{Model: b.Cfg.OllamaModel, Why: "chosen by you"}
 			}
 
-			return llm.ChooseModel(message, llm.Sizes{
-				Capable: b.Cfg.OllamaModel,
-				Fast:    b.fastModel(),
-			})
+			return llm.ChooseModel(message, b.modelRoles())
 		},
 	}
 
@@ -202,20 +199,18 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 }
 
 /*
- * fastModel is the small model to use for conversation.
+ * modelRoles is which model does what, from whatever is installed.
  *
  * Looked up once and remembered, because it means asking ollama what is
  * installed and that is a round trip nobody should pay for on the way to
- * saying good morning. A machine with nothing small returns empty, and then
- * everything goes to the usual model, which is the right answer rather than a
- * failure.
+ * saying good morning. Anything missing is left empty, and that kind of turn
+ * falls back to the model that does things — which every machine running this
+ * has, because it is the one it was set up with.
  */
-func (b *Brain) fastModel() string {
-	if b.Cfg.FastModel != "" {
-		return b.Cfg.FastModel
-	}
+func (b *Brain) modelRoles() llm.Sizes {
+	b.rolesOnce.Do(func() {
+		b.roles = llm.Sizes{Work: b.Cfg.OllamaModel}
 
-	b.fastOnce.Do(func() {
 		client := models.New(b.Cfg.OllamaURL)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -234,15 +229,21 @@ func (b *Brain) fastModel() string {
 			names = append(names, m.Name)
 		}
 
-		b.fastFound = llm.PickFast(names)
+		b.roles.Talk = llm.PickTalk(names)
+		b.roles.Reason = llm.PickReason(names)
 
-		if b.fastFound != "" {
-			b.Log.Info("small talk will be answered by a quicker model", "model", b.fastFound)
-		}
+		// The configured model stays the one that does things: it is what its
+		// owner chose and tested, and second-guessing that is not this
+		// function's job.
+		b.Log.Info("models chosen for each kind of turn",
+			"work", b.roles.Work, "talk", b.roles.Talk, "reason", b.roles.Reason)
 	})
 
-	return b.fastFound
+	return b.roles
 }
+
+// fastModel is the small model used for conversation.
+func (b *Brain) fastModel() string { return b.modelRoles().Talk }
 
 // mailAccount reads the mailbox out of the settings.
 //

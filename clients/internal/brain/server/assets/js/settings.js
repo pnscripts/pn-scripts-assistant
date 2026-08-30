@@ -61,14 +61,20 @@ async function load() {
     if (el('models-note') && status.models) {
         const m = status.models;
 
-        el('models-note').textContent = m.small_talk
-            ? `${m.answering} answers, ${m.small_talk} handles small talk`
-            : `${m.answering} answers everything; no smaller model is installed`;
+        const jobs = [
+            ['talking', m.talk],
+            ['doing things', m.work],
+            ['working things out', m.reason],
+        ].filter(([, model]) => model);
+
+        el('models-note').innerHTML = jobs
+            .map(([job, model]) => `<span class="model-job">${job}</span> ${model}`)
+            .join('<br>');
 
         const warning = el('models-warning');
 
         if (warning) {
-            warning.hidden = !m.small_talk || m.both_resident;
+            warning.hidden = !m.talk || m.talk === m.work || m.both_resident;
 
             el('models-fix').textContent =
                 'sudo mkdir -p /etc/systemd/system/ollama.service.d && '

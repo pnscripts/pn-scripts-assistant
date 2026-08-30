@@ -67,6 +67,18 @@ func (a *Aloud) Write(text string) {
 
 	a.pending.WriteString(text)
 
+	/*
+	 * A reasoning model's working is not the answer.
+	 *
+	 * Models like deepseek-r1 narrate their deliberation inside <think> tags
+	 * before answering. Read aloud, that is several minutes of the model
+	 * talking to itself, and the person waiting has no way to know the answer
+	 * has not started.
+	 */
+	if a.skipThinking() {
+		return
+	}
+
 	for {
 		sentence, rest, found := cutSentence(a.pending.String())
 		if !found {
@@ -88,6 +100,36 @@ func (a *Aloud) Write(text string) {
 			return
 		}
 	}
+}
+
+/*
+ * skipThinking holds everything back while a <think> block is open.
+ *
+ * Reports whether there is nothing speakable yet. Once the block closes it is
+ * removed and what follows is spoken normally.
+ */
+func (a *Aloud) skipThinking() bool {
+	text := a.pending.String()
+
+	open := strings.Index(text, "<think>")
+	if open < 0 {
+		return false
+	}
+
+	close := strings.Index(text[open:], "</think>")
+	if close < 0 {
+		// Still inside it. Keep only what came before, which is usually
+		// nothing, and wait.
+		a.pending.Reset()
+		a.pending.WriteString(text[:open])
+
+		return true
+	}
+
+	a.pending.Reset()
+	a.pending.WriteString(text[:open] + text[open+close+len("</think>"):])
+
+	return false
 }
 
 // Close says whatever is left and waits for the voice to finish.

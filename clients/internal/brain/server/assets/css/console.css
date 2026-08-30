@@ -430,11 +430,32 @@ html, body {
     padding: 14px 18px 18px;
 }
 
+/*
+ * Cards wide enough to read, however many there are.
+ *
+ * auto-fit with a 260px minimum put seven columns across a wide screen, and a
+ * card 260 pixels wide holding a transcript wraps it one word per line — which
+ * is what the panel showing what the microphone heard turned into once there
+ * were enough cards beside it. The number of columns has to be bounded by
+ * readability, not only by what fits.
+ */
 .view-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
     gap: 12px;
     align-content: start;
+
+    /* Bounded, because this screen is 2494 pixels wide and a grid that fills
+       it puts six or seven columns of settings side by side. Four is as many
+       as anybody reads across. */
+    max-width: 1560px;
+}
+
+/* Anything holding sentences rather than figures gets two columns' worth. */
+.view-grid > .card-wide { grid-column: span 2; }
+
+@media (max-width: 900px) {
+    .view-grid > .card-wide { grid-column: auto; }
 }
 
 .map-legend { max-width: 460px; }
@@ -686,6 +707,12 @@ button.reject:hover { border-color: var(--danger); color: var(--danger); }
     text-align: center;
     color: var(--text-faint);
     min-height: 1.4em;
+}
+
+.model-job {
+    display: inline-block;
+    min-width: 118px;
+    color: var(--text-faint);
 }
 
 .fix-command {
@@ -2581,3 +2608,27 @@ select { font-size: 13.5px; }
 
 .naming-card .field { margin-bottom: 14px; }
 .naming-card .model-action { width: 100%; margin-top: 6px; padding: 9px 0; font-size: 13.5px; }
+
+/*
+ * Hiding, actually hiding.
+ *
+ * The browser hides an element carrying the hidden attribute by giving it
+ * display:none, and any display in a stylesheet beats that — so a class with
+ * "display: flex" on it makes the element impossible to hide from script. That
+ * is how the panel came to say "Thinking" while the brain sat idle, which is
+ * worse than saying nothing: the display disagreeing with the machine makes
+ * everything else it says less believable.
+ *
+ * Written as [hidden] on the specific elements rather than :not([hidden]) on
+ * their own rules, because raising a rule's specificity to fix this quietly
+ * beats every later rule that was overriding it — which turned the round talk
+ * button into a wide rectangle the first time.
+ */
+#talk[hidden],
+#thinking-now[hidden],
+#models-warning[hidden],
+#history-empty[hidden],
+#menu-add[hidden],
+#menu-remove[hidden] {
+    display: none;
+}

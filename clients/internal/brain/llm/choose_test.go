@@ -2,7 +2,7 @@ package llm
 
 import "testing"
 
-var here = Sizes{Capable: "qwen2.5-coder:7b", Fast: "llama3.2:3b"}
+var here = Sizes{Work: "qwen2.5-coder:7b", Talk: "llama3.2:3b", Reason: "deepseek-r1:8b"}
 
 /*
  * Small talk is answered quickly.
@@ -17,7 +17,7 @@ func TestSmallTalkGoesToTheQuickModel(t *testing.T) {
 		"thank you very much", "goodbye", "who are you",
 		"can you hear me", "здравей", "добро утро", "как си", "благодаря",
 	} {
-		if got := ChooseModel(said, here); got.Model != here.Fast {
+		if got := ChooseModel(said, here); got.Model != here.Talk {
 			t.Errorf("%q went to %s, which will take a minute to say hello",
 				said, got.Model)
 		}
@@ -50,7 +50,7 @@ func TestAnythingToDoGoesToTheCapableModel(t *testing.T) {
 		"fix this: ```go\nfunc main() {}\n```",
 		"Could you look through the project and tell me which parts still need work",
 	} {
-		if got := ChooseModel(said, here); got.Model != here.Capable {
+		if got := ChooseModel(said, here); got.Model != here.Work {
 			t.Errorf("%q went to the small model, which cannot carry it out", said)
 		}
 	}
@@ -61,31 +61,31 @@ func TestALongSentenceIsNotSmallTalk(t *testing.T) {
 	said := "hello there, I was wondering whether you might be able to help me " +
 		"with something rather involved today"
 
-	if got := ChooseModel(said, here); got.Model != here.Capable {
+	if got := ChooseModel(said, here); got.Model != here.Work {
 		t.Errorf("a long message beginning with a greeting went to %s", got.Model)
 	}
 }
 
 // With no small model installed, everything goes to the one that is.
 func TestWithNothingSmallEverythingGoesToTheUsualModel(t *testing.T) {
-	only := Sizes{Capable: "qwen2.5-coder:7b"}
+	only := Sizes{Work: "qwen2.5-coder:7b"}
 
-	if got := ChooseModel("hello", only); got.Model != only.Capable {
+	if got := ChooseModel("hello", only); got.Model != only.Work {
 		t.Errorf("chose %q when only one model exists", got.Model)
 	}
 
-	same := Sizes{Capable: "qwen2.5-coder:7b", Fast: "qwen2.5-coder:7b"}
+	same := Sizes{Work: "qwen2.5-coder:7b", Talk: "qwen2.5-coder:7b"}
 
-	if got := ChooseModel("hello", same); got.Model != same.Capable {
+	if got := ChooseModel("hello", same); got.Model != same.Work {
 		t.Errorf("chose %q when both are the same model", got.Model)
 	}
 }
 
 // The small model is one that is actually installed.
-func TestPickingASmallModelThatExists(t *testing.T) {
+func TestPickingModelsThatExist(t *testing.T) {
 	installed := []string{"qwen2.5-coder:7b", "gemma3:4b", "nomic-embed-text:latest"}
 
-	if got := PickFast(installed); got != "gemma3:4b" {
+	if got := PickTalk(installed); got != "gemma3:4b" {
 		t.Errorf("picked %q from %v", got, installed)
 	}
 
@@ -93,11 +93,11 @@ func TestPickingASmallModelThatExists(t *testing.T) {
 	// small coding model, so it wins when both are there.
 	both := []string{"qwen2.5-coder:1.5b", "llama3.2:3b"}
 
-	if got := PickFast(both); got != "llama3.2:3b" {
+	if got := PickTalk(both); got != "llama3.2:3b" {
 		t.Errorf("picked %q from %v", got, both)
 	}
 
-	if got := PickFast([]string{"qwen2.5-coder:7b"}); got != "" {
+	if got := PickTalk([]string{"qwen2.5-coder:7b"}); got != "" {
 		t.Errorf("found a small model where there is none: %q", got)
 	}
 }
@@ -140,7 +140,7 @@ func TestToolsAreOfferedForWorkAndNotForGreetings(t *testing.T) {
 	}
 
 	// And with no small model at all, tools are still offered for work.
-	only := Sizes{Capable: "qwen2.5-coder:7b"}
+	only := Sizes{Work: "qwen2.5-coder:7b"}
 
 	if !ChooseModel("approve everything", only).Tools {
 		t.Error("with one model, a request to do something was offered no tools")
@@ -171,5 +171,73 @@ func TestTheQuickModelIsHeldToItsJob(t *testing.T) {
 	// extra instruction — which is prompt it would have to read every turn.
 	if ChooseModel("read that file", here).Guidance != "" {
 		t.Error("the usual model is being sent guidance it does not need")
+	}
+}
+
+/*
+ * A question worth working out goes to the model that reasons.
+ *
+ * It is slower by design, which is the right trade for "why is this happening"
+ * and the wrong one for "open that file" — so anything that means doing
+ * something wins over it, however thoughtfully it is phrased.
+ */
+func TestHardQuestionsGoToTheModelThatReasons(t *testing.T) {
+	for _, said := range []string{
+		"why is the disk filling up so quickly",
+		"explain how the recall actually works",
+		"compare these two approaches for me",
+		"защо това не работи",
+	} {
+		if got := ChooseModel(said, here); got.Model != here.Reason {
+			t.Errorf("%q went to %s rather than the model that thinks", said, got.Model)
+		}
+	}
+
+	// Doing something wins, however thoughtful the phrasing.
+	for _, said := range []string{
+		"explain what is in that file",
+		"why did the build fail, check the log",
+	} {
+		if got := ChooseModel(said, here); got.Model != here.Work {
+			t.Errorf("%q went to %s, and it needs tools", said, got.Model)
+		}
+	}
+
+	// With none installed, a hard question still gets answered.
+	without := Sizes{Work: "qwen2.5-coder:7b", Talk: "llama3.2:3b"}
+
+	if got := ChooseModel("why is this happening", without); got.Model != without.Work {
+		t.Errorf("with no reasoning model, the question went to %q", got.Model)
+	}
+}
+
+// Each role picks the best of what is actually on the machine.
+func TestEachRoleTakesTheBestInstalled(t *testing.T) {
+	installed := []string{
+		"qwen2.5-coder:7b", "llama3.2:3b", "deepseek-r1:8b",
+		"gemma3:4b", "nomic-embed-text:latest",
+	}
+
+	if got := PickTalk(installed); got != "llama3.2:3b" {
+		t.Errorf("talking picked %q", got)
+	}
+
+	if got := PickReason(installed); got != "deepseek-r1:8b" {
+		t.Errorf("reasoning picked %q", got)
+	}
+
+	if got := PickWork(installed); got != "qwen2.5-coder:7b" {
+		t.Errorf("doing things picked %q", got)
+	}
+
+	// A machine with only the one model gets no roles it cannot fill.
+	one := []string{"qwen2.5-coder:7b"}
+
+	if got := PickTalk(one); got != "" {
+		t.Errorf("invented a small model: %q", got)
+	}
+
+	if got := PickReason(one); got != "" {
+		t.Errorf("invented a reasoning model: %q", got)
 	}
 }

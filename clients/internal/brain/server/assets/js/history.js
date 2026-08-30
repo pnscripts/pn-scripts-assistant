@@ -95,7 +95,15 @@ function showThinking() {
 
     const step = window.brainWork ? window.brainWork() : { busy: false };
 
-    if (!step.busy) {
+    /*
+     * Nothing to say unless something is actually happening.
+     *
+     * Busy with no note and no clock is a reading left behind rather than work
+     * in progress, and a panel that says "Thinking" while the brain sits idle
+     * is worse than one that says nothing — it is the display disagreeing with
+     * the machine, which makes every other thing it says less believable.
+     */
+    if (!step.busy || (!step.note && !step.seconds)) {
         line.hidden = true;
 
         return;

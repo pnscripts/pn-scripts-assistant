@@ -628,7 +628,7 @@ func toolResult(call llm.ToolCall, output string) llm.Message {
 // A model that has already made a structured tool call will often also print
 // the call as text. Showing that to a person is showing them the machinery.
 func presentable(content string) string {
-	text := strings.TrimSpace(content)
+	text := strings.TrimSpace(withoutThinking(content))
 
 	if text == "" {
 		return ""
@@ -657,6 +657,33 @@ func presentable(content string) string {
 	}
 
 	return text
+}
+
+/*
+ * withoutThinking removes a reasoning model's working.
+ *
+ * Models like deepseek-r1 narrate their reasoning inside <think> tags before
+ * answering. It is genuinely useful and it is not the answer: shown, it buries
+ * the reply under a page of deliberation, and spoken, the voice reads several
+ * minutes of the model talking to itself before it gets to the point.
+ */
+func withoutThinking(text string) string {
+	for {
+		open := strings.Index(text, "<think>")
+		if open < 0 {
+			break
+		}
+
+		close := strings.Index(text[open:], "</think>")
+		if close < 0 {
+			// Still thinking, and nothing after it yet.
+			return strings.TrimSpace(text[:open])
+		}
+
+		text = text[:open] + text[open+close+len("</think>"):]
+	}
+
+	return strings.TrimSpace(text)
 }
 
 // looksLikeACall reports text that is a written-out tool call and nothing else.

@@ -32,10 +32,20 @@ const howOftenToTouchModels = 8 * time.Minute
 // keepModelsWarm loads the models the conversation uses and keeps them loaded.
 func (b *Brain) keepModelsWarm(ctx context.Context) {
 	warm := func() {
-		wanted := []string{b.Cfg.OllamaModel}
+		/*
+		 * The models the conversation actually moves between.
+		 *
+		 * The reasoning model is deliberately left out: it is reached for
+		 * rarely, it is large, and holding it resident would evict one of the
+		 * two that are used constantly. It is worth its load time when it is
+		 * asked for, and worth nothing sitting idle.
+		 */
+		roles := b.modelRoles()
 
-		if fast := b.fastModel(); fast != "" && fast != b.Cfg.OllamaModel {
-			wanted = append(wanted, fast)
+		wanted := []string{roles.Work}
+
+		if roles.Talk != "" && roles.Talk != roles.Work {
+			wanted = append(wanted, roles.Talk)
 		}
 
 		for _, model := range wanted {
@@ -148,7 +158,11 @@ func (b *Brain) ModelsBothResident() bool {
 	return b.modelsResident
 }
 
-// Fast is the small model in use, for the interface to show.
-func (b *Brain) Fast() string { return b.fastModel() }
+// Roles is which model does what, for the interface to show.
+func (b *Brain) Roles() (work, talk, reason string) {
+	r := b.modelRoles()
+
+	return r.Work, r.Talk, r.Reason
+}
 
 var _ = llm.Loaded{}

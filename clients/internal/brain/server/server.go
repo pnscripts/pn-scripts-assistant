@@ -231,11 +231,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"first_run":    s.brain.Cfg.New,
 		"always_name":  s.brain.Cfg.AlwaysName,
 		"auto_model":   s.brain.Cfg.AutoModel,
-		"models": map[string]any{
-			"answering":     s.brain.Cfg.OllamaModel,
-			"small_talk":    s.brain.Fast(),
-			"both_resident": s.brain.ModelsBothResident(),
-		},
+		"models": modelRoles(s.brain),
 		"provider":     s.brain.Cfg.DefaultProvider,
 		"model":        s.brain.Cfg.OllamaModel,
 		"privacy":      s.brain.Mode.Describe(),
@@ -739,6 +735,18 @@ func (s *Server) handleMail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.handleMailStatus(w, r)
+}
+
+// modelRoles is which model does what, for the System tab.
+func modelRoles(b *brain.Brain) map[string]any {
+	work, talk, reason := b.Roles()
+
+	return map[string]any{
+		"work":          work,
+		"talk":          talk,
+		"reason":        reason,
+		"both_resident": b.ModelsBothResident(),
+	}
 }
 
 // handleConversations lists what was talked about, newest first.

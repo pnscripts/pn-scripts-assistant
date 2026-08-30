@@ -604,3 +604,30 @@ func TestAStreamedTurnStillCarriesItsTools(t *testing.T) {
 		t.Fatalf("the tools were dropped from the streamed request: %+v", sent.Tools)
 	}
 }
+
+/*
+ * A reasoning model's working is not the answer.
+ *
+ * deepseek-r1 and its like narrate their deliberation inside <think> tags
+ * before answering. Shown, it buries the reply under a page of thinking;
+ * spoken, the voice reads several minutes of the model talking to itself while
+ * the person waiting has no way to know the answer has not started.
+ */
+func TestTheModelsWorkingIsNotShown(t *testing.T) {
+	cases := []struct {
+		reply string
+		want  string
+	}{
+		{"<think>Let me consider the options.</think>The disk is filling up.",
+			"The disk is filling up."},
+		{"<think>still going", ""},
+		{"No thinking here at all.", "No thinking here at all."},
+		{"<think>a</think>One.<think>b</think>Two.", "One.Two."},
+	}
+
+	for _, c := range cases {
+		if got := presentable(c.reply); got != c.want {
+			t.Errorf("presentable(%q) = %q, want %q", c.reply, got, c.want)
+		}
+	}
+}
