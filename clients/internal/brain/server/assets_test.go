@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -178,4 +179,45 @@ func stripLiterals(body string) string {
 	}
 
 	return out.String()
+}
+
+/*
+ * No two elements may share an id.
+ *
+ * getElementById returns the first one, so a duplicate means script writes into
+ * whichever happens to come first in the document while the panel somebody is
+ * looking at keeps whatever it was born with. It is the same shape of failure
+ * as two scripts sharing a global name: the code runs, nothing appears, and
+ * there is no error anywhere to explain it.
+ *
+ * It happened with models-note — reused for a new card while the Models page
+ * already had one — and the card read "—" through two rebuilds while the value
+ * it wanted was being written into a hidden page three views away.
+ */
+func TestNoTwoElementsShareAnID(t *testing.T) {
+	page, err := assets.ReadFile("assets/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	seen := map[string]int{}
+
+	for _, m := range regexp.MustCompile(`\sid="([^"]+)"`).FindAllStringSubmatch(string(page), -1) {
+		seen[m[1]]++
+	}
+
+	var repeated []string
+
+	for id, n := range seen {
+		if n > 1 {
+			repeated = append(repeated, fmt.Sprintf("%s (%d times)", id, n))
+		}
+	}
+
+	if len(repeated) > 0 {
+		sort.Strings(repeated)
+		t.Errorf("these ids appear more than once, so script will fill the wrong "+
+			"one and the visible panel will stay as it was: %s",
+			strings.Join(repeated, ", "))
+	}
 }

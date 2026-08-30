@@ -58,7 +58,7 @@ async function load() {
      * being slow: a switch evicts the other model, the next turn reloads
      * several gigabytes, and nothing says why.
      */
-    if (el('models-note') && status.models) {
+    if (el('models-roles') && status.models) {
         const m = status.models;
 
         const jobs = [
@@ -67,7 +67,7 @@ async function load() {
             ['working things out', m.reason],
         ].filter(([, model]) => model);
 
-        el('models-note').innerHTML = jobs
+        el('models-roles').innerHTML = jobs
             .map(([job, model]) => `<span class="model-job">${job}</span> ${model}`)
             .join('<br>');
 

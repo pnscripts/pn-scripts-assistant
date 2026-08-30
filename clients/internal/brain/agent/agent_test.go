@@ -631,3 +631,45 @@ func TestTheModelsWorkingIsNotShown(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * A call written after the model's own deliberation.
+ *
+ * qwen3 and the other hybrid reasoning models wrap their working in <think>
+ * tags and put the call after it, so the reply does not begin with a brace and
+ * was never read as a call. The brain then reported "the model returned a tool
+ * call as text rather than making one" — true, and entirely self-inflicted.
+ */
+func TestACallAfterTheModelsThinking(t *testing.T) {
+	loop := &Loop{
+		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Registry: tools.NewRegistry(tools.ReadFile{}),
+	}
+
+	replies := []string{
+		"<think>They want the file. I should use read_file.</think>\n" +
+			`{"name": "read_file", "arguments": {"path": "/tmp/a"}}`,
+		"<think>thinking</think>\n```json\n" +
+			`{"name": "read_file", "arguments": {"path": "/tmp/a"}}` + "\n```",
+		"<think>a</think>Sure, one moment.\n\n```json\n" +
+			`{"name": "read_file", "arguments": {"path": "/tmp/a"}}` + "\n```",
+	}
+
+	for _, reply := range replies {
+		call, ok := loop.recoverToolCall(reply)
+		if !ok {
+			t.Errorf("dropped the call in %q", reply)
+
+			continue
+		}
+
+		if call.Name != "read_file" || !strings.Contains(string(call.Arguments), "/tmp/a") {
+			t.Errorf("recovered %q with %s", call.Name, call.Arguments)
+		}
+	}
+
+	// And a model that only thinks out loud has still not asked for anything.
+	if _, ok := loop.recoverToolCall("<think>I could use read_file here.</think>No thanks."); ok {
+		t.Error("acted on something the model only thought about")
+	}
+}

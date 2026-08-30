@@ -411,7 +411,16 @@ func (l *Loop) recoverToolCall(content string) (llm.ToolCall, bool) {
  * available to it.
  */
 func jsonCandidates(content string) []string {
-	text := strings.TrimSpace(content)
+	/*
+	 * The model's deliberation comes off first.
+	 *
+	 * qwen3 and the other hybrid reasoning models wrap their working in <think>
+	 * tags and then write the call after it. The whole reply therefore does not
+	 * begin with a brace, so it was never read as a call at all — and the brain
+	 * told its owner "the model returned a tool call as text rather than making
+	 * one", which was true and entirely self-inflicted.
+	 */
+	text := strings.TrimSpace(withoutThinking(content))
 
 	if text == "" {
 		return nil
