@@ -93,6 +93,8 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.ListDirectory{},
 		tools.WriteFile{},
 		tools.RunCommand{},
+		tools.EditFile{},
+		tools.SearchFiles{},
 	}
 
 	// The web tool is not registered at all in private mode, rather than

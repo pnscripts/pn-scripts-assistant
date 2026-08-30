@@ -281,8 +281,9 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"decide_waiting", "list_directory", "list_waiting", "read_file",
-		"run_command", "set_appearance", "set_wake_word", "write_file",
+		"decide_waiting", "edit_file", "list_directory", "list_waiting",
+		"read_file", "run_command", "search_files", "set_appearance",
+		"set_wake_word", "write_file",
 	}
 
 	if strings.Join(names, ",") != strings.Join(want, ",") {
