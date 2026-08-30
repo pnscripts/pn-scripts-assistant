@@ -17,6 +17,7 @@ import (
 	"pn-brain/internal/brain/agent"
 	"pn-brain/internal/brain/appearance"
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/jobs"
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/mail"
@@ -60,6 +61,14 @@ type Brain struct {
 	// is what makes switching between them free rather than a reload.
 	mu             sync.Mutex
 	modelsResident bool
+
+	// When the last turn was held out loud, which decides whether finished
+	// background work is announced or only written down.
+	lastSpokenAt time.Time
+
+	// Jobs is work happening behind the conversation, so that "read through
+	// that folder" does not mean sitting in silence for four minutes.
+	Jobs *jobs.Runner
 
 	// Learner runs the Extractor/Validator/Curator pipeline in the background.
 	// Nil when no local model is available, since extraction must stay local.
@@ -157,7 +166,14 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 	// Added after the brain exists, because they change the brain's own
 	// settings or act on its own queue, and so need a handle to it.
+	b.Jobs = &jobs.Runner{Announce: b.announce}
+
 	available = append(available,
+		tools.InBackground{Jobs: backgroundOf{b}, Registry: func() *tools.Registry {
+			return b.Agent.Registry
+		}},
+		tools.ListBackground{Jobs: backgroundOf{b}},
+		tools.StopBackground{Jobs: backgroundOf{b}},
 		tools.SetWakeWord{Brain: b},
 		tools.ListWaiting{Queue: queueOf{b}},
 		tools.DecideWaiting{Queue: queueOf{b}},
@@ -234,8 +250,24 @@ func (b *Brain) modelRoles() llm.Sizes {
 			names = append(names, m.Name)
 		}
 
-		b.roles.Talk = llm.PickTalk(names)
-		b.roles.Reason = llm.PickReason(names)
+		/*
+		 * Which models to prefer depends on what this machine is.
+		 *
+		 * Everything here was chosen against four processor cores, where the
+		 * size of the model is the whole of the wait. On a machine with a
+		 * graphics card that reasoning inverts — a larger model costs memory
+		 * rather than minutes — and this program is meant to run on both.
+		 */
+		power := models.WhatItCanRun(ctx, client)
+		workOrder, talkOrder, reasonOrder := llm.ForMachine(string(power.Tier()))
+
+		b.roles.Talk = llm.PickFor(talkOrder, names)
+		b.roles.Reason = llm.PickFor(reasonOrder, names)
+		b.roles.Best = llm.PickFor(workOrder, names)
+
+		b.Log.Info("what this machine can run",
+			"tier", power.Tier(), "hardware", power.Describe(),
+			"best installed for work", b.roles.Best)
 
 		b.Log.Info("models chosen for each kind of turn",
 			"work", b.Cfg.OllamaModel, "talk", b.roles.Talk, "reason", b.roles.Reason)
@@ -711,6 +743,10 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	 * difference between talking to something and submitting a form to it.
 	 */
 	if req.Spoken {
+		b.mu.Lock()
+		b.lastSpokenAt = time.Now()
+		b.mu.Unlock()
+
 		b.Agent.Aloud = func(ctx context.Context) agent.TalkAloud {
 			return speech.NewAloud(ctx)
 		}

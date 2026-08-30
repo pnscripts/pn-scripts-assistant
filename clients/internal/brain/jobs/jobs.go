@@ -1,0 +1,221 @@
+// Package jobs runs work that outlives the sentence that asked for it.
+//
+// Everything here used to happen inside one turn: somebody asks, the model
+// thinks, a tool runs, an answer comes back, and nothing else could be said in
+// between. That is fine for "what time is it" and wrong for "read through that
+// folder" — which on this machine is minutes during which its owner is expected
+// to sit and wait, unable to ask anything else.
+//
+// A job is that work, taken out of the turn. The turn ends immediately with
+// "started", the conversation carries on, and the answer arrives when it
+// arrives — announced rather than returned, because by then the person is
+// talking about something else.
+package jobs
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+)
+
+// State is where a job has got to.
+type State string
+
+const (
+	Running State = "running"
+	Done    State = "done"
+	Failed  State = "failed"
+	Stopped State = "stopped"
+)
+
+// Job is one piece of work happening in the background.
+type Job struct {
+	ID      int64     `json:"id"`
+	What    string    `json:"what"`
+	State   State     `json:"state"`
+	Started time.Time `json:"started"`
+	Ended   time.Time `json:"ended,omitempty"`
+	Result  string    `json:"result,omitempty"`
+	Err     string    `json:"error,omitempty"`
+
+	cancel context.CancelFunc
+}
+
+// Took is how long it ran for.
+func (j Job) Took() time.Duration {
+	if j.Ended.IsZero() {
+		return time.Since(j.Started)
+	}
+
+	return j.Ended.Sub(j.Started)
+}
+
+/*
+ * Runner holds the work in flight.
+ *
+ * Bounded, because "in the background" is not a licence to start twenty model
+ * calls on four cores. Past the limit a job is refused and says so, which is
+ * better than accepting it and delivering it an hour later.
+ */
+type Runner struct {
+	// AtMost is how many may run at once. Zero means the default.
+	AtMost int
+
+	// Announce is called when a job ends, with the job. This is how the answer
+	// reaches somebody who has long since moved on to another subject.
+	Announce func(Job)
+
+	mu   sync.Mutex
+	jobs map[int64]*Job
+	next int64
+}
+
+// DefaultAtMost is deliberately small. Two model calls on four cores already
+// make each other slow; a third makes all three useless.
+const DefaultAtMost = 2
+
+/*
+ * Start puts work in the background and returns at once.
+ *
+ * what is in the owner's terms — "reading your documents", not the name of a
+ * function — because it is read back to them later, out of the context that
+ * produced it.
+ */
+func (r *Runner) Start(what string, work func(context.Context) (string, error)) (Job, error) {
+	r.mu.Lock()
+
+	if r.jobs == nil {
+		r.jobs = map[int64]*Job{}
+	}
+
+	limit := r.AtMost
+	if limit <= 0 {
+		limit = DefaultAtMost
+	}
+
+	running := 0
+
+	for _, j := range r.jobs {
+		if j.State == Running {
+			running++
+		}
+	}
+
+	if running >= limit {
+		r.mu.Unlock()
+
+		return Job{}, fmt.Errorf(
+			"already doing %d things in the background, which is as much as this "+
+				"machine manages at once; ask again when one has finished", running)
+	}
+
+	r.next++
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	job := &Job{
+		ID:      r.next,
+		What:    what,
+		State:   Running,
+		Started: time.Now(),
+		cancel:  cancel,
+	}
+
+	r.jobs[job.ID] = job
+
+	r.mu.Unlock()
+
+	go func() {
+		result, err := work(ctx)
+
+		r.mu.Lock()
+
+		job.Ended = time.Now()
+		job.Result = result
+
+		switch {
+		case ctx.Err() != nil:
+			job.State = Stopped
+		case err != nil:
+			job.State = Failed
+			job.Err = err.Error()
+		default:
+			job.State = Done
+		}
+
+		finished := *job
+		announce := r.Announce
+
+		r.mu.Unlock()
+
+		// Outside the lock: announcing means speaking, which takes seconds and
+		// must not hold up anything else finishing.
+		if announce != nil {
+			announce(finished)
+		}
+	}()
+
+	return *job, nil
+}
+
+// List reports what is happening and what recently happened, newest first.
+func (r *Runner) List() []Job {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	out := make([]Job, 0, len(r.jobs))
+
+	for _, j := range r.jobs {
+		out = append(out, *j)
+	}
+
+	// Newest first, which is the order somebody asking "what are you doing"
+	// means.
+	for i := 0; i < len(out); i++ {
+		for k := i + 1; k < len(out); k++ {
+			if out[k].Started.After(out[i].Started) {
+				out[i], out[k] = out[k], out[i]
+			}
+		}
+	}
+
+	return out
+}
+
+// Stop ends one job early.
+func (r *Runner) Stop(id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	job, ok := r.jobs[id]
+	if !ok {
+		return fmt.Errorf("there is no job %d", id)
+	}
+
+	if job.State != Running {
+		return fmt.Errorf("job %d already finished", id)
+	}
+
+	job.cancel()
+
+	return nil
+}
+
+/*
+ * Forget drops jobs that ended a while ago.
+ *
+ * Only the finished ones, and only after long enough that somebody might still
+ * ask about them. A list that grows forever is a leak; one that forgets while
+ * its owner is still interested is worse.
+ */
+func (r *Runner) Forget(olderThan time.Duration) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for id, j := range r.jobs {
+		if j.State != Running && time.Since(j.Ended) > olderThan {
+			delete(r.jobs, id)
+		}
+	}
+}

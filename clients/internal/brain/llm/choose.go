@@ -82,6 +82,16 @@ type Sizes struct {
 
 	// Reason is a model that thinks before answering, for hard questions.
 	Reason string
+
+	/*
+	 * Best is the smartest installed model this machine could reasonably run,
+	 * which is not always the one in use.
+	 *
+	 * Kept apart from Work because the working model is its owner's choice and
+	 * this is only a recommendation. Overriding somebody's setting because a
+	 * better model exists is how a program stops being predictable.
+	 */
+	Best string
 }
 
 /*
@@ -95,6 +105,30 @@ type Sizes struct {
 var TalkCandidates = []string{
 	"llama3.2:3b", "gemma3:4b", "qwen2.5-coder:1.5b", "llama3.2", "phi3:mini",
 }
+
+/*
+ * The same three jobs again, for a machine with a graphics card.
+ *
+ * Everything above was chosen against four processor cores, where the size of
+ * the model is the whole of the wait and the smallest one that can do the job
+ * is the right one. That reasoning inverts on a card: a larger model costs
+ * memory rather than minutes, and there is no reason to run a small one.
+ *
+ * Ordered smartest first, and every entry in the working list can actually
+ * call a tool — gemma3 is absent for that reason however large it gets, since
+ * ollama refuses it tools outright.
+ */
+var (
+	// On a card with room to spare.
+	GenerousWork   = []string{"qwen3:32b", "qwen2.5-coder:32b", "llama3.3:70b", "qwen3:14b"}
+	GenerousTalk   = []string{"qwen3:8b", "llama3.1:8b", "llama3.2:3b"}
+	GenerousReason = []string{"deepseek-r1:32b", "qwq:32b", "deepseek-r1:14b"}
+
+	// On a card, without room for the largest.
+	CapableWork   = []string{"qwen3:14b", "qwen2.5-coder:14b", "qwen3:8b", "qwen2.5-coder:7b"}
+	CapableTalk   = []string{"llama3.2:3b", "qwen3:4b", "gemma3:4b"}
+	CapableReason = []string{"deepseek-r1:14b", "deepseek-r1:8b", "qwq"}
+)
 
 /*
  * conversational is what may go to the small model.
@@ -290,6 +324,28 @@ var WorkCandidates = []string{
 	"qwen2.5-coder:7b", "qwen2.5-coder", "qwen3", "llama3.1:8b",
 }
 
+/*
+ * ForMachine is the order to prefer models in, given what the machine is.
+ *
+ * The better models are tried first and the modest ones remain behind them as
+ * a fallback, so a machine with a card uses what it can and a machine without
+ * one is never left with nothing because the smart list was all it was offered.
+ */
+func ForMachine(tier string) (work, talk, reason []string) {
+	switch tier {
+	case "generous":
+		return append(append([]string{}, GenerousWork...), WorkCandidates...),
+			append(append([]string{}, GenerousTalk...), TalkCandidates...),
+			append(append([]string{}, GenerousReason...), ReasonCandidates...)
+	case "capable":
+		return append(append([]string{}, CapableWork...), WorkCandidates...),
+			append(append([]string{}, CapableTalk...), TalkCandidates...),
+			append(append([]string{}, CapableReason...), ReasonCandidates...)
+	default:
+		return WorkCandidates, TalkCandidates, ReasonCandidates
+	}
+}
+
 // PickTalk returns the best small model that is actually installed.
 func PickTalk(installed []string) string {
 	return pick(TalkCandidates, installed)
@@ -304,6 +360,10 @@ func PickReason(installed []string) string {
 func PickWork(installed []string) string {
 	return pick(WorkCandidates, installed)
 }
+
+// PickFor chooses from a given order, which is how the machine's tier reaches
+// the decision.
+func PickFor(order, installed []string) string { return pick(order, installed) }
 
 func pick(wanted, installed []string) string {
 	for _, want := range wanted {
