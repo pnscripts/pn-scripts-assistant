@@ -27,7 +27,27 @@ const list = document.getElementById('models-list');
 const note = document.getElementById('models-note');
 
 let inUse = '';
+/*
+ * What each model was measured doing here.
+ *
+ * Filled from the brain rather than only from this session. It used to live
+ * solely in this Map, so every reload threw the results away and the list said
+ * "not tested here yet" about models that had been measured at length —
+ * minutes of work each, on a processor where that is the whole question.
+ */
 const measured = new Map();
+
+async function loadMeasurements() {
+    try {
+        const data = await api.get('/api/models/tests');
+
+        for (const [name, test] of Object.entries(data.tests || {})) {
+            measured.set(name, test);
+        }
+    } catch {
+        /* Without them the rows simply read as untested, which they were. */
+    }
+}
 
 async function load() {
     if (!list) return;
@@ -138,7 +158,28 @@ async function choose(name) {
     load();
 }
 
-document.querySelector('.nav-item[data-view="models"]')?.addEventListener('click', load);
+document.querySelector('.nav-item[data-view="models"]')?.addEventListener('click', async () => {
+    await loadMeasurements();
+    load();
+});
+
+/*
+ * Refreshed while the page is open.
+ *
+ * A model can be pulled, chosen or measured while somebody is looking at this,
+ * and a list that only loads when the page is opened shows what was true then.
+ * A panel that is wrong and still is worse than one that is empty.
+ */
+setInterval(async () => {
+    const view = document.querySelector('.view[data-view="models"]');
+
+    if (!view || view.hidden) return;
+
+    await loadMeasurements();
+    load();
+}, 5000);
+
+loadMeasurements().then(load);
 
 load();
 

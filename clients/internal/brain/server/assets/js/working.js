@@ -66,7 +66,18 @@ function show(step) {
     }
 
     line.hidden = false;
-    label.textContent = step.note || 'Working';
+
+    /*
+     * Which model, beside what it is doing.
+     *
+     * The brain moves between models within a session — small talk to a quick
+     * one, work to the one that can use tools — and the switch is most of the
+     * difference in how long an answer takes. Somebody waiting deserves to know
+     * which of them they are waiting for, while they wait rather than after.
+     */
+    label.textContent = step.model
+        ? `${step.note || 'Working'} \u00b7 ${step.model}`
+        : step.note || 'Working';
 
     const seconds = Math.round(step.seconds || 0);
     const time = seconds < 60

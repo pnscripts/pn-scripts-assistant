@@ -2,6 +2,7 @@ package speech
 
 import (
 	"context"
+	"pn-brain/internal/brain/progress"
 	"strings"
 	"sync"
 	"unicode"
@@ -176,6 +177,15 @@ func (a *Aloud) run() {
 			return
 		}
 
+		/*
+		 * Said out loud is a different thing from written.
+		 *
+		 * Without this the line reads "Answering" from the first token until
+		 * the last word is spoken, which on this machine is minutes of one
+		 * word covering two quite different waits.
+		 */
+		progress.Set("speaking", "Speaking")
+
 		if err := SpeakAndWait(a.ctx, sentence); err != nil {
 			// A voice that failed is not a reason to lose the rest of the
 			// answer; the text is on screen either way.
@@ -185,6 +195,9 @@ func (a *Aloud) run() {
 		a.mu.Lock()
 		a.spoken.WriteString(sentence)
 		a.mu.Unlock()
+
+		// Back to writing the rest of it, unless that was the end.
+		progress.Set("answering", "Answering")
 	}
 }
 

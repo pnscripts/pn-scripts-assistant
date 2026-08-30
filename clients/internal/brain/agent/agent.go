@@ -151,6 +151,8 @@ func (l *Loop) RunShaped(
 				llm.Message{Role: llm.RoleSystem, Content: choice.Guidance})
 		}
 
+		progress.UsingModel(choice.Model)
+
 		l.Log.Info("model for this turn",
 			"model", choice.Model, "why", choice.Why, "tools", offerTools)
 	}

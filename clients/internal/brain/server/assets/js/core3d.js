@@ -218,7 +218,16 @@ export function startCore() {
     for (let i = 0; i < 5; i++) {
         const radius = 0.74 - i * 0.115;
         const band = new THREE.Mesh(
-            new THREE.TorusGeometry(radius, 0.028 + i * 0.006, 8, 128),
+            /*
+             * Sixty-four segments, not a hundred and twenty-eight.
+             *
+             * Five rings at 128 is 640 segments of geometry for circles that
+             * are never more than a couple of hundred pixels across, where the
+             * difference between 64 and 128 is smaller than one pixel and the
+             * cost is real on a machine with no graphics card and four cores
+             * already at their limit.
+             */
+            new THREE.TorusGeometry(radius, 0.028 + i * 0.006, 6, 64),
             irisMaterial);
 
         iris.add(band);
@@ -239,7 +248,7 @@ export function startCore() {
     pupil.position.z = 0.02;
     face.add(pupil);
 
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.235, 0.02, 8, 96), irisMaterial);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.235, 0.02, 6, 48), irisMaterial);
 
     rim.position.z = 0.03;
     face.add(rim);
@@ -397,6 +406,24 @@ export function startCore() {
         const delta = Math.min(0.1, (now - last) / 1000);
 
         last = now;
+
+        /*
+         * Nothing is drawn while nobody is looking at it.
+         *
+         * The core lives on the command centre, and the browser goes on calling
+         * this sixty times a second while its owner is reading the System page
+         * — rendering a scene inside a hidden div, on a processor that is
+         * already the reason answers take as long as they do.
+         *
+         * offsetParent is null exactly when an ancestor is display:none, which
+         * is what a hidden view is. Cheap enough to ask every frame, and it
+         * asks nothing of the layout that was not already computed.
+         */
+        if (canvas.offsetParent === null || document.hidden) return;
+
+        // Counted so that "it stops when nobody is looking" is a thing that can
+        // be checked rather than believed. Costs one addition per frame.
+        window.brainCoreFrames = (window.brainCoreFrames || 0) + 1;
 
         if (!resize()) return;
 

@@ -43,6 +43,16 @@ type Step struct {
 	 * for it.
 	 */
 	Background bool `json:"background"`
+
+	/*
+	 * Model is which model this turn is being answered by.
+	 *
+	 * Reported because it changes during a session and the change is the whole
+	 * point: small talk goes to a quick model and work goes to the one that
+	 * can use tools, and somebody watching an answer take its time deserves to
+	 * know which of them they are waiting for.
+	 */
+	Model string `json:"model"`
 }
 
 var current struct {
@@ -52,6 +62,7 @@ var current struct {
 	note       string
 	round      int
 	background bool
+	model      string
 	started    time.Time
 }
 
@@ -63,7 +74,15 @@ func Begin() {
 	current.note = "Thinking"
 	current.round = 0
 	current.background = false
+	current.model = ""
 	current.started = time.Now()
+	current.mu.Unlock()
+}
+
+// UsingModel records which model is answering this turn.
+func UsingModel(name string) {
+	current.mu.Lock()
+	current.model = name
 	current.mu.Unlock()
 }
 
@@ -150,5 +169,6 @@ func Now() Step {
 		Seconds:    time.Since(current.started).Seconds(),
 		Round:      current.round,
 		Background: current.background,
+		Model:      current.model,
 	}
 }

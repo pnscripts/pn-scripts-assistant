@@ -210,4 +210,21 @@ var migrations = []string{
 	);
 	CREATE INDEX idx_reminders_at ON reminders(said_at, at);
 	`,
+
+	// 3: what each model was measured doing on this machine.
+	//
+	// Kept because the measurements are about this processor and nowhere else:
+	// they are minutes of work to produce, they are the only honest basis for
+	// choosing a model, and they were previously held in the page's memory —
+	// so every reload threw them away and the list said "not tested here yet"
+	// about models that had been tested at length.
+	`
+	CREATE TABLE model_tests (
+		name       TEXT PRIMARY KEY,
+		seconds    REAL NOT NULL,
+		tool_call  TEXT NOT NULL,
+		note       TEXT,
+		tested_at  TEXT NOT NULL
+	);
+	`,
 }

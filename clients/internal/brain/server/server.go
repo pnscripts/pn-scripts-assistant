@@ -29,6 +29,7 @@ import (
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
+	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/wake"
 )
 
@@ -88,6 +89,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/settings", s.handleSettings)
 	s.mux.HandleFunc("POST /api/appearance", s.handleSetAppearance)
 	s.mux.HandleFunc("POST /api/models/measure", s.handleModelMeasure)
+	s.mux.HandleFunc("GET /api/models/tests", s.handleModelTests)
 	s.mux.HandleFunc("POST /api/models/use", s.handleModelUse)
 	s.mux.HandleFunc("POST /api/models/pull", s.handleModelPull)
 	s.mux.HandleFunc("POST /api/models/embedding", s.handleEmbeddingUse)
@@ -231,7 +233,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"first_run":    s.brain.Cfg.New,
 		"always_name":  s.brain.Cfg.AlwaysName,
 		"auto_model":   s.brain.Cfg.AutoModel,
-		"models": modelRoles(s.brain),
+		"models":       modelRoles(s.brain),
 		"provider":     s.brain.Cfg.DefaultProvider,
 		"model":        s.brain.Cfg.OllamaModel,
 		"privacy":      s.brain.Mode.Describe(),
@@ -862,7 +864,23 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
 		// The core is coloured by this: work the brain gave itself must not
 		// look like work somebody is waiting on.
 		"background": step.Background,
+
+		// Which model is answering, so a switch is visible while it happens
+		// rather than only in the settings afterwards.
+		"model": step.Model,
 	})
+}
+
+// handleModelTests reports what each model was measured doing here.
+func (s *Server) handleModelTests(w http.ResponseWriter, r *http.Request) {
+	tests, err := s.brain.DB.ModelTests()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"tests": tests})
 }
 
 // handleModels reports what is installed and what is in use.
@@ -909,6 +927,23 @@ func (s *Server) handleModelMeasure(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadGateway, err.Error())
 
 		return
+	}
+
+	/*
+	 * Kept, because it took minutes to find out.
+	 *
+	 * These were held in the page's memory, so every reload threw them away and
+	 * the list went back to saying "not tested here yet" about models that had
+	 * been tested at length. They are measurements of this processor and are
+	 * the only honest basis for choosing between models.
+	 */
+	if err := s.brain.DB.RecordModelTest(store.ModelTest{
+		Name:     result.Model,
+		Seconds:  result.Seconds,
+		ToolCall: result.ToolCall,
+		Note:     result.Note,
+	}); err != nil {
+		s.log.Warn("measured a model but could not keep the result", "error", err)
 	}
 
 	ok(w, result)

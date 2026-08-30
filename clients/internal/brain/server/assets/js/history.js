@@ -113,7 +113,9 @@ function showThinking() {
 
     // Background work is the brain's own housekeeping, and saying so is the
     // difference between "it is busy with me" and "it is tidying up".
-    const what = step.background ? `${step.note} (on its own)` : step.note || 'Working';
+    let what = step.background ? `${step.note} (on its own)` : step.note || 'Working';
+
+    if (step.model && !step.background) what += ` \u00b7 ${step.model}`;
 
     el('thinking-now-text').textContent = what;
     line.dataset.background = step.background ? 'yes' : 'no';

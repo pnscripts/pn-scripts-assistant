@@ -42,7 +42,7 @@ export const signals = {
      * pollers asking the same question three times a second to get the same
      * answer would be silly, and worse, they could disagree.
      */
-    work: { busy: false, kind: '', note: '', seconds: 0, round: 0, background: false },
+    work: { busy: false, kind: '', note: '', seconds: 0, round: 0, background: false, model: '' },
 
     /*
      * What the core is coloured with.
@@ -106,7 +106,7 @@ async function pollWork() {
     try {
         signals.work = await fetch('/api/progress').then((r) => r.json());
     } catch {
-        signals.work = { busy: false, kind: '', note: '', seconds: 0, round: 0, background: false };
+        signals.work = { busy: false, kind: '', note: '', seconds: 0, round: 0, background: false, model: '' };
     }
 }
 
