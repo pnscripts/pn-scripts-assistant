@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pn-brain/internal/brain/exe"
 	"strings"
 	"sync"
 	"syscall"
@@ -113,12 +114,11 @@ func Language() string {
 func FindRecogniser() (*Recogniser, string) {
 	var command string
 
-	for _, name := range recogniserNames {
-		if path, err := exec.LookPath(name); err == nil {
-			command = path
-
-			break
-		}
+	// Not exec.LookPath alone: started from the applications menu this program
+	// gets the session's short PATH, which has no ~/.local/bin on it — and that
+	// is exactly where whisper.cpp puts itself when built by hand.
+	if path, found := exe.Look(recogniserNames...); found {
+		command = path
 	}
 
 	if command == "" {

@@ -3,11 +3,10 @@ package speech
 import (
 	"os"
 	"path/filepath"
+	"pn-brain/internal/brain/exe"
 	"sort"
 	"strings"
 	"sync"
-
-	"os/exec"
 )
 
 // Voice is something the brain can be read aloud by.
@@ -161,7 +160,7 @@ func humaniseVoice(id string) string {
 // fallbackEngine is whatever can speak without piper.
 func fallbackEngine() *Engine {
 	for i := range engines {
-		if _, err := exec.LookPath(engines[i].Command); err != nil {
+		if !exe.Has(engines[i].Command) {
 			continue
 		}
 

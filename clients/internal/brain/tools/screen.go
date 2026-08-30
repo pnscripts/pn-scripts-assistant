@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"pn-brain/internal/brain/exe"
 	"strings"
 	"time"
 )
@@ -153,8 +154,8 @@ func captureScreen(ctx context.Context) (string, error) {
 	var tried []string
 
 	for _, attempt := range attempts {
-		tool, err := exec.LookPath(attempt[0])
-		if err != nil {
+		tool, found := exe.Look(attempt[0])
+		if !found {
 			continue
 		}
 

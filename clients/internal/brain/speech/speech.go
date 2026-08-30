@@ -15,6 +15,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"pn-brain/internal/brain/exe"
 	"regexp"
 	"strings"
 	"sync"
@@ -87,7 +88,7 @@ func Available() *Engine {
 		}
 
 		for i := range engines {
-			if _, err := exec.LookPath(engines[i].Command); err != nil {
+			if !exe.Has(engines[i].Command) {
 				continue
 			}
 
@@ -110,7 +111,7 @@ var voices = []string{"espeak-ng", "espeak", "pico2wave", "flite"}
 
 func anyVoiceInstalled() bool {
 	for _, v := range voices {
-		if _, err := exec.LookPath(v); err == nil {
+		if exe.Has(v) {
 			return true
 		}
 	}

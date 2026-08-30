@@ -9,6 +9,7 @@ import (
 	"io"
 	"os/exec"
 	"path/filepath"
+	"pn-brain/internal/brain/exe"
 	"strings"
 )
 
@@ -119,8 +120,8 @@ func (ReadDocument) Execute(ctx context.Context, raw json.RawMessage) (string, e
 
 // pdfText hands the file to pdftotext.
 func pdfText(ctx context.Context, path string) (string, error) {
-	tool, err := exec.LookPath("pdftotext")
-	if err != nil {
+	tool, found := exe.Look("pdftotext")
+	if !found {
 		return convertedText(ctx, path)
 	}
 
@@ -142,13 +143,11 @@ func pdfText(ctx context.Context, path string) (string, error) {
  * reached for the formats nothing else here handles.
  */
 func convertedText(ctx context.Context, path string) (string, error) {
-	tool, err := exec.LookPath("soffice")
-	if err != nil {
-		if tool, err = exec.LookPath("libreoffice"); err != nil {
-			return "", fmt.Errorf(
-				"reading %s needs pdftotext or libreoffice, and neither is installed",
-				filepath.Base(path))
-		}
+	tool, found := exe.Look("soffice", "libreoffice")
+	if !found {
+		return "", fmt.Errorf(
+			"reading %s needs pdftotext or libreoffice, and neither is installed",
+			filepath.Base(path))
 	}
 
 	dir, err := tempDir("pn-brain-doc")

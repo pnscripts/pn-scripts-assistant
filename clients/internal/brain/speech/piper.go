@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pn-brain/internal/brain/exe"
 	"strings"
 	"sync"
 )
@@ -59,7 +60,7 @@ func FindPiper() *Piper {
 
 		// A piper on PATH is preferred, but the tarball is usually unpacked
 		// somewhere without adding it.
-		if path, err := exec.LookPath("piper"); err == nil && !isMouseTool(path) {
+		if path, found := exe.Look("piper"); found && !isMouseTool(path) {
 			binary = path
 		}
 
@@ -141,7 +142,7 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 	found := false
 
 	for _, candidate := range players {
-		if _, err := exec.LookPath(candidate.Command); err == nil {
+		if exe.Has(candidate.Command) {
 			player = candidate
 			found = true
 
