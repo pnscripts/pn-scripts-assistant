@@ -163,6 +163,9 @@ func (l *Loop) RunShaped(
 		specs = l.specs()
 	}
 
+	// Whether the model has already been asked to keep a promise this turn.
+	pressed := false
+
 	// What is happening, for anything watching. A turn that uses a tool is
 	// several model calls with work between them, and on this machine that can
 	// run to minutes — long enough that an interface saying nothing is
@@ -227,6 +230,34 @@ func (l *Loop) RunShaped(
 		}
 
 		if len(resp.ToolCalls) == 0 {
+			/*
+			 * It said it would, and it did not.
+			 *
+			 * This is the failure this program has had more than any other, in
+			 * every form: "Understood, I'll approve everything", "I will keep
+			 * track of what is waiting", "To see what is waiting, give me the
+			 * command:" — and then nothing at all happens. Every earlier fix
+			 * addressed a way the call was being lost after the model made it.
+			 * This one is for when the model simply did not make it.
+			 *
+			 * Asked once, and only once. A model that answers a direct
+			 * instruction with another promise is not going to be talked round
+			 * by a third attempt, and each one costs a full turn on a processor
+			 * where that is minutes.
+			 */
+			if promised(resp.Content) && len(specs) > 0 && !pressed {
+				pressed = true
+
+				messages = append(messages,
+					llm.Message{Role: llm.RoleAssistant, Content: resp.Content},
+					llm.Message{Role: llm.RoleSystem, Content: keepThePromise})
+
+				l.Log.Info("the model promised an action without taking one; asking again")
+				progress.Set("thinking", "Doing it")
+
+				continue
+			}
+
 			reply := presentable(resp.Content)
 
 			// A small model sometimes prints a tool call as prose instead of
@@ -601,6 +632,61 @@ func isProse(sofar string) (prose, settled bool) {
 
 	// Enough of a word to be sure it is one.
 	return true, len(trimmed) >= 12
+}
+
+/*
+ * keepThePromise is what the model is told when it undertook to do something
+ * and then did not.
+ *
+ * Short and blunt. A long explanation is more prompt to read on a machine where
+ * reading the prompt is most of the wait, and a small model follows a blunt
+ * instruction better than a reasoned one.
+ */
+const keepThePromise = "You just said you would do something and did not do " +
+	"it. Saying it is not doing it. Call the tool now. If no tool can do what " +
+	"you promised, say so plainly instead."
+
+/*
+ * promised reports a reply that undertakes to act without acting.
+ *
+ * Deliberately narrow, and anchored at the start of a sentence. "I will" in the
+ * middle of an explanation is discussion; at the front of the answer it is an
+ * undertaking. Getting this wrong in the loose direction costs a whole extra
+ * turn on a machine where a turn is minutes, so it only fires on the shapes
+ * that have actually been seen doing it.
+ */
+func promised(content string) bool {
+	text := strings.ToLower(strings.TrimSpace(withoutThinking(content)))
+
+	if text == "" {
+		return false
+	}
+
+	// The first sentence is where an undertaking lives.
+	if cut := strings.IndexAny(text, ".!?\n"); cut > 0 {
+		text = text[:cut]
+	}
+
+	/*
+	 * At the start only.
+	 *
+	 * Matching these anywhere in the sentence was the first attempt, and it
+	 * took "That depends on what you mean — I will need more detail" for an
+	 * undertaking. That is discussion, and pressing on it wastes a whole turn
+	 * of a machine where a turn is minutes.
+	 */
+	for _, opening := range []string{
+		"i will ", "i'll ", "i am going to ", "i'm going to ", "let me ",
+		"understood, i will", "understood, i'll", "understood. i will",
+		"sure, i'll", "sure, i will", "okay, i'll", "of course, i'll",
+	} {
+		if strings.HasPrefix(text, opening) {
+			return true
+		}
+	}
+
+	// "Understood." on its own, which is the shortest form of the same thing.
+	return text == "understood" || text == "sure" || text == "of course"
 }
 
 // specs describes the tools to the model, in the registry's stable order.

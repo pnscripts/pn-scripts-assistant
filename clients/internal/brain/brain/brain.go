@@ -327,6 +327,17 @@ func (b *Brain) Start(ctx context.Context) {
 		b.Learner.Start(ctx)
 	}
 
+	/*
+	 * Recordings a previous run could not clear up.
+	 *
+	 * Each turn removes its own, which works for every turn that finishes and
+	 * not for the ones interrupted by the program being killed.
+	 */
+	if removed, freed := speech.SweepOldRecordings(); removed > 0 {
+		b.Log.Info("cleared recordings left by an earlier run",
+			"files", removed, "megabytes", freed/(1<<20))
+	}
+
 	// The only thing here that speaks without being spoken to first.
 	go b.watchReminders(ctx)
 

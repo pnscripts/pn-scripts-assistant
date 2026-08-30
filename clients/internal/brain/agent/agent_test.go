@@ -725,3 +725,49 @@ func TestACallWrittenBareAfterASentence(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Telling an undertaking from an answer.
+ *
+ * "It said it would and it did not" is the failure this program has had more
+ * than any other. Every earlier fix was for a call being lost after the model
+ * made it; this is for the model never making one — so it has to recognise the
+ * shape of a promise without mistaking ordinary prose for one.
+ *
+ * Wrong in the loose direction costs a whole extra turn, which here is minutes,
+ * so it fires only on the shapes actually seen doing it.
+ */
+func TestRecognisingAPromiseWithoutAnAction(t *testing.T) {
+	// Every one of these was said by the model in this program, verbatim or
+	// nearly, immediately before doing nothing at all.
+	for _, reply := range []string{
+		"Understood. I will ensure all pending actions and memories are kept in mind for you.",
+		"I'll keep track of everything that is waiting for you.",
+		"Sure, I'll approve everything and remember all the pending tasks for you.",
+		"Understood, I'll remember the items in the queue.",
+		"Let me check what is waiting for you.",
+		"Understood.",
+		"I am going to write that file for you.",
+		"<think>They want the queue emptied.</think>I will approve everything.",
+	} {
+		if !promised(reply) {
+			t.Errorf("not recognised as a promise: %q", reply)
+		}
+	}
+
+	// And these are answers, not undertakings. Pressing on any of them wastes
+	// a turn and confuses a conversation that had already finished properly.
+	for _, reply := range []string{
+		"There is one thing waiting for you: a memory about your models.",
+		"The file has three lines and the last one is blank.",
+		"Good morning, Petar.",
+		"I don't have a tool for that, so you would need to do it yourself.",
+		"Nothing is waiting.",
+		"That depends on what you mean — I will need more detail before I can answer, " +
+			"because the two readings point in different directions.",
+	} {
+		if promised(reply) {
+			t.Errorf("an ordinary answer was taken as an unkept promise: %q", reply)
+		}
+	}
+}
