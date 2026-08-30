@@ -265,9 +265,21 @@ var ReasonCandidates = []string{
 	"deepseek-r1:8b", "deepseek-r1", "qwen3", "qwq", "gemma3:12b",
 }
 
-// WorkCandidates follow a tool schema without inventing fields, best first.
+/*
+ * WorkCandidates can actually call a tool, best first.
+ *
+ * Measured on this machine, not assumed from size. gemma3 is the largest model
+ * installed here and ollama refuses it outright — "does not support tools" — so
+ * a brain given that job would talk well and be unable to act at all.
+ * deepseek-r1 is worse: it accepts the schema and then never reaches for it,
+ * and nothing anywhere reports an error.
+ *
+ * qwen3 asks properly. qwen2.5-coder writes the call out as prose, which is
+ * recovered but not always — which is why it is second here despite being
+ * quicker.
+ */
 var WorkCandidates = []string{
-	"qwen2.5-coder:7b", "qwen2.5-coder", "qwen3", "llama3.1:8b", "gemma3:12b",
+	"qwen3", "qwen2.5-coder:7b", "qwen2.5-coder", "llama3.1:8b",
 }
 
 // PickTalk returns the best small model that is actually installed.

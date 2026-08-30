@@ -283,7 +283,7 @@ func TestRegisteredTools(t *testing.T) {
 	// because it had no way to reach its own queue.
 	want := []string{
 		"decide_waiting", "edit_file", "forget_reminder", "list_directory",
-		"list_reminders", "list_waiting", "look_at_screen", "read_document",
+		"list_models", "list_reminders", "list_waiting", "look_at_screen", "read_document",
 		"read_file", "remind_me", "run_command", "search_files",
 		"set_appearance", "set_wake_word", "write_file",
 	}
@@ -884,5 +884,31 @@ func TestProgressSaysWhetherAnybodyIsWaiting(t *testing.T) {
 
 	if background, _ := turn["background"].(bool); background {
 		t.Error("a turn its owner is waiting for was reported as background work")
+	}
+}
+
+/*
+ * Changing the model on the Models page changes what the brain uses.
+ *
+ * Which small and which reasoning model exist has to be discovered, and that is
+ * worked out once. The working model is a choice its owner makes and remakes,
+ * and remembering it alongside the discovered ones meant the page said one
+ * thing while the brain went on using another until it was restarted.
+ */
+func TestChoosingAModelTakesEffectAtOnce(t *testing.T) {
+	_, _, b := newServer(t)
+
+	b.Cfg.OllamaModel = "qwen2.5-coder:7b"
+
+	before, _, _ := b.Roles()
+	if before != "qwen2.5-coder:7b" {
+		t.Fatalf("it started on %q", before)
+	}
+
+	b.Cfg.OllamaModel = "qwen3:latest"
+
+	after, _, _ := b.Roles()
+	if after != "qwen3:latest" {
+		t.Errorf("the model was changed to qwen3:latest but it still uses %q", after)
 	}
 }

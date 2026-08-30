@@ -241,3 +241,32 @@ func TestEachRoleTakesTheBestInstalled(t *testing.T) {
 		t.Errorf("invented a reasoning model: %q", got)
 	}
 }
+
+/*
+ * A model that cannot use tools must never be given the job of using them.
+ *
+ * Measured on this machine rather than assumed: gemma3:12b is the largest model
+ * installed and ollama refuses it outright — "does not support tools" — so
+ * choosing it for anything that means doing something would produce a brain
+ * that talks well and cannot act at all. deepseek-r1:8b accepts the schema and
+ * then never reaches for it, which is worse, because nothing reports an error.
+ *
+ * So the list of models considered for that job is a list, not a preference for
+ * whichever is biggest.
+ */
+func TestOnlyModelsThatCanActGetTheActingJob(t *testing.T) {
+	for _, cannot := range []string{"gemma3:12b", "gemma3:4b", "deepseek-r1:8b"} {
+		for _, want := range WorkCandidates {
+			if want == cannot {
+				t.Errorf("%s is offered the job of using tools, and it cannot", cannot)
+			}
+		}
+	}
+
+	// And the ones that can are there.
+	installed := []string{"gemma3:12b", "deepseek-r1:8b", "qwen3:latest", "qwen2.5-coder:7b"}
+
+	if got := PickWork(installed); got != "qwen2.5-coder:7b" && got != "qwen3:latest" {
+		t.Errorf("picked %q for doing things, which was not measured as able to", got)
+	}
+}

@@ -461,12 +461,23 @@ document.querySelector('.nav-item[data-view="system"]')?.addEventListener('click
     loadMail();
 });
 
-// Refreshed while the panel is open, because the whole point is watching what
-// happens when somebody says the name.
+/*
+ * Refreshed while the panel is open.
+ *
+ * All of it, not only what the microphone heard. A window left open across a
+ * restart kept showing what was true when the page loaded — which is how the
+ * models card came to read "—" long after the brain had chosen three of them.
+ * A panel that is wrong and still is a worse failure than one that is empty,
+ * because there is nothing about it that looks stale.
+ */
 setInterval(() => {
     const view = document.querySelector('.view[data-view="system"]');
 
-    if (view && !view.hidden) loadHeard();
+    if (!view || view.hidden) return;
+
+    loadHeard();
+    load();
+    loadMenu();
 }, 3000);
 
 load();

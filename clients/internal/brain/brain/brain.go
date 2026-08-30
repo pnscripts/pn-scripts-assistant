@@ -155,6 +155,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.SetWakeWord{Brain: b},
 		tools.ListWaiting{Queue: queueOf{b}},
 		tools.DecideWaiting{Queue: queueOf{b}},
+		tools.ListModels{Machine: b},
 		tools.Remind{Diary: diaryOf{b}},
 		tools.ListReminders{Diary: diaryOf{b}},
 		tools.ForgetReminder{Diary: diaryOf{b}},
@@ -209,8 +210,6 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
  */
 func (b *Brain) modelRoles() llm.Sizes {
 	b.rolesOnce.Do(func() {
-		b.roles = llm.Sizes{Work: b.Cfg.OllamaModel}
-
 		client := models.New(b.Cfg.OllamaURL)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -232,14 +231,23 @@ func (b *Brain) modelRoles() llm.Sizes {
 		b.roles.Talk = llm.PickTalk(names)
 		b.roles.Reason = llm.PickReason(names)
 
-		// The configured model stays the one that does things: it is what its
-		// owner chose and tested, and second-guessing that is not this
-		// function's job.
 		b.Log.Info("models chosen for each kind of turn",
-			"work", b.roles.Work, "talk", b.roles.Talk, "reason", b.roles.Reason)
+			"work", b.Cfg.OllamaModel, "talk", b.roles.Talk, "reason", b.roles.Reason)
 	})
 
-	return b.roles
+	/*
+	 * The model that does things is read fresh every time.
+	 *
+	 * Only what had to be discovered — which small and which reasoning model
+	 * are installed — is worked out once. The working model is whatever its
+	 * owner has chosen, and they can change that from the Models page while
+	 * the brain is running; remembering it here meant the page said one thing
+	 * and the brain went on using another until it was restarted.
+	 */
+	roles := b.roles
+	roles.Work = b.Cfg.OllamaModel
+
+	return roles
 }
 
 // fastModel is the small model used for conversation.

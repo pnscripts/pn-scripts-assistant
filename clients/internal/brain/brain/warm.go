@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"pn-brain/internal/brain/llm"
+	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/progress"
+	"pn-brain/internal/brain/tools"
 )
 
 /*
@@ -156,6 +158,22 @@ func (b *Brain) ModelsBothResident() bool {
 	defer b.mu.Unlock()
 
 	return b.modelsResident
+}
+
+// Models lists what is installed, for the tool that reports it.
+func (b *Brain) Models(ctx context.Context) ([]tools.InstalledModel, error) {
+	installed, err := models.New(b.Cfg.OllamaURL).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]tools.InstalledModel, 0, len(installed))
+
+	for _, m := range installed {
+		out = append(out, tools.InstalledModel{Name: m.Name, Size: m.Size})
+	}
+
+	return out, nil
 }
 
 // Roles is which model does what, for the interface to show.
