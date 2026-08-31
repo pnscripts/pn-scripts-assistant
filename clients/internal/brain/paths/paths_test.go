@@ -29,6 +29,9 @@ func TestEverySystemLooksWhereItsDrivesAppear(t *testing.T) {
 		t.Fatalf("creating a root on a pretend drive: %v", err)
 	}
 
+	// Isolated from whatever this machine has chosen for itself: a remembered
+	// root now outranks the search, so the real one would answer instead.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("PN_BRAIN_SEARCH_PATHS", drive)
 	t.Setenv("PN_BRAIN_DATA_ROOT", "")
 
@@ -107,5 +110,60 @@ func TestAMissingDriveIsNotAFirstRun(t *testing.T) {
 
 	if fresh.Path == root {
 		t.Errorf("it went back to the drive that is gone")
+	}
+}
+
+/*
+ * Choosing a drive has to beat the search order.
+ *
+ * The search looks in the home folder before any drive, so on a machine that
+ * had run this before, picking a drive created the folder there and then never
+ * opened it — two brains, with the explicitly chosen one silently losing to
+ * the one that happened to be looked at first.
+ */
+func TestTheChosenPlaceWinsOverTheNearestOne(t *testing.T) {
+	real := mounts
+	mounts = func() []string { return nil }
+
+	t.Cleanup(func() { mounts = real })
+
+	home := t.TempDir()
+	drive := t.TempDir()
+
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", home)
+	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+
+	// A brain already in the home folder, as on any machine that has run this.
+	nearest := filepath.Join(home, ".local", "share", "pn-brain")
+	if _, err := Create(nearest); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PN_BRAIN_SEARCH_PATHS", nearest+string(os.PathListSeparator)+drive)
+
+	// Without a choice, the nearest one is correct.
+	found, err := FindOrCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if found.Path != nearest {
+		t.Fatalf("found %q, want the home one at %q", found.Path, nearest)
+	}
+
+	// Now somebody chooses the drive.
+	chosen := filepath.Join(drive, "PN-BRAIN-DATA")
+	if _, err := Choose(chosen); err != nil {
+		t.Fatal(err)
+	}
+
+	found, err = FindOrCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if found.Path != chosen {
+		t.Errorf("after choosing %q it still opened %q", chosen, found.Path)
 	}
 }

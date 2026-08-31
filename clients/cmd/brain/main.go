@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"context"
 	"log/slog"
@@ -612,7 +613,7 @@ func runApp(args []string) error {
 	// runs first, in its own window, and only hands over once the machine can
 	// actually run an assistant.
 	if !*skipSetup && missingEssentials() {
-		if err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
+		if _, err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
 			return err
 		}
 
@@ -931,10 +932,10 @@ func missingEssentials() bool {
 // It carries its own tiny web server because of an ordering problem: the brain
 // cannot serve a page explaining that Ollama is missing while Ollama being
 // missing is what stops the brain from starting.
-func runFirstRunSetup(settingsPath, name string) error {
+func runFirstRunSetup(settingsPath, name string) (bool, error) {
 	srv, err := setup.New(settingsPath)
 	if err != nil {
-		return fmt.Errorf("could not start setup: %w", err)
+		return false, fmt.Errorf("could not start setup: %w", err)
 	}
 
 	done := make(chan struct{})
@@ -954,7 +955,9 @@ func runFirstRunSetup(settingsPath, name string) error {
 			return
 		}
 
-		if _, err := paths.Create(chosen); err != nil {
+		// Choose, not Create: the folder existing somewhere is not the same
+		// as the program knowing that is the one to open.
+		if _, err := paths.Choose(chosen); err != nil {
 			fmt.Fprintf(os.Stderr, "\n  could not use %s: %v\n\n", chosen, err)
 		}
 	}()
@@ -1007,14 +1010,28 @@ func runFirstRunSetup(settingsPath, name string) error {
 
 		<-done
 
-		return stillMissing(srv)
+		return srv.Finished(), stillMissing(srv)
 	}
+
+	/*
+	 * Pressing Continue has to close the window, or nothing happens at all.
+	 *
+	 * window.Open sits in the GTK main loop until the window goes away, and
+	 * the /done handler closed a channel that only the browser path was
+	 * listening to. So the button set a flag, the window stayed exactly where
+	 * it was, and setup looked frozen at the moment somebody had finished it —
+	 * the last screen of the first thing they ever did with this program.
+	 */
+	go func() {
+		<-done
+		window.Close()
+	}()
 
 	if err := window.Open(srv.URL(), name+" — Setup", 900, 700); err != nil {
-		return err
+		return false, err
 	}
 
-	return stillMissing(srv)
+	return srv.Finished(), stillMissing(srv)
 }
 
 /*
@@ -1073,7 +1090,44 @@ func runSetup(args []string) error {
 		return err
 	}
 
-	return runFirstRunSetup(config.Path(root.Path), cfg.Name)
+	finished, err := runFirstRunSetup(config.Path(root.Path), cfg.Name)
+	if err != nil {
+		return err
+	}
+
+	/*
+	 * And then actually continue to PN Brain, which is what the button says.
+	 *
+	 * This path is reached by "brain setup" and by the button in the running
+	 * program's settings. Pressing Continue closed setup and stopped, so the
+	 * button promised the assistant and delivered an empty screen.
+	 *
+	 * Started unconditionally when somebody pressed it: if a brain is already
+	 * running — which it is when this was opened from its own settings — the
+	 * one-at-a-time guard brings that window to the front instead of starting
+	 * a second one, which is the right answer to "continue to PN Brain" in
+	 * both cases.
+	 */
+	if !finished {
+		return nil
+	}
+
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	brain := exec.Command(self)
+	if err := brain.Start(); err != nil {
+		return fmt.Errorf("could not start PN Brain: %w", err)
+	}
+
+	// Released rather than waited on: the assistant outlives the setup process
+	// that opened it, and holding this one alive would leave a stray parent
+	// around for the whole session.
+	go func() { _ = brain.Wait() }()
+
+	return nil
 }
 
 /*

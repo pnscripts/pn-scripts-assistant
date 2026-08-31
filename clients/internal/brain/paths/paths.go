@@ -129,6 +129,23 @@ func Find() (Root, error) {
 		return read(explicit)
 	}
 
+	/*
+	 * What was chosen beats what is nearest.
+	 *
+	 * The search looks in the home folder before any drive, so on a machine
+	 * that had ever run this before, picking a drive in setup did nothing at
+	 * all: the folder was created there and then never looked at again,
+	 * because the home one kept being found first. Two brains, and the one
+	 * somebody explicitly asked for was the one silently ignored.
+	 */
+	if chosen, ok := LastKnown(); ok {
+		if r, err := read(chosen); err == nil {
+			r.Path = chosen
+
+			return r, nil
+		}
+	}
+
 	for _, dir := range SearchPaths() {
 		// A data root is either the directory itself or a PN-BRAIN-DATA inside
 		// it, because a drive holds other things too.
@@ -159,6 +176,25 @@ func read(dir string) (Root, error) {
 	}
 
 	r.Path = dir
+
+	return r, nil
+}
+
+/*
+ * Choose records where the brain should live from now on.
+ *
+ * Creating the folder is not choosing it. Setup used to do only the first, so
+ * a drive picked on the first step was made and then never used — the search
+ * order decided instead, and the search order does not know what anybody
+ * asked for.
+ */
+func Choose(dir string) (Root, error) {
+	r, err := Create(dir)
+	if err != nil {
+		return Root{}, err
+	}
+
+	Remember(r)
 
 	return r, nil
 }
