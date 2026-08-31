@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -45,14 +46,68 @@ func SearchPaths() []string {
 		out = append(out, filepath.Join(home, ".local", "share", "pn-brain"))
 	}
 
-	// Linux desktops mount removable drives under /media/<user>/<label> and
-	// /run/media/<user>/<label>; /mnt is the manual convention.
-	for _, base := range []string{"/media", "/run/media", "/mnt"} {
-		matches, _ := filepath.Glob(filepath.Join(base, "*", "*"))
+	/*
+	 * And wherever this system puts a drive somebody has plugged in.
+	 *
+	 * The whole point of keeping the brain on an external drive is carrying it
+	 * to another computer, and that computer does not have to be running the
+	 * same system as this one. Searching only the Linux mount points meant the
+	 * drive was invisible on macOS and Windows — where the program would not
+	 * report a problem but quietly start a brand new empty brain in the home
+	 * folder, with everything that had been learned sitting unread on the disk
+	 * plugged into it.
+	 */
+	out = append(out, removableMounts()...)
+
+	return out
+}
+
+/*
+ * removableMounts is where each system shows a drive that was plugged in.
+ *
+ * By convention rather than by asking the system, deliberately: this runs at
+ * startup before anything else works, and a glob that finds nothing is a much
+ * better failure than a mount-table parser that cannot run.
+ */
+func removableMounts() []string {
+	var out []string
+
+	switch runtime.GOOS {
+	case "darwin":
+		// Everything except the boot disk appears here, including network
+		// shares and disk images.
+		matches, _ := filepath.Glob("/Volumes/*")
 		out = append(out, matches...)
 
-		direct, _ := filepath.Glob(filepath.Join(base, "*"))
-		out = append(out, direct...)
+	case "windows":
+		/*
+		 * Every letter that answers, which is the only way to ask.
+		 *
+		 * A drive letter is assigned when the disk is plugged in and is not
+		 * predictable — the same stick is D: on one machine and F: on the
+		 * next. Twenty-four Stat calls at startup is nothing, and it means the
+		 * drive is found wherever it landed.
+		 */
+		for letter := 'C'; letter <= 'Z'; letter++ {
+			root := string(letter) + `:\`
+
+			if _, err := os.Stat(root); err == nil {
+				out = append(out, root)
+			}
+		}
+
+	default:
+		// Linux desktops mount removable drives under /media/<user>/<label>
+		// and /run/media/<user>/<label>; /mnt is the manual convention. The
+		// user is globbed rather than assumed, so a drive written on one
+		// machine is still found under somebody else's name on another.
+		for _, base := range []string{"/media", "/run/media", "/mnt"} {
+			matches, _ := filepath.Glob(filepath.Join(base, "*", "*"))
+			out = append(out, matches...)
+
+			direct, _ := filepath.Glob(filepath.Join(base, "*"))
+			out = append(out, direct...)
+		}
 	}
 
 	return out
