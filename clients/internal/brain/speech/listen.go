@@ -122,7 +122,21 @@ func FindRecogniser() (*Recogniser, string) {
 	}
 
 	if command == "" {
-		return nil, "No speech recogniser found. Build whisper.cpp and put whisper-cli on your PATH."
+		/*
+		 * Written for somebody who has not installed anything.
+		 *
+		 * It used to say "build whisper.cpp and put whisper-cli on your PATH",
+		 * which is a correct instruction and useless advice: this program is
+		 * meant to be usable by somebody who has never opened a terminal, and
+		 * the very first thing it told them was to compile a C++ project.
+		 *
+		 * Setup can install it, so the answer is to say so. Naming the model
+		 * as well, because both are missing on a new machine and hearing about
+		 * them one at a time is two rounds of the same disappointment.
+		 */
+		return nil, "No speech recogniser or model is installed yet. " +
+			"Open Setup and let it install whisper and a speech model — " +
+			"it downloads both and needs nothing from you but a moment."
 	}
 
 	home, err := os.UserHomeDir()
@@ -145,7 +159,8 @@ func FindRecogniser() (*Recogniser, string) {
 		}
 	}
 
-	return nil, command + " is installed but no model was found. Fetch one with: " +
+	return nil, command + " is installed but its speech model is missing. " +
+		"Open Setup to download one, or fetch it by hand with: " +
 		"bash ./models/download-ggml-model.sh base.en"
 }
 

@@ -108,18 +108,37 @@ func TestMissingEngineExplainsItself(t *testing.T) {
 	}
 }
 
-// Listening is absent rather than broken, and says what it needs.
-func TestListeningReportsWhatIsMissing(t *testing.T) {
+/*
+ * Listening is absent rather than broken, and says what to do about it.
+ *
+ * Two different things can be missing and they used to give one message
+ * between them, so the test asked for words that only one of them contains —
+ * and it therefore passed or failed according to what happened to be
+ * installed on the machine running it. On a bare machine, which is the case
+ * this message exists for, it failed while the program was behaving correctly.
+ *
+ * What matters is not which words appear but that somebody is told where to
+ * go. The old text said "build whisper.cpp and put whisper-cli on your PATH",
+ * which is accurate and useless to the person most likely to read it.
+ */
+func TestListeningSaysWhereToGoWhenItCannotHear(t *testing.T) {
 	ok, hint := Listening()
 
 	if ok {
 		t.Skip("a speech recogniser is installed")
 	}
 
-	for _, want := range []string{"model", "whisper"} {
-		if !strings.Contains(strings.ToLower(hint), want) {
-			t.Errorf("hint does not mention %q: %q", want, hint)
-		}
+	lower := strings.ToLower(hint)
+
+	if !strings.Contains(lower, "setup") {
+		t.Errorf("does not point at Setup, which is the one place that can fix "+
+			"this without a terminal: %q", hint)
+	}
+
+	// And it says what is actually missing, so somebody who does know their way
+	// around is not left guessing.
+	if !strings.Contains(lower, "model") && !strings.Contains(lower, "whisper") {
+		t.Errorf("does not say what is missing: %q", hint)
 	}
 }
 
