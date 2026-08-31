@@ -15,7 +15,12 @@ func TestAnswersTheQuestionActuallyAsked(t *testing.T) {
 		expect   string // a phrase the correct answer must contain
 	}{
 		{"is my data private?", "nothing leaves your computer"},
-		{"why do I need docker?", "database"},
+		// Asked because it used to need Docker, and somebody who read about
+		// this program a year ago still will. The answer that matters is that
+		// it does not — "database" was the old answer and passing on it now
+		// would only prove the sentence still contains the word.
+		{"why do I need docker?", "does not use Docker"},
+		{"do I need containers?", "does not use Docker"},
 		{"how long does this take?", "2GB"},
 		{"does it cost anything?", "Nothing here costs money"},
 		{"will it work offline?", "no internet connection"},

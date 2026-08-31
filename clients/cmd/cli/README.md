@@ -30,4 +30,4 @@ ln -sf "$(pwd)/pn-brain" ~/.local/bin/pn-brain   # ~/.local/bin must be on PATH
 
 Then `pn-brain` works from any directory. It's a symlink to the binary here, so it
 only works while this drive is plugged in and the containers are running
-(`../../scripts/start-brain.sh`).
+(`../../scripts/pn-brain-launch.sh`).

@@ -100,7 +100,7 @@ static gboolean pnbrain_maximise_once(gpointer data) {
     return G_SOURCE_REMOVE;
 }
 
-static void pnbrain_open_window(const char *url, const char *title, int width, int height) {
+static void pnbrain_open_window(const char *url, const char *title, int width, int height, const char *icon_path) {
     if (!gtk_init_check(NULL, NULL)) {
         return;
     }
@@ -108,16 +108,15 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), title);
 
-    // The icon the switcher and the dock show. Loaded from the AppImage's own
-    // directory when there is one, so a packaged build carries its mark and a
-    // build from source simply goes without rather than failing.
-    const char *appdir = g_getenv("APPDIR");
-
-    if (appdir != NULL) {
-        char *icon = g_build_filename(appdir, "pn-brain.png", NULL);
-
-        gtk_window_set_icon_from_file(GTK_WINDOW(window), icon, NULL);
-        g_free(icon);
+    // The icon the switcher and the dock show.
+    //
+    // The path is worked out in Go, which can look in several places without
+    // this file learning about any of them. It used to read APPDIR directly,
+    // which only exists inside an AppImage — so every build from source ran
+    // with the blank default icon, including the setup window, which is the
+    // very first thing anybody sees on a new machine.
+    if (icon_path != NULL && icon_path[0] != 0) {
+        gtk_window_set_icon_from_file(GTK_WINDOW(window), icon_path, NULL);
     }
     gtk_window_set_default_size(GTK_WINDOW(window), width, height);
     g_signal_connect(window, "destroy", G_CALLBACK(pnbrain_on_destroy), NULL);
@@ -172,6 +171,8 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
 import "C"
 
 import (
+	"os"
+	"path/filepath"
 	"runtime"
 	"unsafe"
 )
@@ -204,7 +205,10 @@ func Open(url, title string, width, height int) error {
 	cTitle := C.CString(title)
 	defer C.free(unsafe.Pointer(cTitle))
 
-	C.pnbrain_open_window(cURL, cTitle, C.int(width), C.int(height))
+	cIcon := C.CString(iconPath())
+	defer C.free(unsafe.Pointer(cIcon))
+
+	C.pnbrain_open_window(cURL, cTitle, C.int(width), C.int(height), cIcon)
 
 	return nil
 }
@@ -229,3 +233,79 @@ func Present() {
 
 // Available reports whether a native window can be opened by this build.
 func Available() bool { return true }
+
+/*
+ * iconPath finds the window icon, or returns "" if there is none.
+ *
+ * It used to be read straight from APPDIR in C, which meant only an AppImage
+ * ever had one: every build from source showed the blank default, including
+ * the setup window — the first thing anybody sees on a new machine, and the
+ * one most worth looking like it belongs to something.
+ *
+ * Looked for in the places it actually lives, nearest first. Returning empty
+ * rather than failing is deliberate: a missing icon is a cosmetic loss and
+ * refusing to open the window over it would not be.
+ */
+func iconPath() string {
+	exe, err := os.Executable()
+	if err == nil {
+		if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+			exe = resolved
+		}
+	}
+
+	home, _ := os.UserHomeDir()
+
+	return findIcon(os.Getenv("APPDIR"), exe, home, func(path string) bool {
+		info, err := os.Stat(path)
+
+		return err == nil && !info.IsDir()
+	})
+}
+
+/*
+ * findIcon is where the looking happens, given the places rather than reading
+ * them from the machine.
+ *
+ * Separated so it can be checked at all. Asking os.Executable in a test gives
+ * the path of the test binary in a temporary directory, so a test of the real
+ * function measures the test harness and nothing else — it reported no icon
+ * while the program running beside it would have found one.
+ */
+func findIcon(appdir, exe, home string, exists func(string) bool) string {
+	var places []string
+
+	// Inside an AppImage, where it is unpacked beside the binary.
+	if appdir != "" {
+		places = append(places, filepath.Join(appdir, "pn-brain.png"))
+	}
+
+	if exe != "" {
+		beside := filepath.Dir(exe)
+
+		places = append(places,
+			// Beside the binary, as a packaged build lays it out.
+			filepath.Join(beside, "pn-brain.png"),
+			// And in the project's assets, which is where a build from source
+			// finds itself: dist/pn-brain, assets/pn-brain.png.
+			filepath.Join(filepath.Dir(beside), "assets", "pn-brain.png"),
+		)
+	}
+
+	// Installed for the desktop, which is where the menu entry points.
+	if home != "" {
+		places = append(places,
+			filepath.Join(home, ".local", "share", "icons", "pn-brain.png"),
+			filepath.Join(home, ".local", "share", "icons", "hicolor", "256x256",
+				"apps", "pn-brain.png"),
+		)
+	}
+
+	for _, path := range places {
+		if exists(path) {
+			return path
+		}
+	}
+
+	return ""
+}

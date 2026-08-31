@@ -15,15 +15,16 @@ Setup tools usually assume a one-time install, which is wrong here: models get
 replaced, Docker gets upgraded, a distribution moves a library out from under
 you. So this reports current state on every run, and installing is simply
 "make reality match the list" — the same command works on a fresh machine and
-on one that's been running PN Brain for a year. `scripts/start-brain.sh` runs it
+on one that's been running PN Brain for a year. `scripts/pn-brain-launch.sh` runs it
 quietly on every launch, so drift surfaces when it happens rather than as a
 confusing failure later.
 
 ## Why it is a separate static binary
 
-Something has to be able to say "you have no Docker" on a machine where Docker
-is missing — so it can't live inside the brain, which needs Docker to start.
-It's pure standard library, cross-compiles anywhere, and depends on nothing.
+Something has to be able to say "you have no Ollama" on a machine where Ollama
+is missing — so it cannot live inside the brain, which needs a model before it
+can say anything at all. It is pure standard library, cross-compiles anywhere,
+and depends on nothing.
 
 ## Design notes
 

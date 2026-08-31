@@ -1,8 +1,8 @@
 // Package starter is the small brain that exists before the real one does.
 //
-// Nothing about PN Brain works until Docker, a database and a language model
-// are all in place, which on a fresh machine is a ten-minute wait during which
-// the application can say nothing at all. That is the worst possible moment to
+// Nothing about PN Brain works until a language model and a speech recogniser
+// are in place, which on a fresh machine is a download of several gigabytes
+// during which the application can say nothing at all. That is the worst possible moment to
 // be silent: it is when someone has the most questions and the least reason to
 // trust what is being installed on their computer.
 //
@@ -43,11 +43,22 @@ var topics = []Topic{
 			"is sent anywhere else.",
 	},
 	{
-		Keys: []string{"why docker", "need docker", "what is docker", "docker for"},
-		Answer: "Docker runs the brain's database and background worker in a contained way, so " +
-			"installing PN Brain does not scatter services across your system or clash with " +
-			"anything you already run.\n\n" +
-			"It is the one heavyweight requirement. Everything else is smaller.",
+		/*
+		 * Asked about Docker because it used to need it, and somebody who read
+		 * about this program a year ago still will.
+		 *
+		 * The honest answer is that it does not, and saying so plainly is
+		 * worth more than saying nothing: the previous shape was Laravel,
+		 * Postgres, Redis and a container daemon, and the whole point of what
+		 * replaced it is that none of that is here.
+		 */
+		Keys: []string{"why docker", "need docker", "what is docker", "docker for",
+			"container", "containers"},
+		Answer: "It does not use Docker at all. PN Brain is a single program with its " +
+			"database inside it, so there is no container, no Postgres and no Redis to " +
+			"install or keep running.\n\n" +
+			"It used to need all of that. If you read otherwise somewhere, that was the " +
+			"older shape of this program.",
 	},
 	{
 		Keys: []string{"why ollama", "what is ollama", "need ollama", "local model", "why model"},
@@ -94,7 +105,7 @@ var topics = []Topic{
 		Keys: []string{"delete", "uninstall", "remove", "get rid"},
 		Answer: "Delete the data folder and the brain is gone — there is no account and nothing " +
 			"stored elsewhere.\n\n" +
-			"Removing Docker and Ollama is separate, if you want those gone too.",
+			"Removing Ollama and the speech models is separate, if you want those gone too.",
 	},
 	{
 		Keys: []string{"password", "why password", "sudo", "root", "permission"},
@@ -119,8 +130,8 @@ var topics = []Topic{
 		Keys: []string{"stuck", "not working", "failed", "error", "broken", "help"},
 		Answer: "If a step failed, the details are written to a log file rather than shown here — " +
 			"the message under the failure points at it.\n\n" +
-			"The most common causes are no internet during the model download, or Docker not " +
-			"running yet.",
+			"The most common cause by far is the model download: it is several gigabytes, " +
+			"and a connection that drops part-way leaves it unfinished.",
 	},
 }
 
@@ -135,7 +146,7 @@ func Suggestions() []string {
 		"What is this?",
 		"Is my data private?",
 		"How long does setup take?",
-		"Why does it need Docker?",
+		"Does it need Docker?",
 	}
 }
 

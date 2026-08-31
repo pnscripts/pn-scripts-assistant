@@ -120,49 +120,9 @@ jobs:
           name: desktop-${{ matrix.target }}
           path: clients/dist/*
 
-  brain:
-    needs: tests
-    name: Self-contained brain binary
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # The static build fails partway through if the runner's default ~14GB
-      # isn't freed up first; this reclaims well over 20GB.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
-          sudo rm -rf /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
-          df -h /
-
-      # The token is only for GitHub API reads (resolving upstream release URLs
-      # for zlib, openssl, icu…). Without it the build dies on a 403 after ~60
-      # unauthenticated calls. Passed as a secret so it stays out of the layers.
-      - name: Build static binary
-        run: |
-          printf '%s' "${{ github.token }}" > /tmp/gh_token
-          DOCKER_BUILDKIT=1 docker build \
-            --secret id=github_token,src=/tmp/gh_token \
-            -f static-build.Dockerfile -t pn-brain-static .
-          rm -f /tmp/gh_token
-
-      - name: Extract binary
-        run: |
-          mkdir -p dist
-          id=$(docker create pn-brain-static)
-          docker cp "$id:/go/src/app/dist/frankenphp-linux-x86_64" dist/pn-brain-brain-linux-x86_64
-          docker rm "$id"
-          chmod +x dist/pn-brain-brain-linux-x86_64
-          ls -lh dist/
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: brain-linux-x86_64
-          path: dist/*
-
   release:
     name: Publish release
-    needs: [tests, cli, desktop, brain]
+    needs: [tests, cli, desktop]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
