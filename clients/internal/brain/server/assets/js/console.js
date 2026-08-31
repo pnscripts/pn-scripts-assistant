@@ -840,6 +840,23 @@ async function refreshDrives() {
         return;
     }
 
+    /*
+     * The drive going away is said at the top of the screen, not in this card.
+     *
+     * Somebody talking to the brain is not looking at the storage panel, and
+     * this is the one state where everything else carries on looking correct
+     * while nothing is being kept.
+     */
+    const lost = el('drive-lost');
+
+    if (lost) {
+        lost.hidden = !data.drive_gone;
+
+        const where = el('drive-lost-where');
+
+        if (where) where.textContent = data.drive_gone ? data.current : '';
+    }
+
     const list = el('drives');
     list.textContent = '';
 

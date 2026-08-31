@@ -1,6 +1,8 @@
 package paths
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -37,5 +39,73 @@ func TestEverySystemLooksWhereItsDrivesAppear(t *testing.T) {
 
 	if found.Path != root {
 		t.Errorf("found %q, want %q", found.Path, root)
+	}
+}
+
+/*
+ * A drive that is not plugged in must not look like a machine that has never
+ * seen this program.
+ *
+ * They produced the same answer from Find — nothing — and the same response:
+ * make a new brain. So starting once without the drive replaced everything
+ * somebody had with an empty brain that introduced itself, and the only
+ * evidence of what happened was that it had forgotten them.
+ */
+func TestAMissingDriveIsNotAFirstRun(t *testing.T) {
+	drive := t.TempDir()
+	root := filepath.Join(drive, "PN-BRAIN-DATA")
+
+	// This machine's own drives are not part of the story being told.
+	real := mounts
+	mounts = func() []string { return nil }
+
+	t.Cleanup(func() { mounts = real })
+
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("HOME", home)
+	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+	t.Setenv("PN_BRAIN_SEARCH_PATHS", drive)
+
+	if _, err := Create(root); err != nil {
+		t.Fatalf("creating the brain on the drive: %v", err)
+	}
+
+	// Used once while the drive is there, which is what makes it remembered.
+	found, err := FindOrCreate()
+	if err != nil {
+		t.Fatalf("with the drive plugged in: %v", err)
+	}
+
+	if found.Path != root {
+		t.Fatalf("found %q, want %q", found.Path, root)
+	}
+
+	// Unplugged.
+	if err := os.RemoveAll(drive); err != nil {
+		t.Fatalf("removing the pretend drive: %v", err)
+	}
+
+	_, err = FindOrCreate()
+
+	var away *AwayError
+	if !errors.As(err, &away) {
+		t.Fatalf("a missing drive gave %v, want an AwayError naming it", err)
+	}
+
+	if away.Path != root {
+		t.Errorf("it points at %q, want %q", away.Path, root)
+	}
+
+	// And somebody who decides it is gone can move on.
+	Forget()
+
+	fresh, err := FindOrCreate()
+	if err != nil {
+		t.Fatalf("after forgetting: %v", err)
+	}
+
+	if fresh.Path == root {
+		t.Errorf("it went back to the drive that is gone")
 	}
 }

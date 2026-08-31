@@ -57,10 +57,20 @@ func SearchPaths() []string {
 	 * folder, with everything that had been learned sitting unread on the disk
 	 * plugged into it.
 	 */
-	out = append(out, removableMounts()...)
+	out = append(out, mounts()...)
 
 	return out
 }
+
+/*
+ * mounts is removableMounts, replaceable so a test can describe a machine other
+ * than the one it is running on.
+ *
+ * Without this a test about a drive being absent finds the real drive in this
+ * machine's own /media and passes or fails for reasons that have nothing to do
+ * with what it is checking.
+ */
+var mounts = removableMounts
 
 /*
  * removableMounts is where each system shows a drive that was plugged in.
@@ -189,9 +199,28 @@ func Create(dir string) (Root, error) {
 // that starts small and can be moved later.
 func FindOrCreate() (Root, error) {
 	if r, err := Find(); err == nil {
+		Remember(r)
+
 		return r, nil
 	} else if !errors.Is(err, ErrNotFound) {
 		return Root{}, err
+	}
+
+	/*
+	 * Finding nothing means one of two opposite things.
+	 *
+	 * It means "first run" on a machine that has never had this, and it means
+	 * "the drive is not plugged in" on a machine that has. They were treated
+	 * as the same, so starting without the drive did what a first run does and
+	 * created a new empty brain — and the only symptom of losing everything
+	 * you had was that it introduced itself.
+	 *
+	 * The difference is knowable: if this machine has seen a brain before, it
+	 * is remembered. Nothing is created over the top of that; the caller is
+	 * told where the brain went instead.
+	 */
+	if away, ok := LastKnown(); ok {
+		return Root{}, &AwayError{Path: away}
 	}
 
 	home, err := os.UserHomeDir()
@@ -199,5 +228,97 @@ func FindOrCreate() (Root, error) {
 		return Root{}, err
 	}
 
-	return Create(filepath.Join(home, ".local", "share", "pn-brain"))
+	created, err := Create(filepath.Join(home, ".local", "share", "pn-brain"))
+	if err == nil {
+		Remember(created)
+	}
+
+	return created, err
+}
+
+/*
+ * AwayError says the brain is somewhere this machine cannot currently reach.
+ *
+ * Its own type because the caller has to do something specific with it —
+ * naming the drive somebody needs to plug in is the entire value, and a
+ * flattened string would lose it.
+ */
+type AwayError struct{ Path string }
+
+func (e *AwayError) Error() string {
+	return "the brain is kept at " + e.Path + ", which is not available right now"
+}
+
+// pointerFile records the last root that was actually used on this machine.
+func pointerFile() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, "pn-brain", "last-root.json"), nil
+}
+
+/*
+ * Remember notes where the brain was, so its absence can be told from its
+ * never having existed.
+ *
+ * Best effort on purpose: failing to write this must never stop the program
+ * starting. The cost of losing it is that one future start mistakes a missing
+ * drive for a first run, which is the behaviour that existed anyway.
+ */
+func Remember(r Root) {
+	path, err := pointerFile()
+	if err != nil {
+		return
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return
+	}
+
+	body, err := json.Marshal(map[string]string{"path": r.Path, "id": r.ID})
+	if err != nil {
+		return
+	}
+
+	_ = os.WriteFile(path, body, 0o600)
+}
+
+// LastKnown reports the root this machine used before, when that place is not
+// there any more. A remembered root that still exists is not interesting: Find
+// would have returned it.
+func LastKnown() (string, bool) {
+	path, err := pointerFile()
+	if err != nil {
+		return "", false
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+
+	var noted struct {
+		Path string `json:"path"`
+	}
+
+	if err := json.Unmarshal(raw, &noted); err != nil || noted.Path == "" {
+		return "", false
+	}
+
+	return noted.Path, true
+}
+
+/*
+ * Forget drops the pointer, for somebody who has decided to start again.
+ *
+ * Without this the refusal is permanent: a drive that is genuinely gone would
+ * block every future start with an offer to plug in something that no longer
+ * exists.
+ */
+func Forget() {
+	if path, err := pointerFile(); err == nil {
+		_ = os.Remove(path)
+	}
 }

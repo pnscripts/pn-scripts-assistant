@@ -3121,3 +3121,50 @@ select { font-size: 13.5px; }
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+
+/*
+ * The drive holding everything has gone.
+ *
+ * Fixed to the top of the viewport rather than placed in the flow, because it
+ * has to be true wherever somebody has scrolled to. It uses the danger colour
+ * from the status palette so it reads the same as every other serious state in
+ * this program rather than inventing a private red.
+ */
+.drive-lost {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9000;
+    padding: 10px 18px;
+    background: var(--status-error, #e06c75);
+    color: #080c11;
+    font-size: 13px;
+    line-height: 1.5;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: baseline;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, .55);
+}
+
+.drive-lost strong { font-weight: 700; }
+
+#drive-lost-where {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    opacity: .85;
+    word-break: break-all;
+}
+
+.drive-lost-note { opacity: .9; }
+
+/*
+ * hidden has to win over display:flex.
+ *
+ * The attribute's own rule is display:none at the user-agent level, which any
+ * class setting a display beats on specificity — so the banner went on taking
+ * a strip off the top of the screen after the drive came back, announcing a
+ * problem that had been fixed.
+ */
+.drive-lost[hidden] { display: none; }

@@ -38,6 +38,9 @@ type Brain struct {
 	// Look is what the core is coloured with, changeable by asking.
 	Look *appearance.Store
 
+	// drive notices the disk the brain lives on going away. See drivewatch.go.
+	drive driveState
+
 	// ollama is kept so the chat model can be changed without a restart. The
 	// choice of model is a decision somebody makes while using the brain,
 	// having seen how the alternatives behave on their own machine, and
@@ -509,6 +512,7 @@ func (b *Brain) Start(ctx context.Context) {
 	// Both models loaded and kept loaded, so choosing between them costs
 	// nothing at the moment of choosing.
 	go b.keepModelsWarm(ctx)
+	go b.watchTheDrive(ctx)
 
 	// A resident recogniser, started in the background because loading its
 	// model takes seconds and nothing should wait on it. Without one, every

@@ -448,11 +448,17 @@ func (s *Server) handleDrives(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// And whether the drive is still there at all, which the numbers above
+	// cannot say: a vanished drive reports nothing rather than reporting zero.
+	gone, since := s.brain.DriveGone()
+
 	ok(w, map[string]any{
-		"current": s.brain.Root,
-		"drives":  drives,
-		"storage": s.brain.Storage(),
-		"how":     "Run 'pn-brain move <folder>' to relocate the brain. It verifies every byte before removing the original.",
+		"current":    s.brain.Root,
+		"drives":     drives,
+		"storage":    s.brain.Storage(),
+		"drive_gone": gone,
+		"gone_since": since,
+		"how":        "Run 'pn-brain move <folder>' to relocate the brain. It verifies every byte before removing the original.",
 	})
 }
 

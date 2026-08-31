@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"pn-brain/internal/away"
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/desktop"
@@ -77,6 +78,8 @@ func main() {
 		err = runMenu(os.Args[2:])
 	case "setup":
 		err = runSetup(os.Args[2:])
+	case "start-again":
+		err = runStartAgain(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -146,6 +149,7 @@ func usage() {
   brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
   brain setup               choose the drive, the model and the keys again
+  brain start-again         stop waiting for a drive that is gone for good
   brain menu                put the brain in the applications menu
   brain menu --remove       take it out again
   brain import <dir>        load a Postgres export into a fresh database
@@ -179,6 +183,20 @@ func runImport(args []string) error {
 
 	db, root, err := openDB()
 	if err != nil {
+		/*
+		 * The brain is on a drive that is not plugged in.
+		 *
+		 * Said rather than worked around, and offered as a choice, because
+		 * only the person can know which it is: a drive on the desk that
+		 * wants plugging in, or one that is gone for good. Starting fresh
+		 * writes a new empty brain, and doing that automatically is how
+		 * everything somebody had would quietly stop being reachable.
+		 */
+		var elsewhere *paths.AwayError
+		if errors.As(err, &elsewhere) {
+			return brainAway(elsewhere)
+		}
+
 		return err
 	}
 	defer db.Close()
@@ -1034,6 +1052,71 @@ func runSetup(args []string) error {
 	}
 
 	return runFirstRunSetup(config.Path(root.Path), cfg.Name)
+}
+
+/*
+ * brainAway explains a brain that is somewhere else, and offers the two ways
+ * out — without taking either on somebody's behalf.
+ *
+ * In the window when there is one, because "everything works from inside the
+ * program" matters most in exactly this case: the person reading this has just
+ * been told their assistant cannot find what it knows, and answering that with
+ * a line of terminal output they may never see is the worst available moment
+ * to fall back on a terminal.
+ */
+func brainAway(elsewhere *paths.AwayError) error {
+	fmt.Fprintf(os.Stderr, "\n  PN Brain keeps everything it knows at:\n    %s\n\n", elsewhere.Path)
+	fmt.Fprint(os.Stderr, "  That place is not available right now. If it is on a drive,\n")
+	fmt.Fprint(os.Stderr, "  plug the drive in and start PN Brain again — nothing is lost.\n\n")
+	fmt.Fprint(os.Stderr, "  If it is gone for good and you want to begin again:\n")
+	fmt.Fprint(os.Stderr, "    brain start-again\n\n")
+
+	if !window.Available() {
+		return errNothingMore
+	}
+
+	srv, err := away.New(elsewhere.Path)
+	if err != nil {
+		return errNothingMore
+	}
+
+	done := make(chan struct{})
+	go srv.Serve(func() { close(done) })
+
+	_ = window.Open(srv.URL(), "PN Brain", 640, 460)
+
+	if srv.StartAgain() {
+		paths.Forget()
+
+		fmt.Fprint(os.Stderr, "  Starting again. Run PN Brain once more.\n\n")
+	}
+
+	return errNothingMore
+}
+
+// errNothingMore ends the program without printing a second explanation on top
+// of the one that was just given.
+var errNothingMore = errors.New("")
+
+func runStartAgain(args []string) error {
+	fs := flag.NewFlagSet("start-again", flag.ExitOnError)
+	fs.Parse(args)
+
+	away, ok := paths.LastKnown()
+	if !ok {
+		fmt.Print("\n  Nothing to forget — PN Brain is not waiting on anywhere.\n\n")
+
+		return nil
+	}
+
+	paths.Forget()
+
+	fmt.Printf("\n  PN Brain will no longer wait for %s.\n", away)
+	fmt.Print("  The next start makes a new, empty brain. Anything at that\n")
+	fmt.Print("  place is untouched, and plugging it back in still works —\n")
+	fmt.Print("  it is found again by being there, not by being remembered.\n\n")
+
+	return nil
 }
 
 func runDrives(args []string) error {
