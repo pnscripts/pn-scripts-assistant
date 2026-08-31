@@ -243,16 +243,23 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
   </div>
 
   <!--
-      It no longer only happens once, so it no longer says so.
-      Setup can be reopened from the settings, from the icon's right-click menu
-      or with "brain setup", which makes "only happens once" a promise the
-      program stopped keeping the moment those existed. What is worth saying
-      instead is the thing somebody actually needs to know before starting:
-      that reading it costs nothing, because nothing is done until the end.
+      Two corrections in one sentence, both about time.
+
+      It used to say setup "only happens once", which stopped being true the
+      moment it could be reopened from the settings, the icon's right-click
+      menu and the command line.
+
+      Then it said "nothing is installed or changed", which describes the next
+      few minutes and quietly hides what the whole thing is for — things will
+      certainly be installed, several gigabytes of them. A sentence that is
+      true right up until the moment it matters is worse than no sentence,
+      because it is trusted. Both halves are said now: going through it changes
+      nothing, and the end is where the changing happens.
   -->
-  <p class="sub">Let's get your machine ready. It takes a few minutes, and nothing is
-    installed or changed until you apply it at the end. You can come back and change
-    any of this later.</p>
+  <p class="sub">Let's get your machine ready. It takes a few minutes. Going through it
+    changes nothing on your computer — the last step lists everything that will be
+    installed, with sizes, and the work starts only when you agree to it there. You
+    can come back and change any of this later.</p>
 
   <div class="machine" id="machine">checking your machine…</div>
 
