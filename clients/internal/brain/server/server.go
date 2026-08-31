@@ -16,6 +16,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -63,6 +65,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/present", s.handlePresent)
 	s.mux.HandleFunc("GET /api/mail", s.handleMailStatus)
 	s.mux.HandleFunc("POST /api/mail", s.handleMail)
+	s.mux.HandleFunc("POST /api/setup", s.handleSetup)
 	s.mux.HandleFunc("GET /api/desktop", s.handleDesktopStatus)
 	s.mux.HandleFunc("POST /api/desktop", s.handleDesktop)
 	s.mux.HandleFunc("GET /api/memory-map", s.handleMemoryMap)
@@ -682,6 +685,48 @@ func (s *Server) handleDesktopStatus(w http.ResponseWriter, r *http.Request) {
  * kind of instruction that ends with somebody not having the program in their
  * menu.
  */
+/*
+ * handleSetup opens setup on a brain that is already running.
+ *
+ * The wizard only ever appeared on a machine that was missing something, so
+ * the drive, the model and the keys were decisions you could revisit only by
+ * breaking the machine first or by finding a terminal. Neither is a way to run
+ * a program.
+ *
+ * Its own process, deliberately. Setup exists precisely for the case where
+ * what the brain needs is absent, so it cannot be served by the brain — and it
+ * carries its own window and its own little server to stay true whether the
+ * brain is running or not. Started here, that same wizard opens next to the
+ * window that asked for it.
+ *
+ * The setup path does not go through the already-running guard, which refuses
+ * a second copy on one data root and brings the first to the front instead —
+ * so this opens setup rather than merely raising this window.
+ */
+func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
+	self, err := os.Executable()
+	if err != nil {
+		fail(w, http.StatusInternalServerError,
+			"could not find this program on disk: "+err.Error())
+
+		return
+	}
+
+	cmd := exec.Command(self, "setup")
+
+	// Released rather than waited on: setup lives as long as somebody is
+	// reading it, which is far longer than this request.
+	if err := cmd.Start(); err != nil {
+		fail(w, http.StatusInternalServerError, "could not open setup: "+err.Error())
+
+		return
+	}
+
+	go func() { _ = cmd.Wait() }()
+
+	ok(w, map[string]any{"started": true})
+}
+
 func (s *Server) handleDesktop(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Remove bool `json:"remove"`

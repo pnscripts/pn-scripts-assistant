@@ -277,6 +277,42 @@ if (naming) {
  * settings file lives.
  */
 /*
+ * Opening setup from a brain that is already running.
+ *
+ * The wizard used to appear only when the machine was missing something, so
+ * every choice it asks about — the drive, the model, the keys — could be made
+ * once and never again without a terminal. The promise is that everything
+ * works from inside the program, and "everything" has to include changing your
+ * mind.
+ */
+function wireSetup() {
+    const open = el('setup-open');
+    const note = el('setup-note');
+
+    if (!open) return;
+
+    open.onclick = async () => {
+        open.disabled = true;
+
+        if (note) note.textContent = 'Opening setup…';
+
+        try {
+            await api.post('/api/setup', {});
+
+            if (note) note.textContent = 'Setup is open in its own window.';
+        } catch (err) {
+            // Named, not swallowed: a button that does nothing and says nothing
+            // is indistinguishable from a broken program.
+            if (note) note.textContent = 'Could not open setup: ' + err.message;
+        }
+
+        open.disabled = false;
+    };
+}
+
+wireSetup();
+
+/*
  * Being in the applications menu.
  *
  * A single file that runs when double-clicked is the right shape for this

@@ -36,6 +36,10 @@ type Server struct {
 	// root is where the brain will be kept, once somebody has chosen. Empty
 	// until then, which means wherever it would have gone anyway.
 	root string
+
+	// finished records that somebody pressed Continue, as opposed to closing
+	// the window. See Finished.
+	finished bool
 }
 
 func New(envPath string) (*Server, error) {
@@ -195,11 +199,31 @@ func (s *Server) Serve(onReady func()) {
 	})
 
 	mux.HandleFunc("/done", func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		s.finished = true
+		s.mu.Unlock()
+
 		s.writeJSON(w, map[string]any{"ok": true})
 		go onReady()
 	})
 
 	_ = http.Serve(s.listener, mux)
+}
+
+/*
+ * Finished reports whether setup was seen through, rather than merely closed.
+ *
+ * Closing the window and pressing Continue both end the setup server, and for
+ * a long time they were the same thing to everything downstream: the brain
+ * started either way. Which meant shutting the window on a machine with no
+ * Ollama started a brain that could not answer, with no clue why — the one
+ * failure that looks exactly like the program being broken.
+ */
+func (s *Server) Finished() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.finished
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, v any) {

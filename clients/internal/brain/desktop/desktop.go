@@ -164,7 +164,19 @@ func entryText(name, exec string) string {
 		"Categories=Utility;\n" +
 		"Keywords=assistant;brain;voice;memory;\n" +
 		"StartupNotify=true\n" +
-		"StartupWMClass=pn-brain\n"
+		"StartupWMClass=pn-brain\n" +
+		/*
+		 * Setup on the right-click menu of the icon.
+		 *
+		 * Changing the drive or the model meant a terminal, which for this
+		 * program is the same as saying it cannot be done — the icon is the
+		 * only handle most people ever have on it. A desktop action puts it
+		 * where anyone would look for it, one press from the launcher.
+		 */
+		"Actions=setup;\n" +
+		"\n[Desktop Action setup]\n" +
+		"Name=Set up again\n" +
+		"Exec=" + exec + " setup\n"
 }
 
 // refresh tells the desktop to look again.

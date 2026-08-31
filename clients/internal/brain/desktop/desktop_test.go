@@ -52,8 +52,38 @@ func TestANameCannotBreakOutOfItsLine(t *testing.T) {
 		}
 	}
 
-	if len(execs) != 1 || execs[0] != "Exec=/opt/brain" {
-		t.Errorf("a newline in the name changed what gets run: %q", execs)
+	/*
+	 * Two Exec lines are correct: the program, and the setup action beside it.
+	 * Both must name the binary this was built with and nothing else — an
+	 * injected third, or either of these rewritten, is the failure being
+	 * guarded against.
+	 */
+	want := []string{"Exec=/opt/brain", "Exec=/opt/brain setup"}
+
+	if len(execs) != len(want) {
+		t.Fatalf("a newline in the name changed what gets run: %q", execs)
+	}
+
+	for i, exec := range execs {
+		if exec != want[i] {
+			t.Errorf("exec %d is %q, want %q", i, exec, want[i])
+		}
+	}
+}
+
+// The setup action has to be declared before it is defined, or the desktop
+// ignores it — a section nothing lists is a section nothing reads.
+func TestSetupIsOfferedFromTheIcon(t *testing.T) {
+	text := entryText("PN Brain", "/opt/brain")
+
+	for _, want := range []string{
+		"Actions=setup;\n",
+		"[Desktop Action setup]\n",
+		"Exec=/opt/brain setup\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the entry is missing %q", strings.TrimSuffix(want, "\n"))
+		}
 	}
 }
 

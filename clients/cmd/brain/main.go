@@ -75,6 +75,8 @@ func main() {
 		err = runStatus(os.Args[2:])
 	case "menu":
 		err = runMenu(os.Args[2:])
+	case "setup":
+		err = runSetup(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -143,6 +145,7 @@ func usage() {
   brain drives              where the brain could live, and how much room is left
   brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
+  brain setup               choose the drive, the model and the keys again
   brain menu                put the brain in the applications menu
   brain menu --remove       take it out again
   brain import <dir>        load a Postgres export into a fresh database
@@ -591,7 +594,7 @@ func runApp(args []string) error {
 	// runs first, in its own window, and only hands over once the machine can
 	// actually run an assistant.
 	if !*skipSetup && missingEssentials() {
-		if err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
+		if err := runFirstRunSetup(config.Path(root.Path), cfg.Name, true); err != nil {
 			return err
 		}
 
@@ -910,7 +913,7 @@ func missingEssentials() bool {
 // It carries its own tiny web server because of an ordering problem: the brain
 // cannot serve a page explaining that Ollama is missing while Ollama being
 // missing is what stops the brain from starting.
-func runFirstRunSetup(settingsPath, name string) error {
+func runFirstRunSetup(settingsPath, name string, missing bool) error {
 	srv, err := setup.New(settingsPath)
 	if err != nil {
 		return fmt.Errorf("could not start setup: %w", err)
@@ -938,7 +941,19 @@ func runFirstRunSetup(settingsPath, name string) error {
 		}
 	}()
 
-	fmt.Printf("\n  This machine is missing something PN Brain needs.\n")
+	/*
+	 * Why setup is on the screen, which is not always the same reason.
+	 *
+	 * Opened deliberately to change a drive, it announced that the machine was
+	 * missing something PN Brain needs — which is alarming, wrong, and sends
+	 * somebody looking for a fault that is not there.
+	 */
+	if missing {
+		fmt.Printf("\n  This machine is missing something PN Brain needs.\n")
+	} else {
+		fmt.Printf("\n  Setup — nothing changes until you apply it at the end.\n")
+	}
+
 	fmt.Printf("  Setup: %s\n\n", srv.URL())
 
 	if !window.Available() {
@@ -947,10 +962,73 @@ func runFirstRunSetup(settingsPath, name string) error {
 		fmt.Fprintf(os.Stderr, "  %v\n\n", window.Open(srv.URL(), name+" — Setup", 900, 700))
 		<-done
 
+		return stillMissing(srv)
+	}
+
+	if err := window.Open(srv.URL(), name+" — Setup", 900, 700); err != nil {
+		return err
+	}
+
+	return stillMissing(srv)
+}
+
+/*
+ * stillMissing stops a half-set-up brain from starting as though it were ready.
+ *
+ * Closing the setup window is not the same as finishing setup, and treating it
+ * as the same started a brain with nothing to think with — which presents as a
+ * window that opens, accepts what you say, and answers nothing. The missing
+ * piece is named here instead, along with the fact that nothing was changed,
+ * because "it does not work" is the least useful thing a program can tell you
+ * about itself when it knows exactly what is wrong.
+ *
+ * Only blocking requirements count. Setup closed on a machine that is merely
+ * missing something optional is a machine that is ready.
+ */
+func stillMissing(srv *setup.Server) error {
+	if srv.Finished() {
 		return nil
 	}
 
-	return window.Open(srv.URL(), name+" — Setup", 900, 700)
+	missing := preflight.Blocking(preflight.Check())
+	if len(missing) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(missing))
+	for _, req := range missing {
+		names = append(names, req.Requirement.Name)
+	}
+
+	return fmt.Errorf("setup was closed before it finished, so nothing was changed.\n"+
+		"  Still needed: %s\n"+
+		"  Run it again with: brain setup",
+		strings.Join(names, ", "))
+}
+
+/*
+ * runSetup opens setup on a machine that does not need it.
+ *
+ * The first-run path only appears when something is missing, which left no way
+ * back in afterwards — so the drive, the model and the API key were all
+ * decisions you could make exactly once, and only on a machine that happened
+ * to be broken at the time.
+ */
+func runSetup(args []string) error {
+	fs := flag.NewFlagSet("setup", flag.ExitOnError)
+	fs.Parse(args)
+
+	root, err := paths.FindOrCreate()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Load(root.Path)
+	if err != nil {
+		return err
+	}
+
+	return runFirstRunSetup(config.Path(root.Path), cfg.Name, false)
 }
 
 func runDrives(args []string) error {

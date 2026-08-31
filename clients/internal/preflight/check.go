@@ -38,16 +38,22 @@ func Check() []Result {
 	return results
 }
 
-func BlockingCount(results []Result) int {
-	count := 0
+// Blocking returns the requirements that stop PN Brain running, so a caller
+// can name them rather than only count them.
+func Blocking(results []Result) []Result {
+	blocking := make([]Result, 0, len(results))
 
 	for _, r := range results {
 		if r.Blocking() {
-			count++
+			blocking = append(blocking, r)
 		}
 	}
 
-	return count
+	return blocking
+}
+
+func BlockingCount(results []Result) int {
+	return len(Blocking(results))
 }
 
 func fileGlobExists(pattern string) bool {
