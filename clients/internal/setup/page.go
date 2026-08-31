@@ -44,6 +44,19 @@ padding:8px 15px;cursor:pointer;background:var(--accent);color:#04191c}
    time. A row of three would put the names first and the difference last,
    which is the wrong way round: the difference is what is being chosen. */
 .models{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+
+/*
+ * Choosing marks the button; it does not restyle the row.
+ *
+ * Selected and recommended used to be drawn the same way, so picking the
+ * other option made the solid highlight jump across and read as the two
+ * swapping places — when nothing had moved. A tick and a lit border say
+ * "this one" without changing what anything else looks like.
+ */
+.pick{position:relative;padding-right:34px !important}
+.pick.chosen{border-color:var(--accent);color:var(--fg);opacity:1}
+.pick.chosen::after{content:"✓";position:absolute;right:12px;top:50%;
+  transform:translateY(-50%);color:var(--accent);font-weight:700}
 .models button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;
   text-align:left;padding:9px 12px;width:100%}
 .models button span{font-weight:400;font-size:11.5px;opacity:.72}
@@ -70,6 +83,32 @@ border-radius:7px;color:var(--text);padding:9px 11px;font:inherit;font-size:13px
 pre{background:#05080c;border:1px solid var(--line);border-radius:8px;padding:12px;
 font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre-wrap;margin:12px 0 0}
 .footer{margin-top:32px;display:flex;align-items:center;gap:12px}
+
+/*
+ * The step bar.
+ *
+ * Named rather than numbered, because "2 of 3" tells somebody where they are
+ * and not what they are being asked. The one they are on is lit; the ones
+ * behind are still readable and can be gone back to; the ones ahead are dim,
+ * because they may not all appear — a machine with one disk skips the first.
+ */
+.steps{display:flex;gap:0;list-style:none;padding:0;margin:0 0 18px;
+  font-size:12px;flex-wrap:wrap}
+
+/* What will happen, numbered in the order it happens. */
+.plan{margin:0 0 14px;padding-left:20px;font-size:13px;line-height:1.7}
+.plan li{color:var(--fg)}
+.steps li{padding:5px 12px;border-bottom:2px solid var(--line);color:var(--dim);
+  transition:color .15s,border-color .15s}
+.steps li[data-state="now"]{color:var(--fg);border-bottom-color:var(--accent)}
+.steps li[data-state="done"]{color:var(--dim);border-bottom-color:var(--accent);
+  opacity:.75}
+.steps li[data-state="done"]:hover{color:var(--fg)}
+.steps li[data-state="later"]{opacity:.5}
+
+/* One step at a time, so the page is never longer than the decision on it. */
+.step h2{margin-top:0}
+.step .sub{margin-bottom:10px}
 .status{color:var(--dim);font-size:12.5px}
 .err{color:var(--danger);font-size:12.5px;margin-top:6px}
 .ask{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:26px}
@@ -100,22 +139,46 @@ padding:4px 11px;font-size:11.5px;cursor:pointer}
 
   <div class="machine" id="machine">checking your machine…</div>
 
-  <h2>Requirements</h2>
-  <div id="reqs"></div>
+  <!-- Setup as steps, in the order the decisions actually depend on each
+       other: where it lives, what it thinks with, what has to be installed,
+       and what is optional. Each carries what somebody needs to decide, which
+       is the part a list of checkboxes leaves out. -->
+  <ol class="steps" id="steps"></ol>
 
-  <!-- Where it keeps itself. Asked now because this is the moment it is
-       cheap: moving later copies everything it has learned and deletes the
-       original, on a drive that might be unplugged half way through. -->
-  <div id="drive-section"></div>
+  <div class="step" id="step-where">
+    <h2>Where to keep it</h2>
+    <p class="sub">Everything PN Brain learns — what you tell it, what it reads,
+      every conversation — lives in one folder. Nothing else on your computer is
+      touched, and deleting that folder removes the brain completely.</p>
+    <p class="sub">Choosing now is free. Moving it later copies the lot and
+      deletes the original, which takes a while and is risky on a drive that
+      might be unplugged.</p>
+    <div id="drive-section"></div>
+  </div>
 
-  <div id="brain-section"></div>
+  <div class="step" id="step-brain" hidden>
+    <div id="brain-section"></div>
+  </div>
 
-  <!-- The questions come after the work, and closed.
-       They were at the top and open, which put a paragraph of written
-       answers and a suggestion list between somebody and the buttons
-       they came to press. The answers are worth having: a ten-minute
-       download is exactly when somebody has questions and nothing to
-       ask. They are just not what the page is for. -->
+  <div class="step" id="step-needs" hidden>
+    <h2>What it needs</h2>
+    <p class="sub">These are the pieces PN Brain runs on. Each one says what it
+      is for and what stops working without it. Setup installs them for you —
+      nothing here needs a terminal.</p>
+    <div id="reqs"></div>
+  </div>
+
+  <div class="step" id="step-apply" hidden>
+    <h2>Ready</h2>
+    <p class="sub">Nothing has been installed yet. Here is what will happen when
+      you start — it downloads several gigabytes, so it is worth a look before
+      you begin.</p>
+    <div id="plan"></div>
+  </div>
+
+  <!-- The questions stay at the bottom, closed, on every step. A several
+       gigabyte download is exactly when somebody has questions and nothing to
+       ask; it is just not what the page is for. -->
   <details class="ask">
     <summary>Questions about any of this?</summary>
     <p class="ask-note">A short list of written answers, not the assistant —
@@ -131,8 +194,10 @@ padding:4px 11px;font-size:11.5px;cursor:pointer}
   <pre id="log" hidden></pre>
 
   <div class="footer">
+    <button id="back" class="ghost" hidden>Back</button>
     <span class="status" id="status"></span>
     <span class="spacer"></span>
+    <button id="next" hidden>Next</button>
     <button id="continue" disabled>Continue to PN Brain</button>
   </div>
 </div>
@@ -213,14 +278,21 @@ function renderRequirements(state){
      * "Install" beside a tick would read as though something were wrong.
      */
     if (r.installable){
+      /*
+       * Chosen now, done at the end.
+       *
+       * The button used to install the moment it was pressed, which made every
+       * decision on this page final as soon as it was made. Adding to a list
+       * instead means somebody can pick four things, look at what that adds up
+       * to, and take one back out.
+       */
+      const chosen = planned.has(r.name);
+
       const b = document.createElement("button");
       b.textContent = ok ? "Update" : "Install";
-      // ghost, which this page already uses for the quieter action: an
-      // update is not urgent, and a button identical to the one beside a
-      // missing part would say that it was.
-      b.className = ok ? "ghost" : "";
+      b.className = "ghost pick" + (chosen ? " chosen" : "");
       b.disabled = busy;
-      b.onclick = () => install(r.name);
+      b.onclick = () => plan(r.name, (ok ? "Update " : "Install ") + r.name);
       row.appendChild(b);
     }
 
@@ -243,17 +315,13 @@ function renderDriveChoice(state){
   const drives = state.drives || [];
   if (drives.length < 2) return;
 
-  const h = document.createElement("h2");
-  h.textContent = "Where to keep it";
-  box.appendChild(h);
-
-  const note = document.createElement("p");
-  note.className = "sub";
-  note.style.marginBottom = "10px";
-  note.textContent = "Everything it learns lives in one folder. Choosing now is free; "
-    + "moving it later copies the lot and deletes the original.";
-  box.appendChild(note);
-
+  /*
+   * No heading here.
+   *
+   * The step this sits in already has one, and the explanation above it. Both
+   * were printed, so the page said "Where to keep it" twice with two versions
+   * of the same paragraph between them.
+   */
   const list = document.createElement("div");
   list.className = "models";
 
@@ -261,7 +329,7 @@ function renderDriveChoice(state){
     const chosen = state.chosen_drive === d.path;
 
     const b = document.createElement("button");
-    b.className = chosen ? "" : "ghost";
+    b.className = "ghost pick" + (chosen ? " chosen" : "");
     b.disabled = busy;
     b.onclick = async () => {
       const res = await fetch("/choose-drive", {
@@ -355,13 +423,41 @@ function renderBrainChoice(state){
     pick.className = "models";
 
     options.forEach(o => {
+      const chosen = planned.has("model:" + o.model);
+
+      /*
+       * Chosen and recommended are different things and must look it.
+       *
+       * Both used to be drawn as the solid button, so picking the other one
+       * made the highlight jump across and read as the two swapping places —
+       * when nothing had moved and only the selection had changed.
+       * Recommended is a fact about this machine and stays where it is;
+       * chosen is a state of the button and is marked on the button.
+       */
       const b = document.createElement("button");
-      b.className = o.recommended ? "" : "ghost";
+      b.className = "ghost pick" + (chosen ? " chosen" : "");
       b.disabled = busy;
-      b.onclick = () => pullModel(o.model);
+      b.onclick = () => {
+        // One model, not four: choosing another replaces the last.
+        [...planned.keys()]
+          .filter(k => k.startsWith("model:"))
+          .forEach(k => planned.delete(k));
+
+        if (!chosen) planned.set("model:" + o.model, "Download " + o.model + " (" + o.size + ")");
+
+        refresh();
+      };
 
       const name = document.createElement("strong");
       name.textContent = o.label;
+
+      if (o.recommended){
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = "recommended";
+        name.appendChild(tag);
+      }
+
       b.appendChild(name);
 
       const detail = document.createElement("span");
@@ -492,6 +588,156 @@ async function pullModel(model){
   refresh();
 }
 
+/*
+ * Setup as steps, in the order the decisions depend on each other.
+ *
+ * Where it lives comes first, because everything after it is written there and
+ * a choice made afterwards means moving gigabytes rather than naming a folder.
+ * Then what it thinks with, then what has to be installed to run that — the
+ * last of which is the only step somebody cannot answer without the first two.
+ *
+ * A step with nothing to decide is left out rather than shown empty: on a
+ * machine with one disk, "where to keep it" is a question with one answer, and
+ * a step that answers itself is a click that teaches nobody anything.
+ */
+const STEPS = [
+  {id: "where", title: "Where to keep it",
+   shown: st => (st.drives || []).length > 1},
+  {id: "brain", title: "Its brain", shown: () => true},
+  {id: "needs", title: "What it needs", shown: () => true},
+  {id: "apply", title: "Ready", shown: () => true},
+];
+
+/*
+ * What has been chosen but not yet done.
+ *
+ * Setup collects decisions and the last step carries them out, rather than
+ * each button acting the moment it is pressed. Somebody picking a drive, a
+ * model and two optional pieces should be able to change their mind about any
+ * of them without having already downloaded five gigabytes of the first
+ * answer.
+ */
+const planned = new Map();
+
+function plan(name, describe){
+  if (planned.has(name)) planned.delete(name);
+  else planned.set(name, describe);
+
+  refresh();
+}
+
+/*
+ * renderPlan lists what will happen, in the order it will happen.
+ *
+ * Ordered by dependency rather than by when it was chosen: a model cannot be
+ * downloaded before the thing that runs models exists, and a list that reads
+ * in a different order from the one it runs in would make a failure halfway
+ * through impossible to follow.
+ */
+function renderPlan(state){
+  const box = el("plan");
+  box.textContent = "";
+
+  const missing = (state.requirements || [])
+    .filter(r => r.state !== "ok" && !r.optional)
+    .map(r => r.name);
+
+  const order = [...planned.keys()].sort((a, b) => {
+    const rank = n => n.startsWith("model:") ? 2 : (missing.includes(n) ? 0 : 1);
+
+    return rank(a) - rank(b);
+  });
+
+  if (state.chosen_drive){
+    const where = document.createElement("p");
+    where.className = "sub";
+    where.textContent = "It will keep itself in " + state.chosen_drive;
+    box.appendChild(where);
+  }
+
+  if (!order.length){
+    const none = document.createElement("p");
+    none.className = "sub";
+    none.textContent = "Nothing left to install. You can go straight in.";
+    box.appendChild(none);
+
+    return;
+  }
+
+  const list = document.createElement("ol");
+  list.className = "plan";
+
+  order.forEach(name => {
+    const li = document.createElement("li");
+    li.textContent = planned.get(name);
+    list.appendChild(li);
+  });
+
+  box.appendChild(list);
+
+  const go = document.createElement("button");
+  go.textContent = "Install all of it";
+  go.disabled = busy;
+  go.onclick = async () => {
+    busy = true;
+    el("log").hidden = false;
+    await fetch("/apply", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({steps: order}),
+    });
+    refresh();
+  };
+
+  box.appendChild(go);
+}
+
+let step = 0;
+
+function visibleSteps(state){ return STEPS.filter(s => s.shown(state)); }
+
+function renderSteps(state){
+  const shown = visibleSteps(state);
+
+  if (step >= shown.length) step = shown.length - 1;
+  if (step < 0) step = 0;
+
+  const bar = el("steps");
+  bar.textContent = "";
+
+  shown.forEach((s, i) => {
+    const li = document.createElement("li");
+    li.textContent = s.title;
+    li.dataset.state = i === step ? "now" : (i < step ? "done" : "later");
+
+    // Going back is allowed; skipping ahead is not, because a later step
+    // depends on the answer to an earlier one.
+    if (i < step){
+      li.onclick = () => { step = i; refresh(); };
+      li.style.cursor = "pointer";
+    }
+
+    bar.appendChild(li);
+  });
+
+  STEPS.forEach(s => {
+    const box = el("step-" + s.id);
+    const at = shown[step];
+
+    box.hidden = !at || at.id !== s.id;
+  });
+
+  const back = el("back");
+  const next = el("next");
+
+  back.hidden = step === 0;
+  next.hidden = step >= shown.length - 1;
+  next.disabled = busy;
+}
+
+el("back").onclick = () => { step -= 1; refresh(); };
+el("next").onclick = () => { step += 1; refresh(); };
+
 async function refresh(){
   const state = await get("/state");
   busy = state.busy;
@@ -500,6 +746,8 @@ async function refresh(){
   renderRequirements(state);
   renderDriveChoice(state);
   renderBrainChoice(state);
+  renderPlan(state);
+  renderSteps(state);
 
   if (state.log){
     el("log").hidden = false;

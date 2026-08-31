@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"pn-brain/internal/brain/paths"
 	"pn-brain/internal/brain/storage"
+	"sort"
 	"strings"
 	"sync"
 
@@ -94,6 +95,34 @@ func (s *Server) Serve(onReady func()) {
 	 * so choosing a drive and then changing your mind leaves nothing behind
 	 * on the first one.
 	 */
+	/*
+	 * Do everything that was chosen, in one go.
+	 *
+	 * Setup collects decisions and this carries them out, rather than each
+	 * button acting the moment it is pressed. Somebody picking a drive, a
+	 * model and two optional pieces should be able to change their mind about
+	 * any of them without having already downloaded five gigabytes of the
+	 * first answer.
+	 *
+	 * In the order given, and it stops at the first failure: installing a
+	 * model before Ollama exists produces a confusing error about a command
+	 * not being found, where stopping produces the real one.
+	 */
+	mux.HandleFunc("/apply", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Steps []string `json:"steps"`
+		}
+
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+
+			return
+		}
+
+		go s.applyAll(body.Steps)
+		s.writeJSON(w, map[string]any{"started": true})
+	})
+
 	mux.HandleFunc("/choose-drive", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Path string `json:"path"`
@@ -471,10 +500,34 @@ const DataFolder = "PN-BRAIN-DATA"
  * on the hundredth.
  */
 func (s *Server) drives() []map[string]any {
-	found, err := storage.Drives(s.chosenRoot())
+	/*
+	 * Asked without telling it what is chosen, so the order never moves.
+	 *
+	 * storage.Drives sorts the current drive first, which is right inside the
+	 * running program — it is showing where the brain is. Here it is offering
+	 * a choice, and a list that re-sorts when you pick from it makes the
+	 * buttons appear to swap places under the cursor. Nothing had moved except
+	 * which one was current.
+	 */
+	found, err := storage.Drives("")
 	if err != nil {
 		return nil
 	}
+
+	/*
+	 * The system disk first, then the rest by room.
+	 *
+	 * A fixed order, and one that puts the answer most people want at the top
+	 * — the drive that is always there — while still showing that a bigger one
+	 * exists underneath it.
+	 */
+	sort.SliceStable(found, func(i, j int) bool {
+		if (found[i].MountPoint == "/") != (found[j].MountPoint == "/") {
+			return found[i].MountPoint == "/"
+		}
+
+		return found[i].FreeBytes > found[j].FreeBytes
+	})
 
 	out := make([]map[string]any, 0, len(found))
 
@@ -641,4 +694,99 @@ func (s *Server) ChosenRoot() string {
 	defer s.mu.Unlock()
 
 	return s.root
+}
+
+/*
+ * applyAll carries out everything setup was asked for, in order.
+ *
+ * One goroutine rather than several, because these compete for the same
+ * network and the same disk: two model downloads at once on a domestic
+ * connection finish later than the same two in sequence, and the log they
+ * write into would interleave into something nobody could read.
+ */
+func (s *Server) applyAll(steps []string) {
+	s.mu.Lock()
+
+	if s.busy {
+		s.mu.Unlock()
+
+		return
+	}
+
+	s.busy = true
+	s.log.Reset()
+	s.mu.Unlock()
+
+	defer func() {
+		s.mu.Lock()
+		s.busy = false
+		s.mu.Unlock()
+	}()
+
+	w := &syncWriter{s: s}
+
+	for i, name := range steps {
+		fmt.Fprintf(w, "\n[%d of %d] %s\n", i+1, len(steps), readableStep(name))
+
+		if !s.runOne(name, w) {
+			fmt.Fprint(w, "\nStopped here. Nothing after this was attempted.\n")
+
+			return
+		}
+	}
+
+	fmt.Fprint(w, "\nAll done.\n")
+}
+
+// readableStep names a step the way somebody would say it.
+func readableStep(name string) string {
+	if model, ok := strings.CutPrefix(name, modelPrefix); ok {
+		if model == "" {
+			return "Downloading the language model"
+		}
+
+		return "Downloading " + model
+	}
+
+	return "Installing " + name
+}
+
+// runOne does a single step and reports whether it worked.
+func (s *Server) runOne(name string, w io.Writer) bool {
+	if model, ok := strings.CutPrefix(name, modelPrefix); ok {
+		if model == "" {
+			model = preflight.RecommendModel(preflight.DetectHardware()).Model
+		}
+
+		req := preflight.Requirement{
+			Name:       "model",
+			InstallCmd: func() []string { return []string{"ollama", "pull", model} },
+		}
+
+		if err := preflight.Install(req, w); err != nil {
+			fmt.Fprintf(w, "\nFailed: %v\n", err)
+
+			return false
+		}
+
+		return true
+	}
+
+	for _, r := range preflight.Check() {
+		if r.Requirement.Name != name {
+			continue
+		}
+
+		if err := preflight.Install(r.Requirement, w); err != nil {
+			fmt.Fprintf(w, "\nFailed: %v\n", err)
+
+			return false
+		}
+
+		return true
+	}
+
+	fmt.Fprintf(w, "\nNothing here is called %q.\n", name)
+
+	return false
 }
