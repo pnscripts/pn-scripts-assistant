@@ -23,3 +23,14 @@ func TestBlockingNamesOnlyWhatStops(t *testing.T) {
 			BlockingCount(results), len(blocking))
 	}
 }
+
+// Setup asks somebody to agree to installing these, so every one of them has
+// to be able to say where it is going. A requirement added without a Where is
+// one the page has to describe as happening somewhere unspecified.
+func TestEveryRequirementSaysWhereItGoes(t *testing.T) {
+	for _, req := range Requirements() {
+		if req.Location() == "" {
+			t.Errorf("%s does not say where it goes", req.Name)
+		}
+	}
+}

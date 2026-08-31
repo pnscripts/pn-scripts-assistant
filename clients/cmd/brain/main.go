@@ -594,7 +594,7 @@ func runApp(args []string) error {
 	// runs first, in its own window, and only hands over once the machine can
 	// actually run an assistant.
 	if !*skipSetup && missingEssentials() {
-		if err := runFirstRunSetup(config.Path(root.Path), cfg.Name, true); err != nil {
+		if err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
 			return err
 		}
 
@@ -913,7 +913,7 @@ func missingEssentials() bool {
 // It carries its own tiny web server because of an ordering problem: the brain
 // cannot serve a page explaining that Ollama is missing while Ollama being
 // missing is what stops the brain from starting.
-func runFirstRunSetup(settingsPath, name string, missing bool) error {
+func runFirstRunSetup(settingsPath, name string) error {
 	srv, err := setup.New(settingsPath)
 	if err != nil {
 		return fmt.Errorf("could not start setup: %w", err)
@@ -948,10 +948,15 @@ func runFirstRunSetup(settingsPath, name string, missing bool) error {
 	 * missing something PN Brain needs — which is alarming, wrong, and sends
 	 * somebody looking for a fault that is not there.
 	 */
-	if missing {
-		fmt.Printf("\n  This machine is missing something PN Brain needs.\n")
+	if blocking := preflight.Blocking(preflight.Check()); len(blocking) > 0 {
+		names := make([]string, 0, len(blocking))
+		for _, req := range blocking {
+			names = append(names, req.Requirement.Name)
+		}
+
+		fmt.Printf("\n  Still needed: %s\n", strings.Join(names, ", "))
 	} else {
-		fmt.Printf("\n  Setup — nothing changes until you apply it at the end.\n")
+		fmt.Printf("\n  Everything needed is already here.\n")
 	}
 
 	fmt.Printf("  Setup: %s\n\n", srv.URL())
@@ -1028,7 +1033,7 @@ func runSetup(args []string) error {
 		return err
 	}
 
-	return runFirstRunSetup(config.Path(root.Path), cfg.Name, false)
+	return runFirstRunSetup(config.Path(root.Path), cfg.Name)
 }
 
 func runDrives(args []string) error {

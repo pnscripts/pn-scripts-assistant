@@ -19,7 +19,13 @@ const setupPage = `<!doctype html>
 <title>PN Brain — Setup</title>
 <style>
 :root{--bg:#070a0f;--raised:#0d1219;--input:#111823;--line:#1b2634;--text:#d6dee8;
---dim:#7d8b9c;--faint:#4a5769;--accent:#4dd0e1;--warn:#f0b26b;--danger:#e06c75;--ok:#7bc47f}
+--dim:#7d8b9c;--faint:#4a5769;--accent:#4dd0e1;--warn:#f0b26b;--danger:#e06c75;--ok:#7bc47f;
+/* Three of these were used and never defined, which is why the service picker
+   came out as a white native control on a black page: an undefined variable
+   makes the whole declaration invalid, so the background was never set at all
+   and WebKit drew its own. --fg is the bright end of --text, --card the panel
+   the picker sits on, --accent-dim the accent at rest. */
+--fg:#eaf1f8;--card:#0d1219;--accent-dim:#1f6b75}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 -webkit-font-smoothing:antialiased}
@@ -62,9 +68,24 @@ padding:8px 15px;cursor:pointer;background:var(--accent);color:#04191c}
 .models button span{font-weight:400;font-size:11.5px;opacity:.72}
 
 /* The service picker sits above its key field and explains where to get one. */
-select{font:inherit;font-size:13px;padding:7px 9px;border-radius:7px;
-  background:var(--card);color:var(--fg);border:1px solid var(--line);
-  width:100%;margin-bottom:6px}
+/*
+ * appearance:none, or none of the rest of this applies.
+ *
+ * WebKit draws a select with the platform's own control unless told not to,
+ * and the platform's own control here is a light one — so the picker stayed
+ * white however dark the page around it was told to be. The arrow is drawn
+ * back in as a background image, since removing the appearance removes that
+ * too.
+ */
+select{font:inherit;font-size:13px;padding:8px 30px 8px 11px;border-radius:7px;
+  background:var(--input);color:var(--text);border:1px solid var(--line);
+  width:100%;margin-bottom:6px;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237d8b9c' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 11px center}
+select:focus,input[type=text]:focus,input[type=password]:focus{
+  outline:none;border-color:var(--accent)}
+select option{background:var(--input);color:var(--text)}
+input::placeholder{color:var(--faint)}
 button:hover:not(:disabled){filter:brightness(1.13)}
 button:disabled{opacity:.4;cursor:default}
 button.ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
@@ -78,6 +99,22 @@ background:var(--input);border:1px solid var(--line);border-radius:8px;padding:1
 .tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#04191c;
 background:var(--accent);border-radius:9px;padding:2px 8px;margin-left:8px;vertical-align:2px}
 .pros{color:var(--dim);font-size:12.5px;margin:7px 0 13px}
+.gate{color:var(--warn);font-size:12.5px;margin:18px 0 0}
+.folder-h{font-size:13px;margin:22px 0 5px;color:var(--dim);font-weight:600}
+.folder-row{display:flex;gap:8px;align-items:flex-start}
+.folder-row input{flex:1;margin-bottom:0}
+.folder-row button{white-space:nowrap}
+.overview{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.ov-row{display:flex;gap:14px;padding:9px 13px;border-bottom:1px solid var(--line);
+  align-items:baseline}
+.ov-row:last-child{border-bottom:none}
+.ov-what{flex:0 0 42%;font-size:12.5px;color:var(--dim)}
+.ov-strong{color:var(--fg);font-weight:600}
+.ov-where{flex:1;font-family:ui-monospace,monospace;font-size:11.5px;
+  color:var(--faint);word-break:break-all}
+.ov-note{color:var(--dim);font-size:12px;line-height:1.5;margin:0 0 14px}
+.where{color:var(--faint);font-size:11.5px;margin-top:3px;
+  font-family:ui-monospace,monospace;word-break:break-all}
 input[type=password],input[type=text]{width:100%;background:var(--input);border:1px solid var(--line);
 border-radius:7px;color:var(--text);padding:9px 11px;font:inherit;font-size:13px;margin-bottom:9px}
 pre{background:#05080c;border:1px solid var(--line);border-radius:8px;padding:12px;
@@ -111,25 +148,6 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 .step .sub{margin-bottom:10px}
 .status{color:var(--dim);font-size:12.5px}
 .err{color:var(--danger);font-size:12.5px;margin-top:6px}
-.ask{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:26px}
-/* Closed it is one quiet line; open it is what it always was. */
-.ask summary{cursor:pointer;font-size:12.5px;color:var(--dim);padding:2px 0;
-  list-style:none}
-.ask summary::-webkit-details-marker{display:none}
-.ask summary::before{content:"› ";opacity:.7}
-.ask[open] summary::before{content:"⌄ "}
-.ask summary:hover{color:var(--fg)}
-.ask-note{color:var(--dim);font-size:12px;margin:0 0 12px;line-height:1.45}
-#ask-form{display:flex;gap:8px}
-#ask-form input{flex:1;margin-bottom:0}
-#ask-log{margin-bottom:11px}
-.qa{margin-bottom:13px}
-.qa .q{font-size:12.5px;color:var(--faint);margin:0 0 4px}
-.qa .a{font-size:13px;white-space:pre-wrap;margin:0;line-height:1.5}
-#ask-suggestions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px}
-.chip{background:var(--input);border:1px solid var(--line);color:var(--dim);border-radius:14px;
-padding:4px 11px;font-size:11.5px;cursor:pointer}
-.chip:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
@@ -154,6 +172,7 @@ padding:4px 11px;font-size:11.5px;cursor:pointer}
       deletes the original, which takes a while and is risky on a drive that
       might be unplugged.</p>
     <div id="drive-section"></div>
+    <div id="folder-section"></div>
   </div>
 
   <div class="step" id="step-brain" hidden>
@@ -163,42 +182,31 @@ padding:4px 11px;font-size:11.5px;cursor:pointer}
   <div class="step" id="step-needs" hidden>
     <h2>What it needs</h2>
     <p class="sub">These are the pieces PN Brain runs on. Each one says what it
-      is for and what stops working without it. Setup installs them for you —
-      nothing here needs a terminal.</p>
+      is for, what stops working without it, and where it goes on this machine.
+      Setup installs them for you — nothing here needs a terminal.</p>
     <div id="reqs"></div>
   </div>
 
   <div class="step" id="step-apply" hidden>
     <h2>Ready</h2>
-    <p class="sub">Nothing has been installed yet. Here is what will happen when
-      you start — it downloads several gigabytes, so it is worth a look before
-      you begin.</p>
+    <p class="sub">Nothing has been installed or changed yet. Everything below
+      is what will happen when you press Apply — every folder that gets made,
+      every piece that gets installed and where it lands, and every download
+      with its size. Read it before you agree to it.</p>
+    <div id="overview"></div>
     <div id="plan"></div>
   </div>
 
-  <!-- The questions stay at the bottom, closed, on every step. A several
-       gigabyte download is exactly when somebody has questions and nothing to
-       ask; it is just not what the page is for. -->
-  <details class="ask">
-    <summary>Questions about any of this?</summary>
-    <p class="ask-note">A short list of written answers, not the assistant —
-      that arrives when setup finishes.</p>
-    <div id="ask-log"></div>
-    <div id="ask-suggestions"></div>
-    <form id="ask-form">
-      <input type="text" id="ask-input" placeholder="Ask about setup…" autocomplete="off">
-      <button type="submit">Ask</button>
-    </form>
-  </details>
-
   <pre id="log" hidden></pre>
+
+  <p class="gate" id="gate" hidden></p>
 
   <div class="footer">
     <button id="back" class="ghost" hidden>Back</button>
     <span class="status" id="status"></span>
     <span class="spacer"></span>
     <button id="next" hidden>Next</button>
-    <button id="continue" disabled>Continue to PN Brain</button>
+    <button id="continue" hidden disabled>Continue to PN Brain</button>
   </div>
 </div>
 
@@ -247,6 +255,22 @@ function renderRequirements(state){
     why.className = "why";
     why.textContent = r.why;
     body.appendChild(why);
+
+    /*
+     * Where it is, or where it is about to go.
+     *
+     * Setup asks somebody to agree to installing things on their own machine
+     * and named none of the places any of it would land. Shown for the
+     * installed ones too, because "where is it?" is a question this program is
+     * supposed to answer from inside itself rather than send somebody to a
+     * terminal to work out.
+     */
+    if (r.where){
+      const wh = document.createElement("div");
+      wh.className = "where";
+      wh.textContent = (ok ? "Installed at " : "Will go to ") + r.where;
+      body.appendChild(wh);
+    }
 
     if (!ok){
       const c = document.createElement("div");
@@ -362,6 +386,97 @@ function renderDriveChoice(state){
   box.appendChild(list);
 }
 
+/*
+ * And the exact folder, for somebody who has one in mind.
+ *
+ * The drive buttons pick a folder per drive, which is the right default and
+ * was until now the only possibility. Somebody who keeps everything under one
+ * directory has a place they want this, and the page gave them no way to say
+ * so — the answer to "can I choose where on the drive?" was no, for no reason
+ * other than that nothing asked.
+ */
+function renderFolderChoice(state){
+  const box = el("folder-section");
+  if (!box) return;
+
+  if (box.dataset.ready === "1"){
+    // Only the parts that follow the state; the field is left alone so it does
+    // not fight whoever is typing in it.
+    const shown = el("folder-current");
+    if (shown) shown.textContent = state.chosen_drive || "";
+
+    return;
+  }
+
+  box.dataset.ready = "1";
+  box.textContent = "";
+
+  const h = document.createElement("h3");
+  h.className = "folder-h";
+  h.textContent = "Or somewhere else entirely";
+  box.appendChild(h);
+
+  const note = document.createElement("p");
+  note.className = "sub";
+  note.textContent = "Give a full path. It is checked before it is accepted, so a "
+    + "folder that cannot be written to is refused here rather than half way "
+    + "through installing.";
+  box.appendChild(note);
+
+  const now = document.createElement("p");
+  now.className = "where";
+  now.id = "folder-current";
+  now.textContent = state.chosen_drive || "";
+  box.appendChild(now);
+
+  const row = document.createElement("div");
+  row.className = "folder-row";
+
+  const field = document.createElement("input");
+  field.type = "text";
+  field.id = "folder-input";
+  field.placeholder = state.chosen_drive || "/path/to/a/folder";
+  field.autocomplete = "off";
+
+  const use = document.createElement("button");
+  use.className = "ghost";
+  use.textContent = "Use this folder";
+
+  const err = document.createElement("p");
+  err.className = "err";
+  err.hidden = true;
+
+  use.onclick = async () => {
+    const path = field.value.trim();
+    if (!path) return;
+
+    use.disabled = true;
+    err.hidden = true;
+
+    const res = await fetch("/choose-folder", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({path})
+    }).then(r => r.json());
+
+    use.disabled = false;
+
+    if (!res.ok){
+      err.textContent = res.error;
+      err.hidden = false;
+
+      return;
+    }
+
+    field.value = "";
+    refresh();
+  };
+
+  field.onkeydown = e => { if (e.key === "Enter"){ e.preventDefault(); use.onclick(); } };
+
+  row.append(field, use);
+  box.append(row, err);
+}
+
 function renderBrainChoice(state){
   const box = el("brain-section");
   box.textContent = "";
@@ -385,20 +500,22 @@ function renderBrainChoice(state){
   local.className = "choice" + (state.hardware.can_local ? " rec" : "");
   const lh = document.createElement("h3");
   lh.textContent = "Run it locally";
-  if (state.hardware.can_local){
-    const t = document.createElement("span");
-    t.className = "tag";
-    t.textContent = "recommended";
-    lh.appendChild(t);
-  }
   local.appendChild(lh);
+
+  /*
+   * The word "recommended" appears once on this page.
+   *
+   * It was on the card and again on the model inside it, which read as the
+   * same recommendation made twice and left it unclear which of the two was
+   * being recommended. The card is marked by its lit border, which is what the
+   * border was for; the badge belongs on the thing that is actually pressed.
+   */
 
   const lp = document.createElement("p");
   lp.className = "pros";
   lp.textContent = state.hardware.can_local
-    ? "Free, private, works offline. Suggested for your machine: "
-      + state.recommended_model.model + " (" + state.recommended_model.size + ") — "
-      + state.recommended_model.speed + "."
+    ? "Free, private, works offline. Nothing you say leaves this computer, and "
+      + "it keeps working with the network unplugged."
     : "Your machine has " + state.hardware.ram_gb + "GB of RAM, which is really too "
       + "little to run a model well. It would work, but slowly enough to be frustrating.";
   local.appendChild(lp);
@@ -483,12 +600,6 @@ function renderBrainChoice(state){
   api.className = "choice" + (state.hardware.can_local ? "" : " rec");
   const ah = document.createElement("h3");
   ah.textContent = "Use a paid API";
-  if (!state.hardware.can_local){
-    const t = document.createElement("span");
-    t.className = "tag";
-    t.textContent = "recommended";
-    ah.appendChild(t);
-  }
   api.appendChild(ah);
 
   const ap = document.createElement("p");
@@ -600,12 +711,73 @@ async function pullModel(model){
  * machine with one disk, "where to keep it" is a question with one answer, and
  * a step that answers itself is a click that teaches nobody anything.
  */
+/*
+ * The steps, and what each one will not let you leave without.
+ *
+ * "blocks" returns why the step is not finished, or "" when it is. Setup used
+ * to let somebody walk to the end having answered nothing, and then fail at
+ * Apply — which asks four questions, ignores whether they were answered, and
+ * reports the problem at the point where it is most expensive to discover.
+ *
+ * Only genuinely required things block. The optional pieces are optional, and
+ * a step that insisted on them would be lying about the word.
+ */
 const STEPS = [
   {id: "where", title: "Where to keep it",
-   shown: st => (st.drives || []).length > 1},
-  {id: "brain", title: "Its brain", shown: () => true},
-  {id: "needs", title: "What it needs", shown: () => true},
-  {id: "apply", title: "Ready", shown: () => true},
+   shown: st => (st.drives || []).length > 1,
+   /*
+    * Never blocks: there is always a sensible default, and the step exists to
+    * let somebody change it rather than to demand an answer they may not have
+    * an opinion about.
+    */
+   blocks: () => ""},
+
+  {id: "brain", title: "Its brain", shown: () => true,
+   blocks: st => {
+     // A model to think with, from somewhere. Either a local one that is
+     // installed or about to be, or a key for a paid service.
+     const localPlanned = [...planned.keys()].some(k => k.startsWith("model:"));
+     const localHere = (st.requirements || [])
+       .some(r => r.name === "Chat model" && r.state === "ok");
+
+     if (localPlanned || localHere || st.has_api_key) return "";
+
+     return "Choose a model to run here, or save a key for a paid API.";
+   }},
+
+  {id: "needs", title: "What it needs", shown: () => true,
+   blocks: st => {
+     /*
+      * Everything that blocks has to be either present or chosen.
+      *
+      * Not installed — chosen. Nothing installs until Apply, so the question
+      * this step asks is whether the plan covers what is missing, and the
+      * answer to "you have not dealt with Ollama" should arrive here rather
+      * than three steps later.
+      */
+     const localPlanned = [...planned.keys()].some(k => k.startsWith("model:"));
+
+     const unhandled = (st.requirements || []).filter(r => {
+       if (r.optional || r.state === "ok" || planned.has(r.name)) return false;
+
+       /*
+        * The model chosen on the previous step is the chat model.
+        *
+        * They are the same download under two names, so asking for it again
+        * here reads as the page having forgotten the answer — and pressing
+        * Install would queue the same several gigabytes twice.
+        */
+       if (r.name === "Chat model" && localPlanned) return false;
+
+       return true;
+     });
+
+     if (!unhandled.length) return "";
+
+     return "Still to deal with: " + unhandled.map(r => r.name).join(", ") + ".";
+   }},
+
+  {id: "apply", title: "Ready", shown: () => true, blocks: () => ""},
 ];
 
 /*
@@ -634,6 +806,82 @@ function plan(name, describe){
  * in a different order from the one it runs in would make a failure halfway
  * through impossible to follow.
  */
+/*
+ * The whole picture, before anybody agrees to it.
+ *
+ * The last step listed what would be installed and nothing about where any of
+ * it would land — so the thing being agreed to was "install four pieces,
+ * somewhere". This says where the brain's own folder goes, where each piece
+ * goes, and which of them ignore the drive that was chosen.
+ *
+ * That last part matters and is easy to get wrong: the models are by far the
+ * largest download here and they go to ollama's own directory whatever drive
+ * the brain was put on. Somebody who moved the brain to a big disk
+ * specifically to hold them would otherwise find that out afterwards.
+ */
+function renderOverview(state){
+  const box = el("overview");
+  box.textContent = "";
+
+  const rows = [];
+
+  rows.push(["Everything it learns", state.chosen_drive || "the default folder", true]);
+
+  const willInstall = (state.requirements || []).filter(r => planned.has(r.name));
+  const already = (state.requirements || []).filter(
+    r => !planned.has(r.name) && r.state === "ok" && r.where);
+
+  willInstall.forEach(r => rows.push([r.name + " — will be installed", r.where || "—", false]));
+  already.forEach(r => rows.push([r.name + " — already here", r.where || "—", false]));
+
+  const models = [...planned.entries()].filter(([k]) => k.startsWith("model:"));
+
+  models.forEach(([, describe]) => rows.push([describe, state.model_dir || "ollama's own folder", false]));
+
+  const table = document.createElement("div");
+  table.className = "overview";
+
+  rows.forEach(([what, where, strong]) => {
+    const line = document.createElement("div");
+    line.className = "ov-row";
+
+    const a = document.createElement("div");
+    a.className = "ov-what" + (strong ? " ov-strong" : "");
+    a.textContent = what;
+
+    const b = document.createElement("div");
+    b.className = "ov-where";
+    b.textContent = where;
+
+    line.append(a, b);
+    table.appendChild(line);
+  });
+
+  box.appendChild(table);
+
+  /*
+   * Said plainly, because it contradicts what the first step implies.
+   *
+   * "Where to keep it" reads as though it governs everything setup is about
+   * to put on the machine, and for the models it does not.
+   */
+  if (models.length){
+    const caveat = document.createElement("p");
+    caveat.className = "ov-note";
+    caveat.textContent = "The models do not go in the folder chosen above — ollama "
+      + "keeps them in its own directory, shown against each one. Everything PN "
+      + "Brain itself learns does go where you chose.";
+    box.appendChild(caveat);
+  }
+
+  if (!willInstall.length && !models.length){
+    const none = document.createElement("p");
+    none.className = "ov-note";
+    none.textContent = "Nothing will be installed — everything needed is already here.";
+    box.appendChild(none);
+  }
+}
+
 function renderPlan(state){
   const box = el("plan");
   box.textContent = "";
@@ -729,10 +977,30 @@ function renderSteps(state){
 
   const back = el("back");
   const next = el("next");
+  const cont = el("continue");
+  const at = shown[step];
+  const last = step >= shown.length - 1;
 
   back.hidden = step === 0;
-  next.hidden = step >= shown.length - 1;
-  next.disabled = busy;
+  next.hidden = last;
+
+  /*
+   * Continue belongs to the end, not to every screen.
+   *
+   * Offered on all four steps it invited somebody to skip the remaining
+   * questions without ever saying that is what it did, sitting next to Next
+   * and looking like the more decisive of the two.
+   */
+  cont.hidden = !last;
+
+  // Why the way forward is shut, said on the step that shut it.
+  const why = at && at.blocks ? at.blocks(state) : "";
+
+  next.disabled = busy || !!why;
+
+  const gate = el("gate");
+  gate.textContent = why;
+  gate.hidden = !why;
 }
 
 el("back").onclick = () => { step -= 1; refresh(); };
@@ -745,7 +1013,9 @@ async function refresh(){
   el("machine").textContent = machineLine(state.hardware);
   renderRequirements(state);
   renderDriveChoice(state);
+  renderFolderChoice(state);
   renderBrainChoice(state);
+  renderOverview(state);
   renderPlan(state);
   renderSteps(state);
 
@@ -765,50 +1035,6 @@ async function refresh(){
     : (ready ? "Everything is ready." : (state.blocking + " requirement(s) still needed"));
 }
 
-async function loadSuggestions(){
-  const {suggestions} = await get("/suggestions");
-  const box = el("ask-suggestions");
-  box.textContent = "";
-  suggestions.forEach(q => {
-    const c = document.createElement("span");
-    c.className = "chip";
-    c.textContent = q;
-    c.onclick = () => askQuestion(q);
-    box.appendChild(c);
-  });
-}
-
-async function askQuestion(question){
-  const res = await fetch("/ask", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({question})
-  }).then(r => r.json());
-
-  const qa = document.createElement("div");
-  qa.className = "qa";
-
-  const q = document.createElement("p");
-  q.className = "q";
-  q.textContent = question;
-
-  const a = document.createElement("p");
-  a.className = "a";
-  // textContent: these answers are fixed strings, but the question is echoed
-  // back and that is user input.
-  a.textContent = res.answer;
-
-  qa.append(q, a);
-  el("ask-log").appendChild(qa);
-  el("ask-input").value = "";
-}
-
-el("ask-form").onsubmit = e => {
-  e.preventDefault();
-  const q = el("ask-input").value.trim();
-  if (q) askQuestion(q);
-};
-
-loadSuggestions();
 
 el("continue").onclick = async () => {
   el("continue").disabled = true;

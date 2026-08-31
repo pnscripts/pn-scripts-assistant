@@ -3,7 +3,9 @@ package preflight
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -50,6 +52,17 @@ type Requirement struct {
 	// (usually the installed version).
 	Check func() (State, string)
 
+	/*
+	 * Where it is, or where it is going to go.
+	 *
+	 * Setup asks permission to install things and used to name none of the
+	 * places it would put them, which is a strange thing to agree to — and on
+	 * a machine where something is already present, "where is it?" had no
+	 * answer inside the program at all. Answered before installing as the
+	 * destination, and afterwards as the fact.
+	 */
+	Where func() string
+
 	// InstallCmd returns the command to satisfy this requirement on the
 	// current platform, or nil when it must be done by hand — some things
 	// (a Docker Desktop download, a kernel feature) genuinely cannot be
@@ -82,6 +95,67 @@ func (r Requirement) Installable() bool {
 }
 
 // commandExists is the cheapest possible check and covers most requirements.
+/*
+ * whereIs answers with the path a command was found at.
+ *
+ * Empty when it is not installed, so the caller can say where it would go
+ * instead. The same lookup the shell does, which is the point: this is the
+ * copy that would actually run, not the one somebody remembers installing.
+ */
+/*
+ * Location answers Where, or says nothing rather than guessing.
+ *
+ * A requirement without one is a gap in what setup can tell somebody, not a
+ * reason to invent a path — a wrong location is worse than none, because it
+ * sends them to look somewhere the thing is not.
+ */
+func (r Requirement) Location() string {
+	if r.Where == nil {
+		return ""
+	}
+
+	return r.Where()
+}
+
+func whereIs(name string) string {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return ""
+	}
+
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+
+	return path
+}
+
+/*
+ * ollamaModelDir is where pulled models actually land.
+ *
+ * They are the largest thing setup downloads by a wide margin — several
+ * gigabytes each — and they do not go anywhere near the brain's own folder, so
+ * somebody who moved the brain to a big drive can still be surprised by where
+ * the models went. OLLAMA_MODELS overrides it; otherwise it is the fixed place
+ * ollama uses.
+ */
+// ModelDir is ollamaModelDir for callers outside this package — setup shows it
+// on the last step, because it is where the gigabytes actually go.
+func ModelDir() string { return ollamaModelDir() }
+
+func ollamaModelDir() string {
+	if set := os.Getenv("OLLAMA_MODELS"); set != "" {
+		return set
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "~/.ollama/models"
+	}
+
+	return filepath.Join(home, ".ollama", "models")
+}
+
 func commandExists(name string) bool {
 	_, err := exec.LookPath(name)
 

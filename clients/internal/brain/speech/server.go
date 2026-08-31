@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -125,15 +124,10 @@ func StartResident(ctx context.Context) error {
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 
-	/*
-	 * And it dies with whoever started it, however that ends.
-	 *
-	 * StopResident covers the orderly exit. This covers the other kind — a
-	 * crash, a kill -9, a session ending — after which nothing would be left to
-	 * do the stopping. The same guard the microphone recorder already has, for
-	 * the same reason: twenty-six orphaned recorders were once found this way.
-	 */
-	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
+	// And it dies with whoever started it, however that ends. StopResident
+	// covers the orderly exit; this covers a crash, a kill -9, a session
+	// ending — the same guard the recorder has, and for the same reason.
+	dieWithParent(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("could not start whisper-server: %w", err)

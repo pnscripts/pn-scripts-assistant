@@ -127,6 +127,71 @@ func (s *Server) Serve(onReady func()) {
 		s.writeJSON(w, map[string]any{"started": true})
 	})
 
+	/*
+	 * A folder, not only a drive.
+	 *
+	 * The drive buttons offer one folder per drive and nothing else, which is
+	 * the right default and the wrong only option — somebody who keeps their
+	 * work under a particular directory has a place they want this to go, and
+	 * "pick one of two" does not let them say so.
+	 *
+	 * Checked before it is accepted, because the failure otherwise arrives
+	 * much later: setup finishes, applies, and the first write fails on a path
+	 * nobody could create.
+	 */
+	mux.HandleFunc("/choose-folder", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+
+			return
+		}
+
+		path := strings.TrimSpace(body.Path)
+
+		if path == "" {
+			s.writeJSON(w, map[string]any{"ok": false, "error": "Give a folder."})
+
+			return
+		}
+
+		// A relative path here would be resolved against wherever the program
+		// happens to be running from, which is not a place anybody meant.
+		if !filepath.IsAbs(path) {
+			s.writeJSON(w, map[string]any{
+				"ok":    false,
+				"error": "Give the full path, starting with /.",
+			})
+
+			return
+		}
+
+		if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(path, "~/") {
+			path = filepath.Join(home, strings.TrimPrefix(path, "~/"))
+		}
+
+		path = filepath.Clean(path)
+
+		if !canCreate(path) {
+			s.writeJSON(w, map[string]any{
+				"ok": false,
+				"error": "Cannot write to " + path +
+					". Pick somewhere inside your own folders, or choose a drive above.",
+			})
+
+			return
+		}
+
+		s.mu.Lock()
+		s.root = path
+		s.mu.Unlock()
+
+		s.writeJSON(w, map[string]any{"ok": true, "path": path})
+	})
+
 	mux.HandleFunc("/choose-drive", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Path string `json:"path"`
@@ -240,6 +305,9 @@ type requirementView struct {
 	Optional    bool   `json:"optional"`
 	Installable bool   `json:"installable"`
 	ManualHint  string `json:"manual_hint"`
+
+	// Where it is now, or where it will go. See Requirement.Where.
+	Where string `json:"where"`
 }
 
 func (s *Server) state() map[string]any {
@@ -256,6 +324,7 @@ func (s *Server) state() map[string]any {
 			Optional:    r.Requirement.Optional,
 			Installable: r.Requirement.Installable(),
 			ManualHint:  r.Requirement.ManualHint,
+			Where:       r.Requirement.Location(),
 		})
 	}
 
@@ -306,6 +375,10 @@ func (s *Server) state() map[string]any {
 		 */
 		"drives":       s.drives(),
 		"chosen_drive": s.chosenRoot(),
+
+		// Where the models land, which is not the folder chosen above — see
+		// the overview on the last step.
+		"model_dir": preflight.ModelDir(),
 	}
 }
 

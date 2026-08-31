@@ -35,6 +35,17 @@ func Requirements() []Requirement {
 			 * directory, needs no password, and is started as a user service
 			 * so that installing it means it is actually running.
 			 */
+			Where: func() string {
+				if at := whereIs("ollama"); at != "" {
+					return at
+				}
+
+				if home, err := os.UserHomeDir(); err == nil {
+					return filepath.Join(home, ".local", "bin", "ollama")
+				}
+
+				return "~/.local/bin/ollama"
+			},
 			InstallFunc: installOllama,
 			ManualHint:  "Install from ollama.com/download",
 		},
@@ -53,6 +64,7 @@ func Requirements() []Requirement {
 
 				return OK, "qwen2.5-coder"
 			},
+			Where:      func() string { return ollamaModelDir() },
 			InstallCmd: func() []string { return []string{"ollama", "pull", "qwen2.5-coder:7b"} },
 		},
 		{
@@ -70,6 +82,7 @@ func Requirements() []Requirement {
 
 				return OK, "nomic-embed-text"
 			},
+			Where:      func() string { return ollamaModelDir() },
 			InstallCmd: func() []string { return []string{"ollama", "pull", "nomic-embed-text"} },
 		},
 	}
@@ -88,6 +101,7 @@ func Requirements() []Requirement {
 
 					return Missing, ""
 				},
+				Where:      func() string { return "/usr/lib — system libraries, installed by apt" },
 				InstallCmd: func() []string { return aptInstall("libwebkit2gtk-4.1-0", "libgtk-3-0t64") },
 				NeedsRoot:  true,
 			},
@@ -103,6 +117,7 @@ func Requirements() []Requirement {
 
 					return Missing, ""
 				},
+				Where:      func() string { return "/usr/include — system headers, installed by apt" },
 				InstallCmd: func() []string { return aptInstall("libwebkit2gtk-4.1-dev", "libgtk-3-dev") },
 				NeedsRoot:  true,
 			},
@@ -148,6 +163,30 @@ func Requirements() []Requirement {
 				 * off, and this is meant for people who will never go looking
 				 * for a better one.
 				 */
+				Where: func() string {
+					if home, err := os.UserHomeDir(); err == nil {
+						for _, dir := range []string{
+							filepath.Join(home, ".local", "src", "piper"),
+							filepath.Join(home, ".local", "share", "piper"),
+						} {
+							if voices, _ := filepath.Glob(filepath.Join(dir, "voices", "*.onnx")); len(voices) > 0 {
+								return dir
+							}
+						}
+					}
+
+					for _, engine := range []string{"espeak-ng", "espeak", "pico2wave", "flite"} {
+						if at := whereIs(engine); at != "" {
+							return at
+						}
+					}
+
+					if home, err := os.UserHomeDir(); err == nil {
+						return filepath.Join(home, ".local", "src", "piper")
+					}
+
+					return "~/.local/src/piper"
+				},
 				InstallFunc: installPiper,
 				ManualHint:  "Install piper, or: sudo apt install espeak-ng",
 			},
@@ -162,6 +201,13 @@ func Requirements() []Requirement {
 					}
 
 					return Missing, ""
+				},
+				Where: func() string {
+					if at := whereIs("xdotool"); at != "" {
+						return at
+					}
+
+					return "/usr/bin/xdotool — installed by apt"
 				},
 				InstallCmd: func() []string { return aptInstall("xdotool") },
 				NeedsRoot:  true,
@@ -192,6 +238,19 @@ func Requirements() []Requirement {
 				 * manager — the one step that asks for a password — and
 				 * everything after it happens in the home directory.
 				 */
+				Where: func() string {
+					for _, r := range []string{"whisper-cli", "whisper-cpp", "whisper"} {
+						if at := whereIs(r); at != "" {
+							return at
+						}
+					}
+
+					if home, err := os.UserHomeDir(); err == nil {
+						return filepath.Join(home, ".local", "src", "whisper.cpp")
+					}
+
+					return "~/.local/src/whisper.cpp"
+				},
 				InstallFunc: installWhisper,
 				NeedsRoot:   true,
 				ManualHint: "Build whisper.cpp, put whisper-cli on your PATH, then: " +
