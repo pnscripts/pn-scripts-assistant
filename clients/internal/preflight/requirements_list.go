@@ -23,7 +23,8 @@ func Requirements() []Requirement {
 					return Missing, ""
 				}
 
-				return OK, versionOf("ollama", "--version")
+				return OK, withUpdateNote(versionOf("ollama", "--version"),
+					"https://github.com/ollama/ollama/releases/latest")
 			},
 			/*
 			 * Fetched as an archive, not as a script piped into a shell.
