@@ -298,9 +298,12 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
       with its size. Read it before you agree to it.</p>
     <div id="overview"></div>
     <div id="plan"></div>
-  </div>
 
-  <pre id="log" hidden></pre>
+    <!-- Inside the step that produces it. Outside, it followed somebody back to
+         "Where to keep it" and sat under the drive buttons reporting on an apt
+         install, which belongs to a decision three steps away. -->
+    <pre id="log" hidden></pre>
+  </div>
 
   <p class="gate" id="gate" hidden></p>
 
@@ -1045,6 +1048,39 @@ function renderPlan(state){
 
 let step = 0;
 
+/*
+ * Where to open, which is not always the beginning.
+ *
+ * Setup started at step one every time, including on a machine where step one
+ * has nothing left to decide — so somebody who reopened it to change a model
+ * was walked back through the drive they already chose. It goes to the first
+ * step that is actually waiting for something, and to the last one when
+ * nothing is.
+ *
+ * Once, on the first load. After that the step is wherever the person has
+ * navigated to, and moving it under them as requirements are satisfied would
+ * take the page out of their hands.
+ */
+let placed = false;
+
+function placeAtFirstUnfinished(state){
+  if (placed) return;
+
+  placed = true;
+
+  const shown = visibleSteps(state);
+
+  for (let i = 0; i < shown.length; i++){
+    if (shown[i].blocks && shown[i].blocks(state)){
+      step = i;
+
+      return;
+    }
+  }
+
+  step = shown.length - 1;
+}
+
 function visibleSteps(state){ return STEPS.filter(s => s.shown(state)); }
 
 function renderSteps(state){
@@ -1120,6 +1156,7 @@ async function refresh(){
   renderBrainChoice(state);
   renderOverview(state);
   renderPlan(state);
+  placeAtFirstUnfinished(state);
   renderSteps(state);
 
   if (state.log){
