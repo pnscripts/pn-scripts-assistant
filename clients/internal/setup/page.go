@@ -73,6 +73,13 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 .status{color:var(--dim);font-size:12.5px}
 .err{color:var(--danger);font-size:12.5px;margin-top:6px}
 .ask{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:26px}
+/* Closed it is one quiet line; open it is what it always was. */
+.ask summary{cursor:pointer;font-size:12.5px;color:var(--dim);padding:2px 0;
+  list-style:none}
+.ask summary::-webkit-details-marker{display:none}
+.ask summary::before{content:"› ";opacity:.7}
+.ask[open] summary::before{content:"⌄ "}
+.ask summary:hover{color:var(--fg)}
 .ask-note{color:var(--dim);font-size:12px;margin:0 0 12px;line-height:1.45}
 #ask-form{display:flex;gap:8px}
 #ask-form input{flex:1;margin-bottom:0}
@@ -93,22 +100,28 @@ padding:4px 11px;font-size:11.5px;cursor:pointer}
 
   <div class="machine" id="machine">checking your machine…</div>
 
-  <div class="ask">
-    <h2 style="margin-top:0">Questions?</h2>
-    <p class="ask-note">While setup runs, you can ask about it here. This is a short list of
-      written answers, not the assistant — that arrives when setup finishes.</p>
+  <h2>Requirements</h2>
+  <div id="reqs"></div>
+
+  <div id="brain-section"></div>
+
+  <!-- The questions come after the work, and closed.
+       They were at the top and open, which put a paragraph of written
+       answers and a suggestion list between somebody and the buttons
+       they came to press. The answers are worth having: a ten-minute
+       download is exactly when somebody has questions and nothing to
+       ask. They are just not what the page is for. -->
+  <details class="ask">
+    <summary>Questions about any of this?</summary>
+    <p class="ask-note">A short list of written answers, not the assistant —
+      that arrives when setup finishes.</p>
     <div id="ask-log"></div>
     <div id="ask-suggestions"></div>
     <form id="ask-form">
       <input type="text" id="ask-input" placeholder="Ask about setup…" autocomplete="off">
       <button type="submit">Ask</button>
     </form>
-  </div>
-
-  <h2>Requirements</h2>
-  <div id="reqs"></div>
-
-  <div id="brain-section"></div>
+  </details>
 
   <pre id="log" hidden></pre>
 
