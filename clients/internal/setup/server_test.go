@@ -183,3 +183,74 @@ func TestTheKeyIsNeverEchoedIntoTheVisibleLog(t *testing.T) {
 		t.Error("the page should know a key is present without revealing it")
 	}
 }
+
+/*
+ * The brain is offered a home on each drive, in the place that suits it.
+ *
+ * Judged on the folder it would use rather than on the mount point, which is
+ * what the first attempt got wrong: an ordinary user cannot write to /, so
+ * testing the mount dropped "this computer" from the list entirely and left a
+ * single option — and a single option is not a choice. The brain does not live
+ * at /; it lives in a home directory on that filesystem.
+ */
+func TestEachDriveIsOfferedTheRightFolder(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory")
+	}
+
+	// The system disk: inside the home directory, where a user can write and
+	// where somebody would expect to find their own things.
+	onRoot := brainFolderOn("/")
+
+	if !strings.HasPrefix(onRoot, home) {
+		t.Errorf("the system disk offers %q, which is not inside the home directory",
+			onRoot)
+	}
+
+	/*
+	 * Any other drive: a named folder at the top, which is what somebody
+	 * plugging that drive into another machine would go looking for.
+	 */
+	onOther := brainFolderOn("/media/petar/backup")
+
+	if onOther != filepath.Join("/media/petar/backup", DataFolder) {
+		t.Errorf("an external drive offers %q, want the named folder at its top",
+			onOther)
+	}
+
+	// And a home directory that is itself on external media belongs to that
+	// drive rather than to the system disk.
+	if onSameFilesystem("/media/petar/disk/home/petar", "/") {
+		t.Error("a home directory on external media was claimed by the system disk")
+	}
+
+	if !onSameFilesystem("/media/petar/disk/things", "/media/petar/disk") {
+		t.Error("a path under a mount point was not recognised as being on it")
+	}
+}
+
+/*
+ * Somewhere that cannot be written to is not offered.
+ *
+ * Tried rather than inspected: a drive can be mounted, report every permission
+ * correctly and still refuse — a read-only mount, a full disk, a filesystem
+ * that will not take the ownership this needs. Finding that out now costs a
+ * file; finding it out after setup costs somebody their first impression.
+ */
+func TestAFolderThatCannotBeWrittenIsNotOffered(t *testing.T) {
+	if canCreate("/proc/pn-brain-should-never-work") {
+		t.Error("a folder that cannot exist was reported as usable")
+	}
+
+	usable := filepath.Join(t.TempDir(), "somewhere", "new")
+
+	if !canCreate(usable) {
+		t.Errorf("%s is writable but was not offered", usable)
+	}
+
+	// And the probe leaves nothing behind.
+	if _, err := os.Stat(usable); err == nil {
+		t.Error("checking a folder created it and left it there")
+	}
+}

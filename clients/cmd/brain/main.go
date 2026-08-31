@@ -919,6 +919,25 @@ func runFirstRunSetup(settingsPath, name string) error {
 	done := make(chan struct{})
 	go srv.Serve(func() { close(done) })
 
+	/*
+	 * Whatever drive was chosen is created before anything else runs.
+	 *
+	 * Setup only records the choice — nothing is written until it finishes —
+	 * so this is where it takes effect. Doing it here rather than inside the
+	 * page means changing your mind twice leaves nothing behind on the drives
+	 * you changed your mind about.
+	 */
+	defer func() {
+		chosen := srv.ChosenRoot()
+		if chosen == "" {
+			return
+		}
+
+		if _, err := paths.Create(chosen); err != nil {
+			fmt.Fprintf(os.Stderr, "\n  could not use %s: %v\n\n", chosen, err)
+		}
+	}()
+
 	fmt.Printf("\n  This machine is missing something PN Brain needs.\n")
 	fmt.Printf("  Setup: %s\n\n", srv.URL())
 

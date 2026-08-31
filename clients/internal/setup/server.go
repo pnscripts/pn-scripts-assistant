@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"pn-brain/internal/brain/paths"
+	"pn-brain/internal/brain/storage"
 	"strings"
 	"sync"
 
@@ -29,6 +31,10 @@ type Server struct {
 	busy     bool
 	envPath  string
 	listener net.Listener
+
+	// root is where the brain will be kept, once somebody has chosen. Empty
+	// until then, which means wherever it would have gone anyway.
+	root string
 }
 
 func New(envPath string) (*Server, error) {
@@ -79,6 +85,33 @@ func (s *Server) Serve(onReady func()) {
 
 		go s.install(modelRequest(body.Model))
 		s.writeJSON(w, map[string]any{"started": true})
+	})
+
+	/*
+	 * Where the brain should be kept.
+	 *
+	 * Recorded rather than acted on: nothing is created until setup finishes,
+	 * so choosing a drive and then changing your mind leaves nothing behind
+	 * on the first one.
+	 */
+	mux.HandleFunc("/choose-drive", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+
+			return
+		}
+
+		if err := s.chooseRoot(body.Path); err != nil {
+			s.writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+
+			return
+		}
+
+		s.writeJSON(w, map[string]any{"ok": true, "path": s.chosenRoot()})
 	})
 
 	mux.HandleFunc("/api-key", func(w http.ResponseWriter, r *http.Request) {
@@ -208,6 +241,18 @@ func (s *Server) state() map[string]any {
 		 */
 		"model_options": modelOptions(hw),
 		"has_api_key":   s.hasAPIKey(),
+
+		/*
+		 * And where the brain should live.
+		 *
+		 * Asked here because this is the moment it is cheap. Moving it later
+		 * copies everything it has learned and deletes the original, which is
+		 * a long operation on a drive that could be unplugged half way
+		 * through — and somebody who keeps their work on a second disk would
+		 * have wanted it there from the start rather than after.
+		 */
+		"drives":       s.drives(),
+		"chosen_drive": s.chosenRoot(),
 	}
 }
 
@@ -407,4 +452,193 @@ func envKeyFor(provider string) string {
 	default:
 		return "ANTHROPIC_API_KEY"
 	}
+}
+
+// DataFolder is the directory the brain keeps itself in on a chosen drive.
+//
+// Named rather than assembled at each call site, because paths.Find looks for
+// exactly this name when working out where an existing brain lives — and the
+// two spellings drifting apart would mean a brain that is created in one place
+// and looked for in another.
+const DataFolder = "PN-BRAIN-DATA"
+
+/*
+ * drives lists where the brain could be kept.
+ *
+ * Only mounted filesystems with room to grow, which is what storage.Drives
+ * already decides: a drive that is plugged in but not mounted cannot be
+ * written to, and a 512MB boot partition would accept the first write and fail
+ * on the hundredth.
+ */
+func (s *Server) drives() []map[string]any {
+	found, err := storage.Drives(s.chosenRoot())
+	if err != nil {
+		return nil
+	}
+
+	out := make([]map[string]any, 0, len(found))
+
+	for _, d := range found {
+		where := brainFolderOn(d.MountPoint)
+
+		/*
+		 * Judged on the folder the brain would use, not on the mount point.
+		 *
+		 * The root filesystem is not writable by an ordinary user, so testing
+		 * the mount point dropped "this computer" from the list entirely and
+		 * left a single option — which is not a choice. The brain does not
+		 * live at /; it lives in a home directory on that filesystem, and that
+		 * is writable.
+		 */
+		if !canCreate(where) {
+			continue
+		}
+
+		out = append(out, map[string]any{
+			"path":       where,
+			"mount":      d.MountPoint,
+			"free_gb":    d.FreeBytes / (1 << 30),
+			"total_gb":   d.TotalBytes / (1 << 30),
+			"removable":  d.Removable,
+			"filesystem": d.Filesystem,
+		})
+	}
+
+	return out
+}
+
+/*
+ * brainFolderOn is where the brain would keep itself on a given filesystem.
+ *
+ * Inside the home directory when that is on this filesystem, because that is
+ * the one place an ordinary user can always write and because a folder at the
+ * top of the system disk is not somewhere anybody expects their things. On any
+ * other drive it is a named folder at the top, which is what somebody plugging
+ * that drive into another machine would go looking for.
+ */
+func brainFolderOn(mount string) string {
+	home, err := os.UserHomeDir()
+	if err == nil && onSameFilesystem(home, mount) {
+		return filepath.Join(home, ".local", "share", "pn-brain")
+	}
+
+	return filepath.Join(mount, DataFolder)
+}
+
+// onSameFilesystem reports whether a path sits under a mount point.
+//
+// By path rather than by device id, because the question here is which of the
+// offered mounts a directory belongs to, and the longest matching prefix is
+// exactly that.
+func onSameFilesystem(path, mount string) bool {
+	if mount == "/" {
+		return !strings.HasPrefix(path, "/media/") &&
+			!strings.HasPrefix(path, "/mnt/") &&
+			!strings.HasPrefix(path, "/run/media/")
+	}
+
+	return strings.HasPrefix(path, strings.TrimSuffix(mount, "/")+"/")
+}
+
+/*
+ * canCreate reports whether a folder could be made and written at this path.
+ *
+ * Tried rather than inspected. A drive can be mounted, report every permission
+ * correctly, and still refuse: a read-only mount, a full disk, a filesystem
+ * that will not take the ownership this needs. Anything left behind is removed,
+ * including a directory that was created only to find out.
+ */
+func canCreate(path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return canWriteInto(path)
+	}
+
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return false
+	}
+
+	ok := canWriteInto(path)
+
+	// Only the folder just created, and only if it is still empty.
+	os.Remove(path)
+
+	return ok
+}
+
+func canWriteInto(dir string) bool {
+	probe := filepath.Join(dir, ".pn-brain-write-test")
+
+	if err := os.WriteFile(probe, []byte("ok"), 0o600); err != nil {
+		return false
+	}
+
+	os.Remove(probe)
+
+	return true
+}
+
+// chosenRoot is where the brain will live, as things stand.
+func (s *Server) chosenRoot() string {
+	s.mu.Lock()
+	chosen := s.root
+	s.mu.Unlock()
+
+	if chosen != "" {
+		return chosen
+	}
+
+	if r, err := paths.Find(); err == nil {
+		return r.Path
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(home, ".local", "share", "pn-brain")
+}
+
+/*
+ * chooseRoot records where the brain is to be kept, having checked it can be.
+ *
+ * Checked by writing rather than by inspecting permissions: a drive can be
+ * mounted, look writable in every property the system reports, and still
+ * refuse — a read-only mount, a full disk, a filesystem that does not allow
+ * the ownership this needs. Finding that out now costs a file; finding it out
+ * after setup costs somebody their first impression of the program.
+ */
+func (s *Server) chooseRoot(path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return fmt.Errorf("no folder was given")
+	}
+
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return fmt.Errorf("could not create %s: %w", path, err)
+	}
+
+	probe := filepath.Join(path, ".pn-brain-write-test")
+
+	if err := os.WriteFile(probe, []byte("ok"), 0o600); err != nil {
+		return fmt.Errorf("%s cannot be written to: %w", path, err)
+	}
+
+	os.Remove(probe)
+
+	s.mu.Lock()
+	s.root = path
+	s.mu.Unlock()
+
+	return nil
+}
+
+// ChosenRoot is where setup was told to keep the brain, or empty for wherever
+// it would have gone. Read once setup finishes, so the brain starts in the
+// place somebody actually picked.
+func (s *Server) ChosenRoot() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.root
 }

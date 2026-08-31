@@ -103,6 +103,11 @@ padding:4px 11px;font-size:11.5px;cursor:pointer}
   <h2>Requirements</h2>
   <div id="reqs"></div>
 
+  <!-- Where it keeps itself. Asked now because this is the moment it is
+       cheap: moving later copies everything it has learned and deletes the
+       original, on a drive that might be unplugged half way through. -->
+  <div id="drive-section"></div>
+
   <div id="brain-section"></div>
 
   <!-- The questions come after the work, and closed.
@@ -222,6 +227,71 @@ function renderRequirements(state){
     card.appendChild(row);
     el("reqs").appendChild(card);
   });
+}
+
+/*
+ * Where the brain keeps itself.
+ *
+ * Only shown when there is a choice to make. On a machine with one disk this
+ * is a question with one answer, and asking it would be a step that teaches
+ * somebody nothing and delays them by one click.
+ */
+function renderDriveChoice(state){
+  const box = el("drive-section");
+  box.textContent = "";
+
+  const drives = state.drives || [];
+  if (drives.length < 2) return;
+
+  const h = document.createElement("h2");
+  h.textContent = "Where to keep it";
+  box.appendChild(h);
+
+  const note = document.createElement("p");
+  note.className = "sub";
+  note.style.marginBottom = "10px";
+  note.textContent = "Everything it learns lives in one folder. Choosing now is free; "
+    + "moving it later copies the lot and deletes the original.";
+  box.appendChild(note);
+
+  const list = document.createElement("div");
+  list.className = "models";
+
+  drives.forEach(d => {
+    const chosen = state.chosen_drive === d.path;
+
+    const b = document.createElement("button");
+    b.className = chosen ? "" : "ghost";
+    b.disabled = busy;
+    b.onclick = async () => {
+      const res = await fetch("/choose-drive", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({path: d.path}),
+      }).then(r => r.json());
+
+      if (!res.ok){ alert(res.error); return; }
+
+      refresh();
+    };
+
+    const name = document.createElement("strong");
+    name.textContent = d.mount === "/" ? "This computer" : d.mount;
+    if (d.removable){
+      // Worth saying plainly: a brain on a drive that gets unplugged is a
+      // brain that is missing, and nothing else on this page would warn them.
+      name.textContent += " — removable";
+    }
+    b.appendChild(name);
+
+    const detail = document.createElement("span");
+    detail.textContent = d.free_gb + "GB free of " + d.total_gb + "GB · " + d.path;
+    b.appendChild(detail);
+
+    list.appendChild(b);
+  });
+
+  box.appendChild(list);
 }
 
 function renderBrainChoice(state){
@@ -428,6 +498,7 @@ async function refresh(){
 
   el("machine").textContent = machineLine(state.hardware);
   renderRequirements(state);
+  renderDriveChoice(state);
   renderBrainChoice(state);
 
   if (state.log){
