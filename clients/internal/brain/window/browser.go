@@ -19,6 +19,26 @@ import (
  * a browser must not stop the program. The address is printed either way, so
  * the worst case is exactly the behaviour that existed before.
  */
+/*
+ * launch is what actually starts the browser, replaceable so a test can check
+ * this logic without a browser appearing on somebody's screen.
+ *
+ * Learned the hard way: a test that called OpenInBrowser for real opened two
+ * tabs on the author's desktop every time the suite ran. A test with a visible
+ * side effect on the machine running it is a broken test however green it goes.
+ */
+var launch = func(cmd *exec.Cmd) error {
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	// Released rather than waited on: these hand off to a browser that outlives
+	// this call, and on some systems the launcher does not exit at all.
+	go func() { _ = cmd.Wait() }()
+
+	return nil
+}
+
 func OpenInBrowser(url string) bool {
 	var cmd *exec.Cmd
 
@@ -40,13 +60,5 @@ func OpenInBrowser(url string) bool {
 		cmd = exec.Command("xdg-open", url)
 	}
 
-	if err := cmd.Start(); err != nil {
-		return false
-	}
-
-	// Released rather than waited on: these hand off to a browser that outlives
-	// this call, and on some systems the launcher does not exit at all.
-	go func() { _ = cmd.Wait() }()
-
-	return true
+	return launch(cmd) == nil
 }
