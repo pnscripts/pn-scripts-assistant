@@ -94,6 +94,22 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	// Anthropic is registered only when a key exists. Registering it without
 	// one would show a provider in the interface that fails the moment it is
 	// chosen.
+	if cfg.OpenAIKey != "" {
+		providers = append(providers, llm.NewOpenAI(cfg.OpenAIKey, cfg.OpenAIModel))
+	}
+
+	/*
+	 * OpenRouter is one key reaching models from every major company.
+	 *
+	 * Worth having for its own sake, and it is also the honest answer to "why
+	 * only one paid provider": adding two more of them would still be a short
+	 * list, where this is most of them behind a single account.
+	 */
+	if cfg.OpenRouterKey != "" {
+		providers = append(providers,
+			llm.NewOpenRouter(cfg.OpenRouterKey, cfg.OpenRouterModel))
+	}
+
 	if cfg.AnthropicKey != "" {
 		providers = append(providers, llm.NewAnthropic(cfg.AnthropicKey, cfg.AnthropicModel))
 	}

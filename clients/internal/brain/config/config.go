@@ -86,6 +86,21 @@ type Config struct {
 	AnthropicKey   string
 	AnthropicModel string
 
+	/*
+	 * The other paid providers, which all speak the OpenAI chat API.
+	 *
+	 * Kept as separate keys rather than one "API key" because they are
+	 * separate decisions: privacy is judged by which company a request goes
+	 * to, and somebody who agreed to send conversation to OpenAI has not
+	 * thereby agreed to OpenRouter — where the request may be served by any of
+	 * the companies behind it.
+	 */
+	OpenAIKey   string
+	OpenAIModel string
+
+	OpenRouterKey   string
+	OpenRouterModel string
+
 	// Voice is which installed voice reads answers aloud, by id. Empty means
 	// whichever the machine offers first.
 	Voice string
@@ -192,6 +207,10 @@ func Default() Config {
 		AutoModel:       true,
 		EmbedModel:      "nomic-embed-text",
 		AnthropicModel:  "",
+		OpenAIKey:       "",
+		OpenAIModel:     "",
+		OpenRouterKey:   "",
+		OpenRouterModel: "",
 		// Loopback only. Binding to every interface once exposed this brain's
 		// knowledge endpoints to the local network, which is a mistake worth
 		// making impossible rather than remembering not to make.
@@ -265,6 +284,10 @@ func Load(root string) (Config, error) {
 	assign(&cfg.EmbedModel, "EMBEDDING_MODEL")
 	assign(&cfg.AnthropicKey, "ANTHROPIC_API_KEY")
 	assign(&cfg.AnthropicModel, "ANTHROPIC_MODEL")
+	assign(&cfg.OpenAIKey, "OPENAI_API_KEY")
+	assign(&cfg.OpenAIModel, "OPENAI_MODEL")
+	assign(&cfg.OpenRouterKey, "OPENROUTER_API_KEY")
+	assign(&cfg.OpenRouterModel, "OPENROUTER_MODEL")
 	assign(&cfg.Addr, "BRAIN_ADDR")
 	assign(&cfg.Voice, "BRAIN_VOICE")
 	assign(&cfg.Language, "BRAIN_LANGUAGE")
@@ -323,7 +346,11 @@ func (c Config) Save(root string) error {
 	b.WriteString("OLLAMA_MODEL_CHOSEN=" + boolText(c.ModelChosen) + "\n")
 	b.WriteString("EMBEDDING_MODEL=" + c.EmbedModel + "\n")
 	b.WriteString("ANTHROPIC_API_KEY=" + c.AnthropicKey + "\n")
-	b.WriteString("ANTHROPIC_MODEL=" + c.AnthropicModel + "\n\n")
+	b.WriteString("ANTHROPIC_MODEL=" + c.AnthropicModel + "\n")
+	b.WriteString("OPENAI_API_KEY=" + c.OpenAIKey + "\n")
+	b.WriteString("OPENAI_MODEL=" + c.OpenAIModel + "\n")
+	b.WriteString("OPENROUTER_API_KEY=" + c.OpenRouterKey + "\n")
+	b.WriteString("OPENROUTER_MODEL=" + c.OpenRouterModel + "\n\n")
 	b.WriteString("BRAIN_ADDR=" + c.Addr + "\n\n")
 	b.WriteString("# Which voice reads answers aloud. Empty means the first available.\n")
 	b.WriteString("BRAIN_VOICE=" + c.Voice + "\n\n")

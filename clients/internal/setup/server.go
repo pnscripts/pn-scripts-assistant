@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -64,13 +65,29 @@ func (s *Server) Serve(onReady func()) {
 	})
 
 	mux.HandleFunc("/choose-model", func(w http.ResponseWriter, r *http.Request) {
-		go s.install("__model__")
+		/*
+		 * Which model, when one is named.
+		 *
+		 * An empty body still means the recommended one, so the page works
+		 * unchanged and an older client is not broken by this.
+		 */
+		var body struct {
+			Model string `json:"model"`
+		}
+
+		json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body)
+
+		go s.install(modelRequest(body.Model))
 		s.writeJSON(w, map[string]any{"started": true})
 	})
 
 	mux.HandleFunc("/api-key", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Key string `json:"key"`
+
+			// Which service the key belongs to. Empty means Anthropic, which
+			// is what the page sent before there was anywhere else to send.
+			Provider string `json:"provider"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -79,7 +96,7 @@ func (s *Server) Serve(onReady func()) {
 			return
 		}
 
-		if err := s.saveAPIKey(strings.TrimSpace(body.Key)); err != nil {
+		if err := s.saveAPIKey(body.Provider, strings.TrimSpace(body.Key)); err != nil {
 			s.writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
 
 			return
@@ -180,7 +197,17 @@ func (s *Server) state() map[string]any {
 			"size":  model.SizeNote,
 			"speed": model.SpeedNote,
 		},
-		"has_api_key": s.hasAPIKey(),
+
+		/*
+		 * And the alternatives, because a single suggestion makes a trade on
+		 * somebody's behalf that they may not want.
+		 *
+		 * The recommendation is still marked. What changes is that a person
+		 * who would rather wait two seconds than get the better answer can now
+		 * see that the option exists, which they could not before.
+		 */
+		"model_options": modelOptions(hw),
+		"has_api_key":   s.hasAPIKey(),
 	}
 }
 
@@ -202,10 +229,12 @@ func (s *Server) install(name string) {
 		s.mu.Unlock()
 	}()
 
-	if name == "__model__" {
-		hw := preflight.DetectHardware()
-		choice := preflight.RecommendModel(hw)
-		s.runModelPull(choice.Model)
+	if chosen, ok := strings.CutPrefix(name, modelPrefix); ok {
+		if chosen == "" {
+			chosen = preflight.RecommendModel(preflight.DetectHardware()).Model
+		}
+
+		s.runModelPull(chosen)
 
 		return
 	}
@@ -244,7 +273,9 @@ func (s *Server) runModelPull(model string) {
 // saveAPIKey writes the key into the brain's settings file. It is never logged or echoed back: the
 // setup log is displayed in the window, and a key that appears there would be
 // a key shown to anyone looking over the user's shoulder.
-func (s *Server) saveAPIKey(key string) error {
+func (s *Server) saveAPIKey(provider, key string) error {
+	setting := envKeyFor(provider)
+
 	if key == "" {
 		return fmt.Errorf("no key given")
 	}
@@ -269,8 +300,8 @@ func (s *Server) saveAPIKey(key string) error {
 	replaced := false
 
 	for i, line := range lines {
-		if strings.HasPrefix(line, "ANTHROPIC_API_KEY=") {
-			lines[i] = "ANTHROPIC_API_KEY=" + key
+		if strings.HasPrefix(line, setting+"=") {
+			lines[i] = setting + "=" + key
 			replaced = true
 
 			break
@@ -278,7 +309,7 @@ func (s *Server) saveAPIKey(key string) error {
 	}
 
 	if !replaced {
-		lines = append(lines, "ANTHROPIC_API_KEY="+key)
+		lines = append(lines, setting+"="+key)
 	}
 
 	// 0600: this file now holds a credential.
@@ -291,9 +322,25 @@ func (s *Server) hasAPIKey() bool {
 		return false
 	}
 
+	/*
+	 * Any of them counts.
+	 *
+	 * This decides whether setup can be finished without a local model, and
+	 * that question is about having somewhere to send a request — not about
+	 * which company. Checking only Anthropic would have told somebody with an
+	 * OpenAI key that they still had nothing.
+	 */
 	for _, line := range strings.Split(string(data), "\n") {
-		if strings.HasPrefix(line, "ANTHROPIC_API_KEY=") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "ANTHROPIC_API_KEY=")) != ""
+		for _, setting := range []string{
+			"ANTHROPIC_API_KEY=", "OPENAI_API_KEY=", "OPENROUTER_API_KEY=",
+		} {
+			if !strings.HasPrefix(line, setting) {
+				continue
+			}
+
+			if strings.TrimSpace(strings.TrimPrefix(line, setting)) != "" {
+				return true
+			}
 		}
 	}
 
@@ -310,4 +357,54 @@ func (w *syncWriter) Write(p []byte) (int, error) {
 	defer w.s.mu.Unlock()
 
 	return w.s.log.Write(p)
+}
+
+// modelOptions renders the models worth offering this machine.
+func modelOptions(hw preflight.Hardware) []map[string]any {
+	options := preflight.ModelOptions(hw)
+
+	out := make([]map[string]any, 0, len(options))
+
+	for _, o := range options {
+		out = append(out, map[string]any{
+			"model":       o.Model,
+			"size":        o.SizeNote,
+			"speed":       o.SpeedNote,
+			"label":       o.Label,
+			"recommended": o.Recommended,
+		})
+	}
+
+	return out
+}
+
+/*
+ * modelPrefix marks an install request as being for a model rather than for
+ * one of the machine's requirements.
+ *
+ * A prefix rather than the old "__model__" sentinel, because the name of the
+ * model now travels with it and a sentinel has nowhere to put one.
+ */
+const modelPrefix = "model:"
+
+func modelRequest(model string) string { return modelPrefix + strings.TrimSpace(model) }
+
+/*
+ * envKeyFor is the setting a provider's key is written to.
+ *
+ * Separate settings rather than one, because they are separate decisions:
+ * privacy is judged by which company a request goes to, and somebody who
+ * agreed to send conversation to OpenAI has not thereby agreed to OpenRouter.
+ * An unknown name falls back to Anthropic, which is what every key meant
+ * before there was a choice.
+ */
+func envKeyFor(provider string) string {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openai":
+		return "OPENAI_API_KEY"
+	case "openrouter":
+		return "OPENROUTER_API_KEY"
+	default:
+		return "ANTHROPIC_API_KEY"
+	}
 }

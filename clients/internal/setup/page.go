@@ -40,6 +40,18 @@ margin:32px 0 12px;font-weight:600}
 .hint a{color:var(--accent)}
 button{font:inherit;font-size:13px;font-weight:600;border:none;border-radius:7px;
 padding:8px 15px;cursor:pointer;background:var(--accent);color:#04191c}
+/* One button per model, stacked, each naming what it is and what it costs in
+   time. A row of three would put the names first and the difference last,
+   which is the wrong way round: the difference is what is being chosen. */
+.models{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+.models button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+  text-align:left;padding:9px 12px;width:100%}
+.models button span{font-weight:400;font-size:11.5px;opacity:.72}
+
+/* The service picker sits above its key field and explains where to get one. */
+select{font:inherit;font-size:13px;padding:7px 9px;border-radius:7px;
+  background:var(--card);color:var(--fg);border:1px solid var(--line);
+  width:100%;margin-bottom:6px}
 button:hover:not(:disabled){filter:brightness(1.13)}
 button:disabled{opacity:.4;cursor:default}
 button.ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
@@ -240,18 +252,58 @@ function renderBrainChoice(state){
       + "little to run a model well. It would work, but slowly enough to be frustrating.";
   local.appendChild(lp);
 
-  const lb = document.createElement("button");
-  lb.textContent = "Download " + state.recommended_model.model;
-  lb.disabled = busy;
-  lb.onclick = pullModel;
-  local.appendChild(lb);
+  /*
+   * One button per model, rather than one button.
+   *
+   * The single suggestion was the right answer for somebody with no way to
+   * judge between eight names, but it made a trade on their behalf — a larger
+   * model that answers well and slowly — and that is exactly the trade people
+   * differ on. Somebody who would rather wait two seconds than get the better
+   * answer could not see that the option existed.
+   *
+   * The recommendation keeps its place in the order rather than being lifted
+   * to the top: on a machine where the sensible default is the middle one,
+   * showing it first would hide that something faster exists.
+   */
+  const options = state.model_options || [];
+
+  if (options.length > 1){
+    const pick = document.createElement("div");
+    pick.className = "models";
+
+    options.forEach(o => {
+      const b = document.createElement("button");
+      b.className = o.recommended ? "" : "ghost";
+      b.disabled = busy;
+      b.onclick = () => pullModel(o.model);
+
+      const name = document.createElement("strong");
+      name.textContent = o.label;
+      b.appendChild(name);
+
+      const detail = document.createElement("span");
+      detail.textContent = o.model + " · " + o.size + " · " + o.speed;
+      b.appendChild(detail);
+
+      pick.appendChild(b);
+    });
+
+    local.appendChild(pick);
+  } else {
+    const lb = document.createElement("button");
+    lb.textContent = "Download " + state.recommended_model.model;
+    lb.disabled = busy;
+    lb.onclick = () => pullModel(state.recommended_model.model);
+    local.appendChild(lb);
+  }
+
   box.appendChild(local);
 
   // API
   const api = document.createElement("div");
   api.className = "choice" + (state.hardware.can_local ? "" : " rec");
   const ah = document.createElement("h3");
-  ah.textContent = "Use the Anthropic API";
+  ah.textContent = "Use a paid API";
   if (!state.hardware.can_local){
     const t = document.createElement("span");
     t.className = "tag";
@@ -263,14 +315,55 @@ function renderBrainChoice(state){
   const ap = document.createElement("p");
   ap.className = "pros";
   ap.textContent = "Much stronger answers and fast on any machine, but it costs per use "
-    + "and your messages go to Anthropic. Get a key at console.anthropic.com — it is stored "
-    + "only on this computer.";
+    + "and your messages go to whichever company you choose. The key is stored only on "
+    + "this computer.";
   api.appendChild(ap);
+
+  /*
+   * Which company, because they are not interchangeable.
+   *
+   * Privacy here is decided by where a request goes, and somebody who agreed
+   * to send their conversation to one has not agreed to the rest — least of
+   * all OpenRouter, where it may be served by any of the companies behind it.
+   * Naming where to get each key is the difference between a choice and a
+   * default nobody noticed making.
+   */
+  const services = [
+    {id: "anthropic", name: "Anthropic", hint: "sk-ant-…",
+     where: "console.anthropic.com"},
+    {id: "openai", name: "OpenAI", hint: "sk-…",
+     where: "platform.openai.com/api-keys"},
+    {id: "openrouter", name: "OpenRouter", hint: "sk-or-…",
+     where: "openrouter.ai/keys — one key, models from every major company"},
+  ];
+
+  const choose = document.createElement("select");
+
+  services.forEach(sv => {
+    const opt = document.createElement("option");
+    opt.value = sv.id;
+    opt.textContent = sv.name;
+    choose.appendChild(opt);
+  });
+
+  api.appendChild(choose);
+
+  const where = document.createElement("p");
+  where.className = "sub";
+  api.appendChild(where);
 
   const input = document.createElement("input");
   input.type = "password";
-  input.placeholder = "sk-ant-…";
   api.appendChild(input);
+
+  const describe = () => {
+    const sv = services.find(x => x.id === choose.value) || services[0];
+    input.placeholder = sv.hint;
+    where.textContent = "Get a key at " + sv.where;
+  };
+
+  choose.onchange = describe;
+  describe();
 
   const err = document.createElement("div");
   err.className = "err";
@@ -285,7 +378,7 @@ function renderBrainChoice(state){
     const res = await fetch("/api-key", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({key: input.value})
+      body: JSON.stringify({key: input.value, provider: choose.value})
     }).then(r => r.json());
     if (!res.ok){ err.textContent = res.error; err.hidden = false; return; }
     input.value = "";
@@ -304,10 +397,15 @@ async function install(name){
   refresh();
 }
 
-async function pullModel(){
+async function pullModel(model){
   busy = true;
   el("log").hidden = false;
-  await fetch("/choose-model");
+  // Which model, so the choice made on the page is the one that arrives.
+  await fetch("/choose-model", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({model: model || ""}),
+  });
   refresh();
 }
 
