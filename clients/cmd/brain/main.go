@@ -991,6 +991,18 @@ func runFirstRunSetup(settingsPath, name string) error {
 		if !window.OpenInBrowser(srv.URL()) {
 			fmt.Fprintf(os.Stderr, "  Open this in a browser to continue:\n    %s\n\n",
 				srv.URL())
+
+			/*
+			 * And said somewhere it can be seen.
+			 *
+			 * The Windows build is a GUI program with no console attached, so
+			 * the line above goes nowhere. Failing to open the browser there
+			 * would otherwise be a program that starts, shows nothing, and
+			 * exits — indistinguishable from one that does not work.
+			 */
+			window.Alert("PN Brain — Setup",
+				"Setup is ready but the browser could not be opened.\n\n"+
+					"Open this address yourself to continue:\n"+srv.URL())
 		}
 
 		<-done
