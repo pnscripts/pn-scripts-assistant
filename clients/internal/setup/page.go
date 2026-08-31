@@ -169,9 +169,26 @@ function renderRequirements(state){
 
     row.append(mark, body);
 
-    if (!ok && r.installable){
+    /*
+     * Install what is missing, and update what is not.
+     *
+     * The button used to appear only for things that were absent, so anything
+     * already installed could never be changed from here: an Ollama from a
+     * year ago reported "ok" for ever, and the only way to move it on was to
+     * find where it lived and delete it by hand. That is precisely the
+     * knowledge this page exists to spare somebody.
+     *
+     * The same action either way — it fetches the current release and puts it
+     * in place — so the only difference is the word, and the word matters:
+     * "Install" beside a tick would read as though something were wrong.
+     */
+    if (r.installable){
       const b = document.createElement("button");
-      b.textContent = "Install";
+      b.textContent = ok ? "Update" : "Install";
+      // ghost, which this page already uses for the quieter action: an
+      // update is not urgent, and a button identical to the one beside a
+      // missing part would say that it was.
+      b.className = ok ? "ghost" : "";
       b.disabled = busy;
       b.onclick = () => install(r.name);
       row.appendChild(b);
@@ -279,6 +296,8 @@ function renderBrainChoice(state){
 }
 
 async function install(name){
+  // Updating is the same request; the server re-runs the installer, which
+  // fetches the current release and puts it over what is there.
   busy = true;
   el("log").hidden = false;
   await fetch("/install?name=" + encodeURIComponent(name));
