@@ -33,6 +33,11 @@ type Aloud struct {
 
 	// spoken is everything actually said, for the record afterwards.
 	spoken strings.Builder
+
+	// saying marks that the step has already been set to Speaking, so a
+	// multi-sentence answer is one entry in the panel rather than one per
+	// sentence alternating with Answering.
+	saying bool
 }
 
 // NewAloud starts a speaker. Close must be called.
@@ -196,7 +201,21 @@ func (a *Aloud) run() {
 		 * the last word is spoken, which on this machine is minutes of one
 		 * word covering two quite different waits.
 		 */
-		progress.Set("speaking", "Speaking")
+		/*
+		 * One "Speaking" for the whole answer, not one per sentence.
+		 *
+		 * A spoken answer is several sentences, and setting the step around
+		 * each of them made the panel a wall of alternating Speaking and
+		 * Answering — a dozen entries with no durations, burying the steps
+		 * that actually said something. The distinction between writing and
+		 * saying is still worth drawing; it just belongs to the answer, not to
+		 * every sentence within it.
+		 */
+		if !a.saying {
+			progress.Set("speaking", "Speaking")
+
+			a.saying = true
+		}
 
 		if err := SpeakAndWait(a.ctx, sentence); err != nil {
 			// A voice that failed is not a reason to lose the rest of the
@@ -208,8 +227,6 @@ func (a *Aloud) run() {
 		a.spoken.WriteString(sentence)
 		a.mu.Unlock()
 
-		// Back to writing the rest of it, unless that was the end.
-		progress.Set("answering", "Answering")
 	}
 }
 

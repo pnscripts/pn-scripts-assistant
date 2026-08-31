@@ -126,7 +126,23 @@ var players = []struct {
 	Args    func(rate int) []string
 }{
 	{"pw-play", func(rate int) []string {
-		return []string{"--rate", fmt.Sprint(rate), "--channels", "1", "--format", "s16", "-"}
+		args := []string{"--rate", fmt.Sprint(rate), "--channels", "1", "--format", "s16"}
+
+		/*
+		 * Played into the canceller's sink, when there is one.
+		 *
+		 * This is what lets the assistant be interrupted mid-sentence. The
+		 * canceller removes from the microphone whatever was played into its
+		 * sink, so sound sent straight to the hardware output is sound it
+		 * never sees and cannot subtract — and the microphone then hears the
+		 * assistant's own voice as clearly as the person's. Saying its name
+		 * while it was talking started a turn made of its own words.
+		 */
+		if sink := PreferredSpeaker(context.Background()); sink != "" {
+			args = append(args, "--target", sink)
+		}
+
+		return append(args, "-")
 	}},
 	{"aplay", func(rate int) []string {
 		return []string{"-q", "-r", fmt.Sprint(rate), "-f", "S16_LE", "-c", "1", "-t", "raw", "-"}
@@ -138,6 +154,16 @@ var players = []struct {
 
 // Speak synthesises and plays, returning when the sound has finished.
 func (p *Piper) Speak(ctx context.Context, text string) error {
+	/*
+	 * Remembered before it is played, so it can be recognised coming back.
+	 *
+	 * The canceller removes most of this from the microphone and most is not
+	 * enough: one leaked sentence is one whole turn, and the brain's own name
+	 * is in almost everything it says, so the wake word matches and it answers
+	 * itself. Then it hears that answer too.
+	 */
+	JustSaid(text)
+
 	player := players[0]
 	found := false
 

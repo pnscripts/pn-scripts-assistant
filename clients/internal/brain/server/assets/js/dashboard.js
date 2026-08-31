@@ -473,44 +473,21 @@
 
         const waiting = memory.pending_lessons ?? 0;
 
-        renderRows(el('core-rows'), [
-            {
-                mark: 'AI', name: 'Model',
-                state: status.model || 'none loaded',
-                tone: status.model ? 'ok' : 'off',
-            },
-            {
-                mark: 'M', name: 'Memory',
-                state: `${memory.facts ?? 0} remembered`,
-                tone: 'ok',
-            },
-            {
-                mark: 'R', name: 'Recall',
-                state: can('recall') ? 'ready' : 'unavailable',
-                tone: can('recall') ? 'ok' : 'off',
-            },
-            {
-                mark: 'V', name: 'Voice',
-                state: can('speech') ? 'ready' : 'unavailable',
-                tone: can('speech') ? 'ok' : 'off',
-            },
-            {
-                mark: 'L', name: 'Listening',
-                // What it is waiting for, when it is waiting for something.
-                // A brain that only answers to a word must say which word, or
-                // somebody whose word is not being heard has no way to find
-                // out why nothing is happening.
-                state: !can('listening') ? 'unavailable'
-                    : status.wake_word ? `answers to “${status.wake_word}”`
-                        : 'ready',
-                tone: can('listening') ? 'ok' : 'off',
-            },
-            {
-                mark: 'Q', name: 'Review queue',
-                state: waiting ? `${waiting} waiting for you` : 'clear',
-                tone: waiting ? 'warn' : 'ok',
-            },
-        ]);
+        /*
+         * The fixed facts live in the footer now.
+         *
+         * They change perhaps twice a day — which model, how much is
+         * remembered, whether voice is ready — and they were holding the best
+         * position on the page while the thing that changes every few seconds
+         * had nowhere to appear. The panel they used to fill shows the work as
+         * it happens; see feed.js.
+         */
+        text('tile-memory', `${memory.facts ?? 0} remembered`);
+        text('tile-review', waiting ? `${waiting} waiting` : 'clear');
+        text('tile-listening',
+            !can('listening') ? 'unavailable'
+                : status.wake_word ? `“${status.wake_word}”`
+                    : 'ready');
 
         // Providers, with whether they can actually be reached.
         renderRows(el('provider-rows'), (status.providers || []).map((p) => ({
@@ -533,7 +510,10 @@
         text('core-sub', status.model ? `${status.provider} · ${status.model}` : 'no model loaded');
 
         // The bar along the bottom.
-        text('tile-privacy', status.privacy?.summary || status.privacy?.mode || '—');
+        // The mode's name, not its explanation. The tile is 130px wide and the
+        // summary is a full sentence, so it was being clipped mid-word; the
+        // sentence still appears in full on the Privacy page.
+        text('tile-privacy', status.privacy?.mode || '—');
         text('tile-model', status.model || 'none');
         text('tile-storage', storage.free_bytes
             ? `${gigabytes(storage.free_bytes)} free`

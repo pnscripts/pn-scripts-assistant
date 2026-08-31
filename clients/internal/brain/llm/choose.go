@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -79,6 +80,17 @@ type Sizes struct {
 
 	// Talk is a small quick model for conversation.
 	Talk string
+
+	/*
+	 * Quick is the fastest model here that can still call a tool.
+	 *
+	 * Distinct from Best, and the distinction is the point. On a machine
+	 * without a graphics card the fastest and the ablest are different models
+	 * by minutes per round, so ordinary turns take Quick and the few that
+	 * genuinely need care take Best. Drawing both from one list made them the
+	 * same model and there was nothing left to escalate to.
+	 */
+	Quick string
 
 	// Reason is a model that thinks before answering, for hard questions.
 	Reason string
@@ -203,11 +215,51 @@ func ChooseModel(message string, sizes Sizes) Choice {
 	// else is in the sentence.
 	hasWork := strings.ContainsAny(message, "/\\{}") || strings.Contains(message, "```")
 
+	/*
+	 * A website named in the question also means doing something.
+	 *
+	 * "What do you think about pnscripts.com?" reads as an opinion, and the
+	 * word "think" sent it to the reasoning model — which is offered no tools
+	 * by design, because reasoning is for turning something over rather than
+	 * going and looking. So it was asked about a website with no way to see
+	 * one. It floundered, emitted something shaped like a tool call, and the
+	 * turn ended with nothing to show.
+	 *
+	 * Nobody can have an opinion about a site they cannot open. A domain in
+	 * the sentence means the answer is outside the model, whatever verb the
+	 * question happens to use.
+	 */
+	if mentionsSomewhere(message) {
+		hasWork = true
+	}
+
 	for _, word := range words {
 		for _, doing := range working {
 			if word == doing {
 				hasWork = true
 			}
+		}
+	}
+
+	/*
+	 * Something demanding goes to the better model, where there is one.
+	 *
+	 * Checked before anything else, because whether a request needs care is
+	 * independent of whether it happens to mention a file. "Refactor this and
+	 * explain the architecture" names no path and contains no code fence, so
+	 * the working heuristic passes it by — and it is exactly the kind of
+	 * request the small model answers plausibly and badly.
+	 *
+	 * The quick model still answers ordinary turns, because on this hardware a
+	 * seven-billion-parameter model takes minutes per round and most requests
+	 * do not need it. For the few that do, the wait is the right price: a fast
+	 * wrong answer costs the asking again as well as the time.
+	 */
+	if sizes.Best != "" && sizes.Best != sizes.Work && needsTheBest(text, words) {
+		return Choice{
+			Model: sizes.Best,
+			Why:   "the best model here, because this needs care",
+			Tools: true,
 		}
 	}
 
@@ -237,6 +289,32 @@ func ChooseModel(message string, sizes Sizes) Choice {
 
 	if sizes.Talk == "" || sizes.Talk == sizes.Work {
 		return work
+	}
+	/*
+	 * Nothing here needs looking up, so nothing is offered to look with.
+	 *
+	 * A model shown thirty tools and given a greeting will find something to
+	 * do with them. "Say hello in four words" produced a request to create
+	 * /home/Petar/greetings.txt; told not to, it went looking for that file
+	 * instead and reported it missing. Neither answer contains a greeting.
+	 *
+	 * The prompt asks it to answer conversation in words, and a
+	 * three-billion-parameter model does not reliably listen. What it is
+	 * shown, it uses — so the reliable instruction is the empty list, not the
+	 * paragraph asking it to restrain itself.
+	 *
+	 * Deliberately narrow: only messages with no sign whatever of needing
+	 * something the model does not already have. Anything ambiguous keeps its
+	 * tools, because a tool withheld when it was needed produces "I cannot",
+	 * which is a worse failure than a moment wasted.
+	 */
+	if nothingToLookUp(text, words) {
+		return Choice{
+			Model:    sizes.Talk,
+			Why:      "conversation, which needs no tools",
+			Tools:    false,
+			Guidance: SmallTalkGuidance,
+		}
 	}
 
 	if len(words) > mostWordsForSmallTalk {
@@ -270,7 +348,20 @@ var thinking = map[string]bool{
 	"analyze": true, "reason": true, "prove": true, "solve": true,
 	"design": true, "plan": true, "strategy": true, "tradeoff": true,
 	"tradeoffs": true, "implications": true, "consequences": true,
-	"think": true, "consider": true, "evaluate": true, "assess": true,
+	"evaluate": true, "assess": true,
+
+	/*
+	 * "think" and "consider" are deliberately absent.
+	 *
+	 * They read as requests for deliberation and are mostly just how people
+	 * phrase an ordinary question — "what do you think about this", "have you
+	 * considered". Either one sent the turn to the reasoning model, which on
+	 * this hardware is several minutes and is offered no tools at all, so a
+	 * casual question became a long wait ending in nothing.
+	 *
+	 * A question that genuinely needs working out almost always carries one of
+	 * the words above as well: why, explain, compare, prove.
+	 */
 
 	"защо": true, "обясни": true, "сравни": true, "анализирай": true,
 	"измисли": true, "прецени": true, "план": true,
@@ -325,6 +416,31 @@ var WorkCandidates = []string{
 }
 
 /*
+ * ModestWork leads on a machine with no graphics card.
+ *
+ * The list above is ordered by how well each model uses a tool, which is the
+ * right question on a machine that can run any of them quickly. On four cores
+ * and no card it is the wrong question, because the answer arrives after the
+ * person has given up: a seven-billion-parameter model here produces two or
+ * three tokens a second, and a turn that calls a tool is several rounds of
+ * that. Measured on this machine, one spoken question — "what is the weather
+ * in Sofia" — was still on its first round after four and a half minutes.
+ *
+ * llama3.2:3b is less able and answers in a fraction of the time, and it turns
+ * out not to be the compromise it looks like: asked the same question with the
+ * same tool, it emits a proper tool_calls field, while qwen2.5-coder writes
+ * the call out as prose that has to be recovered by reading its reply. So on
+ * this class of machine the smaller model is both quicker and more reliable at
+ * the one thing this list exists to rank.
+ *
+ * Only ahead of the others, never instead of them. A machine that has qwen and
+ * not this still gets qwen, and anything with a card takes the capable or
+ * generous list first — which is what makes the same program worth running on
+ * better hardware without changing anything.
+ */
+var ModestWork = []string{"llama3.2:3b", "llama3.2", "qwen2.5:3b"}
+
+/*
  * ForMachine is the order to prefer models in, given what the machine is.
  *
  * The better models are tried first and the modest ones remain behind them as
@@ -342,7 +458,8 @@ func ForMachine(tier string) (work, talk, reason []string) {
 			append(append([]string{}, CapableTalk...), TalkCandidates...),
 			append(append([]string{}, CapableReason...), ReasonCandidates...)
 	default:
-		return WorkCandidates, TalkCandidates, ReasonCandidates
+		return append(append([]string{}, ModestWork...), WorkCandidates...),
+			TalkCandidates, ReasonCandidates
 	}
 }
 
@@ -393,4 +510,128 @@ func normalise(text string) string {
 	}
 
 	return strings.Join(strings.Fields(b.String()), " ")
+}
+
+/*
+ * SmartestOrder is the capability ranking, ignoring how fast anything is.
+ *
+ * ForMachine puts the quick model first on a machine without a graphics card,
+ * which is right for the model that answers ordinary turns and wrong for the
+ * one held in reserve. If both come from the same list then on such a machine
+ * they are the same model, there is nothing to escalate to, and a hard
+ * question is answered by the small model simply because it was the only one
+ * offered.
+ *
+ * So the reserve is chosen by capability alone. It is slower — on four cores,
+ * minutes rather than seconds — and that is the correct trade for the handful
+ * of requests that actually need it.
+ */
+func SmartestOrder(tier string) []string {
+	switch tier {
+	case "generous":
+		return append(append([]string{}, GenerousWork...), WorkCandidates...)
+	case "capable":
+		return append(append([]string{}, CapableWork...), WorkCandidates...)
+	default:
+		return WorkCandidates
+	}
+}
+
+/*
+ * needsTheBest reports a request worth waiting longer for.
+ *
+ * Kept narrow on purpose. Escalating is expensive here — the difference is
+ * measured in minutes — so it is reserved for the cases where the small model
+ * visibly struggles: writing real code, reasoning through several steps, or
+ * being asked in so many words to take care.
+ */
+func needsTheBest(text string, words []string) bool {
+	if strings.Contains(text, "```") {
+		return true
+	}
+
+	for _, word := range words {
+		switch word {
+		case "carefully", "properly", "thoroughly", "detailed", "debug",
+			"refactor", "architecture", "algorithm", "optimise", "optimize",
+			"analyse", "analyze", "review", "prove", "derive":
+			return true
+		}
+	}
+
+	// A long, involved request is one somebody spent time writing, and
+	// answering it badly wastes more of their time than the wait would.
+	return len(words) > 60
+}
+
+/*
+ * somewhereToLook matches a domain or a URL named in a sentence.
+ *
+ * Bare domains as well as full addresses, because people say "pnscripts.com"
+ * far more often than they say "https://pnscripts.com" — and it was exactly
+ * the bare form that slipped past the older check, which looked for a slash.
+ */
+var somewhereToLook = regexp.MustCompile(
+	`\b(?:[a-zA-Z0-9][a-zA-Z0-9-]*\.)+(?:com|net|org|io|dev|local|bg|co|uk|app|sh|me|ai)\b`)
+
+// mentionsSomewhere reports that the sentence names a place to go and look.
+func mentionsSomewhere(message string) bool {
+	return somewhereToLook.MatchString(message)
+}
+
+/*
+ * asking are the words that mean the answer is outside the model.
+ *
+ * Anything about this machine, this person's files, the world today, or a
+ * thing that has to be fetched. One of these in a sentence is enough to keep
+ * the tools available.
+ */
+var asking = map[string]bool{
+	"file": true, "files": true, "folder": true, "directory": true,
+	"read": true, "open": true, "find": true, "search": true, "look": true,
+	"weather": true, "news": true, "price": true, "today": true, "now": true,
+	"latest": true, "current": true, "website": true, "site": true, "page": true,
+	"email": true, "mail": true, "inbox": true, "reminder": true, "reminders": true,
+	"waiting": true, "model": true, "models": true, "screen": true, "window": true,
+	"remember": true, "remind": true, "learn": true, "check": true, "list": true,
+	"my": true, "mine": true, "our": true,
+
+	"файл": true, "файлове": true, "папка": true, "новини": true, "време": true,
+	"провери": true, "намери": true, "напомни": true,
+}
+
+/*
+ * nothingToLookUp reports a message that can be answered from the model alone.
+ *
+ * Short, and free of any word suggesting the answer lives somewhere else. The
+ * length limit matters as much as the vocabulary: a long request is a request,
+ * whatever words it happens to use, and the cost of getting this wrong falls
+ * entirely on the side of withholding a tool that was needed.
+ */
+func nothingToLookUp(text string, words []string) bool {
+	if len(words) == 0 || len(words) > 14 {
+		return false
+	}
+
+	for _, word := range words {
+		// Anything whose answer lives outside the model.
+		if asking[word] {
+			return false
+		}
+
+		/*
+		 * And anything genuinely worth working out.
+		 *
+		 * "Why is this happening" is four words with nothing to look up in
+		 * them, and it is not small talk — it is the kind of question this
+		 * program exists for. Reaching the reasoning model matters more than
+		 * saving it the tools, and where there is no reasoning model it
+		 * belongs with the one that does the work.
+		 */
+		if thinking[word] {
+			return false
+		}
+	}
+
+	return true
 }

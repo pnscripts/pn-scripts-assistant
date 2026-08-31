@@ -76,6 +76,36 @@ type Runner struct {
 const DefaultAtMost = 2
 
 /*
+ * HowManyAtOnce is how much can run beside a conversation, given the machine.
+ *
+ * The limit was a constant, so a workstation with a graphics card ran exactly
+ * as many things at once as a laptop with four cores and none — which is the
+ * same mistake the model choice used to make, in a different place. The
+ * constraint is real on modest hardware and imaginary on good hardware, and
+ * pretending otherwise wastes whichever one it gets wrong.
+ *
+ * On a machine without a card, one. Every job here is a model call, the model
+ * runs on the processor, and two of them do not take twice as long — they take
+ * longer than that, because they evict each other from cache and from memory.
+ * A single background job that finishes is worth more than three that crawl,
+ * and anything running beside a conversation is also stealing from the answer
+ * somebody is waiting for.
+ *
+ * With a card, the picture inverts: the model sits in video memory and a second
+ * call costs memory rather than minutes.
+ */
+func HowManyAtOnce(tier string) int {
+	switch tier {
+	case "generous":
+		return 6
+	case "capable":
+		return 3
+	default:
+		return 1
+	}
+}
+
+/*
  * Start puts work in the background and returns at once.
  *
  * what is in the owner's terms — "reading your documents", not the name of a

@@ -210,9 +210,17 @@
             <div class="dash">
 
                 <!-- Row one: what it is, what it is doing, what just happened. -->
+                <!-- What it is doing, as it does it.
+                     The fixed facts that used to sit here — which model, how
+                     much is remembered, whether voice is ready — are in the
+                     footer now. They change perhaps twice a day, and they were
+                     occupying the best position on the page while the thing
+                     that changes every few seconds had nowhere to appear. -->
                 <div class="card" style="grid-area: core">
-                    <h2>Core</h2>
-                    <div class="rows" id="core-rows"></div>
+                    <h2>Doing now</h2>
+                    <div class="feed" id="feed">
+                        <p class="feed-idle" id="feed-idle">Waiting.</p>
+                    </div>
                 </div>
 
                 <div class="card card-core" style="grid-area: reactor">
@@ -292,7 +300,10 @@
                 </div>
 
                 <!-- Row three: the measurements. -->
-                <div class="card" style="grid-area: monitor">
+                <!-- Keeps its own colours: the gauges mean load, not status, and
+                     tinting them by what the brain is doing would make a busy
+                     processor look like a state of the conversation. -->
+                <div class="card card-measured" style="grid-area: monitor">
                     <h2>System monitor</h2>
                     <div class="gauges">
                         <div class="gauge">
@@ -579,6 +590,27 @@
                     <span class="tile-value" id="tile-model">—</span>
                 </span>
             </div>
+            <div class="tile">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                <span class="tile-text">
+                    <span class="tile-label">Memory</span>
+                    <span class="tile-value" id="tile-memory">—</span>
+                </span>
+            </div>
+            <div class="tile">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9 6a3 3 0 016 0v4a3 3 0 01-6 0z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 11a6 6 0 0012 0M12 17v3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                <span class="tile-text">
+                    <span class="tile-label">Listening</span>
+                    <span class="tile-value" id="tile-listening">—</span>
+                </span>
+            </div>
+            <div class="tile">
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 12l5 5L20 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="tile-text">
+                    <span class="tile-label">Review queue</span>
+                    <span class="tile-value" id="tile-review">—</span>
+                </span>
+            </div>
         </div>
 
         <div class="talk-pill" id="talk-pill">
@@ -596,6 +628,13 @@
             <canvas id="wave-right" class="wave" aria-hidden="true"></canvas>
         </div>
 
+        <!-- Shown only while it is talking or working. A control that is always
+             there is one more thing to read past; a control that appears at the
+             moment it becomes useful reads as an offer. -->
+        <button type="button" class="talk-action stop-action" id="stop-now" hidden>
+            <span class="row-icon">■</span><span>Stop</span>
+        </button>
+
         <button type="button" class="talk-action" id="new-conversation">
             <span class="row-icon">+</span><span>New conversation</span>
         </button>
@@ -605,9 +644,13 @@
 
 </div>
 
+<!-- One status vocabulary and one palette, before anything that colours a
+     status. See status.js. -->
+<script src="/js/status.js"></script>
 <script src="/js/console.js"></script>
 <script src="/js/dashboard.js"></script>
 <script src="/js/working.js"></script>
+<script src="/js/feed.js"></script>
 <script src="/js/models.js"></script>
 <script src="/js/updates.js"></script>
 <script src="/js/settings.js"></script>

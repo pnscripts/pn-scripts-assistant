@@ -390,16 +390,31 @@ function setTalkButton(state) {
     if (!button || !label) return;
 
     button.dataset.state = state;
+
+    /*
+     * And the shared status, which is what colours it.
+     *
+     * The state names here are this page's own — "waiting", "stopping" — and
+     * they are not the words the brain uses. Mapping both onto one set of
+     * statuses is what lets the button, the feed and the core agree.
+     */
+    const status = window.brainStatusOf ? window.brainStatusOf(state) : 'idle';
+
+    button.dataset.status = status;
+    label.dataset.status = status;
+
     button.setAttribute('aria-pressed', state === 'idle' ? 'false' : 'true');
 
-    label.textContent = {
-        idle: 'Talk',
-        waiting: 'Waiting',
-        listening: 'Listening',
-        thinking: 'Thinking',
-        speaking: 'Speaking',
-        stopping: 'Stopping',
-    }[state] || 'Talk';
+    /*
+     * The name comes from the same place as the colour.
+     *
+     * The two have to agree, and keeping a second list here is how they came
+     * to disagree: the panel said "Making out the words" while this said
+     * "Thinking" about the very same moment.
+     */
+    label.textContent = state === 'stopping'
+        ? 'Stopping'
+        : window.brainStatusLabel(status);
 }
 
 async function talkLoop() {
@@ -438,6 +453,30 @@ async function talkLoop() {
             if (!talking.on) break;
 
             const said = (heard.transcript || '').trim();
+
+            /*
+             * A name nothing here has met is read back before it is used.
+             *
+             * The recogniser does not hesitate over a word it has never seen;
+             * it returns the nearest thing it knows, confidently. "pnscripts
+             * .com" arrived as "pncryptz.com" and a considered opinion
+             * followed about a website that does not exist — and nothing in
+             * the exchange marked it as a guess.
+             *
+             * Only for names, and only for ones nothing on this machine has
+             * ever seen. Anything already in memory passes silently, or the
+             * brain would query its owner about their own most-visited site.
+             */
+            if (said && (heard.unfamiliar || []).length) {
+                addMessage(state.brainName,
+                    `I heard \u201c${heard.unfamiliar.join('\u201d and \u201c')}\u201d ` +
+                    'but I do not know that name — is that right? ' +
+                    'Say it again or type it, and I will remember the spelling.',
+                    { cssClass: 'note' });
+
+                speak(`I heard ${heard.unfamiliar.join(', and ')}, but I do not know ` +
+                    'that name. Is that right?');
+            }
 
             /*
              * Nothing said to the room is a turn.
@@ -507,6 +546,11 @@ async function talkLoop() {
             }
 
             state.conversationId = reply.conversation_id;
+
+            // The draft goes as the real thing arrives, or the answer appears
+            // twice — once as it was written and once finished.
+            showDraft('');
+            showActivity([]);
             addMessage(state.brainName, reply.reply, { cssClass: 'brain' });
 
             if (window.brainMapRecall && reply.recalled) window.brainMapRecall(reply.recalled);
@@ -636,43 +680,66 @@ async function loadVoices() {
     };
 }
 
-let microphonesLoaded = false;
-
 /*
  * Which input to listen through.
  *
- * Offered as a choice rather than taken from the system default, because the
- * default is frequently wrong: on this machine it is the built-in analog jack,
- * which records near-silence while a USB microphone sits unused. That failure
- * is indistinguishable from a broken recogniser.
+ * The list is a choice, but the entry selected by default comes from the
+ * server rather than being guessed here, and that distinction cost a morning
+ * of silence.
+ *
+ * Guessing here meant taking the first entry whose name contained "mic", which
+ * is how "Microphone (echo cancelled)" won — a name that says nothing at all
+ * about which physical microphone feeds it. It was being fed by an analog jack
+ * with nothing plugged into it. Worse, choosing here sends that device
+ * explicitly with every request and so overrides the server's own checks: it
+ * had already worked out the right answer and was being told to ignore it.
+ *
+ * The server can see what this page cannot — which microphone the echo
+ * canceller actually captures from, and whether an input carries any signal —
+ * so it decides, and this asks.
  */
 async function loadMicrophones() {
-    if (microphonesLoaded) return;
-
-    let mics = [];
+    let reply;
     try {
-        mics = (await api.get('/api/microphones')).microphones || [];
+        reply = await api.get('/api/microphones');
     } catch {
         return;
     }
 
+    const mics = reply.microphones || [];
     const select = el('microphone');
-    select.textContent = '';
 
-    mics.forEach((m) => {
-        const option = document.createElement('option');
-        option.value = m.id;
-        option.textContent = m.name + (m.default ? ' (system default)' : '');
-        select.appendChild(option);
-    });
+    /*
+     * Rebuilt only when the devices themselves changed.
+     *
+     * Not cached once and left alone, which is what it used to do: microphones
+     * are plugged in and unplugged while the program is running, and a list
+     * fetched at startup goes on offering a headset that left an hour ago.
+     * Rebuilding unconditionally is the opposite failure — it would discard a
+     * choice already made on every refresh.
+     */
+    const signature = mics.map((m) => m.id).join('|');
 
-    // Prefer something that is plainly a microphone over the system default,
-    // which is often a jack with nothing in it.
-    const named = mics.find((m) => /mic/i.test(m.name));
-    if (named) select.value = named.id;
+    if (signature !== select.dataset.devices) {
+        const had = select.value;
+
+        select.textContent = '';
+
+        mics.forEach((m) => {
+            const option = document.createElement('option');
+            option.value = m.id;
+            option.textContent = m.name + (m.id === reply.inUse ? ' (in use)' : '');
+            select.appendChild(option);
+        });
+
+        select.dataset.devices = signature;
+
+        // The server's answer, unless a choice was already made and the device
+        // it names is still attached.
+        select.value = mics.some((m) => m.id === had) ? had : (reply.inUse || '');
+    }
 
     el('microphone-field').hidden = mics.length === 0;
-    microphonesLoaded = true;
 }
 
 
@@ -968,10 +1035,29 @@ function ago(when) {
 async function restoreConversation() {
     try {
         const convo = await api.get('/api/conversations/latest');
-        if (!convo.id || !convo.messages.length) return false;
 
-        state.conversationId = convo.id;
-        convo.messages.forEach((m) => {
+        /*
+         * What was said, and only that.
+         *
+         * A stored conversation holds the raw output of every tool the brain
+         * called as well as the two people in it. Replaying all of it put
+         * search results in the transcript as though the brain had read them
+         * out — the same fault as showing the system prompt, which this
+         * already guarded against.
+         */
+        const said = (convo.messages || []).filter(
+            (m) => (m.role === 'user' || m.role === 'assistant') &&
+                (m.content || '').trim() !== ''
+        );
+
+        if (!said.length) return false;
+
+        // Only if there is one. A conversation restored without its identity
+        // still reads correctly; carrying on from it would start a new one,
+        // which is a smaller fault than showing an empty screen.
+        if (convo.id) state.conversationId = convo.id;
+
+        said.forEach((m) => {
             addMessage(
                 m.role === 'user' ? 'you' : state.brainName,
                 m.content,
@@ -1010,13 +1096,26 @@ window.brainOpenConversation = async function (id) {
 
     state.conversationId = convo.id;
 
-    (convo.messages || []).forEach((m) => {
-        addMessage(
-            m.role === 'user' ? 'you' : state.brainName,
-            m.content,
-            { cssClass: m.role === 'user' ? 'you' : 'brain' }
-        );
-    });
+    /*
+     * What was said, and only that.
+     *
+     * A stored conversation holds more than the two people in it: the system
+     * prompt that set the brain up, and the raw output of every tool it
+     * called. Replaying all of it put "You are PN Brain, Petar's personal AI
+     * assistant…" at the top of the transcript as though the brain had opened
+     * by reciting its own instructions, and buried the actual exchange under
+     * tool output nobody asked to see twice.
+     */
+    (convo.messages || [])
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .filter((m) => (m.content || '').trim() !== '')
+        .forEach((m) => {
+            addMessage(
+                m.role === 'user' ? 'you' : state.brainName,
+                m.content,
+                { cssClass: m.role === 'user' ? 'you' : 'brain' }
+            );
+        });
 };
 
 /* ---------- wiring ---------- */
@@ -1027,6 +1126,26 @@ el('composer').addEventListener('submit', (e) => {
     const text = input.value;
     input.value = '';
     input.style.height = 'auto';
+
+    /*
+     * Typing while it is working interrupts it, the same as speaking over it.
+     *
+     * Cutting in by voice has worked for a while and typing did not, so the
+     * only way to add something mid-answer was to talk — which is no use to
+     * somebody at a keyboard, or in a room where they would rather not. The
+     * message then queued behind a turn that might run for minutes, and by the
+     * time it was read the moment had passed.
+     *
+     * The voice stops, what was already said is kept as what was said, and the
+     * new message goes in as the next thing — so it reads as a person adding
+     * to a conversation rather than as one being abandoned and restarted.
+     */
+    const step = window.brainWork ? window.brainWork() : null;
+
+    if (text.trim() && step && step.busy && !step.background) {
+        stopTalking();
+    }
+
     send(text);
 });
 
@@ -1102,3 +1221,284 @@ async function greet(canSpeak) {
         refreshActivity();
     }, 5000);
 })();
+
+/*
+ * Stopping it mid-sentence.
+ *
+ * Cutting in by talking has worked for a while — the level detector watches for
+ * it while the brain speaks — but that was the only way, and it requires being
+ * somewhere you can talk. Somebody at the keyboard, or in a room where they
+ * would rather not shout, had to sit through four paragraphs of an answer they
+ * could already tell was wrong.
+ *
+ * Escape as well as the button, because Escape is what everything else on the
+ * machine uses for "not that" and a hand is already on the keyboard.
+ */
+async function stopTalking() {
+    try {
+        await api.post('/api/interrupt', {});
+    } catch {
+        // Nothing to report. The button exists to stop a voice, and if the
+        // request failed the voice is still going, which says so by itself.
+    }
+}
+
+el('stop-now')?.addEventListener('click', stopTalking);
+
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+
+    // Not while typing: Escape in a text box means "leave this field", and
+    // hijacking it would make the composer feel broken.
+    const typing = document.activeElement;
+
+    if (typing && /^(INPUT|TEXTAREA)$/.test(typing.tagName)) return;
+
+    stopTalking();
+});
+
+/*
+ * The button appears exactly while there is something to stop.
+ *
+ * Driven by the same reading everything else uses rather than a second poll of
+ * its own; see signals.js.
+ */
+setInterval(() => {
+    const button = el('stop-now');
+
+    if (!button) return;
+
+    const step = window.brainWork ? window.brainWork() : { busy: false };
+
+    // Background work is the brain's own; nobody is waiting on it and stopping
+    // it is not what this button is for.
+    button.hidden = !(step.busy && !step.background);
+}, 400);
+
+/*
+ * Keeping the button, the core and the feed telling the same story.
+ *
+ * There were two accounts of what the brain was doing and they disagreed. The
+ * talk button and the core were driven by this page's own loop — which knows
+ * when it asked for a turn and nothing else — while the feed came from the
+ * brain itself. So the button read "Waiting" while the panel beside it showed
+ * a recogniser part-way through a sentence, and the core was amber for work
+ * the button said was not happening.
+ *
+ * The brain's account wins, because it is the one that knows. The page's loop
+ * still sets the state at the moments it alone is aware of — the microphone
+ * opening, a turn being sent — and anything the brain reports overrides it
+ * while a turn is in flight.
+ */
+/*
+ * No mapping of its own any more.
+ *
+ * This used to collapse the brain's kinds into the four the button knew —
+ * transcribing and tool both became "thinking" — so mid-turn the button named
+ * and coloured the same instant differently from the panel beside it. The
+ * shared status is used unchanged; see status.js.
+ */
+
+setInterval(() => {
+    // Only while the page is holding a voice conversation. Somebody typing has
+    // not asked the button to narrate, and background work the brain gave
+    // itself is not something to report as though they were waiting on it.
+    if (!talking.on) return;
+
+    const step = window.brainWork ? window.brainWork() : null;
+
+    if (!step || !step.busy) return;
+
+    // Listening is reported as background, since nobody waits on it, but it is
+    // exactly the state the button exists to show.
+    if (step.background && step.kind !== 'listening') return;
+
+    const status = window.brainStatusOf(step);
+
+    if (status && el('talk')?.dataset.status !== status) setTalkButton(status);
+}, 500);
+
+/*
+ * The answer appearing as it is written.
+ *
+ * It used to arrive in one piece at the end, so a turn that takes a minute
+ * showed nothing for a minute — and on a spoken turn the assistant talked the
+ * whole way through while the transcript beside it stayed empty. From the
+ * outside that is indistinguishable from a program that has stopped, which is
+ * the doubt every other part of this interface exists to remove.
+ *
+ * A draft, replaced by the real message when the turn finishes. It carries a
+ * class of its own so it can be told apart in the DOM and removed cleanly,
+ * rather than being left behind as a duplicate of the answer beside it.
+ */
+function showDraft(text) {
+    const transcript = el('transcript');
+
+    if (!transcript) return;
+
+    let draft = transcript.querySelector('.msg-draft');
+
+    if (!text) {
+        if (draft) draft.remove();
+
+        return;
+    }
+
+    if (!draft) {
+        draft = document.createElement('div');
+        draft.className = 'msg brain msg-draft';
+
+        const who = document.createElement('span');
+        who.className = 'who';
+        who.textContent = state.brainName;
+
+        const body = document.createElement('div');
+        body.className = 'body';
+
+        draft.append(who, body);
+        transcript.appendChild(draft);
+    }
+
+    const body = draft.querySelector('.body');
+
+    if (body.textContent !== text) {
+        body.textContent = text;
+
+        // Only while already at the bottom, so reading back through the
+        // conversation is not yanked forward every time a word arrives.
+        const atBottom = transcript.scrollHeight - transcript.scrollTop
+            - transcript.clientHeight < 80;
+
+        if (atBottom) transcript.scrollTop = transcript.scrollHeight;
+    }
+}
+
+setInterval(() => {
+    const step = window.brainWork ? window.brainWork() : null;
+
+    showDraft(step && step.busy ? (step.so_far || '') : '');
+}, 400);
+
+/*
+ * What it is doing, inside the conversation rather than beside it.
+ *
+ * The panel on the left has always carried this, and it is the wrong place for
+ * it during a turn: somebody reading a conversation is looking at the
+ * conversation, and a tool that ran between their question and the answer is
+ * part of that exchange, not a separate stream to cross-reference by
+ * timestamp.
+ *
+ * So the steps of the turn in flight appear under the question that caused
+ * them — what ran, what it was asked, what came back — and settle into a quiet
+ * record once the answer arrives. The same information either way; the
+ * difference is whether it reads as part of the conversation or as telemetry.
+ */
+const SHOWN_IN_CHAT = new Set(['tool', 'thinking', 'transcribing', 'learning']);
+
+function showActivity(steps) {
+    const transcript = el('transcript');
+
+    if (!transcript) return;
+
+    let box = transcript.querySelector('.turn-activity');
+
+    if (!steps.length) {
+        if (box) box.remove();
+
+        return;
+    }
+
+    if (!box) {
+        box = document.createElement('div');
+        box.className = 'turn-activity';
+        transcript.appendChild(box);
+    }
+
+    const signature = steps
+        .map((s) => `${s.kind}|${s.note}|${(s.detail || []).join('~')}`)
+        .join('\n');
+
+    if (box.dataset.shown === signature) {
+        // Only the clock on the last line moves.
+        const last = box.lastElementChild?.querySelector('.act-took');
+        const step = steps[steps.length - 1];
+
+        if (last && step) last.textContent = feedTime(step.took);
+
+        return;
+    }
+
+    box.textContent = '';
+    box.dataset.shown = signature;
+
+    steps.forEach((step, i) => {
+        const row = document.createElement('div');
+        row.className = 'act';
+        row.dataset.status = window.brainStatusOf
+            ? window.brainStatusOf({ ...step, busy: true })
+            : 'thinking';
+        row.dataset.running = i === steps.length - 1 ? 'yes' : 'no';
+
+        const dot = document.createElement('span');
+        dot.className = 'act-dot';
+
+        const body = document.createElement('span');
+        body.className = 'act-body';
+
+        const what = document.createElement('span');
+        what.className = 'act-what';
+        what.textContent = step.note || step.kind;
+        body.appendChild(what);
+
+        (step.detail || []).forEach((line) => {
+            const d = document.createElement('span');
+            d.className = 'act-detail';
+            d.textContent = line;
+            body.appendChild(d);
+        });
+
+        const took = document.createElement('span');
+        took.className = 'act-took';
+        took.textContent = feedTime(step.took);
+
+        row.append(dot, body, took);
+        box.appendChild(row);
+    });
+
+    const atBottom = transcript.scrollHeight - transcript.scrollTop
+        - transcript.clientHeight < 120;
+
+    if (atBottom) transcript.scrollTop = transcript.scrollHeight;
+}
+
+/*
+ * Only the steps of the turn being answered.
+ *
+ * The history holds listening and learning as well, and those belong in the
+ * panel rather than in the conversation: nobody asked for them and they happen
+ * whether or not anybody is talking. What goes here is the work that this
+ * question caused.
+ */
+async function pollActivity() {
+    const step = window.brainWork ? window.brainWork() : null;
+
+    if (!step || !step.busy || step.background) {
+        showActivity([]);
+
+        return;
+    }
+
+    try {
+        const reply = await api.get('/api/steps');
+        const steps = (reply.steps || []).filter(
+            (s) => SHOWN_IN_CHAT.has(s.kind) && !s.background
+        );
+
+        // The current turn only: everything since the last time it was idle.
+        showActivity(steps.slice(-6));
+    } catch {
+        /* The conversation still reads without it. */
+    }
+}
+
+setInterval(pollActivity, 700);

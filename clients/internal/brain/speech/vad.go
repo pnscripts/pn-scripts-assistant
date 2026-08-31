@@ -24,13 +24,34 @@ const (
 	// FrameDuration is how often the level is checked.
 	FrameDuration = 100 * time.Millisecond
 
-	// SilenceToEnd is how long quiet must last before a turn is considered over.
-	//
-	// A comma is around 300ms and a full stop nearer 700, so this has to sit
-	// above the first and near the second: shorter and it interrupts mid
-	// sentence, longer and every single turn carries the delay. 800ms ends a
-	// finished sentence without waiting through the next.
-	SilenceToEnd = 800 * time.Millisecond
+	/*
+	 * SilenceToEnd is how long quiet must last before a turn is considered
+	 * over.
+	 *
+	 * A comma is around 300ms and a full stop nearer 700, and 800ms was set
+	 * from those numbers. It cuts people off. Those figures describe reading
+	 * aloud from a page, and nobody talking to an assistant is reading: they
+	 * are composing, and composing pauses are far longer — after a name, in
+	 * the middle of a list, and above all before the part they actually
+	 * wanted to say.
+	 *
+	 * 1.3s, and the delay it adds to a finished sentence is paid back by
+	 * continuation, which reopens the microphone when the words themselves say
+	 * somebody had not finished. Between them the fixed timeout stops being
+	 * the thing that decides; see SoundsUnfinished.
+	 */
+	SilenceToEnd = 1300 * time.Millisecond
+
+	/*
+	 * PatienceForMore is how long to wait for somebody to carry on.
+	 *
+	 * Much shorter than the wait for a turn to begin. By this point they have
+	 * already been speaking and the transcript stopped mid-thought, so either
+	 * they resume promptly or they had finished and whisper simply did not
+	 * punctuate it. Waiting the full eight seconds to find that out would make
+	 * every unpunctuated sentence feel like a hang.
+	 */
+	PatienceForMore = 1500 * time.Millisecond
 
 	// MinSpeechDuration guards against a cough or a door closing ending the
 	// turn immediately with nothing usable in it.
@@ -155,6 +176,27 @@ type Turn struct {
 	// me" is unanswerable without them.
 	NoiseFloor int
 	Threshold  int
+
+	/*
+	 * CutInAt is where in the file the person started talking over the
+	 * assistant, or zero when they did not.
+	 *
+	 * Everything before it is the assistant's own voice, recorded while it was
+	 * still speaking. Transcribing the whole file hands the recogniser both
+	 * voices at once and it returns a muddle of the two — which is why talking
+	 * over an answer produced either nothing or somebody else's sentence.
+	 */
+	CutInAt int64
+
+	/*
+	 * WasSteadyNoise marks a turn that crossed the level threshold without
+	 * ever sounding like a voice — a cooling fan, traffic, a passing lorry.
+	 *
+	 * Reported rather than silently dropped, so the interface can say what
+	 * actually happened instead of showing yet another turn that heard
+	 * nothing and leaving its owner to wonder why.
+	 */
+	WasSteadyNoise bool
 }
 
 // RecordTurn records until the speaker stops, rather than for a fixed time.
@@ -166,30 +208,44 @@ type Turn struct {
 // The level is read from the file as pw-record writes it, so no extra process
 // or pipe is needed and the recording is already on disk when the turn ends.
 func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
+	return RecordTurnWaiting(ctx, device, path, PatienceBeforeSpeech)
+}
+
+/*
+ * RecordTurnWaiting records one turn, waiting a given time for it to begin.
+ *
+ * The wait differs by situation and nothing else does. Opening a fresh turn is
+ * patient, because somebody has to gather a thought; carrying one on is not,
+ * because they were talking a second ago and either resume or had finished.
+ */
+func RecordTurnWaiting(
+	ctx context.Context, device, path string, patience time.Duration,
+) (Turn, error) {
 	turn := Turn{Path: path}
 
-	if _, err := exec.LookPath("pw-record"); err != nil {
-		return turn, fmt.Errorf("pw-record is needed for conversation mode")
-	}
-
-	args := []string{"--rate", "16000", "--channels", "1", "--format", "s16"}
+	// Every frame once speech has been heard, for the whole-turn check below.
+	var wholeTurn []int
 
 	/*
-	 * With nothing chosen, prefer the echo-cancelled input.
+	 * With nothing chosen, work out the best input on this machine.
 	 *
-	 * This is what makes interrupting work: the assistant's own voice is
-	 * subtracted from what the microphone hears, so it can keep listening while
-	 * it speaks instead of going deaf for the length of every answer.
+	 * That means the echo-cancelled source when it is running and wired to the
+	 * microphone actually in use, since that is what makes interrupting work:
+	 * the assistant's own voice is subtracted from what the microphone hears,
+	 * so it can keep listening while it speaks instead of going deaf for the
+	 * length of every answer. When the canceller is missing or pointed
+	 * somewhere else, the plain microphone — being able to hear at all is
+	 * worth more than being able to interrupt.
 	 */
 	if device == "" {
 		device = PreferredMicrophone(ctx)
 	}
 
-	if device != "" {
-		args = append(args, "--target", device)
+	cmd, err := turnRecorder(ctx, device, path)
+	if err != nil {
+		return turn, err
 	}
 
-	cmd := exec.CommandContext(ctx, "pw-record", append(args, path)...)
 	dieWithParent(cmd)
 
 	if err := cmd.Start(); err != nil {
@@ -327,6 +383,32 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 		// high and the user would then have to shout to be heard.
 		if Speaking() {
 			/*
+			 * Unless the room has proved it cannot be done here.
+			 *
+			 * With the microphone next to the speaker the echo arrives loud
+			 * enough to clip and distorted in ways no canceller models, and
+			 * enough of it survives to be transcribed as speech every time the
+			 * assistant opens its mouth. Each of those costs a whole turn: the
+			 * microphone was busy, the recogniser ran, and the person in front
+			 * of it was not being listened to.
+			 *
+			 * So after a few of them, listening waits until it has stopped
+			 * talking. That costs interrupting by voice and nothing else —
+			 * the Stop button and Escape still work — and it recovers on its
+			 * own once the echoes age out, so moving the microphone or turning
+			 * the volume down brings the voice back without anybody finding a
+			 * setting.
+			 */
+			if RoomIsTooLive() {
+				started = time.Now()
+				recent = recent[:0]
+				echo = echo[:0]
+				threshold = math.MaxInt
+
+				continue
+			}
+
+			/*
 			 * Listening while it talks, so it can be interrupted.
 			 *
 			 * This used to throw the frame away and hold the turn at its
@@ -350,6 +432,24 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 
 			if len(echo) >= CalibrationFrames && rms > loudestEcho(echo)*BargeMargin {
 				Interrupt()
+
+				/*
+				 * And the recording starts here too.
+				 *
+				 * Everything captured up to this point is the assistant
+				 * talking. Keeping it means handing the recogniser two voices
+				 * over the top of each other, and what comes back is a muddle
+				 * of both — which is why cutting in produced either nothing or
+				 * a sentence nobody said.
+				 *
+				 * A little before the moment it was noticed, because
+				 * noticing takes a few frames and the first word is the one
+				 * that gets lost.
+				 */
+				turn.CutInAt = offset - int64(bytesFor(3*FrameDuration))
+				if turn.CutInAt < header {
+					turn.CutInAt = header
+				}
 
 				// The turn starts here, with the interruption as its first
 				// sound, so nothing said while cutting in is lost.
@@ -387,6 +487,12 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 			recent = recent[len(recent)-FloorWindow:]
 		}
 
+		// Every frame of the turn once speech has been heard, so the whole of
+		// it can be judged when it ends. See the check below.
+		if turn.HeardSpeech {
+			wholeTurn = append(wholeTurn, rms)
+		}
+
 		// Nothing decided until there is enough of the room to judge by.
 		if len(recent) < CalibrationFrames {
 			continue
@@ -406,7 +512,23 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 			turn.PeakRMS = rms
 		}
 
-		speaking := rms >= threshold
+		/*
+		 * Loud enough, and shaped like a voice.
+		 *
+		 * Loudness alone starts turns on the cooling fan: a machine at full
+		 * load — which is every machine running a model on its processor —
+		 * produces broadband noise whose peaks sit well above its own average,
+		 * and that is all a threshold asks for. A recording kept from one such
+		 * turn held twenty-three seconds at a steady RMS with no gaps, and
+		 * whisper described it as "(engine revving)".
+		 *
+		 * Only applied once a turn is under way, never to end one: somebody
+		 * pausing mid-sentence produces a flat stretch too, and using this to
+		 * decide they had finished would cut them off exactly where they were
+		 * thinking.
+		 */
+		speaking := rms >= threshold &&
+			(turn.HeardSpeech || soundsLikeAVoice(recent))
 
 		switch {
 		case speaking:
@@ -424,15 +546,34 @@ func RecordTurn(ctx context.Context, device, path string) (Turn, error) {
 
 			spoke := time.Since(speechSince)
 
-			if time.Since(quietSince) >= SilenceToEnd && spoke >= MinSpeechDuration {
+			if time.Since(quietSince) >= patienceFor(spoke) && spoke >= MinSpeechDuration {
 				turn.SpokeFor = spoke
 				stop()
+
+				/*
+				 * One last look at the whole turn.
+				 *
+				 * The check that starts a turn has to give the benefit of the
+				 * doubt: there is barely a second of history to judge by, and
+				 * refusing on thin evidence means ignoring somebody. A fan
+				 * slips through that gap and then sustains the turn for
+				 * twenty seconds, because once speech has been heard the
+				 * check is never applied again — measured at a swing of 2.4
+				 * across eighteen seconds, where real speech reaches fifty.
+				 *
+				 * Here the turn is over and there is nothing left to cut off,
+				 * so the whole recording can be judged at once.
+				 */
+				if !wholeTurnSoundsLikeAVoice(wholeTurn) {
+					turn.HeardSpeech = false
+					turn.WasSteadyNoise = true
+				}
 
 				return turn, nil
 			}
 		default:
 			// Nobody has started yet.
-			if time.Since(started) >= PatienceBeforeSpeech {
+			if time.Since(started) >= patience {
 				stop()
 
 				return turn, nil
@@ -636,4 +777,97 @@ func median(values []int) int {
 	sort.Ints(sorted)
 
 	return sorted[len(sorted)/2]
+}
+
+/*
+ * turnRecorder is the command that captures one turn.
+ *
+ * PipeWire is the common case and the better one, since it can name a
+ * particular microphone in a way that survives the device being unplugged and
+ * plugged back in. But it is not everywhere — a minimal install, a server, an
+ * older distribution or one that stayed with PulseAudio all have ALSA and no
+ * pw-record — and on those machines conversation mode used to refuse to start
+ * at all while one-shot listening worked fine, which is a strange thing for a
+ * program to say when it can plainly hear.
+ *
+ * Both write a growing WAV, so the loop that watches the levels does not care
+ * which one produced it. Neither finishes the header when interrupted, which
+ * is what RepairWAV exists for.
+ */
+func turnRecorder(ctx context.Context, device, path string) (*exec.Cmd, error) {
+	if _, err := exec.LookPath("pw-record"); err == nil {
+		args := []string{"--rate", "16000", "--channels", "1", "--format", "s16"}
+
+		if device != "" {
+			args = append(args, "--target", device)
+		}
+
+		return exec.CommandContext(ctx, "pw-record", append(args, path)...), nil
+	}
+
+	if _, err := exec.LookPath("arecord"); err != nil {
+		return nil, fmt.Errorf(
+			"no way to record: neither pw-record nor arecord is installed")
+	}
+
+	args := []string{"-q", "-f", "S16_LE", "-r", "16000", "-c", "1"}
+
+	/*
+	 * A PipeWire node name means nothing to ALSA.
+	 *
+	 * The two name devices in entirely different ways, and handing one an
+	 * identifier from the other makes arecord fail with a message about an
+	 * unknown PCM that reads, to anyone who has not seen it before, like the
+	 * microphone being broken. Falling back to the default input is the honest
+	 * move: on a machine without PipeWire, ALSA's default is not being
+	 * second-guessed by anything.
+	 */
+	if device != "" && alsaWouldUnderstand(device) {
+		args = append(args, "-D", device)
+	}
+
+	return exec.CommandContext(ctx, "arecord", append(args, path)...), nil
+}
+
+/*
+ * patienceFor is how long to wait in silence before calling a turn finished.
+ *
+ * Not one number, because one number cannot be right. Somebody asking a short
+ * question stops and wants an answer immediately; somebody explaining
+ * something is halfway through a thought and pauses to assemble the next part,
+ * and those pauses get longer the longer they have been talking — after a
+ * name, in the middle of a list, and above all just before the part they
+ * actually meant to say.
+ *
+ * A fixed 800ms cut people off mid-sentence. 1300ms cut them off less often
+ * and still did. So the wait grows with how long they have been speaking,
+ * which costs a quick question nothing and gives a long one room.
+ *
+ * The upper bound matters as much as the slope: past two seconds of silence,
+ * waiting longer stops feeling like patience and starts feeling like the
+ * program has not noticed.
+ */
+func patienceFor(spoke time.Duration) time.Duration {
+	const (
+		grows = 2500 * time.Millisecond
+		most  = 2200 * time.Millisecond
+	)
+
+	if spoke < grows {
+		return SilenceToEnd
+	}
+
+	// Half a second more for every further two and a half seconds of talking.
+	extra := time.Duration(spoke/grows) * 450 * time.Millisecond
+
+	if wait := SilenceToEnd + extra; wait < most {
+		return wait
+	}
+
+	return most
+}
+
+// bytesFor is how many bytes of 16-bit mono audio at 16kHz a duration takes.
+func bytesFor(d time.Duration) int {
+	return int(d.Seconds() * 16000 * 2)
 }

@@ -24,6 +24,31 @@ type Step struct {
 	Kind string `json:"kind"`
 	// A short line for a person: "Reading /etc/hosts".
 	Note string `json:"note"`
+
+	/*
+	 * Tool is which tool is running, when one is.
+	 *
+	 * Carried separately from the note because they are read by different
+	 * audiences. The note is written for a person and names the thing being
+	 * acted on — "Read /etc/hosts" — while anything deciding what to *do*
+	 * about the step needs to know it is read_file, and cannot recover that
+	 * from prose. The interface guessed by taking the note's first word, which
+	 * gave "read", matched nothing, and meant the spoken line announcing a slow
+	 * tool never once played.
+	 */
+	Tool string `json:"tool"`
+
+	/*
+	 * SoFar is the answer as it is being written.
+	 *
+	 * The reply used to reach the page in one piece at the end, so a turn
+	 * taking a minute showed nothing for a minute — and on a spoken turn the
+	 * assistant talked the whole time while the transcript beside it sat
+	 * empty. From the outside that is indistinguishable from a program that
+	 * has stopped, which is the doubt every other part of this panel exists to
+	 * remove.
+	 */
+	SoFar string `json:"so_far"`
 	// How long this turn has been going, in seconds.
 	Seconds float64 `json:"seconds"`
 	// How many model calls this turn has taken, which is what makes a slow
@@ -31,13 +56,19 @@ type Step struct {
 	Round int `json:"round"`
 
 	/*
-	 * Background is work the brain gave itself.
+	 * Background is anything nobody is waiting on.
 	 *
-	 * It has to be told apart from work somebody is waiting on, because the
-	 * core is coloured by this: learning from the last conversation runs a
-	 * minute after every exchange, and without the distinction the brain sits
-	 * there amber and apparently thinking about a question nobody asked. Its
+	 * Two things qualify, and the core is coloured by this. The first is work
+	 * the brain gave itself: learning from the last conversation runs a minute
+	 * after every exchange, and without the distinction the brain sits there
+	 * amber and apparently thinking about a question nobody asked, so its
 	 * owner opens the program and finds it already busy with them.
+	 *
+	 * The second is listening, which is what it does whenever it is doing
+	 * nothing else. Reporting that as work would pin the core amber and run a
+	 * clock for the entire time the program is open — the same false "it is
+	 * thinking" the first case was written to prevent, arrived at from the
+	 * other direction.
 	 *
 	 * Still reported, and still shown — just not as though somebody is waiting
 	 * for it.
@@ -60,6 +91,8 @@ var current struct {
 	busy       bool
 	kind       string
 	note       string
+	tool       string
+	soFar      string
 	round      int
 	background bool
 	model      string
@@ -67,7 +100,18 @@ var current struct {
 }
 
 // Begin marks the start of a turn.
+// Begin also clears the draft: a new turn is a new answer.
+//
+// Cleared here and in Done rather than on every step, because the listening
+// loop and the turn being answered write to this at the same time — a spoken
+// conversation is transcribing the next thing while the last one is still
+// being written — and clearing on each step meant the loop wiped the answer
+// mid-sentence, every time, so the page never saw one.
 func Begin() {
+	current.mu.Lock()
+	current.soFar = ""
+	current.mu.Unlock()
+
 	current.mu.Lock()
 	current.busy = true
 	current.kind = "thinking"
@@ -99,8 +143,33 @@ func Set(kind, note string) {
 
 	current.kind = kind
 	current.note = note
+	current.tool = ""
 	current.background = false
+
+	model := current.model
 	current.mu.Unlock()
+
+	remember(kind, note, "", model, false)
+}
+
+// SetTool reports a named tool starting, so that what is listening for it can
+// match on the name rather than guessing from the summary.
+func SetTool(name, note string) {
+	current.mu.Lock()
+
+	if !current.busy {
+		current.busy = true
+		current.started = time.Now()
+	}
+
+	current.kind = "tool"
+	current.note = note
+	current.tool = name
+	current.background = false
+	model := current.model
+	current.mu.Unlock()
+
+	remember("tool", note, name, model, false)
 }
 
 /*
@@ -121,8 +190,12 @@ func SetBackground(kind, note string) {
 
 	current.kind = kind
 	current.note = note
+	current.tool = ""
 	current.background = true
+	model := current.model
 	current.mu.Unlock()
+
+	remember(kind, note, "", model, true)
 }
 
 // Round counts a model call.
@@ -138,7 +211,11 @@ func Done() {
 	current.busy = false
 	current.kind = ""
 	current.note = ""
+	current.tool = ""
+	current.soFar = ""
 	current.mu.Unlock()
+
+	finish()
 }
 
 // Answering reports whether a reply is being worked on.
@@ -166,9 +243,25 @@ func Now() Step {
 		Busy:       true,
 		Kind:       current.kind,
 		Note:       current.note,
+		Tool:       current.tool,
+		SoFar:      current.soFar,
 		Seconds:    time.Since(current.started).Seconds(),
 		Round:      current.round,
 		Background: current.background,
 		Model:      current.model,
 	}
+}
+
+/*
+ * Writing records the answer as it is produced.
+ *
+ * Called with everything written so far rather than each new piece, so a
+ * dropped update costs nothing: the next one carries the whole thing. The page
+ * polls, and a poll that misses a fragment would otherwise leave a hole in the
+ * middle of a sentence.
+ */
+func Writing(text string) {
+	current.mu.Lock()
+	current.soFar = text
+	current.mu.Unlock()
 }

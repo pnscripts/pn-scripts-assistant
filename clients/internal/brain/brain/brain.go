@@ -191,8 +191,25 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// Read from the live settings each turn, so switching it off in the
 		// interface takes effect without a restart.
 		Model: func(message string) llm.Choice {
+			/*
+			 * Switching the automatic choice off pins one model for
+			 * everything — but only the one actually settled on.
+			 *
+			 * Saying "chosen by you" about the value this program shipped
+			 * with is a small lie with a real cost: it appears in the
+			 * interface beside the model name, so somebody wondering why
+			 * every answer takes minutes reads that they picked it, and stops
+			 * looking there.
+			 */
 			if !b.Cfg.AutoModel {
-				return llm.Choice{Model: b.Cfg.OllamaModel, Why: "chosen by you"}
+				roles := b.modelRoles()
+
+				why := "chosen by you"
+				if !b.Cfg.ModelChosen {
+					why = "the best this machine can run"
+				}
+
+				return llm.Choice{Model: roles.Work, Why: why}
 			}
 
 			return llm.ChooseModel(message, b.modelRoles())
@@ -217,6 +234,35 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		},
 		Curator: learning.Curator{DB: db, Embedder: ollama},
 	}
+
+	/*
+	 * The recogniser is told which names this person uses.
+	 *
+	 * It knows the language and not the speaker, so a name it has never seen
+	 * comes back as the nearest thing in its vocabulary, confidently and
+	 * without any mark of doubt: "pnscripts.com" arrived as "pncryptz.com" and
+	 * a considered opinion followed about a website that does not exist. The
+	 * brain has been reading this machine's files and history for weeks and
+	 * already holds the right spellings — the most visited site here is
+	 * pnscripts.local, at eleven hundred visits — and none of it was reaching
+	 * the recogniser.
+	 *
+	 * A function rather than a list, read fresh each turn, so a name learned
+	 * this morning is heard correctly this afternoon without a restart.
+	 */
+	speech.SetVocabulary(func() []string {
+		facts, err := db.AllFacts()
+		if err != nil {
+			return nil
+		}
+
+		out := make([]string, 0, len(facts))
+		for _, f := range facts {
+			out = append(out, f.Content)
+		}
+
+		return out
+	})
 
 	return b
 }
@@ -263,14 +309,58 @@ func (b *Brain) modelRoles() llm.Sizes {
 
 		b.roles.Talk = llm.PickFor(talkOrder, names)
 		b.roles.Reason = llm.PickFor(reasonOrder, names)
-		b.roles.Best = llm.PickFor(workOrder, names)
+
+		// The quick, tool-capable model that answers ordinary turns.
+		b.roles.Quick = llm.PickFor(workOrder, names)
+		// The reserve is chosen by capability alone, never by speed: it exists
+		// precisely to be the thing worth waiting for. Picking it from the same
+		// list as the working model made them identical on a machine without a
+		// card, leaving nothing to escalate to.
+		b.roles.Best = llm.PickFor(llm.SmartestOrder(string(power.Tier())), names)
+
+		/*
+		 * And how much may run at once, which is the same question.
+		 *
+		 * It was a constant, so a workstation with a graphics card ran exactly
+		 * as many background jobs as a laptop with four cores and none. On the
+		 * laptop that is one too many — every job is a model call on the
+		 * processor, and a second one steals from the answer somebody is
+		 * waiting for. On the workstation it is four too few.
+		 */
+		if b.Jobs != nil {
+			b.Jobs.AtMost = jobs.HowManyAtOnce(string(power.Tier()))
+
+			b.Log.Info("how much can run at once",
+				"tier", power.Tier(), "background jobs", b.Jobs.AtMost)
+		}
 
 		b.Log.Info("what this machine can run",
 			"tier", power.Tier(), "hardware", power.Describe(),
 			"best installed for work", b.roles.Best)
 
+		/*
+		 * The effective working model, not the configured one.
+		 *
+		 * They differ whenever nobody has chosen, which is the ordinary case,
+		 * and logging the setting instead of the choice is how the tier came
+		 * to be computed and ignored without anybody noticing.
+		 *
+		 * Worked out here rather than by calling modelRoles, which is the
+		 * function this block is inside: sync.Once deadlocks if its own Do
+		 * re-enters, so that call hung every turn that needed a model, and it
+		 * hung silently.
+		 */
+		work := b.Cfg.OllamaModel
+		if !b.Cfg.ModelChosen && b.roles.Quick != "" {
+			work = b.roles.Quick
+		}
+
+		// Both, because they are different models now and the difference is
+		// minutes: the quick one answers ordinary turns and the reserve is
+		// what a demanding request escalates to.
 		b.Log.Info("models chosen for each kind of turn",
-			"work", b.Cfg.OllamaModel, "talk", b.roles.Talk, "reason", b.roles.Reason)
+			"work", work, "talk", b.roles.Talk, "reason", b.roles.Reason,
+			"in reserve", b.roles.Best)
 	})
 
 	/*
@@ -284,6 +374,27 @@ func (b *Brain) modelRoles() llm.Sizes {
 	 */
 	roles := b.roles
 	roles.Work = b.Cfg.OllamaModel
+
+	/*
+	 * Nobody has chosen, so the machine decides.
+	 *
+	 * The value shipped with this program was picked against four processor
+	 * cores and no graphics card. It was then used unchanged everywhere, which
+	 * makes the tier a decoration: the right model for the hardware was worked
+	 * out at startup, written into the log, and read by nothing. A computer
+	 * with a card ran the model chosen for one without, and — the direction
+	 * that actually hurt here — a computer without one ran a
+	 * seven-billion-parameter model that takes minutes per round, when a
+	 * smaller one it also has answers in a fraction of that and asks for its
+	 * tools more reliably.
+	 *
+	 * A choice made from the Models page still wins, on any machine. This only
+	 * fills in for somebody who has never made one, which is everybody until
+	 * they do.
+	 */
+	if !b.Cfg.ModelChosen && roles.Quick != "" {
+		roles.Work = roles.Quick
+	}
 
 	return roles
 }
@@ -344,6 +455,7 @@ func (b *Brain) UseModel(name string) error {
 
 	b.ollama.ChatModel = name
 	b.Cfg.OllamaModel = name
+	b.Cfg.ModelChosen = true
 
 	// Written down, or the choice lasts until the next restart and then quietly
 	// reverts. That is exactly what happened: a model was chosen in the panel,
@@ -454,10 +566,27 @@ is in the mailbox — every one of those has a tool, and the tool is the
 only thing that knows. You do not. Asked any of them, call the tool
 first and answer from what it returns.
 
-If you did not call it, say so and stop. "Let me check" is a complete
-and correct answer; a list you made up is not, and it is worse than
-saying nothing because it cannot be told apart from a real one.`,
-		name, owner, owner, owner, owner, owner)
+If you did not call it, say so and stop. A list you made up is worse
+than saying nothing, because it cannot be told apart from a real one.
+
+Once a tool has answered, answer from what it returned. Do not say you
+are about to check something you have already checked, and do not
+describe the checking — %s can see every tool you run and how long it
+took, so narrating it says nothing they do not already have and buries
+the answer they asked for.
+
+Answer first, in a sentence or two. Then add what is worth adding.
+Never open with what you are thinking, what you might do, or which
+approach you are considering: that is deliberation, and it belongs
+inside your head rather than at the top of a reply. If a tool came back
+with nothing useful, say that plainly in one line and say what would
+help — not a paragraph about what you tried.
+
+Say what you actually did, by name. "I searched the web" when you
+searched the web; never "I am checking the file" when you did nothing of
+the kind. A wrong account of your own actions is the one mistake that
+cannot be caught by looking at the answer.`,
+		name, owner, owner, owner, owner, owner, owner)
 }
 
 // spokenSystemPrompt is who the assistant is, said briefly.

@@ -36,6 +36,33 @@ type Look struct {
 	Listening string `json:"listening"`
 	// Idle is the sphere when nothing is happening.
 	Idle string `json:"idle"`
+
+	/*
+	 * The rest of the statuses, so that every part of the interface can be
+	 * coloured from one list.
+	 *
+	 * They were not here before, and the consequence was that each panel
+	 * invented its own. The core knew four states and drew them from these
+	 * settings; the feed knew nine and hard-coded five tones of its own; the
+	 * talk button had a third set in CSS. So the same moment was violet in one
+	 * corner, cyan in another and amber in a third, and nothing on screen
+	 * agreed with anything else about what the brain was doing.
+	 *
+	 * One list, sent to the page, written into CSS variables and used by
+	 * everything — including the core, which no longer has a private palette.
+	 */
+
+	// Hearing is making out the words, after speech has been recorded.
+	Hearing string `json:"hearing"`
+
+	// Tool is running a tool: reading a file, searching, opening something.
+	Tool string `json:"tool"`
+
+	// Waiting is holding for a decision from its owner.
+	Waiting string `json:"waiting"`
+
+	// Learning is work the brain gave itself, which nobody is waiting on.
+	Learning string `json:"learning"`
 }
 
 // Default is what it looks like before anybody asks for anything else.
@@ -56,6 +83,28 @@ func Default() Look {
 		Listening: "#c98bff",
 		// At rest.
 		Idle: "#3d8ce8",
+
+		/*
+		 * Distinct at a glance rather than harmonious.
+		 *
+		 * The question this palette answers is "what is it doing", and it can
+		 * only answer it if no two statuses are neighbouring shades. Hearing
+		 * sits next to listening in meaning, so it is deliberately far from it
+		 * in colour: violet for the microphone being open, cyan for the words
+		 * being worked out.
+		 */
+
+		// Working out the words.
+		Hearing: "#5fe3f5",
+
+		// Doing something in the world, which is the one worth noticing.
+		Tool: "#ff9d5c",
+
+		// Stopped, needing an answer from its owner.
+		Waiting: "#ff6b6b",
+
+		// Its own background work, deliberately quiet.
+		Learning: "#4a8f8a",
 	}
 }
 
@@ -118,6 +167,31 @@ var Parts = map[string]string{
 	"speaking":      "speaking",
 	"listening":     "listening",
 	"idle":          "idle",
+
+	/*
+	 * The rest of the statuses, by the names somebody would actually say.
+	 *
+	 * Several ways in for each, because this is reached by voice as well as by
+	 * the panel and nobody says "the hearing status" — they say "when you are
+	 * working out what I said". Every one of these is a phrase that could only
+	 * mean the thing it maps to.
+	 */
+	"hearing":       "hearing",
+	"making out":    "hearing",
+	"understanding": "hearing",
+	"transcribing":  "hearing",
+
+	"tool":    "tool",
+	"tools":   "tool",
+	"working": "tool",
+	"doing":   "tool",
+
+	"waiting":  "waiting",
+	"approval": "waiting",
+	"asking":   "waiting",
+
+	"learning":   "learning",
+	"background": "learning",
 }
 
 // Store keeps the look on disk.
@@ -165,6 +239,22 @@ func Open(root string) *Store {
 		s.look.Idle = saved.Idle
 	}
 
+	if saved.Hearing != "" {
+		s.look.Hearing = saved.Hearing
+	}
+
+	if saved.Tool != "" {
+		s.look.Tool = saved.Tool
+	}
+
+	if saved.Waiting != "" {
+		s.look.Waiting = saved.Waiting
+	}
+
+	if saved.Learning != "" {
+		s.look.Learning = saved.Learning
+	}
+
 	return s
 }
 
@@ -180,7 +270,10 @@ func (s *Store) Current() Look {
 func (s *Store) Set(part, colour string) (string, error) {
 	field, known := Parts[strings.ToLower(strings.TrimSpace(part))]
 	if !known {
-		return "", fmt.Errorf("I do not know what %q is. I can colour the thinking line, the core, speaking, listening or idle", part)
+		return "", fmt.Errorf(
+			"I do not know what %q is. I can colour: idle, listening, hearing, "+
+				"thinking, tool, speaking, waiting, learning, or the thinking line",
+			part)
 	}
 
 	hex, ok := Colour(colour)
@@ -201,6 +294,14 @@ func (s *Store) Set(part, colour string) (string, error) {
 		s.look.Listening = hex
 	case "idle":
 		s.look.Idle = hex
+	case "hearing":
+		s.look.Hearing = hex
+	case "tool":
+		s.look.Tool = hex
+	case "waiting":
+		s.look.Waiting = hex
+	case "learning":
+		s.look.Learning = hex
 	}
 
 	look := s.look

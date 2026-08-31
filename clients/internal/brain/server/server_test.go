@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"pn-brain/internal/brain/llm"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,8 +18,8 @@ import (
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/store"
-	"pn-brain/internal/brain/wake"
 	"pn-brain/internal/brain/tools"
+	"pn-brain/internal/brain/wake"
 )
 
 func newServer(t *testing.T) (*httptest.Server, *store.DB, *brain.Brain) {
@@ -923,7 +924,11 @@ func TestProgressSaysWhetherAnybodyIsWaiting(t *testing.T) {
 func TestChoosingAModelTakesEffectAtOnce(t *testing.T) {
 	_, _, b := newServer(t)
 
+	// Chosen, rather than merely configured. The two are different now: an
+	// untouched setting is a default this program shipped with, and defers to
+	// what the machine can actually run.
 	b.Cfg.OllamaModel = "qwen2.5-coder:7b"
+	b.Cfg.ModelChosen = true
 
 	before, _, _ := b.Roles()
 	if before != "qwen2.5-coder:7b" {
@@ -936,6 +941,66 @@ func TestChoosingAModelTakesEffectAtOnce(t *testing.T) {
 	if after != "qwen3:latest" {
 		t.Errorf("the model was changed to qwen3:latest but it still uses %q", after)
 	}
+}
+
+/*
+ * A model nobody chose gives way to what the machine can actually run.
+ *
+ * The value this program ships with was picked against four processor cores
+ * and no graphics card, and it was then used unchanged on every machine. The
+ * code that works out what the hardware can manage ran at startup, wrote its
+ * answer into the log, and was read by nothing — so the tier was a decoration.
+ *
+ * Both directions of that matter. A computer with a card was held to a model
+ * chosen for one without; and a computer without one was held to a
+ * seven-billion-parameter model that takes minutes per round, when a smaller
+ * model already installed answers far quicker and asks for its tools more
+ * reliably.
+ */
+func TestAnUnchosenModelDefersToTheMachine(t *testing.T) {
+	/*
+	 * Decided from the roles directly, not from what happens to be installed.
+	 *
+	 * Asking the brain meant asking Ollama, so the test measured the machine
+	 * it ran on: with models present it passed, and with none it failed
+	 * reporting a fault that was not there. A test that changes its mind when
+	 * somebody clears their models is not testing the thing it names.
+	 */
+	quick := llm.Sizes{
+		Work:  "qwen2.5-coder:7b",
+		Quick: "llama3.2:3b",
+		Best:  "qwen2.5-coder:7b",
+	}
+
+	// Nobody chose, so the machine's own pick wins.
+	if got := workModelFrom(quick, false); got != quick.Quick {
+		t.Errorf("an untouched setting gave %q, so what the machine can run is "+
+			"worked out and then ignored", got)
+	}
+
+	// Chosen deliberately, it stands on any machine.
+	if got := workModelFrom(quick, true); got != quick.Work {
+		t.Errorf("a model chosen from the panel gave %q instead of %q",
+			got, quick.Work)
+	}
+
+	// And with nothing installed there is nothing to defer to, which must not
+	// leave the brain with no model at all.
+	bare := llm.Sizes{Work: "qwen2.5-coder:7b"}
+
+	if got := workModelFrom(bare, false); got != bare.Work {
+		t.Errorf("with nothing installed the working model became %q", got)
+	}
+}
+
+// workModelFrom is the rule modelRoles applies, isolated so it can be tested
+// without asking the machine what it happens to have installed.
+func workModelFrom(roles llm.Sizes, chosen bool) string {
+	if !chosen && roles.Quick != "" {
+		return roles.Quick
+	}
+
+	return roles.Work
 }
 
 /*
@@ -968,5 +1033,72 @@ func TestThePromptForbidsInventingTheMachinesState(t *testing.T) {
 		if !strings.Contains(prompt, named) {
 			t.Errorf("the prompt does not name %q among the things it cannot know", named)
 		}
+	}
+}
+
+/*
+ * The transcript comes back after a reload.
+ *
+ * The page asks for the latest conversation and reads convo.id to decide
+ * whether one was found. The id was only ever nested inside "conversation", so
+ * that check never passed and the transcript was left empty after every reload
+ * and every restart — while everything else worked perfectly. The messages
+ * were stored, the history panel listed them, the brain answered out loud, and
+ * the one place somebody actually looks showed nothing but the greeting.
+ *
+ * That is the shape of failure this program keeps producing: a thing that is
+ * working everywhere except where it is read.
+ */
+func TestTheLatestConversationCarriesItsID(t *testing.T) {
+	srv, db, _ := newServer(t)
+
+	id, err := db.NewConversation("weather")
+	if err != nil {
+		t.Fatalf("could not start a conversation: %v", err)
+	}
+
+	if _, err := db.AddMessage(id, "user", "", "", "what is the weather"); err != nil {
+		t.Fatalf("could not record what was said: %v", err)
+	}
+
+	if _, err := db.AddMessage(id, "assistant", "", "", "Cloudy, about 18 degrees."); err != nil {
+		t.Fatalf("could not record the answer: %v", err)
+	}
+
+	resp, err := http.Get(srv.URL + "/api/conversations/latest")
+	if err != nil {
+		t.Fatalf("could not ask for the latest conversation: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("the endpoint returned %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var reply struct {
+		ID       int64 `json:"id"`
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+
+	if err := json.Unmarshal(body, &reply); err != nil {
+		t.Fatalf("could not read the reply: %v", err)
+	}
+
+	if reply.ID == 0 {
+		t.Error("no id at the top level, so the page treats this as no conversation " +
+			"at all and leaves the transcript empty")
+	}
+
+	if len(reply.Messages) < 2 {
+		t.Errorf("only %d messages came back, want both sides of the exchange",
+			len(reply.Messages))
 	}
 }

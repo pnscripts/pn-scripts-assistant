@@ -35,14 +35,47 @@ var learnPhrases = []string{
 	"learn from",
 	"learn about",
 	"learn everything",
+	"learn this",
+	"learn it",
 	"read and learn",
+	"read this",
+	"read it",
+	"remember this",
+	"remember it",
+	"remember that",
+	"look at this",
+	"go through",
 	"study",
 	"index",
 	"scan",
+
+	// Said out loud, in Bulgarian, by somebody who thinks in it.
+	"научи",
+	"запомни",
+	"прочети",
 }
 
 var (
 	linkPattern = regexp.MustCompile(`https?://\S+`)
+
+	/*
+	 * A link said out loud, which never has a protocol in front of it.
+	 *
+	 * Nobody says "aitch tee tee pee colon slash slash" — they say
+	 * "pnscripts.com" — and the recogniser writes down what they said. So an
+	 * instruction given by voice never matched the pattern above, fell through
+	 * to the model, and got the answer this whole file exists to prevent: "I
+	 * will read that and learn from it", followed by nothing at all.
+	 *
+	 * A known suffix is required. Without one, any sentence containing a full
+	 * stop between two words — which is most sentences the recogniser produces
+	 * — would be read as a web address.
+	 */
+	bareLinkPattern = regexp.MustCompile(
+		`\b((?:[a-zA-Z0-9][a-zA-Z0-9-]*\.)+` +
+			`(?:com|net|org|io|dev|bg|co|uk|app|sh|me|ai|info|eu))` +
+			`(/[^\s"']*)?\b`)
+
 	pathPattern = regexp.MustCompile(`(?:^|\s)(/[^\s"']+)`)
 )
 
@@ -74,6 +107,20 @@ func readLearnInstruction(message string) LearnTarget {
 
 	if link := linkPattern.FindString(message); link != "" {
 		return LearnTarget{Link: strings.Trim(link, `.,;)"'`), Found: true}
+	}
+
+	/*
+	 * And the same address without the protocol, which is how it arrives when
+	 * it was spoken rather than pasted.
+	 *
+	 * https rather than http, because a site that only answers on http will
+	 * redirect and one that only answers on https will not.
+	 */
+	if bare := bareLinkPattern.FindString(message); bare != "" {
+		return LearnTarget{
+			Link:  "https://" + strings.Trim(bare, `.,;)"'`),
+			Found: true,
+		}
 	}
 
 	// The path has to exist. A sentence that merely mentions a directory is not

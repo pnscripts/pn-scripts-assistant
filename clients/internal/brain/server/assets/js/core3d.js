@@ -469,12 +469,29 @@ export function startCore() {
          * to be open is thinking, and that is the thing worth saying. Then its
          * own voice, then yours, then rest.
          */
-        const tint = new THREE.Color(
-            working ? signals.look.thinking_core
-                : signals.state === 'speaking' ? signals.look.speaking
-                    : signals.state === 'listening' && signals.smooth > 0.02
-                        ? signals.look.listening
-                        : signals.look.idle);
+        /*
+         * Coloured by the same status as everything else on the page.
+         *
+         * The core used to decide this for itself from four colours, while the
+         * feed had five tones of its own and the talk button a third set in
+         * CSS — so a single moment was amber in the middle of the screen,
+         * cyan in the panel beside it and violet on the button below. Now all
+         * three ask the same question and get the same answer.
+         *
+         * The core still leads with work over listening: a turn that is
+         * thinking while the microphone happens to be open is thinking, and
+         * that is the thing worth saying.
+         */
+        const status = window.brainStatusOf
+            ? window.brainStatusOf(signals.work)
+            : 'idle';
+
+        const resting = status === 'idle' &&
+            signals.state === 'listening' && signals.smooth > 0.02
+            ? 'listening'
+            : status;
+
+        const tint = new THREE.Color(statusColour(resting, signals.look));
 
         irisMaterial.uniforms.tint.value.copy(tint);
         irisMaterial.uniforms.lit.value = Math.min(1.7, lit);
@@ -499,4 +516,29 @@ export function startCore() {
     }
 
     requestAnimationFrame(frame);
+}
+
+/*
+ * statusColour is the one place the core turns a status into a colour.
+ *
+ * Reads the same palette the rest of the page uses, so that changing a colour
+ * by voice changes it here too rather than in the stylesheet alone.
+ */
+function statusColour(status, look) {
+    const palette = window.brainLook || look || {};
+
+    const named = {
+        idle: palette.idle,
+        listening: palette.listening,
+        hearing: palette.hearing,
+        thinking: palette.thinking_core,
+        tool: palette.tool,
+        speaking: palette.speaking,
+        waiting: palette.waiting,
+        learning: palette.learning,
+    };
+
+    // Falls back to thinking rather than to nothing: a core with no colour is
+    // invisible, and an unknown status is more likely work than rest.
+    return named[status] || palette.thinking_core || '#f0b26b';
 }

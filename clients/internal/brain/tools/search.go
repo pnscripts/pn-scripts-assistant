@@ -34,7 +34,18 @@ type WebSearch struct {
 func (WebSearch) Name() string { return "web_search" }
 
 func (WebSearch) Description() string {
-	return "Search the web and return titles, URLs and snippets. " +
+	/*
+	 * Named for the questions it answers, not only for what it does.
+	 *
+	 * "Search the web" describes the mechanism, and a small model choosing
+	 * between thirty tools matches on the subject of the question instead. One
+	 * asked for the weather in Sofia and chose to photograph the screen. The
+	 * examples are here so the obvious cases need no inference at all.
+	 */
+	return "Search the web for anything current or factual the brain does not " +
+		"already know: weather, news, prices, opening times, sport, travel, " +
+		"documentation, or any question about what is happening now. " +
+		"Returns titles, URLs and snippets. " +
 		"Follow up with fetch_url to read a specific page."
 }
 
@@ -78,6 +89,19 @@ func (s WebSearch) Execute(ctx context.Context, raw json.RawMessage) (string, er
 	query := strings.TrimSpace(a.Query)
 	if query == "" {
 		return "", fmt.Errorf("no search query was given")
+	}
+
+	/*
+	 * Checked here, where it leaves, rather than asked for in the prompt.
+	 *
+	 * The model writes this query, and searching is the one thing this program
+	 * does that reaches off the machine. A rule that personal information is
+	 * never shared is only a rule if something enforces it at the point of
+	 * sending; in the prompt it is a request, and a request can be argued with
+	 * by the user, by a page the model has read, or by its own confusion.
+	 */
+	if err := CheckQuery(query); err != nil {
+		return "", err
 	}
 
 	var (

@@ -1,11 +1,18 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 	"testing"
+
+	"pn-brain/internal/brain/progress"
 )
 
 /*
@@ -220,4 +227,249 @@ func TestNoTwoElementsShareAnID(t *testing.T) {
 			"one and the visible panel will stay as it was: %s",
 			strings.Join(repeated, ", "))
 	}
+}
+
+/*
+ * Every tool the interface offers to announce is a tool that exists.
+ *
+ * The spoken line covering a slow tool never played, for as long as it had
+ * existed. The interface guessed which tool was running by taking the first
+ * word of the summary written for a person — "Read /etc/hosts" gives "read" —
+ * and looked that up in a list keyed by "read_file". Nothing ever matched.
+ *
+ * Nothing failed either, which is why it went unnoticed: an announcement that
+ * does not play is indistinguishable from a tool that finished quickly, and
+ * the only symptom was a program that went quiet for twenty seconds while
+ * somebody who had asked by voice wondered whether it was still alive.
+ *
+ * So the two lists are checked against each other rather than trusted to
+ * match. A name here that no tool answers to is dead weight; the check is that
+ * every key is spelled the way the tool spells itself.
+ */
+func TestAnnouncedToolsExist(t *testing.T) {
+	body, err := assets.ReadFile("assets/js/working.js")
+	if err != nil {
+		t.Fatalf("could not read working.js: %v", err)
+	}
+
+	block := regexp.MustCompile(`(?s)const SPOKEN = \{(.*?)\n\};`).FindSubmatch(body)
+	if block == nil {
+		t.Fatal("could not find the SPOKEN list in working.js")
+	}
+
+	var announced []string
+
+	for _, m := range regexp.MustCompile(`(?m)^\s{4}(\w+):`).FindAllSubmatch(block[1], -1) {
+		announced = append(announced, string(m[1]))
+	}
+
+	if len(announced) == 0 {
+		t.Fatal("the SPOKEN list is empty, so no tool is ever announced")
+	}
+
+	real := make(map[string]bool)
+	for _, tool := range toolNames(t) {
+		real[tool] = true
+	}
+
+	for _, name := range announced {
+		if !real[name] {
+			t.Errorf("working.js announces %q, which is not a tool this program has;"+
+				" it will never play", name)
+		}
+	}
+}
+
+// toolNames reads what the tools call themselves, from the tools package.
+//
+// Read from the source rather than by building a registry, because several
+// tools need a database, a model or a desktop to construct, and none of that
+// has any bearing on what they are called.
+func toolNames(t *testing.T) []string {
+	t.Helper()
+
+	dir := filepath.Join("..", "tools")
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("could not read the tools package: %v", err)
+	}
+
+	pattern := regexp.MustCompile(`func \([^)]*\) Name\(\) string \{\s*return "(\w+)"`)
+
+	var names []string
+
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".go") ||
+			strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+
+		body, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			continue
+		}
+
+		for _, m := range pattern.FindAllSubmatch(body, -1) {
+			names = append(names, string(m[1]))
+		}
+	}
+
+	if len(names) == 0 {
+		t.Fatal("found no tools at all, so the check would pass vacuously")
+	}
+
+	return names
+}
+
+/*
+ * Everything the step carries reaches the page.
+ *
+ * The progress endpoint used to rebuild the step field by field into a map,
+ * which is two lists that have to agree with nothing checking that they do. A
+ * field added to the step for the interface to read was not copied here, so it
+ * existed in the program, in the tests, and everywhere except the one boundary
+ * that mattered — and the spoken line that depended on it never played.
+ *
+ * Checked against the struct's own tags rather than a list written out here,
+ * because a list written out here is the same mistake one level up.
+ */
+func TestTheProgressEndpointDropsNothing(t *testing.T) {
+	shape := reflect.TypeOf(progress.Step{})
+
+	step := progress.Step{}
+
+	body, err := json.Marshal(step)
+	if err != nil {
+		t.Fatalf("could not encode a step: %v", err)
+	}
+
+	var onTheWire map[string]any
+	if err := json.Unmarshal(body, &onTheWire); err != nil {
+		t.Fatalf("could not read the encoded step: %v", err)
+	}
+
+	for i := range shape.NumField() {
+		tag := shape.Field(i).Tag.Get("json")
+		name, _, _ := strings.Cut(tag, ",")
+
+		if name == "" || name == "-" {
+			continue
+		}
+
+		if _, found := onTheWire[name]; !found {
+			t.Errorf("the step carries %q but it does not reach the page", name)
+		}
+	}
+}
+
+/*
+ * Every status the brain can report has a colour, everywhere.
+ *
+ * There were three separate answers to "what is the brain doing, and what
+ * colour is that". The core read four states from the server's palette, the
+ * feed knew nine and hard-coded five tones of its own, and the talk button had
+ * a third set written into CSS. So one moment was amber in the middle of the
+ * screen, cyan in the panel beside it and violet on the button below, and
+ * nothing agreed with anything else.
+ *
+ * Three lists now have to line up: the progress kinds the Go code sets, the
+ * mapping in status.js, and the CSS variables. Nothing checks that by looking
+ * at it, so it is checked here — a kind added next month without a colour is
+ * the same silent failure all over again, and it shows up as one panel going
+ * grey while the rest are lit.
+ */
+func TestEveryStatusIsColouredTheSameEverywhere(t *testing.T) {
+	statuses, err := assets.ReadFile("assets/js/status.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	styles, err := assets.ReadFile("assets/css/console.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Every kind the Go code actually reports.
+	kinds := progressKinds(t)
+
+	if len(kinds) == 0 {
+		t.Fatal("found no progress kinds, so this would pass vacuously")
+	}
+
+	mapping := regexp.MustCompile(`(?s)const STATUS_OF = \{(.*?)\n\};`).FindSubmatch(statuses)
+	if mapping == nil {
+		t.Fatal("could not find STATUS_OF in status.js")
+	}
+
+	for _, kind := range kinds {
+		if !regexp.MustCompile(`(?m)^\s+` + regexp.QuoteMeta(kind) + `:`).Match(mapping[1]) {
+			t.Errorf("the brain reports %q but status.js gives it no status, so "+
+				"whichever panel shows it will be the wrong colour", kind)
+		}
+	}
+
+	// And every status named there has a colour to be.
+	named := regexp.MustCompile(`(?s)const STATUSES = \[(.*?)\n\];`).FindSubmatch(statuses)
+	if named == nil {
+		t.Fatal("could not find STATUSES in status.js")
+	}
+
+	for _, m := range regexp.MustCompile(`'(\w+)'`).FindAllSubmatch(named[1], -1) {
+		status := string(m[1])
+
+		if !strings.Contains(string(styles), "--status-"+status+":") {
+			t.Errorf("status %q has no --status-%s colour in the stylesheet, so "+
+				"anything showing it falls back to grey", status, status)
+		}
+
+		if !strings.Contains(string(styles), `[data-status="`+status+`"]`) {
+			t.Errorf("status %q has no [data-status] rule, so it is never "+
+				"actually applied", status)
+		}
+	}
+}
+
+// progressKinds reads the kinds the Go code sets, from the calls themselves.
+func progressKinds(t *testing.T) []string {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`progress\.Set(?:Background)?\("(\w+)"`)
+
+	seen := map[string]bool{}
+
+	var out []string
+
+	err := filepath.WalkDir(filepath.Join("..", ".."), func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") ||
+			strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+
+		for _, m := range pattern.FindAllSubmatch(body, -1) {
+			if kind := string(m[1]); !seen[kind] {
+				seen[kind] = true
+				out = append(out, kind)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("could not read the source: %v", err)
+	}
+
+	// SetTool always reports "tool", which no Set call spells out.
+	if !seen["tool"] {
+		out = append(out, "tool")
+	}
+
+	sort.Strings(out)
+
+	return out
 }

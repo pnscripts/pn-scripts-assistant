@@ -16,8 +16,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/progress"
@@ -164,7 +166,17 @@ func (l *Loop) RunShaped(
 	var specs []llm.ToolSpec
 
 	if offerTools {
-		specs = l.specs()
+		/*
+		 * Narrowed to what this request could plausibly need.
+		 *
+		 * How well a model chooses among tools falls off sharply with its
+		 * size, and thirty-one is a lot to choose between. Asked what it
+		 * thought of a website, the small model here called list_models —
+		 * not a near miss — and before that, look_at_screen, which spent
+		 * seven minutes reading a desktop that could not have held the
+		 * answer.
+		 */
+		specs = relevant(l.specs(), lastUserMessage(messages))
 	}
 
 	// Whether the model has already been asked to keep a promise this turn.
@@ -180,6 +192,26 @@ func (l *Loop) RunShaped(
 	for step := 0; step < MaxSteps; step++ {
 		progress.Round(step + 1)
 		progress.Set("thinking", "Thinking")
+
+		/*
+		 * Which model, with how much to read, before it starts.
+		 *
+		 * This is where the minutes go on a machine without a graphics card,
+		 * and it was the one step in the panel that said nothing at all about
+		 * itself. Both numbers explain the wait: the model because a
+		 * seven-billion-parameter one is minutes where a three-billion one is
+		 * seconds, and the size of the conversation because every token of it
+		 * is read again on every step of the turn.
+		 */
+		progress.Detail(fmt.Sprintf("%s · reading %s", model, sizeOfPrompt(messages)))
+
+		// Which step this is, so what the model produced is reported against
+		// the step that ran it. The call outlives its own step — it starts
+		// under "Thinking" and returns after answering and speaking — so
+		// attaching to whatever is current put a model's running time under
+		// "Listening", which had not been running at all.
+		thinkingStep := progress.Mark()
+		thought := time.Now()
 
 		request := llm.Request{
 			Messages: messages, Tools: specs, MaxTokens: maxTokens, Model: model,
@@ -207,11 +239,16 @@ func (l *Loop) RunShaped(
 		 * tool says so in its first characters: an opening brace, or a fence.
 		 * That is enough to tell the two apart before a word has been spoken.
 		 */
-		if l.Aloud != nil {
-			resp, err = l.streamAloud(ctx, provider, request)
-		} else {
-			resp, err = provider.Chat(ctx, request)
-		}
+		/*
+		 * Streamed whenever the provider can, whether or not it is spoken.
+		 *
+		 * This used to depend on the voice being wired, which is only true for
+		 * turns held out loud — so a typed question showed nothing at all
+		 * until the whole answer arrived, which on this machine is minutes of
+		 * an empty panel. The voice and the screen want the same stream for
+		 * different reasons, and only one of them was getting it.
+		 */
+		resp, err = l.streamAloud(ctx, provider, request)
 		if err != nil {
 			return Result{}, err
 		}
@@ -226,6 +263,16 @@ func (l *Loop) RunShaped(
 		// goes through the same registry lookup and the same risk gate, so a
 		// Mutating tool still stops for approval whether the model asked for it
 		// properly or in prose.
+		/*
+		 * How long it took and roughly how fast, once it has answered.
+		 *
+		 * The rate is the number worth having. Somebody watching a turn take
+		 * four minutes cannot tell an overloaded machine from a model too
+		 * large for it, and those want opposite responses — wait, or choose a
+		 * smaller model. Tokens per second says which.
+		 */
+		progress.DetailOn(thinkingStep, rateOfReply(resp.Content, time.Since(thought)))
+
 		if len(resp.ToolCalls) == 0 {
 			if recovered, ok := l.recoverToolCall(resp.Content); ok {
 				resp.ToolCalls = []llm.ToolCall{recovered}
@@ -313,13 +360,34 @@ func (l *Loop) RunShaped(
 				continue
 			}
 
-			progress.Set("tool", summary)
+			progress.SetTool(tool.Name(), summary)
+
+			/*
+			 * What it was actually asked to do, in its own words.
+			 *
+			 * The summary is written for a person and generalises — "Search
+			 * the web" — while the arguments say which search, which file,
+			 * which window. That difference is the whole value of watching:
+			 * a tool called with the wrong argument and a tool that is merely
+			 * slow look identical until you can see what it was handed.
+			 */
+			progress.Detail(askedFor(call.Arguments))
+
+			started := time.Now()
 
 			output, err := tool.Execute(ctx, call.Arguments)
 			if err != nil {
 				output = "Error: " + err.Error()
+
+				progress.Detail("failed: " + truncate(err.Error(), 120))
 			} else {
 				actions = append(actions, summary)
+
+				// What came back and how long it took, so a tool that returned
+				// nothing is distinguishable from one that returned plenty —
+				// which is the difference between a wrong answer and no answer.
+				progress.Detail(fmt.Sprintf("%s in %s",
+					sizeOfResult(output), took(time.Since(started))))
 			}
 
 			messages = append(messages, toolResult(call, output))
@@ -552,7 +620,20 @@ func (l *Loop) streamAloud(
 		return provider.Chat(ctx, request)
 	}
 
-	voice := l.Aloud(ctx)
+	/*
+	 * A voice if there is one, and nothing if there is not.
+	 *
+	 * A typed turn still streams — the page shows the answer being written —
+	 * it simply has nobody to say it to. Handling that here rather than at the
+	 * call site keeps one path through the streaming, which is the part that
+	 * has to be right.
+	 */
+	voice := TalkAloud(silentVoice{})
+
+	if l.Aloud != nil {
+		voice = l.Aloud(ctx)
+	}
+
 	defer voice.Close()
 
 	progress.Set("answering", "Answering")
@@ -570,6 +651,21 @@ func (l *Loop) streamAloud(
 		decided bool
 		speak   bool
 	)
+
+	/*
+	 * Everything written so far, for the page to show as it grows.
+	 *
+	 * The reply used to reach the screen in one piece at the end, so a turn
+	 * taking a minute showed nothing for a minute — and on a spoken turn the
+	 * assistant talked the whole way through while the transcript beside it
+	 * sat empty, which reads as a program that has stopped.
+	 *
+	 * Kept separately from the voice's copy because the two want different
+	 * things: the voice takes whole sentences, since half a sentence read
+	 * aloud is worse than waiting, and the page takes whatever there is, since
+	 * half a sentence on screen is a sentence being written.
+	 */
+	var written strings.Builder
 
 	resp, err := streamer.ChatStream(ctx, request, func(text string) {
 		// Cut in on: the rest of this answer is not wanted.
@@ -589,6 +685,9 @@ func (l *Loop) streamAloud(
 
 			if speak {
 				voice.Write(opening.String())
+
+				written.WriteString(opening.String())
+				progress.Writing(written.String())
 			}
 
 			return
@@ -596,6 +695,11 @@ func (l *Loop) streamAloud(
 
 		if speak {
 			voice.Write(text)
+
+			// Shown as well as said. A tool call is deliberately not shown:
+			// it is machinery, and half of one on screen is punctuation.
+			written.WriteString(text)
+			progress.Writing(written.String())
 		}
 	})
 	if err != nil {
@@ -612,6 +716,26 @@ func (l *Loop) streamAloud(
 
 	// Recorded on the response so the caller knows not to say it all again.
 	resp.Spoken = voice.Started()
+
+	/*
+	 * Cut in on, so the answer is what was actually delivered.
+	 *
+	 * Stopping the voice used to throw the rest away and leave the full reply
+	 * in the record, so the conversation held a paragraph its owner never
+	 * heard — and the next turn was answered as though they had. Then the
+	 * follow-up made no sense to either of them: they were replying to the
+	 * first sentence and it was continuing from the fifth.
+	 *
+	 * What was said is what happened. Keeping the delivered part, and marking
+	 * it as cut off, is what lets the next turn pick up from the right place
+	 * rather than from a version of the conversation only one of them was in.
+	 */
+	if l.Interrupted != nil && l.Interrupted() {
+		if said := strings.TrimSpace(written.String()); said != "" {
+			resp.Content = said + " …"
+			resp.CutOff = true
+		}
+	}
 
 	return resp, nil
 }
@@ -849,3 +973,130 @@ func truncate(s string, n int) string {
 
 	return string(r[:n]) + fmt.Sprintf("\n\n[truncated at %d characters]", n)
 }
+
+/*
+ * askedFor renders a tool's arguments as one readable line.
+ *
+ * The raw JSON is the honest thing to show and the wrong one: it is mostly
+ * punctuation, and the panel it goes in is a column a hundred and fifty pixels
+ * wide. The values are what carry meaning — the query, the path, the address —
+ * so the keys are dropped and the values kept.
+ */
+func askedFor(raw json.RawMessage) string {
+	var args map[string]any
+
+	if err := json.Unmarshal(raw, &args); err != nil || len(args) == 0 {
+		return ""
+	}
+
+	// Sorted, so the same call reads the same way every time. Map order in Go
+	// is deliberately random, and a line that reshuffles itself between polls
+	// is unreadable.
+	keys := make([]string, 0, len(args))
+	for k := range args {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	var parts []string
+
+	for _, k := range keys {
+		text := strings.TrimSpace(fmt.Sprint(args[k]))
+		if text == "" || text == "<nil>" {
+			continue
+		}
+
+		parts = append(parts, truncate(text, 80))
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return truncate(strings.Join(parts, " · "), 160)
+}
+
+// sizeOfResult describes what a tool returned, in whatever unit fits.
+func sizeOfResult(output string) string {
+	switch trimmed := strings.TrimSpace(output); {
+	case trimmed == "":
+		return "nothing back"
+	case len(trimmed) < 400:
+		// Short enough to show, and a short result is usually the interesting
+		// one: a count, a yes, a single line.
+		return truncate(strings.ReplaceAll(trimmed, "\n", " "), 120)
+	default:
+		return fmt.Sprintf("%d lines back", strings.Count(trimmed, "\n")+1)
+	}
+}
+
+// took renders a duration the way somebody reads it aloud.
+func took(d time.Duration) string {
+	switch {
+	case d < time.Second:
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	case d < time.Minute:
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	default:
+		return fmt.Sprintf("%dm %02ds", int(d.Minutes()), int(d.Seconds())%60)
+	}
+}
+
+// sizeOfPrompt describes how much the model has to read, in words rather than
+// tokens, because words are a unit somebody can picture.
+func sizeOfPrompt(messages []llm.Message) string {
+	var words int
+
+	for _, m := range messages {
+		words += len(strings.Fields(m.Content))
+	}
+
+	switch {
+	case words < 1000:
+		return fmt.Sprintf("%d words", words)
+	default:
+		return fmt.Sprintf("%.1fk words", float64(words)/1000)
+	}
+}
+
+/*
+ * rateOfReply says how quickly the model produced its answer.
+ *
+ * Counted in words, and deliberately not called tokens. It is the same
+ * measurement to within a constant, and "twelve words a second" means
+ * something to somebody watching a sentence appear while "sixteen tokens a
+ * second" does not.
+ */
+func rateOfReply(content string, elapsed time.Duration) string {
+	words := len(strings.Fields(content))
+
+	if words == 0 || elapsed <= 0 {
+		return took(elapsed)
+	}
+
+	/*
+	 * A rate needs enough words to mean anything.
+	 *
+	 * Three words over a minute is not a slow model, it is a model that
+	 * decided to call a tool and said almost nothing on the way — and
+	 * reporting "0.0 a second" for it describes a machine that has stopped.
+	 * Below a sentence or two the duration alone is the honest number.
+	 */
+	if words < 20 {
+		return fmt.Sprintf("%d words in %s", words, took(elapsed))
+	}
+
+	return fmt.Sprintf("%d words in %s · %.1f a second",
+		words, took(elapsed), float64(words)/elapsed.Seconds())
+}
+
+// silentVoice is what a typed turn speaks through: nothing at all.
+//
+// Started reports false, so the caller is told the answer was not said aloud
+// and shows it in full rather than assuming it has already been heard.
+type silentVoice struct{}
+
+func (silentVoice) Write(string)  {}
+func (silentVoice) Close()        {}
+func (silentVoice) Started() bool { return false }

@@ -771,3 +771,42 @@ func TestRecognisingAPromiseWithoutAnAction(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * An interrupted answer is recorded as what was actually said.
+ *
+ * Stopping the voice used to throw the rest away and still write the full
+ * reply into the conversation, so it held a paragraph its owner never heard —
+ * and the next turn was answered as though they had heard it. The follow-up
+ * then made no sense to either of them: the person was replying to the first
+ * sentence while the assistant carried on from the fifth.
+ */
+func TestAnInterruptedAnswerKeepsOnlyWhatWasSaid(t *testing.T) {
+	full := "The weather in Sofia is mild today. Around eighteen degrees. " +
+		"There is some cloud in the afternoon. Rain is unlikely. " +
+		"The wind stays light all day."
+
+	delivered := "The weather in Sofia is mild today. Around eighteen degrees."
+
+	resp := llm.Response{Content: full}
+
+	// What streamAloud does when the person cuts in.
+	if said := strings.TrimSpace(delivered); said != "" {
+		resp.Content = said + " …"
+		resp.CutOff = true
+	}
+
+	if !resp.CutOff {
+		t.Error("the answer was not marked as interrupted, so the next turn " +
+			"cannot tell it was cut short")
+	}
+
+	if strings.Contains(resp.Content, "The wind stays light") {
+		t.Error("the conversation kept a sentence nobody heard, so the follow-up " +
+			"will be answered as though they had")
+	}
+
+	if !strings.HasPrefix(resp.Content, delivered) {
+		t.Errorf("what was actually said was lost: %q", resp.Content)
+	}
+}

@@ -1,6 +1,10 @@
 package progress
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
 
 /*
  * Work the brain gave itself is told apart from work somebody is waiting on.
@@ -44,4 +48,94 @@ func TestBackgroundWorkIsMarkedAsSuch(t *testing.T) {
 	}
 
 	Done()
+}
+
+/*
+ * A running tool reports which tool it is, in the JSON the interface reads.
+ *
+ * The interface decides what to say out loud from this field. When it was
+ * missing, the guess used instead was the first word of the summary written
+ * for a person — "Read /etc/hosts" gives "read" — which matched nothing, so
+ * the line covering a slow tool never played once in the life of the program.
+ */
+func TestARunningToolSaysWhichToolItIs(t *testing.T) {
+	Done()
+	defer Done()
+
+	SetTool("look_at_screen", "Look at your screen: weather in Sofia")
+
+	step := Now()
+
+	if step.Tool != "look_at_screen" {
+		t.Errorf("the step reports tool %q, want look_at_screen", step.Tool)
+	}
+
+	if step.Kind != "tool" {
+		t.Errorf("the step reports kind %q, want tool", step.Kind)
+	}
+
+	body, err := json.Marshal(step)
+	if err != nil {
+		t.Fatalf("could not encode the step: %v", err)
+	}
+
+	if !strings.Contains(string(body), `"tool":"look_at_screen"`) {
+		t.Errorf("the encoded step has no tool field, so the interface cannot "+
+			"tell which tool is running: %s", body)
+	}
+
+	// And it must not linger once something else starts, or the interface
+	// announces a tool that finished minutes ago.
+	Set("thinking", "Thinking")
+
+	if got := Now().Tool; got != "" {
+		t.Errorf("the tool name survived into the next step as %q", got)
+	}
+}
+
+/*
+ * Detail lands on the step it belongs to, not on whatever is running when it
+ * arrives.
+ *
+ * A model call outlives the step that started it: it begins under "Thinking",
+ * and by the time it returns the brain has moved through answering and
+ * speaking and back to listening. Attaching its running time to the current
+ * step put "1m 26s" under "Listening" — a step that had not been running and
+ * could not have taken it, which is worse than reporting nothing because it is
+ * a measurement of the wrong thing.
+ */
+func TestLateDetailFindsItsOwnStep(t *testing.T) {
+	Done()
+	defer Done()
+
+	Set("thinking", "Thinking")
+
+	thinking := Mark()
+
+	// The turn moves on while the model is still working.
+	Set("answering", "Answering")
+	SetBackground("listening", "Listening")
+
+	DetailOn(thinking, "llama3.2:3b · 240 words in 1m 26s")
+
+	var found bool
+
+	for _, entry := range Recent() {
+		for _, detail := range entry.Detail {
+			if !strings.Contains(detail, "1m 26s") {
+				continue
+			}
+
+			found = true
+
+			if entry.Kind != "thinking" {
+				t.Errorf("the model's timing was attached to %q, which was not "+
+					"the step that ran it", entry.Kind)
+			}
+		}
+	}
+
+	if !found {
+		t.Error("the detail was dropped entirely")
+	}
 }

@@ -35,6 +35,27 @@
     --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
 
+    /*
+     * One colour per status, for everything on the page.
+     *
+     * These are defaults; status.js overwrites them with whatever the brain
+     * reports, so asking it by voice to change a colour changes it everywhere
+     * at once rather than in the core alone.
+     *
+     * Chosen to be told apart at a glance rather than to sit nicely together.
+     * The question they answer is "what is it doing", and two statuses in
+     * neighbouring shades answer it with "something".
+     */
+    --status-idle: #3d8ce8;
+    --status-listening: #c98bff;
+    --status-hearing: #5fe3f5;
+    --status-thinking: #f0b26b;
+    --status-tool: #ff9d5c;
+    --status-speaking: #7bffa8;
+    --status-waiting: #ff6b6b;
+    --status-learning: #4a8f8a;
+    --status-line: #7bffa8;
+
     --hud: rgba(77, 208, 225, 0.55);
     --hud-dim: rgba(77, 208, 225, 0.18);
     --hud-glow: rgba(77, 208, 225, 0.10);
@@ -1312,7 +1333,12 @@ textarea:focus {
     align-items: center;
 }
 
-.talk-tiles { display: flex; gap: 8px; min-width: 0; }
+/* Six tiles rather than three now, so they must be allowed to give way.
+   Fixed-width tiles overflowed the footer at 1280px and it scrolled sideways,
+   which is the one thing a page must never do. */
+.talk-tiles { display: flex; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.talk-tiles .tile { min-width: 0; flex: 0 1 auto; }
+.talk-tiles .tile-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .tile {
     flex: 1;
@@ -2400,12 +2426,29 @@ select { font-size: 13.5px; }
         linear-gradient(to top, rgba(6, 14, 24, 0.96), rgba(9, 20, 32, 0.75));
 }
 
-/* The status strip: small, quiet, and separated by dots rather than boxes. */
+/* The status strip: small, quiet, and separated by dots rather than boxes.
+ *
+ * Six tiles now that the fixed facts moved down from the Core panel, so it has
+ * to be allowed to give way. flex: none held them all at full width and the
+ * footer scrolled sideways to fit — which no page should ever do, and which is
+ * invisible on a wide screen and unusable on a narrow one. */
 .talk-tiles {
     display: flex;
     align-items: center;
     gap: 0;
-    flex: none;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.talk-tiles .tile { min-width: 0; flex: 0 1 auto; }
+
+.talk-tiles .tile-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tile {
@@ -2634,4 +2677,447 @@ select { font-size: 13.5px; }
 #menu-add[hidden],
 #menu-remove[hidden] {
     display: none;
+}
+
+/*
+ * The live feed: what the brain is doing, as it does it.
+ *
+ * Shaped like an installer's log, because that is the form that answers the
+ * question somebody watching actually has — is this working, or is it stuck?
+ * A line per step, the running one still moving, the finished ones settled
+ * with how long each took.
+ *
+ * The durations are the substance and are set in the monospace face so they
+ * line up in a column the eye can scan. Everything else here is restraint:
+ * one moving element at a time, because a panel where six things pulse at once
+ * reads as decoration and stops being read at all.
+ */
+
+.feed {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+    max-height: 320px;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+}
+
+.feed-idle {
+    color: var(--text-faint);
+    font-size: 13px;
+    font-style: italic;
+    margin: 6px 2px;
+}
+
+.feed-line {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    align-items: baseline;
+    gap: 9px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+
+    /* Each line arrives rather than appearing, which is what makes the panel
+       read as live. Deliberately quick: a slow entrance on a step that lasts
+       eighty milliseconds is an animation playing over its own subject. */
+    animation: feed-arrive 220ms ease-out;
+}
+
+@keyframes feed-arrive {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* Finished steps recede, so the eye goes to the one still running. */
+.feed-line[data-running="no"] { opacity: 0.62; }
+
+.feed-line[data-running="yes"] {
+    background: var(--hud-glow);
+    border-color: var(--hud-dim);
+    opacity: 1;
+}
+
+.feed-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    justify-self: center;
+    align-self: center;
+}
+
+
+/* Only the running step breathes, and only ever one line does. */
+.feed-line[data-running="yes"] .feed-dot {
+    animation: feed-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes feed-pulse {
+    0%, 100% { transform: scale(1);    opacity: 1; }
+    50%      { transform: scale(1.55); opacity: 0.45; }
+}
+
+/* Steadier for anybody who would rather it did not move. */
+@media (prefers-reduced-motion: reduce) {
+    .feed-line { animation: none; }
+    .feed-line[data-running="yes"] .feed-dot { animation: none; }
+}
+
+.feed-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.feed-name {
+    font-size: 13px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.feed-model {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    letter-spacing: 0.02em;
+}
+
+.feed-took {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.feed-line[data-running="yes"] .feed-took { color: var(--accent); }
+
+/*
+ * The specifics under each step.
+ *
+ * Monospace, because most of what appears here is machine output — a path, a
+ * query, a count, a duration — and proportional type makes those harder to
+ * compare down a column. Dimmer than the step's own name so the panel can
+ * still be read at a glance as a list of steps, with the detail there for
+ * anybody who stops to look.
+ */
+.feed-detail {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.feed-line[data-running="yes"] .feed-detail { color: var(--text); }
+
+/* Stop: present only while there is something to stop, and coloured so it
+   reads as the way out rather than as another thing to do. */
+.stop-action {
+    border-color: rgba(224, 108, 117, 0.4);
+    color: var(--danger);
+}
+
+.stop-action:hover {
+    border-color: var(--danger);
+    background: rgba(224, 108, 117, 0.08);
+}
+
+.stop-action .row-icon { font-size: 9px; }
+
+
+/*
+ * Every status, coloured once, for every part of the interface.
+ *
+ * Anything that shows what the brain is doing carries data-status and takes
+ * its colour from here. Before this there were three palettes — the core's,
+ * the feed's and the talk button's — and the same moment was violet in one
+ * corner of the screen, cyan in another and amber in a third.
+ */
+[data-status="idle"]      { --status: var(--status-idle); }
+[data-status="listening"] { --status: var(--status-listening); }
+[data-status="hearing"]   { --status: var(--status-hearing); }
+[data-status="thinking"]  { --status: var(--status-thinking); }
+[data-status="tool"]      { --status: var(--status-tool); }
+[data-status="speaking"]  { --status: var(--status-speaking); }
+[data-status="waiting"]   { --status: var(--status-waiting); }
+[data-status="learning"]  { --status: var(--status-learning); }
+
+/* The feed's dot and its running line. */
+.feed-line .feed-dot { background: var(--status, var(--text-faint)); }
+.feed-line[data-running="yes"] {
+    border-color: color-mix(in srgb, var(--status, var(--accent)) 40%, transparent);
+    background: color-mix(in srgb, var(--status, var(--accent)) 8%, transparent);
+}
+.feed-line[data-running="yes"] .feed-took { color: var(--status, var(--accent)); }
+.feed-line[data-status="tool"] .feed-detail {
+    color: color-mix(in srgb, var(--status-tool) 70%, var(--text-dim));
+}
+
+/*
+ * The talk button, from the same variable.
+ *
+ * These override the older per-state rules further up, which are kept because
+ * they carry the sizing and the ring geometry — only the colours move here.
+ */
+/*
+ * No exception for idle.
+ *
+ * The button used to grey out at rest while every other part of the page drew
+ * idle in its own colour, which is the same disagreement in miniature: one
+ * status, two answers. Resting is a status like any other and it has a colour
+ * like any other.
+ */
+#talk[data-status] { border-color: var(--status); color: var(--status); }
+#talk[data-status] .talk-dot { background: var(--status); }
+#talk[data-status] .talk-ring { border-color: var(--status); }
+
+/* The status word under the button, so the label agrees with the colour. */
+#talk-label[data-status] { color: var(--status); }
+
+/* The activity list and the conversation's own status line. */
+[data-status].status-dot,
+.status-dot[data-status] { background: var(--status); }
+
+
+/*
+ * The live line above the conversation list, from the same palette.
+ *
+ * It sits directly beside the feed showing the same step, so any disagreement
+ * between them is visible in a single glance — which is exactly how the old
+ * arrangement was noticed.
+ */
+.thinking-now[data-status] .thinking-dot { background: var(--status); }
+.thinking-now[data-status] .thinking-clock { color: var(--status); }
+
+/* The working line beneath the conversation, from the same palette. */
+#working[data-status] .working-dot { background: var(--status); }
+#working[data-status] .working-clock { color: var(--status); }
+
+
+/*
+ * The chrome, tinted by whatever the brain is doing.
+ *
+ * The panels were a fixed cyan whatever was happening, so the core could be
+ * violet for listening while every frame around it stayed the colour of a
+ * different state — which is the same disagreement as before, drawn larger.
+ *
+ * Mixed well down against the resting colours rather than applied at full
+ * strength: borders and headings competing with the core would bury the thing
+ * meant to be read first, and eight saturated panels are harder to read than
+ * one. The proportions are chosen so the shift is unmistakable at a glance and
+ * still quiet enough to work behind.
+ */
+/*
+ * The panels keep their own borders.
+ *
+ * Tinting every border by what the brain is doing was too much: eight frames
+ * changing colour several times a turn is a wash rather than a signal, and it
+ * competes with the core, which is the thing meant to be read first.
+ *
+ * The status is carried where it means something — the dot beside each panel
+ * heading, the feed, the talk button, the core — and the furniture holds
+ * still. A signal that moves everything is indistinguishable from decoration.
+ */
+:root[data-status] .card:not(.card-measured) h2::before {
+    background: var(--status);
+    box-shadow: 0 0 8px var(--status);
+}
+
+/*
+ * Except the measurements.
+ *
+ * Its gauges mean processor, memory and disk — load, not status — and tinting
+ * them by what the brain is doing would make a busy processor look like a
+ * state of the conversation. The one panel that must stay literal.
+ */
+
+/*
+ * The frame around the window keeps its own colour.
+ *
+ * The navigation and the header say what this program is and where you are in
+ * it, and neither of those changes with what the brain is doing. Tinting them
+ * made the whole window flicker between colours several times a turn, which is
+ * exhausting to sit in front of and tells nobody anything: you already know
+ * which panel you are on.
+ *
+ * The status belongs to the panels showing the work, and to the text naming
+ * it. Not to the furniture.
+ */
+
+/*
+ * Moved gently.
+ *
+ * The status changes several times in a turn — listening, hearing, thinking,
+ * speaking — and snapping the whole room between colours each time is
+ * exhausting to sit in front of. A slow transition reads as the light
+ * changing; an instant one reads as a fault.
+ */
+.card h2::before {
+    transition: background-color 600ms ease, box-shadow 600ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card h2::before { transition: none; }
+}
+
+
+/*
+ * The answer while it is still being written.
+ *
+ * Marked as unfinished by a cursor rather than by different type: changing the
+ * appearance of the text and then changing it back when the turn completes
+ * makes the finished answer look like a different message arriving.
+ */
+.msg-draft .body::after {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 1em;
+    margin-left: 3px;
+    vertical-align: text-bottom;
+    background: var(--status, var(--accent));
+    animation: draft-cursor 1.1s steps(2, start) infinite;
+}
+
+@keyframes draft-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .msg-draft .body::after { animation: none; opacity: 0.7; }
+}
+
+/*
+ * Work running beside the conversation.
+ *
+ * Shaped like the feed, because it is the same kind of information — a thing
+ * being done, and how long it has taken — and two different shapes for that
+ * would be one more thing to learn.
+ */
+.jobs { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+
+.job {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    align-items: baseline;
+    gap: 9px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+}
+
+.job[data-state="running"] {
+    background: var(--hud-glow);
+    border-color: color-mix(in srgb, var(--status, var(--warn)) 35%, transparent);
+}
+
+.job[data-state="done"] { opacity: 0.6; }
+.job[data-state="failed"] { opacity: 0.85; }
+
+.job-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    justify-self: center; align-self: center;
+    background: var(--status, var(--text-faint));
+}
+
+/* Only the running one breathes, and only ever one thing on screen does. */
+.job[data-state="running"] .job-dot { animation: feed-pulse 1.5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .job[data-state="running"] .job-dot { animation: none; }
+}
+
+.job-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+
+.job-what {
+    font-size: 13px; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.job-detail {
+    font-family: var(--mono); font-size: 10.5px; line-height: 1.45;
+    color: var(--text-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.job-took {
+    font-family: var(--mono); font-size: 11.5px;
+    color: var(--status, var(--text-dim));
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/*
+ * The work of a turn, inside the conversation.
+ *
+ * Indented and quieter than the messages around it, because it is not
+ * something either party said — it is what happened between the question and
+ * the answer. Set apart by a rule down the left rather than by a box: a box
+ * competes with the messages for attention, and this should be readable
+ * without being read.
+ */
+.turn-activity {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 4px 0 10px 12px;
+    padding-left: 12px;
+    border-left: 2px solid color-mix(in srgb, var(--status, var(--accent)) 30%, transparent);
+}
+
+.act {
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 0;
+}
+
+.act[data-running="no"] { opacity: 0.55; }
+
+.act-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    justify-self: center; align-self: center;
+    background: var(--status, var(--text-faint));
+}
+
+.act[data-running="yes"] .act-dot {
+    animation: feed-pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .act[data-running="yes"] .act-dot { animation: none; }
+}
+
+.act-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+
+.act-what {
+    font-size: 12px;
+    color: var(--text-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.act-detail {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: var(--text-faint);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.act-took {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }

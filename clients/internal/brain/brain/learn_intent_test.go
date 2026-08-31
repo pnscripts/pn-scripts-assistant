@@ -63,3 +63,61 @@ func TestAMistypedPathIsNotFound(t *testing.T) {
 		t.Errorf("a path that does not exist was accepted: %+v", got)
 	}
 }
+
+/*
+ * A link said out loud is still a link.
+ *
+ * Nobody says "aitch tee tee pee colon slash slash" — they say
+ * "pnscripts.com" — and the recogniser writes down what they said. So an
+ * instruction given by voice never matched, fell through to the model, and got
+ * exactly the answer this file exists to prevent: "I will read that and learn
+ * from it", followed by nothing at all. Which is worse than a refusal, because
+ * it is indistinguishable from having worked, so nobody checks.
+ */
+func TestALinkSaidOutLoudIsLearnedFrom(t *testing.T) {
+	for _, c := range []struct{ said, want string }{
+		{"Brain, learn from pnscripts.com", "https://pnscripts.com"},
+		{"learn everything from hosting.pnscripts.com", "https://hosting.pnscripts.com"},
+		{"read this and learn: example.org/about", "https://example.org/about"},
+		{"study dnevnik.bg please", "https://dnevnik.bg"},
+		{"remember this page: docs.python.org", "https://docs.python.org"},
+
+		// Pasted, with the protocol, as before.
+		{"learn from https://pnscripts.com/docs", "https://pnscripts.com/docs"},
+	} {
+		got := readLearnInstruction(c.said)
+
+		if !got.Found {
+			t.Errorf("%q was not taken as an instruction to learn", c.said)
+
+			continue
+		}
+
+		if got.Link != c.want {
+			t.Errorf("%q gave link %q, want %q", c.said, got.Link, c.want)
+		}
+	}
+}
+
+/*
+ * Ordinary sentences are not sent off to read the web.
+ *
+ * The matcher is deliberately narrow at both ends. Wrongly reading a page is a
+ * request that leaves the machine, and doing it because somebody mentioned a
+ * website in passing is exactly the kind of surprise this program must not
+ * produce.
+ */
+func TestOrdinaryTalkIsNotAnInstructionToLearn(t *testing.T) {
+	for _, innocent := range []string{
+		"I want to learn Go this year",
+		"what do you think about pnscripts.com?",
+		"is example.org any good",
+		"remember that I prefer tea",
+		"scan the room for me",
+	} {
+		if got := readLearnInstruction(innocent); got.Found && got.Link != "" {
+			t.Errorf("%q was taken as an instruction to go and read %q",
+				innocent, got.Link)
+		}
+	}
+}

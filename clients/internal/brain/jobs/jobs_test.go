@@ -145,3 +145,34 @@ func TestStoppingSomethingEarly(t *testing.T) {
 		t.Error("stopping a job that does not exist reported success")
 	}
 }
+
+/*
+ * How much runs at once follows the machine.
+ *
+ * It was a constant, so a workstation with a graphics card ran exactly as many
+ * background jobs as a laptop with four cores and none. The constraint is real
+ * on modest hardware and imaginary on good hardware, and a single number gets
+ * one of them wrong whichever value it takes.
+ */
+func TestHowMuchRunsAtOnceFollowsTheMachine(t *testing.T) {
+	modest := HowManyAtOnce("modest")
+	capable := HowManyAtOnce("capable")
+	generous := HowManyAtOnce("generous")
+
+	if modest != 1 {
+		t.Errorf("a machine with no graphics card runs %d jobs beside a "+
+			"conversation; every one of them is a model call on the same "+
+			"processor the answer is waiting on", modest)
+	}
+
+	if capable <= modest || generous <= capable {
+		t.Errorf("better hardware does not get more: modest %d, capable %d, "+
+			"generous %d", modest, capable, generous)
+	}
+
+	// An unknown tier is treated as the modest one, because the safe reading
+	// of "I do not know what this machine is" is the cautious one.
+	if HowManyAtOnce("something else") != modest {
+		t.Error("an unrecognised machine was given more than the cautious limit")
+	}
+}

@@ -51,7 +51,24 @@ type Config struct {
 	// answers the film.
 	AlwaysName bool
 
-	OllamaModel    string
+	OllamaModel string
+
+	/*
+	 * ModelChosen records that a person picked the working model themselves.
+	 *
+	 * Without it there is no way to tell a deliberate choice from the value
+	 * this program shipped with, and the two have to be treated differently.
+	 * The shipped value was picked against four processor cores and no
+	 * graphics card, and it was being used unchanged on every machine — so a
+	 * computer with a card ran the model chosen for one without, and the whole
+	 * apparatus that works out what the hardware can manage computed an answer
+	 * that nothing ever read.
+	 *
+	 * Set once somebody chooses from the Models page, and never unset. From
+	 * that point their choice wins on every machine, which is the point of
+	 * having chosen.
+	 */
+	ModelChosen bool
 
 	/*
 	 * AutoModel lets the brain answer small talk with a smaller, quicker model.
@@ -64,7 +81,7 @@ type Config struct {
 	AutoModel bool
 
 	// FastModel is the small one, or empty to pick whichever is installed.
-	FastModel string
+	FastModel      string
 	EmbedModel     string
 	AnthropicKey   string
 	AnthropicModel string
@@ -171,6 +188,7 @@ func Default() Config {
 		WakeWord:        DefaultWakeWord,
 		AlwaysName:      true,
 		OllamaModel:     "qwen2.5-coder:7b",
+		ModelChosen:     false,
 		AutoModel:       true,
 		EmbedModel:      "nomic-embed-text",
 		AnthropicModel:  "",
@@ -239,6 +257,11 @@ func Load(root string) (Config, error) {
 		cfg.AlwaysName = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 	assign(&cfg.OllamaModel, "OLLAMA_DEFAULT_MODEL")
+
+	if v := get("OLLAMA_MODEL_CHOSEN"); v != "" {
+		cfg.ModelChosen = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
 	assign(&cfg.EmbedModel, "EMBEDDING_MODEL")
 	assign(&cfg.AnthropicKey, "ANTHROPIC_API_KEY")
 	assign(&cfg.AnthropicModel, "ANTHROPIC_MODEL")
@@ -297,6 +320,7 @@ func (c Config) Save(root string) error {
 	b.WriteString("LLM_DEFAULT_PROVIDER=" + c.DefaultProvider + "\n")
 	b.WriteString("OLLAMA_BASE_URL=" + c.OllamaURL + "\n")
 	b.WriteString("OLLAMA_DEFAULT_MODEL=" + c.OllamaModel + "\n")
+	b.WriteString("OLLAMA_MODEL_CHOSEN=" + boolText(c.ModelChosen) + "\n")
 	b.WriteString("EMBEDDING_MODEL=" + c.EmbedModel + "\n")
 	b.WriteString("ANTHROPIC_API_KEY=" + c.AnthropicKey + "\n")
 	b.WriteString("ANTHROPIC_MODEL=" + c.AnthropicModel + "\n\n")

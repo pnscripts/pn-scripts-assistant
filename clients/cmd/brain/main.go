@@ -302,7 +302,7 @@ func runServe(args []string) error {
 	facts, _ := db.CountFacts()
 
 	fmt.Printf("\n  %s\n", cfg.Name)
-	fmt.Printf("  %d facts  ·  privacy: %s  ·  %s\n", facts, b.Mode, cfg.OllamaModel)
+	printBanner(facts, b)
 	fmt.Printf("  http://%s\n\n", ln.Addr())
 
 	return srv.Serve(ctx, ln)
@@ -653,7 +653,7 @@ func runApp(args []string) error {
 
 	facts, _ := db.CountFacts()
 	fmt.Printf("\n  %s\n", cfg.Name)
-	fmt.Printf("  %d facts  ·  privacy: %s  ·  %s\n", facts, b.Mode, cfg.OllamaModel)
+	printBanner(facts, b)
 	fmt.Printf("  %s\n\n", url)
 
 	if !window.Available() {
@@ -1123,4 +1123,14 @@ func runMicTest(args []string) error {
 	fmt.Printf("  Heard: %q\n\n", text)
 
 	return nil
+}
+
+// printBanner names the model that will answer, not the one configured.
+//
+// They differ whenever nobody has chosen one, which is the ordinary case. The
+// banner said qwen2.5-coder while llama3.2 wrote every reply.
+func printBanner(facts int, b *brain.Brain) {
+	work, _, _ := b.Roles()
+
+	fmt.Printf("  %d facts  ·  privacy: %s  ·  %s\n", facts, b.Mode, work)
 }

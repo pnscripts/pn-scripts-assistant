@@ -41,9 +41,23 @@ type LookAtScreen struct {
 func (LookAtScreen) Name() string { return "look_at_screen" }
 
 func (LookAtScreen) Description() string {
-	return "Take a picture of the screen and describe what is on it. Use when " +
-		"asked what is on screen, what an error says, what a window is showing, " +
-		"or to read something the owner is looking at."
+	/*
+	 * Described by what it is for and, as plainly, by what it is not for.
+	 *
+	 * This is the most expensive tool here — a picture of the screen through a
+	 * vision model, which on a processor is minutes rather than seconds — and a
+	 * small model reached for it to answer "what is the weather in Sofia",
+	 * spending seven minutes looking at a desktop that could never have
+	 * contained the answer. A description that only says what a tool is for
+	 * leaves everything else to inference, and inference is exactly what a
+	 * three-billion-parameter model is worst at.
+	 */
+	return "Take a picture of the screen and describe what is on it. " +
+		"Slow: it reads an image, so only use it when the answer really is on " +
+		"the screen right now — what a window is showing, what an error says, " +
+		"what the owner is looking at. " +
+		"Never use it to find facts, news, weather, prices or anything from " +
+		"the internet: use web_search for those."
 }
 
 func (LookAtScreen) Parameters() json.RawMessage {

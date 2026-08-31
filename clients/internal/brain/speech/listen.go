@@ -169,6 +169,20 @@ func Record(ctx context.Context, seconds int, device, path string) error {
 		seconds = MaxRecordSeconds
 	}
 
+	/*
+	 * With nothing chosen, work out the best input rather than taking the
+	 * desktop's default.
+	 *
+	 * Conversation mode already did this and one-shot listening did not, so
+	 * the two disagreed about which microphone this machine has: holding the
+	 * button recorded from an analog jack with nothing plugged into it while
+	 * speaking a turn recorded from the USB microphone. Both report a level,
+	 * both write a file, and only one of them contains anybody.
+	 */
+	if device == "" {
+		device = PreferredMicrophone(ctx)
+	}
+
 	if _, err := exec.LookPath("pw-record"); err == nil {
 		return recordPipeWire(ctx, seconds, device, path)
 	}
@@ -254,6 +268,27 @@ func Transcribe(ctx context.Context, wav string) (string, error) {
 	// wrong: confident, plausible, and unrelated to the words spoken.
 	args := []string{"-m", r.Model, "-f", wav, "-nt", "-np", "-l", languageForTurn()}
 
+	/*
+	 * Speech detection, when the model for it has been fetched.
+	 *
+	 * Whisper does not decline. Handed four seconds of an empty room it
+	 * answered "(crickets chirping)", and handed near-silence it offers a
+	 * fragment of whatever it has heard most often — confident, plausible, and
+	 * never said. Silero looks at the same four seconds and returns nothing,
+	 * which is the correct answer and one the recogniser cannot give.
+	 */
+	args = withVAD(args)
+
+	/*
+	 * And the names this person actually uses.
+	 *
+	 * Whisper does not hesitate over a word it has never seen; it returns the
+	 * nearest thing it knows, confidently. "pnscripts.com" came back as
+	 * "pncryptz.com" and the brain answered at length about a website that
+	 * does not exist — a failure with nothing in the sentence to give it away.
+	 */
+	args = withVocabulary(args)
+
 	cmd := exec.CommandContext(ctx, r.Command, args...)
 
 	// Whisper announces its detection on stderr. Reading it here means a
@@ -335,6 +370,20 @@ type Heard struct {
 	NoiseFloor  int  `json:"noise_floor"`
 	Threshold   int  `json:"threshold"`
 	SpokeForMS  int  `json:"spoke_for_ms"`
+
+	/*
+	 * Unfamiliar are names in this transcript that nothing here has met.
+	 *
+	 * Carried so the brain can read one back before acting on it. A name is
+	 * the one kind of word where being nearly right is no use at all — a
+	 * domain one letter out is somebody else's website — and it is also the
+	 * kind whisper is worst at, because it does not hesitate: handed a word it
+	 * has never seen it returns the nearest thing it knows and marks nothing.
+	 *
+	 * "pnscripts.com" arrived as "pncryptz.com" and a considered opinion
+	 * followed about a site that does not exist.
+	 */
+	Unfamiliar []string `json:"unfamiliar,omitempty"`
 
 	// Gain is how much the recording had to be turned up to be understood.
 	// Worth showing: a turn that needed eight times its own volume is telling

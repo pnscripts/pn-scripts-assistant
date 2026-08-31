@@ -113,12 +113,24 @@ function showThinking() {
 
     // Background work is the brain's own housekeeping, and saying so is the
     // difference between "it is busy with me" and "it is tidying up".
-    let what = step.background ? `${step.note} (on its own)` : step.note || 'Working';
+    /*
+     * "(on its own)" belongs to work the brain gave itself, not to listening.
+     *
+     * Both are marked background, because neither is something somebody is
+     * waiting on — but only one of them is work, and "Listening (on its own)"
+     * describes nothing.
+     */
+    const unattended = step.background && step.kind !== 'listening';
+    let what = unattended ? `${step.note} (on its own)` : step.note || 'Working';
 
     if (step.model && !step.background) what += ` \u00b7 ${step.model}`;
 
     el('thinking-now-text').textContent = what;
     line.dataset.background = step.background ? 'yes' : 'no';
+
+    // The same status, and therefore the same colour, as the feed, the talk
+    // button and the core. See status.js.
+    line.dataset.status = window.brainStatusOf ? window.brainStatusOf(step) : 'thinking';
 
     const seconds = Math.round(step.seconds || 0);
 

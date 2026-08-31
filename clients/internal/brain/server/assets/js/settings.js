@@ -19,11 +19,28 @@
 
 const el = (id) => document.getElementById(id);
 
+/*
+ * Every status, in the order it happens during a turn.
+ *
+ * All of them, not the four the core used to know. The panel offering fewer
+ * colours than the interface actually shows is how three of them ended up
+ * unchangeable — and the ones left out were the ones somebody is most likely
+ * to want moved, since "working out what you said" and "thinking" sit next to
+ * each other in meaning and have to be far apart in colour.
+ *
+ * The wording under each is when it appears, because a colour picker beside
+ * the word "hearing" tells nobody which moment it paints.
+ */
 const COLOUR_PARTS = [
     ['idle', 'At rest', 'Nothing happening'],
-    ['listening', 'Hearing you', 'While you are speaking'],
-    ['thinking_core', 'Working', 'While it is thinking or using a tool'],
+    ['listening', 'Listening', 'While the microphone is open'],
+    ['hearing', 'Hearing you', 'While it works out what you said'],
+    ['thinking_core', 'Thinking', 'While a model is working'],
+    ['tool', 'Doing something', 'While it reads, searches or opens something'],
     ['speaking', 'Its own voice', 'While it is speaking'],
+    ['waiting', 'Needs you', 'When it has stopped and wants an answer'],
+    ['learning', 'Learning', 'Its own background work, nobody waiting'],
+    ['thinking_line', 'The sweeping line', 'The band that crosses the core'],
 ];
 
 async function load() {
@@ -94,6 +111,15 @@ async function load() {
     }
 
     renderColours();
+
+    /*
+     * And the page repaints without a reload.
+     *
+     * The palette is read into CSS variables at load; changing a colour and
+     * seeing nothing move until a restart is the kind of thing that makes
+     * somebody change it twice more, wondering whether it worked.
+     */
+    if (window.brainRepaintStatuses) window.brainRepaintStatuses();
 }
 
 async function renderColours() {
@@ -150,8 +176,13 @@ async function renderColours() {
 const SPOKEN_PART = {
     idle: 'idle',
     listening: 'listening',
+    hearing: 'hearing',
     thinking_core: 'core',
+    tool: 'tool',
     speaking: 'speaking',
+    waiting: 'waiting',
+    learning: 'learning',
+    thinking_line: 'thinking line',
 };
 
 async function setColour(key, value) {

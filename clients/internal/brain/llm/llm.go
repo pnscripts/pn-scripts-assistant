@@ -74,7 +74,7 @@ type Streamer interface {
 type Response struct {
 	// Spoken is true when the answer was already said aloud as it was written,
 	// so that whoever asked does not say the whole thing a second time.
-	Spoken bool
+	Spoken    bool
 	Content   string
 	ToolCalls []ToolCall
 	Model     string
@@ -83,6 +83,18 @@ type Response struct {
 	// Elapsed is how long the call took, which matters on CPU inference where
 	// a cold model load is a minute and a warm reply is seconds.
 	Elapsed time.Duration
+
+	/*
+	 * CutOff marks an answer its owner interrupted part-way through.
+	 *
+	 * The content is then what was actually delivered rather than what the
+	 * model went on to write, because those are different things and the
+	 * conversation has to hold the one that happened. Recording the whole
+	 * reply meant the next turn was answered as though a paragraph nobody
+	 * heard had been heard — they were replying to the first sentence and it
+	 * was continuing from the fifth.
+	 */
+	CutOff bool
 }
 
 // Provider is a language model that can be asked for a reply.

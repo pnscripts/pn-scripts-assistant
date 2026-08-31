@@ -20,13 +20,60 @@ const clock = document.getElementById('working-clock');
 /** How often to redraw from the shared reading. */
 const INTERVAL = 400;
 
-/** Tools whose start is worth saying out loud, and how to say it. */
+/*
+ * What to say out loud as each tool starts.
+ *
+ * Somebody who asked by voice is not looking at the screen, so a tool that
+ * takes twenty seconds is twenty seconds of silence that is indistinguishable
+ * from the program having died. One short line at the start fixes that, and
+ * only at the start: narrating progress through a long job is worse than
+ * saying nothing, because it talks over the person while they are deciding
+ * whether to interrupt.
+ *
+ * Written the way somebody competent says it in passing — what is happening,
+ * in one clause, then quiet. Not "I'll go ahead and take a look at that file
+ * for you now", which says the same thing and takes four times as long to get
+ * out of the way.
+ *
+ * Tools missing from this list are deliberately silent. Anything that returns
+ * instantly says nothing, because the line would arrive after the answer it
+ * was meant to cover.
+ */
 const SPOKEN = {
-    read_file: 'Reading a file.',
-    list_directory: 'Looking at a folder.',
-    run_command: 'Running that now.',
-    fetch_url: 'Fetching that page.',
+    // Files and folders.
+    read_file: 'Reading it.',
+    write_file: 'Writing that.',
+    edit_file: 'Editing it.',
+    list_directory: 'Looking at the folder.',
+    search_files: 'Searching your files.',
+
+    // The world outside.
+    fetch_url: 'Fetching the page.',
     web_search: 'Searching the web.',
+
+    // Things that take a while and can surprise you.
+    run_command: 'Running it.',
+    do_in_background: 'Starting that in the background.',
+
+    // Documents.
+    read_document: 'Reading the document.',
+    write_document: 'Writing the document.',
+
+    // Mail, where the wait is the network.
+    read_email: 'Checking your mail.',
+    send_email: 'Sending it.',
+
+    // The screen and the desktop.
+    look_at_screen: 'Looking at your screen.',
+    list_windows: 'Checking what is open.',
+    open_app: 'Opening it.',
+
+    // Reminders.
+    remind_me: 'Noting it.',
+    list_reminders: 'Checking your reminders.',
+
+    // Models, which is the longest wait in the program.
+    list_models: 'Checking the models.',
 };
 
 let announced = '';
@@ -39,11 +86,11 @@ let announced = '';
  * an answer. Somebody talking cannot see the screen and has nothing else to go
  * on, which is exactly when it is worth saying.
  */
-function announce(note) {
+function announce(name) {
+    if (!name) return;
     if (!window.brainIsTalking || !window.brainIsTalking()) return;
 
-    const key = note.split(' ')[0].toLowerCase();
-    const said = SPOKEN[key] || SPOKEN[note.toLowerCase()];
+    const said = SPOKEN[name];
 
     if (!said || said === announced) return;
 
@@ -67,6 +114,9 @@ function show(step) {
 
     line.hidden = false;
 
+    // One status, one colour, everywhere. See status.js.
+    line.dataset.status = window.brainStatusOf ? window.brainStatusOf(step) : 'thinking';
+
     /*
      * Which model, beside what it is doing.
      *
@@ -89,7 +139,15 @@ function show(step) {
     // in a way a spinner never can.
     clock.textContent = step.round > 1 ? `${time} · step ${step.round}` : time;
 
-    if (step.kind === 'tool') announce(step.note);
+    /*
+     * Announced by tool name, not by the summary.
+     *
+     * Guessing from the summary's first word is what this used to do: the
+     * summary reads "Read /etc/hosts", the first word is "read", and the list
+     * is keyed by read_file — so nothing ever matched and the line meant to
+     * cover a slow tool never once played.
+     */
+    if (step.kind === 'tool') announce(step.tool);
 }
 
 // Read from the one place that asks, rather than asking again. See signals.js.

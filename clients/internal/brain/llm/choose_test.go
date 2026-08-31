@@ -270,3 +270,264 @@ func TestOnlyModelsThatCanActGetTheActingJob(t *testing.T) {
 		t.Errorf("picked %q for doing things, which was not measured as able to", got)
 	}
 }
+
+/*
+ * A machine with no graphics card is offered a model it can actually finish a
+ * turn with.
+ *
+ * The ordering elsewhere ranks models by how well they use a tool, which is
+ * the right question when any of them runs quickly. On four cores it is the
+ * wrong one: a seven-billion-parameter model produces a few tokens a second
+ * here, and a spoken question was measured still on its first round after four
+ * and a half minutes. That is not a slow answer, it is no answer — the person
+ * has stopped waiting.
+ */
+func TestModestMachinesLeadWithSomethingQuick(t *testing.T) {
+	work, _, _ := ForMachine("modest")
+
+	if len(work) == 0 {
+		t.Fatal("a modest machine was offered no model that can use a tool")
+	}
+
+	if work[0] != "llama3.2:3b" {
+		t.Errorf("a machine with no card leads with %q; want the quick one first", work[0])
+	}
+
+	// Ahead of the others, never instead of them: a machine that has qwen and
+	// not llama must still be given qwen rather than nothing.
+	var hasFallback bool
+
+	for _, m := range work {
+		if m == "qwen2.5-coder:7b" {
+			hasFallback = true
+
+			break
+		}
+	}
+
+	if !hasFallback {
+		t.Error("the modest list dropped the models it used to offer, so a machine " +
+			"without the small one is left with nothing that can call a tool")
+	}
+}
+
+// A better machine is unaffected, which is the whole point of the tiers.
+func TestBetterMachinesStillLeadWithTheSmartModels(t *testing.T) {
+	for _, c := range []struct{ tier, want string }{
+		{"capable", "qwen3:14b"},
+		{"generous", "qwen3:32b"},
+	} {
+		work, _, _ := ForMachine(c.tier)
+
+		if len(work) == 0 || work[0] != c.want {
+			got := "nothing"
+			if len(work) > 0 {
+				got = work[0]
+			}
+
+			t.Errorf("a %s machine leads with %q; want %q", c.tier, got, c.want)
+		}
+	}
+}
+
+/*
+ * A hard request goes to the better model; an ordinary one does not.
+ *
+ * On a machine without a graphics card the fastest model and the ablest are
+ * different by minutes per round, so ordinary turns take the quick one. Some
+ * requests plainly need more, and for those the wait is the right price — a
+ * fast wrong answer costs the asking again as well as the time.
+ *
+ * Both halves matter. Escalating everything would undo the reason the quick
+ * model was chosen at all.
+ */
+func TestHardWorkGoesToTheBetterModel(t *testing.T) {
+	sizes := Sizes{
+		Work:  "llama3.2:3b",
+		Quick: "llama3.2:3b",
+		Best:  "qwen2.5-coder:7b",
+		Talk:  "llama3.2:3b",
+	}
+
+	for _, ordinary := range []string{
+		"open my downloads folder",
+		"what files are in /tmp",
+		"remind me to call the dentist",
+	} {
+		if got := ChooseModel(ordinary, sizes); got.Model != "llama3.2:3b" {
+			t.Errorf("an ordinary request %q went to %q, and will now take minutes",
+				ordinary, got.Model)
+		}
+	}
+
+	for _, hard := range []string{
+		"refactor this and explain the architecture",
+		"debug why the tests fail and fix it properly",
+		"analyse this algorithm carefully",
+	} {
+		if got := ChooseModel(hard, sizes); got.Model != "qwen2.5-coder:7b" {
+			t.Errorf("a demanding request %q went to %q rather than the best model",
+				hard, got.Model)
+		}
+	}
+}
+
+// With only one model there is nothing to escalate to, and it must not pretend
+// otherwise.
+func TestNoEscalationWhenThereIsOnlyOneModel(t *testing.T) {
+	sizes := Sizes{Work: "llama3.2:3b", Quick: "llama3.2:3b", Best: "llama3.2:3b"}
+
+	if got := ChooseModel("refactor this carefully", sizes); got.Model != "llama3.2:3b" {
+		t.Errorf("escalated to %q when that is the only model installed", got.Model)
+	}
+}
+
+/*
+ * A question about a website goes to a model that can open one.
+ *
+ * "What do you think about pnscripts.com?" reads as a request for an opinion,
+ * and the word "think" sent it to the reasoning model — which is deliberately
+ * offered no tools, because reasoning is for turning something over rather
+ * than going and looking. So it was asked about a website it had no way to
+ * see. It floundered, produced something shaped like a tool call, and the turn
+ * ended with "the model returned a tool call as text" and nothing to show.
+ *
+ * Nobody can have an opinion about a site they cannot open. A domain in the
+ * sentence means the answer is outside the model, whatever verb is used.
+ */
+func TestAQuestionAboutAWebsiteCanReachTheWeb(t *testing.T) {
+	sizes := Sizes{
+		Work:   "llama3.2:3b",
+		Quick:  "llama3.2:3b",
+		Talk:   "llama3.2:3b",
+		Reason: "deepseek-r1:8b",
+		Best:   "qwen2.5-coder:7b",
+	}
+
+	for _, asked := range []string{
+		"what do you think about websites that is pnscripts.com?",
+		"what do you think about pnscripts.com? It's a website.",
+		"is example.org any good",
+		"have a look at https://pnscripts.com and tell me",
+	} {
+		got := ChooseModel(asked, sizes)
+
+		if got.Model == sizes.Reason {
+			t.Errorf("%q went to the reasoning model, which is given no tools "+
+				"and cannot open a website", asked)
+		}
+
+		if !got.Tools {
+			t.Errorf("%q was answered with no tools, so the site could never "+
+				"be looked at", asked)
+		}
+	}
+
+	// A genuine reasoning question, with nothing to go and look at, still goes
+	// to the model that reasons — that route is worth keeping.
+	pondering := ChooseModel("why do you think people procrastinate so much", sizes)
+
+	if pondering.Model != sizes.Reason {
+		t.Errorf("a question with nothing to look up went to %q rather than the "+
+			"reasoning model", pondering.Model)
+	}
+}
+
+/*
+ * Asking what it thinks is a question, not a request for deliberation.
+ *
+ * "What do you think" and "have you considered" are how people phrase ordinary
+ * questions. Both used to send the turn to the reasoning model, which on a
+ * machine without a graphics card is several minutes and is offered no tools —
+ * so a casual question became a long wait that ended with nothing to show.
+ */
+func TestCasualPhrasingIsNotTreatedAsDeepThought(t *testing.T) {
+	sizes := Sizes{
+		Work: "llama3.2:3b", Quick: "llama3.2:3b", Talk: "llama3.2:3b",
+		Reason: "deepseek-r1:8b", Best: "qwen2.5-coder:7b",
+	}
+
+	for _, casual := range []string{
+		"what do you think about that idea",
+		"have you considered the weather",
+	} {
+		if got := ChooseModel(casual, sizes); got.Model == sizes.Reason {
+			t.Errorf("%q went to the reasoning model and will take minutes", casual)
+		}
+	}
+
+	// Something genuinely analytical still does.
+	for _, deep := range []string{
+		"why does the disk fill up every week",
+		"explain how the echo canceller works here",
+	} {
+		if got := ChooseModel(deep, sizes); got.Model != sizes.Reason {
+			t.Errorf("%q went to %q rather than the model that reasons",
+				deep, got.Model)
+		}
+	}
+}
+
+/*
+ * A greeting is answered, not investigated.
+ *
+ * "Say hello in four words" produced a request to create
+ * /home/Petar/greetings.txt, and the turn ended in an approval prompt instead
+ * of an answer. Told not to write files, it went looking for that same file
+ * and reported it missing. Neither response contains a greeting.
+ *
+ * A model shown thirty tools and given a greeting finds something to do with
+ * them. The prompt asks it to answer conversation in words; a
+ * three-billion-parameter model does not reliably listen, and the empty list
+ * is the instruction that holds.
+ */
+func TestConversationIsAnsweredWithoutTools(t *testing.T) {
+	sizes := Sizes{
+		Work: "qwen2.5-coder:7b", Quick: "llama3.2:3b",
+		Talk: "llama3.2:3b", Reason: "deepseek-r1:8b", Best: "qwen2.5-coder:7b",
+	}
+
+	for _, chat := range []string{
+		"Say hello in four words.",
+		"good evening",
+		"how are you",
+		"thank you",
+		"what can you help me with",
+	} {
+		if got := ChooseModel(chat, sizes); got.Tools {
+			t.Errorf("%q was given tools, and a model holding thirty of them "+
+				"will use one", chat)
+		}
+	}
+}
+
+/*
+ * Anything that might need looking up keeps its tools.
+ *
+ * The cost of getting this wrong falls entirely on this side: a tool withheld
+ * when it was needed produces "I cannot", which is worse than a moment wasted
+ * offering one that was not.
+ */
+func TestAnythingThatMightNeedLookingUpKeepsItsTools(t *testing.T) {
+	sizes := Sizes{
+		Work: "qwen2.5-coder:7b", Quick: "llama3.2:3b",
+		Talk: "llama3.2:3b", Reason: "deepseek-r1:8b", Best: "qwen2.5-coder:7b",
+	}
+
+	for _, real := range []string{
+		"what is the weather in Sofia",
+		"read my notes",
+		"what is waiting for me",
+		"check my email",
+		"what do you think about pnscripts.com?",
+		"list the files in my downloads folder",
+		"remind me to call the dentist",
+		"what models are installed",
+		"summarise this and write it into a report for the team meeting tomorrow",
+	} {
+		if got := ChooseModel(real, sizes); !got.Tools {
+			t.Errorf("%q was answered with no tools, so it cannot be answered "+
+				"at all", real)
+		}
+	}
+}

@@ -77,12 +77,15 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/lessons/{id}/{decision}", s.handleLessonDecision)
 	s.mux.HandleFunc("GET /api/drives", s.handleDrives)
 	s.mux.HandleFunc("POST /api/speak", s.handleSpeak)
+	s.mux.HandleFunc("POST /api/interrupt", s.handleInterrupt)
 	s.mux.HandleFunc("POST /api/listen", s.handleListen)
 	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
 	s.mux.HandleFunc("GET /api/level", s.handleLevel)
 	s.mux.HandleFunc("GET /api/machine", s.handleMachine)
 	s.mux.HandleFunc("GET /api/search", s.handleSearch)
 	s.mux.HandleFunc("GET /api/progress", s.handleProgress)
+	s.mux.HandleFunc("GET /api/steps", s.handleSteps)
+	s.mux.HandleFunc("GET /api/background", s.handleBackground)
 	s.mux.HandleFunc("GET /api/models", s.handleModels)
 	s.mux.HandleFunc("GET /api/updates", s.handleUpdates)
 	s.mux.HandleFunc("GET /api/appearance", s.handleAppearance)
@@ -230,13 +233,16 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		// the interface, because a brain that only answers to a word must say
 		// which word — otherwise somebody whose word is not being transcribed
 		// has no way to find out why nothing is happening.
-		"wake_word":    s.brain.Cfg.WakeWord,
-		"first_run":    s.brain.Cfg.New,
-		"always_name":  s.brain.Cfg.AlwaysName,
-		"auto_model":   s.brain.Cfg.AutoModel,
-		"models":       modelRoles(s.brain),
-		"provider":     s.brain.Cfg.DefaultProvider,
-		"model":        s.brain.Cfg.OllamaModel,
+		"wake_word":   s.brain.Cfg.WakeWord,
+		"first_run":   s.brain.Cfg.New,
+		"always_name": s.brain.Cfg.AlwaysName,
+		"auto_model":  s.brain.Cfg.AutoModel,
+		"models":      modelRoles(s.brain),
+		"provider":    s.brain.Cfg.DefaultProvider,
+		// The model actually in use, not the setting. They differ whenever
+		// nobody has chosen one, which is the ordinary case — and showing the
+		// setting meant the interface named a model the brain was not using.
+		"model":        workModel(s.brain),
 		"privacy":      s.brain.Mode.Describe(),
 		"providers":    s.brain.Router.Availabilities(r.Context()),
 		"capabilities": s.brain.Capabilities(),
@@ -409,7 +415,20 @@ func (s *Server) handleLatestConversation(w http.ResponseWriter, r *http.Request
 		visible = append(visible, m)
 	}
 
-	ok(w, map[string]any{"conversation": c, "messages": visible})
+	/*
+	 * The id at the top level, beside the messages.
+	 *
+	 * It was only ever inside "conversation", and the page reads convo.id —
+	 * so the guard that checks a conversation was found never passed, and the
+	 * transcript was left empty after every reload. Everything else worked:
+	 * the messages were stored, the history panel listed them, and the one
+	 * place somebody actually looks showed nothing but the greeting.
+	 */
+	ok(w, map[string]any{
+		"conversation": c,
+		"id":           c.ID,
+		"messages":     visible,
+	})
 }
 
 // handleDrives lists where the brain could live.
@@ -584,6 +603,12 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		"advice":     heard.Advice,
 		"level":      heard.Level,
 		"name":       s.brain.Cfg.WakeWord,
+
+		// Names in this turn that nothing here has met, so the page can have
+		// one read back before it is acted on. Being nearly right about a
+		// name is no use — a domain one letter out is somebody else's site —
+		// and the recogniser gives no sign when it has guessed.
+		"unfamiliar": heard.Unfamiliar,
 	})
 }
 
@@ -900,7 +925,25 @@ func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, map[string]any{"microphones": mics})
+	/*
+	 * Which input the brain will actually record from, alongside the list.
+	 *
+	 * The "default" flag on each entry is the desktop's opinion, and it is
+	 * frequently not the microphone anyone is speaking into — on this machine
+	 * it is an analog jack with nothing plugged into it. Showing only that
+	 * leaves the person reading a list where the wrong device wears the star
+	 * and nothing at all says where the sound is being taken from. That gap is
+	 * what let the echo canceller sit on an empty jack for a morning while
+	 * every symptom pointed at the recogniser.
+	 */
+	cancelling, cancellingOn := speech.EchoCancellationOn()
+
+	ok(w, map[string]any{
+		"microphones":  mics,
+		"inUse":        speech.PreferredMicrophone(r.Context()),
+		"cancelling":   cancelling,
+		"cancellingOn": cancellingOn,
+	})
 }
 
 // handleProgress says what the brain is doing at this moment.
@@ -910,22 +953,19 @@ func (s *Server) handleMicrophones(w http.ResponseWriter, r *http.Request) {
 // model calls — so the difference between "working" and "stuck" is a question
 // the interface has to be able to answer.
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
-	step := progress.Now()
-
-	ok(w, map[string]any{
-		"busy":    step.Busy,
-		"kind":    step.Kind,
-		"note":    step.Note,
-		"seconds": step.Seconds,
-		"round":   step.Round,
-		// The core is coloured by this: work the brain gave itself must not
-		// look like work somebody is waiting on.
-		"background": step.Background,
-
-		// Which model is answering, so a switch is visible while it happens
-		// rather than only in the settings afterwards.
-		"model": step.Model,
-	})
+	/*
+	 * The step itself, rather than a map rebuilt field by field.
+	 *
+	 * Copying the fields by hand meant two lists that had to agree and no way
+	 * to notice when they stopped. A field added to the step for the interface
+	 * to read was simply not copied here, so it existed everywhere except at
+	 * the one boundary that mattered — and the feature that depended on it
+	 * failed silently, which is how it went unnoticed for as long as it did.
+	 *
+	 * Every field carries its own json tag, so the shape on the wire is
+	 * unchanged and adding one to the step is now enough.
+	 */
+	ok(w, progress.Now())
 }
 
 // handleModelTests reports what each model was measured doing here.
@@ -951,11 +991,13 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	chat := workModel(s.brain)
+
 	ok(w, map[string]any{
 		"installed": installed,
-		"chat":      s.brain.Cfg.OllamaModel,
+		"chat":      chat,
 		"embedding": s.brain.Cfg.EmbedModel,
-		"required":  []string{s.brain.Cfg.OllamaModel, s.brain.Cfg.EmbedModel},
+		"required":  []string{chat, s.brain.Cfg.EmbedModel},
 	})
 }
 
@@ -1330,4 +1372,83 @@ func fail(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+// workModel is the model that answers, which is not always the one configured.
+//
+// The setting is a default this program shipped with until somebody chooses
+// otherwise, and on a machine that cannot run it well the brain uses something
+// else. Reading the setting to fill in the interface is how the Core panel came
+// to name qwen2.5-coder while every answer was being written by llama3.2.
+func workModel(b *brain.Brain) string {
+	work, _, _ := b.Roles()
+
+	return work
+}
+
+/*
+ * handleSteps is the last few things the brain did, for the live panel.
+ *
+ * Separate from the current step rather than folded into it, because the two
+ * are wanted at different rates: the current step is polled several times a
+ * second to keep a clock ticking, and the history changes only when the work
+ * does.
+ */
+func (s *Server) handleSteps(w http.ResponseWriter, r *http.Request) {
+	ok(w, map[string]any{"steps": progress.Recent()})
+}
+
+/*
+ * handleInterrupt stops the voice at once.
+ *
+ * Cutting in by talking has worked for a while — the level detector watches
+ * for it while the brain speaks — but that is the only way there was, and it
+ * requires being somewhere you can talk. Somebody at the keyboard, or in a
+ * room where they would rather not shout, had no way to stop four paragraphs
+ * of an answer they could already tell was wrong.
+ *
+ * Stopping the sound is only half of it. The rest of the answer is abandoned
+ * too, because saying the remaining sentences after being cut off is worse
+ * than not stopping at all.
+ */
+func (s *Server) handleInterrupt(w http.ResponseWriter, r *http.Request) {
+	speaking := speech.Speaking()
+
+	speech.Interrupt()
+
+	ok(w, map[string]any{"stopped": speaking})
+}
+
+/*
+ * handleBackground lists work running beside the conversation.
+ *
+ * It had no endpoint at all: the only way to find out what the brain was doing
+ * on its own was to ask it, which means a model call, which on this machine is
+ * a minute — to answer a question the program already knew. So work started in
+ * the background was invisible unless somebody thought to ask, and something
+ * invisible cannot be judged, stopped, or trusted.
+ */
+func (s *Server) handleBackground(w http.ResponseWriter, r *http.Request) {
+	if s.brain.Jobs == nil {
+		ok(w, map[string]any{"jobs": []any{}})
+
+		return
+	}
+
+	list := s.brain.Jobs.List()
+
+	out := make([]map[string]any, 0, len(list))
+
+	for _, job := range list {
+		out = append(out, map[string]any{
+			"id":      job.ID,
+			"what":    job.What,
+			"state":   job.State,
+			"seconds": job.Took().Seconds(),
+			"result":  job.Result,
+			"error":   job.Err,
+		})
+	}
+
+	ok(w, map[string]any{"jobs": out})
 }
