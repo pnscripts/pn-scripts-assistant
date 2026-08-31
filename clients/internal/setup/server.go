@@ -40,6 +40,17 @@ type Server struct {
 	// finished records that somebody pressed Continue, as opposed to closing
 	// the window. See Finished.
 	finished bool
+
+	/*
+	 * How the last apply ended, because the requirement counts cannot say.
+	 *
+	 * "Everything is ready" is computed from how many blocking requirements
+	 * remain, and an apply that dies on an optional one leaves that count at
+	 * zero — so the page announced everything was ready directly underneath
+	 * the words "Failed: exit status 1". Being technically about a different
+	 * question is no defence when the two sit one above the other.
+	 */
+	applyFailed bool
 }
 
 func New(envPath string) (*Server, error) {
@@ -332,13 +343,14 @@ func (s *Server) state() map[string]any {
 	model := preflight.RecommendModel(hw)
 
 	s.mu.Lock()
-	logText, busy := s.log.String(), s.busy
+	logText, busy, failed := s.log.String(), s.busy, s.applyFailed
 	s.mu.Unlock()
 
 	return map[string]any{
 		"requirements": views,
 		"blocking":     preflight.BlockingCount(results),
 		"busy":         busy,
+		"apply_failed": failed,
 		"log":          logText,
 		"hardware": map[string]any{
 			"cores":     hw.CPUCores,
@@ -812,6 +824,7 @@ func (s *Server) applyAll(steps []string) {
 
 	s.busy = true
 	s.log.Reset()
+	s.applyFailed = false
 	s.mu.Unlock()
 
 	defer func() {
@@ -826,7 +839,12 @@ func (s *Server) applyAll(steps []string) {
 		fmt.Fprintf(w, "\n[%d of %d] %s\n", i+1, len(steps), readableStep(name))
 
 		if !s.runOne(name, w) {
-			fmt.Fprint(w, "\nStopped here. Nothing after this was attempted.\n")
+			fmt.Fprintf(w, "\nStopped at step %d of %d. Nothing after this was attempted.\n",
+				i+1, len(steps))
+
+			s.mu.Lock()
+			s.applyFailed = true
+			s.mu.Unlock()
 
 			return
 		}

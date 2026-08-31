@@ -196,6 +196,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 .step h2{margin-top:0}
 .step .sub{margin-bottom:10px}
 .status{color:var(--dim);font-size:12.5px}
+.status.bad{color:var(--danger)}
 .err{color:var(--danger);font-size:12.5px;margin-top:6px}
 </style>
 </head>
@@ -1132,9 +1133,20 @@ async function refresh(){
   const ready = state.blocking === 0 && hasBrain && !busy;
 
   el("continue").disabled = !ready;
+  /*
+   * A failed apply outranks the requirement count.
+   *
+   * "Everything is ready" is derived from how many blocking requirements are
+   * left, which an apply that stopped on an optional one leaves at zero — so
+   * the page said everything was ready immediately below the word "Failed".
+   */
   el("status").textContent = busy
     ? "Working…"
-    : (ready ? "Everything is ready." : (state.blocking + " requirement(s) still needed"));
+    : (state.apply_failed
+        ? "That did not finish — see the log above."
+        : (ready ? "Everything is ready." : (state.blocking + " requirement(s) still needed")));
+
+  el("status").classList.toggle("bad", !busy && !!state.apply_failed);
 }
 
 

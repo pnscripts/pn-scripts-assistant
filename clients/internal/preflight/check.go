@@ -3,7 +3,6 @@ package preflight
 import (
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 )
@@ -111,11 +110,20 @@ func escalate(argv []string, needsRoot bool) []string {
 	return append([]string{"pkexec"}, argv[1:]...)
 }
 
+/*
+ * isInteractiveTerminal asks whether there is somewhere for sudo to prompt.
+ *
+ * It used to ask whether stdin was a character device, which /dev/null is —
+ * and /dev/null is exactly what a desktop launcher hands a program it starts.
+ * So the check said "there is a terminal" in precisely the case there was
+ * none, kept sudo, and sudo then failed with "a terminal is required to read
+ * the password". The code existed to spare GUI users that error and was
+ * switched off for GUI users alone; from a real terminal, where it did
+ * nothing, it looked correct.
+ *
+ * Asking the kernel for the terminal settings is the actual question. A pipe,
+ * a file and /dev/null all refuse it; only a tty answers.
+ */
 func isInteractiveTerminal() bool {
-	info, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-
-	return info.Mode()&os.ModeCharDevice != 0
+	return stdinIsTTY()
 }
