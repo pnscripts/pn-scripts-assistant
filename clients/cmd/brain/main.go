@@ -980,9 +980,19 @@ func runFirstRunSetup(settingsPath, name string) error {
 	fmt.Printf("  Setup: %s\n\n", srv.URL())
 
 	if !window.Available() {
-		// Without a window the setup page is still reachable, and saying so is
-		// far better than blocking on a window that will never appear.
-		fmt.Fprintf(os.Stderr, "  %v\n\n", window.Open(srv.URL(), name+" — Setup", 900, 700))
+		/*
+		 * No native window, so the system's browser is asked instead.
+		 *
+		 * This is the macOS and Windows path, where printing an address and
+		 * waiting means setup only happens for somebody who was watching a
+		 * terminal. The address is still printed, because opening a browser
+		 * can fail and a visible URL is the fallback that always works.
+		 */
+		if !window.OpenInBrowser(srv.URL()) {
+			fmt.Fprintf(os.Stderr, "  Open this in a browser to continue:\n    %s\n\n",
+				srv.URL())
+		}
+
 		<-done
 
 		return stillMissing(srv)

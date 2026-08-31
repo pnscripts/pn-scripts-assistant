@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
@@ -55,10 +54,10 @@ func Claim(root string) (*Lock, error) {
 		return nil, fmt.Errorf("opening the lock: %w", err)
 	}
 
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := lockFile(f); err != nil {
 		f.Close()
 
-		if errors.Is(err, syscall.EWOULDBLOCK) {
+		if errors.Is(err, ErrAlreadyRunning) {
 			return nil, ErrAlreadyRunning
 		}
 
