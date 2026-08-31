@@ -243,23 +243,19 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
   </div>
 
   <!--
-      Two corrections in one sentence, both about time.
+      A greeting, and nothing else.
 
-      It used to say setup "only happens once", which stopped being true the
-      moment it could be reopened from the settings, the icon's right-click
-      menu and the command line.
+      This line has been wrong twice by trying to carry more than a greeting.
+      It promised setup "only happens once", which stopped being true when it
+      became reopenable, and then explained at length that nothing would be
+      installed yet — a claim that describes the next few minutes and hides
+      what the whole page is for.
 
-      Then it said "nothing is installed or changed", which describes the next
-      few minutes and quietly hides what the whole thing is for — things will
-      certainly be installed, several gigabytes of them. A sentence that is
-      true right up until the moment it matters is worse than no sentence,
-      because it is trusted. Both halves are said now: going through it changes
-      nothing, and the end is where the changing happens.
+      The last step says all of that where it applies, next to the list of what
+      will actually be installed and how large it is. Said here as well it was
+      only length in front of the first question.
   -->
-  <p class="sub">Let's get your machine ready. It takes a few minutes. Going through it
-    changes nothing on your computer — the last step lists everything that will be
-    installed, with sizes, and the work starts only when you agree to it there. You
-    can come back and change any of this later.</p>
+  <p class="sub">Let's get your machine ready. It takes a few minutes.</p>
 
   <div class="machine" id="machine">checking your machine…</div>
 
