@@ -30,7 +30,56 @@ const setupPage = `<!doctype html>
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 -webkit-font-smoothing:antialiased}
 .wrap{max-width:660px;margin:0 auto;padding:44px 28px 60px}
-h1{font-size:22px;letter-spacing:.05em;margin:0 0 4px;color:var(--accent)}
+h1{font-size:22px;letter-spacing:.05em;margin:0;color:var(--accent)}
+
+/* ---------- the core ---------- */
+.core{display:flex;align-items:center;gap:15px;margin:0 0 4px}
+.core svg{width:58px;height:58px;flex:0 0 58px;overflow:visible}
+
+/*
+ * Each ring a little brighter than the one outside it, which is what gives the
+ * eye its depth — an evenly lit set of circles reads as a diagram.
+ */
+.core .ring circle{fill:none;stroke:var(--accent);transform-origin:60px 60px}
+.core .r1 circle{stroke-width:2.5;opacity:.22;stroke-dasharray:150 76}
+.core .r2 circle{stroke-width:2.5;opacity:.34;stroke-dasharray:104 66}
+.core .r3 circle{stroke-width:3;opacity:.48;stroke-dasharray:88 45}
+.core .r4 circle{stroke-width:3;opacity:.66;stroke-dasharray:60 38}
+.core .r5 circle{stroke-width:3.5;opacity:.85;stroke-dasharray:44 26}
+
+/*
+ * Opaque, and darker than the page. Everything around it is a light source, and
+ * light cannot make anything darker — so without something that actually
+ * occludes, the middle fills in and the eye closes.
+ */
+.core .pupil{fill:#08060a}
+.core .rim{fill:none;stroke:var(--accent);stroke-width:2;opacity:.9}
+
+/*
+ * Not together, and not all the same way round.
+ *
+ * Rings turning in step read as one solid object rotating, which is a wheel.
+ * Different speeds in alternating directions is what makes it look like
+ * something focusing rather than something spinning.
+ */
+.core .ring{transform-origin:60px 60px;animation:turn linear infinite}
+.core .r1{animation-duration:34s}
+.core .r2{animation-duration:23s;animation-direction:reverse}
+.core .r3{animation-duration:17s}
+.core .r4{animation-duration:12s;animation-direction:reverse}
+.core .r5{animation-duration:8s}
+
+@keyframes turn{to{transform:rotate(360deg)}}
+
+/*
+ * Still, for anybody who asked for that.
+ *
+ * Continuous motion is a real problem for some people rather than a taste, and
+ * the shape carries the identity perfectly well without turning.
+ */
+@media (prefers-reduced-motion: reduce){
+  .core .ring{animation:none}
+}
 .sub{color:var(--dim);font-size:13.5px;margin:0 0 30px}
 h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
 margin:32px 0 12px;font-weight:600}
@@ -152,8 +201,58 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 </head>
 <body>
 <div class="wrap">
-  <h1>PN Brain</h1>
-  <p class="sub">Let's get your machine ready. This takes a few minutes, and only happens once.</p>
+  <!--
+      The core, rather than the program's name written out.
+
+      This is the same eye the assistant watches from, drawn the same way: five
+      rings of decreasing radius around a dark middle, each a little brighter
+      than the last, turning slowly and not together. The dark centre is the
+      part that makes it an eye — without it this is a target, and with it the
+      light has somewhere to be coming from.
+
+      In SVG rather than the real one. The real core is WebGL with bloom, and
+      setup runs on a machine that has nothing installed yet and may have no
+      working graphics drivers at all — which is the worst possible moment to
+      meet a blank rectangle where the program's face should be. Flat shapes
+      and two CSS animations cannot fail that way.
+  -->
+  <div class="core" aria-label="PN Brain">
+    <svg viewBox="0 0 120 120" role="img" aria-hidden="true">
+      <defs>
+        <radialGradient id="halo">
+          <stop offset="0%" stop-color="var(--accent)" stop-opacity=".33"/>
+          <stop offset="55%" stop-color="var(--accent)" stop-opacity=".07"/>
+          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <circle cx="60" cy="60" r="58" fill="url(#halo)"/>
+
+      <!-- Gapped rings, so that turning is visible at all: a full circle
+           rotating looks exactly like a full circle standing still. -->
+      <g class="ring r1"><circle cx="60" cy="60" r="52"/></g>
+      <g class="ring r2"><circle cx="60" cy="60" r="43"/></g>
+      <g class="ring r3"><circle cx="60" cy="60" r="34"/></g>
+      <g class="ring r4"><circle cx="60" cy="60" r="26"/></g>
+      <g class="ring r5"><circle cx="60" cy="60" r="19"/></g>
+
+      <circle class="pupil" cx="60" cy="60" r="13"/>
+      <circle class="rim" cx="60" cy="60" r="13"/>
+    </svg>
+    <h1>PN Brain</h1>
+  </div>
+
+  <!--
+      It no longer only happens once, so it no longer says so.
+      Setup can be reopened from the settings, from the icon's right-click menu
+      or with "brain setup", which makes "only happens once" a promise the
+      program stopped keeping the moment those existed. What is worth saying
+      instead is the thing somebody actually needs to know before starting:
+      that reading it costs nothing, because nothing is done until the end.
+  -->
+  <p class="sub">Let's get your machine ready. It takes a few minutes, and nothing is
+    installed or changed until you apply it at the end. You can come back and change
+    any of this later.</p>
 
   <div class="machine" id="machine">checking your machine…</div>
 
