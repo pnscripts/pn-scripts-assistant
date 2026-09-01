@@ -310,6 +310,21 @@ func runServe(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	/*
+	 * Close off anything the last run was in the middle of.
+	 *
+	 * A reply is written when a turn finishes, and a turn that was killed
+	 * never did — leaving the question in the transcript with nothing after
+	 * it, which reads as having been asked and ignored. Nothing running could
+	 * have fixed it, because nothing was running; this is the first moment
+	 * anything can.
+	 */
+	if closed, err := db.FinishAbandonedTurns(); err != nil {
+		logger.Warn("could not close off unfinished conversations", "error", err)
+	} else if closed > 0 {
+		logger.Info("closed conversations that were cut short", "count", closed)
+	}
+
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
 	srv := server.New(b, logger)
 
@@ -621,6 +636,21 @@ func runApp(args []string) error {
 		if cfg, err = config.Load(root.Path); err != nil {
 			return err
 		}
+	}
+
+	/*
+	 * Close off anything the last run was in the middle of.
+	 *
+	 * A reply is written when a turn finishes, and a turn that was killed
+	 * never did — leaving the question in the transcript with nothing after
+	 * it, which reads as having been asked and ignored. Nothing running could
+	 * have fixed it, because nothing was running; this is the first moment
+	 * anything can.
+	 */
+	if closed, err := db.FinishAbandonedTurns(); err != nil {
+		logger.Warn("could not close off unfinished conversations", "error", err)
+	} else if closed > 0 {
+		logger.Info("closed conversations that were cut short", "count", closed)
 	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)

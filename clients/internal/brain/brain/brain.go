@@ -882,6 +882,42 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		return ChatReply{}, err
 	}
 
+	/*
+	 * A question never goes unanswered in the record.
+	 *
+	 * The reply is written when the turn finishes, which is right until the
+	 * turn does not finish. Learning a folder takes over an hour here, and
+	 * anything that ends the process in the meantime — a restart, a crash,
+	 * closing the window — left the question stored with nothing after it. The
+	 * transcript then says the brain was asked something and ignored it, which
+	 * is both untrue and the single most damaging thing a record of a
+	 * conversation can say.
+	 *
+	 * Written only if nothing else was: the ordinary paths save their own
+	 * answer and clear this.
+	 */
+	answered := false
+
+	defer func() {
+		if answered {
+			return
+		}
+
+		note := "That turn did not finish — the answer was lost before it could be " +
+			"written. Ask again."
+
+		if err := ctx.Err(); err != nil {
+			note = "That turn was interrupted before it finished, so there is no " +
+				"answer to it. Ask again."
+		}
+
+		// Its own context: the turn's is cancelled, which is the case this
+		// exists for, and a write on a cancelled context writes nothing.
+		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", note); err != nil {
+			b.Log.Warn("could not record that a turn was cut short", "error", err)
+		}
+	}()
+
 	// An instruction about the review queue is answered here, before the model
 	// is involved. It is deterministic, it takes no time, and until now the
 	// model would say "I will remember these instructions" and do nothing —
@@ -914,6 +950,8 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 			return ChatReply{}, err
 		}
 
+		answered = true
+
 		return ChatReply{
 			ConversationID: conversationID,
 			Reply:          answer,
@@ -925,6 +963,8 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", answer); err != nil {
 			return ChatReply{}, err
 		}
+
+		answered = true
 
 		return ChatReply{
 			ConversationID: conversationID,
@@ -1046,6 +1086,15 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 			return ChatReply{}, err
 		}
 	}
+
+	/*
+	 * Answered either way.
+	 *
+	 * Waiting for approval is a real end to a turn — the agent has written its
+	 * own message saying what it wants to do — so it is not an unanswered
+	 * question and must not be marked as one.
+	 */
+	answered = true
 
 	// Learning happens after the reply is on its way, never before it: the
 	// user waits on the answer, not on the brain deciding what to remember.
