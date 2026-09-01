@@ -568,6 +568,18 @@ func listenWaiting(
 		progress.DetailOn(transcribing, "no words made out")
 
 		/*
+		 * And said quietly, because nobody spoke.
+		 *
+		 * The threshold is set low on purpose — being deaf to somebody is a
+		 * far worse failure than listening to a door closing — so turns that
+		 * contain nothing are expected and frequent. Reported at full volume
+		 * they read as the assistant hearing voices in an empty room, one
+		 * "Making out the words" after another with nothing behind any of
+		 * them, which is unsettling in a way the actual behaviour is not.
+		 */
+		progress.QuietenOn(transcribing)
+
+		/*
 		 * And the recording is kept, because the numbers have stopped
 		 * explaining this.
 		 *

@@ -68,10 +68,25 @@ export const signals = {
  * order to know when a sentence has ended, so the same measured number is
  * subtracted here rather than a guessed one.
  */
-function audible(level, floor) {
-    if (level <= floor) return 0;
+/*
+ * How much of what the microphone hears is worth drawing.
+ *
+ * Measured from where speech starts, not from where the room sits. Scaling
+ * from the noise floor drew a bar for anything above it at all, so a quiet
+ * room produced a busy waveform — the fan, the drive, the traffic outside —
+ * while the listener, using a margin above that same floor, correctly treated
+ * all of it as nothing. Two answers to "is anybody talking", disagreeing, and
+ * the wrong one was the one on screen.
+ *
+ * The floor is kept as the fallback for a reading that carries no speech bar,
+ * which is the old behaviour rather than a blank display.
+ */
+function audible(level, floor, speech) {
+    const start = speech > 0 ? speech : floor;
 
-    return (level - floor) / Math.max(0.05, 1 - floor);
+    if (level <= start) return 0;
+
+    return (level - start) / Math.max(0.05, 1 - start);
 }
 
 async function poll() {
@@ -82,7 +97,7 @@ async function poll() {
 
         signals.source = reading.source || '';
         signals.level = signals.source
-            ? audible(reading.level || 0, reading.floor || 0)
+            ? audible(reading.level || 0, reading.floor || 0, reading.speech || 0)
             : 0;
     } catch {
         // A failed poll means no reading, not the last reading forever.

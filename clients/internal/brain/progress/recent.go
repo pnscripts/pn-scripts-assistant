@@ -224,6 +224,40 @@ func Mark() int64 {
 // Ignored when that step has already fallen out of the history, which is the
 // right outcome: the work it described is off the screen and a line about it
 // would attach to something else.
+/*
+ * QuietenOn demotes a step once it turns out nobody was waiting on it.
+ *
+ * A listening turn looks identical whether somebody spoke or a chair creaked:
+ * the level crossed the threshold, so the microphone opened, recorded, and
+ * handed the audio to the recogniser. Only afterwards, when the recogniser
+ * returns nothing, is it known that nothing was said — and by then the step
+ * has already been announced as though it were part of a conversation.
+ *
+ * The bar is deliberately low, because failing to hear somebody is far worse
+ * than listening to a door. What should not happen is the room being told that
+ * the assistant heard a voice each time it checked one and found none.
+ *
+ * Demoted rather than deleted: it still belongs in the record of what the
+ * microphone made of the room, which is the answer to "I said its name and
+ * nothing happened".
+ */
+func QuietenOn(mark int64) {
+	if mark == 0 {
+		return
+	}
+
+	history.mu.Lock()
+	defer history.mu.Unlock()
+
+	for i := range history.entries {
+		if history.entries[i].id == mark {
+			history.entries[i].Background = true
+
+			return
+		}
+	}
+}
+
 func DetailOn(mark int64, line string) {
 	if line == "" || mark == 0 {
 		return

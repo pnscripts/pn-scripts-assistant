@@ -3212,3 +3212,15 @@ select { font-size: 13.5px; }
  * problem that had been fixed.
  */
 .drive-lost[hidden] { display: none; }
+
+/*
+ * A feed line for work nobody was waiting on.
+ *
+ * The listening turns that held nothing are the bulk of these: the threshold
+ * is deliberately low, because being deaf to somebody is a far worse failure
+ * than listening to a door, so empty turns are expected and frequent. Dimmed
+ * rather than hidden — they are the answer to "I said its name and nothing
+ * happened", and that answer is worthless if it was never written down.
+ */
+.feed-line[data-background="yes"] { opacity: .45; }
+.feed-line[data-background="yes"] .feed-detail { opacity: .8; }

@@ -1461,6 +1461,7 @@ func (s *Server) handleLevel(w http.ResponseWriter, r *http.Request) {
 		"source": reading.Source,
 		"level":  reading.Level,
 		"floor":  reading.Floor,
+		"speech": reading.Speech,
 	})
 }
 

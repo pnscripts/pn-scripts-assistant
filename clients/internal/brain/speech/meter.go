@@ -43,6 +43,10 @@ type Reading struct {
 	Source string `json:"source"`
 	// Level is 0 to 1, relative to LevelReference.
 	Level float64 `json:"level"`
+	// Speech is the level at which the listener starts treating sound as
+	// somebody talking. See speechBar.
+	Speech float64 `json:"speech"`
+
 	// Floor is the level this room is never quieter than, on the same scale.
 	//
 	// Sent because a display that does not know it will show the fan, the
@@ -148,6 +152,26 @@ func Speaking() bool {
 //
 // Named apart from the Level type in level.go, which measures a finished
 // recording rather than sound in flight.
+/*
+ * speechBar is the level the listener itself treats as somebody talking.
+ *
+ * Sent so a display can agree with the behaviour. Showing everything above the
+ * noise floor means showing the fan, the drive and the traffic — the floor is
+ * where the room sits, not where speech starts, and the listener has always
+ * used a margin above it. A meter drawn from the floor is therefore busy in a
+ * silent room while the assistant, correctly, does nothing: two different
+ * answers to "is anybody talking", one of them on screen.
+ */
+func speechBar(floor float64) float64 {
+	bar := floor * NoiseMargin
+
+	if bar > 1 {
+		return 1
+	}
+
+	return bar
+}
+
 func LiveLevel() Reading {
 	meter.mu.RLock()
 	defer meter.mu.RUnlock()
@@ -156,11 +180,17 @@ func LiveLevel() Reading {
 	// the thing worth showing, and it is also the answer that stops the
 	// display flickering between the two.
 	if meter.voice.fresh() {
-		return Reading{Source: "voice", Level: meter.voice.level, Floor: meter.voice.floor}
+		return Reading{
+			Source: "voice", Level: meter.voice.level, Floor: meter.voice.floor,
+			Speech: speechBar(meter.voice.floor),
+		}
 	}
 
 	if meter.mic.fresh() {
-		return Reading{Source: "mic", Level: meter.mic.level, Floor: meter.mic.floor}
+		return Reading{
+			Source: "mic", Level: meter.mic.level, Floor: meter.mic.floor,
+			Speech: speechBar(meter.mic.floor),
+		}
 	}
 
 	return Reading{}

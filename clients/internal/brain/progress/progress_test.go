@@ -139,3 +139,48 @@ func TestLateDetailFindsItsOwnStep(t *testing.T) {
 		t.Error("the detail was dropped entirely")
 	}
 }
+
+/*
+ * A listening turn is only known to be empty after the recogniser has run.
+ *
+ * It looks identical while it happens whether somebody spoke or a chair
+ * creaked — the level crossed the threshold either way — so it is announced
+ * before anybody can know it holds nothing. Reported at full volume, those
+ * turns read as the assistant hearing voices in an empty room.
+ */
+func TestAStepCanBeQuietenedAfterTheFact(t *testing.T) {
+	Begin()
+	Set("transcribing", "Making out the words")
+
+	mark := Mark()
+
+	before := Recent()
+	if len(before) == 0 {
+		t.Fatal("nothing was remembered")
+	}
+
+	for _, e := range before {
+		if e.Kind == "transcribing" && e.Background {
+			t.Fatal("the step was quiet before anything quietened it")
+		}
+	}
+
+	QuietenOn(mark)
+
+	var found bool
+
+	for _, e := range Recent() {
+		if e.Kind == "transcribing" {
+			found = true
+
+			if !e.Background {
+				t.Error("the step was not quietened")
+			}
+		}
+	}
+
+	if !found {
+		t.Error("the step disappeared instead of being demoted; it still belongs " +
+			"in the record of what the microphone made of the room")
+	}
+}

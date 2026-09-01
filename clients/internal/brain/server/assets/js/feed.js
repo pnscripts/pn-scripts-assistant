@@ -92,6 +92,19 @@ function drawFeed(steps) {
             const line = document.createElement('div');
             line.className = 'feed-line';
 
+            /*
+             * Work nobody was waiting on reads more quietly.
+             *
+             * A listening turn that contained no words is announced before
+             * anybody can know it contained none — the level crossed the
+             * threshold, so the microphone opened. At full volume a run of
+             * those looks like the assistant hearing voices in an empty room,
+             * which is a far more alarming thing than what is actually
+             * happening. Still shown, because it is the honest record of what
+             * the microphone made of the room.
+             */
+            if (step.background) line.dataset.background = 'yes';
+
             // The one shared answer to "what colour is this status".
             line.dataset.status = window.brainStatusOf
                 ? window.brainStatusOf({ ...step, busy: true })
