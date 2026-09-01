@@ -146,7 +146,26 @@ function drawFeed(steps) {
 
     sayWhetherItIsWorking(steps, working);
 
-    if (working.length) steps = working;
+    /*
+     * The work, and at most one line about the microphone.
+     *
+     * Listening produces an entry every time the room makes a noise, and most
+     * of them contain nothing — a quiet room fills this panel with "no words
+     * made out" and pushes off everything the brain actually did. The
+     * microphone is worth a line when there is nothing else to say and worth
+     * none when there is: it is what the program does while waiting, not what
+     * it is doing.
+     *
+     * The full record stays under System, in What it has been hearing, which
+     * is where somebody goes to answer "I said its name and nothing happened".
+     */
+    if (working.length) {
+        steps = working;
+    } else {
+        const latest = steps[steps.length - 1];
+
+        steps = latest ? [latest] : [];
+    }
 
     if (!steps.length) {
         if (feedIdle) feedIdle.hidden = false;
