@@ -661,6 +661,37 @@ func runApp(args []string) error {
 	// which is the first thing worth knowing on opening it again.
 	b.NoteCutShort(cutShort)
 
+	/*
+	 * Finish anything the last run validated but never promoted.
+	 *
+	 * A lesson goes validated, then promoted, and a scan killed between the
+	 * two leaves it stranded: checked against reality, waiting for a step that
+	 * nothing was ever going to run again. Four were found sitting from
+	 * yesterday's interrupted scans, and nothing but a command nobody knows
+	 * about would have moved them.
+	 *
+	 * In the background and after the window is up, because promoting means
+	 * embedding and embedding is the slow thing on this machine — a start that
+	 * waits for it is a start that looks broken.
+	 */
+	go func() {
+		if b.Learner == nil {
+			return
+		}
+
+		promoted, duplicates, err := b.Learner.PromoteValidated(ctx, 200)
+		if err != nil {
+			logger.Warn("could not finish promoting what the last run validated", "error", err)
+
+			return
+		}
+
+		if promoted > 0 || duplicates > 0 {
+			logger.Info("finished what the last run left validated",
+				"promoted", promoted, "already known", duplicates)
+		}
+	}()
+
 	b.Start(ctx)
 	defer b.Stop()
 

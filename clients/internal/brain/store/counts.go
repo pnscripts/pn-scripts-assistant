@@ -68,8 +68,20 @@ func (d *DB) CountLessonsByStatus() (map[string]int, error) {
 func (d *DB) CountPendingLessons() (int, error) {
 	var n int
 
+	/*
+	 * What is waiting for a person, which is not the same as unfinished.
+	 *
+	 * Counting everything that is neither promoted nor rejected swept in
+	 * "validated" — a lesson checked against reality and waiting for the
+	 * machine to promote it, which needs nobody. Four of those left stranded
+	 * by an interrupted scan made the interface say "4 awaiting review" beside
+	 * a panel correctly reading "Nothing needs a decision", because the count
+	 * and the list were answering different questions under one name.
+	 *
+	 * Proposed is the one that means a person: nothing here can verify it.
+	 */
 	err := d.sql.QueryRow(
-		`SELECT COUNT(*) FROM lessons WHERE status NOT IN ('promoted','rejected')`,
+		`SELECT COUNT(*) FROM lessons WHERE status = 'proposed'`,
 	).Scan(&n)
 
 	return n, err

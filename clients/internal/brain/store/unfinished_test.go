@@ -80,3 +80,41 @@ func TestQuestionsLeftHangingAreClosedOnStartup(t *testing.T) {
 		t.Errorf("a second start closed %d more, so notes would pile up", again)
 	}
 }
+
+/*
+ * "Awaiting review" has to mean waiting for a person.
+ *
+ * Counting everything that was neither promoted nor rejected swept in
+ * "validated" — a lesson already checked against reality, waiting only for the
+ * machine to promote it. Four stranded by an interrupted scan made the
+ * interface read "4 awaiting review" beside a panel correctly saying "Nothing
+ * needs a decision": one name over two different questions.
+ */
+func TestOnlyLessonsNeedingAPersonAreCountedAsWaiting(t *testing.T) {
+	db := open(t)
+
+	for _, status := range []string{"proposed", "validated", "validated", "promoted", "rejected"} {
+		if _, err := db.AddLesson(0, "Petar has a thing", status, "high", "/tmp/x"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	n, err := db.CountPendingLessons()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n != 1 {
+		t.Errorf("counted %d as awaiting review, want only the proposed one", n)
+	}
+
+	// And the panel asks for the same thing, so the two cannot disagree.
+	shown, err := db.LessonsByStatus("proposed", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(shown) != n {
+		t.Errorf("the count says %d and the list shows %d", n, len(shown))
+	}
+}

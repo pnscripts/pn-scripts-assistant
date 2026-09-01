@@ -41,56 +41,116 @@ const INTERVAL = 400;
  */
 const SPOKEN = {
     // Files and folders.
-    read_file: 'Reading it.',
-    write_file: 'Writing that.',
-    edit_file: 'Editing it.',
-    list_directory: 'Looking at the folder.',
-    search_files: 'Searching your files.',
+    read_file: 'I am reading it.',
+    write_file: 'I am writing that.',
+    edit_file: 'I am editing it.',
+    list_directory: 'I am looking at the folder.',
+    search_files: 'I am searching your files.',
 
     // The world outside.
-    fetch_url: 'Fetching the page.',
-    web_search: 'Searching the web.',
+    fetch_url: 'I am fetching the page.',
+    web_search: 'I am searching the web.',
 
     // Things that take a while and can surprise you.
-    run_command: 'Running it.',
-    do_in_background: 'Starting that in the background.',
+    run_command: 'I am running it.',
+    do_in_background: 'I am starting that in the background.',
 
     // Documents.
-    read_document: 'Reading the document.',
-    write_document: 'Writing the document.',
+    read_document: 'I am reading the document.',
+    write_document: 'I am writing the document.',
 
     // Mail, where the wait is the network.
-    read_email: 'Checking your mail.',
-    send_email: 'Sending it.',
+    read_email: 'I am checking your mail.',
+    send_email: 'I am sending it.',
 
     // The screen and the desktop.
-    look_at_screen: 'Looking at your screen.',
-    list_windows: 'Checking what is open.',
-    open_app: 'Opening it.',
+    look_at_screen: 'I am looking at your screen.',
+    list_windows: 'I am checking what is open.',
+    open_app: 'I am opening it.',
 
     // Reminders.
-    remind_me: 'Noting it.',
-    list_reminders: 'Checking your reminders.',
+    remind_me: 'I am noting it.',
+    list_reminders: 'I am checking your reminders.',
 
     // Models, which is the longest wait in the program.
-    list_models: 'Checking the models.',
+    list_models: 'I am checking the models.',
+
+    // The ones added since: looking things up about the machine itself.
+    list_drives: 'I am checking your drives.',
+    learn_from_folder: 'I am learning that folder.',
+};
+
+/*
+ * And the steps that are not tools, which are most of the wait.
+ *
+ * Thinking is the longest thing that happens here and had nothing to say for
+ * itself: a minute of silence between the question and the answer, with no way
+ * to tell it from the program having stopped. Naming the step is not
+ * decoration on this hardware, it is the only evidence there is.
+ *
+ * Listening is deliberately absent. It is what the brain does when nobody has
+ * asked it anything, and announcing it would mean talking into an empty room
+ * every few seconds.
+ */
+const SPOKEN_KINDS = {
+    thinking: 'I am thinking about that.',
+    transcribing: 'I am making out what you said.',
+    answering: 'I am writing the answer.',
+    learning: 'I am learning from that.',
+    embedding: 'I am re-indexing what I know.',
+    model: 'I am testing a model.',
+    waiting: 'I need you to decide something.',
 };
 
 let announced = '';
 
 /*
- * Said aloud only while the conversation is being held by voice.
+ * Whether the brain says what it is doing.
  *
- * Somebody typing has the screen in front of them and has not asked to be
- * talked at; announcing every step to them would be an interruption rather than
- * an answer. Somebody talking cannot see the screen and has nothing else to go
- * on, which is exactly when it is worth saying.
+ * It used to speak only while a conversation was being held by voice, on the
+ * reasoning that somebody typing has the screen in front of them. That is a
+ * fair default and it is not somebody's only preference: an assistant on a
+ * machine where a turn takes a minute is most useful when you are doing
+ * something else, and then the screen is exactly what you are not looking at.
+ *
+ * So it follows the same switch as reading answers out loud — "Read every
+ * answer out loud" in the settings — and still speaks in a voice conversation
+ * whatever that is set to, because there the screen is not an option at all.
  */
-function announce(name) {
-    if (!name) return;
-    if (!window.brainIsTalking || !window.brainIsTalking()) return;
+let alwaysSpeaks = true;
 
-    const said = SPOKEN[name];
+setInterval(async () => {
+    try {
+        const body = await fetch('/api/status', { headers: { Accept: 'application/json' } })
+            .then((r) => r.json());
+
+        const status = body && body.data !== undefined ? body.data : body;
+
+        alwaysSpeaks = status.always_speak !== false;
+    } catch {
+        // Keep the last answer: a failed poll is not a preference.
+    }
+}, 10000);
+
+function shouldSay() {
+    if (window.brainIsTalking && window.brainIsTalking()) return true;
+
+    return alwaysSpeaks;
+}
+
+/*
+ * One line as a step begins, then quiet.
+ *
+ * Only at the start of each: narrating progress through a long job is worse
+ * than saying nothing, because it talks over the person while they are
+ * deciding whether to interrupt. Keyed on what would be said rather than on
+ * the step, so a job whose note changes two thousand times says its line once.
+ */
+function announce(step) {
+    if (!step) return;
+    if (!shouldSay()) return;
+
+    const said = SPOKEN[step.tool] || SPOKEN_KINDS[step.kind];
 
     if (!said || said === announced) return;
 
@@ -147,7 +207,16 @@ function show(step) {
      * is keyed by read_file — so nothing ever matched and the line meant to
      * cover a slow tool never once played.
      */
-    if (step.kind === 'tool') announce(step.tool);
+    /*
+     * Every step, not only the tools.
+     *
+     * Thinking is the longest thing that happens on this machine and said
+     * nothing about itself, so the wait between a question and its answer was
+     * a minute of silence indistinguishable from the program having stopped.
+     * announce takes the whole step and picks the tool's line when there is
+     * one, the kind's when there is not.
+     */
+    announce(step);
 }
 
 // Read from the one place that asks, rather than asking again. See signals.js.
