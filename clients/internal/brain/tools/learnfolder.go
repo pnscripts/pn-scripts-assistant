@@ -40,6 +40,19 @@ type LearnFolder struct {
 	Owner string
 }
 
+/*
+ * MostAtOnce is where a folder stops being something to learn in one go.
+ *
+ * Each observation is embedded on the processor — measured at about three
+ * seconds — so this is roughly fifteen minutes, which is a long wait somebody
+ * chose rather than an unexplained silence they did not.
+ */
+const MostAtOnce = 300
+
+// SecondsEach is what one observation costs to embed here, for saying how long
+// a folder would take before refusing it.
+const SecondsEach = 3
+
 // Ingests is the part of the learner this tool needs.
 type Ingests interface {
 	Ingest(ctx context.Context, obs learning.Observations,
@@ -63,8 +76,8 @@ func (LearnFolder) Parameters() json.RawMessage {
 			"path": {"type": "string", "description": "The folder to learn, as a full path"},
 			"kind": {
 				"type": "string",
-				"enum": ["projects", "documents"],
-				"description": "projects for code and repositories, documents for text and papers. Defaults to projects."
+				"enum": ["projects", "documents", "everything"],
+				"description": "projects finds code and repositories and is the default. documents finds text and papers. everything does both, and in a working folder that can be thousands of files, so it reports the size rather than starting a job of hours."
 			}
 		},
 		"required": ["path"],
@@ -125,26 +138,68 @@ func (t LearnFolder) Execute(ctx context.Context, args json.RawMessage) (string,
 		return "", fmt.Errorf("the part of the brain that learns is not running")
 	}
 
-	var observations learning.Observations
+	/*
+	 * Both kinds unless one was asked for.
+	 *
+	 * "Update the brain from everything in this folder" was answered by
+	 * cataloguing the code and never opening a document, because projects was
+	 * the default and the model had no reason to say otherwise. A folder
+	 * somebody works out of holds both, and the word "everything" in the
+	 * request meant both.
+	 */
+	var (
+		observations learning.Observations
+		counted      []string
+	)
 
-	if a.Kind == "documents" {
-		found, err := learning.ScanDocuments(path)
-		if err != nil {
-			return "", fmt.Errorf("reading %s: %w", path, err)
-		}
+	if a.Kind == "" {
+		a.Kind = "projects"
+	}
 
-		observations = learning.FromDocuments(found, t.Owner)
-	} else {
+	if a.Kind != "documents" {
 		found, err := learning.ScanProjects(path)
 		if err != nil {
 			return "", fmt.Errorf("reading %s: %w", path, err)
 		}
 
-		observations = learning.FromProjects(found, t.Owner)
+		observations = append(observations, learning.FromProjects(found, t.Owner)...)
+		counted = append(counted, fmt.Sprintf("%d projects", len(found)))
+	}
+
+	if a.Kind != "projects" {
+		found, err := learning.ScanDocuments(path)
+		if err != nil {
+			return "", fmt.Errorf("reading %s: %w", path, err)
+		}
+
+		observations = append(observations, learning.FromDocuments(found, t.Owner)...)
+		counted = append(counted, fmt.Sprintf("%d documents", len(found)))
 	}
 
 	if len(observations) == 0 {
-		return "Nothing in " + path + " to learn — no projects or documents were found there.", nil
+		return "Nothing in " + path + " to learn — no projects or documents were found there. " +
+			"Looked for " + strings.Join(counted, " and ") + ".", nil
+	}
+
+	/*
+	 * Too much to take in at once is said, not attempted.
+	 *
+	 * Every observation is embedded on this processor, and measured here that
+	 * is about three seconds each: sixty-two projects took three minutes and
+	 * the same folder holds two thousand three hundred documents, which is two
+	 * hours. Starting that silently would look like the brain hanging, and a
+	 * turn nobody can tell from a crash is worse than one that declines.
+	 *
+	 * Reported with the number, because the number is the answer to "why not"
+	 * and tells somebody what to narrow to.
+	 */
+	if len(observations) > MostAtOnce {
+		return fmt.Sprintf(
+			"%s holds %s — %d things, which is more than can be taken in at once "+
+				"on this machine (roughly %d minutes of work). Nothing was stored. "+
+				"Learn a folder inside it, or ask for one kind at a time.",
+			path, strings.Join(counted, " and "), len(observations),
+			len(observations)*SecondsEach/60), nil
 	}
 
 	report, err := learner.Ingest(ctx, observations, nil)
@@ -158,8 +213,16 @@ func (t LearnFolder) Execute(ctx context.Context, args json.RawMessage) (string,
 	 * folder twice is a reasonable thing to do and reporting it as nothing
 	 * learned reads as a failure.
 	 */
-	out := fmt.Sprintf("Learned %s: %d things seen, %d newly remembered, %d already known.",
-		path, report.Seen, report.Promoted, report.Duplicates)
+	/*
+	 * What was looked at, not only what was stored.
+	 *
+	 * "62 things seen" says nothing about whether the documents were read, and
+	 * a folder that holds both is the normal case. Naming the kinds is what
+	 * lets somebody notice that one of them came back zero.
+	 */
+	out := fmt.Sprintf("Learned %s — found %s. %d things seen, %d newly remembered, %d already known.",
+		path, strings.Join(counted, " and "),
+		report.Seen, report.Promoted, report.Duplicates)
 
 	if report.Waiting > 0 {
 		out += fmt.Sprintf(" %d are waiting for you to confirm in the app.", report.Waiting)

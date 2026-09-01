@@ -3,7 +3,9 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -112,4 +114,63 @@ func TestLearningSaysSoWhenThereIsNothingToLearnWith(t *testing.T) {
 		Execute(context.Background(), json.RawMessage(`{"path":`+quote(dir)+`}`)); err == nil {
 		t.Error("a tool with no learner at all reported success")
 	}
+}
+
+/*
+ * A folder too big to take in says so instead of hanging.
+ *
+ * Every observation is embedded on the processor at about three seconds each.
+ * Sixty-two projects took three minutes; the same folder holds two thousand
+ * three hundred documents, which is two hours. Starting that silently is
+ * indistinguishable from the brain having crashed, and a turn nobody can tell
+ * from a crash is worse than one that declines and says why.
+ */
+func TestAFolderTooBigToLearnIsRefusedWithItsSize(t *testing.T) {
+	dir := t.TempDir()
+
+	// More projects than the cap, each the smallest thing the scanner counts.
+	for i := 0; i < MostAtOnce+5; i++ {
+		project := filepath.Join(dir, fmt.Sprintf("project%03d", i))
+
+		if err := os.MkdirAll(project, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := os.WriteFile(filepath.Join(project, "package.json"),
+			[]byte(`{"name":"x"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// A learner that must never be reached: nothing may be stored, so being
+	// asked to store at all is the failure.
+	stored := false
+	learner := &countingLearner{onIngest: func() { stored = true }}
+
+	out, err := LearnFolder{Learn: func() Ingests { return learner }, Owner: "Petar"}.
+		Execute(context.Background(), json.RawMessage(`{"path":`+quote(dir)+`}`))
+	if err != nil {
+		t.Fatalf("it should decline, not fail: %v", err)
+	}
+
+	if stored {
+		t.Error("it stored something it had just said was too much")
+	}
+
+	for _, want := range []string{"more than can be taken in", "Nothing was stored", "minutes"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the refusal does not say %q:\n%s", want, out)
+		}
+	}
+}
+
+type countingLearner struct{ onIngest func() }
+
+func (c *countingLearner) Ingest(context.Context, learning.Observations,
+	func(learning.IngestReport)) (learning.IngestReport, error) {
+	if c.onIngest != nil {
+		c.onIngest()
+	}
+
+	return learning.IngestReport{}, nil
 }
