@@ -54,8 +54,99 @@ function feedTime(seconds) {
 
 let feedShown = '';
 
+/*
+ * What kinds of step count as the brain working on something asked of it.
+ *
+ * Listening is not one of them. It happens continuously and produces an entry
+ * every time the room makes a noise, so on a machine that takes a minute to
+ * answer, a genuine multi-step task arrives interleaved with — and buried
+ * under — a running commentary on the fan.
+ */
+const WORKING_KINDS = new Set([
+    'thinking', 'tool', 'answering', 'speaking', 'waiting', 'learning',
+    'model', 'embedding',
+]);
+
+function isWork(step) {
+    return WORKING_KINDS.has(step.kind) || !!step.tool;
+}
+
+/*
+ * The one line that answers "is it still going".
+ *
+ * A list of finished steps answers what happened; it does not say whether
+ * anything is happening now, and on a machine where an answer takes a minute
+ * that is the question actually being asked. It was inferable — from a clock
+ * ticking on the last row — and inferable is not the same as said.
+ */
+function sayWhetherItIsWorking(all, working) {
+    const line = document.getElementById('working-on');
+    const text = document.getElementById('working-on-text');
+    const clock = document.getElementById('working-on-clock');
+
+    if (!line || !text || !clock) return;
+
+    /*
+     * Whether a question is being answered — not what is happening this
+     * instant.
+     *
+     * "busy" is true of a silent room being listened to, and during a real
+     * turn the current step alternates between answering and listening several
+     * times a second, because the microphone reopens as soon as an answer
+     * starts being written. A line driven by that flickered on and off while
+     * the brain worked steadily, which is worse than not having one.
+     */
+    const now = window.brainWork ? window.brainWork() : {};
+
+    if (!now.in_a_turn) {
+        line.hidden = true;
+
+        return;
+    }
+
+    const last = all[all.length - 1];
+    const step = working[working.length - 1] || last || {};
+    const rounds = all.filter((s) => s.kind === 'tool' || s.tool).length;
+
+    let what = FEED_KINDS[step.kind] || 'Working';
+
+    if (step.tool) what = 'Running ' + step.tool;
+
+    /*
+     * How many tools it has run, because a task that needs several is the one
+     * where somebody most wants to know it is progressing rather than stuck.
+     */
+    if (rounds > 0) what += ' · ' + rounds + (rounds === 1 ? ' step' : ' steps');
+
+    text.textContent = 'Working on your question — ' + what;
+    clock.textContent = feedTime(step.seconds) || '';
+    line.dataset.status = window.brainStatusOf
+        ? window.brainStatusOf({ ...step, busy: true })
+        : 'thinking';
+    line.hidden = false;
+}
+
 function drawFeed(steps) {
     if (!feedBox) return;
+
+    /*
+     * While there is real work in the list, the microphone noise steps aside.
+     *
+     * Asked to read a folder, the brain called the tool, read the answer and
+     * went back for more — and none of that was findable on screen, because
+     * between each round sat several "no words made out" entries from a quiet
+     * room. The question "is it working on my task or not" had no answer
+     * anywhere, while the panel whose whole job is to answer it scrolled.
+     *
+     * Only while work is in flight. With nothing being asked of it, what the
+     * microphone is doing is the most interesting thing there is, and the
+     * panel goes back to showing it.
+     */
+    const working = steps.filter(isWork);
+
+    sayWhetherItIsWorking(steps, working);
+
+    if (working.length) steps = working;
 
     if (!steps.length) {
         if (feedIdle) feedIdle.hidden = false;

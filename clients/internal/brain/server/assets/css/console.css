@@ -3349,3 +3349,46 @@ select { font-size: 13.5px; }
 
 .history-act:hover { border-color: var(--line); color: var(--text); }
 .history-delete:hover { border-color: var(--status-waiting, #ff6b6b); color: var(--status-waiting, #ff6b6b); }
+
+/*
+ * "It is working on your question", said in one line.
+ *
+ * The feed below answers "what just happened"; this answers "is it still
+ * going", which on a machine that takes a minute a turn is the question
+ * actually being asked and was nowhere on the page.
+ */
+.working-on {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 11px;
+    margin-bottom: 10px;
+    border: 1px solid color-mix(in srgb, var(--status, var(--accent)) 35%, transparent);
+    background: color-mix(in srgb, var(--status, var(--accent)) 8%, transparent);
+    border-radius: 9px;
+    font-size: 12.5px;
+    color: var(--status, var(--accent));
+}
+
+.working-on[hidden] { display: none; }
+
+.working-on-dot {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: currentColor;
+    animation: talk-pulse 1.2s ease-in-out infinite;
+}
+
+.working-on-text { flex: 1; min-width: 0; }
+
+.working-on-clock {
+    font-family: var(--mono);
+    font-size: 11px;
+    opacity: .85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .working-on-dot { animation: none; }
+}

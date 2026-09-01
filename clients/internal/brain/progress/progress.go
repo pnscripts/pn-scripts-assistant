@@ -20,6 +20,21 @@ import (
 type Step struct {
 	// Busy is false when there is nothing in flight.
 	Busy bool `json:"busy"`
+
+	/*
+	 * InATurn is whether a question is being answered, which Busy cannot say.
+	 *
+	 * The listening loop and the agent write to this one step and overlap: the
+	 * microphone reopens the moment an answer starts being written, so during a
+	 * turn the kind alternates between "answering" and "listening" several
+	 * times a second. Busy is true throughout and means nothing, because it is
+	 * equally true of a silent room being listened to.
+	 *
+	 * Which left the interface unable to say whether a long task was running,
+	 * on a machine where a turn takes a minute and that is the only thing
+	 * anybody wants to know.
+	 */
+	InATurn bool `json:"in_a_turn"`
 	// What kind of work: "thinking", "tool", "speaking", "listening".
 	Kind string `json:"kind"`
 	// A short line for a person: "Reading /etc/hosts".
@@ -236,7 +251,9 @@ func Now() Step {
 	defer current.mu.RUnlock()
 
 	if !current.busy {
-		return Step{}
+		// A turn can be in flight with nothing current: between two steps, and
+		// while a slow model is being waited on.
+		return Step{InATurn: InATurn()}
 	}
 
 	return Step{
@@ -249,6 +266,7 @@ func Now() Step {
 		Round:      current.round,
 		Background: current.background,
 		Model:      current.model,
+		InATurn:    InATurn(),
 	}
 }
 

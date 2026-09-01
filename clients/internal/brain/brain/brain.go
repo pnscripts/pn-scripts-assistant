@@ -23,6 +23,7 @@ import (
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/mail"
 	"pn-brain/internal/brain/models"
+	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/smarthome"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
@@ -819,6 +820,18 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	if strings.TrimSpace(req.Message) == "" {
 		return ChatReply{}, fmt.Errorf("a message is required")
 	}
+
+	/*
+	 * Marked for the whole turn, whatever the microphone does meanwhile.
+	 *
+	 * The listening loop reopens the moment an answer starts being written, so
+	 * the current step alternates between answering and listening several
+	 * times a second — and anything reading that to decide whether the brain
+	 * is busy flickers. On a machine where a turn takes a minute, "is it
+	 * working on my question or not" then has no answer anywhere on screen.
+	 */
+	progress.StartedATurn()
+	defer progress.FinishedATurn()
 
 	providerName := req.Provider
 	if providerName == "" {

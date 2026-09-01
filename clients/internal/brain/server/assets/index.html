@@ -232,6 +232,20 @@
                      that changes every few seconds had nowhere to appear. -->
                 <div class="card" style="grid-area: core">
                     <h2>Doing now</h2>
+                    <!--
+                        One line saying whether it is working on something.
+
+                        The feed below reports each step, which answers "what
+                        just happened" and not "is it still going" — on a
+                        machine that takes a minute a turn, those are different
+                        questions and the second is the one being asked. It is
+                        stated here rather than inferred from a scrolling list.
+                    -->
+                    <div class="working-on" id="working-on" hidden>
+                        <span class="working-on-dot" aria-hidden="true"></span>
+                        <span class="working-on-text" id="working-on-text"></span>
+                        <span class="working-on-clock" id="working-on-clock"></span>
+                    </div>
                     <div class="feed" id="feed">
                         <p class="feed-idle" id="feed-idle">Waiting.</p>
                     </div>
