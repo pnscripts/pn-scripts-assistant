@@ -202,6 +202,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		// So "my external drive" can be looked up rather than asked about.
 		tools.ListDrives{Root: b.Root},
+
+		// The thing this program is for, which only the command line could reach.
+		tools.LearnFolder{Learn: b.Learner, Owner: b.Cfg.Owner},
 		tools.Remind{Diary: diaryOf{b}},
 		tools.ListReminders{Diary: diaryOf{b}},
 		tools.ForgetReminder{Diary: diaryOf{b}},

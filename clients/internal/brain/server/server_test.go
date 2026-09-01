@@ -284,7 +284,7 @@ func TestRegisteredTools(t *testing.T) {
 	// because it had no way to reach its own queue.
 	want := []string{
 		"click", "decide_waiting", "do_in_background", "edit_file",
-		"forget_reminder", "list_background", "list_directory",
+		"forget_reminder", "learn_from_folder", "list_background", "list_directory",
 		"list_drives", "list_models",
 		"list_reminders", "list_waiting", "list_windows", "look_at_screen",
 		"open_app", "read_document", "read_file", "remind_me", "run_command",
