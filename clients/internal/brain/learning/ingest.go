@@ -34,6 +34,27 @@ func (w *Worker) Ingest(ctx context.Context, observations Observations, progress
 
 	rep.Seen = len(observations)
 
+	/*
+	 * Reported after every observation, whatever became of it.
+	 *
+	 * The call used to sit at the bottom of the loop, after Promoted++, so
+	 * only an observation that became a new fact ever reported anything. Every
+	 * other outcome — rejected, waiting, failed, and above all duplicate —
+	 * reaches a continue first and says nothing.
+	 *
+	 * Which made the progress line stop exactly when it was most needed.
+	 * Learning a folder a second time is mostly duplicates: three hundred
+	 * already-known documents in a row, each taking its two seconds to embed
+	 * and compare, and not one of them reporting. Ten minutes of real work
+	 * behind a line that had not moved since it appeared, which is
+	 * indistinguishable from the thing having hung.
+	 */
+	report := func() {
+		if progress != nil {
+			progress(rep)
+		}
+	}
+
 	for _, o := range observations {
 		if err := ctx.Err(); err != nil {
 			return rep, err
@@ -45,6 +66,8 @@ func (w *Worker) Ingest(ctx context.Context, observations Observations, progress
 		// rejected rather than dropped, so the history shows what was seen.
 		if status == StatusRejected {
 			rep.Rejected++
+
+			report()
 
 			continue
 		}
@@ -62,12 +85,16 @@ func (w *Worker) Ingest(ctx context.Context, observations Observations, progress
 			// things went into a review queue is a report that lies by omission.
 			rep.Waiting++
 
+			report()
+
 			continue
 		}
 
 		lesson, err := w.DB.Lesson(id)
 		if err != nil || lesson == nil {
 			rep.Failed++
+
+			report()
 
 			continue
 		}
@@ -78,20 +105,22 @@ func (w *Worker) Ingest(ctx context.Context, observations Observations, progress
 			w.Log.Warn("could not promote an observation", "lesson", id, "error", err)
 			rep.Failed++
 
+			report()
+
 			continue
 		}
 
 		if factID == 0 {
 			rep.Duplicates++
 
+			report()
+
 			continue
 		}
 
 		rep.Promoted++
 
-		if progress != nil {
-			progress(rep)
-		}
+		report()
 	}
 
 	return rep, nil
