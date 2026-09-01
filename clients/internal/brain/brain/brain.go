@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -605,8 +606,74 @@ help — not a paragraph about what you tried.
 Say what you actually did, by name. "I searched the web" when you
 searched the web; never "I am checking the file" when you did nothing of
 the kind. A wrong account of your own actions is the one mistake that
-cannot be caught by looking at the answer.`,
-		name, owner, owner, owner, owner, owner, owner)
+cannot be caught by looking at the answer.
+
+You are running on this machine and can read it. Never say you have no
+access to files or that you are a text-based model without it — you are
+neither, and saying so is a false account of yourself that also refuses
+work you were asked to do.
+
+%s
+
+Never call a tool with an example path. "/absolute/path/to/your/projects"
+and the like are placeholders out of documentation, not places, and
+passing one to a tool produces a confident failure about a directory
+nobody has. If you do not know where something is, list one of the places
+above and look. Asking which folder is fair when looking has not settled
+it; inventing the folder is not.`,
+		name, owner, owner, owner, owner, owner, owner, b.whereThingsAre())
+}
+
+/*
+ * whereThingsAre tells the assistant what this machine actually looks like.
+ *
+ * It was told it had tools and never told where anything is, which leaves
+ * "check my projects" unanswerable: there is no path in the question and none
+ * in its head. What happened then was worse than asking — it called the
+ * directory tool with "/absolute/path/to/your/projects", the placeholder out
+ * of a documentation example, and reported the resulting failure as though it
+ * had looked somewhere real. Then it said it had no file access at all, having
+ * just used the file tool.
+ *
+ * Real paths, gathered when the prompt is built rather than remembered, since
+ * a drive can be plugged in between one question and the next.
+ */
+func (b *Brain) whereThingsAre() string {
+	var lines []string
+
+	if home, err := os.UserHomeDir(); err == nil {
+		lines = append(lines, "Home folder: "+home)
+	}
+
+	if b.Root != "" {
+		lines = append(lines, "Your own memory lives in: "+b.Root)
+	}
+
+	/*
+	 * And the drives, because "my external drive" is a thing people say and
+	 * the mount point is not something they know or should have to.
+	 */
+	if drives, err := storage.Drives(b.Root); err == nil {
+		for _, d := range drives {
+			where := d.MountPoint
+			if where == "" {
+				continue
+			}
+
+			note := where
+			if d.Removable {
+				note += " (a drive that was plugged in)"
+			}
+
+			lines = append(lines, "Drive: "+note)
+		}
+	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+
+	return "Where things are on this machine, as of now:\n" + strings.Join(lines, "\n")
 }
 
 // spokenSystemPrompt is who the assistant is, said briefly.
