@@ -55,6 +55,18 @@ func (b *Brain) Greet() Greeting {
 		parts = append(parts, cut)
 	}
 
+	/*
+	 * Where the conversation stands, before what is queued.
+	 *
+	 * The greeting opened with the review queue — "there is one thing I would
+	 * like to remember" — which is housekeeping, and housekeeping is not what
+	 * somebody wants first on coming back to a conversation they were part way
+	 * through. What they were talking about is.
+	 */
+	if last := b.lastTopicLine(); last != "" {
+		parts = append(parts, last)
+	}
+
 	if waiting := b.waitingLine(); waiting != "" {
 		parts = append(parts, waiting)
 	} else if known := b.knowledgeLine(); known != "" {
@@ -135,6 +147,62 @@ func (b *Brain) timeOfDay() string {
 
 	return line
 }
+
+/*
+ * lastTopicLine says what the last conversation was about.
+ *
+ * Named by its opening line, which is what a conversation is actually
+ * remembered by. Skipped when it was only just said — coming straight back to
+ * a window that is still open does not need to be told what is on the screen.
+ */
+func (b *Brain) lastTopicLine() string {
+	recent, err := b.DB.RecentConversations(1)
+	if err != nil || len(recent) == 0 {
+		return ""
+	}
+
+	last := recent[0]
+
+	topic := last.Title
+	if strings.TrimSpace(topic) == "" {
+		topic = last.Opening
+	}
+
+	return topicLine(topic, time.Since(last.When))
+}
+
+/*
+ * topicLine decides whether to mention a conversation, and how to say it.
+ *
+ * Separated from reading the database so both halves can be checked: whether a
+ * conversation from a moment ago is worth repeating back, and whether a long
+ * opening line is cut somewhere a person can still read.
+ */
+func topicLine(topic string, age time.Duration) string {
+	// Still on screen: saying it back is noise, not orientation.
+	if age < TooRecentToMention {
+		return ""
+	}
+
+	topic = strings.TrimSpace(topic)
+	if topic == "" {
+		return ""
+	}
+
+	const mostOfIt = 70
+
+	if len(topic) > mostOfIt {
+		topic = strings.TrimSpace(topic[:mostOfIt]) + "…"
+	}
+
+	return fmt.Sprintf("Last time we were on: %s.", topic)
+}
+
+/*
+ * TooRecentToMention is how fresh a conversation has to be for repeating it
+ * back to be pointless rather than useful.
+ */
+const TooRecentToMention = 2 * time.Minute
 
 // waitingLine mentions what needs the owner, which is the most useful thing to
 // open with when there is any.
