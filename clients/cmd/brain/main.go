@@ -319,10 +319,11 @@ func runServe(args []string) error {
 	 * have fixed it, because nothing was running; this is the first moment
 	 * anything can.
 	 */
-	if closed, err := db.FinishAbandonedTurns(); err != nil {
+	cutShort, err := db.FinishAbandonedTurns()
+	if err != nil {
 		logger.Warn("could not close off unfinished conversations", "error", err)
-	} else if closed > 0 {
-		logger.Info("closed conversations that were cut short", "count", closed)
+	} else if cutShort > 0 {
+		logger.Info("closed conversations that were cut short", "count", cutShort)
 	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
@@ -647,13 +648,19 @@ func runApp(args []string) error {
 	 * have fixed it, because nothing was running; this is the first moment
 	 * anything can.
 	 */
-	if closed, err := db.FinishAbandonedTurns(); err != nil {
+	cutShort, err := db.FinishAbandonedTurns()
+	if err != nil {
 		logger.Warn("could not close off unfinished conversations", "error", err)
-	} else if closed > 0 {
-		logger.Info("closed conversations that were cut short", "count", closed)
+	} else if cutShort > 0 {
+		logger.Info("closed conversations that were cut short", "count", cutShort)
 	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
+
+	// So the greeting can say the last run stopped in the middle of something,
+	// which is the first thing worth knowing on opening it again.
+	b.NoteCutShort(cutShort)
+
 	b.Start(ctx)
 	defer b.Stop()
 

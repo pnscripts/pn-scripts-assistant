@@ -24,10 +24,36 @@ type Greeting struct {
 }
 
 // Greet composes an opening line.
+/*
+ * NoteCutShort records how many turns the last run left unfinished.
+ *
+ * Told to the brain rather than worked out by it, because only the startup
+ * repair knows: by the time anything else looks, the conversations have been
+ * closed off and are indistinguishable from ones that ended properly.
+ */
+func (b *Brain) NoteCutShort(n int) {
+	b.mu.Lock()
+	b.cutShort = n
+	b.mu.Unlock()
+}
+
 func (b *Brain) Greet() Greeting {
 	var parts []string
 
 	parts = append(parts, b.timeOfDay())
+
+	/*
+	 * What the last run was in the middle of, if it was in the middle of
+	 * something.
+	 *
+	 * Being told the program stopped during a question is the difference
+	 * between an assistant that lost your answer and one that ignored it. It
+	 * is also the first thing worth knowing on opening it again, which is why
+	 * it comes before what is waiting.
+	 */
+	if cut := b.cutShortLine(); cut != "" {
+		parts = append(parts, cut)
+	}
 
 	if waiting := b.waitingLine(); waiting != "" {
 		parts = append(parts, waiting)
@@ -40,6 +66,28 @@ func (b *Brain) Greet() Greeting {
 	}
 
 	return Greeting{Text: strings.Join(parts, " ")}
+}
+
+/*
+ * cutShortLine says the last run ended in the middle of something.
+ *
+ * Plural handled properly: "1 questions" in the first sentence somebody hears
+ * is a small thing that makes everything after it sound automatic.
+ */
+func (b *Brain) cutShortLine() string {
+	b.mu.Lock()
+	n := b.cutShort
+	b.mu.Unlock()
+
+	switch {
+	case n <= 0:
+		return ""
+	case n == 1:
+		return "Last time I stopped part way through a question, so it went unanswered."
+	default:
+		return fmt.Sprintf(
+			"Last time I stopped part way through %d questions, so they went unanswered.", n)
+	}
 }
 
 // timeOfDay opens the way a person would.
@@ -66,8 +114,23 @@ func (b *Brain) timeOfDay() string {
 
 	line := greetings[rand.Intn(len(greetings))]
 
+	/*
+	 * The name goes inside the sentence, before whatever ends it.
+	 *
+	 * Only the full stop was stripped, so the late-night greetings kept their
+	 * question mark and came out as "Still up?, Petar." — punctuation in the
+	 * middle of a question, in the first three words anybody hears, which
+	 * makes everything after it sound machine-generated.
+	 */
 	if owner != "" && rand.Intn(2) == 0 {
-		line = strings.TrimSuffix(line, ".") + ", " + owner + "."
+		ends := "."
+
+		if last := line[len(line)-1:]; last == "?" || last == "!" || last == "." {
+			ends = last
+			line = line[:len(line)-1]
+		}
+
+		line += ", " + owner + ends
 	}
 
 	return line

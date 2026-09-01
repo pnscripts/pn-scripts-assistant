@@ -1189,7 +1189,7 @@ el('input').addEventListener('input', (e) => {
  * Skipped when there is a conversation to restore: reintroducing itself on top
  * of a transcript somebody is already reading would be noise.
  */
-async function greet(canSpeak) {
+async function greet(canSpeak, { write = true } = {}) {
     let greeting;
 
     try {
@@ -1200,7 +1200,16 @@ async function greet(canSpeak) {
 
     if (!greeting.text) return;
 
-    addMessage(state.brainName, greeting.text, { cssClass: 'brain' });
+    /*
+     * Written only when there is nothing to read already.
+     *
+     * Reintroducing itself on top of a transcript somebody is part way through
+     * is noise. Saying it is not: an assistant you talk to should say where
+     * things stand when it opens, and on a machine where the answer to that
+     * includes "I stopped part way through four questions last time", that is
+     * the first thing worth knowing.
+     */
+    if (write) addMessage(state.brainName, greeting.text, { cssClass: 'brain' });
 
     if (canSpeak) api.post('/api/speak', { text: greeting.text }).catch(() => {});
 }
@@ -1209,17 +1218,24 @@ async function greet(canSpeak) {
     await refreshStatus();
     const restored = await restoreConversation();
 
-    if (!restored) {
-        let canSpeak = false;
+    let canSpeak = false;
 
-        try {
-            canSpeak = (await api.get('/api/status')).capabilities.includes('speech');
-        } catch {
-            // A greeting nobody hears is still worth showing.
-        }
-
-        await greet(canSpeak);
+    try {
+        canSpeak = (await api.get('/api/status')).capabilities.includes('speech');
+    } catch {
+        // A greeting nobody hears is still worth showing.
     }
+
+    /*
+     * Spoken every time; written only on a fresh screen.
+     *
+     * Opening the program used to be silent whenever there was a conversation
+     * to restore, which is nearly always — so the one moment somebody most
+     * wants to be told where things stand was the one moment it said nothing
+     * at all, and a restart in the middle of an hour of work looked
+     * indistinguishable from nothing having happened.
+     */
+    await greet(canSpeak, { write: !restored });
 
     refreshApprovals();
     refreshLessons();

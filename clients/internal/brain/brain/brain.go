@@ -43,6 +43,9 @@ type Brain struct {
 	// drive notices the disk the brain lives on going away. See drivewatch.go.
 	drive driveState
 
+	// cutShort is how many turns the last run left unfinished. See NoteCutShort.
+	cutShort int
+
 	// ollama is kept so the chat model can be changed without a restart. The
 	// choice of model is a decision somebody makes while using the brain,
 	// having seen how the alternatives behave on their own machine, and
