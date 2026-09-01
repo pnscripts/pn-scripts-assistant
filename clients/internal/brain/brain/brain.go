@@ -206,6 +206,15 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// So "my external drive" can be looked up rather than asked about.
 		tools.ListDrives{Root: b.Root},
 
+		/*
+		 * What is in the memory, which recall cannot answer.
+		 *
+		 * Recall is a similarity search with a floor, and "what do you know
+		 * about me" is the question least like anything stored — so a brain
+		 * holding a thousand facts recalled none and said it had none.
+		 */
+		tools.WhatYouKnow{Memory: rememberedBy{b.DB}},
+
 		// The thing this program is for, which only the command line could reach.
 		tools.LearnFolder{
 			// Asked at call time: the learner does not exist yet.
@@ -1367,4 +1376,32 @@ func (b *Brain) ReEmbed(ctx context.Context, model string, note func(done, total
 	b.Log.Info("memories re-indexed", "model", model, "facts", len(facts))
 
 	return len(facts), nil
+}
+
+/*
+ * rememberedBy is the store seen through the narrow hole the tool needs.
+ *
+ * RecentFacts returns the store's own type, which carries an id and a
+ * timestamp the tool has no use for. Converting here keeps the tools package
+ * from importing the store to read three fields.
+ */
+type rememberedBy struct{ db *store.DB }
+
+func (r rememberedBy) CountFacts() (int, error) { return r.db.CountFacts() }
+
+func (r rememberedBy) FactsByCategory() (map[string]int, error) { return r.db.FactsByCategory() }
+
+func (r rememberedBy) RecentFacts(limit int) ([]tools.RecentFact, error) {
+	found, err := r.db.RecentFacts(limit)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]tools.RecentFact, 0, len(found))
+
+	for _, f := range found {
+		out = append(out, tools.RecentFact{Content: f.Content, Category: f.Category})
+	}
+
+	return out, nil
 }

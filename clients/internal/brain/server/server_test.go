@@ -289,7 +289,8 @@ func TestRegisteredTools(t *testing.T) {
 		"list_reminders", "list_waiting", "list_windows", "look_at_screen",
 		"open_app", "read_document", "read_file", "remind_me", "run_command",
 		"scroll", "search_files", "set_appearance", "set_wake_word",
-		"stop_background", "type_text", "write_document", "write_file",
+		"stop_background", "type_text", "what_you_know", "write_document",
+		"write_file",
 	}
 
 	if strings.Join(names, ",") != strings.Join(want, ",") {
