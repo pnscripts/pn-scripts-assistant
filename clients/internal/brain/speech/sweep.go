@@ -37,7 +37,21 @@ func SweepOldRecordings() (int, int64) {
 		freed   int64
 	)
 
-	for _, pattern := range []string{"pn-brain-turn-*.wav", "pn-brain-listen-*.wav"} {
+	/*
+	 * Probes as well, which were the ones that actually accumulated.
+	 *
+	 * A probe recording is removed by a deferred Remove, so it cleans up after
+	 * itself every time the function returns — and never when the process is
+	 * killed, which is how this program ends every single time somebody closes
+	 * the window mid-listen. Twenty-two of them were found in /tmp, none of
+	 * them swept, because the sweeper knew about the two kinds of file that
+	 * were already being cleaned up properly and not the one that was not.
+	 */
+	for _, pattern := range []string{
+		"pn-brain-turn-*.wav",
+		"pn-brain-listen-*.wav",
+		"pn-brain-probe-*.wav",
+	} {
 		matches, err := filepath.Glob(filepath.Join(os.TempDir(), pattern))
 		if err != nil {
 			continue

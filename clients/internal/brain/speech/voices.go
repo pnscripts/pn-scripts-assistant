@@ -153,11 +153,34 @@ func Voices() []Voice {
 	return out
 }
 
-// piperVoiceFiles finds every model beside a piper installation.
+/*
+ * piperVoiceFiles finds every model beside a piper installation.
+ *
+ * Beside the real binary, not beside the name it was reached by. A piper
+ * unpacked into ~/.local/share/piper and linked from ~/.local/bin is found
+ * through the link, and the voices sit next to the target — so looking only
+ * beside the link searched ~/.local/bin/voices, which does not exist, found
+ * nothing, and left the system voice as the only one on offer. The neural
+ * voice was installed, listed as installed by setup, and unreachable: the
+ * assistant answered in the robotic fallback with nothing anywhere saying why.
+ *
+ * The standard locations are searched too, so a piper on PATH from a package
+ * still finds voices downloaded into the usual place.
+ */
 func piperVoiceFiles(p *Piper) []string {
 	dirs := []string{
 		filepath.Join(filepath.Dir(p.Binary), "voices"),
 		filepath.Dir(p.Binary),
+	}
+
+	if real, err := filepath.EvalSymlinks(p.Binary); err == nil {
+		dirs = append(dirs, filepath.Join(filepath.Dir(real), "voices"), filepath.Dir(real))
+	}
+
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, dir := range piperSearch(home) {
+			dirs = append(dirs, filepath.Join(dir, "voices"), dir)
+		}
 	}
 
 	seen := map[string]bool{}

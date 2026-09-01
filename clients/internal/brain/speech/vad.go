@@ -241,6 +241,27 @@ func RecordTurnWaiting(
 		device = PreferredMicrophone(ctx)
 	}
 
+	/*
+	 * One recorder on the microphone at a time.
+	 *
+	 * Two were found running together — one on the echo-cancelled source and
+	 * one that had failed to resolve a device at all and was taking the raw
+	 * default. Two processes pulling from one microphone split the audio
+	 * between them, and each transcribes half a sentence: "Brain, tuberously"
+	 * out of a whole spoken question, which then gets answered as though
+	 * somebody had said it.
+	 *
+	 * Refused rather than queued. A turn that waits for the previous one is a
+	 * turn recorded after the person stopped talking, which is not a recovery
+	 * — and overlapping turns are not a thing that should be happening, so the
+	 * honest response is to say so rather than to smooth it over.
+	 */
+	if !claimTheMicrophone() {
+		return turn, ErrAlreadyRecording
+	}
+
+	defer releaseTheMicrophone()
+
 	cmd, err := turnRecorder(ctx, device, path)
 	if err != nil {
 		return turn, err

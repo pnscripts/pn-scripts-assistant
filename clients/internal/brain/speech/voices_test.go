@@ -1,5 +1,10 @@
 package speech
 
+import (
+	"os"
+	"path/filepath"
+)
+
 import "testing"
 
 /*
@@ -30,5 +35,58 @@ func TestPickingAVoiceByKind(t *testing.T) {
 	// rather than assigned one.
 	if voiceSex["xx_XX-unknown-medium"] != "" {
 		t.Error("a voice nobody has described was given a kind anyway")
+	}
+}
+
+/*
+ * A piper reached through a symlink still has its voices found.
+ *
+ * Unpacking piper into ~/.local/share/piper and linking it from ~/.local/bin
+ * is the ordinary way to install it — it is what this program's own installer
+ * does — and the voices sit beside the target, not beside the link. Searching
+ * only beside the link found nothing, so the neural voice was installed,
+ * reported as installed, and unreachable: every answer came out in the robotic
+ * fallback with nothing anywhere explaining why.
+ */
+func TestVoicesAreFoundThroughASymlink(t *testing.T) {
+	real := t.TempDir()
+	linked := t.TempDir()
+
+	// A piper installation: the binary, with its voices in a folder beside it.
+	binary := filepath.Join(real, "piper")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	voices := filepath.Join(real, "voices")
+	if err := os.MkdirAll(voices, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	model := filepath.Join(voices, "en_GB-test-medium.onnx")
+	for _, f := range []string{model, model + ".json"} {
+		if err := os.WriteFile(f, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// And the link somebody actually runs.
+	link := filepath.Join(linked, "piper")
+	if err := os.Symlink(binary, link); err != nil {
+		t.Skipf("cannot make symlinks here: %v", err)
+	}
+
+	found := piperVoiceFiles(&Piper{Binary: link})
+
+	var got bool
+
+	for _, f := range found {
+		if filepath.Base(f) == "en_GB-test-medium.onnx" {
+			got = true
+		}
+	}
+
+	if !got {
+		t.Errorf("the voice beside the real binary was not found through the link; looked at %v", found)
 	}
 }
