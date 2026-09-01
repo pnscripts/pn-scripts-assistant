@@ -514,7 +514,17 @@
         // summary is a full sentence, so it was being clipped mid-word; the
         // sentence still appears in full on the Privacy page.
         text('tile-privacy', status.privacy?.mode || '—');
-        text('tile-model', status.model || 'none');
+        /*
+         * Auto says auto, and names what it picked underneath.
+         *
+         * Showing only the model that happens to be loaded hides the setting
+         * entirely: somebody on auto and somebody who pinned that exact model
+         * saw the same word, so there was no way to tell which you were on or
+         * that there was a choice at all.
+         */
+        text('tile-model', status.auto_model
+            ? 'auto · ' + (status.model || 'choosing')
+            : (status.model || 'none'));
         text('tile-storage', storage.free_bytes
             ? `${gigabytes(storage.free_bytes)} free`
             : 'unknown');
@@ -860,4 +870,168 @@
 
     pollMachine();
     pollStatus();
+})();
+
+/*
+ * Changing the model from the strip along the bottom.
+ *
+ * It stated which model was in use and offered no way to act on it, so
+ * changing one meant knowing the Models page existed and going to find it. The
+ * thing somebody wants to do with "which model is this" is change it.
+ *
+ * Auto is first and is what most turns should be on: the brain picks per turn,
+ * so a greeting is answered by something small and quick while a hard question
+ * still reaches the model that can do it. Pinning one by hand makes every turn
+ * pay for the hardest.
+ */
+(function modelPicker() {
+    const tile = document.getElementById('tile-model');
+    const menu = document.getElementById('model-menu');
+
+    if (!tile || !menu) return;
+
+    function close() {
+        menu.hidden = true;
+        tile.setAttribute('aria-expanded', 'false');
+    }
+
+    async function open() {
+        let status = {};
+        let installed = [];
+
+        const ask = async (path) => {
+            const res = await fetch(path, { headers: { Accept: 'application/json' } });
+
+            if (!res.ok) throw new Error(path + ' -> ' + res.status);
+
+            const body = await res.json();
+
+            // Answers are wrapped in {data:…} by the server's own helper, and
+            // some older ones are not.
+            return body && body.data !== undefined ? body.data : body;
+        };
+
+        let embedding = '';
+
+        try {
+            status = await ask('/api/status');
+
+            const models = await ask('/api/models');
+
+            installed = Array.isArray(models.installed) ? models.installed : [];
+
+            /*
+             * The memory model is never offered.
+             *
+             * Every memory was embedded with it, so choosing a different one
+             * does not change how the brain answers — it makes everything it
+             * has already learned unfindable. It is in this list because the
+             * list is "models on this machine", not "models you may talk to".
+             */
+            embedding = models.embedding || '';
+        } catch {
+            // An empty menu says nothing; a menu that never opens says the
+            // button is broken. Auto is always offered, so there is a choice
+            // even when the list cannot be fetched.
+            installed = [];
+        }
+
+        menu.textContent = '';
+
+        const choices = [{
+            name: 'auto',
+            label: 'Auto',
+            note: 'the brain picks the right model for each question',
+            on: !!status.auto_model,
+        }];
+
+        const sameModel = (a, b) => a === b ||
+            a === b + ':latest' || b === a + ':latest';
+
+        installed.forEach((m) => {
+            const name = typeof m === 'string' ? m : m.name;
+
+            if (!name || (embedding && sameModel(name, embedding))) return;
+
+            choices.push({
+                name,
+                label: name,
+                note: (typeof m === 'object' && m.size) || '',
+                on: !status.auto_model && sameModel(status.model || '', name),
+            });
+        });
+
+        choices.forEach((c) => {
+            const b = document.createElement('button');
+
+            b.type = 'button';
+            b.setAttribute('role', 'option');
+            b.setAttribute('aria-selected', c.on ? 'true' : 'false');
+            b.textContent = c.label;
+
+            if (c.note) {
+                const note = document.createElement('span');
+
+                note.className = 'menu-note';
+                note.textContent = c.note;
+                b.appendChild(note);
+            }
+
+            b.onclick = async () => {
+                close();
+
+                try {
+                    const res = await fetch('/api/models/use', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: c.name }),
+                    });
+
+                    if (!res.ok) throw new Error('the brain refused the change');
+
+                    /*
+                     * Said back straight away.
+                     *
+                     * The tile is filled from a poll a second or so later, so
+                     * until then it went on showing the old choice — the one
+                     * thing on screen somebody is looking at after clicking,
+                     * still disagreeing with what they just did. Corrected by
+                     * the next poll either way; this only removes the gap.
+                     */
+                    tile.textContent = c.name === 'auto'
+                        ? 'auto · ' + (status.model || 'choosing')
+                        : c.name;
+                } catch (err) {
+                    /*
+                     * Said on the tile itself.
+                     *
+                     * A menu that closes and changes nothing is
+                     * indistinguishable from one that worked, and this is the
+                     * only place somebody is looking at that moment.
+                     */
+                    tile.textContent = 'could not change';
+                }
+            };
+
+            menu.appendChild(b);
+        });
+
+        menu.hidden = false;
+        tile.setAttribute('aria-expanded', 'true');
+    }
+
+    tile.onclick = (e) => {
+        e.stopPropagation();
+
+        if (menu.hidden) open();
+        else close();
+    };
+
+    document.addEventListener('click', (e) => {
+        if (!menu.hidden && !menu.contains(e.target)) close();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close();
+    });
 })();

@@ -1167,6 +1167,26 @@ func (s *Server) handleModelUse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/*
+	 * "auto" is a choice, not a model.
+	 *
+	 * It is the one most turns should be on: the brain picks per turn, so a
+	 * greeting is answered by something small and quick and a hard question
+	 * reaches the model that can do it. Pinning one by hand makes every turn
+	 * pay for the hardest.
+	 */
+	if strings.EqualFold(body.Name, "auto") {
+		if err := s.brain.ChooseAutomatically(); err != nil {
+			fail(w, http.StatusInternalServerError, err.Error())
+
+			return
+		}
+
+		ok(w, map[string]any{"model": "auto", "auto": true})
+
+		return
+	}
+
 	client := models.New(s.brain.Cfg.OllamaURL)
 
 	if !client.Has(r.Context(), body.Name) {

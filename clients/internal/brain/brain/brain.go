@@ -471,6 +471,28 @@ func (b *Brain) SetWakeWord(word string) error {
 // the database was embedded with the current one, and vectors from two
 // different models cannot be compared — changing it would not give different
 // recall, it would silently make recall meaningless.
+/*
+ * ChooseAutomatically hands the choice of model back to the brain.
+ *
+ * Picking one by hand pins it for every turn, which is the right answer when
+ * somebody wants a particular model and the wrong one the rest of the time:
+ * small talk then waits on the big model, and a hard question is answered by
+ * whichever one happened to be pinned for a greeting. Auto is what the tiering
+ * was built for and what most turns should use.
+ */
+func (b *Brain) ChooseAutomatically() error {
+	b.Cfg.AutoModel = true
+	b.Cfg.ModelChosen = false
+
+	if err := b.Cfg.Save(b.Root); err != nil {
+		return fmt.Errorf("could not save the choice: %w", err)
+	}
+
+	b.Log.Info("the model is chosen per turn again")
+
+	return nil
+}
+
 func (b *Brain) UseModel(name string) error {
 	if b.ollama == nil {
 		return fmt.Errorf("there is no local provider to change")
@@ -479,6 +501,10 @@ func (b *Brain) UseModel(name string) error {
 	b.ollama.ChatModel = name
 	b.Cfg.OllamaModel = name
 	b.Cfg.ModelChosen = true
+
+	// Pinned by hand means pinned: leaving auto on would let the brain move off
+	// the model somebody just asked for, which reads as the setting not working.
+	b.Cfg.AutoModel = false
 
 	// Written down, or the choice lasts until the next restart and then quietly
 	// reverts. That is exactly what happened: a model was chosen in the panel,

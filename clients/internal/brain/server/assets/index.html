@@ -612,8 +612,18 @@
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
                 <span class="tile-text">
                     <span class="tile-label">Model</span>
-                    <span class="tile-value" id="tile-model">—</span>
+                    <!--
+                        A button, because it is a choice and not a readout.
+
+                        It sat in the strip stating which model was in use with
+                        no way to act on it, so changing model meant knowing
+                        that the Models page existed and going there. The thing
+                        somebody wants to do with that fact is change it.
+                    -->
+                    <button type="button" class="tile-value tile-pick" id="tile-model"
+                            aria-haspopup="listbox" aria-expanded="false">—</button>
                 </span>
+                <div class="tile-menu" id="model-menu" hidden role="listbox"></div>
             </div>
             <div class="tile">
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
