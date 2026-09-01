@@ -198,6 +198,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.ListWaiting{Queue: queueOf{b}},
 		tools.DecideWaiting{Queue: queueOf{b}},
 		tools.ListModels{Machine: b},
+
+		// So "my external drive" can be looked up rather than asked about.
+		tools.ListDrives{Root: b.Root},
 		tools.Remind{Diary: diaryOf{b}},
 		tools.ListReminders{Diary: diaryOf{b}},
 		tools.ForgetReminder{Diary: diaryOf{b}},
