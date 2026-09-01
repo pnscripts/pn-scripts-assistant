@@ -1189,7 +1189,7 @@ el('input').addEventListener('input', (e) => {
  * Skipped when there is a conversation to restore: reintroducing itself on top
  * of a transcript somebody is already reading would be noise.
  */
-async function greet(canSpeak, { write = true } = {}) {
+async function greet(canSpeak) {
     let greeting;
 
     try {
@@ -1201,15 +1201,19 @@ async function greet(canSpeak, { write = true } = {}) {
     if (!greeting.text) return;
 
     /*
-     * Written only when there is nothing to read already.
+     * Written whenever it is said.
      *
-     * Reintroducing itself on top of a transcript somebody is part way through
-     * is noise. Saying it is not: an assistant you talk to should say where
-     * things stand when it opens, and on a machine where the answer to that
-     * includes "I stopped part way through four questions last time", that is
-     * the first thing worth knowing.
+     * It used to be spoken on every start and written only onto a fresh
+     * screen, on the reasoning that reintroducing itself over a transcript
+     * somebody is reading is noise. That produced something worse: a voice
+     * saying a sentence that appears nowhere on the page, so the record and
+     * the room disagreed about what had just been said — and the transcript
+     * is meant to be the record of exactly that.
+     *
+     * If it is worth saying it is worth showing. If it is not worth showing it
+     * should not be said.
      */
-    if (write) addMessage(state.brainName, greeting.text, { cssClass: 'brain' });
+    addMessage(state.brainName, greeting.text, { cssClass: 'brain' });
 
     if (canSpeak) api.post('/api/speak', { text: greeting.text }).catch(() => {});
 }
@@ -1235,7 +1239,7 @@ async function greet(canSpeak, { write = true } = {}) {
      * at all, and a restart in the middle of an hour of work looked
      * indistinguishable from nothing having happened.
      */
-    await greet(canSpeak, { write: !restored });
+    await greet(canSpeak);
 
     refreshApprovals();
     refreshLessons();
