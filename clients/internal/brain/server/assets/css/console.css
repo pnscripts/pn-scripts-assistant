@@ -1468,8 +1468,22 @@ textarea:focus {
     color: var(--text-dim);
 }
 
-/* Work the brain gave itself reads quieter than work you are waiting on. */
-.thinking-now[data-background="no"] { border-color: var(--warn); color: var(--text); }
+/*
+ * Work the brain gave itself reads quieter than work you are waiting on.
+ *
+ * By brightness, not by hue. This used to make anything you are waiting on
+ * amber-bordered whatever it was actually doing, so a line reporting
+ * "Listening" was framed in the colour of thinking — the same fact told twice
+ * and differently. The state picks the colour; foreground and background pick
+ * how loudly it is said.
+ */
+.thinking-now[data-background="no"] {
+    border-color: color-mix(in srgb, var(--status, var(--warn)) 55%, transparent);
+    color: var(--text);
+}
+
+/* And the words between the dot and the clock, which both follow the state. */
+.thinking-now[data-status] #thinking-now-text { color: var(--status); }
 
 .thinking-dot {
     width: 6px;
@@ -2277,6 +2291,18 @@ select { font-size: 13.5px; }
    running for twelve seconds and a step running for four minutes look the same
    without it and mean entirely different things. */
 
+/*
+ * The live line, in whatever colour the thing it is reporting is.
+ *
+ * Amber was baked into the border, the fill and the text here, from when this
+ * line only ever said "Working". It says every state now, so the row rendered
+ * "Listening" with a blue dot inside an amber box in amber text — three
+ * colours for one fact, two of them wrong, in the one element on screen whose
+ * entire job is to say what is happening.
+ *
+ * --status falls back to the working amber, so a line with no state named on
+ * it looks exactly as it always did.
+ */
 .working {
     display: flex;
     align-items: center;
@@ -2284,20 +2310,29 @@ select { font-size: 13.5px; }
     margin: 10px 0 0;
     flex: none;
     padding: 7px 11px;
-    border: 1px solid rgba(240, 178, 107, 0.3);
+    border: 1px solid color-mix(in srgb, var(--status, var(--warn)) 30%, transparent);
     border-radius: 9px;
-    background: rgba(240, 178, 107, 0.07);
+    background: color-mix(in srgb, var(--status, var(--warn)) 7%, transparent);
     font-size: 12.5px;
-    color: var(--warn);
+    color: var(--status, var(--warn));
 }
 
 .working[hidden] { display: none; }
 
+/*
+ * The dot follows the state whether or not this line was told the state.
+ *
+ * --status is set on the root by whatever the brain is doing, so every part of
+ * this row can read it and they will agree. Writing the fallback only on some
+ * of them is what produced a blue label beside an amber dot: the ones with a
+ * fallback inherited the real state and the ones without kept a default that
+ * had stopped meaning anything.
+ */
 .working-dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--warn);
+    background: var(--status, var(--warn));
     flex: none;
     animation: talk-pulse 1.2s ease-in-out infinite;
 }
@@ -2306,7 +2341,7 @@ select { font-size: 13.5px; }
     margin-left: auto;
     font-family: var(--mono);
     font-size: 11px;
-    color: var(--text-dim);
+    color: var(--status, var(--text-dim));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2901,6 +2936,15 @@ select { font-size: 13.5px; }
 /* The working line beneath the conversation, from the same palette. */
 #working[data-status] .working-dot { background: var(--status); }
 #working[data-status] .working-clock { color: var(--status); }
+
+/*
+ * Including the words, which were the part left behind.
+ *
+ * The dot and the clock were taught to follow the status and the label between
+ * them was not, so the row disagreed with itself about what the brain was
+ * doing — with the disagreement sitting a centimetre apart on one line.
+ */
+#working #working-note { color: var(--status, var(--warn)); }
 
 
 /*

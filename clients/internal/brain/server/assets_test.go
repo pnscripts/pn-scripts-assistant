@@ -473,3 +473,64 @@ func progressKinds(t *testing.T) []string {
 
 	return out
 }
+
+/*
+ * A line that says what the brain is doing must take its colour from that.
+ *
+ * The live line under the conversation had amber baked into its border, its
+ * fill and its text, from when it only ever said "Working". It says every
+ * state now, so it rendered "Listening" as a blue dot inside an amber box in
+ * amber text: three colours for one fact, two of them wrong, in the single
+ * element on screen whose whole job is to report what is happening.
+ *
+ * The dot and the clock were already wired to --status. Only the words and the
+ * frame were left behind, which is exactly the kind of gap that survives
+ * review — nothing looks wrong until a state that is not amber comes along.
+ */
+func TestTheLiveStatusLinesTakeTheirColourFromTheStatus(t *testing.T) {
+	styles, err := assets.ReadFile("assets/css/console.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, block := range []string{".working", ".thinking-now"} {
+		rule := regexp.MustCompile(`(?s)\n\` + block + ` \{(.*?)\n\}`).FindSubmatch(styles)
+		if rule == nil {
+			t.Errorf("could not find the %s rule", block)
+
+			continue
+		}
+
+		body := string(rule[1])
+
+		/*
+		 * A literal colour here is the bug: it cannot vary with the state, so
+		 * whatever it names is right for one status and wrong for the other
+		 * seven.
+		 */
+		for _, literal := range []string{"rgba(240, 178, 107", "#f0b26b", "var(--warn)"} {
+			if strings.Contains(body, literal) && !strings.Contains(body, "var(--status") {
+				t.Errorf("%s fixes its colour with %s instead of following --status",
+					block, literal)
+			}
+		}
+
+		/*
+		 * A neutral base is fine and is not what this is looking for.
+		 *
+		 * .thinking-now rests in the furniture greys and takes its colour from
+		 * the state only where the state is what it is reporting. Quiet is a
+		 * legitimate choice; claiming the wrong state is not.
+		 */
+	}
+
+	// And the words between the dot and the clock, which were the part missed.
+	for _, label := range []string{"#working-note", "#thinking-now-text"} {
+		want := regexp.MustCompile(regexp.QuoteMeta(label) + `\s*\{\s*color: var\(--status`)
+
+		if !want.Match(styles) {
+			t.Errorf("%s is not coloured by the status, so the label can disagree "+
+				"with the dot beside it", label)
+		}
+	}
+}
