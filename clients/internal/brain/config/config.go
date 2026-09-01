@@ -80,6 +80,22 @@ type Config struct {
 	 */
 	AutoModel bool
 
+	/*
+	 * AlwaysSpeak reads every answer aloud, however the question arrived.
+	 *
+	 * Answers were spoken only for turns that came in by voice, so a question
+	 * typed into the box was answered in silence — which is reasonable for a
+	 * chat window and wrong for this, where the point of the thing is that you
+	 * can be doing something else while it works. On a machine where an answer
+	 * takes a minute, having to come back and look is most of the cost.
+	 *
+	 * The answer is not reshaped for it. A spoken turn asks the model for a
+	 * couple of sentences because nobody wants a page read at them; a typed
+	 * one that is also read aloud should still be the full written answer,
+	 * because it is on the screen as well.
+	 */
+	AlwaysSpeak bool
+
 	// FastModel is the small one, or empty to pick whichever is installed.
 	FastModel      string
 	EmbedModel     string
@@ -205,6 +221,7 @@ func Default() Config {
 		OllamaModel:     "qwen2.5-coder:7b",
 		ModelChosen:     false,
 		AutoModel:       true,
+		AlwaysSpeak:     true,
 		EmbedModel:      "nomic-embed-text",
 		AnthropicModel:  "",
 		OpenAIKey:       "",
@@ -258,6 +275,10 @@ func Load(root string) (Config, error) {
 	assign(&cfg.OllamaURL, "OLLAMA_BASE_URL")
 	assign(&cfg.WakeWord, "BRAIN_WAKE_WORD")
 	assign(&cfg.FastModel, "OLLAMA_FAST_MODEL")
+
+	if v := get("BRAIN_ALWAYS_SPEAK"); v != "" {
+		cfg.AlwaysSpeak = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
 
 	if v := get("BRAIN_AUTO_MODEL"); v != "" {
 		cfg.AutoModel = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
@@ -331,6 +352,7 @@ func (c Config) Save(root string) error {
 	b.WriteString("BRAIN_ALWAYS_NAME=" + boolText(c.AlwaysName) + "\n\n")
 
 	b.WriteString("BRAIN_AUTO_MODEL=" + boolText(c.AutoModel) + "\n")
+	b.WriteString("BRAIN_ALWAYS_SPEAK=" + boolText(c.AlwaysSpeak) + "\n")
 	b.WriteString("OLLAMA_FAST_MODEL=" + c.FastModel + "\n\n")
 
 	b.WriteString("MAIL_HOST=" + c.MailHost + "\n")

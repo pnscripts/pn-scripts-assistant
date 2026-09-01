@@ -207,6 +207,37 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/*
+	 * And said out loud, unless somebody turned that off.
+	 *
+	 * Answers used to be spoken only for turns that arrived by voice, so a
+	 * question typed into the box was answered in silence — reasonable for a
+	 * chat window, wrong for this. On a machine where an answer takes a
+	 * minute, the point of a voice is that you can be doing something else
+	 * while it works, and having to come back and look is most of the cost.
+	 *
+	 * Here rather than in the page, so it holds for every way of asking. Not
+	 * waited on: the answer is already written and the reader should not be
+	 * held while it is read.
+	 */
+	/*
+	 * Typed turns only. A spoken one is already looked after.
+	 *
+	 * The page speaks a voice turn itself when the answer arrives unsaid —
+	 * which happens whenever a tool was used, because those cannot be streamed
+	 * sentence by sentence. Speaking here as well would read the whole answer
+	 * twice to somebody who is listening to it, and being told everything
+	 * twice is worse than not being told at all.
+	 */
+	if s.brain.Cfg.AlwaysSpeak && !req.Spoken && !reply.AlreadySpoken &&
+		strings.TrimSpace(reply.Reply) != "" {
+		go func(text string) {
+			if err := speech.SpeakAndWait(context.Background(), text); err != nil {
+				s.log.Debug("could not read the answer aloud", "error", err)
+			}
+		}(reply.Reply)
+	}
+
 	ok(w, reply)
 }
 
@@ -242,12 +273,13 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		// the interface, because a brain that only answers to a word must say
 		// which word — otherwise somebody whose word is not being transcribed
 		// has no way to find out why nothing is happening.
-		"wake_word":   s.brain.Cfg.WakeWord,
-		"first_run":   s.brain.Cfg.New,
-		"always_name": s.brain.Cfg.AlwaysName,
-		"auto_model":  s.brain.Cfg.AutoModel,
-		"models":      modelRoles(s.brain),
-		"provider":    s.brain.Cfg.DefaultProvider,
+		"wake_word":    s.brain.Cfg.WakeWord,
+		"first_run":    s.brain.Cfg.New,
+		"always_name":  s.brain.Cfg.AlwaysName,
+		"auto_model":   s.brain.Cfg.AutoModel,
+		"always_speak": s.brain.Cfg.AlwaysSpeak,
+		"models":       modelRoles(s.brain),
+		"provider":     s.brain.Cfg.DefaultProvider,
 		// The model actually in use, not the setting. They differ whenever
 		// nobody has chosen one, which is the ordinary case — and showing the
 		// setting meant the interface named a model the brain was not using.
@@ -1403,7 +1435,8 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		AlwaysName *bool `json:"always_name"`
 
 		// AutoModel is whether small talk may go to a quicker model.
-		AutoModel *bool `json:"auto_model"`
+		AutoModel   *bool `json:"auto_model"`
+		AlwaysSpeak *bool `json:"always_speak"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
@@ -1458,6 +1491,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		s.brain.Cfg.AutoModel = *body.AutoModel
 	}
 
+	if body.AlwaysSpeak != nil {
+		s.brain.Cfg.AlwaysSpeak = *body.AlwaysSpeak
+	}
+
 	// Saved as soon as it is set, and the file existing is what stops the
 	// interface asking to be introduced a second time.
 	s.brain.Cfg.New = false
@@ -1469,12 +1506,13 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{
-		"name":        s.brain.Cfg.Name,
-		"owner":       s.brain.Cfg.Owner,
-		"wake_word":   s.brain.Cfg.WakeWord,
-		"privacy":     s.brain.Cfg.Privacy,
-		"always_name": s.brain.Cfg.AlwaysName,
-		"auto_model":  s.brain.Cfg.AutoModel,
+		"name":         s.brain.Cfg.Name,
+		"owner":        s.brain.Cfg.Owner,
+		"wake_word":    s.brain.Cfg.WakeWord,
+		"privacy":      s.brain.Cfg.Privacy,
+		"always_name":  s.brain.Cfg.AlwaysName,
+		"auto_model":   s.brain.Cfg.AutoModel,
+		"always_speak": s.brain.Cfg.AlwaysSpeak,
 	})
 }
 
