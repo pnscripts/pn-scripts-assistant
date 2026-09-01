@@ -151,6 +151,22 @@ func SpeakAndWait(ctx context.Context, text string) error {
 	}
 
 	/*
+	 * Remembered here, so it is remembered whichever voice says it.
+	 *
+	 * This used to live inside the piper path alone. The robot voice goes
+	 * through speech-dispatcher instead and recorded nothing — so when the
+	 * robot became the default, the brain stopped being able to recognise its
+	 * own voice coming back through the microphone, and transcribed its own
+	 * greeting as something somebody had said to it.
+	 *
+	 * The canceller removes most of what the speakers play and most is not
+	 * enough: one leaked sentence is one whole turn, and the brain's own name
+	 * is in almost everything it says, so the wake word matches and it answers
+	 * itself.
+	 */
+	JustSaid(spoken)
+
+	/*
 	 * Every utterance gets a context that can be cancelled.
 	 *
 	 * That cancellation is the whole of being interruptible: the synthesiser
@@ -205,6 +221,10 @@ func Speak(ctx context.Context, text string) error {
 	if spoken == "" {
 		return nil
 	}
+
+	// Remembered here too: this makes sound, so the microphone will hear it.
+	// See SpeakAndWait.
+	JustSaid(spoken)
 
 	/*
 	 * Every utterance gets a context that can be cancelled.

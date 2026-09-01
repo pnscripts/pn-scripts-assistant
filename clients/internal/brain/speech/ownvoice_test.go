@@ -1,6 +1,10 @@
 package speech
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 /*
  * The loop that ran for three rounds in a minute.
@@ -132,5 +136,45 @@ func TestALiveRoomStopsListeningWhileItSpeaks(t *testing.T) {
 	if !RoomIsTooLive() {
 		t.Errorf("%d echoes did not count as a room where this cannot work",
 			EchoesBeforeGivingUp)
+	}
+}
+
+/*
+ * Whatever voice says it, the brain must recognise it coming back.
+ *
+ * Recording what was said lived inside the piper path alone. The robot voice
+ * goes through speech-dispatcher, so when the robot became the default the
+ * brain stopped recognising itself — and transcribed its own greeting as
+ * something somebody had said to it, wake word and all.
+ */
+func TestEverySpeechPathRemembersWhatItSaid(t *testing.T) {
+	source, err := os.ReadFile("speech.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := string(source)
+
+	// Both entry points make sound, so both must remember.
+	for _, fn := range []string{
+		"func SpeakAndWait(ctx context.Context, text string) error {",
+		"func Speak(ctx context.Context, text string) error {",
+	} {
+		at := strings.Index(s, fn)
+		if at < 0 {
+			t.Errorf("%s has moved; this test is out of date", fn)
+
+			continue
+		}
+
+		// Within the function, before it dispatches to any engine.
+		body := s[at:]
+		if end := strings.Index(body, "\nfunc "); end > 0 {
+			body = body[:end]
+		}
+
+		if !strings.Contains(body, "JustSaid(") {
+			t.Errorf("%s makes sound without remembering it", strings.TrimSuffix(fn, " {"))
+		}
 	}
 }

@@ -154,15 +154,8 @@ var players = []struct {
 
 // Speak synthesises and plays, returning when the sound has finished.
 func (p *Piper) Speak(ctx context.Context, text string) error {
-	/*
-	 * Remembered before it is played, so it can be recognised coming back.
-	 *
-	 * The canceller removes most of this from the microphone and most is not
-	 * enough: one leaked sentence is one whole turn, and the brain's own name
-	 * is in almost everything it says, so the wake word matches and it answers
-	 * itself. Then it hears that answer too.
-	 */
-	JustSaid(text)
+	// Recorded by the callers in speech.go, so that every engine does it and
+	// not only this one. See SpeakAndWait.
 
 	player := players[0]
 	found := false
