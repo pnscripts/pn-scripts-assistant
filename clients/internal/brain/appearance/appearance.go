@@ -79,8 +79,17 @@ func Default() Look {
 		ThinkingCore: "#f0b26b",
 		// Its own voice.
 		Speaking: "#7bffa8",
-		// Yours.
-		Listening: "#c98bff",
+		/*
+		 * Yours.
+		 *
+		 * Violet before, which was the odd one out: everything else on this
+		 * screen is in the blue family and the microphone being open is the
+		 * state somebody sees most, so the interface spent most of its life
+		 * looking like a different program. Blue, but brighter and cooler than
+		 * the resting blue below, because these two do have to be told apart —
+		 * waiting for you and listening to you are not the same thing.
+		 */
+		Listening: "#4db8ff",
 		// At rest.
 		Idle: "#3d8ce8",
 
@@ -89,9 +98,9 @@ func Default() Look {
 		 *
 		 * The question this palette answers is "what is it doing", and it can
 		 * only answer it if no two statuses are neighbouring shades. Hearing
-		 * sits next to listening in meaning, so it is deliberately far from it
-		 * in colour: violet for the microphone being open, cyan for the words
-		 * being worked out.
+		 * sits next to listening in meaning, so the two are kept apart by
+		 * temperature rather than by hue: a plain blue while the microphone is
+		 * open, cyan while the words are being worked out.
 		 */
 
 		// Working out the words.

@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"pn-brain/internal/brain/appearance"
@@ -45,6 +46,9 @@ type Server struct {
 	// What the microphone has recently made of the room, so that a turn which
 	// went nowhere can be looked at instead of guessed about.
 	heard heardLog
+
+	// greeted keeps the opening line to one per run. See handleGreeting.
+	greeted sync.Once
 
 	// present brings the window forward. Set by whatever owns the window, so
 	// that a second copy of the program can ask this one to show itself rather
@@ -863,8 +867,60 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 //
 // Composed rather than generated, so it is instant. Asking the model would cost
 // most of a minute before it said hello, which defeats the purpose.
+/*
+ * handleGreeting hands over the opening line, and says it.
+ *
+ * It was written to the screen and never spoken, which made the assistant's
+ * first act a demonstration that it does not talk. Everything after this is
+ * answered aloud, so the one message somebody is guaranteed to receive was the
+ * only silent one — and on a machine where the voice is genuinely broken that
+ * silence is indistinguishable from this.
+ *
+ * Once per run, not once per request: the page asks again on every reload and
+ * a second window asks for itself, neither of which is a new greeting.
+ */
+// greetingSettle is the pause before the opening line, so the voice and the
+// echo canceller are both up before anything is said into the room.
+const greetingSettle = 3 * time.Second
+
 func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
-	ok(w, s.brain.Greet())
+	greeting := s.brain.Greet()
+
+	s.greeted.Do(func() {
+		go func() {
+			/*
+			 * A moment first, for the audio to exist.
+			 *
+			 * This fires about a second after the window appears, which is
+			 * before the echo canceller has been wired up — speaking into that
+			 * gap is how the brain ends up hearing itself say hello and
+			 * answering it.
+			 */
+			time.Sleep(greetingSettle)
+
+			/*
+			 * Waiting only on its own voice, not on the microphone.
+			 *
+			 * The first version of this also gave up when speech.Recording()
+			 * was true, which is always: the microphone is open from the moment
+			 * the program starts and stays open, because that is what a thing
+			 * you can talk to does. So the greeting was skipped every single
+			 * time, silently, by a guard meant to be polite. Speaking over the
+			 * open microphone is the normal case and the echo canceller is
+			 * there precisely so it costs nothing — every other answer is
+			 * delivered exactly that way.
+			 */
+			for i := 0; i < 20 && speech.Speaking(); i++ {
+				time.Sleep(time.Second)
+			}
+
+			if err := speech.SpeakAndWait(context.Background(), greeting.Text); err != nil {
+				s.log.Warn("could not speak the greeting", "error", err)
+			}
+		}()
+	})
+
+	ok(w, greeting)
 }
 
 /*
