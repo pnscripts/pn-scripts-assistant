@@ -76,11 +76,49 @@ func (o *Ollama) Available(ctx context.Context) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
+/*
+ * quietThinking asks a reasoning model not to deliberate out loud.
+ *
+ * Only for the models that have such a mode. Sending the field to one that
+ * does not is rejected outright, so a blanket default would break every other
+ * model to help this one.
+ */
+func quietThinking(model string) *bool {
+	name := strings.ToLower(model)
+
+	for _, thinker := range []string{"qwen3", "deepseek-r1", "qwq"} {
+		if strings.Contains(name, thinker) {
+			no := false
+
+			return &no
+		}
+	}
+
+	return nil
+}
+
 type ollamaChatRequest struct {
 	Model    string          `json:"model"`
 	Messages []ollamaMessage `json:"messages"`
 	Stream   bool            `json:"stream"`
 	Tools    []ollamaTool    `json:"tools,omitempty"`
+
+	/*
+	 * Think turns off a reasoning model's deliberation.
+	 *
+	 * A pointer so it is sent only when it means something: models that have
+	 * no thinking mode reject the field, and defaulting it to false would send
+	 * it to every one of them.
+	 *
+	 * This is what makes qwen3 usable here at all. It asks for tools properly
+	 * — the thing this program most needs from a model, and the thing
+	 * qwen2.5-coder does worst, writing its calls out as prose to be recovered
+	 * — but it wraps its working in think tags and, on four cores with no
+	 * graphics card, did not finish a single question in twenty-five minutes.
+	 * The deliberation was the whole of the cost, and it can simply be
+	 * switched off.
+	 */
+	Think *bool `json:"think,omitempty"`
 
 	// Options carries generation settings, chiefly num_predict.
 	Options map[string]any `json:"options,omitempty"`
@@ -147,7 +185,10 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 		model = o.ChatModel
 	}
 
-	body := ollamaChatRequest{Model: model, Stream: true, KeepAlive: o.KeepAlive}
+	body := ollamaChatRequest{
+		Model: model, Stream: true, KeepAlive: o.KeepAlive,
+		Think: quietThinking(model),
+	}
 
 	if req.MaxTokens > 0 {
 		body.Options = map[string]any{"num_predict": req.MaxTokens}
@@ -266,7 +307,10 @@ func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
 		model = o.ChatModel
 	}
 
-	body := ollamaChatRequest{Model: model, Stream: false, KeepAlive: o.KeepAlive}
+	body := ollamaChatRequest{
+		Model: model, Stream: false, KeepAlive: o.KeepAlive,
+		Think: quietThinking(model),
+	}
 
 	if req.MaxTokens > 0 {
 		body.Options = map[string]any{"num_predict": req.MaxTokens}

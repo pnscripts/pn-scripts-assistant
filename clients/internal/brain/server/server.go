@@ -78,6 +78,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/conversations/latest", s.handleLatestConversation)
 	s.mux.HandleFunc("GET /api/conversations", s.handleConversations)
 	s.mux.HandleFunc("GET /api/conversations/{id}", s.handleConversation)
+	s.mux.HandleFunc("PATCH /api/conversations/{id}", s.handleRenameConversation)
+	s.mux.HandleFunc("DELETE /api/conversations/{id}", s.handleDeleteConversation)
 	s.mux.HandleFunc("GET /api/approvals", s.handleApprovals)
 	s.mux.HandleFunc("POST /api/approvals/{id}/{decision}", s.handleDecision)
 	s.mux.HandleFunc("GET /api/lessons", s.handleLessons)
@@ -387,6 +389,64 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"activity": items})
+}
+
+/*
+ * handleRenameConversation gives a thread the name somebody chose for it.
+ *
+ * Titles come from the opening message, which is a fair guess and often a poor
+ * name — a conversation that began "can you hear me" is not about that, and a
+ * list of twenty such is unsearchable.
+ */
+func (s *Server) handleRenameConversation(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "Which conversation?")
+
+		return
+	}
+
+	var body struct {
+		Title string `json:"title"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "What should it be called?")
+
+		return
+	}
+
+	if err := s.brain.DB.RenameConversation(id, body.Title); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"id": id, "title": strings.TrimSpace(body.Title)})
+}
+
+/*
+ * handleDeleteConversation removes a thread and everything said in it.
+ *
+ * What the brain learned from it stays. A lesson drawn from a conversation is
+ * knowledge in its own right by the time it exists, and losing it because the
+ * transcript was tidied away would make this a much larger act than it looks.
+ */
+func (s *Server) handleDeleteConversation(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "Which conversation?")
+
+		return
+	}
+
+	if err := s.brain.DB.DeleteConversation(id); err != nil {
+		fail(w, http.StatusNotFound, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"deleted": id})
 }
 
 func (s *Server) handleLatestConversation(w http.ResponseWriter, r *http.Request) {

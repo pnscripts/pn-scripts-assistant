@@ -3294,3 +3294,58 @@ select { font-size: 13.5px; }
 
 /* The tile has to be the anchor for the menu that opens above it. */
 .tile { position: relative; }
+
+/*
+ * Renaming and deleting a conversation, from the row it is on.
+ *
+ * The controls stay out of the way until the row is hovered: a list where
+ * every row carries a visible delete button reads as dangerous, and the thing
+ * somebody does with a conversation nearly every time is open it.
+ */
+.history-row {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    padding: 0;
+}
+
+.history-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-radius: 7px;
+}
+
+.history-open:hover { background: rgba(255, 255, 255, .04); }
+
+.history-act {
+    flex: none;
+    align-self: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .12s ease;
+}
+
+.history-row:hover .history-act,
+.history-act:focus-visible { opacity: 1; }
+
+.history-act:hover { border-color: var(--line); color: var(--text); }
+.history-delete:hover { border-color: var(--status-waiting, #ff6b6b); color: var(--status-waiting, #ff6b6b); }

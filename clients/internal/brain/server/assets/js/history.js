@@ -63,26 +63,103 @@ async function loadHistory() {
     rows.innerHTML = '';
 
     for (const c of list) {
-        const row = document.createElement('button');
+        /*
+         * A row, with the conversation as a button inside it rather than being
+         * one.
+         *
+         * Rename and delete are buttons too, and a button inside a button is
+         * not valid markup — the browser closes the outer one early, which
+         * puts the controls outside the row and the row's own click on
+         * whatever is left.
+         */
+        const row = document.createElement('div');
 
-        row.type = 'button';
         row.className = 'row history-row';
+
+        const openIt = document.createElement('button');
+
+        openIt.type = 'button';
+        openIt.className = 'history-open';
 
         const opening = document.createElement('span');
         opening.className = 'history-said';
-        opening.textContent = shorten(c.opening, 60);
+        opening.textContent = shorten(c.title || c.opening, 60);
 
         const meta = document.createElement('span');
         meta.className = 'history-when';
         meta.textContent = `${when(c.when)} · ${c.turns}`;
 
-        row.appendChild(opening);
-        row.appendChild(meta);
+        openIt.appendChild(opening);
+        openIt.appendChild(meta);
 
         // Opening one puts it back in the transcript to be read and carried on.
-        row.addEventListener('click', () => {
+        openIt.addEventListener('click', () => {
             if (window.brainOpenConversation) window.brainOpenConversation(c.id);
         });
+
+        row.appendChild(openIt);
+
+        /*
+         * Named by its first line until somebody names it.
+         *
+         * The opening message is a fair guess and often a poor name — a
+         * conversation that started "can you hear me" is not about that — and
+         * twenty of those are unsearchable.
+         */
+        const rename = document.createElement('button');
+
+        rename.type = 'button';
+        rename.className = 'history-act';
+        rename.title = 'Rename this conversation';
+        rename.textContent = '✎';
+
+        rename.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            const now = c.title || shorten(c.opening, 60);
+            const name = window.prompt('Call this conversation:', now);
+
+            if (name === null || name.trim() === '') return;
+
+            await fetch('/api/conversations/' + c.id, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: name.trim() }),
+            });
+
+            loadHistory();
+        });
+
+        const remove = document.createElement('button');
+
+        remove.type = 'button';
+        remove.className = 'history-act history-delete';
+        remove.title = 'Delete this conversation';
+        remove.textContent = '×';
+
+        remove.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            /*
+             * Asked before, because it cannot be undone.
+             *
+             * What the brain learned from the conversation stays — a lesson is
+             * knowledge in its own right by then — but the transcript does not
+             * come back, and the row is small and next to the one that opens
+             * it.
+             */
+            const name = c.title || shorten(c.opening, 40);
+
+            if (!window.confirm('Delete "' + name + '"? What it learned is kept; '
+                + 'the conversation itself cannot be brought back.')) return;
+
+            await fetch('/api/conversations/' + c.id, { method: 'DELETE' });
+
+            loadHistory();
+        });
+
+        row.appendChild(rename);
+        row.appendChild(remove);
 
         rows.appendChild(row);
     }

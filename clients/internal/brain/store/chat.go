@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -36,6 +37,61 @@ func (d *DB) NewConversation(title string) (int64, error) {
 	}
 
 	return res.LastInsertId()
+}
+
+/*
+ * RenameConversation gives a thread a name somebody chose.
+ *
+ * Titles are taken from the opening message, which is a reasonable guess and
+ * frequently a bad name: a conversation that began "can you hear me" is not
+ * about that, and a list of those is unsearchable by the time there are twenty.
+ */
+func (d *DB) RenameConversation(id int64, title string) error {
+	title = strings.TrimSpace(title)
+
+	if title == "" {
+		return fmt.Errorf("a conversation needs a name")
+	}
+
+	res, err := d.sql.Exec(
+		`UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?`,
+		truncate(title, 60), time.Now().UTC().Format(time.RFC3339), id,
+	)
+	if err != nil {
+		return fmt.Errorf("renaming conversation %d: %w", id, err)
+	}
+
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("there is no conversation %d", id)
+	}
+
+	return nil
+}
+
+/*
+ * DeleteConversation removes a thread and everything said in it.
+ *
+ * The messages go with it by cascade, which is the point: a conversation whose
+ * messages outlived it would leave the brain holding both sides of something
+ * somebody asked it to forget, findable by search and attached to nothing.
+ *
+ * What it learned is deliberately not touched. A lesson drawn from a
+ * conversation is knowledge in its own right by then — its origin column is
+ * set to null rather than deleted — and losing what it understood because the
+ * transcript was tidied away would make deleting a conversation a far larger
+ * act than it looks.
+ */
+func (d *DB) DeleteConversation(id int64) error {
+	res, err := d.sql.Exec(`DELETE FROM conversations WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("deleting conversation %d: %w", id, err)
+	}
+
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("there is no conversation %d", id)
+	}
+
+	return nil
 }
 
 // ConversationExists reports whether an id refers to a real thread. Used to
@@ -178,6 +234,11 @@ type Recent struct {
 	// Turns is how much was said, so a real exchange is distinguishable from
 	// a greeting that went nowhere.
 	Turns int `json:"turns"`
+
+	// Title is the name somebody gave this conversation, empty when nobody
+	// has. Shown in place of the opening line when it is there, because a
+	// name somebody chose beats a first sentence every time.
+	Title string `json:"title,omitempty"`
 }
 
 /*
@@ -196,6 +257,7 @@ func (d *DB) RecentConversations(limit int) ([]Recent, error) {
 		SELECT c.id,
 		       MAX(m.created_at) AS last_at,
 		       COUNT(m.id)       AS turns,
+		       COALESCE(c.title, '') AS title,
 		       (SELECT content FROM messages
 		         WHERE conversation_id = c.id AND role = 'user'
 		         ORDER BY id LIMIT 1) AS opening
@@ -219,7 +281,7 @@ func (d *DB) RecentConversations(limit int) ([]Recent, error) {
 			lastAt string
 		)
 
-		if err := rows.Scan(&r.ID, &lastAt, &r.Turns, &r.Opening); err != nil {
+		if err := rows.Scan(&r.ID, &lastAt, &r.Turns, &r.Title, &r.Opening); err != nil {
 			return nil, err
 		}
 

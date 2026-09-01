@@ -401,18 +401,24 @@ var ReasonCandidates = []string{
  * unable to act at all. deepseek-r1 is worse: it accepts the schema and then
  * never reaches for it, and nothing anywhere reports an error.
  *
- * qwen3 asks properly and was tried as the default for exactly that reason. In
- * a real turn, with tools and a conversation behind it, it did not finish a
- * single question in twenty-five minutes — it wraps its working in <think>
- * tags and thinks at length, and on a processor that is the whole of the cost.
- * qwen2.5-coder answered the same question in eight and a half.
+ * qwen3 asks properly and leads for that reason. It was rejected once, and the
+ * measurement behind that was real: with tools and a conversation behind it, it
+ * did not finish a single question in twenty-five minutes, because it wraps its
+ * working in <think> tags and on a processor the deliberation is the whole of
+ * the cost.
  *
- * So the quicker one leads. It writes its calls out as prose rather than
- * asking properly, which used to lose them; that is handled now, including
- * when a model puts its deliberation in front.
+ * The deliberation can simply be switched off. Asked not to think, on the same
+ * four cores with no graphics card, it answered a tool question in 44 seconds
+ * with a proper tool_calls field. qwen2.5-coder took 38 on the same prompt and
+ * wrote the call out as prose to be recovered by reading its reply — six
+ * seconds cheaper for an answer in the wrong shape, on the one thing this list
+ * exists to rank.
+ *
+ * See quietThinking in ollama.go, which is what makes the ordering here
+ * possible at all.
  */
 var WorkCandidates = []string{
-	"qwen2.5-coder:7b", "qwen2.5-coder", "qwen3", "llama3.1:8b",
+	"qwen3:8b", "qwen3", "qwen2.5-coder:7b", "qwen2.5-coder", "llama3.1:8b",
 }
 
 /*
