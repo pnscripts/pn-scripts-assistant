@@ -206,7 +206,7 @@ func (b *Brain) handleLearnInstruction(ctx context.Context, message string) (str
 	 * so their sum is what has actually been dealt with.
 	 */
 	report, err := b.Learner.Ingest(ctx, observations, func(done learning.IngestReport) {
-		progress.Set("learning", fmt.Sprintf("Learning from %s — %d of %d",
+		progress.Progressing("learning", fmt.Sprintf("Learning from %s — %d of %d",
 			filepath.Base(target.Path),
 			done.Recorded+done.Rejected, len(observations)))
 	})

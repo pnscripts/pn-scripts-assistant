@@ -170,14 +170,14 @@
 
         <div class="nav-gap"></div>
 
-        <section class="panel">
-            <h2>Held</h2>
-            <div class="kv">
-                <div class="k">Facts</div><div class="v" id="stat-facts">—</div>
-                <div class="k">Conversations</div><div class="v" id="stat-convos">—</div>
-                <div class="k">Awaiting review</div><div class="v" id="stat-pending">—</div>
-            </div>
-        </section>
+        <!--
+            Held is gone: it printed Facts, Conversations and Awaiting review,
+            which are the same three numbers What it knows already shows a few
+            inches away, under the same names and from the same fields. Two
+            readouts of one thing are not twice the information — they are a
+            thing to check against itself, and the first time they disagree
+            both become untrustworthy.
+        -->
 
         <section class="panel voice-card">
             <h2>Voice</h2>
@@ -364,11 +364,28 @@
 
                 <div class="card" style="grid-area: commands">
                     <h2>What it knows</h2>
+                    <!--
+                        Outside the grid below, not inside it.
+
+                        .insight is two columns — bars, then figures — so a
+                        third child took the first cell and pushed the bars into
+                        the second column and the figures onto a row of their
+                        own. The note belongs to the whole panel anyway, which
+                        is where it now sits.
+
+                        It is here because the bars say where memories came from
+                        while the figures count different things entirely, and
+                        both used the word "conversation" two inches apart: four
+                        memories learned from conversations beside two
+                        conversation threads, the same word meaning neither the
+                        same thing nor the same number.
+                    -->
+                    <p class="insight-note">What it remembers, by where it learned it</p>
                     <div class="insight">
                         <div class="bars" id="category-breakdown"></div>
                         <div class="insight-figures">
                             <div><span class="figure" id="fig-facts">—</span><span class="figure-label">memories</span></div>
-                            <div><span class="figure" id="fig-convos">—</span><span class="figure-label">conversations</span></div>
+                            <div><span class="figure" id="fig-convos">—</span><span class="figure-label">threads</span></div>
                             <div><span class="figure" id="fig-pending">—</span><span class="figure-label">awaiting review</span></div>
                         </div>
                     </div>

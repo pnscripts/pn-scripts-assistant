@@ -2,6 +2,7 @@ package progress
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -183,4 +184,52 @@ func TestAStepCanBeQuietenedAfterTheFact(t *testing.T) {
 		t.Error("the step disappeared instead of being demoted; it still belongs " +
 			"in the record of what the microphone made of the room")
 	}
+}
+
+/*
+ * A job reporting its progress is one step, not thousands.
+ *
+ * Set writes a history entry every time it is called, so a scan of two
+ * thousand three hundred documents put that many rows in the feed — each one
+ * the same sentence with a different number, and everything else the brain had
+ * done pushed off the screen by it.
+ */
+func TestProgressRevisesOneStepRatherThanAddingMany(t *testing.T) {
+	Begin()
+	Set("thinking", "Thinking")
+
+	before := len(Recent())
+
+	for i := 1; i <= 50; i++ {
+		Progressing("learning", "Learning from DEV — "+itoa(i)+" of 2386")
+	}
+
+	after := Recent()
+
+	// One row for the whole job, not fifty.
+	if len(after) != before+1 {
+		t.Errorf("fifty reports produced %d rows, want one", len(after)-before)
+	}
+
+	last := after[len(after)-1]
+
+	if last.Kind != "learning" {
+		t.Fatalf("the last step is %q", last.Kind)
+	}
+
+	if last.Note != "Learning from DEV — 50 of 2386" {
+		t.Errorf("the row does not show the latest count: %q", last.Note)
+	}
+
+	// And a different kind still starts its own step, or the feed would show
+	// one thing for ever.
+	Progressing("speaking", "Speaking")
+
+	if got := Recent(); len(got) != before+2 {
+		t.Errorf("a new kind did not start a new step: %d rows", len(got)-before)
+	}
+}
+
+func itoa(n int) string {
+	return strconv.Itoa(n)
 }

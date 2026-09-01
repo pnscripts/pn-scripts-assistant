@@ -499,9 +499,9 @@
             tone: !p.permitted ? 'off' : p.reachable ? 'ok' : 'warn',
         })));
 
-        text('stat-facts', memory.facts ?? '—');
-        text('stat-convos', memory.conversations ?? '—');
-        text('stat-pending', memory.pending_lessons ?? '—');
+        // One place each. The three stat-* readouts were the same numbers
+        // again in a panel that has gone; writing to elements that no longer
+        // exist is how a removed panel comes back looking half-alive.
         text('fig-facts', memory.facts ?? '—');
         text('fig-convos', memory.conversations ?? '—');
         text('fig-pending', memory.pending_lessons ?? '—');

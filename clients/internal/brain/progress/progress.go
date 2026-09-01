@@ -167,6 +167,37 @@ func Set(kind, note string) {
 	remember(kind, note, "", model, false)
 }
 
+/*
+ * Progressing revises the step that is running instead of starting a new one.
+ *
+ * A long job reports where it has got to, and Set writes a history entry every
+ * time it is called — so a scan of two thousand three hundred documents put
+ * two thousand three hundred rows in the feed, each one a line saying the same
+ * thing with a different number. The panel that shows what the brain is doing
+ * became a wall of one job repeating itself, and everything else on it was
+ * pushed off the screen.
+ *
+ * The running step is one thing that is happening, whatever it says about
+ * itself while it happens. Its note changes; it does not become a new step.
+ */
+func Progressing(kind, note string) {
+	current.mu.Lock()
+
+	if !current.busy {
+		current.busy = true
+		current.started = time.Now()
+	}
+
+	current.kind = kind
+	current.note = note
+	current.tool = ""
+	current.background = false
+
+	current.mu.Unlock()
+
+	reword(kind, note)
+}
+
 // SetTool reports a named tool starting, so that what is listening for it can
 // match on the name rather than guessing from the summary.
 func SetTool(name, note string) {

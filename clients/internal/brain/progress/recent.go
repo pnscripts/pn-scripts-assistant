@@ -241,6 +241,38 @@ func Mark() int64 {
  * microphone made of the room, which is the answer to "I said its name and
  * nothing happened".
  */
+/*
+ * reword changes what the last entry says, when it is the same step still
+ * running.
+ *
+ * Appending would be wrong: a job reporting its progress is one step, and a
+ * row per report buries every other thing the brain did — two thousand three
+ * hundred documents produced two thousand three hundred rows saying the same
+ * sentence with a different number.
+ *
+ * Only the last entry, and only when the kind matches. Anything else has moved
+ * on, and rewriting a finished step would be rewriting history rather than
+ * reporting the present.
+ */
+func reword(kind, note string) {
+	fresh := true
+
+	history.mu.Lock()
+
+	if n := len(history.entries); n > 0 && history.entries[n-1].Kind == kind {
+		history.entries[n-1].Note = note
+		fresh = false
+	}
+
+	history.mu.Unlock()
+
+	// A different step, or the first one: that is a new entry, and remember
+	// takes the lock itself.
+	if fresh {
+		remember(kind, note, "", "", false)
+	}
+}
+
 func QuietenOn(mark int64) {
 	if mark == 0 {
 		return

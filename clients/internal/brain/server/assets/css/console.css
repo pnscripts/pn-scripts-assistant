@@ -3392,3 +3392,10 @@ select { font-size: 13.5px; }
 @media (prefers-reduced-motion: reduce) {
     .working-on-dot { animation: none; }
 }
+
+/* Says what the bars beneath it are counting, which was being guessed at. */
+.insight-note {
+    margin: 0 0 8px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+}
