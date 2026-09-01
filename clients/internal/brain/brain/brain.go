@@ -204,7 +204,17 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.ListDrives{Root: b.Root},
 
 		// The thing this program is for, which only the command line could reach.
-		tools.LearnFolder{Learn: b.Learner, Owner: b.Cfg.Owner},
+		tools.LearnFolder{
+			// Asked at call time: the learner does not exist yet.
+			Learn: func() tools.Ingests {
+				if b.Learner == nil {
+					return nil
+				}
+
+				return b.Learner
+			},
+			Owner: b.Cfg.Owner,
+		},
 		tools.Remind{Diary: diaryOf{b}},
 		tools.ListReminders{Diary: diaryOf{b}},
 		tools.ForgetReminder{Diary: diaryOf{b}},

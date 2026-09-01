@@ -35,7 +35,7 @@ func TestLearningAFolderActuallyStoresWhatItFinds(t *testing.T) {
 	dir := t.TempDir()
 	learner := &rememberedWhat{}
 
-	out, err := LearnFolder{Learn: learner, Owner: "Petar"}.
+	out, err := LearnFolder{Learn: func() Ingests { return learner }, Owner: "Petar"}.
 		Execute(context.Background(), json.RawMessage(`{"path":`+quote(dir)+`}`))
 	if err != nil {
 		t.Fatalf("learning an empty folder should report, not fail: %v", err)
@@ -50,7 +50,7 @@ func TestLearningAFolderActuallyStoresWhatItFinds(t *testing.T) {
 // scan of nothing — the failure that made "/absolute/path/to/your/projects"
 // look like a real answer.
 func TestLearningRefusesWhatItCannotRead(t *testing.T) {
-	_, err := LearnFolder{Learn: &rememberedWhat{}}.
+	_, err := LearnFolder{Learn: func() Ingests { return &rememberedWhat{} }}.
 		Execute(context.Background(), json.RawMessage(`{"path":"/no/such/place/here"}`))
 
 	if err == nil {
@@ -71,7 +71,7 @@ func TestLearningRefusesAFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := LearnFolder{Learn: &rememberedWhat{}}.
+	_, err := LearnFolder{Learn: func() Ingests { return &rememberedWhat{} }}.
 		Execute(context.Background(), json.RawMessage(`{"path":`+quote(file)+`}`))
 
 	if err == nil || !strings.Contains(err.Error(), "not a folder") {
@@ -81,4 +81,35 @@ func TestLearningRefusesAFile(t *testing.T) {
 
 func writeFileForTest(path string) error {
 	return os.WriteFile(path, []byte("x"), 0o600)
+}
+
+/*
+ * A nil learner stored in an interface is not a nil interface.
+ *
+ * The tool was built with the brain's learner forty lines before the learner
+ * was created, so it held a nil *Worker wrapped in a non-nil interface. It
+ * passed its own nil check, ran, was timed, was reported as having run — and
+ * stored none of the sixty-two projects it had just found. Nothing anywhere
+ * said so; the only symptom was that the memory count did not move.
+ */
+func TestLearningSaysSoWhenThereIsNothingToLearnWith(t *testing.T) {
+	dir := t.TempDir()
+
+	// The shape the bug had: a getter that resolves to nothing.
+	_, err := LearnFolder{Learn: func() Ingests { return nil }}.
+		Execute(context.Background(), json.RawMessage(`{"path":`+quote(dir)+`}`))
+
+	if err == nil {
+		t.Fatal("a missing learner was reported as a successful scan")
+	}
+
+	if !strings.Contains(err.Error(), "learns is not running") {
+		t.Errorf("the error does not say what is wrong: %v", err)
+	}
+
+	// And no getter at all is the same answer, not a panic.
+	if _, err := (LearnFolder{}).
+		Execute(context.Background(), json.RawMessage(`{"path":`+quote(dir)+`}`)); err == nil {
+		t.Error("a tool with no learner at all reported success")
+	}
 }

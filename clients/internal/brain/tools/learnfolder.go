@@ -24,8 +24,17 @@ import (
  * only use by finding a terminal is one this program says it does not have.
  */
 type LearnFolder struct {
-	// Learn stores observations. The brain's own learner.
-	Learn Ingests
+	/*
+	 * Learn is asked for the learner when the tool runs, not when it is built.
+	 *
+	 * A field would be filled from a brain that has not finished assembling
+	 * itself — the tools are registered forty lines before the learner is
+	 * created — and a nil *Worker stored in an interface is not a nil
+	 * interface. The tool would then hold something that reads as present,
+	 * pass its own nil check, and do nothing: called, timed, reported as
+	 * having run, and storing not one of the sixty-two things it found.
+	 */
+	Learn func() Ingests
 
 	// Owner is whose work this is, which is what the observations are about.
 	Owner string
@@ -111,6 +120,11 @@ func (t LearnFolder) Execute(ctx context.Context, args json.RawMessage) (string,
 		return "", fmt.Errorf("there is nothing here that can learn")
 	}
 
+	learner := t.Learn()
+	if learner == nil {
+		return "", fmt.Errorf("the part of the brain that learns is not running")
+	}
+
 	var observations learning.Observations
 
 	if a.Kind == "documents" {
@@ -133,7 +147,7 @@ func (t LearnFolder) Execute(ctx context.Context, args json.RawMessage) (string,
 		return "Nothing in " + path + " to learn — no projects or documents were found there.", nil
 	}
 
-	report, err := t.Learn.Ingest(ctx, observations, nil)
+	report, err := learner.Ingest(ctx, observations, nil)
 	if err != nil {
 		return "", fmt.Errorf("learning %s: %w", path, err)
 	}
