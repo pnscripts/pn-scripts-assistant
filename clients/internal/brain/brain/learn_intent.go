@@ -176,9 +176,39 @@ func (b *Brain) handleLearnInstruction(ctx context.Context, message string) (str
 		return fmt.Sprintf("I read %s and found nothing worth recording.", target.Path), true
 	}
 
+	/*
+	 * Said before it starts, when it is going to take a while.
+	 *
+	 * Every observation is embedded on this processor — measured at roughly
+	 * two seconds each — so a working folder full of documentation is an hour
+	 * of work. Somebody who asked for it should have it, and should be told
+	 * what they asked for rather than discovering it by watching a number that
+	 * does not move. Announced rather than refused: they named the folder and
+	 * said every document in it.
+	 */
+	if len(observations) > learning.ManyToLearn {
+		progress.Set("learning", fmt.Sprintf(
+			"Learning from %s — %d things, about %d minutes",
+			filepath.Base(target.Path), len(observations),
+			(len(observations)*learning.SecondsEachHere)/60))
+	}
+
+	/*
+	 * How far along, not how much there is.
+	 *
+	 * Seen is set to the total before the first observation is touched, so
+	 * "%d of %d" against it read "2386 of 2386" from the opening moment and
+	 * never moved again — a progress line that shows completion at the start
+	 * and then sits there for an hour is indistinguishable from a hang, which
+	 * is the one thing it exists to rule out.
+	 *
+	 * Recorded and Rejected are the two ways an observation is finished with,
+	 * so their sum is what has actually been dealt with.
+	 */
 	report, err := b.Learner.Ingest(ctx, observations, func(done learning.IngestReport) {
 		progress.Set("learning", fmt.Sprintf("Learning from %s — %d of %d",
-			filepath.Base(target.Path), done.Seen, len(observations)))
+			filepath.Base(target.Path),
+			done.Recorded+done.Rejected, len(observations)))
 	})
 	if err != nil {
 		return fmt.Sprintf("I read %s but could not finish learning from it: %v", target.Path, err), true

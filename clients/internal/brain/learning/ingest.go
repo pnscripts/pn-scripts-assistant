@@ -199,3 +199,18 @@ func splitForExtraction(text string) []string {
 
 	return chunks
 }
+
+/*
+ * ManyToLearn is where a folder stops being a quick job.
+ *
+ * Every observation is embedded on the processor, so the cost is linear and
+ * entirely in the waiting. Below this a scan finishes while somebody is still
+ * looking at the screen; above it they should be told how long before it
+ * starts rather than finding out by watching.
+ */
+const ManyToLearn = 200
+
+// SecondsEachHere is what one observation costs to embed on a machine with no
+// graphics card, measured rather than assumed: sixty-two projects took a little
+// over two minutes.
+const SecondsEachHere = 2
