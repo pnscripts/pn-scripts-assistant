@@ -201,15 +201,33 @@ func installPiper(w io.Writer) error {
 		return err
 	}
 
-	// A voice, without which the program is installed and silent.
+	/*
+	 * A voice of each kind, without which the program is installed and silent.
+	 *
+	 * Two, because the choice offered is a robot, a woman or a man, and one
+	 * downloaded voice makes two of those three do nothing. The robot needs no
+	 * download — it is the system engine — so what has to arrive here is one
+	 * woman and one man. Both British, to match each other rather than to have
+	 * the assistant change accent when somebody changes its sex.
+	 *
+	 * About 60MB the pair. Left out for a long time on the grounds that one
+	 * voice is enough to prove speech works, which is true and is not what the
+	 * setting in front of somebody promises.
+	 */
 	voices := filepath.Join(into, "voices")
 
-	const voiceBase = "https://huggingface.co/rhasspy/piper-voices/resolve/main/" +
-		"en/en_GB/alba/medium/en_GB-alba-medium"
+	const voiceBase = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/"
 
-	for _, part := range []string{".onnx", ".onnx.json"} {
-		if err := download(voiceBase+part, filepath.Join(voices, "en_GB-alba-medium"+part), w); err != nil {
-			return err
+	for _, voice := range []struct{ name, path string }{
+		{"en_GB-alba-medium", "alba/medium/en_GB-alba-medium"},
+		{"en_GB-northern_english_male-medium",
+			"northern_english_male/medium/en_GB-northern_english_male-medium"},
+	} {
+		for _, part := range []string{".onnx", ".onnx.json"} {
+			if err := download(voiceBase+voice.path+part,
+				filepath.Join(voices, voice.name+part), w); err != nil {
+				return err
+			}
 		}
 	}
 

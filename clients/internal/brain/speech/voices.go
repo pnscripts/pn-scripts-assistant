@@ -98,6 +98,9 @@ func SetVoice(id string) {
 }
 
 // CurrentVoice reports which voice is in use.
+// RobotVoice is the system speech engine, offered as the robot.
+const RobotVoice = "system"
+
 func CurrentVoice() Voice {
 	available := Voices()
 
@@ -111,6 +114,21 @@ func CurrentVoice() Voice {
 
 	for _, v := range available {
 		if v.ID == want {
+			return v
+		}
+	}
+
+	/*
+	 * The robot, unless somebody has chosen otherwise.
+	 *
+	 * Falling through to the first voice in the list meant the default was
+	 * whichever neural voice sorted first by name — alba, a woman, picked by
+	 * the alphabet rather than by anybody. A machine voice is the honest
+	 * default for a machine: it never pretends to be a person nobody chose,
+	 * and the two human voices are one press away.
+	 */
+	for _, v := range available {
+		if v.ID == RobotVoice {
 			return v
 		}
 	}
@@ -142,10 +160,20 @@ func Voices() []Voice {
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 
+	/*
+	 * The system voice is a kind of voice, not the absence of one.
+	 *
+	 * espeak-ng is formant synthesis and sounds like a machine from 1985,
+	 * which was treated here as a shortcoming to fall back to. It is also
+	 * exactly what somebody means by "a robot voice", and for an assistant
+	 * that is a choice rather than a consolation — so it is named for what it
+	 * is and offered alongside the others.
+	 */
 	if e := fallbackEngine(); e != nil {
 		out = append(out, Voice{
-			ID:     "system",
-			Name:   "System voice (" + e.Name + ")",
+			ID:     RobotVoice,
+			Sex:    "robot",
+			Name:   "A robot (" + e.Name + ")",
 			Engine: e.Name,
 		})
 	}

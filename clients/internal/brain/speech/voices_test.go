@@ -90,3 +90,45 @@ func TestVoicesAreFoundThroughASymlink(t *testing.T) {
 		t.Errorf("the voice beside the real binary was not found through the link; looked at %v", found)
 	}
 }
+
+/*
+ * A machine voice is the honest default for a machine.
+ *
+ * CurrentVoice used to fall through to the first entry in the list, which is
+ * sorted by name — so the default was whichever neural voice happened to sort
+ * first, chosen by the alphabet rather than by anybody. It also meant the
+ * assistant introduced itself in a human voice nobody had picked.
+ */
+func TestTheRobotIsTheDefaultVoice(t *testing.T) {
+	SetVoice("")
+
+	available := Voices()
+
+	var hasRobot bool
+
+	for _, v := range available {
+		if v.ID == RobotVoice {
+			hasRobot = true
+		}
+	}
+
+	if !hasRobot {
+		t.Skip("no system speech engine on this machine")
+	}
+
+	if got := CurrentVoice(); got.ID != RobotVoice {
+		t.Errorf("the default voice is %q, want the robot", got.ID)
+	}
+}
+
+// And it is offered as a kind somebody can ask for by name, not only as what
+// is left when nothing else is installed.
+func TestTheRobotCanBeAskedForByKind(t *testing.T) {
+	if PickVoice("robot", "") == "" {
+		t.Skip("no system speech engine on this machine")
+	}
+
+	if got := PickVoice("robot", ""); got != RobotVoice {
+		t.Errorf("asking for a robot gave %q", got)
+	}
+}

@@ -943,8 +943,8 @@ func (s *Server) handleVoiceSex(w http.ResponseWriter, r *http.Request) {
 
 	sex := strings.ToLower(strings.TrimSpace(body.Sex))
 
-	if sex != "woman" && sex != "man" {
-		fail(w, http.StatusBadRequest, "Ask for a woman's voice or a man's.")
+	if sex != "woman" && sex != "man" && sex != "robot" {
+		fail(w, http.StatusBadRequest, "Ask for a robot voice, a woman's or a man's.")
 
 		return
 	}
