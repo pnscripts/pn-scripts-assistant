@@ -560,6 +560,49 @@ export function startMemoryMap() {
 
     window.brainMapReload = load;
 
+    /*
+     * Reloaded whenever the brain knows a different number of things.
+     *
+     * The map was drawn once at startup and again only when somebody pressed
+     * Remember on a lesson — so memories arriving any other way never appeared.
+     * Learning a folder put fifty-nine projects in the brain and the map went
+     * on showing the two conversations it had held when the page opened: a
+     * picture of the memory that was wrong by an order of magnitude, in the
+     * panel whose only job is to show what it knows.
+     *
+     * The count rather than a timer, because rebuilding a graph of sixty nodes
+     * restarts the layout, and doing that on a schedule would keep an
+     * untouched map permanently unsettled.
+     */
+    let knownCount = -1;
+
+    async function reloadIfChanged() {
+        if (document.hidden) return;
+
+        try {
+            const body = await fetch('/api/status', { headers: { Accept: 'application/json' } })
+                .then((r) => r.json());
+
+            const status = body && body.data !== undefined ? body.data : body;
+            const count = (status.memory && status.memory.facts) || 0;
+
+            if (count === knownCount) return;
+
+            const first = knownCount < 0;
+
+            knownCount = count;
+
+            // Not on the first reading: load() below is about to run anyway,
+            // and two builds racing each other is one wasted layout.
+            if (!first) load();
+        } catch {
+            // A failed poll means try again shortly, not stop watching.
+        }
+    }
+
+    setInterval(reloadIfChanged, 4000);
+    reloadIfChanged();
+
     load();
     requestAnimationFrame(frame);
 }
