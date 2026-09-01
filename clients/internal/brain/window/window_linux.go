@@ -81,7 +81,26 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
     }
 
     if (present) {
-        gtk_window_present(GTK_WINDOW(data));
+        // Deiconify first, then present.
+        //
+        // gtk_window_present alone does not reliably restore a window that has
+        // been minimised: the second copy reported "brought it to the front",
+        // exited, and the window stayed exactly where it was. Somebody who
+        // minimised PN Brain and then pressed its icon got nothing at all, and
+        // no way to find out why, because the only explanation went to a
+        // terminal they had not opened. That is indistinguishable from the
+        // program being broken, and it is what "it will not open" means.
+        //
+        // show before deiconify because a window that was never mapped cannot
+        // be deiconified, and present_with_time carries a timestamp so the
+        // window manager treats this as a user action rather than an
+        // application stealing focus, which GNOME otherwise answers by only
+        // flashing the launcher.
+        GtkWindow *win = GTK_WINDOW(data);
+
+        gtk_widget_show_all(GTK_WIDGET(win));
+        gtk_window_deiconify(win);
+        gtk_window_present_with_time(win, (guint32)(g_get_real_time() / 1000));
     }
 
     if (url != NULL && pnbrain_view != NULL) {
@@ -95,7 +114,39 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
 
 // Runs once, after the main loop has mapped the window.
 static gboolean pnbrain_maximise_once(gpointer data) {
-    gtk_window_maximize(GTK_WINDOW(data));
+    GtkWindow *win = GTK_WINDOW(data);
+
+    gtk_window_maximize(win);
+
+    return G_SOURCE_REMOVE;
+}
+
+// Make sure the window is actually on the screen, after the desktop has had
+// its turn.
+//
+// Line comments, not a block: this is inside the cgo preamble, which is itself
+// one big block comment, so a nested block comment ends the preamble at its
+// terminator rather than ending the comment. The file has been broken that way
+// before — including by a comment written to warn about it, which contained
+// the terminator as an example.
+//
+// GNOME remembers how an application's window was last left and applies that
+// after the window is mapped — later than any idle callback, which is why
+// deiconifying from one changed nothing. Once PN Brain had been minimised,
+// every launch after that opened minimised: the process started, served its
+// interface, answered on its port, and put nothing on the screen. From the
+// outside that is a program that does not open, and there is no way to tell it
+// apart from one that is broken. Starting it again reproduces it exactly,
+// because the remembered state is the thing being restored.
+//
+// Once, and only at startup. A window somebody minimises a minute later is a
+// window they wanted minimised, and a program that refuses to stay out of the
+// way is worse than one that opens small.
+static gboolean pnbrain_show_once(gpointer data) {
+    GtkWindow *win = GTK_WINDOW(data);
+
+    gtk_window_deiconify(win);
+    gtk_window_present(win);
 
     return G_SOURCE_REMOVE;
 }
@@ -165,6 +216,11 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     // the title bar and the way out with it, which is more than double-clicking
     // an icon asks for.
     g_idle_add(pnbrain_maximise_once, window);
+
+    // Late enough that the desktop has finished restoring its remembered
+    // state, which is what would otherwise leave a new window minimised.
+    g_timeout_add(600, pnbrain_show_once, window);
+
     gtk_main();
 }
 */
