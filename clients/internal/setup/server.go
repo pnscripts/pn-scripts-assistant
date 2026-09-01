@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"pn-brain/internal/brain/desktop"
 	"pn-brain/internal/preflight"
 	"pn-brain/internal/starter"
 )
@@ -391,6 +392,17 @@ func (s *Server) state() map[string]any {
 		// Where the models land, which is not the folder chosen above — see
 		// the overview on the last step.
 		"model_dir": preflight.ModelDir(),
+
+		/*
+		 * And whether there is any way to start this again afterwards.
+		 *
+		 * Setup left the machine able to run PN Brain and gave nobody a way to
+		 * do it: no menu entry, so the only route back was the file it was
+		 * launched from, or a terminal. Reported here so the last step can
+		 * offer it like everything else rather than doing it silently.
+		 */
+		"menu_installed": desktop.Installed(),
+		"menu_path":      menuPath(),
 	}
 }
 
@@ -855,6 +867,12 @@ func (s *Server) applyAll(steps []string) {
 
 // readableStep names a step the way somebody would say it.
 func readableStep(name string) string {
+	// "Installing menu:" is an identifier escaping into the one place somebody
+	// is watching to understand what is happening to their machine.
+	if name == menuStep {
+		return "Adding to the applications menu"
+	}
+
 	if model, ok := strings.CutPrefix(name, modelPrefix); ok {
 		if model == "" {
 			return "Downloading the language model"
@@ -867,7 +885,30 @@ func readableStep(name string) string {
 }
 
 // runOne does a single step and reports whether it worked.
+// menuPath is where the menu entry goes, for the overview to name.
+func menuPath() string {
+	entry, _ := desktop.Where()
+
+	return entry
+}
+
+// menuStep is the plan entry that puts PN Brain in the applications menu.
+const menuStep = "menu:"
+
 func (s *Server) runOne(name string, w io.Writer) bool {
+	if name == menuStep {
+		entry, err := desktop.Install("PN Brain")
+		if err != nil {
+			fmt.Fprintf(w, "\nFailed: %v\n", err)
+
+			return false
+		}
+
+		fmt.Fprintf(w, "Added to the applications menu: %s\n", entry)
+
+		return true
+	}
+
 	if model, ok := strings.CutPrefix(name, modelPrefix); ok {
 		if model == "" {
 			model = preflight.RecommendModel(preflight.DetectHardware()).Model

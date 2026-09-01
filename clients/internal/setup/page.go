@@ -925,6 +925,18 @@ function plan(name, describe){
  * the brain was put on. Somebody who moved the brain to a big disk
  * specifically to hold them would otherwise find that out afterwards.
  */
+/*
+ * What a plan step is called when somebody reads it.
+ *
+ * "menu:" is an identifier the server understands and nobody else should have
+ * to.
+ */
+function planLabel(key, state){
+  if (key === "menu:") return "Add to the applications menu";
+
+  return planned.get(key) || key;
+}
+
 function renderOverview(state){
   const box = el("overview");
   box.textContent = "";
@@ -943,6 +955,13 @@ function renderOverview(state){
   const models = [...planned.entries()].filter(([k]) => k.startsWith("model:"));
 
   models.forEach(([, describe]) => rows.push([describe, state.model_dir || "ollama's own folder", false]));
+
+  // The menu entry, named with the file it writes — it is a change to the
+  // desktop, and this page names every change before making it.
+  if (!state.menu_installed){
+    rows.push(["Applications menu — will be added",
+      state.menu_path || "the applications folder", false]);
+  }
 
   const table = document.createElement("div");
   table.className = "overview";
@@ -1002,6 +1021,17 @@ function renderPlan(state){
     return rank(a) - rank(b);
   });
 
+  /*
+   * And a way to start it again afterwards.
+   *
+   * Setup left the machine able to run PN Brain and left nobody a way to do
+   * it: no entry in the applications menu, so the only route back was the file
+   * it happened to be launched from. Added last, because it is the step that
+   * makes sense only once the rest worked, and listed rather than done quietly
+   * — everything else on this page is agreed to before it happens.
+   */
+  if (!state.menu_installed) order.push("menu:");
+
   if (state.chosen_drive){
     const where = document.createElement("p");
     where.className = "sub";
@@ -1023,14 +1053,19 @@ function renderPlan(state){
 
   order.forEach(name => {
     const li = document.createElement("li");
-    li.textContent = planned.get(name);
+    li.textContent = planLabel(name, state);
     list.appendChild(li);
   });
 
   box.appendChild(list);
 
   const go = document.createElement("button");
-  go.textContent = "Install all of it";
+
+  // "Install all of it" over a list that installs nothing — a menu entry, say
+  // — describes the wrong action at the moment of agreeing to it.
+  const installs = order.some(n => n !== "menu:");
+
+  go.textContent = installs ? "Install all of it" : "Do it";
   go.disabled = busy;
   go.onclick = async () => {
     busy = true;
