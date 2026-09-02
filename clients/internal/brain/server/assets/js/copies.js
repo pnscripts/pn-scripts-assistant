@@ -219,7 +219,12 @@ function suggestions(drives) {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'copy-suggestion';
-        chip.textContent = `${d.mount_point} · ${(d.free_bytes / GB).toFixed(0)}GB free`;
+        // The home folder is named as such. "/home/petar" in a row of drives
+        // reads as a disk somebody has to recognise; "your home folder" is
+        // what it actually is.
+        chip.textContent = d.home
+            ? `your home folder · ${(d.free_bytes / GB).toFixed(0)}GB free`
+            : `${d.mount_point} · ${(d.free_bytes / GB).toFixed(0)}GB free`;
         chip.title = d.suggested;
 
         chip.onclick = () => {

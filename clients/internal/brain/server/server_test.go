@@ -1162,3 +1162,35 @@ func TestItSaysNothingUntilItHasBeenNamed(t *testing.T) {
 		t.Error("it had nothing to say after being named")
 	}
 }
+
+/*
+ * There has to be somewhere to put a copy.
+ *
+ * On the machine this was written for the list came back empty, which makes
+ * the feature look broken rather than unused: the brain lives on the external
+ * drive, so that is excluded as the drive it is already on, and the internal
+ * disk is mounted at / which an ordinary user cannot write to. Every drive was
+ * either the brain's own or unwritable — on a machine with 200GB free in the
+ * owner's own home folder, which is not a drive and so was in no list of them.
+ */
+func TestThereIsSomewhereToKeepACopy(t *testing.T) {
+	_, _, b := newServer(t)
+
+	places := placesForACopy(b.Root)
+
+	if len(places) == 0 {
+		t.Fatal("nowhere at all was offered as a place for a copy")
+	}
+
+	for _, p := range places {
+		where, _ := p["suggested"].(string)
+
+		if where == "" {
+			t.Errorf("a place was offered with no path: %v", p)
+		}
+
+		if where == b.Root {
+			t.Errorf("the brain's own folder was offered as a copy of itself")
+		}
+	}
+}

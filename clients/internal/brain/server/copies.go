@@ -3,7 +3,9 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"pn-brain/internal/brain/copies"
@@ -97,7 +99,67 @@ func placesForACopy(root string) []map[string]any {
 		})
 	}
 
-	return out
+	return append(out, homeAsAPlace(drives)...)
+}
+
+/*
+ * homeAsAPlace offers the home folder, which is not a drive and so appears in
+ * no list of them.
+ *
+ * On the machine this was written for, that list came back empty: the brain
+ * lives on the external drive, so that one is excluded as the drive it is
+ * already on, and the internal disk is mounted at / which an ordinary user
+ * cannot write to. Every drive was therefore either the brain's own or
+ * unwritable, and the panel offered nowhere at all — on a machine with 200GB
+ * free in the owner's own home folder.
+ *
+ * Left out when home is on the same disk as the brain. A copy there would
+ * survive a deleted folder and nothing else: not the disk failing, not the
+ * drive being lost, which are the things it is for.
+ */
+func homeAsAPlace(drives []storage.Drive) []map[string]any {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return nil
+	}
+
+	// Which drive home sits on, by longest matching mount point — every path
+	// starts with "/", so a plain prefix test matches the root filesystem for
+	// everything and would answer the same wherever home actually is.
+	var on storage.Drive
+
+	for _, d := range drives {
+		if strings.HasPrefix(home, d.MountPoint) && len(d.MountPoint) > len(on.MountPoint) {
+			on = d
+		}
+	}
+
+	if on.Current || !canWriteHome(home) {
+		return nil
+	}
+
+	return []map[string]any{{
+		"mount_point": home,
+		"suggested":   filepath.Join(home, "PN-BRAIN-COPY"),
+		"free_bytes":  on.FreeBytes,
+		"removable":   false,
+		"home":        true,
+	}}
+}
+
+// canWriteHome asks the only question that matters about a folder offered as a
+// destination, by trying it rather than reasoning about permissions.
+func canWriteHome(home string) bool {
+	f, err := os.CreateTemp(home, ".pn-brain-check-*")
+	if err != nil {
+		return false
+	}
+
+	name := f.Name()
+	f.Close()
+	os.Remove(name)
+
+	return true
 }
 
 func (s *Server) handleKeepCopy(w http.ResponseWriter, r *http.Request) {
