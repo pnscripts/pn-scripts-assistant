@@ -33,7 +33,7 @@ const UnfinishedNote = "That turn was cut short — PN Brain stopped before it c
  * assistant is simply one nobody has replied to yet.
  */
 func (d *DB) FinishAbandonedTurns() (int, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT c.id
 		FROM conversations c
 		JOIN messages m ON m.id = (
@@ -72,7 +72,7 @@ func (d *DB) FinishAbandonedTurns() (int, error) {
 		}
 
 		// The thread has changed, so it sorts by when it was actually touched.
-		if _, err := d.sql.Exec(`UPDATE conversations SET updated_at = ? WHERE id = ?`,
+		if _, err := d.sql().Exec(`UPDATE conversations SET updated_at = ? WHERE id = ?`,
 			time.Now().UTC().Format(time.RFC3339), id); err != nil {
 			return 0, err
 		}

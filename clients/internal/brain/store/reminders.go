@@ -19,7 +19,7 @@ type Reminder struct {
 func (d *DB) AddReminder(what string, at time.Time) (Reminder, error) {
 	now := time.Now().UTC()
 
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`INSERT INTO reminders (what, at, created_at) VALUES (?, ?, ?)`,
 		what, at.UTC().Format(time.RFC3339), now.Format(time.RFC3339))
 	if err != nil {
@@ -40,7 +40,7 @@ func (d *DB) Reminders(includeSaid bool, limit int) ([]Reminder, error) {
 
 	query += ` ORDER BY at LIMIT ?`
 
-	rows, err := d.sql.Query(query, limit)
+	rows, err := d.sql().Query(query, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (d *DB) Reminders(includeSaid bool, limit int) ([]Reminder, error) {
  * two still owes the reminder rather than having silently swallowed it.
  */
 func (d *DB) DueReminders(now time.Time) ([]Reminder, error) {
-	rows, err := d.sql.Query(
+	rows, err := d.sql().Query(
 		`SELECT id, what, at, said_at, created_at FROM reminders
 		 WHERE said_at IS NULL AND at <= ? ORDER BY at`,
 		now.UTC().Format(time.RFC3339))
@@ -73,7 +73,7 @@ func (d *DB) DueReminders(now time.Time) ([]Reminder, error) {
 
 // MarkReminderSaid records that somebody has been told.
 func (d *DB) MarkReminderSaid(id int64, when time.Time) error {
-	_, err := d.sql.Exec(`UPDATE reminders SET said_at = ? WHERE id = ?`,
+	_, err := d.sql().Exec(`UPDATE reminders SET said_at = ? WHERE id = ?`,
 		when.UTC().Format(time.RFC3339), id)
 
 	return err
@@ -81,7 +81,7 @@ func (d *DB) MarkReminderSaid(id int64, when time.Time) error {
 
 // ForgetReminder removes one.
 func (d *DB) ForgetReminder(id int64) error {
-	res, err := d.sql.Exec(`DELETE FROM reminders WHERE id = ?`, id)
+	res, err := d.sql().Exec(`DELETE FROM reminders WHERE id = ?`, id)
 	if err != nil {
 		return err
 	}

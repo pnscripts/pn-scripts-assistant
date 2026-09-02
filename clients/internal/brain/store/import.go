@@ -39,7 +39,7 @@ func (d *DB) ImportPostgresExport(dir string) (ImportReport, error) {
 	for _, t := range []string{"conversations", "messages", "lessons", "knowledge_facts", "tool_invocations"} {
 		var n int
 
-		if err := d.sql.QueryRow(`SELECT COUNT(*) FROM ` + t).Scan(&n); err != nil {
+		if err := d.sql().QueryRow(`SELECT COUNT(*) FROM ` + t).Scan(&n); err != nil {
 			return rep, fmt.Errorf("checking %s: %w", t, err)
 		}
 
@@ -48,7 +48,7 @@ func (d *DB) ImportPostgresExport(dir string) (ImportReport, error) {
 		}
 	}
 
-	tx, err := d.sql.Begin()
+	tx, err := d.sql().Begin()
 	if err != nil {
 		return rep, err
 	}

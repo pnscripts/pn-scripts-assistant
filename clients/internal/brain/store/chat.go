@@ -28,7 +28,7 @@ type Message struct {
 func (d *DB) NewConversation(title string) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`INSERT INTO conversations (title, created_at, updated_at) VALUES (?, ?, ?)`,
 		truncate(title, 60), now, now,
 	)
@@ -53,7 +53,7 @@ func (d *DB) RenameConversation(id int64, title string) error {
 		return fmt.Errorf("a conversation needs a name")
 	}
 
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?`,
 		truncate(title, 60), time.Now().UTC().Format(time.RFC3339), id,
 	)
@@ -82,7 +82,7 @@ func (d *DB) RenameConversation(id int64, title string) error {
  * act than it looks.
  */
 func (d *DB) DeleteConversation(id int64) error {
-	res, err := d.sql.Exec(`DELETE FROM conversations WHERE id = ?`, id)
+	res, err := d.sql().Exec(`DELETE FROM conversations WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("deleting conversation %d: %w", id, err)
 	}
@@ -99,7 +99,7 @@ func (d *DB) DeleteConversation(id int64) error {
 func (d *DB) ConversationExists(id int64) (bool, error) {
 	var n int
 
-	err := d.sql.QueryRow(`SELECT COUNT(*) FROM conversations WHERE id = ?`, id).Scan(&n)
+	err := d.sql().QueryRow(`SELECT COUNT(*) FROM conversations WHERE id = ?`, id).Scan(&n)
 
 	return n > 0, err
 }
@@ -108,7 +108,7 @@ func (d *DB) ConversationExists(id int64) (bool, error) {
 func (d *DB) AddMessage(conversationID int64, role, provider, model, content string) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`INSERT INTO messages (conversation_id, role, provider, model, content, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		conversationID, role, nullify(provider), nullify(model), content, now, now,
@@ -118,14 +118,14 @@ func (d *DB) AddMessage(conversationID int64, role, provider, model, content str
 	}
 
 	// Touch the conversation so "latest" means latest activity, not creation.
-	d.sql.Exec(`UPDATE conversations SET updated_at = ? WHERE id = ?`, now, conversationID)
+	d.sql().Exec(`UPDATE conversations SET updated_at = ? WHERE id = ?`, now, conversationID)
 
 	return res.LastInsertId()
 }
 
 // History returns every turn in order, oldest first.
 func (d *DB) History(conversationID int64) ([]Message, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT id, role, COALESCE(provider,''), COALESCE(model,''), content, created_at
 		FROM messages WHERE conversation_id = ? ORDER BY id`, conversationID)
 	if err != nil {
@@ -156,7 +156,7 @@ func (d *DB) LatestConversation() (*Conversation, error) {
 	var title sql.NullString
 	var created string
 
-	err := d.sql.QueryRow(`
+	err := d.sql().QueryRow(`
 		SELECT id, title, created_at FROM conversations
 		ORDER BY updated_at DESC, id DESC LIMIT 1`).Scan(&c.ID, &title, &created)
 
@@ -183,7 +183,7 @@ type Activity struct {
 
 // RecentActivity returns the newest few events across messages and learning.
 func (d *DB) RecentActivity(limit int) ([]Activity, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT created_at, 'message', role || ': ' || substr(content, 1, 80)
 		FROM messages WHERE role IN ('user','assistant')
 		UNION ALL
@@ -253,7 +253,7 @@ type Recent struct {
  * not a history of anything.
  */
 func (d *DB) RecentConversations(limit int) ([]Recent, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT c.id,
 		       MAX(m.created_at) AS last_at,
 		       COUNT(m.id)       AS turns,

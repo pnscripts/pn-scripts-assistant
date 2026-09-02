@@ -18,7 +18,7 @@ type ModelTest struct {
  * this machine now, and a history of that would be a table nobody reads.
  */
 func (d *DB) RecordModelTest(t ModelTest) error {
-	_, err := d.sql.Exec(
+	_, err := d.sql().Exec(
 		`INSERT INTO model_tests (name, seconds, tool_call, note, tested_at)
 		 VALUES (?, ?, ?, ?, ?)
 		 ON CONFLICT(name) DO UPDATE SET
@@ -34,7 +34,7 @@ func (d *DB) RecordModelTest(t ModelTest) error {
 
 // ModelTests returns every measurement, by model name.
 func (d *DB) ModelTests() (map[string]ModelTest, error) {
-	rows, err := d.sql.Query(
+	rows, err := d.sql().Query(
 		`SELECT name, seconds, tool_call, COALESCE(note, ''), tested_at FROM model_tests`)
 	if err != nil {
 		return nil, err

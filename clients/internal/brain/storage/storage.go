@@ -71,3 +71,14 @@ func Check(root, databasePath string) Report {
 
 	return r
 }
+
+// FreeOn is the usable space on the filesystem holding path.
+//
+// Exported for the places that want the one number rather than the whole
+// report — chiefly deciding whether a copy of the brain will fit on a drive
+// before starting to write one.
+func FreeOn(path string) (uint64, error) {
+	_, free, err := spaceOn(path)
+
+	return free, err
+}

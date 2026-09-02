@@ -207,6 +207,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// So "my external drive" can be looked up rather than asked about.
 		tools.ListDrives{Root: b.Root},
 
+		// And whether there is a copy of itself anywhere, which is the
+		// question somebody asks with their hand on the drive.
+		tools.Copies{Root: b.Root, Source: b.DB},
+
 		/*
 		 * What is in the memory, which recall cannot answer.
 		 *
@@ -570,6 +574,10 @@ func (b *Brain) Start(ctx context.Context) {
 	// nothing at the moment of choosing.
 	go b.keepModelsWarm(ctx)
 	go b.watchTheDrive(ctx)
+
+	// And the copies of itself on other drives, refreshed whenever one of them
+	// is plugged in and the brain has learned something since.
+	go b.keepCopies(ctx)
 
 	// A resident recogniser, started in the background because loading its
 	// model takes seconds and nothing should wait on it. Without one, every

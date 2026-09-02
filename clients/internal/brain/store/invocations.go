@@ -36,7 +36,7 @@ type Invocation struct {
 func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, risk string) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`INSERT INTO tool_invocations (tool, arguments, summary, risk, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		tool, arguments, summary, risk, InvocationPending, now, now,
@@ -50,7 +50,7 @@ func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, ri
 
 // PendingInvocations lists what is waiting for a decision.
 func (d *DB) PendingInvocations() ([]Invocation, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, created_at
 		FROM tool_invocations WHERE status = ? ORDER BY id`, InvocationPending)
 	if err != nil {
@@ -81,7 +81,7 @@ func (d *DB) Invocation(id int64) (*Invocation, error) {
 	var created string
 	var result sql.NullString
 
-	err := d.sql.QueryRow(`
+	err := d.sql().QueryRow(`
 		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, result, created_at
 		FROM tool_invocations WHERE id = ?`, id).
 		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &result, &created)
@@ -106,7 +106,7 @@ func (d *DB) Invocation(id int64) (*Invocation, error) {
 // decided again, so a replayed request cannot turn a denial into an approval.
 // It returns whether the transition actually happened.
 func (d *DB) DecideInvocation(id int64, status string) (bool, error) {
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`UPDATE tool_invocations SET status = ?, decided_at = ?, updated_at = ?
 		 WHERE id = ? AND status = ?`,
 		status, time.Now().UTC().Format(time.RFC3339),
@@ -123,7 +123,7 @@ func (d *DB) DecideInvocation(id int64, status string) (bool, error) {
 
 // CompleteInvocation records the outcome of an action that was carried out.
 func (d *DB) CompleteInvocation(id int64, status, result string) error {
-	_, err := d.sql.Exec(
+	_, err := d.sql().Exec(
 		`UPDATE tool_invocations SET status = ?, result = ?, updated_at = ? WHERE id = ?`,
 		status, result, time.Now().UTC().Format(time.RFC3339), id,
 	)

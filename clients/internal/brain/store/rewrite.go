@@ -42,7 +42,7 @@ func (d *DB) RewritePaths(rules []PathRewrite) ([]Rewritten, error) {
 	var out []Rewritten
 
 	for _, table := range []string{"knowledge_facts", "lessons"} {
-		rows, err := d.sql.Query(`SELECT id, content FROM ` + table)
+		rows, err := d.sql().Query(`SELECT id, content FROM ` + table)
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", table, err)
 		}
@@ -82,7 +82,7 @@ func (d *DB) RewritePaths(rules []PathRewrite) ([]Rewritten, error) {
 		now := time.Now().UTC().Format(time.RFC3339)
 
 		for _, r := range pending {
-			_, err := d.sql.Exec(
+			_, err := d.sql().Exec(
 				`UPDATE `+r.Table+` SET content = ?, updated_at = ? WHERE id = ?`,
 				r.New, now, r.ID,
 			)
@@ -103,7 +103,7 @@ func (d *DB) SetEmbedding(table string, id int64, v []float32) error {
 		return fmt.Errorf("refusing to write an embedding into %q", table)
 	}
 
-	_, err := d.sql.Exec(
+	_, err := d.sql().Exec(
 		`UPDATE `+table+` SET embedding = ?, dimensions = ? WHERE id = ?`,
 		EncodeVector(v), len(v), id,
 	)

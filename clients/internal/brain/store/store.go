@@ -15,18 +15,37 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	_ "modernc.org/sqlite"
 )
 
-// DB wraps the connection with the brain's own queries.
+/*
+ * DB wraps the connection with the brain's own queries.
+ *
+ * The pool is held behind a pointer that can be swapped rather than as a plain
+ * field, so the database can be pointed at the file that is there now without
+ * restarting the program. That is not a nicety: this brain lives on a drive
+ * that gets unplugged, and an open SQLite connection keeps writing to the
+ * inode it opened, not to the path. When the drive comes back the file at the
+ * path is a different object from the one the connection is holding, and
+ * carrying on means half the writes go to a file nobody will ever read again
+ * while the other half go to the real one. See Reopen.
+ */
 type DB struct {
-	sql *sql.DB
+	pool atomic.Pointer[sql.DB]
+
+	// Where it was opened from, so it can be opened again.
+	path string
 }
+
+// sql hands over the pool in use at this moment.
+func (d *DB) sql() *sql.DB { return d.pool.Load() }
 
 // Open prepares the database at path, creating it and its schema if absent.
 //
@@ -52,7 +71,8 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("reaching %s: %w", path, err)
 	}
 
-	db := &DB{sql: handle}
+	db := &DB{path: path}
+	db.pool.Store(handle)
 
 	if err := db.migrate(); err != nil {
 		handle.Close()
@@ -62,11 +82,40 @@ func Open(path string) (*DB, error) {
 	return db, nil
 }
 
-func (d *DB) Close() error { return d.sql.Close() }
+/*
+ * Reopen points the database at whatever is at the path now.
+ *
+ * For one situation: the drive was unplugged and plugged back in. Until this
+ * existed the program said the drive was back and carried on with the
+ * connection it already had — which refers to the file on the disk that left,
+ * by inode. Every write on it went to an object with no name, and any
+ * connection the pool opened afterwards went to the real file, so the brain
+ * held two databases at once and disagreed with itself about what it knew.
+ *
+ * The old pool is closed rather than abandoned; queries in flight on it finish
+ * against the file they started with, which is the best available answer for
+ * work that began before the disk moved.
+ */
+func (d *DB) Reopen() error {
+	fresh, err := Open(d.path)
+	if err != nil {
+		return err
+	}
+
+	old := d.pool.Swap(fresh.pool.Load())
+
+	if old != nil {
+		old.Close()
+	}
+
+	return nil
+}
+
+func (d *DB) Close() error { return d.sql().Close() }
 
 // SQL exposes the handle for the few places that genuinely need it, such as
 // tests that want to assert on raw rows.
-func (d *DB) SQL() *sql.DB { return d.sql }
+func (d *DB) SQL() *sql.DB { return d.sql() }
 
 // migrate brings the schema up to date.
 //
@@ -76,12 +125,12 @@ func (d *DB) SQL() *sql.DB { return d.sql }
 // against a database that has already had every earlier entry applied, because
 // that is the only order it will ever see.
 func (d *DB) migrate() error {
-	if _, err := d.sql.Exec(`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)`); err != nil {
+	if _, err := d.sql().Exec(`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)`); err != nil {
 		return fmt.Errorf("creating schema_version: %w", err)
 	}
 
 	var current int
-	err := d.sql.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_version`).Scan(&current)
+	err := d.sql().QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_version`).Scan(&current)
 	if err != nil {
 		return fmt.Errorf("reading schema version: %w", err)
 	}
@@ -93,7 +142,7 @@ func (d *DB) migrate() error {
 			continue
 		}
 
-		tx, err := d.sql.Begin()
+		tx, err := d.sql().Begin()
 		if err != nil {
 			return fmt.Errorf("starting migration %d: %w", version, err)
 		}
@@ -227,4 +276,25 @@ var migrations = []string{
 		tested_at  TEXT NOT NULL
 	);
 	`,
+}
+
+/*
+ * Snapshot writes a complete copy of the database to path.
+ *
+ * VACUUM INTO rather than copying the file: the brain is running while this
+ * happens — the learning worker writes, conversations are saved — and copying
+ * bytes out from under an open SQLite database produces a file that is
+ * plausible, opens without complaint, and is corrupt in the middle where the
+ * two halves came from different moments. VACUUM INTO takes a consistent
+ * snapshot of one transaction's view, and compacts it on the way out.
+ *
+ * The destination must not exist; SQLite refuses rather than overwriting,
+ * which is the behaviour worth having when the thing at risk is a backup.
+ */
+func (d *DB) Snapshot(ctx context.Context, path string) error {
+	if _, err := d.sql().ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
+		return fmt.Errorf("copying the database to %s: %w", path, err)
+	}
+
+	return nil
 }

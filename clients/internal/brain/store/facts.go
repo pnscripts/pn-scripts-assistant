@@ -35,7 +35,7 @@ func (d *DB) AddFact(category, content string, embedding []float32) (int64, erro
 		dims = len(embedding)
 	}
 
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`INSERT INTO knowledge_facts (category, content, embedding, dimensions, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
 		category, content, blob, dims, now, now,
@@ -50,14 +50,14 @@ func (d *DB) AddFact(category, content string, embedding []float32) (int64, erro
 // CountFacts reports how many facts exist, embedded or not.
 func (d *DB) CountFacts() (int, error) {
 	var n int
-	err := d.sql.QueryRow(`SELECT COUNT(*) FROM knowledge_facts`).Scan(&n)
+	err := d.sql().QueryRow(`SELECT COUNT(*) FROM knowledge_facts`).Scan(&n)
 
 	return n, err
 }
 
 // FactsByCategory reports the spread of what is known, for the interface.
 func (d *DB) FactsByCategory() (map[string]int, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT COALESCE(category, 'unknown'), COUNT(*)
 		FROM knowledge_facts GROUP BY 1 ORDER BY 2 DESC`)
 	if err != nil {
@@ -88,7 +88,7 @@ func (d *DB) FactsByCategory() (map[string]int, error) {
 // from this model — the numbers would combine into a similarity that means
 // nothing. Skipping is visible in the count; scoring would be silent nonsense.
 func (d *DB) loadEmbedded(want int) ([]Fact, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT id, COALESCE(category, 'unknown'), content, embedding, COALESCE(dimensions, 0)
 		FROM knowledge_facts
 		WHERE embedding IS NOT NULL
@@ -311,7 +311,7 @@ func round3(f float64) float64 {
 // Without the vectors: the caller is about to replace them, and loading a few
 // hundred blobs it is going to discard is work for nothing.
 func (d *DB) AllFacts() ([]Fact, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT id, COALESCE(category, 'unknown'), content
 		FROM knowledge_facts
 		ORDER BY id`)
@@ -342,7 +342,7 @@ func (d *DB) AllFacts() ([]Fact, error) {
 // of them at once, and a table holding two models' output would rank by which
 // model produced each row rather than by meaning.
 func (d *DB) ReplaceEmbedding(id int64, embedding []float32) error {
-	_, err := d.sql.Exec(
+	_, err := d.sql().Exec(
 		`UPDATE knowledge_facts SET embedding = ?, dimensions = ?, updated_at = ? WHERE id = ?`,
 		EncodeVector(embedding), len(embedding), time.Now().UTC().Format(time.RFC3339), id)
 

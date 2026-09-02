@@ -36,6 +36,15 @@ const state = {
     wakeWord: '',
     // Whether the name is needed on every sentence rather than once.
     alwaysName: true,
+    /*
+     * Nobody has told it what to call itself yet.
+     *
+     * True only while the naming card is up on a brand new brain. Everything
+     * that would reach the room — the opening line and the microphone — waits
+     * for that card, because a program that starts talking and listening over
+     * a question it is still asking has not asked anything.
+     */
+    firstRun: false,
     busy: false,
 };
 
@@ -168,6 +177,7 @@ async function refreshStatus() {
         state.brainName = s.name || state.brainName;
         state.wakeWord = s.wake_word || '';
         state.alwaysName = s.always_name !== false;
+        state.firstRun = s.first_run === true;
         el('brain-name').textContent = s.name;
         el('engine-meta').textContent = `${s.provider} · ${s.model}`;
         renderPrivacy(s.privacy);
@@ -202,11 +212,19 @@ async function refreshStatus() {
         if (canTalk) {
             loadMicrophones();
 
-            // On by default: somebody who has a microphone and a voice
-            // installed wants to talk to it, and having to switch that on
-            // every time is a small tax on the thing they came for. Started
-            // once per session, and only if they have not already stopped it.
-            if (!talkingStartedOnce) {
+            /*
+             * On by default: somebody who has a microphone and a voice
+             * installed wants to talk to it, and having to switch that on
+             * every time is a small tax on the thing they came for. Started
+             * once per session, and only if they have not already stopped it.
+             *
+             * Not while the naming card is up. Opening the microphone there
+             * meant a brand new brain sat listening to the room, ready to
+             * answer to a name its owner had not chosen yet, behind a dialog
+             * covering the screen — and the first thing it would ever learn
+             * would have been overheard rather than said to it.
+             */
+            if (!talkingStartedOnce && !state.firstRun) {
                 talkingStartedOnce = true;
                 talking.on = true;
                 talkLoop();
@@ -1239,7 +1257,14 @@ async function greet(canSpeak) {
      * at all, and a restart in the middle of an hour of work looked
      * indistinguishable from nothing having happened.
      */
-    await greet(canSpeak);
+    /*
+     * And nothing is said over the naming card either.
+     *
+     * The server refuses the greeting while the brain is new, which is the
+     * guarantee; this is so the page does not ask for one it cannot have.
+     * Begin reloads, and the greeting arrives then, by the chosen name.
+     */
+    if (!state.firstRun) await greet(canSpeak);
 
     refreshApprovals();
     refreshLessons();

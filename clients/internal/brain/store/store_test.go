@@ -2,6 +2,7 @@ package store
 
 import (
 	"math"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -233,5 +234,75 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 
 	if n != 1 {
 		t.Errorf("got %d facts after reopen, want 1", n)
+	}
+}
+
+/*
+ * The drive left, and came back as a different file.
+ *
+ * An open SQLite connection holds the file it opened, not the path it opened
+ * it from. Unplug the drive and every write still reports success — they go to
+ * an object that no longer has a name and will never be read again. Plug it
+ * back in and the file at that path is a different object from the one being
+ * written to, so the brain ends up holding two databases and disagreeing with
+ * itself about what it knows.
+ *
+ * Nothing in the interface can show this. The counts keep going up, the
+ * conversation saves, and it is all landing nowhere.
+ */
+func TestReopenFollowsTheFileRatherThanTheOneItOpened(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "brain.sqlite")
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	if _, err := db.AddFact("test", "learned before the drive left", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// The drive goes, and comes back carrying a file that is not the one this
+	// connection is holding — which is what a remount is.
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		os.Remove(path + suffix)
+	}
+
+	returned, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, what := range []string{"one", "two"} {
+		if _, err := returned.AddFact("test", what, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	returned.Close()
+
+	// The state this exists to fix: still reporting the vanished file.
+	if n, _ := db.CountFacts(); n != 1 {
+		t.Fatalf("expected the old connection to still see its own file, got %d facts", n)
+	}
+
+	if err := db.Reopen(); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := db.CountFacts()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n != 2 {
+		t.Errorf("after reopening it sees %d facts; the file on disk holds 2", n)
+	}
+
+	// And it is usable, not just readable: the pool was swapped, not detached.
+	if _, err := db.AddFact("test", "learned after the drive came back", nil); err != nil {
+		t.Errorf("writing after reopening: %v", err)
 	}
 }

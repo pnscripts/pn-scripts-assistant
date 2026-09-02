@@ -167,3 +167,119 @@ func TestTheChosenPlaceWinsOverTheNearestOne(t *testing.T) {
 		t.Errorf("after choosing %q it still opened %q", chosen, found.Path)
 	}
 }
+
+/*
+ * Opening a brain once must not change which brain this machine uses.
+ *
+ * PN_BRAIN_DATA_ROOT names a root for one run — that is what the tests use,
+ * and what anybody wanting to look at a second brain would use. But
+ * FindOrCreate writes down whatever it found, so a single run with the
+ * variable set replaced the machine's answer with a temporary folder.
+ *
+ * The symptom is the worst kind. Nothing failed and nothing was damaged: the
+ * program simply opened afterwards as an empty brain, asked for a name as
+ * though it had never been run before, and introduced itself — while
+ * everything the real one knew sat unread on the drive it was no longer
+ * looking at.
+ */
+func TestABorrowedRootDoesNotBecomeTheMachinesOwn(t *testing.T) {
+	real := mounts
+	mounts = func() []string { return nil }
+
+	t.Cleanup(func() { mounts = real })
+
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("HOME", home)
+	t.Setenv("PN_BRAIN_SEARCH_PATHS", "")
+
+	drive := t.TempDir()
+	mine := filepath.Join(drive, "PN-BRAIN-DATA")
+
+	if _, err := Create(mine); err != nil {
+		t.Fatal(err)
+	}
+
+	// The brain this machine uses, chosen the way somebody chooses one.
+	if _, err := Choose(mine); err != nil {
+		t.Fatal(err)
+	}
+
+	// And now one run against somewhere else entirely.
+	scratch := filepath.Join(t.TempDir(), "scratch")
+
+	if _, err := Create(scratch); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PN_BRAIN_DATA_ROOT", scratch)
+
+	borrowed, err := FindOrCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if borrowed.Path != scratch {
+		t.Fatalf("the run did not use the root it was given: %s", borrowed.Path)
+	}
+
+	// The run is over. The machine must be where it was.
+	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+
+	after, err := FindOrCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if after.Path != mine {
+		t.Errorf("this machine now opens %s; it should still open %s", after.Path, mine)
+	}
+
+	if remembered, _ := LastKnown(); remembered != mine {
+		t.Errorf("the remembered root is %s, not %s", remembered, mine)
+	}
+}
+
+/*
+ * A drive full of copies is not a drive full of brains.
+ *
+ * The search walks every mounted drive looking for a marker, so a backup
+ * carrying the brain's own marker would be started as the brain by any machine
+ * that had the backup attached and its own drive missing — and once a day of
+ * conversation has gone into it there are two brains, both real, growing
+ * apart, with no honest way back to one.
+ *
+ * Copies are marked with a different file for exactly this reason, and this is
+ * the test that says so from the searching end.
+ */
+func TestACopyOnADriveIsNotFoundAsTheBrain(t *testing.T) {
+	real := mounts
+	mounts = func() []string { return nil }
+
+	t.Cleanup(func() { mounts = real })
+
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("HOME", home)
+	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+
+	drive := t.TempDir()
+	backup := filepath.Join(drive, "PN-BRAIN-COPY")
+
+	if err := os.MkdirAll(backup, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Everything a copy has: the memory, the settings, and its own marker.
+	os.WriteFile(filepath.Join(backup, "brain.sqlite"), []byte("not really a database"), 0o644)
+	os.WriteFile(filepath.Join(backup, "brain.conf"), []byte("BRAIN_NAME=Ariel\n"), 0o600)
+	os.WriteFile(filepath.Join(backup, ".brain-copy.json"), []byte(`{"brain_id":"one"}`), 0o644)
+
+	t.Setenv("PN_BRAIN_SEARCH_PATHS", drive)
+
+	if found, err := Find(); err == nil {
+		t.Errorf("a copy at %s was found and would have been opened as the brain", found.Path)
+	} else if !errors.Is(err, ErrNotFound) {
+		t.Errorf("looking at a drive holding only a copy: %v", err)
+	}
+}

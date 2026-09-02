@@ -283,6 +283,7 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
+		"brain_copies",
 		"click", "decide_waiting", "do_in_background", "edit_file",
 		"forget_reminder", "learn_from_folder", "list_background", "list_directory",
 		"list_drives", "list_models",
@@ -1102,5 +1103,62 @@ func TestTheLatestConversationCarriesItsID(t *testing.T) {
 	if len(reply.Messages) < 2 {
 		t.Errorf("only %d messages came back, want both sides of the exchange",
 			len(reply.Messages))
+	}
+}
+
+/*
+ * Silence while it is still being introduced.
+ *
+ * The naming card covers the screen on a first run, and the console behind it
+ * asks for the opening line as it loads — so a brand new brain announced
+ * itself aloud, by the name its owner was at that moment being asked to
+ * choose, before they had pressed Begin. It came out of the speakers before
+ * anybody had agreed to anything.
+ *
+ * Checked at the server because that is where the voice is: the handler speaks
+ * the greeting itself, so no amount of care in the page can hold it back — a
+ * reload, a second window or a tab left open from before would each produce
+ * one.
+ */
+func TestItSaysNothingUntilItHasBeenNamed(t *testing.T) {
+	ts, _, b := newServer(t)
+
+	b.Cfg.New = true
+
+	greeting := func() string {
+		t.Helper()
+
+		res, err := http.Get(ts.URL + "/api/greeting")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+
+		var out struct {
+			Text string `json:"text"`
+		}
+
+		if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+
+		return out.Text
+	}
+
+	if said := greeting(); said != "" {
+		t.Errorf("it greeted before it had been named: %q", said)
+	}
+
+	// And says hello properly once it has one — the greeting is postponed,
+	// not lost, or the first thing a named brain does is nothing.
+	res, err := http.Post(ts.URL+"/api/settings", "application/json",
+		strings.NewReader(`{"name":"Ariel","owner":"Petar"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+
+	if said := greeting(); said == "" {
+		t.Error("it had nothing to say after being named")
 	}
 }

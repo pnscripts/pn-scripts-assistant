@@ -561,6 +561,41 @@
                     </div>
                     <div id="drives" class="drives"></div>
                 </div>
+                <!--
+                    The brain, kept in more than one place.
+
+                    Everything it knows is one file on one disk that lives in a
+                    bag. This card is the answer to that, and the wording is
+                    careful about one thing throughout: a copy is a copy. Only
+                    the folder marked as the brain is ever opened as the brain,
+                    so a backup drive plugged into another machine cannot
+                    quietly become a second brain that then disagrees with this
+                    one. Choosing one is a thing you do here, on purpose.
+                -->
+                <div class="card">
+                    <h2>Copies of the brain</h2>
+                    <p class="note">A copy of everything it knows, kept on
+                        another drive or folder and refreshed on its own
+                        whenever that place is there and something has changed.
+                        Nothing is ever opened from a copy unless you choose
+                        it here.</p>
+                    <div id="copies" class="drives"></div>
+                    <p class="drive-note" id="copies-empty">No copies yet.
+                        Everything the brain knows is in one place.</p>
+                    <div class="copy-add">
+                        <label class="field">
+                            <span>Keep a copy in</span>
+                            <input id="copy-path" type="text" autocomplete="off"
+                                   placeholder="/media/you/backup/PN-BRAIN-COPY">
+                        </label>
+                        <div id="copy-suggestions" class="copy-suggestions"></div>
+                        <div class="copy-buttons">
+                            <button type="button" class="model-action" id="copy-add">Keep a copy there</button>
+                            <button type="button" class="model-action" id="copy-now">Copy now</button>
+                        </div>
+                        <p class="drive-note" id="copy-note"></p>
+                    </div>
+                </div>
                 <div class="card">
                     <h2>Model status</h2>
                     <div class="rows" id="provider-rows"></div>
@@ -730,6 +765,7 @@
 <script src="/js/updates.js"></script>
 <script src="/js/settings.js"></script>
 <script src="/js/history.js"></script>
+<script src="/js/copies.js"></script>
 <!-- The three.js addons import from the bare name "three", so the page has to
      say where that is. An import map rather than a build step: this ships
      inside one binary, and adding a bundler for two scenes would put npm into

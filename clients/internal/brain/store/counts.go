@@ -13,7 +13,7 @@ type RecentFact struct {
 
 // RecentFacts returns the newest facts, newest first.
 func (d *DB) RecentFacts(limit int) ([]RecentFact, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT id, COALESCE(category,'unknown'), content, created_at
 		FROM knowledge_facts ORDER BY id DESC LIMIT ?`, limit)
 	if err != nil {
@@ -41,7 +41,7 @@ func (d *DB) RecentFacts(limit int) ([]RecentFact, error) {
 // CountLessonsByStatus reports how many lessons sit at each stage of the
 // quarantine pipeline.
 func (d *DB) CountLessonsByStatus() (map[string]int, error) {
-	rows, err := d.sql.Query(`SELECT status, COUNT(*) FROM lessons GROUP BY status`)
+	rows, err := d.sql().Query(`SELECT status, COUNT(*) FROM lessons GROUP BY status`)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (d *DB) CountPendingLessons() (int, error) {
 	 *
 	 * Proposed is the one that means a person: nothing here can verify it.
 	 */
-	err := d.sql.QueryRow(
+	err := d.sql().QueryRow(
 		`SELECT COUNT(*) FROM lessons WHERE status = 'proposed'`,
 	).Scan(&n)
 
@@ -91,7 +91,7 @@ func (d *DB) CountPendingLessons() (int, error) {
 func (d *DB) CountConversations() (int, error) {
 	var n int
 
-	err := d.sql.QueryRow(`SELECT COUNT(*) FROM conversations`).Scan(&n)
+	err := d.sql().QueryRow(`SELECT COUNT(*) FROM conversations`).Scan(&n)
 
 	return n, err
 }

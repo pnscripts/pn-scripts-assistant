@@ -85,6 +85,11 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/lessons", s.handleLessons)
 	s.mux.HandleFunc("POST /api/lessons/{id}/{decision}", s.handleLessonDecision)
 	s.mux.HandleFunc("GET /api/drives", s.handleDrives)
+	s.mux.HandleFunc("GET /api/copies", s.handleCopies)
+	s.mux.HandleFunc("POST /api/copies", s.handleKeepCopy)
+	s.mux.HandleFunc("POST /api/copies/stop", s.handleStopCopy)
+	s.mux.HandleFunc("POST /api/copies/now", s.handleCopyNow)
+	s.mux.HandleFunc("POST /api/copies/use", s.handleUseCopy)
 	s.mux.HandleFunc("POST /api/speak", s.handleSpeak)
 	s.mux.HandleFunc("POST /api/interrupt", s.handleInterrupt)
 	s.mux.HandleFunc("POST /api/listen", s.handleListen)
@@ -976,6 +981,27 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 const greetingSettle = 3 * time.Second
 
 func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
+	/*
+	 * Not a word until somebody has said what to call it.
+	 *
+	 * On a first run the page asks for a name and an owner before anything
+	 * else, and the console behind that card had already asked for the
+	 * greeting — so the brain introduced itself, out loud, using the name the
+	 * person was at that moment being asked to choose, before they had pressed
+	 * anything. Being talked at by a dialog you have not answered yet is not an
+	 * introduction; it is the program going ahead without you.
+	 *
+	 * Refused here rather than in the page, so no window, reload or stale tab
+	 * can produce it. And before the Once, not inside it: the greeting is not
+	 * being skipped, it is being waited for. Pressing Begin reloads onto a
+	 * brain that is no longer new, and it says hello then — by its own name.
+	 */
+	if s.brain.Cfg.New {
+		ok(w, brain.Greeting{})
+
+		return
+	}
+
 	greeting := s.brain.Greet()
 
 	s.greeted.Do(func() {

@@ -3399,3 +3399,39 @@ select { font-size: 13.5px; }
     font-size: 11.5px;
     color: var(--text-dim);
 }
+
+/* Copies of the brain. Same shape as the drive rows above them, because they
+   are the same kind of thing — a place on a disk — and a second visual
+   language for that would only make somebody work out that they match. */
+.copy-add { margin-top: 12px; }
+.copy-add .field { margin-bottom: 6px; }
+
+.copy-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+
+.copy-suggestion {
+    padding: 4px 9px;
+    border: 1px solid var(--hud-dim);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    cursor: pointer;
+}
+
+.copy-suggestion:hover { color: var(--accent); border-color: rgba(77, 208, 225, 0.35); }
+
+.copy-buttons { display: flex; gap: 8px; }
+.copy-buttons .model-action { margin-left: 0; }
+
+/* A copy that is behind, or on a drive that is not attached, is not a fault —
+   it is the ordinary state of a backup drive that lives in a drawer. Said in
+   the dim colour rather than the warning one, or the panel cries wolf every
+   time somebody unplugs something. */
+.drive.copy-away { opacity: 0.62; }
+.drive.copy-trouble { border-color: rgba(255, 183, 77, 0.35); }
+.drive-actions { grid-column: 1 / -1; display: flex; gap: 6px; margin-top: 5px; }
+.drive-actions .model-action { margin-left: 0; padding: 3px 8px; font-size: 10.5px; }
+
+#copy-note[data-kind="ok"] { color: var(--ok); }
+#copy-note[data-kind="bad"] { color: var(--warn); }

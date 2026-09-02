@@ -27,6 +27,10 @@ type Root struct {
 	ID      string `json:"id"`
 	Schema  int    `json:"schema"`
 	Created string `json:"created"`
+
+	// Borrowed marks a root that was named by PN_BRAIN_DATA_ROOT for this run
+	// only. It must never become what this machine remembers. See Find.
+	Borrowed bool `json:"-"`
 }
 
 // DatabasePath is where the SQLite file lives inside a root.
@@ -126,7 +130,30 @@ func removableMounts() []string {
 // Find locates an existing data root, or reports that there is none.
 func Find() (Root, error) {
 	if explicit := os.Getenv("PN_BRAIN_DATA_ROOT"); explicit != "" {
-		return read(explicit)
+		r, err := read(explicit)
+		if err != nil {
+			return Root{}, err
+		}
+
+		/*
+		 * Borrowed for this run, and not written down.
+		 *
+		 * Marked so nothing further up records it as the brain this machine
+		 * uses. The variable exists for tests and for anybody who wants to
+		 * open a brain once, and both of those are temporary by definition —
+		 * but FindOrCreate remembers whatever it found, so one run with the
+		 * variable set made a scratch folder the permanent answer for the
+		 * whole machine.
+		 *
+		 * That is not a hypothetical. It happened here, and the symptom is
+		 * about as bad as symptoms get: the program opened afterwards with an
+		 * empty brain, asking for a name as though it had never been run,
+		 * while a thousand facts sat unread on the drive it was ignoring.
+		 * Nothing was damaged and nothing said anything was wrong.
+		 */
+		r.Borrowed = true
+
+		return r, nil
 	}
 
 	/*
@@ -304,6 +331,18 @@ func pointerFile() (string, error) {
  * drive for a first run, which is the behaviour that existed anyway.
  */
 func Remember(r Root) {
+	/*
+	 * Except a root that was only borrowed for this run.
+	 *
+	 * Refused here as well as at the call sites, because there is one pointer
+	 * file for the whole machine and everything about somebody's brain hangs
+	 * off it. A guard that has to be remembered at each caller is a guard that
+	 * gets forgotten at the next one.
+	 */
+	if r.Borrowed {
+		return
+	}
+
 	path, err := pointerFile()
 	if err != nil {
 		return

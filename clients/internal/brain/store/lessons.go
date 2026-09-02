@@ -21,7 +21,7 @@ type Lesson struct {
 func (d *DB) AddLesson(conversationID int64, content, status, confidence, source string) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`INSERT INTO lessons (conversation_id, content, status, confidence, source, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		nullifyID(conversationID), content, status, nullify(confidence), nullify(source), now, now,
@@ -35,7 +35,7 @@ func (d *DB) AddLesson(conversationID int64, content, status, confidence, source
 
 // LessonsByStatus returns quarantined lessons at one stage.
 func (d *DB) LessonsByStatus(status string, limit int) ([]Lesson, error) {
-	rows, err := d.sql.Query(`
+	rows, err := d.sql().Query(`
 		SELECT id, COALESCE(conversation_id,0), content, status,
 		       COALESCE(confidence,''), COALESCE(source,''), created_at
 		FROM lessons WHERE status = ? ORDER BY id LIMIT ?`, status, limit)
@@ -64,7 +64,7 @@ func (d *DB) LessonsByStatus(status string, limit int) ([]Lesson, error) {
 
 // SetLessonStatus moves a lesson through the pipeline.
 func (d *DB) SetLessonStatus(id int64, status string) error {
-	_, err := d.sql.Exec(
+	_, err := d.sql().Exec(
 		`UPDATE lessons SET status = ?, updated_at = ? WHERE id = ?`,
 		status, time.Now().UTC().Format(time.RFC3339), id,
 	)
@@ -79,7 +79,7 @@ func (d *DB) SetLessonStatus(id int64, status string) error {
 func (d *DB) PromoteLesson(lessonID int64, category, content string, embedding []float32) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	res, err := d.sql.Exec(
+	res, err := d.sql().Exec(
 		`INSERT INTO knowledge_facts
 		 (promoted_from_lesson_id, category, content, embedding, dimensions, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -105,7 +105,7 @@ func (d *DB) Lesson(id int64) (*Lesson, error) {
 	var l Lesson
 	var created string
 
-	err := d.sql.QueryRow(`
+	err := d.sql().QueryRow(`
 		SELECT id, COALESCE(conversation_id,0), content, status,
 		       COALESCE(confidence,''), COALESCE(source,''), created_at
 		FROM lessons WHERE id = ?`, id).
