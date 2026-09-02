@@ -596,6 +596,51 @@
                         <p class="drive-note" id="copy-note"></p>
                     </div>
                 </div>
+                <!--
+                    The drives and folders it looks after.
+
+                    The other half of "the brain lives on drives": the copies
+                    card above is where it keeps itself, and this is where it
+                    reads from. Many of them, plugged in and unplugged through
+                    the week, each read a bite at a time whenever it is there
+                    and holds something new.
+
+                    Adding one is deliberate and removing one is smaller than
+                    it looks — what a place already taught stays. A button that
+                    silently unlearned a thousand things would be the worst
+                    button in the program, so it says so on the row.
+                -->
+                <div class="card">
+                    <h2>Where it learns from</h2>
+                    <p class="note">Drives and folders it looks after. When one
+                        is attached and holds something it has not seen, it
+                        reads a little at a time on its own — so a drive you
+                        plug in on Friday is learned by Saturday without you
+                        asking.</p>
+                    <div id="places" class="drives"></div>
+                    <p class="drive-note" id="places-empty">Nowhere yet. It only
+                        knows what it has been shown.</p>
+                    <div class="copy-add">
+                        <label class="field">
+                            <span>Learn from</span>
+                            <input id="place-path" type="text" autocomplete="off"
+                                   placeholder="/media/you/work/Projects">
+                        </label>
+                        <div id="place-suggestions" class="copy-suggestions"></div>
+                        <label class="field">
+                            <span>Read it for</span>
+                            <select id="place-kind">
+                                <option value="everything">Everything — projects and documents</option>
+                                <option value="projects">Projects — code and repositories</option>
+                                <option value="documents">Documents — text and papers</option>
+                            </select>
+                        </label>
+                        <div class="copy-buttons">
+                            <button type="button" class="model-action" id="place-add">Look after this</button>
+                        </div>
+                        <p class="drive-note" id="place-note"></p>
+                    </div>
+                </div>
                 <div class="card">
                     <h2>Model status</h2>
                     <div class="rows" id="provider-rows"></div>
@@ -766,6 +811,7 @@
 <script src="/js/settings.js"></script>
 <script src="/js/history.js"></script>
 <script src="/js/copies.js"></script>
+<script src="/js/places.js"></script>
 <!-- The three.js addons import from the bare name "three", so the page has to
      say where that is. An import map rather than a build step: this ships
      inside one binary, and adding a bundler for two scenes would put npm into

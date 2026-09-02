@@ -297,3 +297,45 @@ func TestReopenFollowsTheFileRatherThanTheOneItOpened(t *testing.T) {
 		t.Errorf("writing after reopening: %v", err)
 	}
 }
+
+/*
+ * What has already been read, found by the path it was read from.
+ *
+ * A source is written "project:/path/to/it", not "/path/to/it", so asking for
+ * everything beginning with a folder matched nothing — and a drive that had
+ * just been read reported every file on it as new, at three seconds each. The
+ * whole purpose of this query is not doing that work a second time.
+ */
+func TestKnownSourcesFindsWhatWasReadFromAFolder(t *testing.T) {
+	db := open(t)
+
+	const work = "/media/someone/work"
+
+	for _, source := range []string{
+		"project:" + work + "/alpha",
+		"document:" + work + "/notes/plan.md",
+		"project:/somewhere/else/beta",
+		"", // a lesson from a conversation, which came from no file at all
+	} {
+		if _, err := db.AddLesson(0, "something", "validated", "high", source); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	seen, err := db.KnownSources(work)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(seen) != 2 {
+		t.Fatalf("found %d things read from %s, want 2: %v", len(seen), work, seen)
+	}
+
+	if !seen["project:"+work+"/alpha"] || !seen["document:"+work+"/notes/plan.md"] {
+		t.Errorf("the wrong things came back: %v", seen)
+	}
+
+	if seen["project:/somewhere/else/beta"] {
+		t.Error("a file from another folder was counted as read from this one")
+	}
+}

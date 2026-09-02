@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"context"
 	"log/slog"
@@ -28,6 +29,7 @@ import (
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/paths"
+	"pn-brain/internal/brain/places"
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/server"
 	"pn-brain/internal/brain/speech"
@@ -73,6 +75,8 @@ func main() {
 		err = runPromote(os.Args[2:])
 	case "copies":
 		err = runCopies(os.Args[2:])
+	case "places":
+		err = runPlaces(os.Args[2:])
 	case "status":
 		err = runStatus(os.Args[2:])
 	case "menu":
@@ -148,6 +152,7 @@ func usage() {
   brain mic-test            listen once and report what the microphone heard
   brain drives              where the brain could live, and how much room is left
   brain copies              where copies of the brain are kept  (--now to copy)
+  brain places              the drives and folders it learns from  (--read to read some)
   brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
   brain setup               choose the drive, the model and the keys again
@@ -1235,6 +1240,124 @@ func runStartAgain(args []string) error {
  * wants an answer without opening a window — and for scripting a copy before
  * unplugging.
  */
+/*
+ * runPlaces lists the drives and folders the brain looks after.
+ *
+ * The panel in the app does this too, and that is the one people use. This is
+ * for the moment somebody is at a terminal with a drive in their hand, and for
+ * scripting a read before unplugging it.
+ */
+func runPlaces(args []string) error {
+	fs := flag.NewFlagSet("places", flag.ExitOnError)
+	read := fs.String("read", "", "read some more from this place now, by name or path")
+	fs.Parse(args)
+
+	db, root, err := openDB()
+	if err != nil {
+		var elsewhere *paths.AwayError
+		if errors.As(err, &elsewhere) {
+			return brainAway(elsewhere)
+		}
+
+		return err
+	}
+	defer db.Close()
+
+	cfg, err := config.Load(root.Path)
+	if err != nil {
+		return err
+	}
+
+	list, err := places.Status(root.Path)
+	if err != nil {
+		return err
+	}
+
+	if len(list) == 0 {
+		fmt.Print("\n  Nowhere yet. It only knows what it has been shown.\n\n" +
+			"  Add a drive or folder in the app, under Storage.\n\n")
+
+		return nil
+	}
+
+	if want := strings.TrimSpace(*read); want != "" {
+		if err := readSomeNow(db, cfg.Owner, root.Path, list, want); err != nil {
+			return err
+		}
+
+		list, _ = places.Status(root.Path)
+	}
+
+	fmt.Println()
+
+	for _, p := range list {
+		fmt.Printf("  %s  —  %s\n", p.Name, places.Short(p.Path))
+
+		switch {
+		case !p.Reachable:
+			fmt.Printf("      %s, %d learned from it so far", p.Trouble, p.Learned)
+
+		case p.Never() && p.Learned == 0:
+			fmt.Print("      attached, nothing read yet")
+
+		default:
+			fmt.Printf("      attached, %d learned", p.Learned)
+		}
+
+		if p.Waiting > 0 {
+			fmt.Printf(", %d still to read (about %d minutes)",
+				p.Waiting, p.Waiting*places.SecondsEach/60)
+		} else if p.Reachable && !p.Never() {
+			fmt.Print(", all of it read")
+		}
+
+		fmt.Print("\n\n")
+	}
+
+	return nil
+}
+
+// readSomeNow takes one bite out of a named place, the same size the
+// background pass takes — a whole drive is hours and belongs to the background.
+func readSomeNow(db *store.DB, owner, root string, list []places.Place, want string) error {
+	for _, p := range list {
+		if !strings.EqualFold(p.Name, want) && p.Path != filepath.Clean(want) {
+			continue
+		}
+
+		if !p.Reachable {
+			return fmt.Errorf("%s is %s", p.Name, p.Trouble)
+		}
+
+		// The same brain the app builds, for the same learner. Quietly: this
+		// is a command whose output is the report, not a log.
+		quiet := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+		cfg, err := config.Load(root)
+		if err != nil {
+			return err
+		}
+
+		b := brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"), quiet)
+
+		fmt.Printf("\n  reading %s…\n", p.Name)
+
+		pass, err := places.Look(context.Background(), b.Learner, db, owner, p)
+
+		places.Note(root, pass.Place)
+
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("\n  read %d from %s: %d new, %d already known\n",
+			pass.Took, p.Name, pass.Learned, pass.Known)
+
+		return nil
+	}
+
+	return fmt.Errorf("%q is not one of the places", want)
+}
+
 func runCopies(args []string) error {
 	fs := flag.NewFlagSet("copies", flag.ExitOnError)
 	now := fs.Bool("now", false, "refresh every copy that can be reached, then report")

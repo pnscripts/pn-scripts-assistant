@@ -24,6 +24,7 @@ import (
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/mail"
 	"pn-brain/internal/brain/models"
+	"pn-brain/internal/brain/places"
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/smarthome"
 	"pn-brain/internal/brain/speech"
@@ -210,6 +211,21 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// And whether there is a copy of itself anywhere, which is the
 		// question somebody asks with their hand on the drive.
 		tools.Copies{Root: b.Root, Source: b.DB},
+
+		// And the drives and folders it reads from, which is the other half
+		// of the same question.
+		tools.Places{
+			Root:  b.Root,
+			Owner: b.Cfg.Owner,
+			Learn: func() places.Reads {
+				if b.Learner == nil {
+					return nil
+				}
+
+				return b.Learner
+			},
+			Seen: b.DB,
+		},
 
 		/*
 		 * What is in the memory, which recall cannot answer.
@@ -578,6 +594,10 @@ func (b *Brain) Start(ctx context.Context) {
 	// And the copies of itself on other drives, refreshed whenever one of them
 	// is plugged in and the brain has learned something since.
 	go b.keepCopies(ctx)
+
+	// And the drives and folders it looks after, read a bite at a time
+	// whenever one of them is attached and holds something it has not seen.
+	go b.keepPlaces(ctx)
 
 	// A resident recogniser, started in the background because loading its
 	// model takes seconds and nothing should wait on it. Without one, every

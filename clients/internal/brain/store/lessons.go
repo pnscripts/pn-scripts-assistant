@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -122,4 +123,66 @@ func (d *DB) Lesson(id int64) (*Lesson, error) {
 	l.CreatedAt, _ = time.Parse(time.RFC3339, created)
 
 	return &l, nil
+}
+
+/*
+ * KnownSources is every file this brain has already been shown, under a folder.
+ *
+ * For the one question a brain that watches folders has to answer cheaply:
+ * what is new here since last time. Without it, looking at a drive again means
+ * embedding everything on it again — measured at two to three seconds each, so
+ * a folder of two thousand documents is two hours of work to discover that
+ * nothing has changed.
+ *
+ * Read from the lessons rather than the facts because a lesson is recorded for
+ * every observation whatever became of it: promoted, waiting for a person, or
+ * rejected because the file had gone. All three mean "already seen", and only
+ * this table knows about the last two.
+ */
+func (d *DB) KnownSources(under string) (map[string]bool, error) {
+	rows, err := d.sql().Query(
+		`SELECT DISTINCT source FROM lessons WHERE source IS NOT NULL AND source <> ''`)
+	if err != nil {
+		return nil, fmt.Errorf("reading what has already been seen: %w", err)
+	}
+
+	defer rows.Close()
+
+	seen := map[string]bool{}
+
+	for rows.Next() {
+		var source string
+
+		if err := rows.Scan(&source); err != nil {
+			return nil, err
+		}
+
+		/*
+		 * The path is not the whole of a source.
+		 *
+		 * A source is written "project:/path/to/it" or "document:/path/to/it",
+		 * so asking the database for everything beginning with the folder
+		 * matched nothing at all — and a folder that had just been read
+		 * reported every one of its files as new, at three seconds each. The
+		 * whole point of this is not doing that work twice.
+		 *
+		 * Filtered here rather than in the query because a LIKE with a leading
+		 * wildcard cannot use an index anyway, and the wrong answer in SQL is
+		 * harder to see than the right one in Go.
+		 */
+		if strings.HasPrefix(pathOf(source), under) {
+			seen[source] = true
+		}
+	}
+
+	return seen, rows.Err()
+}
+
+// pathOf is the file a source refers to, without the kind in front of it.
+func pathOf(source string) string {
+	if at := strings.Index(source, ":"); at >= 0 {
+		return source[at+1:]
+	}
+
+	return source
 }

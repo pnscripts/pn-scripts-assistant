@@ -161,6 +161,7 @@ pn-brain drives             where the brain could live, and how much room is lef
 pn-brain move <dir>         move the brain to another drive, verifying every byte
 pn-brain rewrite-paths      repair stored paths after a move, then re-embed
 pn-brain copies             where copies of the brain are kept, and copy now
+pn-brain places             the drives and folders it learns from  (--read)
 ```
 
 ## How it is built
