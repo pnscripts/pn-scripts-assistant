@@ -4,6 +4,8 @@ package window
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 )
 
@@ -29,12 +31,58 @@ func Open(url, title string, width, height int) error {
 			runtime.GOOS, url)
 	}
 
+	/*
+	 * Two different causes, and telling somebody the wrong one costs an hour.
+	 *
+	 * This used to say "install them: sudo apt install …" whichever it was.
+	 * On a machine where the libraries are already installed — the ordinary
+	 * case, because the window worked yesterday — that sends the reader to
+	 * install what they have, and the actual cause goes unmentioned: the
+	 * binary was built without cgo, which on a machine where `go env
+	 * CGO_ENABLED` is 0 is what a plain `go build` quietly produces.
+	 */
+	if toolkitPresent() {
+		return fmt.Errorf(
+			"this build has no native window: the libraries are installed, but the "+
+				"program was compiled without cgo.\n\n"+
+				"  rebuild:  CGO_ENABLED=1 go build ./cmd/brain\n"+
+				"  (a plain `go build` is enough only where `go env CGO_ENABLED` is 1)\n\n"+
+				"In the meantime the brain is running: open %s", url)
+	}
+
 	return fmt.Errorf(
-		"this build has no native window because it was compiled without cgo or "+
-			"without the WebKit development headers.\n\n"+
+		"this build has no native window because the WebKit libraries are not "+
+			"installed here.\n\n"+
 			"  install them:  sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev\n"+
 			"  then rebuild:  CGO_ENABLED=1 go build ./cmd/brain\n\n"+
 			"In the meantime the brain is running: open %s", url)
+}
+
+/*
+ * toolkitPresent reports whether this machine could show a window if the
+ * program had been built to.
+ *
+ * The shared library rather than the development headers, and by looking for
+ * the file rather than asking pkg-config: this runs while explaining a failure,
+ * and an explanation that depends on another tool being installed is one more
+ * thing that can leave somebody with no answer at all.
+ */
+func toolkitPresent() bool {
+	for _, dir := range []string{
+		"/lib/x86_64-linux-gnu", "/usr/lib/x86_64-linux-gnu",
+		"/lib/aarch64-linux-gnu", "/usr/lib/aarch64-linux-gnu",
+		"/usr/lib", "/usr/lib64", "/lib",
+	} {
+		for _, name := range []string{
+			"libwebkit2gtk-4.1.so.0", "libwebkit2gtk-4.0.so.37",
+		} {
+			if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // OpenWithNavigation matches the cgo build's signature so callers need no
