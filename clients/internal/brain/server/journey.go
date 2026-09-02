@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"pn-brain/internal/brain/copies"
 	"pn-brain/internal/brain/paths"
@@ -191,6 +192,37 @@ func (s *Server) handleWhereItCouldLive(w http.ResponseWriter, r *http.Request) 
 			"removable":   d.Removable,
 			"fits":        int64(d.FreeBytes) > report.DatabaseBytes*int64(copiesRoom),
 		})
+	}
+
+	/*
+	 * And the home folder, which is not a drive and appears in no list of
+	 * them.
+	 *
+	 * Without it this list comes back empty on the machine it was written for:
+	 * the brain is on the external drive, so that is excluded as where it
+	 * already lives, and the internal disk is mounted at / which an ordinary
+	 * user cannot write to. A move offered nowhere at all, on a machine with
+	 * room to spare in the owner's own folder.
+	 */
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		var on storage.Drive
+
+		for _, d := range drives {
+			if strings.HasPrefix(home, d.MountPoint) && len(d.MountPoint) > len(on.MountPoint) {
+				on = d
+			}
+		}
+
+		if !on.Current && canWriteHome(home) {
+			out = append(out, map[string]any{
+				"mount_point": home,
+				"suggested":   filepath.Join(home, "PN-BRAIN-DATA"),
+				"free_bytes":  on.FreeBytes,
+				"removable":   false,
+				"home":        true,
+				"fits":        int64(on.FreeBytes) > report.DatabaseBytes*int64(copiesRoom),
+			})
+		}
 	}
 
 	facts, _ := s.brain.DB.CountFacts()

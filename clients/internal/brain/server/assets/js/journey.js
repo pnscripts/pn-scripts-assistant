@@ -159,7 +159,8 @@ async function checkTheRoom() {
     drives.forEach((d) => {
         const option = document.createElement('option');
         option.value = d.suggested;
-        option.textContent = `${d.mount_point} · ${(d.free_bytes / GB).toFixed(0)}GB free`
+        option.textContent = (d.home ? 'your home folder' : d.mount_point)
+            + ` · ${(d.free_bytes / GB).toFixed(0)}GB free`
             + (d.removable ? ' · removable' : '');
         where.appendChild(option);
     });
