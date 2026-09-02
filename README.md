@@ -160,13 +160,14 @@ pn-brain mic-test           listen once and report what the microphone heard
 pn-brain drives             where the brain could live, and how much room is left
 pn-brain move <dir>         move the brain to another drive, verifying every byte
 pn-brain rewrite-paths      repair stored paths after a move, then re-embed
-pn-brain import <dir>       load a Postgres export into a fresh database
+pn-brain copies             where copies of the brain are kept, and copy now
 ```
 
 ## How it is built
 
 Go, and a SQLite file. Vectors are stored as float32 blobs and similarity is
-computed in process — exact, and cheaper than the network hop it replaced.
+computed in process — exact, and fast enough at this size that an index
+would be a dependency bought for nothing.
 
 Nothing else has to be running for it to start: no database server, no
 container runtime, no background stack. The program, one file of memory, and

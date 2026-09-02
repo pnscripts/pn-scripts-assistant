@@ -236,3 +236,37 @@ func dataHome() string {
 
 	return filepath.Join(home, ".local", "share")
 }
+
+/*
+ * RepairIfStale fixes a menu entry that points at a program that has moved.
+ *
+ * Only a repair, never an installation. Somebody who has never asked for a
+ * menu entry does not get one because they started the program; but somebody
+ * who has one is entitled to it working, and an entry that opens nothing is
+ * worse than no entry at all — it is in the menu, it looks right, and pressing
+ * it does nothing anybody can see.
+ *
+ * This is not hypothetical here: the folder holding the program was moved, and
+ * from that moment the icon in the menu pointed at a path that did not exist.
+ *
+ * Best effort. A menu entry is a convenience, and failing to rewrite one must
+ * never be a reason the brain does not start.
+ */
+func RepairIfStale(name string) (bool, error) {
+	entry, _ := Where()
+
+	if _, err := os.Stat(entry); err != nil {
+		// Nobody asked for one. Not this function's business.
+		return false, nil
+	}
+
+	if Installed() {
+		return false, nil
+	}
+
+	if _, err := Install(name); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}

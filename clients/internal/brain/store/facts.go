@@ -184,10 +184,10 @@ type MemoryMap struct {
 
 // BuildMap turns the stored vectors into nodes and the links between them.
 //
-// The constants match what the Postgres version used, so the picture does not
-// change shape as a result of the port: three neighbours per node, nothing
-// weaker than 0.55 (below which everything is faintly like everything), and a
-// ceiling on nodes because this is redrawn every frame on a canvas.
+// The constants are what make it readable rather than a hairball: three
+// neighbours per node, nothing weaker than 0.55 — below which everything is
+// faintly like everything — and a ceiling on nodes, because this is redrawn
+// every frame on a canvas.
 func (d *DB) BuildMap() (MemoryMap, error) {
 	const (
 		linksPerNode  = 3

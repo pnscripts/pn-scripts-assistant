@@ -169,7 +169,7 @@ func (d *DB) migrate() error {
 // database that has already applied it, so a correction has to arrive as a new
 // entry rather than an edit to an old one.
 var migrations = []string{
-	// 1: the tables carried over from the Postgres schema.
+	// 1: the tables everything else is built on.
 	//
 	// Timestamps are TEXT in RFC3339 rather than SQLite's numeric time, because
 	// they are read by humans in exports and compared as strings in queries,

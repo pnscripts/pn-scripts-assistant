@@ -16,13 +16,14 @@ import (
 
 // Worker runs the learning pipeline in the background.
 //
-// This replaces a Redis queue and a separate worker process. A goroutine and a
-// channel do the same job here because there is exactly one machine, one brain
-// and one process — the queue was infrastructure inherited from a web
-// framework, not something this problem needed.
+// A goroutine and a channel, not a queue and a second process: there is exactly
+// one machine, one brain and one process, and a job that arrives in the same
+// program that will run it does not need a broker in between to be told about
+// it.
 //
-// It also fixes a fault the queue had: a worker polling Redis burned CPU
-// continuously on an idle machine. Nothing here runs when nothing is happening.
+// Nothing here runs when nothing is happening. Work arrives on a channel and
+// the worker waits on it, so an idle brain costs an idle goroutine — which is
+// the point of doing it this way rather than polling something.
 type Worker struct {
 	DB        *store.DB
 	Extractor Extractor

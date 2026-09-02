@@ -21,7 +21,41 @@ import (
 type Greeting struct {
 	Text  string `json:"text"`
 	Spoke bool   `json:"-"`
+
+	/*
+	 * And which conversation this is.
+	 *
+	 * Opening the program used to drop you back into the last conversation
+	 * whatever its age, silently — so a sentence typed on Tuesday morning
+	 * joined a thread from Friday night, and nothing on the screen said which
+	 * one you were in. Either is a reasonable thing to do; doing it without
+	 * saying so is not.
+	 */
+	CarryOn bool `json:"carry_on"`
+
+	// Last is the conversation before this one, whether it is being carried on
+	// or left where it is, so the interface can name it either way.
+	Last *LastTalk `json:"last,omitempty"`
 }
+
+// LastTalk is enough of the previous conversation to say which one it was.
+type LastTalk struct {
+	ID    int64     `json:"id"`
+	Topic string    `json:"topic"`
+	When  time.Time `json:"when"`
+	Turns int       `json:"turns"`
+}
+
+/*
+ * CarryOnWithin is how long a conversation stays the conversation.
+ *
+ * Inside it, restarting the program is an interruption — the model reloading,
+ * a crash, a rebuild — and carrying on is what somebody means to happen.
+ * Outside it, they have been away and come back to something else, and
+ * appending to Friday's thread makes the history useless as a record of what
+ * was discussed when.
+ */
+const CarryOnWithin = 3 * time.Hour
 
 // Greet composes an opening line.
 /*
@@ -63,8 +97,10 @@ func (b *Brain) Greet() Greeting {
 	 * somebody wants first on coming back to a conversation they were part way
 	 * through. What they were talking about is.
 	 */
-	if last := b.lastTopicLine(); last != "" {
-		parts = append(parts, last)
+	last := b.lastConversation()
+
+	if line := lastTopicLine(last, b.carryingOn(last)); line != "" {
+		parts = append(parts, line)
 	}
 
 	if waiting := b.waitingLine(); waiting != "" {
@@ -77,7 +113,34 @@ func (b *Brain) Greet() Greeting {
 		parts = append(parts, warning)
 	}
 
-	return Greeting{Text: strings.Join(parts, " ")}
+	return Greeting{
+		Text:    strings.Join(parts, " "),
+		CarryOn: b.carryingOn(last),
+		Last:    last,
+	}
+}
+
+// lastConversation is what was being talked about before this run, or nothing
+// on a brain that has never been talked to.
+func (b *Brain) lastConversation() *LastTalk {
+	recent, err := b.DB.RecentConversations(1)
+	if err != nil || len(recent) == 0 {
+		return nil
+	}
+
+	last := recent[0]
+
+	topic := strings.TrimSpace(last.Title)
+	if topic == "" {
+		topic = strings.TrimSpace(last.Opening)
+	}
+
+	return &LastTalk{ID: last.ID, Topic: topic, When: last.When, Turns: last.Turns}
+}
+
+// carryingOn decides whether this is the same conversation or the next one.
+func (b *Brain) carryingOn(last *LastTalk) bool {
+	return last != nil && time.Since(last.When) < CarryOnWithin
 }
 
 /*
@@ -149,42 +212,30 @@ func (b *Brain) timeOfDay() string {
 }
 
 /*
- * lastTopicLine says what the last conversation was about.
+ * lastTopicLine says what the last conversation was, and which one this is.
  *
  * Named by its opening line, which is what a conversation is actually
- * remembered by. Skipped when it was only just said — coming straight back to
- * a window that is still open does not need to be told what is on the screen.
+ * remembered by. The two cases are worded differently on purpose, because they
+ * are different situations: carrying on where you were is being handed back
+ * something you already have, and starting fresh is being told what the
+ * previous thing was before it goes out of sight.
+ *
+ * Skipped when it was only just said — coming straight back to a window that
+ * is still open does not need to be told what is on the screen.
  */
-func (b *Brain) lastTopicLine() string {
-	recent, err := b.DB.RecentConversations(1)
-	if err != nil || len(recent) == 0 {
+func lastTopicLine(last *LastTalk, carryOn bool) string {
+	if last == nil {
 		return ""
 	}
 
-	last := recent[0]
+	age := time.Since(last.When)
 
-	topic := last.Title
-	if strings.TrimSpace(topic) == "" {
-		topic = last.Opening
-	}
-
-	return topicLine(topic, time.Since(last.When))
-}
-
-/*
- * topicLine decides whether to mention a conversation, and how to say it.
- *
- * Separated from reading the database so both halves can be checked: whether a
- * conversation from a moment ago is worth repeating back, and whether a long
- * opening line is cut somewhere a person can still read.
- */
-func topicLine(topic string, age time.Duration) string {
 	// Still on screen: saying it back is noise, not orientation.
 	if age < TooRecentToMention {
 		return ""
 	}
 
-	topic = strings.TrimSpace(topic)
+	topic := strings.TrimSpace(last.Topic)
 	if topic == "" {
 		return ""
 	}
@@ -195,7 +246,37 @@ func topicLine(topic string, age time.Duration) string {
 		topic = strings.TrimSpace(topic[:mostOfIt]) + "…"
 	}
 
-	return fmt.Sprintf("Last time we were on: %s.", topic)
+	if carryOn {
+		return fmt.Sprintf("Carrying on from where we were, %s: %s.", howLongAgo(age), topic)
+	}
+
+	return fmt.Sprintf("This is a new conversation. The last one was %s: %s.",
+		howLongAgo(age), topic)
+}
+
+/*
+ * howLongAgo is a gap in the words a person would use.
+ *
+ * Rounded, and deliberately so. "Fourteen minutes ago" is what somebody wants
+ * to hear; a duration printed to the second is a thing to decode, and this
+ * sentence is usually being listened to rather than read.
+ */
+func howLongAgo(age time.Duration) string {
+	switch {
+	case age < time.Hour:
+		return fmt.Sprintf("%d minutes ago", int(age.Minutes()))
+
+	case age < 2*time.Hour:
+		return "an hour ago"
+
+	case age < 24*time.Hour:
+		return fmt.Sprintf("%d hours ago", int(age.Hours()))
+
+	case age < 48*time.Hour:
+		return "yesterday"
+	}
+
+	return fmt.Sprintf("%d days ago", int(age.Hours()/24))
 }
 
 /*

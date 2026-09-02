@@ -201,15 +201,6 @@ func TestBuildMapLinksEachPairOnce(t *testing.T) {
 	}
 }
 
-func TestImportRefusesNonEmptyDatabase(t *testing.T) {
-	db := open(t)
-	db.AddFact("a", "already here", []float32{1, 0, 0})
-
-	if _, err := db.ImportPostgresExport(t.TempDir()); err == nil {
-		t.Fatal("expected import into a populated database to be refused")
-	}
-}
-
 func TestMigrationsAreIdempotent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "brain.sqlite")
 

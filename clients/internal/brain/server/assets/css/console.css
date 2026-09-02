@@ -3435,3 +3435,17 @@ select { font-size: 13.5px; }
 
 #copy-note[data-kind="ok"] { color: var(--ok); }
 #copy-note[data-kind="bad"] { color: var(--warn); }
+
+/* Which conversation you are in. A note about the screen, not something the
+   brain said — so it is set apart from the messages rather than styled as one,
+   and quiet enough to read past once it has been read. */
+.thread-mark {
+    margin: 4px 0 14px;
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--hud-dim);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}

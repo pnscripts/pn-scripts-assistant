@@ -23,6 +23,7 @@ import (
 	"pn-brain/internal/away"
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/copies"
 	"pn-brain/internal/brain/desktop"
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/models"
@@ -70,8 +71,8 @@ func main() {
 		err = runTidy(os.Args[2:])
 	case "promote":
 		err = runPromote(os.Args[2:])
-	case "import":
-		err = runImport(os.Args[2:])
+	case "copies":
+		err = runCopies(os.Args[2:])
 	case "status":
 		err = runStatus(os.Args[2:])
 	case "menu":
@@ -146,13 +147,13 @@ func usage() {
   brain promote             turn validated lessons into durable knowledge
   brain mic-test            listen once and report what the microphone heard
   brain drives              where the brain could live, and how much room is left
+  brain copies              where copies of the brain are kept  (--now to copy)
   brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
   brain setup               choose the drive, the model and the keys again
   brain start-again         stop waiting for a drive that is gone for good
   brain menu                put the brain in the applications menu
   brain menu --remove       take it out again
-  brain import <dir>        load a Postgres export into a fresh database
   brain rewrite-paths       repair stored paths after a move, then re-embed
 
 `)
@@ -171,55 +172,6 @@ func openDB() (*store.DB, paths.Root, error) {
 	}
 
 	return db, root, nil
-}
-
-func runImport(args []string) error {
-	fs := flag.NewFlagSet("import", flag.ExitOnError)
-	fs.Parse(args)
-
-	if fs.NArg() != 1 {
-		return errors.New("give the directory holding the exported .json files")
-	}
-
-	db, root, err := openDB()
-	if err != nil {
-		/*
-		 * The brain is on a drive that is not plugged in.
-		 *
-		 * Said rather than worked around, and offered as a choice, because
-		 * only the person can know which it is: a drive on the desk that
-		 * wants plugging in, or one that is gone for good. Starting fresh
-		 * writes a new empty brain, and doing that automatically is how
-		 * everything somebody had would quietly stop being reachable.
-		 */
-		var elsewhere *paths.AwayError
-		if errors.As(err, &elsewhere) {
-			return brainAway(elsewhere)
-		}
-
-		return err
-	}
-	defer db.Close()
-
-	fmt.Printf("  data root : %s\n", root.Path)
-	fmt.Printf("  database  : %s\n\n", root.DatabasePath())
-
-	rep, err := db.ImportPostgresExport(fs.Arg(0))
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("  conversations   %d\n", rep.Conversations)
-	fmt.Printf("  messages        %d\n", rep.Messages)
-	fmt.Printf("  lessons         %d\n", rep.Lessons)
-	fmt.Printf("  facts           %d\n", rep.Facts)
-	fmt.Printf("  tool calls      %d\n", rep.Invocations)
-
-	for _, s := range rep.Skipped {
-		fmt.Printf("  ! %s\n", s)
-	}
-
-	return nil
 }
 
 func runStatus(args []string) error {
@@ -262,9 +214,9 @@ func runStatus(args []string) error {
 
 	fmt.Printf("\n  map       : %d nodes, %d links\n", len(m.Nodes), len(m.Links))
 
-	// The strongest link is a cheap equivalence check against the Postgres
-	// version this replaced: same vectors and a correct cosine must reproduce
-	// the same pair and the same score.
+	// The strongest link is a cheap check that the similarity maths is doing
+	// anything at all: a database with facts in it and a correct cosine must
+	// produce a strongest pair, and a score that is neither 0 nor 1.
 	var best store.MapLink
 	for _, l := range m.Links {
 		if l.Strength > best.Strength {
@@ -330,6 +282,20 @@ func runServe(args []string) error {
 
 	b.Start(ctx)
 	defer b.Stop()
+
+	/*
+	 * And the icon in the menu, if it has come to point at nothing.
+	 *
+	 * The program can be moved — a folder renamed, a drive remounted somewhere
+	 * else, a new build put in a different place — and the entry written when
+	 * it was installed still names where it used to be. It stays in the menu
+	 * looking exactly as it should, and does nothing when pressed.
+	 */
+	if fixed, err := desktop.RepairIfStale(cfg.Name); err != nil {
+		logger.Warn("the menu entry points somewhere else and could not be rewritten", "error", err)
+	} else if fixed {
+		logger.Info("the menu entry pointed at an older location and was rewritten")
+	}
 
 	ln, err := server.Listen(cfg.Addr)
 	if err != nil {
@@ -1259,6 +1225,83 @@ func runStartAgain(args []string) error {
 	fmt.Print("  it is found again by being there, not by being remembered.\n\n")
 
 	return nil
+}
+
+/*
+ * runCopies says where the copies are, and makes them on request.
+ *
+ * The panel in the app does this too, and that is the one people use. This is
+ * for the moment somebody is at a terminal with the drive in their hand and
+ * wants an answer without opening a window — and for scripting a copy before
+ * unplugging.
+ */
+func runCopies(args []string) error {
+	fs := flag.NewFlagSet("copies", flag.ExitOnError)
+	now := fs.Bool("now", false, "refresh every copy that can be reached, then report")
+	fs.Parse(args)
+
+	db, root, err := openDB()
+	if err != nil {
+		var elsewhere *paths.AwayError
+		if errors.As(err, &elsewhere) {
+			return brainAway(elsewhere)
+		}
+
+		return err
+	}
+	defer db.Close()
+
+	fmt.Printf("\n  the brain is at %s\n\n", root.Path)
+
+	var held []copies.Copy
+
+	if *now {
+		held = copies.WriteAll(context.Background(), db, root.Path)
+	} else if held, err = copies.Status(root.Path); err != nil {
+		return err
+	}
+
+	if len(held) == 0 {
+		fmt.Print("  No copies. Everything it knows is in one place.\n\n" +
+			"  Add one in the app, under Storage — or on any drive or folder you like.\n\n")
+
+		return nil
+	}
+
+	for _, c := range held {
+		fmt.Printf("  %s\n", c.Path)
+
+		switch {
+		case c.Never():
+			fmt.Print("      nothing copied here yet")
+
+		default:
+			fmt.Printf("      %d things, %s, copied %s",
+				c.Facts, roughSize(c.Bytes), c.At.Local().Format("2 Jan 15:04"))
+		}
+
+		if c.Trouble != "" {
+			fmt.Printf("  —  %s", c.Trouble)
+		}
+
+		fmt.Print("\n\n")
+	}
+
+	return nil
+}
+
+// roughSize is a byte count in the unit somebody would say it in. A new brain
+// is tens of kilobytes, and printing that as "0MB" reads as a failed copy.
+func roughSize(bytes int64) string {
+	switch {
+	case bytes >= 1<<30:
+		return fmt.Sprintf("%.1fGB", float64(bytes)/(1<<30))
+
+	case bytes >= 1<<20:
+		return fmt.Sprintf("%dMB", bytes>>20)
+	}
+
+	return fmt.Sprintf("%dKB", bytes>>10)
 }
 
 func runDrives(args []string) error {

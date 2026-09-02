@@ -189,3 +189,69 @@ func TestAnAppImageRecordsTheFileSomebodyDownloaded(t *testing.T) {
 		t.Errorf("a plain binary could not say where it is: %q %v", at, err)
 	}
 }
+
+/*
+ * A menu entry that points at a program which has moved is repaired.
+ *
+ * The folder holding this program was renamed, and from that moment the icon
+ * in the menu named a path that did not exist. Nothing failed and nothing was
+ * reported: the entry sat in the menu looking exactly as it should, and
+ * pressing it did nothing at all.
+ */
+func TestAMovedProgramFixesItsOwnMenuEntry(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", home)
+	t.Setenv("HOME", home)
+
+	entry, _ := Where()
+
+	if err := os.MkdirAll(filepath.Dir(entry), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// An entry from a build that lived somewhere else.
+	stale := entryText("PN Brain", "/somewhere/that/is/gone/pn-brain")
+
+	if err := os.WriteFile(entry, []byte(stale), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fixed, err := RepairIfStale("PN Brain")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !fixed {
+		t.Fatal("a stale entry was left pointing at a program that is not there")
+	}
+
+	if !Installed() {
+		t.Error("the rewritten entry still does not point at this program")
+	}
+
+	// Repairing twice is not writing twice.
+	if again, _ := RepairIfStale("PN Brain"); again {
+		t.Error("an entry that was already correct was rewritten anyway")
+	}
+}
+
+/*
+ * And a machine that has never had a menu entry does not get one for starting
+ * the program. Putting itself in somebody's menu uninvited is a thing to be
+ * asked for, not a side effect of being run.
+ */
+func TestStartingUpDoesNotInstallAMenuEntry(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", home)
+	t.Setenv("HOME", home)
+
+	if fixed, err := RepairIfStale("PN Brain"); fixed || err != nil {
+		t.Errorf("it installed itself into the menu uninvited (%v, %v)", fixed, err)
+	}
+
+	entry, _ := Where()
+
+	if _, err := os.Stat(entry); err == nil {
+		t.Error("a menu entry appeared without being asked for")
+	}
+}
