@@ -122,3 +122,34 @@ func sortedByLengthDesc(rules []PathRewrite) []PathRewrite {
 
 	return out
 }
+
+/*
+ * CountContaining is how many things it knows mention a piece of text.
+ *
+ * For one question, asked before anything is changed: the brain has been
+ * carried to a machine where its drive appears at a different path — how many
+ * memories does that actually break? Offering to repair a thousand memories is
+ * a different conversation from offering to repair none, and the honest way to
+ * tell them apart is to count.
+ */
+func (d *DB) CountContaining(text string) (int, error) {
+	if text == "" {
+		return 0, nil
+	}
+
+	var total int
+
+	for _, table := range []string{"knowledge_facts", "lessons"} {
+		var n int
+
+		err := d.sql().QueryRow(
+			`SELECT COUNT(*) FROM `+table+` WHERE content LIKE '%' || ? || '%'`, text).Scan(&n)
+		if err != nil {
+			return 0, fmt.Errorf("counting what mentions %s in %s: %w", text, table, err)
+		}
+
+		total += n
+	}
+
+	return total, nil
+}

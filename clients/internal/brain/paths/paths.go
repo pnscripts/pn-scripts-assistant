@@ -31,6 +31,22 @@ type Root struct {
 	// Borrowed marks a root that was named by PN_BRAIN_DATA_ROOT for this run
 	// only. It must never become what this machine remembers. See Find.
 	Borrowed bool `json:"-"`
+
+	/*
+	 * MovedFrom is where this same brain was the last time it was opened,
+	 * when that is somewhere else.
+	 *
+	 * The whole point of keeping the brain on a drive is carrying it, and the
+	 * drive lands at a different path on every machine — /media/you/LABEL on
+	 * one, /Volumes/LABEL on another, E:\ on a third. Everything the brain has
+	 * learned about files records where they were, so after the journey those
+	 * memories are accurate and useless at the same time: they name real files
+	 * by a path that does not exist here.
+	 *
+	 * Nothing is done about it automatically. It is reported, because rewriting
+	 * a thousand memories is not something to do to somebody without asking.
+	 */
+	MovedFrom string `json:"-"`
 }
 
 // DatabasePath is where the SQLite file lives inside a root.
@@ -262,6 +278,17 @@ func Create(dir string) (Root, error) {
 // that starts small and can be moved later.
 func FindOrCreate() (Root, error) {
 	if r, err := Find(); err == nil {
+		/*
+		 * Noticed before it is written down, because writing it down is what
+		 * destroys the evidence.
+		 *
+		 * The same brain — same id — found somewhere other than where this
+		 * machine last saw it means the drive has travelled.
+		 */
+		if was, id, ok := lastKnown(); ok && id != "" && id == r.ID && was != r.Path {
+			r.MovedFrom = was
+		}
+
 		Remember(r)
 
 		return r, nil
@@ -364,25 +391,37 @@ func Remember(r Root) {
 // there any more. A remembered root that still exists is not interesting: Find
 // would have returned it.
 func LastKnown() (string, bool) {
-	path, err := pointerFile()
+	path, _, ok := lastKnown()
+
+	return path, ok
+}
+
+// lastKnown is the whole of what was written down: where, and which brain.
+//
+// The identity matters for telling two situations apart that look identical
+// from the path alone — the same brain arriving at a new mount point, and a
+// different brain being opened deliberately.
+func lastKnown() (path, id string, ok bool) {
+	file, err := pointerFile()
 	if err != nil {
-		return "", false
+		return "", "", false
 	}
 
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(file)
 	if err != nil {
-		return "", false
+		return "", "", false
 	}
 
 	var noted struct {
 		Path string `json:"path"`
+		ID   string `json:"id"`
 	}
 
 	if err := json.Unmarshal(raw, &noted); err != nil || noted.Path == "" {
-		return "", false
+		return "", "", false
 	}
 
-	return noted.Path, true
+	return noted.Path, noted.ID, true
 }
 
 /*

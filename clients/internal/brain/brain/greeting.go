@@ -90,6 +90,18 @@ func (b *Brain) Greet() Greeting {
 	}
 
 	/*
+	 * And whether it has been carried somewhere new, which comes before
+	 * everything else about the day.
+	 *
+	 * It is the one condition where the brain looks completely normal and a
+	 * large part of what it knows cannot be acted on: every path it learned
+	 * names a place that does not exist on this machine.
+	 */
+	if moved := b.journeyLine(); moved != "" {
+		parts = append(parts, moved)
+	}
+
+	/*
 	 * Where the conversation stands, before what is queued.
 	 *
 	 * The greeting opened with the review queue — "there is one thing I would

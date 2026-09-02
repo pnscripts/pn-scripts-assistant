@@ -54,6 +54,30 @@
     </form>
 </div>
 
+<!--
+    The brain has been carried to another machine.
+
+    Above the layout for the same reason as the drive-lost banner: it is not
+    news about one panel. Everything the brain learned about files records
+    where those files were, and on this machine those paths do not exist — so
+    a large part of what it knows is accurate and unusable at the same time,
+    while the interface carries on looking completely normal.
+-->
+<div id="travelled" class="drive-lost travelled" hidden role="alert">
+    <strong>This drive has moved.</strong>
+    <!--
+        Short on purpose, with the paths in the tooltip.
+
+        This sits over the top of the screen, so it has to stay one line at any
+        sensible width. Two mount points written out in full is four lines on a
+        laptop, covering the panels underneath — and a banner that hides the
+        program to describe a problem is its own problem.
+    -->
+    <span class="drive-lost-note" id="travelled-note"></span>
+    <button type="button" class="model-action" id="travelled-fix">Repair them</button>
+    <button type="button" class="model-action" id="travelled-no">Not needed</button>
+</div>
+
 <div class="shell">
 
     <header class="topbar">
@@ -560,6 +584,25 @@
                         <p class="storage-advice" id="storage-advice"></p>
                     </div>
                     <div id="drives" class="drives"></div>
+                    <p class="drive-note" id="storage-outlook"></p>
+                    <!--
+                        Moving the whole brain somewhere bigger.
+
+                        This was a terminal command, which for this program is
+                        the same as not existing. Running out of room on the
+                        drive your assistant lives on is exactly the moment you
+                        cannot be asked to remember a flag.
+                    -->
+                    <div class="copy-add" id="move-home" hidden>
+                        <label class="field">
+                            <span>Move everything to</span>
+                            <select id="move-where"></select>
+                        </label>
+                        <div class="copy-buttons">
+                            <button type="button" class="model-action" id="move-go">Move the brain there</button>
+                        </div>
+                        <p class="drive-note" id="move-note"></p>
+                    </div>
                 </div>
                 <!--
                     The brain, kept in more than one place.
@@ -812,6 +855,7 @@
 <script src="/js/history.js"></script>
 <script src="/js/copies.js"></script>
 <script src="/js/places.js"></script>
+<script src="/js/journey.js"></script>
 <!-- The three.js addons import from the bare name "three", so the page has to
      say where that is. An import map rather than a build step: this ships
      inside one binary, and adding a bundler for two scenes would put npm into

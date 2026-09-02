@@ -285,6 +285,12 @@ func runServe(args []string) error {
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
 	srv := server.New(b, logger)
 
+	// The same two things the windowed start records: what the last run left
+	// unfinished, and whether the drive has been carried here from another
+	// machine, where it sat at a different path.
+	b.NoteCutShort(cutShort)
+	b.NoteJourney(root.MovedFrom)
+
 	b.Start(ctx)
 	defer b.Stop()
 
@@ -629,6 +635,11 @@ func runApp(args []string) error {
 	// So the greeting can say the last run stopped in the middle of something,
 	// which is the first thing worth knowing on opening it again.
 	b.NoteCutShort(cutShort)
+
+	// And whether the drive has been carried here from another machine, where
+	// it sat at a different path — which quietly breaks every memory that
+	// names a file.
+	b.NoteJourney(root.MovedFrom)
 
 	/*
 	 * Finish anything the last run validated but never promoted.

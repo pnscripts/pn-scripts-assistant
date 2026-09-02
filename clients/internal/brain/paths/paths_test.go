@@ -283,3 +283,78 @@ func TestACopyOnADriveIsNotFoundAsTheBrain(t *testing.T) {
 		t.Errorf("looking at a drive holding only a copy: %v", err)
 	}
 }
+
+/*
+ * The same brain, found somewhere else, is a journey rather than a new brain.
+ *
+ * A drive carried to another machine mounts at a different path — and every
+ * memory that names a file names it by the old one. Noticing that is the only
+ * chance anybody gets: after the pointer is rewritten there is nothing left to
+ * compare against, and the brain looks entirely normal while a large part of
+ * what it knows points nowhere.
+ */
+func TestTheSameBrainFoundElsewhereIsNoticed(t *testing.T) {
+	real := mounts
+	mounts = func() []string { return nil }
+
+	t.Cleanup(func() { mounts = real })
+
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("HOME", home)
+	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+
+	// Where it was, on the machine it came from.
+	before := filepath.Join(t.TempDir(), "OLDMOUNT", "PN-BRAIN-DATA")
+
+	was, err := Create(before)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Remember(was)
+
+	// The same brain — same marker, same id — mounted somewhere else.
+	after := filepath.Join(t.TempDir(), "NEWMOUNT", "PN-BRAIN-DATA")
+
+	if err := os.MkdirAll(after, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(before, Marker))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(after, Marker), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// And the old place is gone, as it is when the drive is on another desk.
+	os.RemoveAll(filepath.Dir(before))
+
+	t.Setenv("PN_BRAIN_SEARCH_PATHS", filepath.Dir(after))
+
+	found, err := FindOrCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if found.Path != after {
+		t.Fatalf("it opened %s rather than the drive that is here", found.Path)
+	}
+
+	if found.MovedFrom != before {
+		t.Errorf("the journey was not noticed: MovedFrom is %q, want %q", found.MovedFrom, before)
+	}
+
+	// And opening it again from the same place is not a journey.
+	next, err := FindOrCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if next.MovedFrom != "" {
+		t.Errorf("opening it where it already was reported a journey from %q", next.MovedFrom)
+	}
+}

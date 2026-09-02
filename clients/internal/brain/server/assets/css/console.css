@@ -3449,3 +3449,41 @@ select { font-size: 13.5px; }
     letter-spacing: 0.06em;
     text-transform: uppercase;
 }
+
+/* The brain has been carried somewhere new. Same shape as the drive-lost
+   banner because it is the same class of news — everything looks fine and a
+   large part of what it knows cannot be acted on — but amber rather than red:
+   nothing is being lost while it stands, and it is fixable in one press.
+
+   Kept to one line. It is fixed to the top of the screen, so anything that
+   wraps covers the panels underneath — and a banner that hides the program in
+   order to describe a problem is its own problem. The paths live in the
+   tooltip, where they cost nothing. */
+.travelled {
+    background: var(--warn, #ffb74d);
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0 12px;
+}
+
+.travelled .drive-lost-note {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.travelled .model-action {
+    margin: 0;
+    flex: none;
+    border-color: rgba(8, 12, 17, 0.45);
+    background: rgba(8, 12, 17, 0.12);
+    color: #080c11;
+    font-weight: 600;
+}
+
+.travelled .model-action:hover:not(:disabled) { background: rgba(8, 12, 17, 0.22); }
+#storage-outlook { margin-top: 10px; }
+
+#storage-outlook[data-kind="bad"], #move-note[data-kind="bad"] { color: var(--warn); }
+#move-note[data-kind="ok"] { color: var(--ok); }

@@ -48,6 +48,11 @@ type Brain struct {
 	// cutShort is how many turns the last run left unfinished. See NoteCutShort.
 	cutShort int
 
+	// journeyFrom is where this brain was the last time it was opened, when
+	// that is somewhere else — the drive has been carried to another machine.
+	// See travelled.go.
+	journeyFrom string
+
 	// ollama is kept so the chat model can be changed without a restart. The
 	// choice of model is a decision somebody makes while using the brain,
 	// having seen how the alternatives behave on their own machine, and
