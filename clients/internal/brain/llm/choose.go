@@ -602,8 +602,27 @@ var asking = map[string]bool{
 	"remember": true, "remind": true, "learn": true, "check": true, "list": true,
 	"my": true, "mine": true, "our": true,
 
+	/*
+	 * Asking what it knows is asking about the store, always.
+	 *
+	 * "What do you know for me?" was six words with none of the above in them,
+	 * so it was treated as small talk and answered with no tools at all — and
+	 * a model handed no tools and no facts says the only thing it can: "I know
+	 * nothing about you. I have no memory of our conversations. I am a fresh
+	 * start." Said by a brain holding one thousand and twenty-nine things
+	 * about the person asking.
+	 *
+	 * That is the worst answer this program can give. It is false, it is about
+	 * the one capability the whole thing exists for, and somebody hearing it
+	 * has no reason to believe anything else it says.
+	 */
+	"know": true, "knows": true, "knew": true, "knowledge": true,
+	"memory": true, "memories": true, "forget": true, "forgot": true,
+	"recall": true, "about": true,
+
 	"файл": true, "файлове": true, "папка": true, "новини": true, "време": true,
 	"провери": true, "намери": true, "напомни": true,
+	"знаеш": true, "помниш": true, "памет": true, "забрави": true,
 }
 
 /*

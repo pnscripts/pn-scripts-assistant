@@ -1,6 +1,9 @@
 package llm
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 var here = Sizes{Work: "qwen2.5-coder:7b", Talk: "llama3.2:3b", Reason: "deepseek-r1:8b"}
 
@@ -528,6 +531,39 @@ func TestAnythingThatMightNeedLookingUpKeepsItsTools(t *testing.T) {
 		if got := ChooseModel(real, sizes); !got.Tools {
 			t.Errorf("%q was answered with no tools, so it cannot be answered "+
 				"at all", real)
+		}
+	}
+}
+
+/*
+ * A question about what it knows must never be answered without tools.
+ *
+ * "What do you know for me?" was six words with nothing in the vocabulary that
+ * forces tools, so it was treated as small talk and sent to the model with no
+ * tools and no facts. A model given neither says the only thing it can — "I
+ * know nothing about you. I have no memory of our conversations. I am a fresh
+ * start" — while the store held one thousand and twenty-nine things about the
+ * person asking.
+ *
+ * That is the worst answer this program can produce: false, about the single
+ * capability it exists for, and leaving somebody no reason to believe anything
+ * else it says.
+ */
+func TestAskingWhatItKnowsAlwaysKeepsItsTools(t *testing.T) {
+	for _, asked := range []string{
+		"what do you know for me?",
+		"what do you know about me?",
+		"do you know me",
+		"what do you remember",
+		"tell me what you know",
+		"do you have any memory of me",
+		"какво знаеш за мен",
+		"помниш ли ме",
+	} {
+		words := strings.Fields(strings.ToLower(asked))
+
+		if nothingToLookUp(strings.ToLower(asked), words) {
+			t.Errorf("%q would be answered with no tools at all", asked)
 		}
 	}
 }

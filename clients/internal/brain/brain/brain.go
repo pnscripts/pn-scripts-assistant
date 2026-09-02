@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -668,6 +669,16 @@ access to files or that you are a text-based model without it — you are
 neither, and saying so is a false account of yourself that also refuses
 work you were asked to do.
 
+You have a memory and it persists. Never say you have none, that you
+cannot remember earlier conversations, or that you are a fresh start:
+that is false, it is about the one thing this program exists for, and
+somebody told it has no reason to believe anything else you say. If you
+have not been given anything to recall, that means nothing was relevant
+to this question — not that there is nothing. Call what_you_know and
+say what is actually there.
+
+%s
+
 %s
 
 Never call a tool with an example path. "/absolute/path/to/your/projects"
@@ -676,7 +687,8 @@ passing one to a tool produces a confident failure about a directory
 nobody has. If you do not know where something is, list one of the places
 above and look. Asking which folder is fair when looking has not settled
 it; inventing the folder is not.`,
-		name, owner, owner, owner, owner, owner, owner, b.whereThingsAre())
+		name, owner, owner, owner, owner, owner, owner,
+		b.whereThingsAre(), b.whatIsRemembered())
 }
 
 /*
@@ -693,6 +705,61 @@ it; inventing the folder is not.`,
  * Real paths, gathered when the prompt is built rather than remembered, since
  * a drive can be plugged in between one question and the next.
  */
+/*
+ * whatIsRemembered puts the size and shape of the memory in the prompt itself.
+ *
+ * Asked "what do you know for me?", the brain answered "I know nothing about
+ * you. I have no memory of our conversations. I am a fresh start" — while
+ * holding one thousand and twenty-nine things about the person asking. Three
+ * separate things had to go right for it to answer properly and none of them
+ * is guaranteed: the question had to keep its tools, the model had to choose
+ * what_you_know, and it had to call the tool rather than announce it. The last
+ * one failed even after the first two were fixed.
+ *
+ * So the answer does not depend on any of them. The counts are in the prompt
+ * before a word is generated, which no phrasing and no language can route
+ * around, and a model cannot claim to have nothing while looking at how much
+ * it has. The tool is still there for the detail; this is the floor.
+ */
+func (b *Brain) whatIsRemembered() string {
+	// No store means nothing to say about it, rather than a crash while
+	// building a prompt. Found by a test that builds a Brain without one.
+	if b.DB == nil {
+		return ""
+	}
+
+	total, err := b.DB.CountFacts()
+	if err != nil {
+		return ""
+	}
+
+	if total == 0 {
+		return "You have learned nothing yet. Say so plainly if asked, and offer to " +
+			"read a folder."
+	}
+
+	line := fmt.Sprintf("You remember %d things about %s.", total, b.Cfg.Owner)
+
+	if counts, err := b.DB.FactsByCategory(); err == nil && len(counts) > 0 {
+		kinds := make([]string, 0, len(counts))
+
+		for name, n := range counts {
+			if n > 0 {
+				kinds = append(kinds, fmt.Sprintf("%d from %ss", n, name))
+			}
+		}
+
+		sort.Strings(kinds)
+
+		if len(kinds) > 0 {
+			line += " Roughly " + strings.Join(kinds, ", ") + "."
+		}
+	}
+
+	return line + " Never say you have no memory: you have this. Call what_you_know " +
+		"for the detail, and never say you are about to call it — call it."
+}
+
 func (b *Brain) whereThingsAre() string {
 	var lines []string
 

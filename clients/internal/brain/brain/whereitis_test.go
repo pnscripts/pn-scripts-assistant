@@ -68,3 +68,47 @@ func TestTheAssistantIsToldNotToInventPaths(t *testing.T) {
 		t.Error("the prompt does not carry the real paths into the conversation")
 	}
 }
+
+/*
+ * The prompt itself says how much is remembered, so no answer can claim none.
+ *
+ * "I know nothing about you. I have no memory of our conversations. I am a
+ * fresh start" — said while holding 1029 things about the person asking.
+ * Getting that right depended on three things going right in a row: the
+ * question keeping its tools, the model choosing what_you_know, and it calling
+ * the tool rather than announcing it. The third failed after the first two
+ * were fixed, which is why this does not depend on any of them.
+ */
+func TestThePromptAlwaysCarriesHowMuchIsRemembered(t *testing.T) {
+	b := testBrain(t)
+
+	// Nothing learned: it must say that plainly rather than imply a number.
+	empty := b.whatIsRemembered()
+
+	if !strings.Contains(empty, "learned nothing yet") {
+		t.Errorf("an empty brain describes itself as %q", empty)
+	}
+
+	for i := 0; i < 3; i++ {
+		if _, err := b.DB.AddFact("project", "Petar has a project", nil); err != nil {
+			t.Skipf("cannot add facts here: %v", err)
+		}
+	}
+
+	said := b.whatIsRemembered()
+
+	if !strings.Contains(said, "3") {
+		t.Errorf("the count is missing: %q", said)
+	}
+
+	if !strings.Contains(said, "Never say you have no memory") {
+		t.Errorf("the prompt does not forbid the false answer: %q", said)
+	}
+
+	// And it reaches the prompt the model actually sees.
+	prompt := strings.Join(strings.Fields(b.SystemPrompt()), " ")
+
+	if !strings.Contains(prompt, "Never say you have no memory") {
+		t.Error("what is remembered never reaches the system prompt")
+	}
+}
