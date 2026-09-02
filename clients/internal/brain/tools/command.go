@@ -21,9 +21,8 @@ import (
 // because what is shown is exactly what will run, with no expansion or
 // substitution happening afterwards.
 //
-// Before Docker was removed this had to travel through a host agent daemon,
-// since the brain could not see the real machine from inside its container.
-// Running natively, it simply runs.
+// The brain runs on the machine it is asked about, so a command it is given
+// simply runs. There is nothing between it and the computer.
 type RunCommand struct {
 	// Timeout bounds one command. Zero means DefaultCommandTimeout.
 	Timeout time.Duration

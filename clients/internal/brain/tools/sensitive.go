@@ -31,7 +31,14 @@ var sensitiveNames = map[string]bool{
 	"credentials": true, "auth.json": true, "shadow": true, "passwd-": true,
 }
 
-// sensitiveDirectories are matched against any part of the path.
+/*
+ * sensitiveDirectories are matched against any part of the path.
+ *
+ * These are places credentials live, and the list is about protecting them
+ * rather than about the tools that put them there. ~/.docker holds registry
+ * logins in plain text, which is why it is here — the program itself uses no
+ * containers and never has any reason to read that folder.
+ */
 var sensitiveDirectories = []string{
 	"/.ssh/", "/.gnupg/", "/.aws/", "/.azure/", "/.kube/",
 	"/.docker/", "/.config/gcloud/", "/.password-store/",

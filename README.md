@@ -168,10 +168,10 @@ pn-brain import <dir>       load a Postgres export into a fresh database
 Go, and a SQLite file. Vectors are stored as float32 blobs and similarity is
 computed in process — exact, and cheaper than the network hop it replaced.
 
-It used to be Laravel with Postgres, pgvector and Redis in Docker. That worked,
-and it still could not be downloaded and run, which was the entire point. The
-reasoning behind the switch — and the reasoning behind *not* switching, which
-was wrong — is kept in [docs/ROADMAP.md](docs/ROADMAP.md).
+Nothing else has to be running for it to start: no database server, no
+container runtime, no background stack. The program, one file of memory, and
+whichever model you point it at. How it came to be built this way is in
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Licence
 

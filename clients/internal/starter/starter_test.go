@@ -15,12 +15,10 @@ func TestAnswersTheQuestionActuallyAsked(t *testing.T) {
 		expect   string // a phrase the correct answer must contain
 	}{
 		{"is my data private?", "nothing leaves your computer"},
-		// Asked because it used to need Docker, and somebody who read about
-		// this program a year ago still will. The answer that matters is that
-		// it does not — "database" was the old answer and passing on it now
-		// would only prove the sentence still contains the word.
-		{"why do I need docker?", "does not use Docker"},
-		{"do I need containers?", "does not use Docker"},
+		// The question about containers is gone with the thing that prompted
+		// it. Nothing in the program, the setup or the README mentions one any
+		// more, so an answer explaining that it does not use one would be the
+		// only place left that raises the idea.
 		{"how long does this take?", "2GB"},
 		{"does it cost anything?", "Nothing here costs money"},
 		{"will it work offline?", "no internet connection"},

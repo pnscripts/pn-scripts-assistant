@@ -2,10 +2,10 @@
 //
 // It is SQLite, opened through a pure-Go driver so the finished binary needs no
 // C toolchain, no system libraries and no database server. That last point is
-// the whole reason this package exists: the brain used to need Postgres with
-// the pgvector extension running in a container beside it, which meant the
-// "app" was really four processes and a Docker daemon. A personal assistant
-// that cannot start without a container runtime is not a personal assistant.
+// the whole reason this package exists: everything the brain knows lives in one
+// SQLite file inside its own folder, opened directly by the program. There is
+// no database server, no container, and nothing to start first — a personal
+// assistant that cannot begin without another stack running is not one.
 //
 // Vectors are kept as raw float32 blobs rather than a vector extension.
 // Similarity is then computed in Go over the rows. That is a linear scan, and

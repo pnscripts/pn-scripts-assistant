@@ -65,7 +65,7 @@ type Requirement struct {
 
 	// InstallCmd returns the command to satisfy this requirement on the
 	// current platform, or nil when it must be done by hand — some things
-	// (a Docker Desktop download, a kernel feature) genuinely cannot be
+	// (a signed installer to download, a kernel feature) genuinely cannot be
 	// scripted, and pretending otherwise wastes the user's time.
 	InstallCmd func() []string
 

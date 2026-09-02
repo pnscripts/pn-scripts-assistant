@@ -1,10 +1,9 @@
 // Command brain is PN Brain itself.
 //
 // One binary, one file on disk for the data, and nothing else running. There is
-// no database server to install, no container runtime, no queue daemon and no
-// PHP. That is the point of it: the previous shape needed Docker with Postgres,
-// pgvector and Redis beside it, which meant the assistant could not start on a
-// machine that did not already have a container stack configured.
+// no database server to install, no container runtime and no queue daemon. That
+// is the point of it: an assistant that cannot start until somebody has stood a
+// stack of services up first is not one anybody keeps.
 package main
 
 import (
@@ -540,10 +539,9 @@ func runPromote(args []string) error {
 // runApp is the whole program for someone who just wants their assistant: the
 // brain starts, and a window opens onto it.
 //
-// Both live in this one process. Before Docker was removed this needed a
-// container stack, a launcher script and a separate desktop binary that polled
-// for the backend to come up; none of that exists now, and neither do the ways
-// it could half-start.
+// Both live in this one process, so there is no launcher script, no backend to
+// wait for and no window polling for something that may never answer — and none
+// of the ways those could half-start.
 func runApp(args []string) error {
 	fs := flag.NewFlagSet("app", flag.ExitOnError)
 	addr := fs.String("addr", "", "address to listen on (loopback only)")

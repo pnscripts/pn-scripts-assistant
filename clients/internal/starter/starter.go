@@ -43,24 +43,6 @@ var topics = []Topic{
 			"is sent anywhere else.",
 	},
 	{
-		/*
-		 * Asked about Docker because it used to need it, and somebody who read
-		 * about this program a year ago still will.
-		 *
-		 * The honest answer is that it does not, and saying so plainly is
-		 * worth more than saying nothing: the previous shape was Laravel,
-		 * Postgres, Redis and a container daemon, and the whole point of what
-		 * replaced it is that none of that is here.
-		 */
-		Keys: []string{"why docker", "need docker", "what is docker", "docker for",
-			"container", "containers"},
-		Answer: "It does not use Docker at all. PN Brain is a single program with its " +
-			"database inside it, so there is no container, no Postgres and no Redis to " +
-			"install or keep running.\n\n" +
-			"It used to need all of that. If you read otherwise somewhere, that was the " +
-			"older shape of this program.",
-	},
-	{
 		Keys: []string{"why ollama", "what is ollama", "need ollama", "local model", "why model"},
 		Answer: "Ollama runs a language model on your own machine. That is what lets PN Brain " +
 			"think without sending your conversations to a company.\n\n" +
@@ -146,7 +128,6 @@ func Suggestions() []string {
 		"What is this?",
 		"Is my data private?",
 		"How long does setup take?",
-		"Does it need Docker?",
 	}
 }
 

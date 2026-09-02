@@ -12,7 +12,7 @@ pn-brain-doctor --quiet      # silent when healthy; used by the launcher
 ## Built to be run forever, not once
 
 Setup tools usually assume a one-time install, which is wrong here: models get
-replaced, Docker gets upgraded, a distribution moves a library out from under
+replaced, Ollama gets upgraded, a distribution moves a library out from under
 you. So this reports current state on every run, and installing is simply
 "make reality match the list" — the same command works on a fresh machine and
 on one that's been running PN Brain for a year. `scripts/pn-brain-launch.sh` runs it
