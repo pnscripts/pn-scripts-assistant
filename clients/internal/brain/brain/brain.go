@@ -55,6 +55,10 @@ type Brain struct {
 	// See travelled.go.
 	journeyFrom string
 
+	// currentConversation is the one this turn belongs to, so a tool asked to
+	// change "this conversation" changes the right one.
+	currentConversation int64
+
 	// ollama is kept so the chat model can be changed without a restart. The
 	// choice of model is a decision somebody makes while using the brain,
 	// having seen how the alternatives behave on their own machine, and
@@ -218,6 +222,16 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// And whether there is a copy of itself anywhere, which is the
 		// question somebody asks with their hand on the drive.
 		tools.Copies{Root: b.Root, Source: b.DB},
+
+		/*
+		 * Changing what has just happened, which is what makes it a
+		 * conversation rather than a transcript.
+		 *
+		 * "Say that again", "forget that", "throw this away" — asked out loud,
+		 * in whatever language somebody happens to be speaking, which is why
+		 * it is a tool and not a button.
+		 */
+		tools.Revise{Talk: talkingTo{b}, Now: b.CurrentConversation},
 
 		// And the drives and folders it reads from, which is the other half
 		// of the same question.
@@ -1025,6 +1039,9 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	 * Written only if nothing else was: the ordinary paths save their own
 	 * answer and clear this.
 	 */
+	// So a tool asked to change "this conversation" changes this one.
+	b.inConversation(conversationID)
+
 	answered := false
 
 	defer func() {
@@ -1035,9 +1052,16 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		note := "That turn did not finish — the answer was lost before it could be " +
 			"written. Ask again."
 
+		/*
+		 * Stopped on purpose reads differently from lost.
+		 *
+		 * A cancelled context here means somebody pressed stop or said the
+		 * brain's name over the top of it, which is a thing they did rather
+		 * than a thing that went wrong — and the transcript should not report
+		 * a decision as a failure.
+		 */
 		if err := ctx.Err(); err != nil {
-			note = "That turn was interrupted before it finished, so there is no " +
-				"answer to it. Ask again."
+			note = "You stopped that one, so there is no answer to it."
 		}
 
 		// Its own context: the turn's is cancelled, which is the case this
@@ -1518,6 +1542,56 @@ func (r rememberedBy) RecentFacts(limit int) ([]tools.RecentFact, error) {
 
 	for _, f := range found {
 		out = append(out, tools.RecentFact{Content: f.Content, Category: f.Category})
+	}
+
+	return out, nil
+}
+
+/*
+ * CurrentConversation is the conversation this turn belongs to.
+ *
+ * Held on the brain rather than passed to the tool, because a tool is built
+ * once at startup and a conversation is per turn — and the tool that changes a
+ * conversation has to act on the one it is in, not on the one that existed
+ * when the program started.
+ */
+func (b *Brain) CurrentConversation() int64 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.currentConversation
+}
+
+func (b *Brain) inConversation(id int64) {
+	b.mu.Lock()
+	b.currentConversation = id
+	b.mu.Unlock()
+}
+
+/*
+ * talkingTo is the narrow view of the store the revise tool gets.
+ *
+ * An adapter rather than handing over the database, so a tool that exists to
+ * change one conversation cannot reach anything else in it.
+ */
+type talkingTo struct{ b *Brain }
+
+func (t talkingTo) ForgetLastExchange(id int64) (int, error) { return t.b.DB.ForgetLastExchange(id) }
+func (t talkingTo) DeleteConversation(id int64) error        { return t.b.DB.DeleteConversation(id) }
+func (t talkingTo) RenameConversation(id int64, title string) error {
+	return t.b.DB.RenameConversation(id, title)
+}
+
+func (t talkingTo) History(id int64) ([]tools.Message, error) {
+	stored, err := t.b.DB.History(id)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]tools.Message, 0, len(stored))
+
+	for _, m := range stored {
+		out = append(out, tools.Message{Role: m.Role, Content: m.Content})
 	}
 
 	return out, nil

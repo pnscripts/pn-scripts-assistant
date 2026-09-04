@@ -292,3 +292,85 @@ func (d *DB) RecentConversations(limit int) ([]Recent, error) {
 
 	return out, rows.Err()
 }
+
+/*
+ * ForgetLastExchange removes the last thing said and the answer to it.
+ *
+ * For the moment somebody says "no, forget that" — a question asked wrongly, a
+ * dictation the microphone mangled, something said that should not be in the
+ * record. Without it the only ways out were to leave the mistake in the
+ * transcript or to delete the whole conversation around it.
+ *
+ * The pair, not one of them. Removing a question and leaving its answer makes
+ * the record say the brain volunteered something nobody asked for; removing an
+ * answer and leaving the question makes it say the brain ignored a question.
+ * Both are worse than the mistake being removed.
+ */
+func (d *DB) ForgetLastExchange(conversationID int64) (int, error) {
+	rows, err := d.sql().Query(
+		`SELECT id, role FROM messages
+		  WHERE conversation_id = ? AND role IN ('user','assistant','tool')
+		  ORDER BY id DESC LIMIT 20`, conversationID)
+	if err != nil {
+		return 0, fmt.Errorf("looking at the end of the conversation: %w", err)
+	}
+
+	type said struct {
+		id   int64
+		role string
+	}
+
+	var recent []said
+
+	for rows.Next() {
+		var s said
+
+		if err := rows.Scan(&s.id, &s.role); err != nil {
+			rows.Close()
+
+			return 0, err
+		}
+
+		recent = append(recent, s)
+	}
+
+	rows.Close()
+
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	/*
+	 * Back to the last thing the person said, inclusive.
+	 *
+	 * Everything after it — the answer, and any tool output that went into
+	 * making the answer — belongs to that exchange and goes with it.
+	 */
+	var remove []int64
+
+	for _, s := range recent {
+		remove = append(remove, s.id)
+
+		if s.role == "user" {
+			break
+		}
+	}
+
+	if len(remove) == 0 {
+		return 0, nil
+	}
+
+	// The last entry is the user message that ends the search; if the loop
+	// never found one there is no complete exchange to remove.
+	if recent[len(remove)-1].role != "user" {
+		return 0, nil
+	}
+
+	for _, id := range remove {
+		if _, err := d.sql().Exec(`DELETE FROM messages WHERE id = ?`, id); err != nil {
+			return 0, fmt.Errorf("removing a message: %w", err)
+		}
+	}
+
+	return len(remove), nil
+}

@@ -64,3 +64,86 @@ func TestAConversationCanBeRenamedAndDeleted(t *testing.T) {
 		t.Error("deleting a conversation that does not exist was reported as working")
 	}
 }
+
+/*
+ * Forgetting the last exchange takes the pair, never half of it.
+ *
+ * Removing a question and leaving its answer makes the record say the brain
+ * volunteered something nobody asked for. Removing an answer and leaving the
+ * question makes it say the brain was asked and ignored it. Both are worse
+ * than whatever was being corrected.
+ */
+func TestForgettingTheLastExchangeTakesThePair(t *testing.T) {
+	db := open(t)
+
+	conv, err := db.NewConversation("t")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, m := range []struct{ role, content string }{
+		{"system", "you are a brain"},
+		{"user", "what is the first thing"},
+		{"assistant", "the first answer"},
+		{"user", "what is the second thing"},
+		{"tool", "[looked something up] ..."},
+		{"assistant", "the second answer"},
+	} {
+		if _, err := db.AddMessage(conv, m.role, "", "", m.content); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	removed, err := db.ForgetLastExchange(conv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The question, the tool output that served it, and the answer.
+	if removed != 3 {
+		t.Errorf("removed %d messages, want 3", removed)
+	}
+
+	left, err := db.History(conv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var said []string
+
+	for _, m := range left {
+		said = append(said, m.Role+":"+m.Content)
+	}
+
+	want := []string{
+		"system:you are a brain",
+		"user:what is the first thing",
+		"assistant:the first answer",
+	}
+
+	if len(said) != len(want) {
+		t.Fatalf("what is left is %v", said)
+	}
+
+	for i := range want {
+		if said[i] != want[i] {
+			t.Errorf("line %d is %q, want %q", i, said[i], want[i])
+		}
+	}
+
+	// And again, taking the exchange before it.
+	if _, err := db.ForgetLastExchange(conv); err != nil {
+		t.Fatal(err)
+	}
+
+	after, _ := db.History(conv)
+
+	if len(after) != 1 || after[0].Role != "system" {
+		t.Errorf("the second forget left %+v", after)
+	}
+
+	// Nothing left to forget is not an error; it is an answer.
+	if n, err := db.ForgetLastExchange(conv); err != nil || n != 0 {
+		t.Errorf("forgetting an empty conversation returned %d, %v", n, err)
+	}
+}

@@ -16,11 +16,15 @@ const api = {
         if (!res.ok) throw new Error(`${path} -> ${res.status}`);
         return res.json();
     },
-    async post(path, body) {
+    async post(path, body, signal) {
         const res = await fetch(path, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: body === undefined ? undefined : JSON.stringify(body),
+            // Passed through so a turn can be abandoned. Cancelling the request
+            // cancels the context on the other side, which is what actually
+            // stops the model rather than just stopping the voice.
+            signal,
         });
         if (!res.ok) throw new Error(`${path} -> ${res.status}`);
         return res.json();
@@ -46,6 +50,17 @@ const state = {
      */
     firstRun: false,
     busy: false,
+
+    /*
+     * The turn in flight, so it can be abandoned.
+     *
+     * Stopping used to mean stopping the voice: the model carried on
+     * generating an answer nobody wanted, holding the only processor on the
+     * machine, and the next thing anybody said queued behind it. On hardware
+     * where an answer runs to a minute that is the difference between changing
+     * your mind and waiting to be allowed to.
+     */
+    inFlight: null,
 };
 
 /* ---------- transcript ---------- */
@@ -168,12 +183,27 @@ async function send(text) {
     // brain is doing whether or not anybody is talking to it.
     if (window.brainMapState) window.brainMapState('thinking');
 
+    /*
+     * Held so it can be abandoned mid-answer.
+     *
+     * Cancelling the request cancels the context on the other side, which
+     * stops the model rather than only stopping the voice — the difference
+     * between changing your mind and waiting to be allowed to.
+     */
+    const abandon = new AbortController();
+
+    state.inFlight = abandon;
+
+    // And the microphone stays open on its name while it works, so cutting in
+    // does not require finding the keyboard.
+    watchForMyName(abandon);
+
     try {
         const data = await api.post('/api/chat', {
             conversation_id: state.conversationId,
             message: text,
             provider: el('provider').value || null,
-        });
+        }, abandon.signal);
 
         state.conversationId = data.conversation_id;
         placeholder.remove();
@@ -202,8 +232,22 @@ async function send(text) {
         refreshActivity();
     } catch (err) {
         placeholder.remove();
-        addMessage('error', String(err.message || err), { cssClass: 'error' });
+
+        /*
+         * Being stopped is not an error, and must not read as one.
+         *
+         * An abandoned turn arriving in the transcript as a red failure would
+         * make deliberately changing your mind look like something went wrong
+         * — and the next thing in the transcript is whatever was said instead,
+         * which needs a line above it saying why the answer is missing.
+         */
+        if (err.name === 'AbortError') {
+            markThread('Stopped — that answer was not finished');
+        } else {
+            addMessage('error', String(err.message || err), { cssClass: 'error' });
+        }
     } finally {
+        state.inFlight = null;
         state.busy = false;
         el('send').disabled = false;
         el('orb').classList.remove('thinking');
@@ -1361,12 +1405,91 @@ async function openWhereWeLeftOff(canSpeak) {
  * Escape as well as the button, because Escape is what everything else on the
  * machine uses for "not that" and a hand is already on the keyboard.
  */
+/*
+ * Stop means stop.
+ *
+ * It used to mean "stop the voice", so pressing it during a minute of thinking
+ * did nothing at all: the model carried on, holding the only processor on the
+ * machine, and whatever was said next queued behind an answer already
+ * abandoned. Three things now, which is what stopping an assistant means — the
+ * voice, the work, and whatever it was about to do next.
+ */
 async function stopTalking() {
     try {
         await api.post('/api/interrupt', {});
     } catch {
-        // Nothing to report. The button exists to stop a voice, and if the
-        // request failed the voice is still going, which says so by itself.
+        // Nothing to report. If the request failed the voice is still going,
+        // which says so by itself.
+    }
+
+    if (state.inFlight) {
+        state.inFlight.abort();
+        state.inFlight = null;
+    }
+}
+
+window.brainStop = stopTalking;
+
+/*
+ * Listening for its name while it is working.
+ *
+ * Cutting in has worked for a while and only while it was speaking, which is
+ * the smaller half of the wait: on this machine most of a turn is thinking,
+ * with the microphone shut. So the one moment somebody most wants to say "no,
+ * not that" was the one moment nothing was listening.
+ *
+ * The name is required whatever the engaged setting says. This is a room with
+ * a television in it and the brain is mid-answer; anything less than being
+ * addressed by name is not an interruption, it is a room.
+ */
+async function watchForMyName(abandon) {
+    if (!talking.on) return;
+
+    while (!abandon.signal.aborted && state.busy) {
+        let heard;
+
+        try {
+            heard = await api.post('/api/turn', {
+                device: el('microphone').value || '',
+                engaged: false,
+            }, abandon.signal);
+        } catch (err) {
+            // The turn finished and took the listen with it, which is the
+            // ordinary way out of this loop.
+            if (abandon.signal.aborted || !state.busy) return;
+
+            /*
+             * Otherwise the microphone was busy for a moment — its own voice
+             * holds it while it speaks — so wait and ask again rather than
+             * giving up. Giving up here would close the microphone for the
+             * rest of the answer, which is most of the time somebody wants to
+             * be able to cut in.
+             */
+            await new Promise((again) => setTimeout(again, 1500));
+
+            continue;
+        }
+
+        if (!heard || !heard.addressed) continue;
+
+        const said = (heard.transcript || '').trim();
+
+        /*
+         * Stop first, then say what was said.
+         *
+         * Abandoning the answer before sending the new sentence matters: the
+         * two would otherwise be answered at once on a machine with one
+         * processor, and the thing being interrupted would win the race.
+         */
+        await stopTalking();
+
+        if (said) {
+            // Given a moment for the abandoned turn to unwind, so this arrives
+            // as the next thing rather than as a second thing at the same time.
+            setTimeout(() => send(said), 150);
+        }
+
+        return;
     }
 }
 
