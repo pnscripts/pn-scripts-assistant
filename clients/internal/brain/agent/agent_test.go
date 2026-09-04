@@ -909,3 +909,86 @@ func TestAnOrdinaryFileIsJustRead(t *testing.T) {
 		t.Fatalf("it asked permission to read an ordinary file: %+v", res.Pending)
 	}
 }
+
+/*
+ * The same answer twice is not an answer.
+ *
+ * From a real conversation: asked to learn everything, the brain offered a
+ * choice of three; asked again in different words, it offered the same three
+ * in the same words. That is the moment a conversation stops being one, and
+ * handing the sentence back a second time is the program's doing rather than
+ * the model's.
+ */
+func TestAWordForWordRepeatIsCalledOut(t *testing.T) {
+	said := "I can't learn everything at once. Would you like to learn projects, " +
+		"documents, or a specific folder inside?"
+
+	history := []llm.Message{
+		{Role: llm.RoleUser, Content: "learn everything"},
+		{Role: llm.RoleAssistant, Content: said},
+		{Role: llm.RoleUser, Content: "i want you to update you and to learn everything"},
+	}
+
+	if !repeatOf(said, history) {
+		t.Fatal("the identical answer was not recognised as a repeat")
+	}
+
+	// Punctuation and spacing must not hide it.
+	if !repeatOf("  I can't learn everything at once.   Would you like to learn "+
+		"PROJECTS, documents, or a specific folder inside?  ", history) {
+		t.Fatal("the same sentence differently spaced was not recognised")
+	}
+}
+
+// A different answer is not a repeat, however similar the subject.
+func TestADifferentAnswerIsNotARepeat(t *testing.T) {
+	history := []llm.Message{
+		{Role: llm.RoleAssistant, Content: "I can't learn everything at once. " +
+			"Would you like to learn projects, documents, or a specific folder inside?"},
+	}
+
+	if repeatOf("I have started on the documents in that folder. There are 966 of "+
+		"them, so it will take a while.", history) {
+		t.Fatal("a new answer was called a repeat")
+	}
+}
+
+/*
+ * Short answers repeat legitimately and constantly.
+ *
+ * "Yes", "done", "not yet" — a brain that lectured somebody for agreeing with
+ * them twice would be worse than one that occasionally repeats itself.
+ */
+func TestShortAnswersMayRepeatFreely(t *testing.T) {
+	history := []llm.Message{{Role: llm.RoleAssistant, Content: "Done."}}
+
+	if repeatOf("Done.", history) {
+		t.Fatal("a one-word answer was treated as a fault")
+	}
+}
+
+// Only the most recent answer counts: coming back to the same reply after
+// three other exchanges is a conversation returning to a subject.
+func TestOnlyTheLastAnswerIsCompared(t *testing.T) {
+	said := "That folder holds 966 documents, which is more than can be taken in " +
+		"at once, so I will work through it a bite at a time."
+
+	history := []llm.Message{
+		{Role: llm.RoleAssistant, Content: said},
+		{Role: llm.RoleUser, Content: "what about the projects"},
+		{Role: llm.RoleAssistant, Content: "There are 70 of those, and I know them all."},
+		{Role: llm.RoleUser, Content: "and the documents again"},
+	}
+
+	if repeatOf(said, history) {
+		t.Fatal("an answer from earlier in the conversation was called a repeat")
+	}
+}
+
+// With nothing said yet, nothing can be a repeat.
+func TestTheFirstAnswerIsNeverARepeat(t *testing.T) {
+	if repeatOf("A long enough first answer to be worth comparing at all, said once.",
+		[]llm.Message{{Role: llm.RoleUser, Content: "hello"}}) {
+		t.Fatal("the first answer in a conversation was called a repeat")
+	}
+}

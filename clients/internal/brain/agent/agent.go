@@ -328,6 +328,26 @@ func (l *Loop) RunShaped(
 					"local model is more reliable at this."
 			}
 
+			/*
+			 * The same answer twice is not an answer.
+			 *
+			 * A small model asked something it cannot do will often produce
+			 * the identical sentence again — word for word, to a different
+			 * question — and handing that back is the thing that makes a
+			 * conversation stop being one. Somebody asked to learn everything,
+			 * was offered a choice of three, said "learn everything" again,
+			 * and was offered the same three in the same words.
+			 *
+			 * Saying so is more use than repeating it, and it is honest: the
+			 * model is stuck, and the person is the only one who can move it.
+			 */
+			if repeatOf(reply, messages) {
+				reply = "That is word for word what I just said, which means I " +
+					"have not understood you rather than that the answer has " +
+					"not changed. Put it a different way, or tell me exactly " +
+					"what you want done and I will do that instead of offering."
+			}
+
 			return Result{
 				Reply:         reply,
 				Provider:      resp.Provider,
@@ -1127,3 +1147,44 @@ type silentVoice struct{}
 func (silentVoice) Write(string)  {}
 func (silentVoice) Close()        {}
 func (silentVoice) Started() bool { return false }
+
+/*
+ * LongEnoughToBeARepeat is the shortest answer worth calling a repetition.
+ *
+ * Short replies repeat legitimately and constantly — "yes", "done", "not
+ * yet" — and treating those as a fault would have the brain lecture somebody
+ * for agreeing with them twice.
+ */
+const LongEnoughToBeARepeat = 60
+
+/*
+ * repeatOf reports that this answer is word for word the last one given.
+ *
+ * Compared against the conversation as it was sent to the model rather than
+ * against the database, because that is the same list the model itself just
+ * read: if it is in there, the model had it in front of it and produced it
+ * again anyway.
+ */
+func repeatOf(reply string, messages []llm.Message) bool {
+	if len([]rune(reply)) < LongEnoughToBeARepeat {
+		return false
+	}
+
+	want := plainly(reply)
+
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role != llm.RoleAssistant {
+			continue
+		}
+
+		return plainly(messages[i].Content) == want
+	}
+
+	return false
+}
+
+// plainly reduces an answer to its words, so that punctuation and spacing do
+// not make two identical sentences look different.
+func plainly(text string) string {
+	return strings.Join(strings.Fields(strings.ToLower(text)), " ")
+}

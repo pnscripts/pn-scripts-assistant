@@ -74,7 +74,27 @@ func (b *Brain) NoteCutShort(n int) {
 func (b *Brain) Greet() Greeting {
 	var parts []string
 
-	parts = append(parts, b.timeOfDay())
+	last := b.lastConversation()
+
+	/*
+	 * Coming back after a few minutes is not an arrival.
+	 *
+	 * The greeting is written for opening the program after a while: good
+	 * evening, here is where we were, here is what is waiting, I know 1042
+	 * things about your work, ask me anything. Delivered every launch, it
+	 * turns a conversation into a machine rebooting at somebody — and during
+	 * an afternoon of restarts it was said eight times in an hour, word for
+	 * word, to a person who had never left the room.
+	 *
+	 * So when the last thing said was minutes ago, only what has actually
+	 * changed is worth saying, and often nothing has. You do not reintroduce
+	 * yourself to somebody you were talking to five minutes ago.
+	 */
+	backAlready := last != nil && time.Since(last.When) < JustCameBack
+
+	if !backAlready {
+		parts = append(parts, b.timeOfDay())
+	}
 
 	/*
 	 * What the last run was in the middle of, if it was in the middle of
@@ -109,15 +129,21 @@ func (b *Brain) Greet() Greeting {
 	 * somebody wants first on coming back to a conversation they were part way
 	 * through. What they were talking about is.
 	 */
-	last := b.lastConversation()
-
 	if line := lastTopicLine(last, b.carryingOn(last)); line != "" {
 		parts = append(parts, line)
 	}
 
 	if waiting := b.waitingLine(); waiting != "" {
 		parts = append(parts, waiting)
-	} else if known := b.knowledgeLine(); known != "" {
+	} else if known := b.knowledgeLine(); known != "" && !backAlready {
+		/*
+		 * "I know 1042 things about your work. Ask me anything."
+		 *
+		 * The most robotic sentence in the program, and the one that repeats
+		 * unchanged forever. It is worth saying to somebody arriving; said to
+		 * somebody who has been here all along it is a machine reciting its
+		 * own specification.
+		 */
 		parts = append(parts, known)
 	}
 
@@ -296,6 +322,16 @@ func howLongAgo(age time.Duration) string {
  * back to be pointless rather than useful.
  */
 const TooRecentToMention = 2 * time.Minute
+
+/*
+ * JustCameBack is how recently somebody has to have been here for the greeting
+ * to stop being a greeting.
+ *
+ * Half an hour. Long enough to cover stepping away for a coffee or the program
+ * being restarted while it is being worked on; short enough that coming back
+ * after an evening still gets a proper hello.
+ */
+const JustCameBack = 30 * time.Minute
 
 // waitingLine mentions what needs the owner, which is the most useful thing to
 // open with when there is any.
