@@ -7,6 +7,7 @@ import (
 
 	"pn-brain/internal/brain/pace"
 	"pn-brain/internal/brain/speech"
+	"pn-brain/internal/preflight"
 )
 
 /*
@@ -34,11 +35,26 @@ func (s *Server) handlePace(w http.ResponseWriter, r *http.Request) {
 		turns = append(turns, t.Milestones())
 	}
 
+	hardware := preflight.DetectHardware()
+	roles := s.brain.ModelRoles()
+
+	machine := pace.Machine{
+		Cores:    hardware.CPUCores,
+		MemoryGB: hardware.RAMGB,
+		HasGPU:   hardware.HasGPU,
+		GPUName:  hardware.GPUName,
+		Working:  roles.Work,
+		Quick:    roles.Talk,
+	}
+
 	ok(w, map[string]any{
-		"typical": typical,
-		"over":    over,
-		"turns":   turns,
-		"fixed":   s.fixedCosts(),
+		"typical":  typical,
+		"over":     over,
+		"turns":    turns,
+		"fixed":    s.fixedCosts(),
+		"verdict":  pace.Verdict(typical, over),
+		"findings": pace.Findings(typical, over, machine),
+		"target":   pace.RealTime,
 	})
 }
 

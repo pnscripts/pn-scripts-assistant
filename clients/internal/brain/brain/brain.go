@@ -248,6 +248,16 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 */
 		tools.Hearing{Recent: b.recentlyHeard, State: b.howItListens},
 
+		/*
+		 * And how long all of that took, which is the other half of the same
+		 * complaint.
+		 *
+		 * "It did not hear me" and "it is too slow" are asked in the same
+		 * tone, and on a machine where an answer takes a minute the second is
+		 * often mistaken for the first.
+		 */
+		tools.HowFast{Reading: b.howFast},
+
 		// And the one setting that fixes the commonest cause of the confusion.
 		tools.Quieten{
 			Reroute: func(ctx context.Context, on bool) error {
@@ -418,6 +428,12 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
  * falls back to the model that does things — which every machine running this
  * has, because it is the one it was set up with.
  */
+// ModelRoles is which model does which job on this machine, worked out once.
+//
+// Exported for the interface, which has to say why an answer was quick or slow
+// and cannot do that without naming the model that gave it.
+func (b *Brain) ModelRoles() llm.Sizes { return b.modelRoles() }
+
 func (b *Brain) modelRoles() llm.Sizes {
 	b.rolesOnce.Do(func() {
 		client := models.New(b.Cfg.OllamaURL)

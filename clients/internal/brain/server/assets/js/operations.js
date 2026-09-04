@@ -730,12 +730,89 @@ async function refresh() {
     });
 }
 
+/*
+ * How long answering takes, in the same view as the temperatures.
+ *
+ * Measured from the last word somebody said, so it includes the two stages the
+ * program is responsible for — waiting out the silence and starting a voice —
+ * which are invisible from anywhere else and are the entire delay on a machine
+ * where the model is quick.
+ *
+ * Read far less often than the sensors: it changes only when somebody speaks.
+ */
+async function pace() {
+    let data;
+
+    try {
+        const res = await fetch('/api/pace');
+        if (!res.ok) return;
+        data = await res.json();
+    } catch (err) {
+        return;
+    }
+
+    const card = document.getElementById('ops-pace-card');
+    if (!card) return;
+
+    card.hidden = false;
+
+    const t = data.typical || {};
+    const ms = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${Math.round(v)}ms`);
+
+    document.getElementById('ops-pace-verdict').textContent =
+        data.verdict || '';
+
+    /*
+     * Each stage against the whole wait, not against a fixed scale.
+     *
+     * The point of the picture is which stage owns the time, and on this
+     * machine one of them owns nearly all of it — a fixed scale would render
+     * every bar full and say nothing.
+     */
+    const stages = [
+        ['making out the words', t.hearing],
+        ['thinking', t.thinking],
+        ['writing a sentence', t.writing],
+        ['first sound', t.speaking],
+    ].filter(([, v]) => v > 0);
+
+    const worst = Math.max(1, ...stages.map(([, v]) => v));
+
+    document.getElementById('ops-pace').innerHTML = stages.map(([what, v]) => `
+        <div class="ops-bar-row">
+            <span class="ops-bar-label">${what}</span>
+            <div class="ops-bar"><div style="width:${Math.round((v / worst) * 100)}%"></div></div>
+            <span class="ops-bar-value">${ms(v)}</span>
+        </div>`).join('');
+
+    const target = data.target || 800;
+    const fixed = data.fixed || {};
+
+    document.getElementById('ops-pace-model').textContent = t.model
+        ? `${t.model}${t.tools ? ' with tools' : ''} · over ${data.over} spoken turn${
+            data.over === 1 ? '' : 's'} · conversation speed is under ${target}ms · `
+            + `${fixed.silence_ms}ms of that is the silence waited out, and the tools `
+            + `are about ${fixed.tool_words} tokens read before every answer`
+        : '';
+
+    document.getElementById('ops-pace-findings').innerHTML =
+        (data.findings || []).map((f) => `<div class="row">
+            <span class="row-label">${f.stage} · ${ms(f.costs_ms)}</span>
+            <span class="row-value">${f.because}. ${f.change}.</span>
+        </div>`).join('');
+}
+
 refresh();
+pace();
 setInterval(refresh, TICK);
+setInterval(pace, 15000);
 
 // And immediately when the view is opened, rather than up to a second later.
 for (const button of document.querySelectorAll('[data-view="operations"]')) {
-    button.addEventListener('click', () => setTimeout(refresh, 30));
+    button.addEventListener('click', () => {
+        setTimeout(refresh, 30);
+        setTimeout(pace, 30);
+    });
 }
 
 }());

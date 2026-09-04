@@ -5,9 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"pn-brain/internal/brain/pace"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/tools"
 	"pn-brain/internal/brain/voiceprint"
+	"pn-brain/internal/preflight"
 )
 
 /*
@@ -49,6 +51,51 @@ func (b *Brain) howItListens() tools.HearingState {
 		WakeWord:     strings.TrimSpace(b.Cfg.WakeWord),
 		AlwaysName:   b.Cfg.AlwaysName,
 	}
+}
+
+/*
+ * howFast is the measured pace of the last few turns, and what it means here.
+ *
+ * The arithmetic lives in the pace package and the machine facts in preflight;
+ * this joins them, because the same numbers mean different things depending on
+ * what they were measured on.
+ */
+func (b *Brain) howFast() tools.Speed {
+	typical, over := pace.Typical()
+
+	roles := b.modelRoles()
+	hardware := preflight.DetectHardware()
+
+	s := tools.Speed{
+		Over:     over,
+		Verdict:  pace.Verdict(typical, over),
+		Hearing:  typical.Hearing,
+		Thinking: typical.Thinking,
+		Writing:  typical.Writing,
+		Speaking: typical.Speaking,
+		ToFirst:  typical.ToFirst,
+		Model:    typical.Model,
+		Quick:    roles.Talk,
+	}
+
+	if s.Model == "" {
+		s.Model = roles.Work
+	}
+
+	for _, f := range pace.Findings(typical, over, pace.Machine{
+		Cores:    hardware.CPUCores,
+		MemoryGB: hardware.RAMGB,
+		HasGPU:   hardware.HasGPU,
+		GPUName:  hardware.GPUName,
+		Working:  roles.Work,
+		Quick:    roles.Talk,
+	}) {
+		s.Findings = append(s.Findings, tools.Finding{
+			Stage: f.Stage, Costs: f.Costs, Because: f.Because, Change: f.Change,
+		})
+	}
+
+	return s
 }
 
 // Ago is how long ago something was heard, in the words somebody would use.

@@ -798,6 +798,23 @@
                     three cards and their power draw on a server.
                 -->
                 <div class="ops-sensors">
+                    <!--
+                        How long answering takes, measured from the last word
+                        somebody said rather than from when the model was asked.
+
+                        Here rather than in a settings page because it belongs
+                        beside the temperatures and the fans: it is a reading
+                        off this machine, and what it means depends entirely on
+                        which machine it is.
+                    -->
+                    <div class="card" id="ops-pace-card" hidden>
+                        <h2>Answering</h2>
+                        <p class="note tiny" id="ops-pace-verdict"></p>
+                        <div id="ops-pace" class="ops-bars"></div>
+                        <p class="note tiny" id="ops-pace-model"></p>
+                        <div id="ops-pace-findings" class="rows"></div>
+                    </div>
+
                     <div class="card" id="ops-graphics-card" hidden>
                         <h2>Graphics</h2>
                         <p class="note tiny" id="ops-gpu-note" hidden></p>

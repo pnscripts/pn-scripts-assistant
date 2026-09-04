@@ -287,7 +287,7 @@ func TestRegisteredTools(t *testing.T) {
 	want := []string{
 		"brain_copies", "change_this_conversation",
 		"click", "decide_waiting", "do_in_background", "edit_file",
-		"forget_reminder", "learn_from_folder", "list_background", "list_directory",
+		"forget_reminder", "how_fast_can_you_answer", "learn_from_folder", "list_background", "list_directory",
 		"list_drives", "list_models",
 		"list_reminders", "list_waiting", "list_windows", "look_at_screen",
 		"open_app", "places_it_learns_from", "put_it_back",
