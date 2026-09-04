@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 /*
@@ -176,5 +177,146 @@ func TestEverySpeechPathRemembersWhatItSaid(t *testing.T) {
 		if !strings.Contains(body, "JustSaid(") {
 			t.Errorf("%s makes sound without remembering it", strings.TrimSuffix(fn, " {"))
 		}
+	}
+}
+
+/*
+ * The echo that arrives mixed with something else.
+ *
+ * This is a regression test for a brain answering itself in a loop. Music was
+ * playing, the assistant spoke, and what came back through the microphone was
+ * a blend: part its own sentence, part the music, part nothing. Judged on
+ * overlap the blend looked like a stranger — most of the words in it were not
+ * the assistant's — so it was answered, which produced more speech, which
+ * produced another blend.
+ */
+func TestAnEchoMixedWithOtherSoundIsStillItsOwnVoice(t *testing.T) {
+	ForgetSpokenWords()
+
+	JustSaid("One more check of the level while talking.")
+
+	// Exactly what the microphone returned, transcribed.
+	heard := "play, the music. One more check of the level, quail talking. What?"
+
+	if !SoundsLikeItself(heard) {
+		t.Fatalf("answered its own voice mixed with music:\n%q", heard)
+	}
+}
+
+/*
+ * And the failure that must not come back with it.
+ *
+ * Somebody answering an assistant reuses its words constantly, because they
+ * are answering it. Discarding those is much the worse of the two failures: a
+ * brain that occasionally answers itself is irritating, one that ignores its
+ * owner is broken.
+ */
+func TestSomebodyAnsweringInTheAssistantsOwnWordsIsStillHeard(t *testing.T) {
+	ForgetSpokenWords()
+
+	JustSaid("I can change the file in that folder, or leave it as it is. Which would you like?")
+
+	for _, said := range []string{
+		"yes, change the file",
+		"no, leave it as it is",
+		"what folder did you mean by that one",
+		"do it in the other project instead",
+		"actually leave the file and tell me what is in it",
+	} {
+		if SoundsLikeItself(said) {
+			t.Errorf("ignored its owner saying %q", said)
+		}
+	}
+}
+
+/*
+ * A reply that is almost nothing but the assistant's own words is discarded,
+ * and that is the older rule rather than the run.
+ *
+ * Recorded here because it is a real cost and a deliberate one: "change the
+ * file in that folder please" is six words of which five are the assistant's,
+ * and the bag test cannot tell that from an echo. The run test would let it
+ * through — five words is under half of what was said — so if the bag rule is
+ * ever loosened, this is the case to think about.
+ */
+func TestANearVerbatimReplyIsDiscardedByTheOlderRule(t *testing.T) {
+	ForgetSpokenWords()
+
+	JustSaid("I can change the file in that folder, or leave it as it is. Which would you like?")
+
+	if !SoundsLikeItself("change the file in that folder please") {
+		t.Skip("the bag rule has changed; check whether this is now answered")
+	}
+
+	// And the run test on its own would not have done this.
+	if sharesARunWithSomethingSaid("change the file in that folder please") {
+		t.Error("the run test also caught it, which was not the intention")
+	}
+}
+
+// Six words in a row is the signal; four is a person agreeing.
+func TestARunOfWordsIsWhatCounts(t *testing.T) {
+	ForgetSpokenWords()
+
+	JustSaid("The operations panel now shows how long answering takes on this machine.")
+
+	if SoundsLikeItself("the operations panel, yes") {
+		t.Error("four words of agreement were treated as an echo")
+	}
+
+	if !SoundsLikeItself("something something the operations panel now shows how long, and then nothing") {
+		t.Error("seven consecutive words of its own were not recognised")
+	}
+}
+
+// An echo that has aged out is not one: the words may genuinely be said again.
+func TestAnOldSentenceIsNotAnEchoForever(t *testing.T) {
+	ForgetSpokenWords()
+
+	JustSaid("The operations panel now shows how long answering takes.")
+
+	spoken.mu.Lock()
+	for i := range spoken.lines {
+		spoken.lines[i].at = time.Now().Add(-RememberSpeechFor - time.Second)
+	}
+	spoken.mu.Unlock()
+
+	if SoundsLikeItself("the operations panel now shows how long answering takes") {
+		t.Error("a sentence from a minute ago was still treated as an echo")
+	}
+}
+
+func TestTheLongestRunIsFoundWhereverItSits(t *testing.T) {
+	for _, c := range []struct {
+		a, b []string
+		want int
+	}{
+		{[]string{"one", "two", "three"}, []string{"one", "two", "three"}, 3},
+		{[]string{"x", "one", "two", "three", "y"}, []string{"one", "two", "three"}, 3},
+		{[]string{"one", "x", "two"}, []string{"one", "two"}, 1},
+		{[]string{}, []string{"one"}, 0},
+		{[]string{"one"}, nil, 0},
+		{[]string{"a", "b", "c"}, []string{"d", "e"}, 0},
+	} {
+		if got := longestRun(c.a, c.b); got != c.want {
+			t.Errorf("%v against %v: %d, want %d", c.a, c.b, got, c.want)
+		}
+	}
+}
+
+// Both sides are filtered the same way, or every run breaks at the first
+// two-letter word — which is every other word in English.
+func TestBothSidesAreFilteredAlike(t *testing.T) {
+	said := wordsOf("One more check of the level while talking")
+	bag := bagOf("One more check of the level while talking")
+
+	for _, word := range said {
+		if !bag[word] {
+			t.Errorf("%q survived one filter and not the other", word)
+		}
+	}
+
+	if len(said) != len(bag) {
+		t.Errorf("the ordered list has %d words and the bag %d", len(said), len(bag))
 	}
 }

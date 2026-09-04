@@ -49,6 +49,29 @@ const (
 	SameEnough = 0.66
 
 	/*
+	 * EchoRun is how many words in a row make a transcript its own voice
+	 * whatever else is mixed in with it.
+	 *
+	 * Five, which people do not reach by accident. Somebody answering reuses
+	 * an assistant's words constantly — "yes, change the file", "no, the other
+	 * folder" — and three or four in a row happens; six in the same order does
+	 * not, unless it came back through a microphone.
+	 *
+	 * Getting this wrong in the tight direction ignores its owner, which is
+	 * the worse failure of the two. Five is deliberately conservative.
+	 */
+	EchoRun = 5
+
+	/*
+	 * MostOfWhatWasSaid is how much of a spoken line a run has to cover.
+	 *
+	 * Half. A person quoting an assistant back at itself takes a phrase out of
+	 * a sentence; a microphone hands back the sentence with pieces missing. It
+	 * is the proportion rather than the length that tells them apart.
+	 */
+	MostOfWhatWasSaid = 0.5
+
+	/*
 	 * LongEnoughToJudge is the shortest transcript worth comparing at all.
 	 *
 	 * Short replies are the ones a person actually gives — "no that is not
@@ -79,6 +102,22 @@ var spoken = struct {
 
 type spokenLine struct {
 	words map[string]bool
+
+	/*
+	 * order is the same words in the order they were said.
+	 *
+	 * Kept as well as the bag, for the case the bag cannot see: a transcript
+	 * that is part its own voice and part something else. The overlap is then
+	 * measured against a mixture and comes out low, so the echo passes — while
+	 * a run of six consecutive words it had just said sits in the middle of
+	 * it, which is not something that happens by chance.
+	 *
+	 * That is not a hypothetical. "play, the music. One more check of the
+	 * level, quail talking. What?" was answered as a question from somebody,
+	 * and six of those words were said by the assistant four seconds earlier.
+	 */
+	order []string
+
 	count int
 	at    time.Time
 }
@@ -96,6 +135,7 @@ func JustSaid(text string) {
 
 	spoken.lines = append(spoken.lines, spokenLine{
 		words: words,
+		order: wordsOf(text),
 		count: len(words),
 		at:    time.Now(),
 	})
@@ -162,7 +202,117 @@ func SoundsLikeItself(text string) bool {
 		}
 	}
 
+	return sharesARunWithSomethingSaid(text)
+}
+
+/*
+ * sharesARunWithSomethingSaid catches an echo mixed with something else.
+ *
+ * The bag comparison above asks "is nearly everything in this transcript
+ * something I just said", which is the right question for a clean echo and the
+ * wrong one for a dirty one. Music playing over the top, or two voices in the
+ * room, and the transcript comes back as a blend: half the assistant's
+ * sentence, half something else, and an overlap ratio too low to act on. That
+ * blend is what produced a brain answering itself in a loop.
+ *
+ * So: a run of consecutive words. People answering an assistant reuse its
+ * words constantly — "yes, change the file" — but they do not reproduce six of
+ * them in a row in the order it said them. A microphone does.
+ */
+func sharesARunWithSomethingSaid(text string) bool {
+	heard := wordsOf(text)
+
+	if len(heard) < EchoRun {
+		return false
+	}
+
+	spoken.mu.RLock()
+	defer spoken.mu.RUnlock()
+
+	for _, line := range spoken.lines {
+		if time.Since(line.at) >= RememberSpeechFor {
+			continue
+		}
+
+		run := longestRun(heard, line.order)
+
+		if run < EchoRun || len(line.order) == 0 {
+			continue
+		}
+
+		/*
+		 * And the run has to be most of what was said, not a phrase out of it.
+		 *
+		 * This is what separates the two cases, and a length alone cannot.
+		 * Somebody answering quotes a fragment of a long sentence back —
+		 * "change the file in that folder please", five words of a nineteen
+		 * word offer — while a microphone returns most of a short one. The
+		 * first must be answered and the second must not, and both are five
+		 * words in a row.
+		 */
+		if float64(run)/float64(len(line.order)) >= MostOfWhatWasSaid {
+			return true
+		}
+	}
+
 	return false
+}
+
+/*
+ * longestRun is the longest run of words appearing in both, in order.
+ *
+ * The textbook table, which is more than this needs and less than it costs to
+ * think about: both sides are one sentence, so this is at worst a few hundred
+ * comparisons on a transcript that took a second of processor to produce.
+ */
+func longestRun(a, b []string) int {
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+
+	previous := make([]int, len(b)+1)
+	current := make([]int, len(b)+1)
+
+	best := 0
+
+	for i := 1; i <= len(a); i++ {
+		for j := 1; j <= len(b); j++ {
+			if a[i-1] == b[j-1] {
+				current[j] = previous[j-1] + 1
+
+				if current[j] > best {
+					best = current[j]
+				}
+			} else {
+				current[j] = 0
+			}
+		}
+
+		previous, current = current, previous
+	}
+
+	return best
+}
+
+/*
+ * wordsOf is the same words bagOf keeps, in the order they were said.
+ *
+ * The same filtering on purpose. Comparing a filtered sentence against an
+ * unfiltered one would break every run at the first "of" or "to", which is
+ * every other word in English.
+ */
+func wordsOf(text string) []string {
+	var out []string
+
+	for _, word := range strings.Fields(strings.ToLower(text)) {
+		word = strings.Trim(word, `.,!?;:"'()[]…—-`)
+
+		if len(word) > 2 {
+			out = append(out, word)
+		}
+	}
+
+	return out
 }
 
 // ForgetSpokenWords clears the record, for tests and for a fresh conversation.
