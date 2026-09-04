@@ -1,6 +1,9 @@
 package brain
 
 import (
+	"os"
+	"pn-brain/internal/brain/places"
+	"pn-brain/internal/brain/storage"
 	"strconv"
 	"strings"
 	"time"
@@ -112,4 +115,47 @@ func Ago(at time.Time) string {
 	}
 
 	return strconv.Itoa(int(since.Hours())) + " hours ago"
+}
+
+/*
+ * somewhereToStart is the drives and folders the brain can see for itself.
+ *
+ * The home directory and whatever is mounted, named the way a person would
+ * name them. A closed list assembled from the machine — which is what makes it
+ * safe to act on a spoken instruction: "learn everything" can pick from this
+ * without any chance that a misheard word becomes a folder somebody never
+ * meant it to read.
+ */
+func (b *Brain) somewhereToStart() []tools.Candidate {
+	drives, err := storage.Drives(b.Root)
+	if err != nil {
+		return nil
+	}
+
+	var out []tools.Candidate
+
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		out = append(out, tools.Candidate{
+			Path: home, Name: "your home folder", Home: true,
+		})
+	}
+
+	for _, d := range drives {
+		if d.MountPoint == "" || d.MountPoint == "/" {
+			continue
+		}
+
+		// The home directory is already offered above, under a name somebody
+		// recognises.
+		if strings.HasPrefix(d.MountPoint, "/home/") {
+			continue
+		}
+
+		out = append(out, tools.Candidate{
+			Path: d.MountPoint,
+			Name: places.Short(d.MountPoint),
+		})
+	}
+
+	return out
 }

@@ -292,6 +292,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 				return b.Learner
 			},
 			Seen: b.DB,
+
+			// What it can see to start from, assembled by looking at the
+			// machine rather than by anybody typing a path. See Candidates.
+			Candidates: b.somewhereToStart,
 		},
 
 		/*
