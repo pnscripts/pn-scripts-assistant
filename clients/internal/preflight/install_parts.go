@@ -207,21 +207,37 @@ func installPiper(w io.Writer) error {
 	 * Two, because the choice offered is a robot, a woman or a man, and one
 	 * downloaded voice makes two of those three do nothing. The robot needs no
 	 * download — it is the system engine — so what has to arrive here is one
-	 * woman and one man. Both British, to match each other rather than to have
-	 * the assistant change accent when somebody changes its sex.
+	 * woman, one man, and the one the robot is made of. The two human voices
+	 * are British to match each other rather than to have the assistant change
+	 * accent when somebody changes its sex.
 	 *
-	 * About 60MB the pair. Left out for a long time on the grounds that one
+	 * About 60MB each. Left out for a long time on the grounds that one
 	 * voice is enough to prove speech works, which is true and is not what the
 	 * setting in front of somebody promises.
 	 */
 	voices := filepath.Join(into, "voices")
 
-	const voiceBase = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/"
+	const voiceBase = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/"
 
 	for _, voice := range []struct{ name, path string }{
-		{"en_GB-alba-medium", "alba/medium/en_GB-alba-medium"},
+		{"en_GB-alba-medium", "en_GB/alba/medium/en_GB-alba-medium"},
 		{"en_GB-northern_english_male-medium",
-			"northern_english_male/medium/en_GB-northern_english_male-medium"},
+			"en_GB/northern_english_male/medium/en_GB-northern_english_male-medium"},
+
+		/*
+		 * And the one the robot is built out of.
+		 *
+		 * The robot used to be espeak, which is genuinely a machine talking
+		 * and is also the reason nobody could make out what it said. It is a
+		 * neural voice with the machine timbre put on afterwards now, so the
+		 * words are as clear as the voice and the character is still a
+		 * machine — which means the robot needs a model like the other two.
+		 *
+		 * Medium rather than high: this is synthesised on the same processor
+		 * the language model runs on, and high costs about twice as long to
+		 * speak for a difference nobody has asked for.
+		 */
+		{"en_US-lessac-medium", "en_US/lessac/medium/en_US-lessac-medium"},
 	} {
 		for _, part := range []string{".onnx", ".onnx.json"} {
 			if err := download(voiceBase+voice.path+part,

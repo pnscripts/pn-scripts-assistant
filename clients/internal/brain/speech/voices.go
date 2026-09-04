@@ -98,8 +98,26 @@ func SetVoice(id string) {
 }
 
 // CurrentVoice reports which voice is in use.
-// RobotVoice is the system speech engine, offered as the robot.
+// RobotVoice is the system speech engine, kept as the robot of last resort.
 const RobotVoice = "system"
+
+/*
+ * RobotModel is the voice the robot is built out of, and RobotID is what the
+ * robot is called in the list.
+ *
+ * The robot used to be espeak, which is genuinely a machine talking and is
+ * also the reason nobody could make out what it said. Its owner asked for a
+ * robot that is clear, and those are not opposites: the words and the timbre
+ * come from different places. So the words come from the clearest neural voice
+ * on the machine and the machine timbre is put on afterwards — see robot.go.
+ *
+ * espeak is still here, and still called a robot, for the machine that has no
+ * neural voice installed. It is a worse robot, not a different kind of thing.
+ */
+const (
+	RobotModel = "en_US-lessac-medium"
+	RobotID    = "robot"
+)
 
 func CurrentVoice() Voice {
 	available := Voices()
@@ -128,7 +146,7 @@ func CurrentVoice() Voice {
 	 * and the two human voices are one press away.
 	 */
 	for _, v := range available {
-		if v.ID == RobotVoice {
+		if v.ID == RobotID || v.ID == RobotVoice {
 			return v
 		}
 	}
@@ -144,9 +162,26 @@ func CurrentVoice() Voice {
 func Voices() []Voice {
 	var out []Voice
 
+	var robotBuiltFrom string
+
 	if p := FindPiper(); p != nil {
 		for _, path := range piperVoiceFiles(p) {
 			id := strings.TrimSuffix(filepath.Base(path), ".onnx")
+
+			/*
+			 * The model the robot is made of is not offered under its own
+			 * name.
+			 *
+			 * It would sit in the list as a third human voice while the robot
+			 * built from it sat two rows below, and choosing between them
+			 * would be choosing whether an effect is applied — which is not
+			 * what the question "whose voice" is asking.
+			 */
+			if id == RobotModel {
+				robotBuiltFrom = path
+
+				continue
+			}
 
 			out = append(out, Voice{
 				Sex:    voiceSex[id],
@@ -156,6 +191,18 @@ func Voices() []Voice {
 				Path:   path,
 			})
 		}
+	}
+
+	// The robot first in the list, since it is the one this answers in unless
+	// somebody has said otherwise.
+	if robotBuiltFrom != "" {
+		out = append([]Voice{{
+			ID:     RobotID,
+			Sex:    "robot",
+			Name:   "A robot",
+			Engine: "piper",
+			Path:   robotBuiltFrom,
+		}}, out...)
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -170,10 +217,18 @@ func Voices() []Voice {
 	 * is and offered alongside the others.
 	 */
 	if e := fallbackEngine(); e != nil {
+		name := "A robot (" + e.Name + ")"
+
+		// Named for what it is when there is a better robot above it: the old
+		// one, kept because it works where nothing else does.
+		if robotBuiltFrom != "" {
+			name = "An older robot (" + e.Name + ")"
+		}
+
 		out = append(out, Voice{
 			ID:     RobotVoice,
 			Sex:    "robot",
-			Name:   "A robot (" + e.Name + ")",
+			Name:   name,
 			Engine: e.Name,
 		})
 	}

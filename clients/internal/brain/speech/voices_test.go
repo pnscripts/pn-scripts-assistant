@@ -107,28 +107,46 @@ func TestTheRobotIsTheDefaultVoice(t *testing.T) {
 	var hasRobot bool
 
 	for _, v := range available {
-		if v.ID == RobotVoice {
+		if v.Sex == "robot" {
 			hasRobot = true
 		}
 	}
 
 	if !hasRobot {
-		t.Skip("no system speech engine on this machine")
+		t.Skip("nothing on this machine can be a robot")
 	}
 
-	if got := CurrentVoice(); got.ID != RobotVoice {
-		t.Errorf("the default voice is %q, want the robot", got.ID)
+	/*
+	 * A robot, rather than one particular robot.
+	 *
+	 * There are two now: a neural voice with the machine timbre put on it,
+	 * which is clear, and espeak, which is not and is kept for the machine
+	 * that has no neural voice installed. Which one is available is a fact
+	 * about the machine; that the default is a machine voice is the promise.
+	 */
+	if got := CurrentVoice(); got.Sex != "robot" {
+		t.Errorf("the default voice is %q (%s), want a robot", got.ID, got.Sex)
 	}
 }
 
 // And it is offered as a kind somebody can ask for by name, not only as what
 // is left when nothing else is installed.
 func TestTheRobotCanBeAskedForByKind(t *testing.T) {
-	if PickVoice("robot", "") == "" {
-		t.Skip("no system speech engine on this machine")
+	asked := PickVoice("robot", "")
+
+	if asked == "" {
+		t.Skip("nothing on this machine can be a robot")
 	}
 
-	if got := PickVoice("robot", ""); got != RobotVoice {
-		t.Errorf("asking for a robot gave %q", got)
+	var sex string
+
+	for _, v := range Voices() {
+		if v.ID == asked {
+			sex = v.Sex
+		}
+	}
+
+	if sex != "robot" {
+		t.Errorf("asking for a robot gave %q, which is a %q", asked, sex)
 	}
 }

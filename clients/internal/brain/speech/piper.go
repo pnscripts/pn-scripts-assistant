@@ -175,10 +175,15 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 
 	voice := p.Voice
 
-	// The voice follows the language of the text. An English model handed
-	// Cyrillic reads the letters out, so a Bulgarian answer becomes spelling.
+	/*
+	 * The voice follows the language of the text. An English model handed
+	 * Cyrillic reads the letters out, so a Bulgarian answer becomes spelling.
+	 */
+	asMachine := false
+
 	if chosen := voiceForText(text); chosen.Engine == "piper" && chosen.Path != "" {
 		voice = chosen.Path
+		asMachine = chosen.ID == RobotID
 	}
 
 	synth := exec.CommandContext(ctx, p.Binary,
@@ -194,10 +199,25 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 	play := exec.CommandContext(ctx, player.Command, player.Args(p.Rate)...)
 	play.Stderr = io.Discard
 
+	/*
+	 * And the machine timbre, put on the way past, when the robot is the one
+	 * speaking.
+	 *
+	 * Here rather than in the model, because the words and the timbre come
+	 * from different places on purpose: the clarity is the neural voice's and
+	 * the character is this. See robot.go.
+	 */
+	var treat func(io.Reader) io.Reader
+
+	if asMachine {
+		treat = func(from io.Reader) io.Reader { return robotise(from, p.Rate) }
+	}
+
 	return pumpAudio(synth, play, level, audioHooks{
 		playing:   level.start,
 		generated: level.seal,
 		done:      level.finish,
+		treat:     treat,
 	})
 }
 
@@ -235,6 +255,10 @@ type audioHooks struct {
 	generated func()
 	// done fires when the sound has finished.
 	done func()
+
+	// treat wraps the audio on its way to the player, for the robot. Nil
+	// leaves the sound exactly as the synthesiser produced it.
+	treat func(io.Reader) io.Reader
 }
 
 func pumpAudio(synth, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
@@ -275,7 +299,21 @@ func pumpAudio(synth, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
 	go func() {
 		defer close(copied)
 
-		io.Copy(io.MultiWriter(pw, meter), audio)
+		sound := io.Reader(audio)
+
+		if hooks.treat != nil {
+			sound = hooks.treat(sound)
+		}
+
+		/*
+		 * The meter sees what is played, not what was generated.
+		 *
+		 * It drives the light in the interface and the detection of the
+		 * brain's own voice coming back off the speakers, and both of those
+		 * are about the sound in the room — which after the treatment is not
+		 * quite the sound the synthesiser made.
+		 */
+		io.Copy(io.MultiWriter(pw, meter), sound)
 
 		// Closing the write end is what tells the player the sound has ended.
 		pw.Close()
