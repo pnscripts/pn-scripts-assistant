@@ -22,27 +22,7 @@ import { signals, easeSignals, onRecall } from './signals.js';
 
 const canvas = document.getElementById('brainmap');
 
-
 const RADIUS = 1;
-
-/** A soft round dot, drawn once and used by every point sprite. */
-function dotTexture(size = 64) {
-    const c = document.createElement('canvas');
-
-    c.width = c.height = size;
-
-    const ctx = c.getContext('2d');
-    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-
-    g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.35, 'rgba(210,245,255,0.85)');
-    g.addColorStop(1, 'rgba(120,200,255,0)');
-
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
-
-    return new THREE.CanvasTexture(c);
-}
 
 /** The halo behind the sphere. A gradient, because glow needs something to be. */
 function haloTexture(size = 256) {
@@ -124,8 +104,6 @@ export function startCore() {
 
     scene.add(globe);
 
-    const dots = dotTexture();
-
     /*
      * The form: a triangle pointing down, around an eye.
      *
@@ -176,32 +154,125 @@ export function startCore() {
     /*
      * The iris.
      *
-     * Rings of decreasing radius around a dark centre, each a little brighter
-     * than the last, turning slowly and not together. The dark middle is the
-     * part that makes it an eye: without it this is a target, and with it the
-     * light has somewhere to be coming from.
+     * Five concentric rings, which is what this was, read as a target. An eye
+     * is not made of rings — it is made of fibres running out from the pupil,
+     * a hot corona where the light comes from, and an aperture that is never
+     * quite even. So it is drawn rather than assembled: one disc, and a
+     * fragment shader that works in polar coordinates.
+     *
+     * Cheaper as well as better, which is not a coincidence. Seven meshes and
+     * seven draw calls became one, on a page that is already the most
+     * expensive thing on this machine.
      */
     const irisMaterial = new THREE.ShaderMaterial({
         uniforms: {
             tint: { value: new THREE.Color(1, 0.35, 0.12) },
             lit: { value: 1 },
+            turning: { value: 0 },
+            open: { value: 0.5 },
         },
         vertexShader: `
-            varying float across;
+            varying vec2 place;
             void main() {
-                across = uv.y;
+                place = uv * 2.0 - 1.0;
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }`,
         fragmentShader: `
             uniform vec3 tint;
             uniform float lit;
-            varying float across;
-            void main() {
-                // Brightest along the middle of the band, so each ring has an
-                // edge that fades rather than a hard rim.
-                float edge = sin(across * 3.14159);
+            uniform float turning;
+            uniform float open;
+            varying vec2 place;
 
-                gl_FragColor = vec4(tint * lit, edge * 0.9);
+            #define PUPIL 0.30
+            #define EDGE  0.98
+
+            void main() {
+                float d = length(place);
+
+                if (d > EDGE || d < PUPIL) discard;
+
+                float a = atan(place.y, place.x);
+
+                // Where this point sits across the iris, pupil to rim.
+                float across = (d - PUPIL) / (EDGE - PUPIL);
+
+                /*
+                 * The fibres.
+                 *
+                 * Two sets at different counts turning opposite ways, which is
+                 * what stops it reading as a cog. They are thinner near the
+                 * pupil and fan out, so the eye has a direction.
+                 */
+                float fine = sin(a * 64.0 + turning * 0.55);
+                float coarse = sin(a * 24.0 - turning * 0.30 + across * 2.4);
+
+                float fibres = pow(abs(fine), 2.5) * 0.30 + pow(abs(coarse), 1.6) * 0.55;
+
+                /*
+                 * Thickest just outside the pupil and gone by the rim.
+                 *
+                 * A real iris is densest where it meets the pupil, and drawing
+                 * the fibres evenly across the whole disc is what made the old
+                 * version look like a woven mat rather than an eye.
+                 */
+                fibres *= smoothstep(0.95, 0.05, across) * (0.45 + 0.55 * open);
+
+                /*
+                 * The corona: a hot band just outside the pupil.
+                 *
+                 * This is the part that makes it an eye rather than a hole. The
+                 * light has to look like it comes from somewhere, and it comes
+                 * from here — so it is the brightest thing in the shape by a
+                 * distance, and everything else is what it falls on.
+                 */
+                float corona = smoothstep(0.30, 0.0, across) * 2.6;
+
+                /*
+                 * A dark band across the middle of the iris.
+                 *
+                 * Nothing here occludes — it is all additive — so depth has to
+                 * be made by leaving somewhere empty. Without this the corona
+                 * and the rim run into each other and the whole thing flattens
+                 * into a disc.
+                 */
+                float shadow = 1.0 - 0.55 * smoothstep(0.18, 0.55, across) *
+                    smoothstep(0.95, 0.62, across);
+
+                // And a thin rim, to close the shape off.
+                float rim = smoothstep(0.88, 0.995, across) *
+                    smoothstep(1.0, 0.955, across) * 9.0;
+
+                /*
+                 * The aperture: two soft blades that sweep round.
+                 *
+                 * Slow, wide and never symmetrical — an iris that is exactly
+                 * even is a machine part. This is the only thing here that
+                 * moves enough to notice.
+                 */
+                float blade = smoothstep(0.45, 1.0, sin(a * 2.0 + turning * 0.22)) *
+                    smoothstep(0.06, 0.7, across) * 0.35 * open;
+
+                /*
+                 * And one bright arc, travelling round.
+                 *
+                 * The single thing in the shape that is unmistakably moving.
+                 * Everything else here turns slowly enough to be mistaken for
+                 * a still image at a glance, which is the failure the old
+                 * spinning rings were there to prevent — and this does it with
+                 * one term rather than five meshes.
+                 *
+                 * Its width narrows towards the rim so it reads as a sweep
+                 * across the iris rather than a spoke.
+                 */
+                float ahead = mod(a - turning * 0.9, 6.28318);
+                float sweep = exp(-ahead * 5.0) + exp(-(6.28318 - ahead) * 22.0);
+
+                sweep *= smoothstep(0.02, 0.35, across) * smoothstep(1.0, 0.55, across) * 0.9;
+
+                float light = ((fibres + blade + sweep) * shadow + corona + rim) * lit;
+
+                gl_FragColor = vec4(tint * light, clamp(light, 0.0, 0.95));
             }`,
         transparent: true,
         depthWrite: false,
@@ -209,30 +280,10 @@ export function startCore() {
         blending: THREE.AdditiveBlending,
     });
 
-    const iris = new THREE.Group();
+    const iris = new THREE.Mesh(new THREE.CircleGeometry(0.78, 96), irisMaterial);
 
+    iris.position.z = 0.01;
     face.add(iris);
-
-    const rings = [];
-
-    for (let i = 0; i < 5; i++) {
-        const radius = 0.74 - i * 0.115;
-        const band = new THREE.Mesh(
-            /*
-             * Sixty-four segments, not a hundred and twenty-eight.
-             *
-             * Five rings at 128 is 640 segments of geometry for circles that
-             * are never more than a couple of hundred pixels across, where the
-             * difference between 64 and 128 is smaller than one pixel and the
-             * cost is real on a machine with no graphics card and four cores
-             * already at their limit.
-             */
-            new THREE.TorusGeometry(radius, 0.028 + i * 0.006, 6, 64),
-            irisMaterial);
-
-        iris.add(band);
-        rings.push({ band, turn: (i % 2 ? -1 : 1) * (14 + i * 5) });
-    }
 
     /*
      * The pupil: a dark disc with a hot rim.
@@ -248,7 +299,22 @@ export function startCore() {
     pupil.position.z = 0.02;
     face.add(pupil);
 
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.235, 0.02, 6, 48), irisMaterial);
+    /*
+     * The pupil's own rim, on its own material.
+     *
+     * The iris is now drawn in polar coordinates across a flat disc, and that
+     * shader put on a torus would produce nothing recognisable. This is a
+     * plain bright ring, tinted with everything else.
+     */
+    const rimMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff5a1e,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+    });
+
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.235, 0.018, 6, 48), rimMaterial);
 
     rim.position.z = 0.03;
     face.add(rim);
@@ -563,18 +629,24 @@ const JUDGE_AFTER = 40;
 
         irisMaterial.uniforms.tint.value.copy(tint);
         irisMaterial.uniforms.lit.value = Math.min(1.7, lit);
+        irisMaterial.uniforms.turning.value = seconds;
+
+        /*
+         * The aperture opens while it is doing something.
+         *
+         * The one piece of information the shape carries beyond its colour: a
+         * working core is wider open than a resting one, which is legible from
+         * across a room in a way that a hue is not.
+         */
+        irisMaterial.uniforms.open.value = 0.35 + signals.smooth * 0.5 + (busy ? 0.3 : 0);
+
+        rimMaterial.color.copy(tint);
 
         frameMaterial.color.copy(tint);
         frameMaterial.opacity = 0.7 + signals.smooth * 0.3;
 
         halo.material.color.copy(tint);
         halo.material.opacity = 0.5 + signals.smooth * 0.55 + signals.recall * 0.3;
-
-        // The rings turn, slowly and not together. This is the only motion in
-        // the form, and it is what keeps an eye from looking painted on.
-        for (const ring of rings) {
-            ring.band.rotation.z = seconds / ring.turn;
-        }
 
         // Brighter while working, so a busy core spills more light than a
         // quiet one without anything being drawn differently.
