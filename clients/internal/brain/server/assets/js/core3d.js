@@ -226,7 +226,7 @@ export function startCore() {
                  * from here — so it is the brightest thing in the shape by a
                  * distance, and everything else is what it falls on.
                  */
-                float corona = smoothstep(0.30, 0.0, across) * 2.6;
+                float corona = smoothstep(0.30, 0.0, across) * 1.8;
 
                 /*
                  * A dark band across the middle of the iris.
@@ -272,7 +272,23 @@ export function startCore() {
 
                 float light = ((fibres + blade + sweep) * shadow + corona + rim) * lit;
 
-                gl_FragColor = vec4(tint * light, clamp(light, 0.0, 0.95));
+                /*
+                 * The brightness must not eat the colour.
+                 *
+                 * Multiplying the tint by a number above one clips each
+                 * channel in turn — red first, then green — so the palette's
+                 * amber came out as fire: red at the edge, orange, yellow, and
+                 * white in the middle. The core then agreed with nothing else
+                 * on the screen, which is the one thing it is supposed to do.
+                 *
+                 * So the hue is carried by the colour and the intensity by the
+                 * alpha, which under additive blending is what makes it
+                 * bright. Only the very hottest part is allowed any white at
+                 * all, and only a little.
+                 */
+                vec3 colour = tint + vec3(0.30) * smoothstep(1.5, 3.2, light);
+
+                gl_FragColor = vec4(colour, clamp(light, 0.0, 0.95));
             }`,
         transparent: true,
         depthWrite: false,
