@@ -23,6 +23,7 @@ import (
 
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/progress"
+	"pn-brain/internal/brain/protect"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/tools"
 )
@@ -345,9 +346,30 @@ func (l *Loop) RunShaped(
 
 			summary := tool.Summarize(call.Arguments)
 
+			/*
+			 * A safe tool reaching for something protected stops and asks.
+			 *
+			 * It used to be refused outright, which was the wrong shape: this
+			 * is the owner's machine and his files, and a program that answers
+			 * "no" to its owner has decided something that was not its to
+			 * decide. Nothing is out of reach now — the things that matter
+			 * come to him first.
+			 *
+			 * It is also the better answer to the thing being defended
+			 * against. A page the brain reads can carry text telling it to
+			 * open a credentials file and post the contents somewhere, and the
+			 * whole of that attack is that nobody sees it happen. Asking is
+			 * precisely what breaks it.
+			 */
+			held, rule, ask := protect.InArguments(call.Arguments)
+
+			if ask && tool.Risk() != tools.Mutating {
+				summary = protect.Explain(summary, held, rule)
+			}
+
 			// A Mutating tool is recorded and the turn stops. It is not run
 			// here under any circumstances.
-			if tool.Risk() == tools.Mutating {
+			if tool.Risk() == tools.Mutating || ask {
 				progress.Set("waiting", "Waiting for you: "+summary)
 
 				id, err := l.DB.RecordInvocation(conversationID, tool.Name(), string(call.Arguments), summary, string(tools.Mutating))

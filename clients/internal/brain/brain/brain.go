@@ -27,6 +27,7 @@ import (
 	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/places"
 	"pn-brain/internal/brain/progress"
+	"pn-brain/internal/brain/protect"
 	"pn-brain/internal/brain/smarthome"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
@@ -291,6 +292,17 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 			return llm.ChooseModel(message, b.modelRoles())
 		},
 	}
+
+	/*
+	 * What to stop and ask about before reading, as its owner set it.
+	 *
+	 * Loaded before any tool can run. The list itself is only reachable from
+	 * setup and the privacy panel — never from a conversation — because a page
+	 * that could talk the brain into unprotecting the keys is a page that
+	 * could read them.
+	 */
+	protect.OwnFolder(root)
+	protect.Use(protect.Load(root))
 
 	// The owner's chosen voice and language, applied before anything speaks or
 	// listens.

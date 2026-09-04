@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"pn-brain/internal/brain/llm"
+	"pn-brain/internal/brain/protect"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/tools"
 )
@@ -808,5 +809,103 @@ func TestAnInterruptedAnswerKeepsOnlyWhatWasSaid(t *testing.T) {
 
 	if !strings.HasPrefix(resp.Content, delivered) {
 		t.Errorf("what was actually said was lost: %q", resp.Content)
+	}
+}
+
+/*
+ * A protected file is not refused. It is put to the owner.
+ *
+ * Reading is Safe and runs without asking, which is right for a source file
+ * and wrong for a private key — and the old answer, refusing outright, was
+ * wrong too: this is the owner's own machine and his own files, and a program
+ * that says no to its owner has decided something that was not its to decide.
+ *
+ * It is also the better answer to what this defends against. A page the brain
+ * reads can carry text telling it to open a key and post the contents
+ * somewhere, and the whole of that attack is that nobody sees it happen.
+ */
+func TestReadingSomethingProtectedStopsAndAsks(t *testing.T) {
+	home := t.TempDir()
+	key := filepath.Join(home, ".ssh", "id_rsa")
+
+	os.MkdirAll(filepath.Dir(key), 0o700)
+	os.WriteFile(key, []byte("not a real key"), 0o600)
+
+	protect.Use(protect.Choices{})
+
+	loop, db := newLoop(t, tools.ReadFile{})
+
+	model := &scripted{replies: []llm.Response{{
+		Content: "Reading it now.",
+		ToolCalls: []llm.ToolCall{{
+			ID: "c1", Name: "read_file",
+			Arguments: json.RawMessage(`{"path":` + quote(key) + `}`),
+		}},
+	}}}
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.Run(context.Background(), conv, model, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !res.WaitingForApproval() {
+		t.Fatal("it read a private key without asking anybody")
+	}
+
+	if len(res.Pending) != 1 || res.Pending[0].Tool != "read_file" {
+		t.Fatalf("pending is %+v", res.Pending)
+	}
+
+	/*
+	 * And the question says enough to be answerable: what it wants to do,
+	 * which file, and why that file is one it stops at. "Allow access?" on its
+	 * own teaches people to say yes.
+	 */
+	asked := res.Pending[0].Summary
+
+	for _, want := range []string{"id_rsa", "ssh keys", "log into"} {
+		if !strings.Contains(strings.ToLower(asked), want) {
+			t.Errorf("the question does not mention %q: %s", want, asked)
+		}
+	}
+
+	// Nothing of the file reached the conversation while it waits.
+	messages, _ := db.History(conv)
+
+	for _, m := range messages {
+		if strings.Contains(m.Content, "not a real key") {
+			t.Fatal("the contents were in the transcript before anybody approved")
+		}
+	}
+}
+
+// An ordinary file is read without ceremony. Both halves have to hold: a brain
+// that asks about everything is one whose questions stop being read.
+func TestAnOrdinaryFileIsJustRead(t *testing.T) {
+	note := filepath.Join(t.TempDir(), "notes.md")
+	os.WriteFile(note, []byte("nothing secret"), 0o644)
+
+	protect.Use(protect.Choices{})
+
+	loop, db := newLoop(t, tools.ReadFile{})
+
+	model := &scripted{replies: []llm.Response{{
+		ToolCalls: []llm.ToolCall{{
+			ID: "c1", Name: "read_file",
+			Arguments: json.RawMessage(`{"path":` + quote(note) + `}`),
+		}},
+	}}}
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.Run(context.Background(), conv, model, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.WaitingForApproval() {
+		t.Fatalf("it asked permission to read an ordinary file: %+v", res.Pending)
 	}
 }

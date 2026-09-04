@@ -290,6 +290,21 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
     <div id="reqs"></div>
   </div>
 
+  <div class="step" id="step-privacy" hidden>
+    <h2>What it asks you about</h2>
+    <p class="sub">Nothing on this machine is off limits to it. These are the
+      files where it stops and puts the request to you first — and it remembers
+      what you answer, so it asks once rather than every time. You can change
+      any of this later, in Privacy.</p>
+    <div id="privacy-rules"></div>
+    <label class="field">
+      <span>Anything else it should ask about</span>
+      <input id="privacy-add" type="text" autocomplete="off"
+             placeholder="/a/folder/  or  a-file-name.txt">
+    </label>
+    <div id="privacy-yours"></div>
+  </div>
+
   <div class="step" id="step-apply" hidden>
     <h2>Ready</h2>
     <p class="sub">Nothing has been installed or changed yet. Everything below
@@ -321,6 +336,17 @@ const el = id => document.getElementById(id);
 let busy = false;
 
 async function get(p){ const r = await fetch(p); return r.json(); }
+
+// Sends a choice and hands back what the server made of it.
+async function post(p, body){
+  const r = await fetch(p, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body || {}),
+  });
+
+  return r.json().catch(() => ({}));
+}
 
 function machineLine(h){
   const bits = [h.cores + " cores", h.ram_gb + "GB RAM"];
@@ -851,6 +877,14 @@ const STEPS = [
      return "Choose a model to run here, or save a key for a paid API.";
    }},
 
+  {id: "privacy", title: "What it asks you about", shown: () => true,
+   /*
+    * Never blocks. Every rule starts switched on, so somebody who reads none
+    * of it and presses Next has the protective answer — which is the only
+    * defensible default for a question about credentials.
+    */
+   blocks: () => ""},
+
   {id: "needs", title: "What it needs", shown: () => true,
    blocks: st => {
      /*
@@ -1118,6 +1152,97 @@ function placeAtFirstUnfinished(state){
 
 function visibleSteps(state){ return STEPS.filter(s => s.shown(state)); }
 
+/*
+ * What it will stop and ask about, offered as a choice rather than announced.
+ *
+ * Each rule says what it covers and why, because "/.aws/" is not a thing
+ * anybody can make a decision about — what is in it is the decision. Every one
+ * starts on, so the answer for somebody who skips this step is the protective
+ * one.
+ */
+function renderPrivacyChoice(state){
+  const box = el("privacy-rules");
+
+  if (!box || !state.protection) return;
+
+  const off = new Set(state.protection.off || []);
+
+  box.textContent = "";
+
+  (state.protection.rules || []).forEach(rule => {
+    const row = document.createElement("label");
+    row.className = "field-check";
+
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.checked = rule.fixed || !off.has(rule.id);
+    tick.disabled = rule.fixed;
+
+    const text = document.createElement("span");
+    text.innerHTML = "<b>" + rule.what + "</b>" +
+      (rule.fixed ? " <span class=\"muted\">always</span>" : "") +
+      "<br><span class=\"muted\">" + rule.why + "</span>";
+
+    tick.onchange = async () => {
+      const now = new Set(off);
+
+      if (tick.checked) now.delete(rule.id); else now.add(rule.id);
+
+      await post("/protection", {off: [...now]});
+      refresh();
+    };
+
+    row.append(tick, text);
+    box.appendChild(row);
+  });
+
+  const yours = el("privacy-yours");
+
+  if (yours){
+    yours.textContent = "";
+
+    (state.protection.yours || []).forEach(own => {
+      const row = document.createElement("div");
+      row.className = "chosen";
+      row.textContent = own;
+
+      const drop = document.createElement("button");
+      drop.type = "button";
+      drop.className = "linky";
+      drop.textContent = "remove";
+      drop.onclick = async () => {
+        await post("/protection", {
+          yours: (state.protection.yours || []).filter(y => y !== own),
+        });
+        refresh();
+      };
+
+      row.appendChild(drop);
+      yours.appendChild(row);
+    });
+  }
+
+  const add = el("privacy-add");
+
+  if (add && !add.dataset.wired){
+    add.dataset.wired = "1";
+
+    add.onkeydown = async e => {
+      if (e.key !== "Enter") return;
+
+      e.preventDefault();
+
+      const what = add.value.trim();
+
+      if (!what) return;
+
+      add.value = "";
+      await post("/protection", {yours: [...(state.protection.yours || []), what]});
+      refresh();
+    };
+  }
+}
+
 function renderSteps(state){
   const shown = visibleSteps(state);
 
@@ -1189,6 +1314,7 @@ async function refresh(){
   renderDriveChoice(state);
   renderFolderChoice(state);
   renderBrainChoice(state);
+  renderPrivacyChoice(state);
   renderOverview(state);
   renderPlan(state);
   placeAtFirstUnfinished(state);

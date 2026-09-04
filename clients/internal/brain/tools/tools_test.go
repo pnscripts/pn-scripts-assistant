@@ -7,13 +7,21 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"pn-brain/internal/brain/protect"
 )
 
-// The exfiltration route this closes: read a credentials file, then fetch a URL
-// with the contents attached. Both steps are Safe, so without this nobody sees
-// it happen.
-func TestSensitivePathsAreRefused(t *testing.T) {
-	refuse := []string{
+/*
+ * The route this closes: read a credentials file, then fetch a URL with the
+ * contents attached. Both steps are Safe, so without this nobody sees it
+ * happen.
+ *
+ * It is closed by asking rather than by refusing. Nothing here is out of
+ * reach — every one of these files can be read, and the owner is the one who
+ * says so, which is precisely the step the attack cannot survive.
+ */
+func TestSensitivePathsAreAskedAbout(t *testing.T) {
+	ask := []string{
 		"/home/petar/.env",
 		"/home/petar/project/.env.local",
 		"/home/petar/project/.env.production",
@@ -42,13 +50,15 @@ func TestSensitivePathsAreRefused(t *testing.T) {
 		`C:\Users\petar\.ssh\id_rsa`,
 	}
 
-	for _, p := range refuse {
+	for _, p := range ask {
 		if !IsSensitive(p) {
-			t.Errorf("would have read a credentials file: %s", p)
+			t.Errorf("would have read a credentials file without asking: %s", p)
 		}
 
+		// And nothing reaches a tool without having been asked about, for the
+		// case where a caller does not go through the agent at all.
 		if err := GuardSensitive(p); err == nil {
-			t.Errorf("guard allowed %s", p)
+			t.Errorf("a tool would have opened %s with no question anywhere", p)
 		}
 	}
 }
@@ -75,17 +85,36 @@ func TestOrdinaryFilesAreAllowed(t *testing.T) {
 	}
 }
 
-func TestGuardExplainsItself(t *testing.T) {
-	err := GuardSensitive("/home/petar/.ssh/id_rsa")
-	if err == nil {
-		t.Fatal("expected a refusal")
+/*
+ * The question says enough to be answerable.
+ *
+ * Three things, because with fewer there is nothing to decide on: what is
+ * being asked for, which file, and why that file is one it stops at. A prompt
+ * reading only "allow access?" teaches people to say yes to everything.
+ */
+func TestTheQuestionSaysWhatItIsAsking(t *testing.T) {
+	rule, ask := protect.Ask("/home/petar/.ssh/id_rsa")
+	if !ask {
+		t.Fatal("a private key did not raise a question")
 	}
 
-	// A refusal with no reason reads as a bug rather than a policy.
-	for _, want := range []string{"credentials", "id_rsa"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("refusal does not mention %q: %v", want, err)
+	said := protect.Explain("Read a file", "/home/petar/.ssh/id_rsa", rule)
+
+	for _, want := range []string{"Read a file", "id_rsa", "ssh keys", "log into"} {
+		if !strings.Contains(said, want) {
+			t.Errorf("the question does not mention %q: %s", want, said)
 		}
+	}
+
+	// And a tool reached without the question having been asked says so, in
+	// terms that point at the way to do it properly.
+	err := GuardSensitive("/home/petar/.ssh/id_rsa")
+	if err == nil {
+		t.Fatal("a tool opened a private key with no question anywhere")
+	}
+
+	if !strings.Contains(err.Error(), "id_rsa") {
+		t.Errorf("the refusal does not say which file: %v", err)
 	}
 }
 

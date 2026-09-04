@@ -911,6 +911,47 @@
                     <p class="privacy-detail" id="privacy-detail"></p>
                     <div id="privacy-facts" class="kv"></div>
                 </div>
+
+                <!--
+                    What it asks about before reading.
+
+                    Not a list of things it refuses. Nothing on this machine is
+                    out of its reach — these are the files where it stops and
+                    puts the request to you first, and the answer is kept so it
+                    does not ask twice.
+
+                    Only reachable from here and from setup. There is no tool
+                    for it and no way to change it from a conversation, because
+                    a page it reads could otherwise ask it to switch off the
+                    rule protecting the keys and then read them.
+                -->
+                <div class="card">
+                    <h2>What it asks about first</h2>
+                    <p class="note">Nothing here is off limits. These are the
+                        files where it stops and asks you before reading, and
+                        it remembers what you answer.</p>
+                    <div id="protect-rules" class="rows"></div>
+
+                    <div class="copy-add">
+                        <label class="field">
+                            <span>Also ask about</span>
+                            <input id="protect-add" type="text" autocomplete="off"
+                                   placeholder="/a/folder/  or  a-file-name.txt">
+                        </label>
+                        <div class="copy-buttons">
+                            <button type="button" class="model-action" id="protect-save">Add it</button>
+                        </div>
+                        <div id="protect-yours" class="rows"></div>
+                        <p class="drive-note" id="protect-note"></p>
+                    </div>
+                </div>
+
+                <div class="card" id="protect-learned-card" hidden>
+                    <h2>What it has learned it may read</h2>
+                    <p class="note">You said yes to these, so it stopped
+                        asking. Take any of them back and it will ask again.</p>
+                    <div id="protect-learned" class="rows"></div>
+                </div>
             </div>
         </section>
     </main>
@@ -1017,6 +1058,7 @@
 <script src="/js/places.js"></script>
 <script src="/js/journey.js"></script>
 <script src="/js/operations.js"></script>
+<script src="/js/protection.js"></script>
 <!-- The three.js addons import from the bare name "three", so the page has to
      say where that is. An import map rather than a build step: this ships
      inside one binary, and adding a bundler for two scenes would put npm into

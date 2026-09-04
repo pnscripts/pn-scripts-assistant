@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"pn-brain/internal/brain/protect"
 	"pn-brain/internal/brain/store"
 )
 
@@ -57,6 +58,26 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 		invocation.Status = store.InvocationFailed
 
 		return *invocation, fmt.Errorf("the %q tool no longer exists", invocation.Tool)
+	}
+
+	/*
+	 * And it learns the answer, so it does not ask twice about the same file.
+	 *
+	 * This is the whole point of asking rather than refusing. A question put a
+	 * second time about a thing already answered is a question that stops
+	 * being read and starts being clicked through, and at that moment the
+	 * prompt has become worse than useless — it looks like protection and is
+	 * not.
+	 *
+	 * One file, not the rule it matched: saying yes to one .env in one project
+	 * must not quietly open every .env on the machine. The list of what it has
+	 * learned is shown in the privacy panel and any of it can be taken back.
+	 */
+	if path, _, held := protect.InArguments(json.RawMessage(invocation.Arguments)); held {
+		protect.Learn(b.Root, path)
+
+		b.Log.Info("learned that a protected file is allowed",
+			"path", path, "tool", invocation.Tool)
 	}
 
 	// The stored arguments are used, never anything supplied with the approval.

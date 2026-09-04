@@ -3850,3 +3850,21 @@ select { font-size: 13.5px; }
  * banner further up this file.
  */
 .ops-bar-row[hidden] { display: none; }
+
+/* What it asks about. The reason sits beside the choice rather than behind a
+   help icon, because "/.aws/" is not something anybody can decide about — what
+   is in it is the decision. */
+.protect-rule { align-items: start; margin-bottom: 10px; }
+.protect-rule .note { margin: 2px 0 0; font-size: 10.5px; line-height: 1.45; }
+.protect-fixed {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#protect-note[data-kind="ok"] { color: var(--ok); }
+#protect-note[data-kind="bad"] { color: var(--warn); }
+#protect-yours .row, #protect-learned .row { align-items: center; }
+#protect-yours .model-action, #protect-learned .model-action { padding: 2px 8px; font-size: 10px; }

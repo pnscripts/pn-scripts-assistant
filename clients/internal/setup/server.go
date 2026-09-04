@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"pn-brain/internal/brain/desktop"
+	"pn-brain/internal/brain/protect"
 	"pn-brain/internal/preflight"
 	"pn-brain/internal/starter"
 )
@@ -275,6 +276,40 @@ func (s *Server) Serve(onReady func()) {
 		s.writeJSON(w, map[string]any{"suggestions": starter.Suggestions()})
 	})
 
+	/*
+	 * The choices about what it asks before reading.
+	 *
+	 * Written into the brain's own folder, so they are already in force the
+	 * first time it opens rather than being a thing to go and set afterwards.
+	 */
+	mux.HandleFunc("/protection", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Off   *[]string `json:"off"`
+			Yours *[]string `json:"yours"`
+		}
+
+		json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body)
+
+		root := s.chosenRoot()
+		chosen := protect.Load(root)
+
+		if body.Off != nil {
+			chosen.Off = *body.Off
+		}
+
+		if body.Yours != nil {
+			chosen.Extra = *body.Yours
+		}
+
+		if err := protect.Save(root, chosen); err != nil {
+			s.writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+
+			return
+		}
+
+		s.writeJSON(w, map[string]any{"ok": true})
+	})
+
 	mux.HandleFunc("/done", func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		s.finished = true
@@ -347,8 +382,30 @@ func (s *Server) state() map[string]any {
 	logText, busy, failed := s.log.String(), s.busy, s.applyFailed
 	s.mu.Unlock()
 
+	/*
+	 * What the brain will stop and ask about before reading.
+	 *
+	 * Offered here rather than announced later, because it is a decision about
+	 * somebody's own files and the moment to make it is while they are setting
+	 * the thing up. Every rule starts on, so skipping the step gives the
+	 * protective answer.
+	 */
+	chosen := protect.Load(s.chosenRoot())
+	rules := make([]map[string]any, 0, len(protect.BuiltIn))
+
+	for _, rule := range protect.BuiltIn {
+		rules = append(rules, map[string]any{
+			"id": rule.ID, "what": rule.What, "why": rule.Why, "fixed": rule.Fixed,
+		})
+	}
+
 	return map[string]any{
 		"requirements": views,
+		"protection": map[string]any{
+			"rules": rules,
+			"off":   chosen.Off,
+			"yours": chosen.Extra,
+		},
 		"blocking":     preflight.BlockingCount(results),
 		"busy":         busy,
 		"apply_failed": failed,

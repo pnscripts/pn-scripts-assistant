@@ -2,8 +2,9 @@ package tools
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
+
+	"pn-brain/internal/brain/protect"
 )
 
 // Files the brain must never read, whatever it is asked.
@@ -23,70 +24,43 @@ import (
 // a request. This is a rule — the model cannot be talked out of it, and neither
 // can a page it reads.
 
-// sensitiveNames are matched against the file name alone.
-var sensitiveNames = map[string]bool{
-	".env": true, ".env.local": true, ".env.production": true, ".env.backup": true,
-	".npmrc": true, ".netrc": true, ".git-credentials": true, ".pgpass": true, ".my.cnf": true,
-	"id_rsa": true, "id_ed25519": true, "id_ecdsa": true, "id_dsa": true,
-	"credentials": true, "auth.json": true, "shadow": true, "passwd-": true,
-}
-
 /*
- * sensitiveDirectories are matched against any part of the path.
+ * The list itself now lives in the protect package, with the reasons beside it
+ * and a person's choices on top.
  *
- * These are places credentials live, and the list is about protecting them
- * rather than about the tools that put them there. ~/.docker holds registry
- * logins in plain text, which is why it is here — the program itself uses no
- * containers and never has any reason to read that folder.
+ * It moved because it stopped being a constant. Somebody setting the brain up
+ * is shown what will be off limits and can add their own; the privacy panel
+ * lets them change it later. What has not changed is who can: there is no tool
+ * for it and no path from a conversation to it, because a page that can talk
+ * the model into unprotecting the keys is a page that can read them.
  */
-var sensitiveDirectories = []string{
-	"/.ssh/", "/.gnupg/", "/.aws/", "/.azure/", "/.kube/",
-	"/.docker/", "/.config/gcloud/", "/.password-store/",
-	"/etc/shadow", "/.mozilla/", "/.thunderbird/",
-}
-
-// sensitiveExtensions are matched against the extension.
-var sensitiveExtensions = map[string]bool{
-	"pem": true, "key": true, "p12": true, "pfx": true, "keystore": true, "jks": true,
-}
 
 // IsSensitive reports whether a path looks like it holds credentials.
-func IsSensitive(path string) bool {
-	normalised := strings.ReplaceAll(path, `\`, "/")
-	name := strings.ToLower(filepath.Base(normalised))
+func IsSensitive(path string) bool { return protect.IsSensitive(path) }
 
-	if sensitiveNames[name] {
-		return true
-	}
-
-	// Catches .env.whatever without listing every variant.
-	if strings.HasPrefix(name, ".env") {
-		return true
-	}
-
-	if ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(normalised), ".")); sensitiveExtensions[ext] {
-		return true
-	}
-
-	for _, fragment := range sensitiveDirectories {
-		if strings.Contains(normalised, fragment) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// GuardSensitive refuses a path that holds credentials.
-//
-// The message says what was refused and why, so a legitimate request produces
-// an explanation rather than a puzzle.
+/*
+ * GuardSensitive is the last line, not the first.
+ *
+ * The question is asked before the tool runs — the agent holds the call and
+ * puts it to the owner — so by the time a tool executes, a protected path has
+ * already been approved and recorded as allowed. This exists for the case
+ * where that did not happen: a tool called from somewhere that does not go
+ * through the agent.
+ *
+ * It refuses there rather than asking, because a caller outside the agent has
+ * nobody to ask. In the ordinary path it never fires, and that is the point of
+ * it: the thing that protects the credentials is the question, and this is
+ * what makes the question impossible to bypass.
+ */
 func GuardSensitive(path string) error {
-	if !IsSensitive(path) {
+	rule, ask := protect.Ask(path)
+
+	if !ask {
 		return nil
 	}
 
 	return fmt.Errorf(
-		"refusing to touch %s: it looks like it holds credentials; "+
-			"secrets are off limits to the assistant even when asked directly", path)
+		"%s is protected (%s) and this was not asked about first — "+
+			"open it from a conversation, where the request comes to you for a decision",
+		path, strings.ToLower(rule.What))
 }

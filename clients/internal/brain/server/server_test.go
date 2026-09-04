@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/progress"
+	"pn-brain/internal/brain/protect"
 	"pn-brain/internal/brain/store"
 	"pn-brain/internal/brain/tools"
 	"pn-brain/internal/brain/wake"
@@ -1231,5 +1233,92 @@ func TestOperationsAnswersBeforeTheFirstReading(t *testing.T) {
 	// do is return a page of zeroes that reads as a machine doing nothing.
 	if !out.Available && out.Why == "" {
 		t.Error("it reports nothing and does not say why")
+	}
+}
+
+/*
+ * Saying yes once is saying yes.
+ *
+ * The point of asking rather than refusing is lost the moment the same
+ * question comes back: a prompt seen twice about a file already decided is a
+ * prompt that stops being read and starts being clicked through, and at that
+ * moment it looks like protection while being worse than none.
+ */
+func TestApprovingAProtectedFileIsRemembered(t *testing.T) {
+	ts, db, b := newServer(t)
+
+	// A file this brain would stop at, somewhere it can actually read.
+	key := filepath.Join(t.TempDir(), ".ssh", "id_rsa")
+
+	if err := os.MkdirAll(filepath.Dir(key), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(key, []byte("not a real key"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	protect.Use(protect.Choices{})
+	protect.OwnFolder(b.Root)
+
+	t.Cleanup(func() { protect.Use(protect.Choices{}) })
+
+	if _, ask := protect.Ask(key); !ask {
+		t.Fatal("the test file is not one the brain would ask about")
+	}
+
+	conv, _ := db.NewConversation("t")
+
+	id, err := db.RecordInvocation(conv, "read_file",
+		`{"path":"`+key+`"}`, "Read a file — "+key, "mutating")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := http.Post(fmt.Sprintf("%s/api/approvals/%d/approve", ts.URL, id), "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("approving returned %d", res.StatusCode)
+	}
+
+	// It stops asking about that file.
+	if _, ask := protect.Ask(key); ask {
+		t.Error("it would ask again about a file that was just approved")
+	}
+
+	// One file, not the whole rule: allowing one key must not open the folder.
+	sibling := filepath.Join(filepath.Dir(key), "id_ed25519")
+
+	if _, ask := protect.Ask(sibling); !ask {
+		t.Error("approving one key opened every key beside it")
+	}
+
+	// And it is written down, so tomorrow's run knows it too — and is listed
+	// where a person can take it back.
+	if kept := protect.Load(b.Root); len(kept.Allowed) != 1 || kept.Allowed[0] != key {
+		t.Errorf("what it learned was not saved: %+v", kept)
+	}
+
+	shown, err := http.Get(ts.URL + "/api/protection")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shown.Body.Close()
+
+	var out struct {
+		Learned []string `json:"learned"`
+	}
+
+	if err := json.NewDecoder(shown.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(out.Learned) != 1 {
+		t.Errorf("the panel does not show what it learned: %+v", out.Learned)
 	}
 }

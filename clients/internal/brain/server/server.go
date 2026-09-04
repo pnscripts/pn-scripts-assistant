@@ -95,6 +95,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/places/forget", s.handleForgetPlace)
 	s.mux.HandleFunc("POST /api/places/rename", s.handleRenamePlace)
 	s.mux.HandleFunc("POST /api/places/look", s.handleLookNow)
+	s.mux.HandleFunc("GET /api/protection", s.handleProtection)
+	s.mux.HandleFunc("POST /api/protection", s.handleSetProtection)
 	s.mux.HandleFunc("GET /api/journey", s.handleJourney)
 	s.mux.HandleFunc("POST /api/journey/repair", s.handleRepairJourney)
 	s.mux.HandleFunc("POST /api/journey/forget", s.handleForgetJourney)
