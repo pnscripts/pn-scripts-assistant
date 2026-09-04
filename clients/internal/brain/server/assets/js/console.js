@@ -196,7 +196,7 @@ async function send(text) {
 
     // And the microphone stays open on its name while it works, so cutting in
     // does not require finding the keyboard.
-    watchForMyName(abandon);
+    watchForYou(abandon);
 
     /*
      * Which is worth saying, in the place that otherwise contradicts it.
@@ -207,8 +207,8 @@ async function send(text) {
      * Thinking. Two states at once, and neither of them the useful one: what
      * somebody wants to know mid-answer is that they can cut in.
      */
-    if (talking.on && state.wakeWord) {
-        setVoiceStatus(`Say “${state.wakeWord}” to cut in`);
+    if (talking.on) {
+        setVoiceStatus('Say anything to cut in');
     }
 
     try {
@@ -1444,18 +1444,25 @@ async function stopTalking() {
 window.brainStop = stopTalking;
 
 /*
- * Listening for its name while it is working.
+ * Listening while it is working, and stopping for whatever is said.
  *
- * Cutting in has worked for a while and only while it was speaking, which is
- * the smaller half of the wait: on this machine most of a turn is thinking,
- * with the microphone shut. So the one moment somebody most wants to say "no,
- * not that" was the one moment nothing was listening.
+ * Cutting in used to work only while it was speaking, which is the smaller
+ * half of the wait: on this machine most of a turn is thinking, with the
+ * microphone shut. So the one moment somebody most wants to say "no, not that"
+ * was the one moment nothing was listening.
  *
- * The name is required whatever the engaged setting says. This is a room with
- * a television in it and the brain is mid-answer; anything less than being
- * addressed by name is not an interruption, it is a room.
+ * And it asked for the name. The name is what separates being spoken to from
+ * being in the same room as a television, and it earns that everywhere except
+ * here — this is the brain already working for the person who has just started
+ * talking, so there is nothing to disambiguate. Being made to say a name
+ * before you can interrupt is being made to wait your turn by the thing that
+ * is supposed to be waiting for you.
+ *
+ * What still has to hold is that it was speech at all. The recording has
+ * already passed the test that tells a voice from a fan, which is the one that
+ * matters in a room with this machine in it.
  */
-async function watchForMyName(abandon) {
+async function watchForYou(abandon) {
     if (!talking.on) return;
 
     while (!abandon.signal.aborted && state.busy) {
@@ -1465,6 +1472,7 @@ async function watchForMyName(abandon) {
             heard = await api.post('/api/turn', {
                 device: el('microphone').value || '',
                 engaged: false,
+                interrupting: true,
             }, abandon.signal);
         } catch (err) {
             // The turn finished and took the listen with it, which is the

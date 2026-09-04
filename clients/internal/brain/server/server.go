@@ -678,6 +678,18 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		// case anything said counts. Having to say the name before every
 		// sentence is not a conversation.
 		Engaged bool `json:"engaged"`
+
+		/*
+		 * Interrupting is the page listening over the top of work already
+		 * running.
+		 *
+		 * Anything said then is meant for the brain: it is mid-answer and the
+		 * person it is answering has started talking. The name is not asked
+		 * for, because being made to say a name before you can interrupt is
+		 * being made to wait your turn by the thing that is meant to be
+		 * waiting for you.
+		 */
+		Interrupting bool `json:"interrupting"`
 	}
 
 	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body)
@@ -700,7 +712,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	 * with it — a television, somebody else talking, or its own voice coming
 	 * back off the speakers. Every one of those used to become a turn.
 	 */
-	addressed, ends := s.decide(heard.Text, body.Engaged)
+	addressed, ends := s.decide(heard.Text, body.Engaged, body.Interrupting)
 
 	acted := addressed.Addressed && !ends
 
@@ -773,7 +785,31 @@ func (s *Server) handlePresent(w http.ResponseWriter, r *http.Request) {
  * rather than a fact: when the name is required every time, it buys nothing.
  * Refused here rather than trusted, because one place has to be able to say no.
  */
-func (s *Server) decide(text string, claimed bool) (wake.Heard, bool) {
+func (s *Server) decide(text string, claimed, interrupting bool) (wake.Heard, bool) {
+	/*
+	 * Interrupting does not need the name.
+	 *
+	 * The name is what separates being spoken to from being in the same room
+	 * as a television, and it earns that everywhere except here: this is the
+	 * brain already talking or already working, and the person it is working
+	 * for has started speaking. There is nothing to disambiguate. Somebody
+	 * who says "no, not that" while an answer is running is interrupting, and
+	 * making them say a name first is making them wait to be allowed to.
+	 *
+	 * What still has to hold is that it was speech at all — the recording has
+	 * already passed the test that separates a voice from a fan, which is the
+	 * test that matters in a room with a machine in it.
+	 */
+	if interrupting {
+		text = strings.TrimSpace(text)
+
+		if text == "" {
+			return wake.Heard{}, false
+		}
+
+		return wake.Heard{Addressed: true, Text: text}, wake.Ends(text)
+	}
+
 	engaged := claimed && !s.brain.Cfg.AlwaysName
 
 	heard := wake.Listen(text, s.brain.Cfg.WakeWord, engaged)

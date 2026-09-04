@@ -732,29 +732,29 @@ func TestCallingItByNameEveryTime(t *testing.T) {
 
 	// The page claims it is still in a conversation. With the name required,
 	// that claim buys nothing.
-	if heard, _ := srv.decide("what time is it", true); heard.Addressed {
+	if heard, _ := srv.decide("what time is it", true, false); heard.Addressed {
 		t.Error("a sentence without the name was answered while the name is required")
 	}
 
-	if heard, _ := srv.decide("brain what time is it", true); !heard.Addressed {
+	if heard, _ := srv.decide("brain what time is it", true, false); !heard.Addressed {
 		t.Error("a sentence carrying the name was not answered")
 	}
 
 	// With the setting off, the same claim keeps the conversation open.
 	b.Cfg.AlwaysName = false
 
-	if heard, _ := srv.decide("what time is it", true); !heard.Addressed {
+	if heard, _ := srv.decide("what time is it", true, false); !heard.Addressed {
 		t.Error("a follow-up was ignored while the conversation was meant to be open")
 	}
 
 	// And leaving the conversation only means anything while in one.
-	if _, ends := srv.decide("thanks", true); !ends {
+	if _, ends := srv.decide("thanks", true, false); !ends {
 		t.Error("saying thank you did not end the conversation")
 	}
 
 	b.Cfg.AlwaysName = true
 
-	if _, ends := srv.decide("thanks", true); ends {
+	if _, ends := srv.decide("thanks", true, false); ends {
 		t.Error("a conversation that was never open was ended")
 	}
 }
@@ -1320,5 +1320,46 @@ func TestApprovingAProtectedFileIsRemembered(t *testing.T) {
 
 	if len(out.Learned) != 1 {
 		t.Errorf("the panel does not show what it learned: %+v", out.Learned)
+	}
+}
+
+/*
+ * Interrupting does not require saying its name.
+ *
+ * The name is what separates being spoken to from being in the same room as a
+ * television, and it earns that everywhere except here: the brain is already
+ * working for the person who has just started talking, so there is nothing to
+ * disambiguate. Being made to say a name before you can interrupt is being
+ * made to wait your turn by the thing that is meant to be waiting for you.
+ */
+func TestAnythingSaidOverTheTopOfItCounts(t *testing.T) {
+	_, _, b := newServer(t)
+
+	b.Cfg.WakeWord = "PN Brain"
+	b.Cfg.AlwaysName = true
+
+	s := New(b, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	// Not interrupting: the name is required, which is what keeps a room with
+	// a television in it out of the conversation.
+	if heard, _ := s.decide("what time is the film on", false, false); heard.Addressed {
+		t.Error("something said across the room was treated as a question")
+	}
+
+	// Interrupting: it counts, whatever it was.
+	heard, _ := s.decide("no, not that", false, true)
+
+	if !heard.Addressed {
+		t.Error("it carried on talking over somebody who had started speaking")
+	}
+
+	if heard.Text != "no, not that" {
+		t.Errorf("what was said came through as %q", heard.Text)
+	}
+
+	// Silence is not an interruption. A recording with no words in it means
+	// the room made a noise, not that anybody spoke.
+	if quiet, _ := s.decide("   ", false, true); quiet.Addressed {
+		t.Error("an empty transcript stopped it")
 	}
 }

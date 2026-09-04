@@ -162,6 +162,16 @@ const (
 	 * which is exactly the gesture this is for.
 	 */
 	BargeMargin = 2.0
+
+	/*
+	 * DeviceCheckEvery is how many frames pass between asking whether the
+	 * microphone this turn opened on is still the right one.
+	 *
+	 * Every fifty frames is about five seconds, which costs one cheap query of
+	 * the audio graph and catches the case that matters within a few seconds of
+	 * it happening: the canceller appearing just after the first turn opened.
+	 */
+	DeviceCheckEvery = 50
 )
 
 // Turn is what one spoken turn amounted to.
@@ -240,6 +250,9 @@ func RecordTurnWaiting(
 	if device == "" {
 		device = PreferredMicrophone(ctx)
 	}
+
+	// Remembered so the loop can notice if the answer changes underneath it.
+	openedOn := device
 
 	/*
 	 * One recorder on the microphone at a time.
@@ -327,6 +340,10 @@ func RecordTurnWaiting(
 		}
 	}()
 
+	// Counts frames, so the microphone is re-checked now and then rather than
+	// on every one — see DeviceCheckEvery.
+	checks := 0
+
 	ticker := time.NewTicker(FrameDuration)
 	defer ticker.Stop()
 
@@ -350,6 +367,29 @@ func RecordTurnWaiting(
 			// pw-record exited on its own; whatever it wrote is the turn.
 			return turn, err
 		case <-ticker.C:
+		}
+
+		/*
+		 * Has the right microphone changed since this turn opened?
+		 *
+		 * It can, and the case that bites is the ordinary one: the echo
+		 * canceller is built a moment after the program starts, so the first
+		 * turn opens on the raw microphone and — in a quiet room — that turn
+		 * lasts until somebody speaks, which may be hours. Everything the
+		 * assistant says in the meantime goes into its own ears uncancelled,
+		 * and with any speech able to interrupt, it interrupts itself.
+		 *
+		 * Ended rather than switched: a recording cannot change device
+		 * halfway, and the loop above opens a new one immediately. The cost is
+		 * one wasted listen in a quiet room; the alternative is a turn wired
+		 * to the wrong input for as long as nobody happens to talk.
+		 */
+		if checks++; checks%DeviceCheckEvery == 0 {
+			if now := PreferredMicrophone(ctx); now != "" && now != openedOn {
+				stop()
+
+				return turn, nil
+			}
 		}
 
 		rms, next := frameRMS(path, offset)
@@ -438,12 +478,20 @@ func RecordTurnWaiting(
 			 * and sitting through a wrong answer to its end before being able
 			 * to say so is not a conversation.
 			 *
-			 * The microphone hears both voices and there is no echo
-			 * cancellation here, so what it hears while speaking is measured
-			 * and the person has to be clearly above it. On headphones that
-			 * measurement is only the room and anything said cuts in; on
-			 * speakers it is the brain's own voice, and cutting in means
-			 * actually talking over it.
+			 * What the microphone hears while the brain speaks is measured
+			 * rather than assumed, and the person has to be above it. How much
+			 * that is depends on the room: through headphones it is only the
+			 * room, so anything said cuts in; through speakers with the
+			 * canceller working it is the little of its own voice that
+			 * survives cancellation, which a person clears easily; through
+			 * speakers with no canceller it is the assistant at full volume,
+			 * and cutting in means genuinely talking over it.
+			 *
+			 * No name is asked for here and none should be. The brain is
+			 * mid-sentence to the person who just started talking, so there is
+			 * nothing to disambiguate — and making somebody say a name before
+			 * they can interrupt is making them wait their turn by the thing
+			 * that is supposed to be waiting for them.
 			 */
 			echo = append(echo, rms)
 
