@@ -1195,3 +1195,41 @@ func TestThereIsSomewhereToKeepACopy(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * The operations view answers even before the first reading is taken.
+ *
+ * Every rate on it is the difference between two readings, so for the first
+ * second of a run there is nothing to compare against. The page asks
+ * immediately — it is what a person opening the program sees — and an endpoint
+ * that fails until the watcher has ticked would make the whole view look
+ * broken for exactly as long as somebody is most likely to be looking at it.
+ */
+func TestOperationsAnswersBeforeTheFirstReading(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	res, err := http.Get(ts.URL + "/api/operations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("it returned %d before any reading was taken", res.StatusCode)
+	}
+
+	var out struct {
+		Available bool   `json:"available"`
+		Why       string `json:"why"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+
+	// Either it has readings, or it says why it has none. What it must never
+	// do is return a page of zeroes that reads as a machine doing nothing.
+	if !out.Available && out.Why == "" {
+		t.Error("it reports nothing and does not say why")
+	}
+}

@@ -190,7 +190,15 @@
 
     /* ---------- the buttons in the status bar ---------- */
 
-    for (const button of document.querySelectorAll('.icon-button[data-view]')) {
+    /*
+     * Any button that names a view, not only the ones in the status bar.
+     *
+     * A panel is often the place a question starts — three dials say the
+     * processor is busy, and the next question is which core — so the way
+     * through to the answer belongs on the panel that raised it, and not only
+     * in the rail down the side.
+     */
+    for (const button of document.querySelectorAll('button[data-view]:not(.nav-item)')) {
         button.addEventListener('click', () => show(button.dataset.view));
     }
 

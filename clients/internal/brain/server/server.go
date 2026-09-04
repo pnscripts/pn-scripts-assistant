@@ -106,6 +106,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
 	s.mux.HandleFunc("GET /api/level", s.handleLevel)
 	s.mux.HandleFunc("GET /api/machine", s.handleMachine)
+	s.mux.HandleFunc("GET /api/operations", s.handleOperations)
 	s.mux.HandleFunc("GET /api/search", s.handleSearch)
 	s.mux.HandleFunc("GET /api/progress", s.handleProgress)
 	s.mux.HandleFunc("GET /api/steps", s.handleSteps)

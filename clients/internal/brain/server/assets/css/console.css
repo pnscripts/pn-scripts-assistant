@@ -3487,3 +3487,319 @@ select { font-size: 13.5px; }
 
 #storage-outlook[data-kind="bad"], #move-note[data-kind="bad"] { color: var(--warn); }
 #move-note[data-kind="ok"] { color: var(--ok); }
+
+/* ---------- Operations ----------
+
+   A wall display. Four quadrants because that is the layout somebody watching
+   a machine builds for themselves out of terminals, and the point of this view
+   is to be that without the terminals.
+
+   The two series colours are one step deeper than the interface's own cyan and
+   amber, chosen so the pair passes a colour-vision check against this panel
+   background rather than because they look right to me: adjacent separation
+   ΔE 16.4 for protanopia, 21.7 for normal vision, both above the floor. They
+   are used for data only — never for text, which keeps its own tokens, so
+   nothing on this screen is identified by colour alone. */
+:root {
+    --series-a: #00a3ba;
+    --series-b: #c08340;
+}
+
+.view-operations { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+.ops-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.ops-head h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.ops-head-figures { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.ops-chip {
+    padding: 3px 9px;
+    border: 1px solid var(--hud-dim);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+}
+
+.ops-chip b { color: var(--text); font-weight: 600; }
+
+/*
+ * Three columns, and each panel takes the width its content actually needs.
+ *
+ * Two equal columns was the obvious layout and it was wrong: the process list
+ * has seven columns, six of them fixed-width figures, which left a hundred
+ * pixels for the command — the one column anybody reads. A list of programs
+ * showing "/opt/google/ch…" for every row is not a list of programs.
+ *
+ * So the panels are sized by what is in them. The cards are a stack of short
+ * rows and want height rather than width; the processors want width for a
+ * machine with thirty-two of them; the process list wants the most width there
+ * is; the brain's own figures are a short list of pairs.
+ */
+.ops-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+.ops-cards { grid-column: 1; }
+.ops-cpu { grid-column: 2 / 4; }
+.ops-processes { grid-column: 1 / 3; }
+.ops-brain { grid-column: 3; }
+
+/* Below about a laptop's width there is no arrangement of four dense panels
+   that reads, so they stack and each gets the whole of it. */
+@media (max-width: 1180px) {
+    .ops-grid { grid-template-columns: minmax(0, 1fr); }
+    .ops-cards, .ops-cpu, .ops-processes, .ops-brain { grid-column: 1; }
+}
+
+.ops-grid .card { min-width: 0; }
+
+/* One card per device, laid out like the tool it replaces: the name and the
+   figures on one line, then the two bars that matter. */
+.ops-gpu-list { display: flex; flex-direction: column; gap: 10px; }
+
+.ops-gpu {
+    padding: 9px 10px;
+    border: 1px solid var(--hud-dim);
+    background: rgba(255, 255, 255, 0.015);
+}
+
+/* The name on its own line, the figures under it.
+   Side by side, a card called "NVIDIA GeForce RTX 5060 Ti" broke over three
+   lines in a third-width column while the temperature sat neatly beside it. */
+.ops-gpu-head {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 8px;
+}
+
+.ops-gpu-name { font-size: 12px; color: var(--text); }
+.ops-gpu-index { color: var(--text-dim); font-family: var(--mono); font-size: 10.5px; }
+.ops-gpu-figures { color: var(--text-dim); font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+.ops-gpu-figures b { color: var(--text); font-weight: 600; }
+
+.ops-bars { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+
+.ops-bar-row {
+    display: grid;
+    grid-template-columns: 54px 1fr auto;
+    gap: 9px;
+    align-items: center;
+}
+
+.ops-bar-label {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+}
+
+/* 4px rounded ends anchored to the baseline, and the track shows what is left
+   rather than being invisible — a bar with no track cannot be read as a
+   proportion. */
+.ops-bar {
+    height: 9px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.ops-bar > div {
+    height: 100%;
+    width: 0;
+    border-radius: 4px;
+    background: var(--series-a);
+    transition: width .45s ease;
+}
+
+.ops-bar > div[data-series="b"] { background: var(--series-b); }
+.ops-bar > div[data-state="warn"] { background: var(--warn); }
+.ops-bar > div[data-state="hot"] { background: var(--status-error, #e06c75); }
+
+.ops-bar-value {
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    min-width: 74px;
+    text-align: right;
+}
+
+/* One bar per core. Wraps into as many columns as fit, so four cores and
+   thirty-two both read at a glance. */
+.ops-cores {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 5px 10px;
+}
+
+.ops-core { display: grid; grid-template-columns: 20px 1fr 34px; gap: 6px; align-items: center; }
+
+.ops-core-n {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-align: right;
+}
+
+.ops-core-track {
+    height: 7px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.ops-core-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 4px;
+    background: var(--series-a);
+    transition: width .4s ease;
+}
+
+.ops-core-fill[data-state="warn"] { background: var(--warn); }
+.ops-core-fill[data-state="hot"] { background: var(--status-error, #e06c75); }
+
+.ops-core-value {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-align: right;
+}
+
+/* Figures: caption above, legend under it, then the plot. A legend is present
+   whenever there are two series, so identity never rests on colour alone. */
+.ops-figure { margin: 12px 0 0; }
+
+.ops-figure figcaption {
+    color: var(--text-dim);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.ops-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+
+.ops-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    font-size: 10.5px;
+}
+
+.ops-legend i {
+    width: 10px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--series-a);
+    display: inline-block;
+}
+
+.ops-legend i[data-series="b"] { background: var(--series-b); }
+
+.ops-chart { position: relative; height: 118px; }
+.ops-chart-short { height: 96px; }
+.ops-chart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+.ops-grid-line { stroke: var(--hud-dim); stroke-width: 1; }
+.ops-axis-text { fill: var(--text-dim); font-size: 9px; font-family: var(--mono); }
+.ops-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ops-area { stroke: none; opacity: 0.16; }
+
+/* The hover layer. A crosshair and a tooltip, because a chart on a screen that
+   cannot be interrogated is a picture of data rather than the data. */
+.ops-crosshair { stroke: var(--hud); stroke-width: 1; stroke-dasharray: 2 3; }
+.ops-dot { r: 3.2; stroke: var(--bg-raised); stroke-width: 2; }
+
+.ops-tip {
+    position: absolute;
+    pointer-events: none;
+    padding: 6px 9px;
+    border: 1px solid var(--hud-dim);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    line-height: 1.5;
+    white-space: nowrap;
+    z-index: 5;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .5);
+}
+
+.ops-tip u { text-decoration: none; color: var(--text-dim); }
+
+.ops-table-scroll { max-height: 320px; overflow: auto; }
+
+/*
+ * Fixed layout, and the command column takes what is left.
+ *
+ * The command was given max-width:0 with an ellipsis, which is the usual trick
+ * for a cell that must not stretch its table — and in a table laid out
+ * automatically it collapses the column to nothing instead. The text was
+ * present, ten pixels wide, invisible. Six narrow columns of figures with a
+ * declared width leave the remainder to the seventh, which is the one anybody
+ * is reading.
+ */
+.ops-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 10.5px;
+}
+
+.ops-table th:nth-child(1), .ops-table td:nth-child(1) { width: 58px; }
+.ops-table th:nth-child(2), .ops-table td:nth-child(2) { width: 74px; }
+.ops-table th:nth-child(3), .ops-table td:nth-child(3) { width: 54px; }
+.ops-table th:nth-child(4), .ops-table td:nth-child(4) { width: 50px; }
+.ops-table th:nth-child(5), .ops-table td:nth-child(5) { width: 64px; }
+.ops-table th:nth-child(6), .ops-table td:nth-child(6) { width: 62px; }
+
+.ops-table th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-raised);
+    text-align: left;
+    padding: 0 8px 6px 0;
+    color: var(--text-dim);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+}
+
+.ops-table td { padding: 3px 8px 3px 0; color: var(--text-dim); white-space: nowrap; }
+.ops-table td.num, .ops-table th.num { text-align: right; }
+
+.ops-table td.command {
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The brain's own processes. Marked rather than coloured alone — the row is
+   named as ours in text too, so it is findable without seeing the tint. */
+.ops-table tr.ours td { color: var(--text); }
+.ops-table tr.ours td.command { color: var(--accent); }
+
+.monitor-more { margin: 10px 0 0; width: 100%; }

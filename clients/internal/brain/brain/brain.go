@@ -22,6 +22,7 @@ import (
 	"pn-brain/internal/brain/jobs"
 	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/llm"
+	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/mail"
 	"pn-brain/internal/brain/models"
 	"pn-brain/internal/brain/places"
@@ -595,6 +596,10 @@ func (b *Brain) Start(ctx context.Context) {
 	// nothing at the moment of choosing.
 	go b.keepModelsWarm(ctx)
 	go b.watchTheDrive(ctx)
+
+	// A reading of the machine every second, kept in memory, so the operations
+	// view has the shape of the last few minutes rather than one number.
+	go machine.Watch(ctx)
 
 	// And the copies of itself on other drives, refreshed whenever one of them
 	// is plugged in and the brain has learned something since.

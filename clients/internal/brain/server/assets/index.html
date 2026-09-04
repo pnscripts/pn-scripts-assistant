@@ -177,6 +177,13 @@
             </svg>
             <span>System</span>
         </button>
+        <button type="button" class="nav-item" data-view="operations">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M3 17l4-6 4 3 4-8 6 11" fill="none" stroke="currentColor" stroke-width="1.7"
+                      stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
+            <span>Operations</span>
+        </button>
         <button type="button" class="nav-item" data-view="updates">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M12 4v9M12 4l-3.5 3.5M12 4l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -384,6 +391,17 @@
                         </div>
                     </div>
                     <p class="note tiny" id="machine-note"></p>
+                    <!--
+                        The way through to the detail, on the panel the question
+                        starts at.
+
+                        Three dials answer "is it busy". The next question is
+                        always "with what" — which core, which card, which
+                        process — and until now the only answer was a terminal.
+                    -->
+                    <button type="button" class="model-action monitor-more" data-view="operations">
+                        Everything it is doing
+                    </button>
                 </div>
 
                 <div class="card" style="grid-area: commands">
@@ -733,6 +751,105 @@
             </div>
         </section>
 
+        <!--
+            The operations view.
+
+            Four quadrants, because that is what somebody watching a machine
+            actually sets up: the cards, the processors, what is running, and
+            the service they care about. This machine's owner runs exactly that
+            in four terminals — nvidia-smi, htop, nvtop and a watch on the model
+            server — and the only reason it is four terminals is that nothing
+            offered it in one place.
+
+            Every figure on it is measured. Where the machine does not publish
+            one it says so; there is no panel here that fills a gap with a
+            plausible number, because a wall of figures reads as authority and
+            one invented figure among fifty makes the other forty-nine
+            unverifiable.
+        -->
+        <section class="view view-operations" data-view="operations" hidden>
+            <div class="ops-head">
+                <h1>Operations</h1>
+                <div class="ops-head-figures">
+                    <span class="ops-chip"><b id="ops-uptime">—</b> up</span>
+                    <span class="ops-chip"><b id="ops-load">—</b> load</span>
+                    <span class="ops-chip"><b id="ops-tasks">—</b> tasks</span>
+                    <span class="ops-chip" id="ops-window">—</span>
+                </div>
+            </div>
+
+            <p class="note" id="ops-unavailable" hidden></p>
+
+            <div class="ops-grid">
+                <!-- The cards. First, because on the machine this was designed
+                     for they are the whole reason it exists. -->
+                <div class="card ops-cards">
+                    <h2>Graphics cards</h2>
+                    <p class="note tiny" id="ops-gpu-note" hidden></p>
+                    <div id="ops-gpus" class="ops-gpu-list"></div>
+                </div>
+
+                <!-- The processors, one bar per core, the way htop shows them:
+                     an average hides the case that matters, which is one core
+                     pegged while fifteen idle. -->
+                <div class="card ops-cpu">
+                    <h2>Processors</h2>
+                    <div id="ops-cores" class="ops-cores"></div>
+                    <div class="ops-bars">
+                        <div class="ops-bar-row">
+                            <span class="ops-bar-label">memory</span>
+                            <div class="ops-bar"><div id="ops-mem-fill"></div></div>
+                            <span class="ops-bar-value" id="ops-mem-value">—</span>
+                        </div>
+                        <div class="ops-bar-row">
+                            <span class="ops-bar-label">swap</span>
+                            <div class="ops-bar"><div id="ops-swap-fill"></div></div>
+                            <span class="ops-bar-value" id="ops-swap-value">—</span>
+                        </div>
+                    </div>
+                    <figure class="ops-figure">
+                        <figcaption>Processor and memory, last three minutes</figcaption>
+                        <div class="ops-legend" id="ops-cpu-legend"></div>
+                        <div class="ops-chart" id="ops-cpu-chart"></div>
+                    </figure>
+                </div>
+
+                <!-- What is running. Ours marked, because in two hundred rows
+                     those are the ones being looked for. -->
+                <div class="card ops-processes">
+                    <h2>Running now</h2>
+                    <div class="ops-table-scroll">
+                        <table class="ops-table">
+                            <thead>
+                                <tr>
+                                    <th class="num">pid</th>
+                                    <th>user</th>
+                                    <th class="num">cpu</th>
+                                    <th class="num">mem</th>
+                                    <th class="num">resident</th>
+                                    <th class="num">time</th>
+                                    <th>command</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ops-processes"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- The brain's own service, which is the thing all of the
+                     above is in aid of. -->
+                <div class="card ops-brain">
+                    <h2>The brain</h2>
+                    <div class="rows" id="ops-brain-rows"></div>
+                    <figure class="ops-figure">
+                        <figcaption>Network and disk, last three minutes</figcaption>
+                        <div class="ops-legend" id="ops-io-legend"></div>
+                        <div class="ops-chart ops-chart-short" id="ops-io-chart"></div>
+                    </figure>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="updates" hidden>
             <div class="view-inner">
                 <div class="card">
@@ -856,6 +973,7 @@
 <script src="/js/copies.js"></script>
 <script src="/js/places.js"></script>
 <script src="/js/journey.js"></script>
+<script src="/js/operations.js"></script>
 <!-- The three.js addons import from the bare name "three", so the page has to
      say where that is. An import map rather than a build step: this ships
      inside one binary, and adding a bundler for two scenes would put npm into
