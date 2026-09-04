@@ -21,6 +21,18 @@
 
 :root {
     --bg: #04080f;
+
+    /*
+     * What a card's background actually comes out as, once its translucent
+     * gradient has been composited over the page.
+     *
+     * Written down because the core is not a card: it is a canvas, painted by
+     * a shader that cannot see the cascade, and it sat several shades darker
+     * than every panel around it. These two are what .card below resolves to
+     * at its two ends, and if that rule changes these have to change with it.
+     */
+    --card-top: #0d1c2b;
+    --card-bottom: #080e17;
     --bg-raised: #0d1219;
     --bg-input: #111823;
     --line: #1b2634;

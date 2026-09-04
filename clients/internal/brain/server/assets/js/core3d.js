@@ -47,6 +47,26 @@ function haloTexture(size = 256) {
     return new THREE.CanvasTexture(c);
 }
 
+/*
+ * cssColour reads a colour out of the stylesheet.
+ *
+ * So that the one panel painted by a shader cannot drift away from the ones
+ * painted by the cascade. The fallback is the same value the stylesheet holds,
+ * for the case where this runs before the variables are set.
+ */
+function cssColour(name, fallback) {
+    const raw = getComputedStyle(document.documentElement)
+        .getPropertyValue(name).trim();
+
+    if (!raw) return new THREE.Color(fallback);
+
+    try {
+        return new THREE.Color(raw);
+    } catch (err) {
+        return new THREE.Color(fallback);
+    }
+}
+
 export function startCore() {
     if (!canvas) return;
 
@@ -75,11 +95,23 @@ export function startCore() {
      * which has the side benefit the 2D version needed too: bloom has to have
      * something to bloom into, and against flat black a glow reads as a
      * wireframe with a halo stuck on it.
+     *
+     * The colours come from the stylesheet rather than from here. Painted by
+     * hand they drifted, and the core ended up several shades darker than
+     * every panel beside it — the one panel on the screen that is not a panel,
+     * looking like a hole in the row.
      */
+    const cardTop = cssColour('--card-top', 0x0d1c2b);
+    const cardBottom = cssColour('--card-bottom', 0x080e17);
+
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(40, 40),
         new THREE.ShaderMaterial({
-            uniforms: { middle: { value: new THREE.Color(0x14324c) }, edge: { value: new THREE.Color(0x070d16) } },
+            uniforms: {
+                top: { value: cardTop },
+                bottom: { value: cardBottom },
+                lift: { value: new THREE.Color(0x12283c) },
+            },
             vertexShader: `
                 varying vec2 spot;
                 void main() {
@@ -87,12 +119,35 @@ export function startCore() {
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                 }`,
             fragmentShader: `
-                uniform vec3 middle;
-                uniform vec3 edge;
+                uniform vec3 top;
+                uniform vec3 bottom;
+                uniform vec3 lift;
                 varying vec2 spot;
                 void main() {
-                    float away = distance(spot, vec2(0.5, 0.52)) * 2.2;
-                    gl_FragColor = vec4(mix(middle, edge, clamp(away, 0.0, 1.0)), 1.0);
+                    /*
+                     * The same diagonal the cards use, at the same angle.
+                     *
+                     * Scaled up because only the middle of this plane is ever
+                     * on screen: across the visible part, an unscaled gradient
+                     * would show a fifth of its range and read as flat.
+                     */
+                    float along = 0.5 +
+                        (0.342 * (spot.x - 0.5) - 0.940 * (spot.y - 0.5)) * 2.4;
+
+                    vec3 colour = mix(top, bottom, clamp(along, 0.0, 1.0));
+
+                    /*
+                     * And a little more light directly behind the eye.
+                     *
+                     * Small on purpose. It is there so the shape sits in
+                     * something rather than on top of nothing; any more and
+                     * the panel stops matching the ones beside it, which is
+                     * the fault this is fixing.
+                     */
+                    float middle = smoothstep(0.30, 0.0,
+                        distance(spot, vec2(0.5, 0.52)));
+
+                    gl_FragColor = vec4(mix(colour, lift, middle * 0.5), 1.0);
                 }`,
             depthWrite: false,
         }));
