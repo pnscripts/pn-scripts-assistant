@@ -226,7 +226,18 @@ export function startCore() {
                  * from here — so it is the brightest thing in the shape by a
                  * distance, and everything else is what it falls on.
                  */
-                float corona = smoothstep(0.30, 0.0, across) * 1.8;
+                /*
+                 * Breathing, rather than turning.
+                 *
+                 * Something has to move or the shape reads as a picture, and
+                 * the only motion that does not become a hand is one that
+                 * happens everywhere at once. So the corona swells and settles
+                 * where it meets the pupil — the way a pupil actually behaves,
+                 * and unreadable as a direction.
+                 */
+                float breath = 0.30 + 0.045 * sin(turning * 1.1);
+
+                float corona = smoothstep(breath, 0.0, across) * (1.7 + 0.25 * sin(turning * 0.8));
 
                 /*
                  * A dark band across the middle of the iris.
@@ -244,33 +255,18 @@ export function startCore() {
                     smoothstep(1.0, 0.955, across) * 9.0;
 
                 /*
-                 * The aperture: two soft blades that sweep round.
+                 * The aperture: two soft blades, and they stay where they are.
                  *
-                 * Slow, wide and never symmetrical — an iris that is exactly
-                 * even is a machine part. This is the only thing here that
-                 * moves enough to notice.
+                 * They used to turn, and a bright thing going round the middle
+                 * of a circle is a clock hand however slowly it moves and
+                 * whatever it is made of. An eye does not sweep. What is left
+                 * is asymmetry, which is what they were for: an iris that is
+                 * exactly even is a machine part.
                  */
-                float blade = smoothstep(0.45, 1.0, sin(a * 2.0 + turning * 0.22)) *
+                float blade = smoothstep(0.45, 1.0, sin(a * 2.0 + 0.7)) *
                     smoothstep(0.06, 0.7, across) * 0.35 * open;
 
-                /*
-                 * And one bright arc, travelling round.
-                 *
-                 * The single thing in the shape that is unmistakably moving.
-                 * Everything else here turns slowly enough to be mistaken for
-                 * a still image at a glance, which is the failure the old
-                 * spinning rings were there to prevent — and this does it with
-                 * one term rather than five meshes.
-                 *
-                 * Its width narrows towards the rim so it reads as a sweep
-                 * across the iris rather than a spoke.
-                 */
-                float ahead = mod(a - turning * 0.9, 6.28318);
-                float sweep = exp(-ahead * 5.0) + exp(-(6.28318 - ahead) * 22.0);
-
-                sweep *= smoothstep(0.02, 0.35, across) * smoothstep(1.0, 0.55, across) * 0.9;
-
-                float light = ((fibres + blade + sweep) * shadow + corona + rim) * lit;
+                float light = ((fibres + blade) * shadow + corona + rim) * lit;
 
                 /*
                  * The brightness must not eat the colour.
