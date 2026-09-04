@@ -34,6 +34,17 @@ type Overheard struct {
 	Addressed bool   `json:"addressed"`
 	Why       string `json:"why"`
 
+	/*
+	 * Whose voice it was, when the brain has been taught one.
+	 *
+	 * KnownVoice is false when there was nothing to compare against or too
+	 * little sound to judge — which must not be collapsed into "not you", or a
+	 * brain whose model is missing stops answering its owner.
+	 */
+	KnownVoice bool    `json:"known_voice"`
+	Owner      bool    `json:"owner"`
+	Voice      float64 `json:"voice"`
+
 	// What the detector measured.
 	HeardSpeech bool `json:"heard_speech"`
 	PeakRMS     int  `json:"peak_rms"`

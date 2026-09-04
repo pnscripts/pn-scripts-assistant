@@ -42,6 +42,28 @@ type Config struct {
 	// actually wrote.
 	WakeWord string
 
+	/*
+	 * OnlyMe makes the brain answer one voice and ignore every other.
+	 *
+	 * The name tells being spoken to from being in a room; it cannot tell who
+	 * is speaking. A television says the name as readily as a person does, and
+	 * so does somebody else in the house. This is the setting that asks the
+	 * other question — is this the person I work for — and it needs a
+	 * voiceprint to have been taught before it means anything.
+	 */
+	OnlyMe bool
+
+	/*
+	 * VoiceMatch is how alike a voice has to be to count as its owner's.
+	 *
+	 * A setting rather than a constant because it depends on the room and the
+	 * microphone. Measured on the machine this was built for, two recordings
+	 * of one voice sit between 0.68 and 0.91 and two different voices between
+	 * -0.06 and 0.36, so halfway leaves a wide margin either side — but a
+	 * noisier room narrows both.
+	 */
+	VoiceMatch float64
+
 	// AlwaysName requires the name on every sentence, rather than staying in
 	// the conversation for a while after being addressed.
 	//
@@ -218,6 +240,17 @@ func Default() Config {
 		OllamaURL:       "http://127.0.0.1:11434",
 		WakeWord:        DefaultWakeWord,
 		AlwaysName:      true,
+
+		/*
+		 * Off until somebody turns it on, and a line that leaves room on both
+		 * sides when they do.
+		 *
+		 * Off, because a brain that ignores its owner is worse than one that
+		 * occasionally answers the television, and until a voice has been
+		 * taught this can only do the first.
+		 */
+		OnlyMe:          false,
+		VoiceMatch:      0.5,
 		OllamaModel:     "qwen2.5-coder:7b",
 		ModelChosen:     false,
 		AutoModel:       true,
@@ -293,6 +326,16 @@ func Load(root string) (Config, error) {
 	assignInt(&cfg.MailPort, get("MAIL_PORT"))
 	assignInt(&cfg.SMTPPort, get("SMTP_PORT"))
 
+	if v := get("BRAIN_ONLY_ME"); v != "" {
+		cfg.OnlyMe = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
+	if v := get("BRAIN_VOICE_MATCH"); v != "" {
+		if n, err := strconv.ParseFloat(v, 64); err == nil && n > -1 && n < 1 {
+			cfg.VoiceMatch = n
+		}
+	}
+
 	if v := get("BRAIN_ALWAYS_NAME"); v != "" {
 		cfg.AlwaysName = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
@@ -349,7 +392,11 @@ func (c Config) Save(root string) error {
 	b.WriteString("# anything it hears, which is the default: requiring a name means\n")
 	b.WriteString("# transcription has to get that name right before anything can match.\n")
 	b.WriteString("BRAIN_WAKE_WORD=" + c.WakeWord + "\n")
-	b.WriteString("BRAIN_ALWAYS_NAME=" + boolText(c.AlwaysName) + "\n\n")
+	b.WriteString("BRAIN_ALWAYS_NAME=" + boolText(c.AlwaysName) + "\n")
+	b.WriteString("# Answer one voice and ignore every other. Needs a voice to have\n")
+	b.WriteString("# been taught first, in Privacy.\n")
+	b.WriteString("BRAIN_ONLY_ME=" + boolText(c.OnlyMe) + "\n")
+	b.WriteString("BRAIN_VOICE_MATCH=" + fmt.Sprintf("%.2f", c.VoiceMatch) + "\n\n")
 
 	b.WriteString("BRAIN_AUTO_MODEL=" + boolText(c.AutoModel) + "\n")
 	b.WriteString("BRAIN_ALWAYS_SPEAK=" + boolText(c.AlwaysSpeak) + "\n")

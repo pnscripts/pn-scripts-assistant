@@ -427,6 +427,10 @@ func listenWaiting(
 		SpokeForMS:  int(turn.SpokeFor / time.Millisecond),
 	}
 
+	// And the sound, so that whose voice it was can still be asked after the
+	// recording has been cleared up. See Heard.Samples.
+	measured.Samples, _ = SamplesOf(path)
+
 	if !turn.HeardSpeech {
 		/*
 		 * Said plainly when it was the machine rather than silence.

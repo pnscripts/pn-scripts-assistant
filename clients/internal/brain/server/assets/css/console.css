@@ -3898,3 +3898,13 @@ select { font-size: 13.5px; }
 #protect-note[data-kind="bad"] { color: var(--warn); }
 #protect-yours .row, #protect-learned .row { align-items: center; }
 #protect-yours .model-action, #protect-learned .model-action { padding: 2px 8px; font-size: 10px; }
+
+/*
+ * hidden has to win over display:grid, again.
+ *
+ * The third time in this file: the attribute's rule is display:none at the
+ * user-agent level, which any class setting a display beats on specificity. So
+ * "answer only me" offered itself on a brain that had never been taught a
+ * voice — a switch that could only be refused if pressed.
+ */
+.field-check[hidden] { display: none; }

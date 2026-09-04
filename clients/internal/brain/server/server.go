@@ -33,6 +33,7 @@ import (
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
 	"pn-brain/internal/brain/store"
+	"pn-brain/internal/brain/voiceprint"
 	"pn-brain/internal/brain/wake"
 )
 
@@ -95,6 +96,10 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/places/forget", s.handleForgetPlace)
 	s.mux.HandleFunc("POST /api/places/rename", s.handleRenamePlace)
 	s.mux.HandleFunc("POST /api/places/look", s.handleLookNow)
+	s.mux.HandleFunc("GET /api/voiceprint", s.handleVoiceprint)
+	s.mux.HandleFunc("POST /api/voiceprint/teach", s.handleTeachVoice)
+	s.mux.HandleFunc("POST /api/voiceprint/forget", s.handleForgetVoice)
+	s.mux.HandleFunc("POST /api/voiceprint/install", s.handleInstallVoiceprint)
 	s.mux.HandleFunc("GET /api/protection", s.handleProtection)
 	s.mux.HandleFunc("POST /api/protection", s.handleSetProtection)
 	s.mux.HandleFunc("GET /api/journey", s.handleJourney)
@@ -293,6 +298,8 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		// has no way to find out why nothing is happening.
 		"wake_word":    s.brain.Cfg.WakeWord,
 		"first_run":    s.brain.Cfg.New,
+		"only_me":      s.brain.Cfg.OnlyMe,
+		"voice_match":  s.brain.Cfg.VoiceMatch,
 		"always_name":  s.brain.Cfg.AlwaysName,
 		"auto_model":   s.brain.Cfg.AutoModel,
 		"always_speak": s.brain.Cfg.AlwaysSpeak,
@@ -712,7 +719,29 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	 * with it — a television, somebody else talking, or its own voice coming
 	 * back off the speakers. Every one of those used to become a turn.
 	 */
+	/*
+	 * And whose voice it was, when the brain has been taught one.
+	 *
+	 * Asked before the transcript is judged, because it answers a question
+	 * none of the other tests can: the name tells being spoken to from being
+	 * in a room, and the modulation test tells a voice from a fan, but neither
+	 * can tell one person from another. A television says the name as readily
+	 * as anybody.
+	 */
+	whose := s.whoseVoice(heard.Samples)
+
 	addressed, ends := s.decide(heard.Text, body.Engaged, body.Interrupting)
+
+	/*
+	 * Somebody else's voice is heard and not acted on.
+	 *
+	 * Kept in the record of what was overheard rather than dropped, because
+	 * "it ignored me" and "it never heard me" look identical from a chair and
+	 * the panel that shows this is the only way to tell them apart.
+	 */
+	if whose.Judged && !whose.Owner && s.brain.Cfg.OnlyMe {
+		addressed.Addressed = false
+	}
 
 	acted := addressed.Addressed && !ends
 
@@ -728,6 +757,18 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	turn.Why = why(turn, acted, strings.TrimSpace(s.brain.Cfg.WakeWord))
+
+	turn.Voice = whose.Alike
+	turn.KnownVoice = whose.Judged
+
+	if whose.Judged {
+		turn.Owner = whose.Owner
+
+		if !whose.Owner && s.brain.Cfg.OnlyMe {
+			turn.Why = fmt.Sprintf("that is not your voice (%.2f alike, %.2f needed)",
+				whose.Alike, s.brain.Cfg.VoiceMatch)
+		}
+	}
 	s.heard.add(turn)
 
 	ok(w, map[string]any{
@@ -1512,6 +1553,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		// AutoModel is whether small talk may go to a quicker model.
 		AutoModel   *bool `json:"auto_model"`
 		AlwaysSpeak *bool `json:"always_speak"`
+
+		// Whether to answer one voice and ignore the rest of the room, and
+		// how alike a voice has to be to count as that one.
+		OnlyMe     *bool    `json:"only_me"`
+		VoiceMatch *float64 `json:"voice_match"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
@@ -1568,6 +1614,28 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 	if body.AlwaysSpeak != nil {
 		s.brain.Cfg.AlwaysSpeak = *body.AlwaysSpeak
+	}
+
+	/*
+	 * Answering one voice needs a voice to have been taught.
+	 *
+	 * Switched on without one, this would either ignore everybody or ignore
+	 * nobody, and which of the two it did would depend on a detail nobody can
+	 * see. Refused with a reason instead.
+	 */
+	if body.OnlyMe != nil {
+		if *body.OnlyMe && !voiceprint.Enrolled(s.brain.Root) {
+			fail(w, http.StatusBadRequest,
+				"Teach it your voice first — there is nothing to compare against yet.")
+
+			return
+		}
+
+		s.brain.Cfg.OnlyMe = *body.OnlyMe
+	}
+
+	if body.VoiceMatch != nil && *body.VoiceMatch > -1 && *body.VoiceMatch < 1 {
+		s.brain.Cfg.VoiceMatch = *body.VoiceMatch
 	}
 
 	// Saved as soon as it is set, and the file existing is what stops the

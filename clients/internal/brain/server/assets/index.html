@@ -946,6 +946,46 @@
                     </div>
                 </div>
 
+                <!--
+                    Whose voice it answers.
+
+                    The name tells being spoken to from being in a room. It
+                    cannot tell who is speaking — a television says the name as
+                    readily as a person does, and so does somebody else in the
+                    house. This is the panel for the other question.
+
+                    The voiceprint is five hundred numbers describing a voice.
+                    No audio is kept and none can be recovered from it, it
+                    never leaves this machine, and one press deletes it — which
+                    is the only thing that makes keeping it at all reasonable.
+                -->
+                <div class="card">
+                    <h2>Your voice</h2>
+                    <p class="note" id="voice-note">Teach it your voice and it can
+                        tell you from a television, a video, or somebody else in
+                        the room.</p>
+
+                    <div id="voice-state-rows" class="rows"></div>
+
+                    <div class="copy-add">
+                        <div class="copy-buttons">
+                            <button type="button" class="model-action" id="voice-get" hidden>Get what it needs</button>
+                            <button type="button" class="model-action" id="voice-teach" hidden>Teach it my voice</button>
+                            <button type="button" class="model-action" id="voice-forget" hidden>Forget my voice</button>
+                        </div>
+
+                        <label class="field-check" id="voice-only-field" hidden>
+                            <input type="checkbox" id="voice-only">
+                            <span><b>Answer only me</b><br>
+                                <span class="note">Anything in another voice is heard
+                                    and not acted on. It still appears in what it has
+                                    been hearing, so you can see what it ignored.</span></span>
+                        </label>
+
+                        <p class="drive-note" id="voice-progress"></p>
+                    </div>
+                </div>
+
                 <div class="card" id="protect-learned-card" hidden>
                     <h2>What it has learned it may read</h2>
                     <p class="note">You said yes to these, so it stopped
@@ -1059,6 +1099,7 @@
 <script src="/js/journey.js"></script>
 <script src="/js/operations.js"></script>
 <script src="/js/protection.js"></script>
+<script src="/js/voiceprint.js"></script>
 <!-- The three.js addons import from the bare name "three", so the page has to
      say where that is. An import map rather than a build step: this ships
      inside one binary, and adding a bundler for two scenes would put npm into

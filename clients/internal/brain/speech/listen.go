@@ -382,9 +382,24 @@ type Heard struct {
 	 */
 	HeardSpeech bool `json:"heard_speech"`
 	PeakRMS     int  `json:"peak_rms"`
-	NoiseFloor  int  `json:"noise_floor"`
-	Threshold   int  `json:"threshold"`
-	SpokeForMS  int  `json:"spoke_for_ms"`
+
+	/*
+	 * Samples is the sound itself, carried out with the words.
+	 *
+	 * Telling one speaker from another is a different question from telling
+	 * one word from another, and it needs the audio rather than the
+	 * transcript. Carried rather than left as a path because the recording is
+	 * deleted the moment the turn returns — a few hundred kilobytes held for
+	 * the length of one decision, against a file whose lifetime two packages
+	 * would then have to agree about.
+	 *
+	 * Never serialised: this is somebody's voice, and it belongs in a decision
+	 * on this machine rather than in a JSON body.
+	 */
+	Samples    []float64 `json:"-"`
+	NoiseFloor int       `json:"noise_floor"`
+	Threshold  int       `json:"threshold"`
+	SpokeForMS int       `json:"spoke_for_ms"`
 
 	/*
 	 * Unfamiliar are names in this transcript that nothing here has met.
