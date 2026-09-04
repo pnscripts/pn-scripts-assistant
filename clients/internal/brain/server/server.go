@@ -29,6 +29,7 @@ import (
 	"pn-brain/internal/brain/desktop"
 	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/models"
+	"pn-brain/internal/brain/pace"
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/storage"
@@ -76,6 +77,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/chat", s.handleChat)
 	s.mux.HandleFunc("GET /api/status", s.handleStatus)
 	s.mux.HandleFunc("GET /api/heard", s.handleHeard)
+	s.mux.HandleFunc("GET /api/pace", s.handlePace)
 	s.mux.HandleFunc("POST /api/present", s.handlePresent)
 	s.mux.HandleFunc("GET /api/mail", s.handleMailStatus)
 	s.mux.HandleFunc("POST /api/mail", s.handleMail)
@@ -230,7 +232,23 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/*
+	 * A typed turn has no silence to wait out and no words to make out, so its
+	 * clock starts here.
+	 *
+	 * A spoken one started when the microphone closed, which is several
+	 * seconds earlier and two stages back; calling Begin again here would
+	 * throw those away and report every spoken turn as fast.
+	 */
+	if !req.Spoken {
+		pace.Begin(false, time.Now())
+		pace.Transcribed(len(strings.Fields(req.Message)))
+	}
+
 	reply, err := s.brain.Chat(r.Context(), req)
+
+	pace.Finish()
+
 	if err != nil {
 		// The message is shown to a person, so it has to say what happened
 		// rather than "internal error".

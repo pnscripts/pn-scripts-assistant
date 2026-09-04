@@ -2,6 +2,7 @@ package speech
 
 import (
 	"context"
+	"pn-brain/internal/brain/pace"
 	"pn-brain/internal/brain/progress"
 	"strings"
 	"sync"
@@ -111,6 +112,11 @@ func (a *Aloud) Write(text string) {
 		}
 
 		a.started = true
+
+		// A whole sentence, which is the earliest moment anything can be said
+		// aloud. The gap between here and sound in the room belongs entirely
+		// to the program.
+		pace.FirstSentence()
 
 		select {
 		case a.queue <- sentence:

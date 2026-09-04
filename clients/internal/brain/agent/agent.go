@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"pn-brain/internal/brain/llm"
+	"pn-brain/internal/brain/pace"
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/protect"
 	"pn-brain/internal/brain/store"
@@ -162,6 +163,10 @@ func (l *Loop) RunShaped(
 
 		l.Log.Info("model for this turn",
 			"model", choice.Model, "why", choice.Why, "tools", offerTools)
+
+		// Which model, and whether it was handed the tools — the two facts
+		// that move the timings more than anything else about the machine.
+		pace.Asked(choice.Model, offerTools)
 	}
 
 	var specs []llm.ToolSpec

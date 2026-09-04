@@ -26,7 +26,7 @@ import (
 func TestPumpAudioDeliversEveryByte(t *testing.T) {
 	const size = 100_000
 
-	synth := exec.Command("sh", "-c", "head -c 100000 /dev/zero")
+	synth := fakeVoice(t, "head -c 100000 /dev/zero")
 
 	var heard bytes.Buffer
 
@@ -58,7 +58,7 @@ func TestPumpAudioDeliversEveryByte(t *testing.T) {
 func TestPumpAudioSignalsStartAndEnd(t *testing.T) {
 	var order []string
 
-	synth := exec.Command("sh", "-c", "head -c 2000 /dev/zero")
+	synth := fakeVoice(t, "head -c 2000 /dev/zero")
 
 	play := exec.Command("cat")
 	play.Stdout = &bytes.Buffer{}
@@ -81,10 +81,41 @@ func TestPumpAudioSignalsStartAndEnd(t *testing.T) {
 
 // A player that cannot start must be reported, not hung on.
 func TestPumpAudioReportsAMissingPlayer(t *testing.T) {
-	synth := exec.Command("sh", "-c", "head -c 100 /dev/zero")
+	synth := fakeVoice(t, "head -c 100 /dev/zero")
 	play := exec.Command("/nonexistent/player")
 
 	if err := pumpAudio(synth, play, &bytes.Buffer{}, audioHooks{}); err == nil {
 		t.Fatal("a missing player was reported as success")
 	}
+}
+
+/*
+ * fakeVoice stands in for a synthesiser that is already running.
+ *
+ * The real one is started before there is anything to say and handed a line
+ * when there is — see warmvoice.go — so what the pump receives is a process
+ * already producing, not one to launch. That is the state these tests have to
+ * reproduce, since the fault they exist for is entirely about when the
+ * generator exits relative to the audio still in flight.
+ */
+func fakeVoice(t *testing.T, script string) *warmVoice {
+	t.Helper()
+
+	cmd := exec.Command("sh", "-c", script)
+
+	audio, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	words, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	return &warmVoice{cmd: cmd, audio: audio, words: words, voice: "test"}
 }

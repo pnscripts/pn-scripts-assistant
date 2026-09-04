@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pn-brain/internal/brain/pace"
 	"pn-brain/internal/brain/progress"
 	"strconv"
 	"strings"
@@ -411,6 +412,17 @@ func listenWaiting(
 		return Heard{}, err
 	}
 
+	/*
+	 * The clock starts here, not when the answer does.
+	 *
+	 * This is the instant the last word was said and somebody began waiting,
+	 * and it is the only honest place to measure from: every stage after it —
+	 * making out the words, the model, the voice — is time they are sitting
+	 * there. Measuring from when the model was asked would leave out the two
+	 * stages that are entirely the program's own doing.
+	 */
+	pace.Begin(true, time.Now())
+
 	level, err := MeasureWAV(path)
 	if err != nil {
 		return Heard{}, err
@@ -524,6 +536,9 @@ func listenWaiting(
 		float64(measured.SpokeForMS)/1000, turn.PeakRMS, turn.NoiseFloor))
 
 	text, err := TranscribeFast(ctx, path)
+
+	pace.Transcribed(len(strings.Fields(text)))
+
 	if err != nil {
 		progress.Done()
 

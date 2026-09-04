@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"pn-brain/internal/brain/pace"
 	"strings"
 	"time"
 )
@@ -272,6 +273,12 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 		}
 
 		if chunk.Message.Content != "" {
+			// The first word back, which on a machine without a card is very
+			// nearly the whole of the wait: everything before it is the
+			// prompt being read, and the prompt is thousands of tokens of
+			// tool descriptions.
+			pace.FirstToken()
+
 			whole.WriteString(chunk.Message.Content)
 
 			if onText != nil {

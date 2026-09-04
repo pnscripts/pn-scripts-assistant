@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"pn-brain/internal/brain/exe"
+	"pn-brain/internal/brain/pace"
 	"strings"
 	"sync"
 )
@@ -186,10 +187,35 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 		asMachine = chosen.ID == RobotID
 	}
 
-	synth := exec.CommandContext(ctx, p.Binary,
-		"--model", voice, "--output-raw")
-	synth.Stdin = strings.NewReader(text)
-	synth.Stderr = io.Discard
+	/*
+	 * The synthesiser, which has usually been running since the last thing was
+	 * said and is waiting for a line.
+	 *
+	 * Falling back to starting one here is not a rare path — it is what
+	 * happens on the very first sentence after the language changes — so it
+	 * has to work exactly as it used to, one second slower.
+	 */
+	synth := takeVoice(voice)
+
+	if synth == nil {
+		started, err := startVoice(p.Binary, voice)
+		if err != nil {
+			return err
+		}
+
+		synth = started
+	}
+
+	// And another for whatever is said next, made while this one is speaking.
+	defer WarmVoice(p.Binary, voice)
+
+	// A spare belongs to no turn, so this turn takes on stopping it. Without
+	// this, interrupting kills the player and leaves the voice generating.
+	defer synth.dieWith(ctx)()
+
+	if err := synth.say(text); err != nil {
+		return err
+	}
 
 	// The sound is measured on its way past, so the interface can respond to
 	// the voice that is actually being produced. See voiceMeter for why this
@@ -261,11 +287,8 @@ type audioHooks struct {
 	treat func(io.Reader) io.Reader
 }
 
-func pumpAudio(synth, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
-	audio, err := synth.StdoutPipe()
-	if err != nil {
-		return err
-	}
+func pumpAudio(synth *warmVoice, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
+	audio := synth.audio
 
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -275,18 +298,10 @@ func pumpAudio(synth, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
 	// An *os.File, so os/exec passes it to the child as-is.
 	play.Stdin = pr
 
-	if err := synth.Start(); err != nil {
-		pr.Close()
-		pw.Close()
-
-		return fmt.Errorf("could not start the synthesiser: %w", err)
-	}
-
 	if err := play.Start(); err != nil {
 		pr.Close()
 		pw.Close()
-		synth.Process.Kill()
-		synth.Wait()
+		synth.discard()
 
 		return fmt.Errorf("could not start %s: %w", play.Path, err)
 	}
@@ -304,6 +319,16 @@ func pumpAudio(synth, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
 		if hooks.treat != nil {
 			sound = hooks.treat(sound)
 		}
+
+		/*
+		 * The first byte of sound, which is where the waiting really ends.
+		 *
+		 * Not when the player was started: that happens immediately, while the
+		 * synthesiser is still working out the first phonemes, and timing from
+		 * there would report every answer as instant and hide the one cost
+		 * that no better machine will fix.
+		 */
+		sound = firstByte(sound, pace.FirstSound)
 
 		/*
 		 * The meter sees what is played, not what was generated.
@@ -331,7 +356,7 @@ func pumpAudio(synth, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
 		hooks.generated()
 	}
 
-	synth.Wait()
+	synth.cmd.Wait()
 
 	// Waiting on the player, not the synthesiser: piper finishes generating
 	// well before the sound has been heard, and conversation mode must not
@@ -344,3 +369,28 @@ func pumpAudio(synth, play *exec.Cmd, meter io.Writer, hooks audioHooks) error {
 
 	return err
 }
+
+/*
+ * firstByte calls back the moment anything is actually read.
+ *
+ * A reader rather than a check inside the copy loop, because the copy is an
+ * io.Copy into a MultiWriter and unpicking that to count bytes would mean
+ * hand-rolling the part of this file that took two attempts to get right.
+ */
+func firstByte(from io.Reader, at func()) io.Reader {
+	var once sync.Once
+
+	return readerFunc(func(p []byte) (int, error) {
+		n, err := from.Read(p)
+
+		if n > 0 {
+			once.Do(at)
+		}
+
+		return n, err
+	})
+}
+
+type readerFunc func([]byte) (int, error)
+
+func (f readerFunc) Read(p []byte) (int, error) { return f(p) }

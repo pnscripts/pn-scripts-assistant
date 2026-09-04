@@ -712,6 +712,18 @@ func (b *Brain) Start(ctx context.Context) {
 			b.Log.Info("no resident recogniser; transcription will be slower", "reason", err)
 		}
 	}()
+
+	/*
+	 * And a synthesiser, waiting for the first thing to be said.
+	 *
+	 * The same argument as the recogniser above, for the same reason at the
+	 * other end of the turn: starting piper and loading its voice is 0.94
+	 * seconds measured here, and started when there is something to say it
+	 * lands entirely in the silence between the answer being ready and being
+	 * heard. Started now, it lands in the time between the program opening and
+	 * somebody speaking to it, which nobody is waiting through.
+	 */
+	go speech.WarmTheVoice()
 }
 
 // Stop waits for in-flight learning to finish.
