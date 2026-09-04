@@ -795,11 +795,48 @@ async function pace() {
             + `are about ${fixed.tool_words} tokens read before every answer`
         : '';
 
+    /*
+     * And the offer, where the program can actually do the thing.
+     *
+     * A download of a couple of gigabytes is not something to start on
+     * somebody's behalf because a measurement suggested it, so it is a button
+     * and it names what it will fetch — the sentence and the download must not
+     * be able to drift apart.
+     */
     document.getElementById('ops-pace-findings').innerHTML =
         (data.findings || []).map((f) => `<div class="row">
             <span class="row-label">${f.stage} · ${ms(f.costs_ms)}</span>
-            <span class="row-value">${f.because}. ${f.change}.</span>
+            <span class="row-value">${f.because}. ${f.change}.${
+                f.fetch ? ` <button type="button" class="model-action"
+                    data-fetch-model="${f.fetch}">Get ${f.fetch}</button>` : ''}</span>
         </div>`).join('');
+
+    for (const button of document.querySelectorAll('[data-fetch-model]')) {
+        button.onclick = async () => {
+            const name = button.dataset.fetchModel;
+
+            button.disabled = true;
+            button.textContent = `Fetching ${name}…`;
+
+            try {
+                await fetch('/api/models/pull', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name }),
+                });
+            } catch (err) {
+                button.disabled = false;
+                button.textContent = `Get ${name}`;
+
+                return;
+            }
+
+            // It carries on in the background and reports on the progress
+            // line, which is where every other long fetch in this program
+            // reports.
+            button.textContent = `Fetching ${name} — watch Doing now`;
+        };
+    }
 }
 
 refresh();

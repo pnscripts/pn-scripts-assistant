@@ -29,6 +29,16 @@ type Finding struct {
 	// Doing names a thing the program can do about it, when there is one, so
 	// the interface can offer it rather than describe it.
 	Doing string `json:"doing,omitempty"`
+
+	/*
+	 * Fetch is the model to install, when that is the answer.
+	 *
+	 * Named here rather than left to the interface so that the sentence
+	 * offering it and the thing actually downloaded cannot drift apart. A
+	 * button that fetches something other than what the paragraph beside it
+	 * promised is worse than no button.
+	 */
+	Fetch string `json:"fetch,omitempty"`
 }
 
 // Machine is what the advice needs to know about where it is running.
@@ -42,6 +52,11 @@ type Machine struct {
 	// conversation. Quick empty means none is installed.
 	Working string
 	Quick   string
+
+	// Suggest is the small model this machine would install if asked, which
+	// the caller knows and this package deliberately does not: choosing it is
+	// the model package's job.
+	Suggest string
 }
 
 /*
@@ -145,6 +160,14 @@ func modelFinding(typical Milestones, m Machine) Finding {
 			"one answers a greeting several times quicker, and anything that " +
 			"needs doing still goes to the larger one"
 		f.Doing = "install-quick-model"
+		f.Fetch = m.Suggest
+
+		if f.Fetch != "" {
+			f.Change = fmt.Sprintf("install %s for conversation — it answers a "+
+				"greeting several times quicker on a processor, and anything "+
+				"that needs doing still goes to %s", f.Fetch,
+				short("", m.Working))
+		}
 
 		return f
 	}

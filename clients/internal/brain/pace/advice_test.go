@@ -190,3 +190,59 @@ func TestNothingMeasuredSaysSoRatherThanZero(t *testing.T) {
 		t.Fatalf("reported an empty measurement as a fast one: %s", said)
 	}
 }
+
+/*
+ * The button and the sentence beside it must name the same model.
+ *
+ * They are written in different places — the paragraph here, the button in the
+ * page — and a button that fetches something other than what the paragraph
+ * promised is worse than no button at all, because somebody clicks it and
+ * waits for two gigabytes of the wrong thing.
+ */
+func TestTheModelOfferedIsTheModelNamed(t *testing.T) {
+	machine := fourCores()
+	machine.Suggest = "llama3.2:3b"
+
+	found := Findings(slow(), 6, machine)
+
+	if found[0].Fetch != "llama3.2:3b" {
+		t.Fatalf("offered %q", found[0].Fetch)
+	}
+
+	if !strings.Contains(found[0].Change, "llama3.2:3b") {
+		t.Fatalf("the sentence does not name what the button fetches:\n%s",
+			found[0].Change)
+	}
+
+	if !strings.Contains(found[0].Change, "qwen3:8b") {
+		t.Fatalf("did not say that real work still goes to the large model:\n%s",
+			found[0].Change)
+	}
+}
+
+// With nothing to suggest, it still says what would help — it simply cannot
+// offer to do it, and must not offer a button with no model behind it.
+func TestWithNothingToSuggestItStillExplains(t *testing.T) {
+	found := Findings(slow(), 6, fourCores())
+
+	if found[0].Fetch != "" {
+		t.Fatalf("offered to fetch %q, which nothing chose", found[0].Fetch)
+	}
+
+	if !strings.Contains(found[0].Change, "small model") {
+		t.Fatalf("stopped explaining as well:\n%s", found[0].Change)
+	}
+}
+
+// A machine with a card is never offered a small model, button or otherwise.
+func TestACardIsNeverOfferedASmallModel(t *testing.T) {
+	machine := withCard()
+	machine.Quick = ""
+	machine.Suggest = "llama3.2:3b"
+
+	for _, f := range Findings(slow(), 6, machine) {
+		if f.Fetch != "" {
+			t.Fatalf("offered %q to a machine with an RTX 4090", f.Fetch)
+		}
+	}
+}

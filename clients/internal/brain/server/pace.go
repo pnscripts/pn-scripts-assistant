@@ -5,6 +5,7 @@ import (
 
 	"encoding/json"
 
+	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/pace"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/preflight"
@@ -45,6 +46,7 @@ func (s *Server) handlePace(w http.ResponseWriter, r *http.Request) {
 		GPUName:  hardware.GPUName,
 		Working:  roles.Work,
 		Quick:    roles.Talk,
+		Suggest:  llm.TalkCandidates[0],
 	}
 
 	ok(w, map[string]any{

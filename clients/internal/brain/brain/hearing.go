@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/pace"
 	"pn-brain/internal/brain/speech"
 	"pn-brain/internal/brain/tools"
@@ -89,6 +90,7 @@ func (b *Brain) howFast() tools.Speed {
 		GPUName:  hardware.GPUName,
 		Working:  roles.Work,
 		Quick:    roles.Talk,
+		Suggest:  llm.TalkCandidates[0],
 	}) {
 		s.Findings = append(s.Findings, tools.Finding{
 			Stage: f.Stage, Costs: f.Costs, Because: f.Because, Change: f.Change,
