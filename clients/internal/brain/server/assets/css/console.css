@@ -3558,16 +3558,37 @@ select { font-size: 13.5px; }
     align-items: start;
 }
 
-.ops-cards { grid-column: 1; }
-.ops-cpu { grid-column: 2 / 4; }
-.ops-processes { grid-column: 1 / 3; }
-.ops-brain { grid-column: 3; }
+/* The machine's own hardware down the left, what it is doing on the right.
+   The left column is a stack of small panels, each of which disappears on a
+   machine that has none of that thing — so the column is as long as the
+   machine is interesting and never longer. */
+.ops-sensors {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.ops-cpu { grid-column: 2 / 4; grid-row: 1; }
+.ops-processes { grid-column: 2 / 4; grid-row: 2; }
+.ops-brain { grid-column: 2 / 4; grid-row: 3; }
+
+/* A temperature reads against its own limit, so the bar is labelled with the
+   number and the limit rather than with a percentage of a scale nobody
+   declared. */
+.ops-temp-limit { color: var(--text-dim); }
 
 /* Below about a laptop's width there is no arrangement of four dense panels
    that reads, so they stack and each gets the whole of it. */
 @media (max-width: 1180px) {
     .ops-grid { grid-template-columns: minmax(0, 1fr); }
-    .ops-cards, .ops-cpu, .ops-processes, .ops-brain { grid-column: 1; }
+
+    .ops-sensors, .ops-cpu, .ops-processes, .ops-brain {
+        grid-column: 1;
+        grid-row: auto;
+    }
 }
 
 .ops-grid .card { min-width: 0; }
@@ -3803,3 +3824,29 @@ select { font-size: 13.5px; }
 .ops-table tr.ours td.command { color: var(--accent); }
 
 .monitor-more { margin: 10px 0 0; width: 100%; }
+
+/* A link that is down is still worth listing — a machine with a cable in the
+   wrong socket looks exactly like one with no cable — but it should not read
+   as loudly as the one carrying traffic. */
+.row-quiet { opacity: 0.55; }
+
+/* The sensor panels are narrow, so their labels get the room and the figures
+   stay on one line. */
+.ops-sensors .ops-bar-row { grid-template-columns: 76px 1fr auto; }
+.ops-sensors .ops-bar-value { min-width: 0; }
+.ops-sensors .ops-bar-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+ * hidden has to win over display:grid.
+ *
+ * The attribute's own rule is display:none at the user-agent level, which any
+ * class setting a display beats on specificity — so the memory row on an
+ * integrated chip stayed on screen showing a dash, which is the "0B / 0B" it
+ * was hidden to avoid, with extra steps. The same trap as the drive-lost
+ * banner further up this file.
+ */
+.ops-bar-row[hidden] { display: none; }

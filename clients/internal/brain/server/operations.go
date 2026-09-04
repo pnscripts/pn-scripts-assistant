@@ -6,6 +6,7 @@ import (
 
 	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/progress"
+	"pn-brain/internal/brain/storage"
 )
 
 /*
@@ -38,9 +39,19 @@ func (s *Server) handleOperations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/*
+	 * And the disks, which are not something the kernel's /proc describes.
+	 *
+	 * Part of the same question — what this machine has — and the only part of
+	 * it that already had a reader, since the brain has to know where it can
+	 * live.
+	 */
+	disks, _ := storage.Drives(s.brain.Root)
+
 	ok200(w, map[string]any{
 		"available": now.Available,
 		"machine":   now,
+		"disks":     disks,
 		"history":   machine.History(),
 		// How far back the graphs go and how often the readings are taken, so
 		// the axis is labelled from the truth rather than from a guess in the

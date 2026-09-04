@@ -29,7 +29,24 @@ func detail() Detail {
 	d.UptimeSeconds = uptime()
 	d.Tasks, d.Threads, d.Running = tasks()
 	d.MemoryUsedBytes, d.MemoryTotalBytes, d.SwapUsedBytes, d.SwapTotalBytes = memoryAndSwap()
+	/*
+	 * Every graphics device, whichever vendor made it.
+	 *
+	 * NVIDIA first, because its own tool gives a full account — memory, power,
+	 * temperature — and then whatever else the kernel knows about, which on
+	 * most machines is the integrated part doing the actual work.
+	 */
 	d.GPUs, d.GPUNote = graphicsCards()
+	d.GPUs = append(d.GPUs, integratedCards(len(d.GPUs))...)
+
+	// A note explaining an absence is only worth keeping when there is one.
+	if len(d.GPUs) > 0 {
+		d.GPUNote = ""
+	}
+
+	d.Temperatures, d.Fans = sensors()
+	d.Links = networkLinks()
+	d.Power = battery()
 	d.Processes = heaviest(d.MemoryTotalBytes)
 	d.NetworkInPerSecond, d.NetworkOutPerSecond = networkRate()
 	d.DiskReadPerSecond, d.DiskWritePerSecond = diskRate()

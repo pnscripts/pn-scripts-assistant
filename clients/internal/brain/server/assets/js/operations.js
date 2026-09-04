@@ -271,6 +271,124 @@ function legend(where, entries) {
 
 /* ---------- drawing what came back ---------- */
 
+/*
+ * A panel with nothing in it is hidden, not emptied.
+ *
+ * The whole point of this column is that it describes the machine it is
+ * running on. A heading with no rows under it is a claim that something is
+ * missing, and on a desktop with no battery nothing is missing.
+ */
+function showCard(id, has) {
+    const card = el(id);
+
+    if (card) card.hidden = !has;
+
+    return has;
+}
+
+/*
+ * How hot is too hot, by the chip's own numbers.
+ *
+ * A processor package is designed to run at eighty degrees and a disk is not,
+ * so a single threshold across both is how a dashboard learns to cry wolf. The
+ * kernel publishes each chip's own high and critical points where the chip
+ * declares them; only where it declares neither does this fall back to
+ * something generic, and says so by using a wider one.
+ */
+function heat(sensor) {
+    const { celsius, high_c: high, critical_c: crit } = sensor;
+
+    if (crit > 0 && celsius >= crit) return 'hot';
+    if (high > 0 && celsius >= high) return 'warn';
+    if (high <= 0 && crit <= 0 && celsius >= 90) return 'warn';
+
+    return '';
+}
+
+function drawTemperatures(list) {
+    if (!showCard('ops-temps-card', list && list.length)) return;
+
+    el('ops-temps').innerHTML = list.map((t) => {
+        // Scaled to the critical point where the chip gives one, so the bar
+        // means "how close to the limit" rather than "out of a hundred".
+        const top = t.critical_c > 0 ? t.critical_c : 100;
+        const state = heat(t);
+        const limit = t.critical_c > 0
+            ? `<span class="ops-temp-limit"> / ${Math.round(t.critical_c)}°</span>`
+            : '';
+
+        return `<div class="ops-bar-row">
+            <span class="ops-bar-label" title="${t.chip}">${t.label}</span>
+            <div class="ops-bar"><div${state ? ` data-state="${state}"` : ''}
+                style="width:${Math.min(100, (t.celsius / top) * 100).toFixed(1)}%"></div></div>
+            <span class="ops-bar-value">${t.celsius.toFixed(1)}°${limit}</span>
+        </div>`;
+    }).join('');
+}
+
+function drawFans(list) {
+    if (!showCard('ops-fans-card', list && list.length)) return;
+
+    el('ops-fans').innerHTML = list.map((f) => `<div class="row">
+        <span class="row-label">${f.label}</span>
+        <span class="row-value">${Math.round(f.rpm).toLocaleString()} rpm</span>
+    </div>`).join('');
+}
+
+function drawPower(power) {
+    if (!showCard('ops-power-card', !!power)) return;
+
+    const state = power.percent <= 10 && power.state !== 'charging' ? 'hot'
+        : power.percent <= 25 && power.state !== 'charging' ? 'warn' : '';
+
+    el('ops-power').innerHTML = `<div class="ops-bar-row">
+        <span class="ops-bar-label">${power.state || 'battery'}</span>
+        <div class="ops-bar"><div${state ? ` data-state="${state}"` : ''}
+            style="width:${Math.min(100, power.percent)}%"></div></div>
+        <span class="ops-bar-value">${Math.round(power.percent)}%${
+            power.watts >= 0 ? ` · ${power.watts.toFixed(1)}W` : ''}</span>
+    </div>`;
+}
+
+function drawLinks(list) {
+    if (!showCard('ops-links-card', list && list.length)) return;
+
+    el('ops-links').innerHTML = list.map((l) => {
+        const speed = l.speed_mbps > 0
+            ? `${l.speed_mbps >= 1000 ? `${l.speed_mbps / 1000}G` : `${l.speed_mbps}M`}`
+            : (l.wireless ? 'wireless' : '');
+
+        const moving = l.state === 'up' && l.in_per_second >= 0
+            ? `${rate(l.in_per_second)} in · ${rate(l.out_per_second)} out`
+            : l.state;
+
+        return `<div class="row${l.state === 'up' ? '' : ' row-quiet'}">
+            <span class="row-label">${l.name}${speed ? ` · ${speed}` : ''}</span>
+            <span class="row-value">${moving}</span>
+        </div>`;
+    }).join('');
+}
+
+function drawDisks(list) {
+    const disks = (list || []).filter((d) => d.total_bytes > 0);
+
+    if (!showCard('ops-disks-card', disks.length)) return;
+
+    el('ops-disks').innerHTML = disks.map((d) => {
+        const used = d.total_bytes - d.free_bytes;
+        const full = (used / d.total_bytes) * 100;
+        const state = full >= 95 ? 'hot' : full >= 85 ? 'warn' : '';
+
+        return `<div class="ops-bar-row">
+            <span class="ops-bar-label" title="${d.mount_point}">${
+                d.current ? 'the brain' : d.mount_point.split('/').pop() || '/'}</span>
+            <div class="ops-bar"><div${state ? ` data-state="${state}"` : ''}
+                style="width:${full.toFixed(1)}%"></div></div>
+            <span class="ops-bar-value">${bytes(d.free_bytes)} free</span>
+        </div>`;
+    }).join('');
+}
+
 function drawCores(cores) {
     const box = el('ops-cores');
 
@@ -338,6 +456,14 @@ function drawGPUs(gpus, note, history, times) {
 
     const cards = gpus || [];
 
+    /*
+     * A machine with nothing this can read shows no graphics panel at all,
+     * unless there is something to say about why — a card whose own tool is
+     * installed and will not answer is worth a sentence; a machine that simply
+     * has integrated graphics and nothing else is not.
+     */
+    showCard('ops-graphics-card', cards.length > 0 || !!note);
+
     if (!cards.length) {
         if (cardsBuilt !== 0) {
             box.innerHTML = '';
@@ -355,11 +481,11 @@ function drawGPUs(gpus, note, history, times) {
             </div>
             <div class="ops-bars">
                 <div class="ops-bar-row">
-                    <span class="ops-bar-label">busy</span>
+                    <span class="ops-bar-label" data-busy-label>busy</span>
                     <div class="ops-bar"><div data-busy></div></div>
                     <span class="ops-bar-value" data-busy-value>—</span>
                 </div>
-                <div class="ops-bar-row">
+                <div class="ops-bar-row" data-mem-row${g.memory_total_bytes > 0 ? '' : ' hidden'}>
                     <span class="ops-bar-label">memory</span>
                     <div class="ops-bar"><div data-series="b" data-mem></div></div>
                     <span class="ops-bar-value" data-mem-value>—</span>
@@ -402,13 +528,35 @@ function drawGPUs(gpus, note, history, times) {
             delete busy.dataset.state;
         }
 
-        card.querySelector('[data-busy-value]').textContent = percent(g.util_percent);
+        /*
+         * Named for what it actually is.
+         *
+         * A part that publishes no busy figure has one derived from its clock
+         * — how close it is running to its maximum — and calling that "busy"
+         * puts an integrated chip at 100% beside a card at 100% while meaning
+         * two different things by it.
+         */
+        card.querySelector('[data-busy-label]').textContent = g.util_from_clock ? 'clock' : 'busy';
 
-        card.querySelector('[data-mem]').style.width =
-            `${g.memory_percent >= 0 ? Math.min(100, g.memory_percent) : 0}%`;
+        card.querySelector('[data-busy-value]').textContent = g.util_from_clock && g.clock_mhz >= 0
+            ? `${Math.round(g.clock_mhz)} / ${Math.round(g.clock_max_mhz)}MHz`
+            : percent(g.util_percent);
 
-        card.querySelector('[data-mem-value]').textContent =
-            `${bytes(g.memory_used_bytes)} / ${bytes(g.memory_total_bytes)}`;
+        // An integrated part has no memory of its own to report, so the row is
+        // not there rather than reading 0B / 0B.
+        const memRow = card.querySelector('[data-mem-row]');
+
+        if (g.memory_total_bytes > 0) {
+            memRow.hidden = false;
+
+            card.querySelector('[data-mem]').style.width =
+                `${g.memory_percent >= 0 ? Math.min(100, g.memory_percent) : 0}%`;
+
+            card.querySelector('[data-mem-value]').textContent =
+                `${bytes(g.memory_used_bytes)} / ${bytes(g.memory_total_bytes)}`;
+        } else {
+            memRow.hidden = true;
+        }
 
         /*
          * One chart per card rather than all of them on one plot.
@@ -417,15 +565,32 @@ function drawGPUs(gpus, note, history, times) {
          * axis is a picture of nothing. Small multiples say the same thing and
          * stay readable.
          */
-        legend(`ops-gpu-chart-${i}-legend`, ['busy', 'memory used']);
-        plot(`ops-gpu-chart-${i}`, {
-            max: 100,
-            format: (v) => `${Math.round(v)}%`,
-            series: [
-                { name: 'busy', colour: SERIES_A, values: history.map((h) => (h.gpu || [])[i]), times },
-                { name: 'memory used', colour: SERIES_B, values: history.map((h) => (h.gpu_memory || [])[i]), times },
-            ],
-        });
+        /*
+         * Only the series this part actually reports.
+         *
+         * An integrated chip has no memory figure, and a legend entry for a
+         * line that is not drawn is a claim that the line is at zero.
+         */
+        const drawn = [
+            {
+                name: g.util_from_clock ? 'clock' : 'busy',
+                colour: SERIES_A,
+                values: history.map((h) => (h.gpu || [])[i]),
+                times,
+            },
+        ];
+
+        if (g.memory_total_bytes > 0) {
+            drawn.push({
+                name: 'memory used',
+                colour: SERIES_B,
+                values: history.map((h) => (h.gpu_memory || [])[i]),
+                times,
+            });
+        }
+
+        legend(`ops-gpu-chart-${i}-legend`, drawn.length > 1 ? drawn.map((d) => d.name) : []);
+        plot(`ops-gpu-chart-${i}`, { max: 100, format: (v) => `${Math.round(v)}%`, series: drawn });
     });
 }
 
@@ -537,6 +702,11 @@ async function refresh() {
     }));
 
     drawGPUs(m.gpus, m.gpu_note, history, times);
+    drawTemperatures(m.temperatures);
+    drawFans(m.fans);
+    drawPower(m.power);
+    drawLinks(m.links);
+    drawDisks(data.disks);
     drawProcesses(m.processes);
     drawBrain(data.brain, m);
 

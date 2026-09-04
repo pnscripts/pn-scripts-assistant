@@ -781,12 +781,55 @@
             <p class="note" id="ops-unavailable" hidden></p>
 
             <div class="ops-grid">
-                <!-- The cards. First, because on the machine this was designed
-                     for they are the whole reason it exists. -->
-                <div class="card ops-cards">
-                    <h2>Graphics cards</h2>
-                    <p class="note tiny" id="ops-gpu-note" hidden></p>
-                    <div id="ops-gpus" class="ops-gpu-list"></div>
+                <!--
+                    What this machine has, whatever machine it is.
+
+                    This was one card headed "Graphics cards" whose entire
+                    content, on the machine it was built on, was the sentence
+                    "No NVIDIA card on this machine." A screenful of what
+                    somebody does not have is worse than an empty screen: it
+                    takes the space the things they do have should be in.
+
+                    Nothing below is a list of expected hardware. Each panel is
+                    built from what the kernel actually publishes here and
+                    hidden entirely when this machine publishes none of it — so
+                    the same view shows an integrated chip and seven probes on
+                    a desktop, adds a battery and fans on a laptop, and lists
+                    three cards and their power draw on a server.
+                -->
+                <div class="ops-sensors">
+                    <div class="card" id="ops-graphics-card" hidden>
+                        <h2>Graphics</h2>
+                        <p class="note tiny" id="ops-gpu-note" hidden></p>
+                        <div id="ops-gpus" class="ops-gpu-list"></div>
+                    </div>
+
+                    <div class="card" id="ops-temps-card" hidden>
+                        <h2>Temperatures</h2>
+                        <p class="note tiny">Each against the limit its own chip
+                            publishes, where it publishes one.</p>
+                        <div id="ops-temps" class="ops-bars"></div>
+                    </div>
+
+                    <div class="card" id="ops-fans-card" hidden>
+                        <h2>Fans</h2>
+                        <div id="ops-fans" class="rows"></div>
+                    </div>
+
+                    <div class="card" id="ops-power-card" hidden>
+                        <h2>Battery</h2>
+                        <div id="ops-power" class="ops-bars"></div>
+                    </div>
+
+                    <div class="card" id="ops-links-card" hidden>
+                        <h2>Network</h2>
+                        <div id="ops-links" class="rows"></div>
+                    </div>
+
+                    <div class="card" id="ops-disks-card" hidden>
+                        <h2>Disks</h2>
+                        <div id="ops-disks" class="ops-bars"></div>
+                    </div>
                 </div>
 
                 <!-- The processors, one bar per core, the way htop shows them:
