@@ -1,11 +1,13 @@
 package server
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"pn-brain/internal/brain/brain"
 	"pn-brain/internal/brain/tools"
+	"pn-brain/internal/brain/wake"
 )
 
 /*
@@ -113,6 +115,16 @@ func why(h Overheard, addressed bool, wakeWord string) string {
 	case wakeWord == "":
 		return "addressed"
 	default:
+		/*
+		 * "No name in it" is true and, when the recogniser mangled the name,
+		 * useless. Said plainly, the difference is between "you did not
+		 * address me" and "you did, and I did not recognise my own name" —
+		 * two problems, two fixes, and one of them is not the microphone.
+		 */
+		if near := wake.NearMiss(h.Text, wakeWord); near != "" {
+			return fmt.Sprintf("no name in it — %q was close but not close enough", near)
+		}
+
 		return "no name in it"
 	}
 }

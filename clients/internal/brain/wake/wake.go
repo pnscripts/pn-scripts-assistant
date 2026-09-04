@@ -159,11 +159,29 @@ func find(words, wanted []string) (int, int) {
 		match := true
 
 		for j, part := range wanted {
-			if normalise(words[i+j]) != part {
-				match = false
+			word := normalise(words[i+j])
 
-				break
+			if word == part {
+				continue
 			}
+
+			/*
+			 * The last word of the name may have the next one welded to it.
+			 *
+			 * Only the last, because that is where it happens: the recogniser
+			 * runs the name into whatever follows and writes one word.
+			 * Measured on this machine, "Brain, tell me what you are going to
+			 * do" came back as "brainlue, tell me what you are going to do",
+			 * and a whole-word match threw the whole turn away — which is what
+			 * "it does not listen for its name" is, seen from a chair.
+			 */
+			if j == len(wanted)-1 && weldedOnto(word, part) {
+				continue
+			}
+
+			match = false
+
+			break
 		}
 
 		if match {
@@ -172,6 +190,41 @@ func find(words, wanted []string) (int, int) {
 	}
 
 	return -1, 0
+}
+
+/*
+ * weldedOnto reports a name with the next word run into it by the recogniser.
+ *
+ * Narrow on purpose, because the failure on the other side is worse. The rule
+ * this softens exists because a television saying "brains" woke a brain called
+ * Brain, and anything loose enough to catch every mishearing is loose enough
+ * to answer the weather.
+ *
+ * So: the word has to begin with the whole name, and what is left over has to
+ * be two to four letters that are not an ordinary ending. "brainlue" is the
+ * recogniser welding a syllable on. "brains", "brained", "braining" are
+ * English, and are refused — those are the ones a room actually says.
+ */
+func weldedOnto(word, name string) bool {
+	if len([]rune(name)) < 4 || !strings.HasPrefix(word, name) {
+		return false
+	}
+
+	tail := word[len(name):]
+
+	switch len([]rune(tail)) {
+	case 2, 3, 4:
+	default:
+		return false
+	}
+
+	for _, ending := range []string{"s", "es", "ed", "er", "ing", "ish", "ly", "y"} {
+		if tail == ending {
+			return false
+		}
+	}
+
+	return true
 }
 
 // normalise lowers the case and drops anything that is not a letter, digit or
@@ -205,4 +258,129 @@ func tidy(text string) string {
 
 	return strings.TrimSpace(strings.TrimRight(
 		strings.TrimLeft(strings.TrimSpace(text), joins+ends+" "), joins+" "))
+}
+
+/*
+ * NearMiss reports a word that was nearly the name.
+ *
+ * The point is not to wake on it — deciding that is find's job and it is
+ * deliberately strict. The point is to be able to say so. "No name in it" and
+ * "you said something that sounded like my name and I did not think it was"
+ * are completely different problems with completely different fixes, and until
+ * they are told apart, a recogniser that mangles the name looks exactly like
+ * an assistant that is not listening.
+ *
+ * Returns the word that nearly matched, or empty.
+ */
+func NearMiss(transcript, name string) string {
+	if strings.TrimSpace(name) == "" {
+		return ""
+	}
+
+	words := strings.Fields(transcript)
+
+	for _, candidate := range Names(name) {
+		wanted := strings.Fields(candidate)
+
+		if len(wanted) != 1 {
+			continue
+		}
+
+		want := wanted[0]
+
+		if len([]rune(want)) < 4 {
+			continue
+		}
+
+		for _, raw := range words {
+			word := normalise(raw)
+
+			if word == "" || word == want {
+				continue
+			}
+
+			/*
+			 * The name buried inside a longer word, or a word one edit away
+			 * from it.
+			 *
+			 * Both are what the recogniser actually produces: "brainlue" has
+			 * the name welded to the next syllable, and "brian" is the two
+			 * middle letters swapped, which is the commonest single thing that
+			 * happens to this name.
+			 *
+			 * Not everything is catchable. "Piembring" for "PN Brain" shares
+			 * four letters with it and would need a rule loose enough to match
+			 * half the dictionary, so it goes unremarked — the log still shows
+			 * what was heard, which is the part that matters.
+			 */
+			if strings.Contains(word, want) || oneEditApart(word, want) {
+				return word
+			}
+		}
+	}
+
+	return ""
+}
+
+/*
+ * oneEditApart reports two words within a single insertion, deletion or
+ * substitution of each other.
+ *
+ * Written out rather than a full edit distance, because one edit is all this
+ * needs and the general version invites somebody to raise the number later —
+ * which is how a wake word starts answering the weather.
+ */
+func oneEditApart(a, b string) bool {
+	x, y := []rune(a), []rune(b)
+
+	if len(x) < len(y) {
+		x, y = y, x
+	}
+
+	if len(x)-len(y) > 1 {
+		return false
+	}
+
+	var i, j, edits int
+
+	for i < len(x) && j < len(y) {
+		if x[i] == y[j] {
+			i++
+			j++
+
+			continue
+		}
+
+		edits++
+
+		if edits > 1 {
+			return false
+		}
+
+		if len(x) == len(y) {
+			/*
+			 * Two letters the wrong way round counts as one edit.
+			 *
+			 * Which is not textbook and is the point: "brian" for "brain" is
+			 * the single commonest thing said about this name, by people as
+			 * well as by recognisers, and calling it two edits away puts it
+			 * outside every rule here.
+			 */
+			if i+1 < len(x) && x[i] == y[j+1] && x[i+1] == y[j] {
+				i += 2
+				j += 2
+
+				continue
+			}
+
+			i++
+			j++
+
+			continue
+		}
+
+		i++
+	}
+
+	return edits+(len(x)-i)+(len(y)-j) <= 1
 }

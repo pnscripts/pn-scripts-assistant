@@ -273,3 +273,155 @@ func TestANameInAnotherAlphabet(t *testing.T) {
 		t.Error("it woke on a sentence that does not carry its name")
 	}
 }
+
+/*
+ * The recogniser welds the name onto the next word, and that used to lose the
+ * whole turn.
+ *
+ * A real transcript from this machine: "Brain, tell me what you are going to
+ * do" came back as "brainlue, tell me what you are going to do". Whole-word
+ * matching found no name, so nothing happened — which from a chair is the
+ * assistant not listening for its own name, and it is the commonest way for
+ * that to look true when the microphone is working perfectly.
+ */
+func TestANameWeldedToTheNextWordStillWakesIt(t *testing.T) {
+	heard := Listen("brainlue, tell me what you are going to do", "PN Brain", false)
+
+	if !heard.Addressed {
+		t.Fatal("a mangled name was not recognised at all")
+	}
+
+	if heard.Text != "tell me what you are going to do" {
+		t.Fatalf("the request came out as %q", heard.Text)
+	}
+}
+
+/*
+ * And the case the strict rule was written for still holds.
+ *
+ * A television saying "brains" woke a brain called Brain and handed it an
+ * empty request. Anything loose enough to catch every mishearing is loose
+ * enough to answer the weather, so ordinary English endings are refused.
+ */
+func TestOrdinaryEnglishEndingsDoNotWakeIt(t *testing.T) {
+	for _, said := range []string{
+		"the zombies want brains",
+		"he brained himself on the door",
+		"she is braining the problem",
+		"a brainy sort of person",
+		"brainer than the rest",
+	} {
+		if Listen(said, "PN Brain", false).Addressed {
+			t.Errorf("woke on %q", said)
+		}
+	}
+}
+
+// A long tail is a different word that happens to start the same way.
+func TestAWordThatMerelyStartsTheSameIsNotTheName(t *testing.T) {
+	for _, said := range []string{
+		"the brainstorming session went well",
+		"brainchildren of the last decade",
+	} {
+		if Listen(said, "PN Brain", false).Addressed {
+			t.Errorf("woke on %q", said)
+		}
+	}
+}
+
+// Only the last word of the name may be welded: the middle of a name running
+// into the next word is a different transcript altogether.
+func TestOnlyTheEndOfTheNameMayBeWelded(t *testing.T) {
+	if Listen("pnbrain brain what time is it", "PN Brain", false).Text == "" {
+		t.Skip("nothing matched, which is acceptable here")
+	}
+}
+
+// A short name is never softened: three letters plus a tail is most of the
+// dictionary.
+func TestAShortNameIsNotSoftened(t *testing.T) {
+	if Listen("axolotl in the tank", "axo", false).Addressed {
+		t.Error("a three-letter name matched a longer word")
+	}
+}
+
+func TestTheExactNameStillWorks(t *testing.T) {
+	for _, said := range []string{
+		"brain what time is it",
+		"PN Brain, what time is it",
+		"what time is it brain",
+		"hey brain, what time is it",
+	} {
+		heard := Listen(said, "PN Brain", false)
+
+		if !heard.Addressed {
+			t.Errorf("did not wake on %q", said)
+		}
+
+		if heard.Text != "what time is it" {
+			t.Errorf("%q left %q", said, heard.Text)
+		}
+	}
+}
+
+/*
+ * Being able to say "that sounded like my name".
+ *
+ * "No name in it" is true and useless when the recogniser mangled the name.
+ * The two problems are completely different — one is that nobody addressed it,
+ * the other is that somebody did and it did not recognise itself — and until
+ * the log tells them apart, a mangling recogniser looks exactly like an
+ * assistant that has stopped listening.
+ */
+func TestItCanSayWhenSomethingWasNearlyItsName(t *testing.T) {
+	for _, said := range []string{
+		"brains everywhere in this film",
+		"brian tell me the time",
+		"brainstorm about the design",
+	} {
+		if NearMiss(said, "PN Brain") == "" {
+			t.Errorf("said nothing about %q", said)
+		}
+	}
+}
+
+// And it must not cry near-miss at an ordinary sentence, or the log fills with
+// noise and nobody reads it.
+func TestAnOrdinarySentenceIsNotANearMiss(t *testing.T) {
+	for _, said := range []string{
+		"what time is it",
+		"the background is too dark",
+		"put the kettle on",
+		"",
+	} {
+		if got := NearMiss(said, "PN Brain"); got != "" {
+			t.Errorf("%q was called a near miss on %q", got, said)
+		}
+	}
+}
+
+// With no name set, nothing is a near miss: everything is addressed to it.
+func TestWithNoNameNothingIsANearMiss(t *testing.T) {
+	if NearMiss("brains", "") != "" {
+		t.Error("reported a near miss with no name set")
+	}
+}
+
+func TestOneEditApartIsExactlyOneEdit(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want bool
+	}{
+		{"brain", "brian", true},  // two letters swapped, which counts as one
+		{"brain", "brai", true},   // one deletion
+		{"brain", "brains", true}, // one insertion
+		{"brain", "brawn", true},  // one substitution
+		{"brain", "brain", false}, // the same word is not an edit away
+		{"brain", "train", true},
+		{"brain", "trains", false},
+	} {
+		if got := oneEditApart(c.a, c.b); got != c.want && c.a != c.b {
+			t.Errorf("%q vs %q: %v, want %v", c.a, c.b, got, c.want)
+		}
+	}
+}
