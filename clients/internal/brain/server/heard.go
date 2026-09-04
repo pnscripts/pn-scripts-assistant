@@ -3,6 +3,9 @@ package server
 import (
 	"sync"
 	"time"
+
+	"pn-brain/internal/brain/brain"
+	"pn-brain/internal/brain/tools"
 )
 
 /*
@@ -44,6 +47,17 @@ type Overheard struct {
 	KnownVoice bool    `json:"known_voice"`
 	Owner      bool    `json:"owner"`
 	Voice      float64 `json:"voice"`
+
+	/*
+	 * What this machine itself was playing at the time.
+	 *
+	 * A different fact from the two above and it settles a different question.
+	 * A voiceprint says "that was not you", which leaves open whether it was a
+	 * person at all; this says a browser was playing a video while it was
+	 * heard, which usually finishes the sentence.
+	 */
+	MachinePlaying bool     `json:"machine_playing"`
+	Playing        []string `json:"playing,omitempty"`
 
 	// What the detector measured.
 	HeardSpeech bool `json:"heard_speech"`
@@ -101,4 +115,38 @@ func why(h Overheard, addressed bool, wakeWord string) string {
 	default:
 		return "no name in it"
 	}
+}
+
+/*
+ * And the same record, in the shape the tool that answers for it wants.
+ *
+ * Converted here rather than shared as a type, so the log of what a microphone
+ * heard is not a type the tools package can reach into — it is a record of
+ * somebody's room.
+ */
+func (s *Server) recentlyHeard() []tools.Overheard {
+	heard := s.heard.recent()
+
+	out := make([]tools.Overheard, 0, len(heard))
+
+	// recent() is already newest first, which is the order the account wants:
+	// the thing being asked about is nearly always the last thing said.
+	for _, h := range heard {
+		out = append(out, tools.Overheard{
+			Text:           h.Text,
+			Addressed:      h.Addressed,
+			Why:            h.Why,
+			KnownVoice:     h.KnownVoice,
+			Owner:          h.Owner,
+			Voice:          h.Voice,
+			MachinePlaying: h.MachinePlaying,
+			Playing:        h.Playing,
+			PeakRMS:        h.PeakRMS,
+			NoiseFloor:     h.NoiseFloor,
+			SpokeForMS:     h.SpokeForMS,
+			Ago:            brain.Ago(h.At),
+		})
+	}
+
+	return out
 }

@@ -41,20 +41,25 @@ func (s *Server) whoseVoice(samples []float64) voiceprint.Verdict {
 /*
  * handleVoiceprint says what the brain knows about its owner's voice.
  *
- * Three separate facts, because they fail separately and the fix differs: the
- * model can be missing, no voice can have been taught, and the setting to act
- * on it can be off.
+ * Four separate facts, because they fail separately and the fix differs: the
+ * model can be missing, no voice can have been taught, the setting to act on
+ * it can be off, and this machine's own music can be drowning the room. The
+ * last is not about the voiceprint at all, but it arrives as the same
+ * complaint — "it does not know it is me" — and it is the one that is true
+ * most often.
  */
 func (s *Server) handleVoiceprint(w http.ResponseWriter, r *http.Request) {
 	known, _ := voiceprint.Load(s.brain.Root)
 
 	body := map[string]any{
-		"installed": voiceprint.Installed(),
-		"enrolled":  known != nil && len(known.Print) == voiceprint.Dimensions,
-		"only_me":   s.brain.Cfg.OnlyMe,
-		"match":     s.brain.Cfg.VoiceMatch,
-		"wanted":    voiceprint.SamplesWanted,
-		"megabytes": voiceprint.AboutMegabytes,
+		"installed":   voiceprint.Installed(),
+		"enrolled":    known != nil && len(known.Print) == voiceprint.Dimensions,
+		"only_me":     s.brain.Cfg.OnlyMe,
+		"cancel_room": s.brain.Cfg.CancelRoom,
+		"rerouting":   speech.Rerouting(),
+		"match":       s.brain.Cfg.VoiceMatch,
+		"wanted":      voiceprint.SamplesWanted,
+		"megabytes":   voiceprint.AboutMegabytes,
 	}
 
 	if known != nil {

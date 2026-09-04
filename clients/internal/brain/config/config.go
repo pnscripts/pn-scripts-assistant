@@ -43,6 +43,22 @@ type Config struct {
 	WakeWord string
 
 	/*
+	 * CancelRoom routes everything this machine plays through the echo
+	 * canceller, so the microphone stops hearing it.
+	 *
+	 * The canceller subtracts what was played into its own sink, which is the
+	 * brain's own voice and nothing else — a browser playing music goes
+	 * straight to the speakers, and the microphone hears every note of it
+	 * mixed with whoever is talking. What comes back from the recogniser is a
+	 * confident blend of the two, and telling one voice from another cannot
+	 * help, because the recording genuinely contains both.
+	 *
+	 * Off unless asked for: it changes where every program on this machine
+	 * sends its sound, which is not a thing to do to somebody quietly.
+	 */
+	CancelRoom bool
+
+	/*
 	 * OnlyMe makes the brain answer one voice and ignore every other.
 	 *
 	 * The name tells being spoken to from being in a room; it cannot tell who
@@ -250,6 +266,7 @@ func Default() Config {
 		 * taught this can only do the first.
 		 */
 		OnlyMe:          false,
+		CancelRoom:      false,
 		VoiceMatch:      0.5,
 		OllamaModel:     "qwen2.5-coder:7b",
 		ModelChosen:     false,
@@ -330,6 +347,10 @@ func Load(root string) (Config, error) {
 		cfg.OnlyMe = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
+	if v := get("BRAIN_CANCEL_ROOM"); v != "" {
+		cfg.CancelRoom = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
 	if v := get("BRAIN_VOICE_MATCH"); v != "" {
 		if n, err := strconv.ParseFloat(v, 64); err == nil && n > -1 && n < 1 {
 			cfg.VoiceMatch = n
@@ -396,6 +417,9 @@ func (c Config) Save(root string) error {
 	b.WriteString("# Answer one voice and ignore every other. Needs a voice to have\n")
 	b.WriteString("# been taught first, in Privacy.\n")
 	b.WriteString("BRAIN_ONLY_ME=" + boolText(c.OnlyMe) + "\n")
+	b.WriteString("# Send everything this machine plays through the echo canceller, so\n")
+	b.WriteString("# music and videos are subtracted from what the microphone hears.\n")
+	b.WriteString("BRAIN_CANCEL_ROOM=" + boolText(c.CancelRoom) + "\n")
 	b.WriteString("BRAIN_VOICE_MATCH=" + fmt.Sprintf("%.2f", c.VoiceMatch) + "\n\n")
 
 	b.WriteString("BRAIN_AUTO_MODEL=" + boolText(c.AutoModel) + "\n")

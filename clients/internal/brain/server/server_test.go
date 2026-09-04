@@ -293,7 +293,8 @@ func TestRegisteredTools(t *testing.T) {
 		"open_app", "places_it_learns_from", "put_it_back",
 		"read_document", "read_file", "remind_me", "run_command",
 		"scroll", "search_files", "set_appearance", "set_wake_word",
-		"stop_background", "type_text", "what_you_know", "write_document",
+		"stop_background", "stop_hearing_this_machine", "type_text",
+		"what_am_i_hearing", "what_you_know", "write_document",
 		"write_file",
 	}
 
@@ -1361,5 +1362,63 @@ func TestAnythingSaidOverTheTopOfItCounts(t *testing.T) {
 	// the room made a noise, not that anybody spoke.
 	if quiet, _ := s.decide("   ", false, true); quiet.Addressed {
 		t.Error("an empty transcript stopped it")
+	}
+}
+
+/*
+ * The tool that answers "why did you ignore me" must be able to reach the
+ * record of what was heard.
+ *
+ * These are two packages joined by a package-level function, which is the kind
+ * of wiring that compiles perfectly whether or not anybody remembered to
+ * connect it. Left unconnected the tool is still registered, still offered to
+ * the model, and answers every question about the room with "nothing here is
+ * listening".
+ */
+func TestTheHearingToolCanReachWhatWasHeard(t *testing.T) {
+	_, _, b := newServer(t)
+
+	for _, tool := range b.Agent.Registry.All() {
+		hearing, is := tool.(tools.Hearing)
+
+		if !is {
+			continue
+		}
+
+		said, err := hearing.Execute(context.Background(), nil)
+		if err != nil {
+			t.Fatalf("the hearing tool cannot reach the listener: %v", err)
+		}
+
+		if said == "" {
+			t.Fatal("the hearing tool said nothing at all")
+		}
+
+		return
+	}
+
+	t.Fatal("the hearing tool is not registered")
+}
+
+// And a turn that was heard comes back through it, newest first, in words.
+func TestWhatWasHeardComesBackThroughTheTool(t *testing.T) {
+	_, _, b := newServer(t)
+	s := New(b, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	s.heard.add(Overheard{Text: "first thing", PeakRMS: 1000})
+	s.heard.add(Overheard{Text: "second thing", Addressed: true, PeakRMS: 2000})
+
+	recent := s.recentlyHeard()
+
+	if len(recent) != 2 {
+		t.Fatalf("expected both turns, got %d", len(recent))
+	}
+
+	if recent[0].Text != "second thing" {
+		t.Fatalf("the newest should come first, got %q", recent[0].Text)
+	}
+
+	if recent[0].Ago == "" {
+		t.Fatal("a turn with no sense of when it happened is not much of an account")
 	}
 }

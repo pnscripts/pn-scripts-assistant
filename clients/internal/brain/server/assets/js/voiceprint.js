@@ -93,6 +93,15 @@ function draw() {
     el('voice-only-field').hidden = !state.enrolled;
     el('voice-only').checked = !!state.only_me;
 
+    /*
+     * Not gated on having taught it a voice.
+     *
+     * This one is about what the room sounds like, not about who is in it, and
+     * it is worth switching on the first evening — long before anybody gets
+     * round to teaching it a voice.
+     */
+    el('voice-room').checked = !!state.cancel_room;
+
     el('voice-teach').textContent = state.enrolled
         ? 'Teach it more of my voice'
         : 'Teach it my voice';
@@ -158,6 +167,26 @@ el('voice-forget').onclick = async () => {
     try {
         await send('/api/voiceprint/forget', {});
         say('Forgotten. Nothing about your voice is left on this machine.', 'ok');
+    } catch (err) {
+        say(String(err.message || err), 'bad');
+    }
+
+    load();
+};
+
+el('voice-room').onchange = async () => {
+    const on = el('voice-room').checked;
+
+    say(on
+        ? 'Moving this machine\u2019s sound through the canceller\u2026'
+        : 'Putting the sound back\u2026');
+
+    try {
+        await send('/api/settings', { cancel_room: on });
+
+        say(on
+            ? 'Done. What this machine plays no longer reaches the microphone.'
+            : 'Done. This machine\u2019s sound goes straight to the speakers again.', 'ok');
     } catch (err) {
         say(String(err.message || err), 'bad');
     }

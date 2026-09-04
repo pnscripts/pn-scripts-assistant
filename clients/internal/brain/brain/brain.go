@@ -237,6 +237,38 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// vocabulary that used to mean nothing.
 		tools.PutBack{Root: root},
 
+		/*
+		 * What it is hearing and why it acted or did not, asked out loud.
+		 *
+		 * "It answered the television" and "it ignored me" are the two
+		 * complaints, and from a chair they look the same as each other and as
+		 * a broken microphone. Everything that tells them apart is measured;
+		 * this is how somebody gets at it without opening a panel in the
+		 * middle of the problem.
+		 */
+		tools.Hearing{Recent: b.recentlyHeard, State: b.howItListens},
+
+		// And the one setting that fixes the commonest cause of the confusion.
+		tools.Quieten{
+			Reroute: func(ctx context.Context, on bool) error {
+				if !on {
+					speech.PutTheSoundBack(ctx)
+					b.Cfg.CancelRoom = false
+
+					return b.Cfg.Save(b.Root)
+				}
+
+				if err := speech.CancelWhatThisMachinePlays(ctx); err != nil {
+					return err
+				}
+
+				b.Cfg.CancelRoom = true
+
+				return b.Cfg.Save(b.Root)
+			},
+			Rerouting: speech.Rerouting,
+		},
+
 		// And the drives and folders it reads from, which is the other half
 		// of the same question.
 		tools.Places{
@@ -635,6 +667,34 @@ func (b *Brain) Start(ctx context.Context) {
 	// view has the shape of the last few minutes rather than one number.
 	go machine.Watch(ctx)
 
+	/*
+	 * And the machine's own sound through the canceller, if that was asked
+	 * for.
+	 *
+	 * After the canceller exists, which is why it waits: the sink has to be
+	 * there before anything can be pointed at it. Put back when the brain
+	 * stops — see Stop.
+	 */
+	if b.Cfg.CancelRoom {
+		go func() {
+			for i := 0; i < 20; i++ {
+				if err := speech.CancelWhatThisMachinePlays(ctx); err == nil {
+					b.Log.Info("this machine's sound now goes through the echo canceller")
+
+					return
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(3 * time.Second):
+				}
+			}
+
+			b.Log.Warn("could not route this machine's sound through the echo canceller")
+		}()
+	}
+
 	// And the copies of itself on other drives, refreshed whenever one of them
 	// is plugged in and the brain has learned something since.
 	go b.keepCopies(ctx)
@@ -659,6 +719,19 @@ func (b *Brain) Stop() {
 	if b.Learner != nil {
 		b.Learner.Stop()
 	}
+
+	/*
+	 * And the machine's sound goes back where it was.
+	 *
+	 * Its own context, because the one the brain ran on is already cancelled
+	 * by the time anything gets here — and leaving somebody's default output
+	 * pointed at a sink that is about to disappear is the kind of parting gift
+	 * that gets a program uninstalled.
+	 */
+	putBack, done := context.WithTimeout(context.Background(), 10*time.Second)
+	defer done()
+
+	speech.PutTheSoundBack(putBack)
 
 	speech.StopResident()
 }

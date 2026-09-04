@@ -64,6 +64,15 @@ func (s *Server) OnPresent(show func()) { s.present = show }
 func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s := &Server{brain: b, log: logger, mux: http.NewServeMux(), assets: assetHandler(logger)}
 
+	/*
+	 * And the brain is told where the record of what was overheard lives.
+	 *
+	 * The tool that answers "why did you ignore me" is registered with the
+	 * other tools, long before anything is listening — this is what joins it
+	 * to the thing that hears.
+	 */
+	brain.Listening = s.recentlyHeard
+
 	s.mux.HandleFunc("POST /api/chat", s.handleChat)
 	s.mux.HandleFunc("GET /api/status", s.handleStatus)
 	s.mux.HandleFunc("GET /api/heard", s.handleHeard)
@@ -300,6 +309,8 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"first_run":    s.brain.Cfg.New,
 		"only_me":      s.brain.Cfg.OnlyMe,
 		"voice_match":  s.brain.Cfg.VoiceMatch,
+		"cancel_room":  s.brain.Cfg.CancelRoom,
+		"rerouting":    speech.Rerouting(),
 		"always_name":  s.brain.Cfg.AlwaysName,
 		"auto_model":   s.brain.Cfg.AutoModel,
 		"always_speak": s.brain.Cfg.AlwaysSpeak,
@@ -760,6 +771,10 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 
 	turn.Voice = whose.Alike
 	turn.KnownVoice = whose.Judged
+
+	// And what this machine was playing while it listened, which is usually
+	// the answer when the voice is not the owner's.
+	turn.MachinePlaying, turn.Playing = speech.PlayingItself(r.Context())
 
 	if whose.Judged {
 		turn.Owner = whose.Owner
@@ -1558,6 +1573,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		// how alike a voice has to be to count as that one.
 		OnlyMe     *bool    `json:"only_me"`
 		VoiceMatch *float64 `json:"voice_match"`
+
+		// Whether the machine's own sound goes through the canceller.
+		CancelRoom *bool `json:"cancel_room"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
@@ -1636,6 +1654,27 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 	if body.VoiceMatch != nil && *body.VoiceMatch > -1 && *body.VoiceMatch < 1 {
 		s.brain.Cfg.VoiceMatch = *body.VoiceMatch
+	}
+
+	/*
+	 * Rerouting the machine's sound takes effect at once, not at the next
+	 * start.
+	 *
+	 * Somebody switches this on because music is confusing the brain now, and
+	 * an answer of "restart and it will be better" is not one.
+	 */
+	if body.CancelRoom != nil {
+		s.brain.Cfg.CancelRoom = *body.CancelRoom
+
+		if *body.CancelRoom {
+			if err := speech.CancelWhatThisMachinePlays(r.Context()); err != nil {
+				fail(w, http.StatusBadRequest, err.Error())
+
+				return
+			}
+		} else {
+			speech.PutTheSoundBack(r.Context())
+		}
 	}
 
 	// Saved as soon as it is set, and the file existing is what stops the
