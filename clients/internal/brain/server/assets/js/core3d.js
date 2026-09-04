@@ -124,32 +124,97 @@ export function startCore() {
     const REACH = 1.9;
 
     /** Where the corners are, with one at the bottom. */
-    function triangle(reach) {
-        const points = [];
+    function corners(reach) {
+        const out = [];
 
         for (let i = 0; i < 3; i++) {
             const a = -Math.PI / 2 + (i / 3) * Math.PI * 2;
 
-            points.push(new THREE.Vector3(Math.cos(a) * reach, Math.sin(a) * reach, 0));
+            out.push(new THREE.Vector2(Math.cos(a) * reach, Math.sin(a) * reach));
         }
 
-        points.push(points[0].clone());
-
-        return new THREE.BufferGeometry().setFromPoints(points);
+        return out;
     }
 
-    const frameMaterial = new THREE.LineBasicMaterial({
+    /** How thick the frame is drawn, in the same units as REACH. */
+    const EDGE = 0.012;
+
+    /*
+     * The triangle is built out of thin quads rather than drawn with lines.
+     *
+     * A THREE.Line is a GL line, and a GL line is one pixel wide whatever is
+     * asked of it, aliased along its length, and rendered slightly differently
+     * by every driver. On a diagonal at the size this sits on screen that
+     * produces a staircase: the edge steps across a pixel every few pixels and
+     * the frame reads as a wobble rather than a straight line, which is the
+     * one thing a triangle has to be.
+     *
+     * Two triangles of geometry per edge, six per frame. It costs nothing, it
+     * is the same on every machine, and the thickness is a number rather than
+     * a wish.
+     *
+     * Named frameEdges rather than frame, which is not fussiness: the render
+     * loop below is also a function declaration called frame, in this same
+     * scope, and the later declaration wins for the whole of it. Calling
+     * frame(REACH, EDGE) therefore called the render loop, which returned
+     * undefined, which became an empty geometry — and the triangle simply was
+     * not there, with nothing logged anywhere to say why.
+     */
+    function frameEdges(reach, thickness) {
+        const points = corners(reach);
+        const vertices = [];
+
+        for (let i = 0; i < 3; i++) {
+            const from = points[i];
+            const to = points[(i + 1) % 3];
+
+            // The edge's own sideways direction, so the quad has square ends
+            // and the corners meet without a gap.
+            const along = new THREE.Vector2().subVectors(to, from).normalize();
+            const across = new THREE.Vector2(-along.y, along.x).multiplyScalar(thickness);
+
+            // Extended by half a thickness at each end, which is what closes
+            // the corner: two rectangles meeting at a point leave a notch.
+            const back = along.clone().multiplyScalar(thickness);
+
+            const a = from.clone().sub(back);
+            const b = to.clone().add(back);
+
+            const corners4 = [
+                a.clone().add(across), b.clone().add(across),
+                b.clone().sub(across), a.clone().sub(across),
+            ];
+
+            for (const [x, y, z] of [[0, 1, 2], [0, 2, 3]]) {
+                for (const at of [x, y, z]) {
+                    vertices.push(corners4[at].x, corners4[at].y, 0);
+                }
+            }
+        }
+
+        const geometry = new THREE.BufferGeometry();
+
+        geometry.setAttribute('position',
+            new THREE.Float32BufferAttribute(vertices, 3));
+
+        return geometry;
+    }
+
+    const frameMaterial = new THREE.MeshBasicMaterial({
         color: new THREE.Color(1, 0.32, 0.16),
         transparent: true,
         opacity: 0.9,
         depthWrite: false,
+        side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
     });
 
     // Two of them, one just inside the other. A single line reads as a shape
-    // drawn on the screen; a pair reads as something built.
-    face.add(new THREE.Line(triangle(REACH), frameMaterial));
-    face.add(new THREE.Line(triangle(REACH * 0.9), frameMaterial));
+    // drawn on the screen; a pair reads as something built. The inner one is
+    // thinner, so the pair has a front and a back rather than reading as one
+    // fat smudge.
+    face.add(new THREE.Mesh(frameEdges(REACH, EDGE), frameMaterial));
+    face.add(new THREE.Mesh(frameEdges(REACH * 0.9, EDGE * 0.6), frameMaterial));
 
     /*
      * The iris.
