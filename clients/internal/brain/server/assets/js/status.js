@@ -187,5 +187,14 @@ function followStatus() {
     document.documentElement.dataset.status = statusOf(step);
 }
 
-setInterval(followStatus, 500);
+/*
+ * Twice a second was four times a second's worth of work for a colour.
+ *
+ * Every one of these asks the server what the brain is doing and repaints
+ * whatever is showing it. On a machine drawing its own pixels with the
+ * processor that is not free, and nothing on this page changes state faster
+ * than a person can notice — a step that lasts a minute does not need to be
+ * checked a hundred and twenty times while it runs.
+ */
+setInterval(followStatus, 1200);
 followStatus();

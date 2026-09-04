@@ -1764,4 +1764,4 @@ async function pollActivity() {
     }
 }
 
-setInterval(pollActivity, 700);
+setInterval(pollActivity, 2000);

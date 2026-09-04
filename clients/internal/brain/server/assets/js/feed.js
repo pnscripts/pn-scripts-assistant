@@ -15,7 +15,9 @@
  * identical without them, and they mean opposite things.
  */
 
-const FEED_INTERVAL = 700;
+// Slow enough that the feed is not redrawn faster than anybody reads it, on a
+// machine where redrawing costs the processor the model is waiting for.
+const FEED_INTERVAL = 1500;
 
 const feedBox = document.getElementById('feed');
 const feedIdle = document.getElementById('feed-idle');

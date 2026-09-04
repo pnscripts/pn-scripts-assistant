@@ -17,7 +17,7 @@
 const HISTORY_INTERVAL = 20000;
 
 /** How often the thinking line is refreshed. */
-const THINKING_INTERVAL = 700;
+const THINKING_INTERVAL = 1500;
 
 function el(id) {
     return document.getElementById(id);

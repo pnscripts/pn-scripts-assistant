@@ -400,12 +400,55 @@ export function startCore() {
         return true;
     }
 
+    /*
+     * How often this is worth drawing.
+     *
+     * The browser offers sixty frames a second and there is no graphics card
+     * in this machine, so every one of them is drawn by the same processor
+     * that is running the language model — measured at more than half a core,
+     * to animate a slowly turning ring.
+     *
+     * Nothing here moves fast enough to need sixty. Thirty is
+     * indistinguishable while the brain is working, and while it is sitting
+     * idle the picture barely changes at all, so it drops to eight — which is
+     * still motion, and an eighth of the work.
+     *
+     * Paced rather than throttled: the animation is driven by elapsed time, so
+     * a frame skipped is not a frame of movement lost. It arrives at the same
+     * place, less often.
+     */
+    const WHILE_WORKING = 1000 / 30;
+    const WHILE_RESTING = 1000 / 8;
+
+    // The states in which nothing is happening that anybody is watching for.
+    const QUIET = new Set(['idle', 'listening', 'waiting', 'stopping']);
+
+    let drawnAt = 0;
+
+    // Measured over the first few dozen frames; see FRAME_BUDGET_MS.
+    let glowIsAffordable = true;
+    let drawnFrames = 0;
+    let drawnTime = 0;
+
+/*
+ * Whether the glow is affordable here, measured rather than guessed.
+ *
+ * The bloom pass renders the scene again into a buffer and blurs it — nothing
+ * at all on a graphics card, and the most expensive thing on this page without
+ * one. Which of those a machine is cannot be asked directly: WebGL reports a
+ * renderer name that on this webview says nothing useful, and the program's own
+ * idea of "has a GPU" means one that can run a language model, which is a
+ * different question.
+ *
+ * So it is timed. The first two seconds are drawn with the glow while the cost
+ * of a frame is measured; past the budget, the glow goes and does not come
+ * back. A machine that can afford it keeps it and never notices this existed.
+ */
+const FRAME_BUDGET_MS = 9;
+const JUDGE_AFTER = 40;
+
     function frame(now) {
         requestAnimationFrame(frame);
-
-        const delta = Math.min(0.1, (now - last) / 1000);
-
-        last = now;
 
         /*
          * Nothing is drawn while nobody is looking at it.
@@ -420,6 +463,31 @@ export function startCore() {
          * asks nothing of the layout that was not already computed.
          */
         if (canvas.offsetParent === null || document.hidden) return;
+
+        /*
+         * And not more often than it is worth drawing.
+         *
+         * Which of the two rates applies comes from the same signal that
+         * drives the picture: at rest the scene is a slow pulse, and while
+         * something is happening it has to keep up with what it is showing.
+         */
+        /*
+         * Listening is resting.
+         *
+         * The microphone is open from the moment the program starts and stays
+         * open, because that is what a thing you can talk to does — so
+         * treating "listening" as work meant the higher rate was the only rate
+         * this ever ran at. What is worth thirty frames a second is the brain
+         * actually doing something: thinking, working, speaking, learning.
+         */
+        const gap = QUIET.has(signals.state || 'idle') ? WHILE_RESTING : WHILE_WORKING;
+
+        if (now - drawnAt < gap) return;
+
+        const delta = Math.min(0.25, (now - (last || now)) / 1000);
+
+        last = now;
+        drawnAt = now;
 
         // Counted so that "it stops when nobody is looking" is a thing that can
         // be checked rather than believed. Costs one addition per frame.
@@ -512,7 +580,51 @@ export function startCore() {
         // quiet one without anything being drawn differently.
         bloom.strength = 0.45 + signals.smooth * 0.5 + (busy ? 0.25 : 0) + signals.recall * 0.3;
 
-        composer.render();
+        /*
+         * The glow is skipped where it has to be drawn by the processor.
+         *
+         * The bloom pass renders the whole scene again into a buffer and blurs
+         * it, twice — cheap on a graphics card and the single most expensive
+         * thing on this page without one, which is the machine this was built
+         * on. What is lost is a soft halo; what is bought is most of a core
+         * that the language model is waiting for.
+         *
+         * Asked of the renderer rather than assumed: a machine with
+         * acceleration keeps the glow.
+         */
+        if (glowIsAffordable) {
+            const startedDrawing = performance.now();
+
+            composer.render();
+
+            /*
+             * Judged once, on the average of the first few dozen frames.
+             *
+             * Not on one frame: the first is always slow, and a single reading
+             * during a burst of other work would drop the glow on a machine
+             * that can afford it.
+             */
+            drawnFrames += 1;
+            drawnTime += performance.now() - startedDrawing;
+
+            if (drawnFrames >= JUDGE_AFTER) {
+                const each = drawnTime / drawnFrames;
+
+                glowIsAffordable = each <= FRAME_BUDGET_MS;
+                window.brainGlowCost = Math.round(each * 10) / 10;
+
+                if (!glowIsAffordable) {
+                    // Said once, because it is a visible change to the picture
+                    // and somebody may wonder where the halo went.
+                    console.info(
+                        `PN Brain: the glow costs ${each.toFixed(1)}ms a frame on this ` +
+                        'machine, which the processor is needed for. Drawing it plainly.'
+                    );
+                }
+            }
+        } else {
+            renderer.render(scene, camera);
+        }
     }
 
     requestAnimationFrame(frame);
