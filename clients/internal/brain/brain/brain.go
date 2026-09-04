@@ -691,6 +691,14 @@ func (b *Brain) Start(ctx context.Context) {
 	 * there before anything can be pointed at it. Put back when the brain
 	 * stops — see Stop.
 	 */
+	// What the room hears while it talks, which is a setting and so has to be
+	// applied rather than left at the package default.
+	speech.DuckOthersWhileTalking(b.Cfg.KeepQuiet)
+
+	// And anything a previous run left turned down goes back up. The note only
+	// exists if that run was killed between lowering a level and restoring it.
+	go speech.PutBackAnythingLeftDown()
+
 	if b.Cfg.CancelRoom {
 		go func() {
 			for i := 0; i < 20; i++ {
@@ -747,6 +755,13 @@ func (b *Brain) Stop() {
 	if b.Learner != nil {
 		b.Learner.Stop()
 	}
+
+	// Anything turned down while it was talking goes back up, including after
+	// an answer that was interrupted by the program closing.
+	speech.PutTheVolumeBack()
+
+	// And the synthesiser kept waiting for the next thing to say.
+	speech.StopWarmVoice()
 
 	/*
 	 * And the machine's sound goes back where it was.

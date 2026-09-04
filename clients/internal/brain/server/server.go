@@ -328,6 +328,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"only_me":      s.brain.Cfg.OnlyMe,
 		"voice_match":  s.brain.Cfg.VoiceMatch,
 		"cancel_room":  s.brain.Cfg.CancelRoom,
+		"keep_quiet":   s.brain.Cfg.KeepQuiet,
 		"rerouting":    speech.Rerouting(),
 		"always_name":  s.brain.Cfg.AlwaysName,
 		"auto_model":   s.brain.Cfg.AutoModel,
@@ -1594,6 +1595,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 		// Whether the machine's own sound goes through the canceller.
 		CancelRoom *bool `json:"cancel_room"`
+		KeepQuiet  *bool `json:"keep_quiet"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
@@ -1681,6 +1683,14 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	 * Somebody switches this on because music is confusing the brain now, and
 	 * an answer of "restart and it will be better" is not one.
 	 */
+	if body.KeepQuiet != nil {
+		s.brain.Cfg.KeepQuiet = *body.KeepQuiet
+
+		// Immediately, and putting back anything currently turned down: a
+		// setting about the sound in the room has to take effect in the room.
+		speech.DuckOthersWhileTalking(*body.KeepQuiet)
+	}
+
 	if body.CancelRoom != nil {
 		s.brain.Cfg.CancelRoom = *body.CancelRoom
 

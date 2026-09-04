@@ -59,6 +59,20 @@ type Config struct {
 	CancelRoom bool
 
 	/*
+	 * KeepQuiet turns the rest of this machine's sound down while it talks.
+	 *
+	 * The other half of the same complaint, and a different problem from
+	 * CancelRoom despite sounding like the same one. The canceller is about
+	 * what the microphone hears; this is about what a person in the room
+	 * hears. With the canceller on, music no longer confuses the recogniser
+	 * and is still exactly as loud over the answer.
+	 *
+	 * Lowered, never paused: something that quietly stops somebody's film
+	 * every time it says a word is worse than something that talks over it.
+	 */
+	KeepQuiet bool
+
+	/*
 	 * OnlyMe makes the brain answer one voice and ignore every other.
 	 *
 	 * The name tells being spoken to from being in a room; it cannot tell who
@@ -265,8 +279,13 @@ func Default() Config {
 		 * occasionally answers the television, and until a voice has been
 		 * taught this can only do the first.
 		 */
-		OnlyMe:          false,
-		CancelRoom:      false,
+		OnlyMe:     false,
+		CancelRoom: false,
+
+		// On by default, unlike the canceller above. This one is gentle and
+		// undoes itself; that one moves where every program on the machine
+		// sends its sound.
+		KeepQuiet:       true,
 		VoiceMatch:      0.5,
 		OllamaModel:     "qwen2.5-coder:7b",
 		ModelChosen:     false,

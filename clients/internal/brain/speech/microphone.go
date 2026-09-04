@@ -47,6 +47,11 @@ func Microphones(ctx context.Context) ([]Microphone, error) {
 		return nil, fmt.Errorf("could not ask PipeWire for inputs: %w", err)
 	}
 
+	found, err := dumpObjects(raw)
+	if err != nil {
+		return nil, fmt.Errorf("could not read PipeWire's reply: %w", err)
+	}
+
 	var objects []struct {
 		ID   int `json:"id"`
 		Info struct {
@@ -54,8 +59,22 @@ func Microphones(ctx context.Context) ([]Microphone, error) {
 		} `json:"info"`
 	}
 
-	if err := json.Unmarshal(raw, &objects); err != nil {
-		return nil, fmt.Errorf("could not read PipeWire's reply: %w", err)
+	for _, one := range found {
+		var object struct {
+			ID   int `json:"id"`
+			Info struct {
+				Props map[string]any `json:"props"`
+			} `json:"info"`
+		}
+
+		// An object that will not parse is skipped rather than fatal: one
+		// malformed entry must not cost somebody the whole list of their
+		// microphones.
+		if err := json.Unmarshal(one, &object); err != nil {
+			continue
+		}
+
+		objects = append(objects, object)
 	}
 
 	defaultName := defaultSourceName(ctx)

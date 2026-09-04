@@ -217,6 +217,15 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 		return err
 	}
 
+	/*
+	 * And the rest of the room's sound comes down for as long as this takes.
+	 *
+	 * Here rather than at the top of SpeakAndWait, because that path hands
+	 * this to a goroutine and returns — so the release would run before a
+	 * sound had been made and the music would never dip at all.
+	 */
+	defer duckWhileTalking(ctx)()
+
 	// The sound is measured on its way past, so the interface can respond to
 	// the voice that is actually being produced. See voiceMeter for why this
 	// is not simply read off the pipe as it flows.

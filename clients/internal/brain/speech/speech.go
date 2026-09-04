@@ -201,6 +201,9 @@ func SpeakAndWait(ctx context.Context, text string) error {
 	capped, stopCap := context.WithTimeout(ctx, 2*time.Minute)
 	defer stopCap()
 
+	// And the rest of the room comes down for the length of it.
+	defer duckWhileTalking(capped)()
+
 	return exec.CommandContext(capped, engine.Command, args...).Run()
 }
 
@@ -259,9 +262,15 @@ func Speak(ctx context.Context, text string) error {
 		return fmt.Errorf("could not start %s: %w", engine.Name, err)
 	}
 
+	// The rest of the room comes down while this one talks too. See duck.go.
+	quiet := duckWhileTalking(ctx)
+
 	// Reaped in the background so the process does not become a zombie, and so
 	// nothing here blocks on however long the sentence takes to say.
-	go cmd.Wait()
+	go func() {
+		cmd.Wait()
+		quiet()
+	}()
 
 	return nil
 }

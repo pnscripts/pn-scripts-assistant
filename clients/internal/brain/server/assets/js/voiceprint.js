@@ -101,6 +101,7 @@ function draw() {
      * round to teaching it a voice.
      */
     el('voice-room').checked = !!state.cancel_room;
+    el('voice-quiet').checked = !!state.keep_quiet;
 
     el('voice-teach').textContent = state.enrolled
         ? 'Teach it more of my voice'
@@ -167,6 +168,22 @@ el('voice-forget').onclick = async () => {
     try {
         await send('/api/voiceprint/forget', {});
         say('Forgotten. Nothing about your voice is left on this machine.', 'ok');
+    } catch (err) {
+        say(String(err.message || err), 'bad');
+    }
+
+    load();
+};
+
+el('voice-quiet').onchange = async () => {
+    const on = el('voice-quiet').checked;
+
+    try {
+        await send('/api/settings', { keep_quiet: on });
+
+        say(on
+            ? 'Music and videos will drop while I speak, and come back afterwards.'
+            : 'I will speak over whatever is playing.', 'ok');
     } catch (err) {
         say(String(err.message || err), 'bad');
     }

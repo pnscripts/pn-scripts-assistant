@@ -56,6 +56,7 @@ func (s *Server) handleVoiceprint(w http.ResponseWriter, r *http.Request) {
 		"enrolled":    known != nil && len(known.Print) == voiceprint.Dimensions,
 		"only_me":     s.brain.Cfg.OnlyMe,
 		"cancel_room": s.brain.Cfg.CancelRoom,
+		"keep_quiet":  s.brain.Cfg.KeepQuiet,
 		"rerouting":   speech.Rerouting(),
 		"match":       s.brain.Cfg.VoiceMatch,
 		"wanted":      voiceprint.SamplesWanted,

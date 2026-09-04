@@ -370,7 +370,12 @@ func PlayingItself(ctx context.Context) (bool, []string) {
  * running rather than merely open.
  */
 func playingFromDump(dump []byte) ([]string, error) {
-	var nodes []struct {
+	found, err := dumpObjects(dump)
+	if err != nil {
+		return nil, err
+	}
+
+	type node struct {
 		Info struct {
 			State string `json:"state"`
 			Props struct {
@@ -381,8 +386,16 @@ func playingFromDump(dump []byte) ([]string, error) {
 		} `json:"info"`
 	}
 
-	if err := json.Unmarshal(dump, &nodes); err != nil {
-		return nil, err
+	var nodes []node
+
+	for _, one := range found {
+		var n node
+
+		if err := json.Unmarshal(one, &n); err != nil {
+			continue
+		}
+
+		nodes = append(nodes, n)
 	}
 
 	var out []string
