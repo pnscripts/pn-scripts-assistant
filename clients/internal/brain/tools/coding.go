@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"pn-brain/internal/brain/undo"
 )
 
 /*
@@ -121,6 +123,9 @@ func (EditFile) Execute(_ context.Context, raw json.RawMessage) (string, error) 
 	if err != nil {
 		return "", err
 	}
+
+	// What was there before, so "put it back" has something to put back.
+	undo.Keep(Root, a.Path, "edited")
 
 	if err := os.WriteFile(a.Path, []byte(updated), info.Mode().Perm()); err != nil {
 		return "", fmt.Errorf("cannot write %s: %w", a.Path, err)

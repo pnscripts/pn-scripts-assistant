@@ -195,3 +195,12 @@ type Process struct {
 
 // Now reads the whole picture.
 func Now() Detail { return detail() }
+
+/*
+ * Vitals is the cheap reading, taken every second for the graphs.
+ *
+ * Five files. What separates it from Now is everything that has to walk the
+ * machine — the processes, the sensors, the graphics driver — which is worth
+ * taking while somebody is looking at it and worth nothing otherwise.
+ */
+func Vitals() Detail { return vitals() }

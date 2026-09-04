@@ -78,7 +78,7 @@ func Watch(ctx context.Context) {
 	defer tick.Stop()
 
 	for {
-		record(Now())
+		record(Vitals())
 
 		select {
 		case <-ctx.Done():
@@ -136,7 +136,119 @@ func History() []Moment {
 }
 
 /*
- * Latest is the most recent full reading.
+ * Watching is somebody having the operations view open.
+ *
+ * The expensive half of a reading — every process on the machine, the sensors,
+ * the graphics driver — is worth taking while it is on screen and worth
+ * nothing at all otherwise. Held as a moment rather than a flag so it expires
+ * by itself: a window closed without warning stops asking, and the readings
+ * stop within a couple of seconds rather than for ever.
+ */
+var watching struct {
+	mu   sync.Mutex
+	last time.Time
+}
+
+// StopsWatchingAfter is how long a reading keeps counting as "somebody is
+// looking" — a little more than the interval the page asks on.
+const StopsWatchingAfter = 4 * time.Second
+
+// Watched says somebody is looking right now.
+func Watched() {
+	watching.mu.Lock()
+	watching.last = time.Now()
+	watching.mu.Unlock()
+}
+
+// BeingWatched reports whether anybody asked recently.
+func BeingWatched() bool {
+	watching.mu.Lock()
+	defer watching.mu.Unlock()
+
+	return time.Since(watching.last) < StopsWatchingAfter
+}
+
+/*
+ * Everything is the whole reading, taken now.
+ *
+ * Only ever called because somebody is looking at it. The cheap readings that
+ * feed the graphs come from the watcher; this is the part that costs — a fifth
+ * of a second, measured, before it was cut down — and it is not worth taking
+ * against the chance that a panel might be open.
+ */
+// FreshEnough is how long a whole reading stands before it is taken again.
+//
+// A shade longer than the interval the panel asks on, so a page refreshing
+// once a second pays for the expensive reading every other tick at worst — and
+// two windows open on the same machine cost the same as one.
+const FreshEnough = 1200 * time.Millisecond
+
+var whole struct {
+	mu   sync.Mutex
+	last Detail
+	at   time.Time
+}
+
+func Everything() Detail {
+	Watched()
+
+	whole.mu.Lock()
+	defer whole.mu.Unlock()
+
+	if time.Since(whole.at) < FreshEnough && whole.last.Available {
+		/*
+		 * The stale parts of it are replaced with the current ones.
+		 *
+		 * The reading is reused for what is expensive to gather — the process
+		 * list, the sensors — while the figures the watcher keeps up to date
+		 * every second are taken from it, so the graphs and the dials never
+		 * show a number a second behind the one beside them.
+		 */
+		return withCurrentRates(whole.last)
+	}
+
+	full := Now()
+
+	full = withCurrentRates(full)
+
+	whole.last, whole.at = full, time.Now()
+
+	return full
+}
+
+/*
+ * withCurrentRates takes the moving figures from the watcher.
+ *
+ * Every rate here — processor time, network, disk — is the difference between
+ * two readings, and the watcher is the only thing taking them on a rhythm.
+ * Recomputing them on a request would eat the comparison the next scheduled
+ * reading needed, and every throughput on the screen would read half what it
+ * is, every other second.
+ */
+func withCurrentRates(d Detail) Detail {
+	last, ok := Latest()
+
+	if !ok {
+		return d
+	}
+
+	d.At = last.At
+	d.Overall = last.Overall
+	d.Cores = last.Cores
+	d.MemoryUsedBytes = last.MemoryUsedBytes
+	d.MemoryTotalBytes = last.MemoryTotalBytes
+	d.SwapUsedBytes = last.SwapUsedBytes
+	d.SwapTotalBytes = last.SwapTotalBytes
+	d.NetworkInPerSecond = last.NetworkInPerSecond
+	d.NetworkOutPerSecond = last.NetworkOutPerSecond
+	d.DiskReadPerSecond = last.DiskReadPerSecond
+	d.DiskWritePerSecond = last.DiskWritePerSecond
+
+	return d
+}
+
+/*
+ * Latest is the most recent cheap reading.
  *
  * Handed back from the watcher rather than taken fresh, because every rate here
  * — processor time, network, disk — is the difference between two readings, and

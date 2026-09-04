@@ -198,6 +198,19 @@ async function send(text) {
     // does not require finding the keyboard.
     watchForMyName(abandon);
 
+    /*
+     * Which is worth saying, in the place that otherwise contradicts it.
+     *
+     * The line under the microphone read "Say “PN Brain” to start" all the way
+     * through an answer — an invitation to begin, printed over a brain that
+     * was already halfway through something, while the word above it said
+     * Thinking. Two states at once, and neither of them the useful one: what
+     * somebody wants to know mid-answer is that they can cut in.
+     */
+    if (talking.on && state.wakeWord) {
+        setVoiceStatus(`Say “${state.wakeWord}” to cut in`);
+    }
+
     try {
         const data = await api.post('/api/chat', {
             conversation_id: state.conversationId,

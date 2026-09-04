@@ -233,6 +233,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 */
 		tools.Revise{Talk: talkingTo{b}, Now: b.CurrentConversation},
 
+		// Putting a file back the way it was, which is the one word in that
+		// vocabulary that used to mean nothing.
+		tools.PutBack{Root: root},
+
 		// And the drives and folders it reads from, which is the other half
 		// of the same question.
 		tools.Places{
@@ -317,6 +321,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	 */
 	protect.OwnFolder(root)
 	protect.Use(protect.Load(root))
+
+	// Where the previous version of anything overwritten is kept, so a change
+	// can be undone.
+	tools.Root = root
 
 	// The owner's chosen voice and language, applied before anything speaks or
 	// listens.

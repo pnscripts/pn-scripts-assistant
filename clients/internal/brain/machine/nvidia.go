@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -40,7 +41,41 @@ var askNvidia = func(ctx context.Context) (string, error) {
 	return string(out), err
 }
 
+/*
+ * asked keeps the last answer for a moment.
+ *
+ * Reading the cards means starting a program, which is the most expensive
+ * thing in a reading by a wide margin — everything else is opening files the
+ * kernel keeps in memory. A panel refreshing once a second would spawn it
+ * sixty times a minute to watch numbers that move slowly, so the answer stands
+ * for a couple of seconds and the spawn happens every other refresh at worst.
+ */
+var asked struct {
+	mu    sync.Mutex
+	cards []GPU
+	note  string
+	at    time.Time
+}
+
+// StaysFreshFor is how long the cards' own answer is reused.
+const StaysFreshFor = 2500 * time.Millisecond
+
 func graphicsCards() ([]GPU, string) {
+	asked.mu.Lock()
+	defer asked.mu.Unlock()
+
+	if time.Since(asked.at) < StaysFreshFor {
+		return asked.cards, asked.note
+	}
+
+	cards, note := askTheCards()
+
+	asked.cards, asked.note, asked.at = cards, note, time.Now()
+
+	return cards, note
+}
+
+func askTheCards() ([]GPU, string) {
 	ctx, cancel := context.WithTimeout(context.Background(), nvidiaTimeout)
 	defer cancel()
 

@@ -12,3 +12,8 @@ import "time"
 func detail() Detail {
 	return Detail{At: time.Now(), Available: false, Overall: -1}
 }
+
+// vitals reports nothing here for the same reason detail does.
+func vitals() Detail {
+	return Detail{At: time.Now(), Available: false, Overall: -1}
+}

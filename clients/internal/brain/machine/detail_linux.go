@@ -4,7 +4,6 @@ package machine
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -21,14 +20,44 @@ import (
  * figure is left unknown; there is no fallback that invents one.
  */
 
-func detail() Detail {
+/*
+ * vitals is the cheap reading: five files, taken every second.
+ *
+ * The separation is the whole of what makes this affordable. A full reading
+ * walks every process on the machine and shells out to the graphics driver,
+ * which was measured here at a fifth of a second — repeated every second,
+ * forever, on four cores already running a language model. That is a tenth of
+ * a core spent drawing a panel nobody may be looking at.
+ *
+ * What the graphs need is only this: the processors, the memory, and the two
+ * throughputs. Each is a difference between two readings and so has to be
+ * taken on a rhythm; none of them costs more than reading a file.
+ */
+func vitals() Detail {
 	d := Detail{At: time.Now(), Available: true, Overall: -1}
 
 	d.Overall, d.Cores = processors()
+	d.MemoryUsedBytes, d.MemoryTotalBytes, d.SwapUsedBytes, d.SwapTotalBytes = memoryAndSwap()
+	d.NetworkInPerSecond, d.NetworkOutPerSecond = networkRate()
+	d.DiskReadPerSecond, d.DiskWritePerSecond = diskRate()
+
+	return d
+}
+
+/*
+ * detail is everything, and is only read while somebody is watching.
+ *
+ * The expensive half: the process list, the sensors, and the graphics driver.
+ * None of it is needed to draw a graph of the last three minutes, and all of
+ * it is needed the moment the operations view is open — so it is read then,
+ * rather than every second against the chance that it might be.
+ */
+func detail() Detail {
+	d := vitals()
+
 	d.LoadAverage = loadAverage()
 	d.UptimeSeconds = uptime()
 	d.Tasks, d.Threads, d.Running = tasks()
-	d.MemoryUsedBytes, d.MemoryTotalBytes, d.SwapUsedBytes, d.SwapTotalBytes = memoryAndSwap()
 	/*
 	 * Every graphics device, whichever vendor made it.
 	 *
@@ -48,8 +77,6 @@ func detail() Detail {
 	d.Links = networkLinks()
 	d.Power = battery()
 	d.Processes = heaviest(d.MemoryTotalBytes)
-	d.NetworkInPerSecond, d.NetworkOutPerSecond = networkRate()
-	d.DiskReadPerSecond, d.DiskWritePerSecond = diskRate()
 
 	return d
 }
@@ -180,41 +207,44 @@ func uptime() float64 {
 	return v
 }
 
-// tasks counts processes, their threads, and how many are on a processor right
-// now — the three numbers top puts at the top of the screen.
+/*
+ * tasks counts processes, threads, and how many are on a processor right now.
+ *
+ * From one file. This used to open /proc/<pid>/status for every process on the
+ * machine and add the numbers up — three hundred file reads a second to
+ * produce three integers the kernel already publishes in a single line of
+ * /proc/loadavg, which is where top gets them.
+ *
+ * The line ends "0.42 0.51 0.60 2/2033 918273": the load averages, then
+ * running out of total threads, then the last process id issued.
+ */
 func tasks() (processes, threads, running int) {
-	entries, err := os.ReadDir("/proc")
+	raw, err := os.ReadFile("/proc/loadavg")
 	if err != nil {
 		return 0, 0, 0
 	}
 
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
+	fields := strings.Fields(string(raw))
 
-		pid, err := strconv.Atoi(e.Name())
-		if err != nil {
-			continue
-		}
+	if len(fields) < 4 {
+		return 0, 0, 0
+	}
 
-		status, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
-		if err != nil {
-			continue
-		}
+	share := strings.SplitN(fields[3], "/", 2)
 
-		processes++
+	if len(share) != 2 {
+		return 0, 0, 0
+	}
 
-		for _, line := range strings.Split(string(status), "\n") {
-			switch {
-			case strings.HasPrefix(line, "Threads:"):
-				n, _ := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "Threads:")))
-				threads += n
+	running, _ = strconv.Atoi(share[0])
+	threads, _ = strconv.Atoi(share[1])
 
-			case strings.HasPrefix(line, "State:"):
-				if strings.Contains(line, "R (running)") {
-					running++
-				}
+	// Processes, as distinct from threads, still means counting the
+	// directories — but that is one readdir rather than three hundred opens.
+	if entries, err := os.ReadDir("/proc"); err == nil {
+		for _, e := range entries {
+			if e.IsDir() && e.Name()[0] >= '0' && e.Name()[0] <= '9' {
+				processes++
 			}
 		}
 	}

@@ -160,12 +160,33 @@ export function onRecall(fn) {
     recallListeners.push(fn);
 }
 
+/*
+ * Passed on rather than taken over.
+ *
+ * This file is a module, so it runs after every plain script on the page —
+ * including the one the voice panel uses to colour its state. Assigning here
+ * replaced that handler instead of joining it, and the word under the
+ * microphone stopped changing at that moment: it read "Waiting for its name"
+ * in the resting colour through thinking, speaking and everything else, while
+ * the label an inch below it said something different from the same event.
+ *
+ * Whoever was here first is still called. Being loaded last is not a reason to
+ * be the only one.
+ */
+const alsoTell = window.brainMapState;
+
 window.brainMapState = function (state) {
     signals.state = state || 'idle';
+
+    if (alsoTell) alsoTell(state);
 };
+
+const alsoTellRecall = window.brainMapRecall;
 
 window.brainMapRecall = function (ids) {
     const used = ids || [];
+
+    if (alsoTellRecall) alsoTellRecall(ids);
 
     // Scaled by how much was recalled, so a question answered from one memory
     // does not look like one answered from a dozen.

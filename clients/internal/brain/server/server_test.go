@@ -290,7 +290,7 @@ func TestRegisteredTools(t *testing.T) {
 		"forget_reminder", "learn_from_folder", "list_background", "list_directory",
 		"list_drives", "list_models",
 		"list_reminders", "list_waiting", "list_windows", "look_at_screen",
-		"open_app", "places_it_learns_from",
+		"open_app", "places_it_learns_from", "put_it_back",
 		"read_document", "read_file", "remind_me", "run_command",
 		"scroll", "search_files", "set_appearance", "set_wake_word",
 		"stop_background", "type_text", "what_you_know", "write_document",

@@ -106,3 +106,17 @@ func argsOf(raw json.RawMessage, v any) error {
 
 	return nil
 }
+
+/*
+ * Root is the brain's own folder, for the few tools that need to know it.
+ *
+ * A package-level value rather than a field on each tool, because it is one
+ * value for the life of the program and threading it through every tool that
+ * writes a file would be five constructors changed to carry a constant.
+ *
+ * It is where the previous version of anything overwritten is kept — inside
+ * the brain's folder rather than beside the original, since a .bak next to
+ * somebody's source file turns up in their editor and their git status and is
+ * one more thing to clean up after an assistant.
+ */
+var Root string

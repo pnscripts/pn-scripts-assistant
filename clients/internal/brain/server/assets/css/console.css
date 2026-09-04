@@ -291,9 +291,15 @@ html, body {
     text-align: center;
 }
 
-.voice-state.listening { color: var(--accent); }
-.voice-state.speaking  { color: var(--ok); }
-.voice-state.thinking  { color: var(--warn); }
+/*
+ * The word takes its colour from the same place as the light beneath it.
+ *
+ * There were three colours here, from three variables, none of them the ones
+ * the rest of the page uses for the same states — so the panel could show
+ * "Thinking" in one amber while the feed showed the same moment in another,
+ * and had no colour at all for waiting, tool work or learning.
+ */
+.voice-state[data-status] { color: var(--status); }
 
 /* ============================================================
    Panels
@@ -2010,28 +2016,52 @@ select { font-size: 13.5px; }
 
 #talk:hover { border: none; }
 
+/*
+ * The ring takes its colour from the status, all of it.
+ *
+ * It used to take its border from the status and everything else from a
+ * hardcoded cyan — the glow, the fill and the microphone itself. So while the
+ * brain was thinking the panel showed an amber word under a cyan light, which
+ * is one state drawn in two colours, and the light is the part anybody
+ * actually looks at from across the room.
+ *
+ * Everything below is currentColor, so there is one place the colour comes
+ * from. The plain-rgba lines above each colour-mix are the fallback for a
+ * webview too old for it: cyan everywhere, which is where this started, rather
+ * than no ring at all.
+ */
 .talk-ring {
     width: 58px;
     height: 58px;
     display: grid;
     place-items: center;
     border-radius: 50%;
-    border: 1px solid rgba(77, 208, 225, 0.4);
-    background: radial-gradient(circle at 50% 40%, rgba(77, 208, 225, 0.22), rgba(9, 20, 32, 0.9));
-    box-shadow: 0 0 0 6px rgba(77, 208, 225, 0.06), 0 0 22px rgba(77, 208, 225, 0.22);
     color: var(--accent);
-    transition: box-shadow 0.25s, border-color 0.25s;
+    color: var(--status, var(--accent));
+    border: 1px solid currentColor;
+    background: radial-gradient(circle at 50% 40%, rgba(77, 208, 225, 0.22), rgba(9, 20, 32, 0.9));
+    background: radial-gradient(circle at 50% 40%,
+        color-mix(in srgb, currentColor 20%, transparent), rgba(9, 20, 32, 0.92));
+    box-shadow: 0 0 0 6px rgba(77, 208, 225, 0.06), 0 0 22px rgba(77, 208, 225, 0.22);
+    box-shadow:
+        0 0 0 6px color-mix(in srgb, currentColor 7%, transparent),
+        0 0 22px color-mix(in srgb, currentColor 24%, transparent);
+    transition: box-shadow 0.25s, border-color 0.25s, color 0.25s;
 }
 
-#talk[data-state="listening"] .talk-ring {
-    border-color: rgba(77, 208, 225, 0.85);
-    box-shadow: 0 0 0 8px rgba(77, 208, 225, 0.10), 0 0 32px rgba(77, 208, 225, 0.45);
-}
-
-#talk[data-state="speaking"] .talk-ring {
-    border-color: rgba(123, 255, 168, 0.8);
-    color: var(--ok);
-    box-shadow: 0 0 0 8px rgba(123, 196, 127, 0.10), 0 0 32px rgba(123, 255, 168, 0.4);
+/*
+ * Brighter while something is actually happening, in whatever colour that
+ * something is.
+ *
+ * Listening and speaking had a rule each, in their own hardcoded colours,
+ * which left thinking and the rest with the resting glow — so the states that
+ * take the longest were the ones the panel showed least.
+ */
+#talk:not([data-state="idle"]):not([data-state="waiting"]) .talk-ring {
+    box-shadow: 0 0 0 8px rgba(77, 208, 225, 0.10), 0 0 32px rgba(77, 208, 225, 0.42);
+    box-shadow:
+        0 0 0 8px color-mix(in srgb, currentColor 11%, transparent),
+        0 0 32px color-mix(in srgb, currentColor 42%, transparent);
 }
 
 #talk .talk-dot { display: none; }

@@ -254,6 +254,18 @@
         thinking: 'Thinking',
         speaking: 'Speaking',
         idle: 'Idle',
+
+        /*
+         * The states this panel used to have no word for.
+         *
+         * Reading a file and learning a folder both arrived here as "Idle",
+         * so the one panel somebody looks at to find out whether the brain is
+         * doing anything said it was doing nothing — during the two kinds of
+         * work that take the longest.
+         */
+        tool: 'Working',
+        hearing: 'Making out the words',
+        learning: 'Learning',
     };
 
     let talkState = 'idle';
@@ -269,7 +281,16 @@
 
         if (label) {
             label.textContent = stateWords[talkState] || 'Idle';
-            label.className = `voice-state ${talkState}`;
+            label.className = 'voice-state';
+
+            /*
+             * Coloured from the shared palette rather than from three classes
+             * of its own, so the word agrees with the light under it and with
+             * the same moment drawn anywhere else on the page.
+             */
+            label.dataset.status = window.brainStatusOf
+                ? window.brainStatusOf(talkState)
+                : 'idle';
         }
     };
 

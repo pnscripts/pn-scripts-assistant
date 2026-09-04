@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"pn-brain/internal/brain/undo"
 )
 
 /*
@@ -116,6 +118,9 @@ func (WriteDocument) Execute(_ context.Context, raw json.RawMessage) (string, er
 	if err := os.MkdirAll(filepath.Dir(a.Path), 0o755); err != nil {
 		return "", err
 	}
+
+	// What was there before, so "put it back" has something to put back.
+	undo.Keep(Root, a.Path, "written")
 
 	if err := os.WriteFile(a.Path, body, 0o644); err != nil {
 		return "", fmt.Errorf("cannot write %s: %w", a.Path, err)

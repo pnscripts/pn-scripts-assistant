@@ -26,7 +26,15 @@ import (
  * second.
  */
 func (s *Server) handleOperations(w http.ResponseWriter, r *http.Request) {
-	now, ok := machine.Latest()
+	/*
+	 * The whole reading, and only because somebody is looking at it.
+	 *
+	 * The graphs are drawn from the cheap readings the watcher takes every
+	 * second; everything that has to walk the machine happens here, on the
+	 * request, so a closed panel costs nothing at all.
+	 */
+	now := machine.Everything()
+	ok := now.Available
 
 	if !ok {
 		ok200(w, map[string]any{

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"pn-brain/internal/brain/undo"
 )
 
 // MaxReadBytes caps what one read returns.
@@ -249,6 +251,9 @@ func (WriteFile) Execute(ctx context.Context, raw json.RawMessage) (string, erro
 	if err := os.MkdirAll(filepath.Dir(a.Path), 0o755); err != nil {
 		return "", fmt.Errorf("cannot create the folder for %s: %w", a.Path, err)
 	}
+
+	// What was there before, so "put it back" has something to put back.
+	undo.Keep(Root, a.Path, "written")
 
 	if err := os.WriteFile(a.Path, []byte(a.Content), 0o644); err != nil {
 		return "", fmt.Errorf("cannot write %s: %w", a.Path, err)
