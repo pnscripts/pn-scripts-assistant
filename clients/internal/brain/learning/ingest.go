@@ -60,6 +60,20 @@ func (w *Worker) Ingest(ctx context.Context, observations Observations, progress
 			return rep, err
 		}
 
+		/*
+		 * An observation with nothing in it is a mark, not a fact.
+		 *
+		 * The scan leaves one behind for each document whose insides are still
+		 * to be read, and something is meant to have replaced it with what the
+		 * document says before it reaches here. If one slips through, storing
+		 * it would put an empty lesson in somebody's memory — which is worse
+		 * than losing it, because nothing downstream can tell an empty fact
+		 * from a broken one.
+		 */
+		if strings.TrimSpace(o.Content) == "" {
+			continue
+		}
+
 		status := w.Validator.StatusFor(o.Source)
 
 		// A path that vanished between the scan and now is recorded as

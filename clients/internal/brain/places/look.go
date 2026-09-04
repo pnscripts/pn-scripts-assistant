@@ -116,6 +116,26 @@ func Look(ctx context.Context, learner Reads, seen Seen, owner string, p Place) 
 		fresh = fresh[:EachPass]
 	}
 
+	/*
+	 * And now the documents are actually opened.
+	 *
+	 * Here rather than in the scan, and after everything already known has
+	 * been thrown away, because this is the expensive half: reading a file is
+	 * cheap but every line it yields costs an embedding, and a scan that read
+	 * every document on a drive to discover it had read them all last week
+	 * would be an afternoon of processor for nothing.
+	 *
+	 * This is what the counting used to hide. Nine hundred and sixty-six
+	 * documents "learned" meant nine hundred and sixty-six file names known,
+	 * and not one question about what was inside any of them could be
+	 * answered.
+	 */
+	fresh = learning.ReadContents(ctx, fresh, owner)
+
+	if len(fresh) > EachPass {
+		fresh = fresh[:EachPass]
+	}
+
 	report, err := learner.Ingest(ctx, fresh, nil)
 
 	// What was taken in counts even when the pass ended early — the drive was

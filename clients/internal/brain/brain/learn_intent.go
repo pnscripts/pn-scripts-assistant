@@ -167,7 +167,7 @@ func (b *Brain) handleLearnInstruction(ctx context.Context, message string) (str
 	progress.Set("learning", "Reading "+target.Path)
 	defer progress.Done()
 
-	observations, scanned, err := b.observe(target.Path)
+	observations, scanned, err := b.observe(ctx, target.Path)
 	if err != nil {
 		return fmt.Sprintf("I could not read %s: %v", target.Path, err), true
 	}
@@ -218,7 +218,7 @@ func (b *Brain) handleLearnInstruction(ctx context.Context, message string) (str
 }
 
 // observe turns a path into things worth recording.
-func (b *Brain) observe(path string) (learning.Observations, int, error) {
+func (b *Brain) observe(ctx context.Context, path string) (learning.Observations, int, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, 0, err
@@ -233,7 +233,23 @@ func (b *Brain) observe(path string) (learning.Observations, int, error) {
 			Kind: strings.TrimPrefix(filepath.Ext(path), "."),
 		}
 
-		return learning.FromDocuments([]learning.Document{doc}, owner), 1, nil
+		out := learning.FromDocuments([]learning.Document{doc}, owner)
+
+		/*
+		 * Pointed at one file, it reads it.
+		 *
+		 * This is the case where the old behaviour was hardest to defend:
+		 * somebody says "learn this document", and what was learned was that a
+		 * file of that name existed at that path — which they knew, since they
+		 * had just named it.
+		 */
+		if learning.CanRead(path) {
+			if text, err := learning.TextOf(ctx, path); err == nil && text != "" {
+				out = append(out, learning.FromDocumentContents(doc, text, owner)...)
+			}
+		}
+
+		return out, 1, nil
 	}
 
 	projects, err := learning.ScanProjects(path)
@@ -249,6 +265,16 @@ func (b *Brain) observe(path string) (learning.Observations, int, error) {
 	observations := append(
 		learning.FromProjects(projects, owner),
 		learning.FromDocuments(documents, owner)...)
+
+	/*
+	 * And the documents are opened, not merely listed.
+	 *
+	 * Told to learn a folder, what somebody means is its contents. Reporting
+	 * "learned 966 documents" when what was learned is 966 file names is the
+	 * kind of answer that is technically true and reads as a lie the first
+	 * time somebody asks what is in one of them.
+	 */
+	observations = learning.ReadContents(ctx, observations, owner)
 
 	return observations, len(projects) + len(documents), nil
 }

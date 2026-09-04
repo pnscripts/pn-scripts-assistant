@@ -298,5 +298,9 @@ func FromDocuments(docs []Document, owner string) Observations {
 		out = append(out, Observation{Content: d.Sentence(owner), Source: d.Source()})
 	}
 
+	// And a mark against each one whose insides can be read, so the reading is
+	// tracked separately from the listing. See ReadingSource.
+	out = append(out, ContentsWanted(docs)...)
+
 	return out
 }
