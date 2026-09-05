@@ -1178,6 +1178,17 @@ func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
 		}()
 	})
 
+	/*
+	 * And the introduction counts as given once it is on its way.
+	 *
+	 * Recorded here rather than where it is composed, because those are not
+	 * the same event. Marking it while building cost the introduction
+	 * entirely: every tool was written down as mentioned, the greeting was
+	 * then consumed by something that never showed it, and the one moment the
+	 * program had to say what it could do went by with nobody told.
+	 */
+	s.brain.Delivered(greeting)
+
 	ok(w, greeting)
 }
 

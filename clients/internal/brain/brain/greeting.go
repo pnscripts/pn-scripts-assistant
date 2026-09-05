@@ -188,10 +188,9 @@ func (b *Brain) Greet() Greeting {
 	shown := ""
 
 	if introduction != "" {
-		// The whole list, for the chat, and then it is never offered again.
+		// The whole list, for the chat. Marked as given by whoever delivers
+		// it, not here — see Delivered.
 		shown = b.WhatItCanDo()
-
-		MarkIntroduced(b.Root, loaded)
 	}
 
 	return Greeting{

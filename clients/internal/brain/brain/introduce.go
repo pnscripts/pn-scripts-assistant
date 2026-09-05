@@ -200,3 +200,23 @@ func (b *Brain) WhatItCanDo() string {
 
 	return said
 }
+
+/*
+ * Delivered records that a greeting actually reached somebody.
+ *
+ * Separate from building it, because those are not the same event and
+ * conflating them cost the introduction entirely: Greet marked every tool as
+ * mentioned, then the greeting was consumed by something that never showed it,
+ * and the one moment the program had to say what it could do went by with
+ * nobody told. It had no way to notice, because as far as it was concerned the
+ * job was done.
+ *
+ * Called by whatever put it on somebody's screen.
+ */
+func (b *Brain) Delivered(g Greeting) {
+	if g.Shown == "" {
+		return
+	}
+
+	MarkIntroduced(b.Root, b.loadedTools())
+}

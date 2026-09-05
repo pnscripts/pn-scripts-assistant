@@ -156,13 +156,13 @@ var conversational = []string{
 	"good night", "morning", "how are you", "how are things", "are you there",
 	"are you awake", "can you hear me", "do you hear me", "thanks", "thank you",
 	"cheers", "goodbye", "bye", "see you", "well done", "nice", "great",
-	"who are you", "what is your name", "what are you", "what can you do",
+	"who are you", "what is your name", "what are you",
 	"tell me a joke", "how old are you",
 
 	"здравей", "здравейте", "добро утро", "добър ден", "добър вечер",
 	"лека нощ", "как си", "как сте", "чуваш ли ме", "тук ли си", "благодаря",
 	"мерси", "чао", "довиждане", "браво", "как се казваш", "коя си ти",
-	"кой си ти", "какво можеш",
+	"кой си ти",
 }
 
 /*
@@ -172,7 +172,20 @@ var conversational = []string{
  * friendly it looks. "Brain, read that file" is four words and is not small
  * talk.
  */
+/*
+ * "What can you do" is not small talk, whatever it sounds like.
+ *
+ * It was on the list above, so it went to the small model with no tools —
+ * which answered it the only way anything can without them: from a general
+ * idea of what an assistant is. "I can help you with tasks like managing
+ * files, setting reminders, and more" was said to somebody who had just spent
+ * an evening finding out what to say to it, and every word of it was a guess.
+ *
+ * It has a tool now that answers from the registry, so the question has to
+ * reach a model that can call it.
+ */
 var working = []string{
+	"what can you do", "какво можеш", "how do i tell you", "what can i say",
 	"file", "folder", "directory", "path", "read", "write", "edit", "change",
 	"open", "save", "delete", "remove", "create", "make", "run", "command",
 	"install", "build", "test", "compile", "code", "function", "error", "log",
