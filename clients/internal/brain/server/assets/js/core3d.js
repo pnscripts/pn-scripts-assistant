@@ -104,50 +104,59 @@ export function startCore() {
     const cardTop = cssColour('--card-top', 0x0d1c2b);
     const cardBottom = cssColour('--card-bottom', 0x080e17);
 
+    /*
+     * The card's own background, computed the way the browser computes it.
+     *
+     * The previous version painted "the same sort of gradient" across the
+     * plane's own coordinates with a scale factor picked by eye, and it did
+     * not match: the plane is far larger than the visible area, so the corners
+     * of the panel landed at arbitrary points of the ramp, and the core sat
+     * darker than every card beside it.
+     *
+     * This works in canvas pixels instead and reproduces CSS's own
+     * linear-gradient arithmetic — the same angle, the same gradient-line
+     * length for the box, the same two colours. The result is not an
+     * approximation of the panel background; it is the panel background,
+     * arrived at by the same sum.
+     */
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(40, 40),
         new THREE.ShaderMaterial({
             uniforms: {
                 top: { value: cardTop },
                 bottom: { value: cardBottom },
-                lift: { value: new THREE.Color(0x12283c) },
+                across: { value: new THREE.Vector2(1, 1) },
             },
             vertexShader: `
-                varying vec2 spot;
                 void main() {
-                    spot = uv;
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                 }`,
             fragmentShader: `
                 uniform vec3 top;
                 uniform vec3 bottom;
-                uniform vec3 lift;
-                varying vec2 spot;
+                uniform vec2 across;
+
+                /*
+                 * CSS reckons a gradient angle clockwise from straight up, and
+                 * measures along a line through the centre whose length is
+                 * chosen so the box's corners land exactly at its two ends.
+                 * 160 degrees is what .card uses.
+                 */
+                #define SIN160  0.34202
+                #define COS160 -0.93969
+
                 void main() {
-                    /*
-                     * The same diagonal the cards use, at the same angle.
-                     *
-                     * Scaled up because only the middle of this plane is ever
-                     * on screen: across the visible part, an unscaled gradient
-                     * would show a fifth of its range and read as flat.
-                     */
-                    float along = 0.5 +
-                        (0.342 * (spot.x - 0.5) - 0.940 * (spot.y - 0.5)) * 2.4;
+                    // Canvas pixels, with y measured downwards as CSS does.
+                    vec2 at = vec2(gl_FragCoord.x, across.y - gl_FragCoord.y);
 
-                    vec3 colour = mix(top, bottom, clamp(along, 0.0, 1.0));
+                    vec2 middle = across * 0.5;
 
-                    /*
-                     * And a little more light directly behind the eye.
-                     *
-                     * Small on purpose. It is there so the shape sits in
-                     * something rather than on top of nothing; any more and
-                     * the panel stops matching the ones beside it, which is
-                     * the fault this is fixing.
-                     */
-                    float middle = smoothstep(0.30, 0.0,
-                        distance(spot, vec2(0.5, 0.52)));
+                    float length = abs(across.x * SIN160) + abs(across.y * COS160);
 
-                    gl_FragColor = vec4(mix(colour, lift, middle * 0.5), 1.0);
+                    float along = 0.5 + ((at.x - middle.x) * SIN160 -
+                        (at.y - middle.y) * COS160) / length;
+
+                    gl_FragColor = vec4(mix(top, bottom, clamp(along, 0.0, 1.0)), 1.0);
                 }`,
             depthWrite: false,
         }));
@@ -585,6 +594,10 @@ export function startCore() {
 
         renderer.setPixelRatio(ratio);
         renderer.setSize(rect.width, rect.height, false);
+
+        // In the same units gl_FragCoord counts in, which is device pixels.
+        ground.material.uniforms.across.value.set(
+            rect.width * ratio, rect.height * ratio);
 
         // The bloom pass renders at its own size, and it is the expensive one:
         // three quarters of the width is a quarter less work for a blur nobody

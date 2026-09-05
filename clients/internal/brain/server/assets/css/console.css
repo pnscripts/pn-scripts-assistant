@@ -1238,16 +1238,24 @@ textarea:focus {
 
 /* ---------- the core card ---------- */
 
+/*
+ * The core keeps the background every other card has.
+ *
+ * It used to override it with a darker gradient of its own and two blue glows
+ * on top, which is why it read as a hole in the middle of the row however
+ * carefully the canvas inside it was painted: the canvas matched one thing and
+ * the ring of card around it matched another, and neither matched the panels
+ * either side.
+ *
+ * The light it needs comes from the eye, which is a light source. It does not
+ * need the panel to be lit as well.
+ */
 .card-core {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background:
-        radial-gradient(ellipse at 50% 46%, rgba(24, 96, 138, 0.42) 0%, transparent 62%),
-        radial-gradient(ellipse at 50% 46%, rgba(10, 40, 66, 0.6) 0%, transparent 88%),
-        linear-gradient(160deg, rgba(16, 36, 56, 0.6), rgba(7, 13, 22, 0.85));
 }
 
 .card-core #brainmap {
