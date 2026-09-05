@@ -1356,6 +1356,20 @@ async function openWhereWeLeftOff(canSpeak) {
      */
     addMessage(state.brainName, greeting.text, { cssClass: 'brain' });
 
+    /*
+     * And the introduction in full, in the conversation.
+     *
+     * It is a list — what it can do and the words to ask for each — and a list
+     * is the wrong shape for something said out loud. So the voice gets one
+     * sentence and the chat gets the whole of it, where it can be read,
+     * scrolled back to, and left alone until it is wanted.
+     *
+     * Sent once, by the brain, and never offered again.
+     */
+    if (greeting.shown) {
+        addMessage(state.brainName, greeting.shown, { cssClass: 'brain' });
+    }
+
     if (canSpeak) api.post('/api/speak', { text: greeting.text }).catch(() => {});
 }
 

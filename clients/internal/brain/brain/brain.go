@@ -273,6 +273,16 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 			Voice: b.changeVoice,
 		},
 
+		/*
+		 * And saying what all of that is, in the words to ask for it.
+		 *
+		 * Everything here is reachable by saying a sentence and none of it was
+		 * discoverable by saying a sentence. Answered from the registry rather
+		 * than from the model's idea of what an assistant is, so it cannot
+		 * promise something that was never built.
+		 */
+		tools.Introduce{Loaded: b.loadedTools, Owner: b.Cfg.Owner},
+
 		// And the one setting that fixes the commonest cause of the confusion.
 		tools.Quieten{
 			Reroute: func(ctx context.Context, on bool) error {

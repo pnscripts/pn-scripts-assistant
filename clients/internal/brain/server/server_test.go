@@ -294,7 +294,7 @@ func TestRegisteredTools(t *testing.T) {
 		"read_document", "read_file", "remind_me", "run_command",
 		"scroll", "search_files", "set_appearance", "set_wake_word",
 		"stop_background", "stop_hearing_this_machine", "type_text",
-		"what_am_i_hearing", "what_you_know", "write_document",
+		"what_am_i_hearing", "what_can_you_do", "what_you_know", "write_document",
 		"write_file",
 	}
 

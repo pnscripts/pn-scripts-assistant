@@ -23,6 +23,19 @@ type Greeting struct {
 	Spoke bool   `json:"-"`
 
 	/*
+	 * Shown is the longer version, for the conversation rather than the room.
+	 *
+	 * The introduction is a list — what it can do and the words to ask for
+	 * each — and a list is exactly the wrong shape for something said out
+	 * loud. So the greeting carries one sentence for the voice and the whole
+	 * of it for the chat, where it can be read, scrolled back to, and left
+	 * alone until it is wanted.
+	 *
+	 * Empty when there is nothing longer to show, which is almost always.
+	 */
+	Shown string `json:"shown,omitempty"`
+
+	/*
 	 * And which conversation this is.
 	 *
 	 * Opening the program used to drop you back into the last conversation
@@ -97,6 +110,27 @@ func (b *Brain) Greet() Greeting {
 	}
 
 	/*
+	 * What it can do, before anything else it might say.
+	 *
+	 * First because it is the one thing somebody cannot find out by using the
+	 * program: everything here is reachable by saying a sentence and none of
+	 * it announces itself, so its owner was learning what to say by asking the
+	 * person who wrote it.
+	 *
+	 * Once on first meeting, once more when it gains something it could not do
+	 * last time, and never again. An introduction that keeps introducing is
+	 * worse than none — it teaches somebody to stop reading the first line,
+	 * which is where everything that matters goes.
+	 */
+	loaded := b.loadedTools()
+
+	introduction := introductionLine(b.Root, loaded)
+
+	if introduction != "" {
+		parts = append(parts, SpokenIntroduction(introduction))
+	}
+
+	/*
 	 * What the last run was in the middle of, if it was in the middle of
 	 * something.
 	 *
@@ -151,8 +185,18 @@ func (b *Brain) Greet() Greeting {
 		parts = append(parts, warning)
 	}
 
+	shown := ""
+
+	if introduction != "" {
+		// The whole list, for the chat, and then it is never offered again.
+		shown = b.WhatItCanDo()
+
+		MarkIntroduced(b.Root, loaded)
+	}
+
 	return Greeting{
 		Text:    strings.Join(parts, " "),
+		Shown:   shown,
 		CarryOn: b.carryingOn(last),
 		Last:    last,
 	}
