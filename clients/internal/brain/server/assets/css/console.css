@@ -90,9 +90,20 @@ html, body {
    Shell
    ============================================================ */
 
+/*
+ * The rails give way before the middle does.
+ *
+ * They were fixed at 218 and 300 pixels, so on a narrow window the column
+ * that matters — the one being read — was squeezed first, and then a
+ * breakpoint hid a rail outright. Clamped, they give up their own width
+ * gradually and the middle keeps what it needs.
+ */
 .shell {
     display: grid;
-    grid-template-columns: 218px minmax(0, 1fr) 300px;
+    grid-template-columns:
+        clamp(150px, 15vw, 218px)
+        minmax(0, 1fr)
+        clamp(220px, 22vw, 300px);
     grid-template-rows: 54px minmax(0, 1fr) auto;
     grid-template-areas:
         "top  top   top"
@@ -1085,29 +1096,6 @@ textarea:focus {
    the core strip. The left column goes next, at which point the console is a
    conversation with a reactor behind it, which is the irreducible version of
    this program. */
-@media (max-width: 1180px) {
-    .shell {
-        grid-template-columns: 218px minmax(0, 1fr);
-        grid-template-areas:
-            "top top"
-            "nav main"
-            "bot bot";
-    }
-
-    .rail-right { display: none; }
-    .core-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-@media (max-width: 820px) {
-    .shell {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "top" "main" "bot";
-    }
-
-    .nav { display: none; }
-    .transcript { padding-left: 18px; padding-right: 18px; }
-    .talkbar { grid-template-columns: minmax(0, 1fr); }
-    .wave { display: none; }
 }
 
 /* ============================================================
@@ -1446,16 +1434,6 @@ textarea:focus {
         transparent;
 }
 
-@media (max-width: 1320px) {
-    .dash { grid-template-columns: 236px minmax(0, 1fr); }
-    .dash-col:last-child { display: none; }
-}
-
-@media (max-width: 980px) {
-    .dash { grid-template-columns: minmax(0, 1fr); }
-    .dash-col:first-child { display: none; }
-}
-
 /* ============================================================
    The command-centre grid
    ============================================================
@@ -1606,24 +1584,6 @@ textarea:focus {
 
 /* The waiting card holds two lists that each hide themselves. */
 #approvals-panel, #lessons-panel { min-height: 0; overflow-y: auto; }
-
-@media (max-width: 1320px) {
-    .dash {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-        grid-template-areas:
-            "core    reactor"
-            "skills  waiting"
-            "monitor knows";
-    }
-}
-
-@media (max-width: 980px) {
-    .dash {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr) auto;
-        grid-template-areas: "reactor" "core";
-    }
-}
 
 /* Capability tiles and provider tiles: two across, as the reference genre lays
    them out, so a glance counts them rather than reading them. */
@@ -3937,3 +3897,248 @@ select { font-size: 13.5px; }
  * voice — a switch that could only be refused if pressed.
  */
 .field-check[hidden] { display: none; }
+
+
+/* ============================================================
+   Every size of window
+   ============================================================
+
+   Last in the file on purpose. The shell is defined three times as the theme
+   builds up, and the last definition wins — so a responsive rule written
+   beside the first one is a rule that never applies at any width, which is
+   what these were. Layout that has to respond to the window belongs after
+   everything that decides what the layout is.
+
+   The rule throughout: nothing is hidden. The old version dropped a column of
+   the dashboard at 1320px and another at 980px, and hid the navigation
+   entirely below 820px — nine panels became three, with no way to reach the
+   rest and nothing on screen to say they existed. A panel somebody cannot
+   reach is a feature they do not have. */
+
+/* The navigation gives up its own width before the middle gives up any. */
+@media (max-width: 1400px) {
+    .shell { grid-template-columns: clamp(168px, 17vw, 244px) minmax(0, 1fr); }
+}
+
+/*
+ * Below the width where a column of navigation earns its place, it becomes a
+ * strip across the top: the same items, scrolling sideways, all still there.
+ */
+@media (max-width: 860px) {
+    .shell {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "top"
+            "nav"
+            "main"
+            "bot";
+    }
+
+    .nav {
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 8px 12px;
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .nav-item { flex: 0 0 auto; white-space: nowrap; }
+
+    /* The brand and the voice card are a column's furniture; in a strip they
+       are in the way of the thing the strip is for. */
+    .nav .brand,
+    .nav .voice-card,
+    .nav .nav-foot { display: none; }
+
+    .transcript { padding-left: 16px; padding-right: 16px; }
+    .wave { display: none; }
+}
+
+/*
+ * A window too short to hold the layout scrolls rather than crushing it.
+ *
+ * Everything here is laid out in fractions of the height, which is right until
+ * there is not enough height to divide: at 600 pixels the cards became bands
+ * too thin to read and the core a sliver. Below that, height is given up and
+ * the middle scrolls, which is the only honest answer to a window smaller than
+ * the thing inside it.
+ */
+@media (max-height: 720px) {
+    .main { overflow-y: auto; }
+
+    .dash {
+        grid-template-rows: none;
+        grid-auto-rows: minmax(180px, auto);
+        overflow: visible;
+    }
+
+    .card-core { min-height: 250px; }
+}
+
+/* And a window narrow enough that two columns of card are one column of
+   nothing. Ordered by what somebody wants first: the subject, what it is
+   doing, then anything waiting on a decision from them. */
+@media (max-width: 700px) {
+    .dash {
+        padding: 10px;
+        gap: 10px;
+    }
+
+    .talkbar { padding-left: 10px; padding-right: 10px; }
+    .topbar { gap: 8px; }
+    .clock { display: none; }
+}
+
+/*
+ * Two columns, then one, and nothing leaves.
+ *
+ * The rules this replaces dropped cards rather than moving them: at 1320px
+ * three panels went, and at 980px the dashboard was reduced to the core and
+ * the reactor — six of the eight gone, with nothing on screen to say they
+ * existed. A panel somebody cannot reach is a feature they do not have.
+ *
+ * They also named areas — skills, providers — that the layout stopped having,
+ * which is why some of them had been quietly auto-placed for a while. These
+ * name the eight that exist.
+ *
+ * A grid with named areas has its column count set by the names, so each of
+ * these has to restate them. That is the cost of naming areas and it is worth
+ * paying: the arrangement is readable in the file rather than counted out.
+ */
+@media (max-width: 1320px) {
+    .dash {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows:
+            minmax(220px, 1.1fr) minmax(150px, 0.7fr)
+            minmax(200px, 1fr) minmax(150px, 0.7fr);
+        grid-template-areas:
+            "reactor  reactor"
+            "core     activity"
+            "chat     chat"
+            "monitor  knows";
+    }
+
+    /* Two cards share the last row rather than each taking one. */
+    .dash > .card[style*="commands"] { grid-area: monitor; }
+    .dash > .card[style*="waiting"] { grid-area: knows; }
+    .dash > .card[style*="monitor"] { grid-column: 1; grid-row: 5; }
+    .dash > .card[style*="knows"] { grid-column: 2; grid-row: 5; }
+}
+
+/*
+ * One column, in the order somebody wants them.
+ *
+ * The subject first, then what it is doing, then the conversation, then
+ * anything waiting on a decision — because a queue nobody can see is the brain
+ * waiting on somebody who does not know they are being waited on.
+ */
+@media (max-width: 980px) {
+    .dash {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: none;
+        grid-auto-rows: minmax(190px, auto);
+        grid-template-areas:
+            "reactor"
+            "core"
+            "chat"
+            "waiting"
+            "activity"
+            "knows"
+            "monitor"
+            "commands";
+        overflow-y: auto;
+    }
+
+    .dash > .card[style*="commands"],
+    .dash > .card[style*="waiting"],
+    .dash > .card[style*="monitor"],
+    .dash > .card[style*="knows"] { grid-column: 1; grid-row: auto; }
+
+    .card-core { min-height: 280px; }
+    .card-chat { min-height: 260px; }
+}
+
+/*
+ * And the top bar gives things up in order of how little they are needed.
+ *
+ * It is a row of fixed-size things, so on a narrow window it simply ran off
+ * the edge — the search, the buttons and the name pushed past the right side
+ * with no scrollbar and no way to reach them. The status chip and the headline
+ * go first because they repeat what is on the screen below; the search and the
+ * controls stay, because they are the only way to reach anything.
+ */
+@media (max-width: 1000px) {
+    .topbar { gap: 8px; padding-left: 10px; padding-right: 10px; }
+    .topbar .status-chip { display: none; }
+}
+
+@media (max-width: 760px) {
+    .clock { display: none; }
+    .topbar .search { min-width: 0; }
+}
+
+/*
+ * Narrower than a phone held upright, and the name goes too.
+ *
+ * It is the one thing in the bar that says something already on the screen —
+ * whose brain this is, in a program that runs on one person's machine. The
+ * search and the three controls stay, because they are the way to reach
+ * things rather than a label for them.
+ */
+@media (max-width: 560px) {
+    .operator, .status-chip { display: none; }
+    .topbar { padding-left: 8px; padding-right: 8px; }
+}
+
+/*
+ * Nothing is allowed to push the page sideways.
+ *
+ * A row of fixed-width things inside a grid column will happily be wider than
+ * the column, and the whole layout then slides under the edge of the window
+ * where nothing can reach it. min-width:0 on the boxes that hold rows is what
+ * lets them shrink instead, and it has to be said explicitly because the
+ * default for a grid or flex item is not to go below its content.
+ */
+.shell, .topbar, .main, .talkbar, .dash, .nav { min-width: 0; }
+.topbar > *, .talkbar > * { min-width: 0; }
+
+/*
+ * The bar you talk into wraps rather than crushing what you type into it.
+ *
+ * It is a row of a text field and three fixed-size things, and at 760px the
+ * field was squeezed to about fifty pixels with the buttons sitting on top of
+ * it. Wrapping costs a second line at the bottom of the window; not wrapping
+ * costs the ability to type.
+ */
+/*
+ * The hint at the end of the bar is the first thing to go.
+ *
+ * "Reads run on their own. Anything that changes something waits for you." is
+ * worth saying once and is not worth the width it takes from the thing you
+ * type into — which is what it was taking, long before the window was small.
+ */
+@media (max-width: 1500px) {
+    .talkbar .hint { display: none; }
+}
+
+@media (max-width: 1200px) {
+    .talkbar { flex-wrap: wrap; height: auto; padding-top: 8px; padding-bottom: 8px; }
+    .talkbar .talk-pill { flex: 1 1 320px; }
+}
+
+@media (max-width: 900px) {
+    .talkbar {
+        flex-wrap: wrap;
+        height: auto;
+        gap: 8px;
+        padding: 10px 12px;
+        align-content: center;
+    }
+
+    .talkbar .talk-pill { flex: 1 1 100%; }
+    .talkbar .hint { display: none; }
+}
