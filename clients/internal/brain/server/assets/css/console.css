@@ -2320,7 +2320,7 @@ select { font-size: 13.5px; }
    filling what is left. It had been positioned for a full-bleed canvas with the
    heading pushed to the end, which put the word CORE along the bottom edge. */
 .card-core > h2 { flex: none; }
-.card-core .core-caption { top: 46%; }
+.card-core .core-caption { top: 44px; }
 
 /* Both scenes size themselves from the element's own box, so the element must
    have one. As flex children with min-height:0 they could collapse to nothing
@@ -2654,9 +2654,18 @@ select { font-size: 13.5px; }
    Centred it landed over the iris, which is the one part of this shape that
    has to be unobstructed — it is the thing that reads as looking back at you,
    and a word written through the middle of it makes it a logo. */
+/*
+ * The name sits above the triangle, not inside it.
+ *
+ * It was at the bottom, which put it across the triangle's lower point — the
+ * name written through the shape rather than over it. Above, it reads as a
+ * title for the thing below, and the whole of the form is left unobstructed:
+ * the eye is what reads as looking back at you, and a word through it makes it
+ * a logo.
+ */
 .card-core .core-caption {
-    top: auto;
-    bottom: 26px;
+    top: 44px;
+    bottom: auto;
     transform: none;
 }
 

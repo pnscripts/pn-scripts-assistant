@@ -29,30 +29,90 @@
     /* ---------- the clock ---------- */
 
     /*
-     * Local time, from this machine.
+     * What it is getting through, where the clock used to be.
      *
-     * Not fetched from anywhere: a clock is the one readout that must never
-     * depend on a network, and this program's whole point is that it does not
-     * need one.
+     * The machine has a clock of its own at the top of the same screen, so
+     * this one was a second copy of something nobody was short of. What is
+     * genuinely not visible anywhere else is the work nobody asked for: a
+     * drive read a bite at a time over hours, and how much of it is left.
+     *
+     * Read every ten seconds. It changes at the speed of an embedding, so
+     * anything faster would be work spent watching work.
      */
-    function tickClock() {
-        const now = new Date();
+    async function tickHeadline() {
+        let places = [];
+        let remembered = 0;
+        let waitingOnYou = 0;
 
-        el('clock-time').textContent = now.toLocaleTimeString(undefined, {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-        });
+        try {
+            const answer = await fetch('/api/places').then((r) => r.json());
 
-        el('clock-date').textContent = now.toLocaleDateString(undefined, {
-            weekday: 'short',
-            day: 'numeric',
-            month: 'short',
-        });
+            places = answer.places || [];
+        } catch (err) {
+            return;
+        }
+
+        try {
+            const status = await fetch('/api/status').then((r) => r.json());
+
+            remembered = (status.memory && status.memory.facts) || status.facts || 0;
+            waitingOnYou = (status.memory && status.memory.pending_lessons) || 0;
+        } catch (err) {
+            remembered = 0;
+        }
+
+        // The one being worked through: whatever is attached and has most left.
+        let busiest = null;
+
+        for (const p of places) {
+            if (!p.reachable || !p.waiting) continue;
+
+            if (!busiest || p.waiting > busiest.waiting) busiest = p;
+        }
+
+        if (busiest) {
+            const done = busiest.learned || 0;
+            const left = busiest.waiting;
+
+            el('headline-what').textContent = `reading ${busiest.name}`;
+            el('headline-count').textContent =
+                `${done.toLocaleString()} learned · ${left.toLocaleString()} to go`;
+
+            return;
+        }
+
+        /*
+         * Anything waiting on a person comes before anything else.
+         *
+         * A queue nobody looks at is the brain waiting on somebody who does
+         * not know they are being waited on, and that is worth the middle of
+         * the screen more than a count of what it already holds.
+         */
+        if (waitingOnYou > 0) {
+            el('headline-what').textContent = 'waiting for you';
+            el('headline-count').textContent = waitingOnYou === 1
+                ? '1 thing to keep or discard'
+                : `${waitingOnYou} things to keep or discard`;
+
+            return;
+        }
+
+        /*
+         * Nothing being read: what it holds, and anything waiting on a person.
+         *
+         * The second half is the one that matters — a queue nobody looks at is
+         * the brain waiting on somebody who does not know they are being
+         * waited on.
+         */
+        el('headline-what').textContent = places.length
+            ? 'nothing left to read'
+            : 'nothing on the reading list';
+
+        el('headline-count').textContent = `${remembered.toLocaleString()} remembered`;
     }
 
-    setInterval(tickClock, 1000);
-    tickClock();
+    setInterval(tickHeadline, 10000);
+    tickHeadline();
 
     /* ---------- navigation ---------- */
 

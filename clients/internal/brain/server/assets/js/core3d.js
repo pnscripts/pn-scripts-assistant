@@ -54,6 +54,13 @@ function haloTexture(size = 256) {
  * painted by the cascade. The fallback is the same value the stylesheet holds,
  * for the case where this runs before the variables are set.
  */
+function cssValue(name, fallback) {
+    const raw = getComputedStyle(document.documentElement)
+        .getPropertyValue(name).trim();
+
+    return raw || fallback;
+}
+
 function cssColour(name, fallback) {
     const raw = getComputedStyle(document.documentElement)
         .getPropertyValue(name).trim();
@@ -101,68 +108,59 @@ export function startCore() {
      * every panel beside it — the one panel on the screen that is not a panel,
      * looking like a hole in the row.
      */
-    const cardTop = cssColour('--card-top', 0x0d1c2b);
-    const cardBottom = cssColour('--card-bottom', 0x080e17);
-
     /*
-     * The card's own background, computed the way the browser computes it.
+     * The panel's background is the scene's sky.
      *
-     * The previous version painted "the same sort of gradient" across the
-     * plane's own coordinates with a scale factor picked by eye, and it did
-     * not match: the plane is far larger than the visible area, so the corners
-     * of the panel landed at arbitrary points of the ramp, and the core sat
-     * darker than every card beside it.
+     * It used to be a plane parked behind everything, which is a way of
+     * pretending to have a background rather than having one — and it showed:
+     * the plane is far bigger than the visible area, so the panel's corners
+     * landed at arbitrary points of its gradient, and no amount of adjusting
+     * made the core match the cards beside it.
      *
-     * This works in canvas pixels instead and reproduces CSS's own
-     * linear-gradient arithmetic — the same angle, the same gradient-line
-     * length for the box, the same two colours. The result is not an
-     * approximation of the panel background; it is the panel background,
-     * arrived at by the same sum.
+     * A sky is stretched to exactly the viewport, so what is painted is what
+     * is seen. And it is painted by the browser's own gradient code, from the
+     * same two colours the stylesheet gives every other card, at the same
+     * angle — so this is not a rendering that resembles the panel background.
+     * It is the panel background, drawn by the thing that draws the others.
      */
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(40, 40),
-        new THREE.ShaderMaterial({
-            uniforms: {
-                top: { value: cardTop },
-                bottom: { value: cardBottom },
-                across: { value: new THREE.Vector2(1, 1) },
-            },
-            vertexShader: `
-                void main() {
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }`,
-            fragmentShader: `
-                uniform vec3 top;
-                uniform vec3 bottom;
-                uniform vec2 across;
+    function panelSky() {
+        const c = document.createElement('canvas');
 
-                /*
-                 * CSS reckons a gradient angle clockwise from straight up, and
-                 * measures along a line through the centre whose length is
-                 * chosen so the box's corners land exactly at its two ends.
-                 * 160 degrees is what .card uses.
-                 */
-                #define SIN160  0.34202
-                #define COS160 -0.93969
+        // Small on purpose: it is a two-stop gradient stretched over a panel,
+        // and a larger texture would carry no more information.
+        c.width = c.height = 64;
 
-                void main() {
-                    // Canvas pixels, with y measured downwards as CSS does.
-                    vec2 at = vec2(gl_FragCoord.x, across.y - gl_FragCoord.y);
+        const ctx = c.getContext('2d');
 
-                    vec2 middle = across * 0.5;
+        /*
+         * CSS reckons a gradient angle clockwise from straight up and runs its
+         * line through the centre, long enough that the box's corners land at
+         * its ends. 160 degrees is what .card uses.
+         */
+        const angle = (160 * Math.PI) / 180;
+        const sin = Math.sin(angle);
+        const cos = Math.cos(angle);
+        const length = Math.abs(c.width * sin) + Math.abs(c.height * cos);
 
-                    float length = abs(across.x * SIN160) + abs(across.y * COS160);
+        const grad = ctx.createLinearGradient(
+            c.width / 2 - (sin * length) / 2, c.height / 2 + (cos * length) / 2,
+            c.width / 2 + (sin * length) / 2, c.height / 2 - (cos * length) / 2);
 
-                    float along = 0.5 + ((at.x - middle.x) * SIN160 -
-                        (at.y - middle.y) * COS160) / length;
+        grad.addColorStop(0, cssValue('--card-top', '#0d1c2b'));
+        grad.addColorStop(1, cssValue('--card-bottom', '#080e17'));
 
-                    gl_FragColor = vec4(mix(top, bottom, clamp(along, 0.0, 1.0)), 1.0);
-                }`,
-            depthWrite: false,
-        }));
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, c.width, c.height);
 
-    ground.position.z = -14;
-    scene.add(ground);
+        const texture = new THREE.CanvasTexture(c);
+
+        texture.colorSpace = THREE.SRGBColorSpace;
+
+        return texture;
+    }
+
+    scene.background = panelSky();
+
 
     const globe = new THREE.Group();
 
@@ -462,15 +460,28 @@ export function startCore() {
 
     /* ---------- the glow behind it ---------- */
 
+    /*
+     * The glow lights the eye, not the panel.
+     *
+     * It was five units across against a view about four units tall — larger
+     * than the whole panel — so whatever the background underneath was painted
+     * as, what anybody actually saw was a blue wash filling the card. The
+     * gradient below it could be made to match the other panels exactly, and
+     * the core would still be the one that looked different, because the
+     * matching part was covered up.
+     *
+     * Three units keeps it inside the triangle, where a glow around an eye
+     * belongs, and leaves the corners of the panel as plain card background.
+     */
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
         map: haloTexture(),
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
-        opacity: 0.85,
+        opacity: 0.5,
     }));
 
-    halo.scale.set(5.0, 5.0, 1);
+    halo.scale.set(3.0, 3.0, 1);
     halo.position.z = -0.5;
     scene.add(halo);
 
@@ -594,10 +605,6 @@ export function startCore() {
 
         renderer.setPixelRatio(ratio);
         renderer.setSize(rect.width, rect.height, false);
-
-        // In the same units gl_FragCoord counts in, which is device pixels.
-        ground.material.uniforms.across.value.set(
-            rect.width * ratio, rect.height * ratio);
 
         // The bloom pass renders at its own size, and it is the expensive one:
         // three quarters of the width is a quarter less work for a blur nobody
@@ -791,7 +798,7 @@ const JUDGE_AFTER = 40;
         frameMaterial.opacity = 0.7 + signals.smooth * 0.3;
 
         halo.material.color.copy(tint);
-        halo.material.opacity = 0.5 + signals.smooth * 0.55 + signals.recall * 0.3;
+        halo.material.opacity = 0.26 + signals.smooth * 0.34 + signals.recall * 0.2;
 
         // Brighter while working, so a busy core spills more light than a
         // quiet one without anything being drawn differently.
