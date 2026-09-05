@@ -258,6 +258,21 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 */
 		tools.HowFast{Reading: b.howFast},
 
+		/*
+		 * And changing how it behaves, by saying so.
+		 *
+		 * Most of what somebody wants to adjust about an assistant they adjust
+		 * while talking to it. Those all lived in panels, which made the
+		 * answer to "how do I change this" be "stop talking to me and go and
+		 * find a page" — from the program whose whole argument is that
+		 * everything works from inside it.
+		 */
+		tools.Settings{
+			Read:  b.settingsNow,
+			Set:   b.changeSetting,
+			Voice: b.changeVoice,
+		},
+
 		// And the one setting that fixes the commonest cause of the confusion.
 		tools.Quieten{
 			Reroute: func(ctx context.Context, on bool) error {

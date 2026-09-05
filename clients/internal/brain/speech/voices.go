@@ -342,3 +342,32 @@ func fallbackEngine() *Engine {
 
 	return nil
 }
+
+/*
+ * VoiceKind says which of the three a voice id is: robot, man or woman.
+ *
+ * So that "what are you set to" can be answered in the words the choice was
+ * made in. The stored setting is a file path or an engine's own name, which is
+ * the right thing to store and the wrong thing to say out loud.
+ */
+func VoiceKind(id string) string {
+	if id == "" {
+		return ""
+	}
+
+	if id == RobotID {
+		return "robot"
+	}
+
+	for _, v := range Voices() {
+		if v.ID == id || v.Path == id {
+			if v.Sex != "" {
+				return v.Sex
+			}
+
+			return v.Name
+		}
+	}
+
+	return ""
+}

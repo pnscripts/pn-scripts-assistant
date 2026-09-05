@@ -285,7 +285,7 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"brain_copies", "change_this_conversation",
+		"brain_copies", "change_a_setting", "change_this_conversation",
 		"click", "decide_waiting", "do_in_background", "edit_file",
 		"forget_reminder", "how_fast_can_you_answer", "learn_from_folder", "list_background", "list_directory",
 		"list_drives", "list_models",
