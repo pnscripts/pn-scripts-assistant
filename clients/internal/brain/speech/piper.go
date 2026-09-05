@@ -124,10 +124,19 @@ func fileContains(path, needle string) bool {
 // players that can take raw samples on standard input.
 var players = []struct {
 	Command string
-	Args    func(rate int) []string
+	Args    func(rate int, level float64) []string
 }{
-	{"pw-play", func(rate int) []string {
+	{"pw-play", func(rate int, level float64) []string {
 		args := []string{"--rate", fmt.Sprint(rate), "--channels", "1", "--format", "s16"}
+
+		/*
+		 * Its own level, which is the only one this program touches.
+		 *
+		 * Set on this stream and nowhere else: turning the speakers down to
+		 * make the assistant quieter takes the music with it, and every other
+		 * program on the machine has a volume of its own. See loudness.go.
+		 */
+		args = append(args, volumeArgs(level)...)
 
 		/*
 		 * Played into the canceller's sink, when there is one.
@@ -145,10 +154,12 @@ var players = []struct {
 
 		return append(args, "-")
 	}},
-	{"aplay", func(rate int) []string {
+	// aplay and paplay take no level, so on a machine with only those the
+	// setting has nothing to act on and the voice plays at the system's level.
+	{"aplay", func(rate int, _ float64) []string {
 		return []string{"-q", "-r", fmt.Sprint(rate), "-f", "S16_LE", "-c", "1", "-t", "raw", "-"}
 	}},
-	{"paplay", func(rate int) []string {
+	{"paplay", func(rate int, _ float64) []string {
 		return []string{"--raw", "--rate=" + fmt.Sprint(rate), "--channels=1", "--format=s16le"}
 	}},
 }
@@ -231,7 +242,7 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 	// is not simply read off the pipe as it flows.
 	level := newVoiceMeter(p.Rate)
 
-	play := exec.CommandContext(ctx, player.Command, player.Args(p.Rate)...)
+	play := exec.CommandContext(ctx, player.Command, player.Args(p.Rate, LevelFor(ctx))...)
 	play.Stderr = io.Discard
 
 	/*

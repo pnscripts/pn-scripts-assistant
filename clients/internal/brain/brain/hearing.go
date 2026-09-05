@@ -178,7 +178,58 @@ func (b *Brain) settingsNow() tools.Setting {
 		KeepQuiet:  b.Cfg.KeepQuiet,
 		Cancelling: speech.Rerouting(),
 		Voice:      speech.VoiceKind(b.Cfg.Voice),
+		Loudness:   speech.Loudness(),
 	}
+}
+
+/*
+ * changeLoudness moves its own voice up or down a step.
+ *
+ * Steps rather than a number, because "louder" is what somebody says and
+ * "zero point six" is what a settings file says. Bounded at both ends: below a
+ * fifth it can be heard talking and not understood, which is worse than
+ * silence, and above full it would be distortion rather than volume.
+ */
+func (b *Brain) changeLoudness(_ context.Context, step string) (string, error) {
+	const move = 0.15
+
+	now := speech.Loudness()
+
+	switch step {
+	case "louder":
+		now += move
+	case "quieter":
+		now -= move
+	case "full":
+		now = speech.FullLevel
+	case "lowest":
+		now = speech.QuietestUseful
+	default:
+		return "", fmt.Errorf("say louder, quieter, full or lowest")
+	}
+
+	speech.SetLoudness(now)
+
+	b.Cfg.VoiceLoudness = speech.Loudness()
+
+	if err := b.Cfg.Save(b.Root); err != nil {
+		return "", err
+	}
+
+	at := int(speech.Loudness() * 100)
+
+	switch {
+	case at >= 100:
+		return "This is as loud as I go — and this is my voice only, nothing else " +
+			"on the machine.", nil
+
+	case speech.Loudness() <= speech.QuietestUseful:
+		return "This is as quiet as I go. Any lower and you would hear me talking " +
+			"without making out the words.", nil
+	}
+
+	return fmt.Sprintf("My voice is at %d%% now. Anything else playing is untouched.",
+		at), nil
 }
 
 // changeSetting applies one switch and says what it now means.

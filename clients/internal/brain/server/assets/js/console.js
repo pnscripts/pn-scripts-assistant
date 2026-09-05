@@ -1370,7 +1370,11 @@ async function openWhereWeLeftOff(canSpeak) {
         addMessage(state.brainName, greeting.shown, { cssClass: 'brain' });
     }
 
-    if (canSpeak) api.post('/api/speak', { text: greeting.text }).catch(() => {});
+    // Under the room: a greeting is something it says on its own, and nobody
+    // asked for it at the level of an answer they were waiting for.
+    if (canSpeak) {
+        api.post('/api/speak', { text: greeting.text, unprompted: true }).catch(() => {});
+    }
 }
 
 (async function start() {

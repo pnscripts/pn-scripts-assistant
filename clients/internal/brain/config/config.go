@@ -73,6 +73,18 @@ type Config struct {
 	KeepQuiet bool
 
 	/*
+	 * VoiceLoudness is how loud its own voice is, and only its own.
+	 *
+	 * Every other program on this machine has a volume and this one did not,
+	 * so the only way to make the assistant quieter was to turn the speakers
+	 * down and lose the music with it.
+	 *
+	 * Between 0.2 and 1.0. Below a fifth it can be heard talking and not
+	 * understood, which is worse than silence.
+	 */
+	VoiceLoudness float64
+
+	/*
 	 * OnlyMe makes the brain answer one voice and ignore every other.
 	 *
 	 * The name tells being spoken to from being in a room; it cannot tell who

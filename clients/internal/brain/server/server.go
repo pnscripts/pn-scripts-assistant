@@ -625,6 +625,16 @@ func (s *Server) handleSpeak(w http.ResponseWriter, r *http.Request) {
 		// mode needs it: on speakers the microphone hears the brain, so
 		// listening must not resume while it is still talking.
 		Wait bool `json:"wait"`
+
+		/*
+		 * Unprompted marks something said on the brain's own initiative.
+		 *
+		 * Those are spoken under the room rather than over it. Asked for a
+		 * lower voice, somebody almost never means lower for everything: they
+		 * mean a greeting should not arrive at the level of an answer they
+		 * just asked for.
+		 */
+		Unprompted bool `json:"unprompted"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil {
@@ -638,7 +648,13 @@ func (s *Server) handleSpeak(w http.ResponseWriter, r *http.Request) {
 		speak = speech.SpeakAndWait
 	}
 
-	if err := speak(r.Context(), body.Text); err != nil {
+	ctx := r.Context()
+
+	if body.Unprompted {
+		ctx = speech.Unasked(ctx)
+	}
+
+	if err := speak(ctx, body.Text); err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 
 		return

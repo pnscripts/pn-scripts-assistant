@@ -271,6 +271,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 			Read:  b.settingsNow,
 			Set:   b.changeSetting,
 			Voice: b.changeVoice,
+			Loud:  b.changeLoudness,
 		},
 
 		/*
@@ -723,6 +724,12 @@ func (b *Brain) Start(ctx context.Context) {
 	// What the room hears while it talks, which is a setting and so has to be
 	// applied rather than left at the package default.
 	speech.DuckOthersWhileTalking(b.Cfg.KeepQuiet)
+
+	// And how loud its own voice is, which is a setting and so has to be
+	// applied rather than left at whatever the package starts with.
+	if b.Cfg.VoiceLoudness > 0 {
+		speech.SetLoudness(b.Cfg.VoiceLoudness)
+	}
 
 	// And anything a previous run left turned down goes back up. The note only
 	// exists if that run was killed between lowering a level and restoring it.

@@ -32,6 +32,9 @@ type Settings struct {
 
 	// Voice changes which voice speaks: robot, man or woman.
 	Voice func(ctx context.Context, which string) (string, error)
+
+	// Loud changes how loud its own voice is, and only its own.
+	Loud func(ctx context.Context, step string) (string, error)
 }
 
 // Setting is how the switches stand.
@@ -44,6 +47,9 @@ type Setting struct {
 
 	// Voice is which of robot, man or woman is speaking.
 	Voice string
+
+	// Loudness is how loud its own voice is, from 0.2 to 1.
+	Loudness float64
 }
 
 /*
@@ -86,6 +92,11 @@ func (Settings) Parameters() json.RawMessage {
 				"type":"string",
 				"description":"Change which voice speaks.",
 				"enum":["robot","man","woman"]
+			},
+			"loudness":{
+				"type":"string",
+				"description":"Change how loud its own voice is, and nothing else on the machine. Use louder, quieter, full or lowest.",
+				"enum":["louder","quieter","full","lowest"]
 			}
 		},
 		"additionalProperties":false
@@ -110,6 +121,10 @@ func (Settings) Summarize(raw json.RawMessage) string {
 		return "Speak with the " + a.Voice + " voice"
 	}
 
+	if a.Loudness != "" {
+		return "Speak " + a.Loudness + " — its own voice only"
+	}
+
 	if a.Setting == "" {
 		return "Check how the settings stand"
 	}
@@ -122,9 +137,10 @@ func (Settings) Summarize(raw json.RawMessage) string {
 }
 
 type settingArgs struct {
-	Setting string `json:"setting"`
-	On      *bool  `json:"on"`
-	Voice   string `json:"voice"`
+	Setting  string `json:"setting"`
+	On       *bool  `json:"on"`
+	Voice    string `json:"voice"`
+	Loudness string `json:"loudness"`
 }
 
 func (t Settings) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -138,6 +154,14 @@ func (t Settings) Execute(ctx context.Context, raw json.RawMessage) (string, err
 		}
 
 		return t.Voice(ctx, which)
+	}
+
+	if step := strings.TrimSpace(strings.ToLower(a.Loudness)); step != "" {
+		if t.Loud == nil {
+			return "", fmt.Errorf("the level cannot be changed from here")
+		}
+
+		return t.Loud(ctx, step)
 	}
 
 	if strings.TrimSpace(a.Setting) == "" {
@@ -180,6 +204,11 @@ func (t Settings) howThingsStand() string {
 
 	if s.Voice != "" {
 		said += fmt.Sprintf("\nI am speaking with the %s voice.", s.Voice)
+	}
+
+	if s.Loudness > 0 {
+		said += fmt.Sprintf(" My own voice is at %d%% — that is mine alone and "+
+			"nothing else on this machine.", int(s.Loudness*100))
 	}
 
 	return said + "\n\nAny of those can be changed by saying so. Privacy is the one " +
