@@ -992,3 +992,108 @@ func TestTheFirstAnswerIsNeverARepeat(t *testing.T) {
 		t.Fatal("the first answer in a conversation was called a repeat")
 	}
 }
+
+/*
+ * Claiming to be doing something is worse than promising to.
+ *
+ * From a real conversation: "what is waiting for me?" was answered with "I'm
+ * checking what is waiting for you. One moment." — and nothing was checked.
+ * That is not a plan to act, it is a claim to be acting, and to somebody
+ * waiting it is indistinguishable from work being done, so they wait.
+ */
+func TestNarratingAnActionCountsAsPromisingOne(t *testing.T) {
+	for _, said := range []string{
+		"I'm checking what is waiting for you. One moment.",
+		"I'm remembering everything you've told me.",
+		"I am looking through your documents now.",
+		"I'm reading that file.",
+		"I'm going through the drive for you.",
+		"I'm starting on the projects folder.",
+	} {
+		if !promised(said) {
+			t.Errorf("let this through: %q", said)
+		}
+	}
+}
+
+/*
+ * And the honest answers it must never press on.
+ *
+ * Pressing costs a whole extra turn, and on this machine a turn is minutes.
+ * Doing that to somebody who has just been told plainly that it cannot help is
+ * the worse failure of the two.
+ */
+func TestAnHonestAnswerIsNotAPromise(t *testing.T) {
+	for _, said := range []string{
+		"I'm not sure what you mean by that.",
+		"I'm afraid that is not something I can do.",
+		"I am unable to reach that drive — it is not attached.",
+		"That depends on what you mean — I will need more detail.",
+		"I'm sorry, there is nothing waiting.",
+		"I'm here.",
+	} {
+		if promised(said) {
+			t.Errorf("pressed on an honest answer: %q", said)
+		}
+	}
+}
+
+/*
+ * A call written first, with a pleasantry after it.
+ *
+ * What a small model does when it has been told both to be conversational and
+ * to use tools. The call sat in plain sight and the brain said "the model
+ * returned a tool call as text rather than making one" — which was true, and
+ * entirely self-inflicted.
+ */
+func TestACallAtTheStartOfTheReplyIsRecovered(t *testing.T) {
+	loop := &Loop{
+		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Registry: tools.NewRegistry(tools.ReadFile{}),
+	}
+
+	for _, said := range []string{
+		`{"name": "read_file", "arguments": {"path": "/tmp/a"}}` +
+			"\nLet me know if you need anything else.",
+		"Here you are.\n" + `{"name": "read_file", "arguments": {"path": "/tmp/a"}}` +
+			"\nAnything else?",
+		"```json\n" + `{"name": "read_file", "arguments": {"path": "/tmp/a"}}` + "\n```",
+	} {
+		got, ok := loop.recoverToolCall(said)
+
+		if !ok || got.Name != "read_file" {
+			t.Errorf("did not recover the call from:\n%s", said)
+		}
+	}
+}
+
+/*
+ * And prose that merely mentions a call is still prose.
+ *
+ * The guard is that a model writing a call puts it at the start of a line; a
+ * sentence about one has words either side. Without that, explaining the
+ * program to somebody would run it.
+ */
+func TestACallMentionedInASentenceIsNotRun(t *testing.T) {
+	loop := &Loop{
+		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Registry: tools.NewRegistry(tools.ReadFile{}),
+	}
+
+	if _, ok := loop.recoverToolCall(
+		`You can try {"name": "read_file"} to see it yourself.`); ok {
+		t.Error("ran a tool because a sentence mentioned it")
+	}
+}
+
+// Braces inside a string argument must not close the object early — a call
+// that writes a file carries the file's contents.
+func TestAnObjectWithBracesInsideItIsReadWhole(t *testing.T) {
+	call := `{"name": "write_file", "arguments": {"path": "a.json", "text": "{\"a\": 1}"}}`
+
+	got, ok := balanced(call + "\nDone.")
+
+	if !ok || got != call {
+		t.Fatalf("read %q", got)
+	}
+}

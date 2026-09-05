@@ -103,9 +103,21 @@ func TestTheRobotBuzzesWithoutSwallowingTheWords(t *testing.T) {
 		return loudest / math.Max(quietest, 1)
 	}
 
-	if swing(now) <= swing(was)*1.2 {
-		t.Errorf("the treated sound is as even as the original — no machine in it: %.2f vs %.2f",
-			swing(now), swing(was))
+	/*
+	 * Expected from the floor rather than written down.
+	 *
+	 * The carrier dips to RobotFloor at the bottom of each swing, so an even
+	 * tone comes out swinging by about one over that. Hard-coding a threshold
+	 * meant that softening the voice — which is raising the floor — failed a
+	 * test about whether there was any machine in it at all, when the machine
+	 * had simply moved into the comb and the body instead.
+	 */
+	expectedSwing := 1 / RobotFloor
+
+	if swing(now) < swing(was)*expectedSwing*0.85 {
+		t.Errorf("the treated sound is as even as the original — no machine in it: "+
+			"%.2f vs %.2f, expected about %.2f",
+			swing(now), swing(was), swing(was)*expectedSwing)
 	}
 
 	/*

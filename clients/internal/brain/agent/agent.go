@@ -494,6 +494,80 @@ func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []
 // Deliberately strict: the whole reply must be one JSON object naming a tool
 // that actually exists. Anything looser would start treating prose about tools,
 // or JSON quoted from a file, as an instruction to act.
+/*
+ * lineStarts is where in the text a line begins with an opening brace.
+ *
+ * The whole text counts as the first line, since a reply that opens with a
+ * call has no newline before it.
+ */
+func lineStarts(text string) []int {
+	var out []int
+
+	if strings.HasPrefix(text, "{") {
+		out = append(out, 0)
+	}
+
+	for at := 0; ; {
+		next := strings.Index(text[at:], "\n{")
+
+		if next < 0 {
+			break
+		}
+
+		out = append(out, at+next+1)
+		at += next + 2
+	}
+
+	return out
+}
+
+/*
+ * balanced takes the first complete JSON object off the front of a string.
+ *
+ * Counting braces rather than handing the whole rest to the parser, because
+ * the rest is usually a sentence — and a parser given an object followed by
+ * prose reports a failure rather than the object it successfully read.
+ *
+ * Strings are tracked, so a brace inside one does not close the object. That
+ * is not a hypothetical here: a call to write a file carries the file's
+ * contents as an argument.
+ */
+func balanced(text string) (string, bool) {
+	var (
+		depth   int
+		inside  bool
+		escaped bool
+	)
+
+	for i, r := range text {
+		switch {
+		case escaped:
+			escaped = false
+
+		case r == '\\' && inside:
+			escaped = true
+
+		case r == '"':
+			inside = !inside
+
+		case inside:
+			// Braces inside a string are content, not structure.
+
+		case r == '{':
+			depth++
+
+		case r == '}':
+			depth--
+
+			if depth == 0 {
+				return text[:i+1], true
+			}
+		}
+	}
+
+	return "", false
+}
+
 func (l *Loop) recoverToolCall(content string) (llm.ToolCall, bool) {
 	for _, candidate := range jsonCandidates(content) {
 		var probe struct {
@@ -624,6 +698,27 @@ func jsonCandidates(content string) []string {
 	 */
 	if brace := strings.LastIndex(text, "\n{"); brace > 0 {
 		out = append(out, strings.TrimSpace(text[brace+1:]))
+	}
+
+	/*
+	 * And an object that begins a line, wherever that line is.
+	 *
+	 * The two cases above are a call at the end and a call in a fence. The one
+	 * that was still being lost is a call written first, with a pleasantry
+	 * after it — which is what a small model does when it has been told to be
+	 * conversational and to use tools, and it produced "the model returned a
+	 * tool call as text rather than making one" while the call sat there in
+	 * plain sight.
+	 *
+	 * Only at the start of a line, and only the balanced object. That is what
+	 * keeps `try {"name": "read_file"} to see it` from being an instruction:
+	 * it sits in the middle of a sentence, with words either side of it, and a
+	 * model writing a call does not put it there.
+	 */
+	for _, at := range lineStarts(text) {
+		if object, ok := balanced(text[at:]); ok {
+			out = append(out, object)
+		}
 	}
 
 	// And the reply itself, for a model that answered with nothing else.
@@ -862,6 +957,38 @@ func promised(content string) bool {
 	} {
 		if strings.HasPrefix(text, opening) {
 			return true
+		}
+	}
+
+	/*
+	 * And the present continuous, which is the commoner shape by far.
+	 *
+	 * "I'm checking what is waiting for you. One moment." is not a plan to
+	 * act, it is a claim to be acting — and it is worse than "I will", because
+	 * it describes something already happening that is not. Said to somebody
+	 * waiting, it is indistinguishable from work being done, so they wait.
+	 *
+	 * Matched as "I'm" plus a verb of doing rather than as "I'm" plus
+	 * anything, because "I'm not sure" and "I'm afraid that is not something I
+	 * can do" are the honest answers this must never press on.
+	 */
+	for _, opening := range []string{"i'm ", "i am ", "im "} {
+		rest, is := strings.CutPrefix(text, opening)
+
+		if !is {
+			continue
+		}
+
+		for _, doing := range []string{
+			"checking", "looking", "reading", "searching", "finding",
+			"remembering", "recalling", "processing", "working on",
+			"gathering", "fetching", "getting", "opening", "running",
+			"writing", "learning", "scanning", "starting", "going through",
+			"pulling", "reviewing", "retrieving",
+		} {
+			if strings.HasPrefix(rest, doing) {
+				return true
+			}
 		}
 	}
 

@@ -47,7 +47,7 @@ import (
  */
 const (
 	RobotHz    = 60.0
-	RobotFloor = 0.72
+	RobotFloor = 0.86
 )
 
 /*
@@ -66,7 +66,23 @@ const (
  *
  * Too much and it is speech through a wall. A third is enough to round it.
  */
-const RobotSoftness = 0.34
+const RobotSoftness = 0.30
+
+/*
+ * RobotBody is how much of the low end is taken out.
+ *
+ * The other half of sounding like a small machine, and the half that is
+ * usually missed. A child's voice is not simply an adult's played faster — it
+ * has less body, because there is less of the person making it, and a robot
+ * the size of a person's arm has a chassis to match. Taking the bottom out is
+ * what makes a voice sound like it is coming from something small rather than
+ * from somebody large speaking quickly.
+ *
+ * A one-pole high-pass: the running average is subtracted, so what is left is
+ * everything that moves faster than it. Gentle — past about half it stops
+ * being a small chassis and starts being a telephone.
+ */
+const RobotBody = 0.22
 
 /*
  * And a short delay mixed back in, which is where the metal comes from.
@@ -87,7 +103,7 @@ const RobotSoftness = 0.34
  */
 const (
 	RobotDelayMS = 3.5
-	RobotMix     = 0.22
+	RobotMix     = 0.18
 
 	/*
 	 * A second, faster swing, a fifth as deep.
@@ -99,7 +115,7 @@ const (
 	 * words.
 	 */
 	RobotShimmerHz = 187.0
-	RobotShimmer   = 0.03
+	RobotShimmer   = 0.02
 )
 
 /*
@@ -159,8 +175,10 @@ type robot struct {
 	// makes the machine a small one. See kidrobot.go.
 	pitch pitchUp
 
-	// soft is the last sample out, for the low-pass that rounds the edges off.
+	// soft is the last sample out, for the low-pass that rounds the edges off,
+	// and low is the running average the high-pass subtracts to thin the body.
 	soft float64
+	low  float64
 
 	// The buffers, kept rather than allocated per read: this runs for every
 	// sentence the assistant says, on a machine whose processor the model is
@@ -348,7 +366,17 @@ func (r *robot) shape(sample float64) int16 {
 	 */
 	r.soft += (combed - r.soft) * (1 - RobotSoftness)
 
-	out := math.Round(r.soft)
+	/*
+	 * And the body taken out, which is what makes it small.
+	 *
+	 * The running average is everything slower than the ear hears as pitch;
+	 * subtracting a part of it leaves a voice with less chest in it. Scaled
+	 * back up afterwards, because thinning a sound also quietens it and a
+	 * small machine should not also be a distant one.
+	 */
+	r.low += (r.soft - r.low) * 0.02
+
+	out := math.Round((r.soft - RobotBody*r.low) / (1 - RobotBody))
 
 	// Clipping cannot happen while the carrier never exceeds one, but the
 	// arithmetic says so rather than the comment alone.
