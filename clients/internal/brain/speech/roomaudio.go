@@ -102,20 +102,100 @@ func PutTheSoundBack(ctx context.Context) {
 	routing.mu.Lock()
 	defer routing.mu.Unlock()
 
-	if !routing.changed {
+	/*
+	 * Where to put it back to, even when this run is not the one that moved it.
+	 *
+	 * It used to give up unless it had done the routing itself and remembered
+	 * a sink. That is every case except the one that matters: the brain starts
+	 * with the rerouting already switched on, routes the machine's sound at
+	 * launch, and somebody then switches it off — and nothing was remembered
+	 * from before the launch, so it did nothing and said nothing, leaving the
+	 * whole machine playing into a sink with the film on it.
+	 *
+	 * Any real output that is not the canceller's own will do. It is where the
+	 * sound was going before this program touched it.
+	 */
+	back := routing.restore
+
+	if back == "" {
+		back = anyRealSink(ctx)
+	}
+
+	if back == "" {
 		return
 	}
+
+	/*
+	 * Its own deadline, not the caller's.
+	 *
+	 * This is called from an HTTP handler, whose context is cancelled the
+	 * moment the response is written — which killed pw-metadata halfway and
+	 * left the machine pointing at the canceller, with the flag already
+	 * cleared so nothing would try again.
+	 */
+	own, stop := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer stop()
+
+	if err := setDefaultSink(own, back); err != nil {
+		// Left as it was, so this can be tried again rather than being
+		// recorded as done.
+		return
+	}
+
+	moveEverythingPlaying(own)
 
 	routing.changed = false
+	routing.restore = ""
+}
 
-	if routing.restore == "" {
-		return
+/*
+ * anyRealSink is an output that is not the canceller's.
+ *
+ * The canceller's sink exists to be written into and read back from; sending
+ * the machine's sound there when the canceller is off is sending it nowhere,
+ * which is what a muted film sounds like.
+ */
+func anyRealSink(ctx context.Context) string {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	raw, err := exec.CommandContext(ctx, "pw-dump").Output()
+	if err != nil {
+		return ""
 	}
 
-	setDefaultSink(ctx, routing.restore)
-	moveEverythingPlaying(ctx)
+	found, err := dumpObjects(raw)
+	if err != nil {
+		return ""
+	}
 
-	routing.restore = ""
+	for _, one := range found {
+		var object struct {
+			Info struct {
+				Props struct {
+					Class string `json:"media.class"`
+					Node  string `json:"node.name"`
+				} `json:"props"`
+			} `json:"info"`
+		}
+
+		if err := json.Unmarshal(one, &object); err != nil {
+			continue
+		}
+
+		if object.Info.Props.Class != "Audio/Sink" {
+			continue
+		}
+
+		if strings.Contains(object.Info.Props.Node, "pn_brain") ||
+			strings.Contains(object.Info.Props.Node, "pn-brain") {
+			continue
+		}
+
+		return object.Info.Props.Node
+	}
+
+	return ""
 }
 
 // Rerouting reports whether the machine's sound is currently going through the

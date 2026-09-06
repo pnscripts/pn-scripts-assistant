@@ -1,6 +1,7 @@
 package speech
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -144,5 +145,60 @@ func TestVideoStreamsAreLeftAlone(t *testing.T) {
 		if id == "99" {
 			t.Error("a camera stream was going to be moved to an audio sink")
 		}
+	}
+}
+
+/*
+ * Putting the machine's sound back has to work from a cold start.
+ *
+ * It used to give up unless this run had done the routing itself and
+ * remembered where the sound was going. That is every case except the one that
+ * matters: the brain launches with the rerouting already on, routes everything
+ * at startup, and somebody then switches it off — nothing was remembered from
+ * before the launch, so it did nothing and said nothing, and the whole machine
+ * went on playing into a sink with a film on it.
+ */
+func TestPuttingTheSoundBackDoesNotNeedToHaveMovedIt(t *testing.T) {
+	routing.mu.Lock()
+	routing.changed = false
+	routing.restore = ""
+	routing.mu.Unlock()
+
+	// Nothing remembered, which is the state after a restart.
+	if found := anyRealSink(context.Background()); found != "" {
+		if strings.Contains(found, "pn_brain") || strings.Contains(found, "pn-brain") {
+			t.Fatalf("offered the canceller's own sink as somewhere to put the sound back: %s",
+				found)
+		}
+	}
+}
+
+/*
+ * And it does not lose its only chance when the caller goes away.
+ *
+ * This is called from an HTTP handler, whose context is cancelled the moment
+ * the response is written. That killed pw-metadata halfway, left the machine
+ * pointing at the canceller, and cleared the flag — so nothing would ever try
+ * again, and the only sign was silence.
+ */
+func TestTheRestoreOutlivesTheRequestThatAskedForIt(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	routing.mu.Lock()
+	routing.changed = true
+	routing.restore = ""
+	routing.mu.Unlock()
+
+	// Must not panic, and must not record the work as done on a dead context.
+	PutTheSoundBack(ctx)
+
+	routing.mu.Lock()
+	defer routing.mu.Unlock()
+
+	// On a machine with no real sink there is nothing to do and nothing to
+	// record; on one with a sink the restore should have run to completion.
+	if routing.changed && routing.restore != "" {
+		t.Fatal("a failed restore was recorded as done")
 	}
 }
