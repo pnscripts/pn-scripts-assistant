@@ -167,6 +167,19 @@ func SpeakAndWait(ctx context.Context, text string) error {
 	JustSaid(spoken)
 
 	/*
+	 * One thing said at a time.
+	 *
+	 * A greeting, a reminder, a line from the interface and the tail of the
+	 * last answer all arrive by different paths, and any two landing together
+	 * put two voices over each other. See onevoice.go.
+	 */
+	if !waitToSpeak(ctx) {
+		return nil
+	}
+
+	defer doneSpeaking()
+
+	/*
 	 * Every utterance gets a context that can be cancelled.
 	 *
 	 * That cancellation is the whole of being interruptible: the synthesiser
@@ -243,9 +256,26 @@ func Speak(ctx context.Context, text string) error {
 	defer speakingStopped()
 
 	if engine.Name == "piper" && CurrentVoice().Engine == "piper" {
-		// Piper synthesises faster than it plays, so there is nothing to gain
-		// from returning early and a microphone to protect by not doing so.
-		go FindPiper().Speak(context.WithoutCancel(ctx), spoken)
+		/*
+		 * Piper synthesises faster than it plays, so there is nothing to gain
+		 * from returning early and a microphone to protect by not doing so.
+		 *
+		 * The turn to speak is taken inside the goroutine and held until the
+		 * sound has finished — not here, where it would be released the moment
+		 * this function returns and the next utterance would start over the
+		 * top of one that had barely begun.
+		 */
+		spare := context.WithoutCancel(ctx)
+
+		go func() {
+			if !waitToSpeak(spare) {
+				return
+			}
+
+			defer doneSpeaking()
+
+			FindPiper().Speak(spare, spoken)
+		}()
 
 		return nil
 	}
@@ -256,19 +286,43 @@ func Speak(ctx context.Context, text string) error {
 		}
 	}
 
+	/*
+	 * The turn to speak, before anything makes a sound.
+	 *
+	 * Taken after starting the engine, this would have let the sound begin and
+	 * then waited — which is the overlap it exists to prevent, arriving a
+	 * fraction of a second earlier.
+	 */
+	held := waitToSpeak(context.WithoutCancel(ctx))
+
 	cmd := exec.CommandContext(ctx, engine.Command, engine.Args(spoken)...)
 
 	if err := cmd.Start(); err != nil {
+		if held {
+			doneSpeaking()
+		}
+
 		return fmt.Errorf("could not start %s: %w", engine.Name, err)
 	}
 
 	// The rest of the room comes down while this one talks too. See duck.go.
 	quiet := duckWhileTalking(ctx)
 
-	// Reaped in the background so the process does not become a zombie, and so
-	// nothing here blocks on however long the sentence takes to say.
+	/*
+	 * Reaped in the background so the process does not become a zombie, and so
+	 * nothing here blocks on however long the sentence takes to say.
+	 *
+	 * The turn to speak is held for as long as the engine runs, for the same
+	 * reason as the piper path above: releasing it when this function returns
+	 * would let the next utterance start over the top of this one.
+	 */
 	go func() {
 		cmd.Wait()
+
+		if held {
+			doneSpeaking()
+		}
+
 		quiet()
 	}()
 

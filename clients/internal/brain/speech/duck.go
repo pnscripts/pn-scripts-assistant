@@ -149,9 +149,31 @@ func lower(ctx context.Context) {
 		}
 	}
 
+	/*
+	 * It may have stopped talking while this was working.
+	 *
+	 * Lowering is not instant — it reads the whole graph and then sets a level
+	 * per stream, which on a busy machine takes longer than the hold before
+	 * the restore. When that happened the restore ran first, found nothing
+	 * recorded yet, and did nothing; then this finished and wrote the levels
+	 * down. The film stayed quiet, with a note on the disk and no timer left
+	 * to put it back — for as long as the brain went on thinking, which is
+	 * minutes.
+	 *
+	 * So the check is made here, after the work, and against the same lock the
+	 * release uses.
+	 */
+	stopped := speaking == 0
+
 	note := duckedAt
 
 	duckMu.Unlock()
+
+	if stopped {
+		restore()
+
+		return
+	}
 
 	// And written down, because the failure that matters here survives the
 	// program. See rememberDucked.

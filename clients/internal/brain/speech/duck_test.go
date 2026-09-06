@@ -284,3 +284,44 @@ func TestNothingTurnedDownWritesNoNote(t *testing.T) {
 		t.Fatal("wrote a note about nothing")
 	}
 }
+
+/*
+ * Lowering can take longer than the hold before putting it back.
+ *
+ * It reads the whole audio graph and then sets a level per stream, and on a
+ * busy machine that is slower than the 900ms hold. When it was, the restore
+ * ran first, found nothing recorded yet and did nothing; then the lowering
+ * finished and wrote the levels down — leaving the music at a fifth with a
+ * note on the disk and no timer left to undo it, for as long as the brain went
+ * on thinking. Which is minutes.
+ */
+func TestLoweringThatFinishesAfterTheReleaseStillPutsItBack(t *testing.T) {
+	reset()
+
+	// A sentence starts and finishes while the lowering is still in flight.
+	release := duckOthers(context.Background())
+	release()
+
+	duckMu.Lock()
+	speakingNow := speaking
+	duckMu.Unlock()
+
+	if speakingNow != 0 {
+		t.Fatalf("the sentence is still counted as speaking: %d", speakingNow)
+	}
+
+	// This is the state lower() would be about to write into: nothing is
+	// speaking any more, so what it records has to be put straight back.
+	duckMu.Lock()
+	duckedAt = map[string]float64{"Brave": 0.9}
+	duckMu.Unlock()
+
+	PutTheVolumeBack()
+
+	duckMu.Lock()
+	defer duckMu.Unlock()
+
+	if duckedAt != nil {
+		t.Fatal("something was left turned down after the sentence ended")
+	}
+}
