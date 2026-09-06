@@ -325,3 +325,37 @@ func TestLoweringThatFinishesAfterTheReleaseStillPutsItBack(t *testing.T) {
 		t.Fatal("something was left turned down after the sentence ended")
 	}
 }
+
+/*
+ * A level that could not be put back is not forgotten.
+ *
+ * WirePlumber remembers a stream's volume against the application, so a
+ * browser that has closed its stream opens the next one at whatever it was
+ * left at — and setting a level on a stream that no longer exists does
+ * nothing. Clearing the note because the attempt was made is how somebody ends
+ * up with a browser at a fifth tomorrow, having changed nothing themselves.
+ *
+ * It happened exactly that way here: the film came back with the sound almost
+ * gone, and Brave's new stream was sitting at 0.16.
+ */
+func TestALevelThatCouldNotBePutBackIsKept(t *testing.T) {
+	reset()
+
+	// Nothing by this name is playing, so nothing can be set.
+	left := putBack(context.Background(), map[string]float64{
+		"SomethingNotPlaying": 0.85,
+	})
+
+	if len(left) != 1 || left["SomethingNotPlaying"] != 0.85 {
+		t.Fatalf("the unfinished job was dropped: %v", left)
+	}
+}
+
+// And one that was put back is finished with.
+func TestALevelThatWentBackIsNotKept(t *testing.T) {
+	reset()
+
+	if left := putBack(context.Background(), map[string]float64{}); len(left) != 0 {
+		t.Fatalf("invented work out of an empty list: %v", left)
+	}
+}

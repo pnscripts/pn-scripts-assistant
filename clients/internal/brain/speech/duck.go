@@ -204,9 +204,27 @@ func restore() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	putBack(ctx, was)
+	left := putBack(ctx, was)
 
-	forgetDucked()
+	/*
+	 * Anything that could not be put back is kept for next time.
+	 *
+	 * The note is not a record of what happened; it is a job that is not
+	 * finished. Clearing it because the attempt was made is how a browser
+	 * stays at a fifth: the stream had gone, nothing was set, and the only
+	 * thing that knew about it was deleted.
+	 */
+	if len(left) == 0 {
+		forgetDucked()
+
+		return
+	}
+
+	duckMu.Lock()
+	duckedAt = left
+	duckMu.Unlock()
+
+	rememberDucked(left)
 }
 
 /*
@@ -217,17 +235,37 @@ func restore() {
  * and setting a level on an id that no longer exists succeeds at nothing while
  * reporting nothing.
  */
-func putBack(ctx context.Context, was map[string]float64) {
+func putBack(ctx context.Context, was map[string]float64) map[string]float64 {
 	now := otherStreams(ctx)
+
+	// What could not be put back, because it is not playing at the moment.
+	left := map[string]float64{}
 
 	for name, level := range was {
 		id, playing := now[name]
+
 		if !playing {
+			/*
+			 * Kept rather than dropped.
+			 *
+			 * WirePlumber remembers a stream's level against the application,
+			 * so a browser that has closed its stream will open the next one
+			 * at whatever it was left at — and setting a level on a stream
+			 * that no longer exists does nothing at all. Dropping it here is
+			 * how somebody ends up with a browser at a fifth tomorrow, having
+			 * changed nothing.
+			 */
+			left[name] = level
+
 			continue
 		}
 
-		setVolume(ctx, id, level)
+		if !setVolume(ctx, id, level) {
+			left[name] = level
+		}
 	}
+
+	return left
 }
 
 // PutTheVolumeBack restores anything left turned down. Called when speech is

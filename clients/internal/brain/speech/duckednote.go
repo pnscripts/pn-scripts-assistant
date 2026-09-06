@@ -88,12 +88,30 @@ func PutBackAnythingLeftDown() {
 		return
 	}
 
-	if len(levels) > 0 && haveVolumeControl() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+	if len(levels) == 0 || !haveVolumeControl() {
+		os.Remove(path)
 
-		putBack(ctx, levels)
+		return
 	}
 
-	os.Remove(path)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	/*
+	 * What is still not playing stays on the list.
+	 *
+	 * A browser that is closed when the program starts will open its next
+	 * stream at whatever level it was left at, and there is nothing to set
+	 * until it does. Forgetting here is how the level survives every restart
+	 * and never gets put back.
+	 */
+	left := putBack(ctx, levels)
+
+	if len(left) == 0 {
+		os.Remove(path)
+
+		return
+	}
+
+	rememberDucked(left)
 }
