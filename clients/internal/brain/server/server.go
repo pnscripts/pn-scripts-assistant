@@ -376,6 +376,19 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 
 	decision := r.PathValue("decision")
 
+	/*
+	 * Both words for the same thing.
+	 *
+	 * The page said "reject" and this accepted only "deny", so the Reject
+	 * button answered 400 and rejected nothing: the action stayed in the
+	 * queue, and the only sign was an error message where a confirmation
+	 * should have been. Taking either word costs nothing and means a page
+	 * somebody has not reloaded still works.
+	 */
+	if decision == "reject" {
+		decision = "deny"
+	}
+
 	if decision != "approve" && decision != "deny" {
 		fail(w, http.StatusBadRequest, `The decision must be "approve" or "deny".`)
 

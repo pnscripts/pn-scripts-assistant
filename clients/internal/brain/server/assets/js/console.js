@@ -1054,7 +1054,9 @@ async function refreshApprovals() {
         const reject = document.createElement('button');
         reject.className = 'reject';
         reject.textContent = 'Reject';
-        reject.onclick = () => decide(item.id, 'reject');
+        // "deny" is what the server calls it. This said "reject", so the button
+    // answered 400 and rejected nothing — the action stayed in the queue.
+    reject.onclick = () => decide(item.id, 'deny');
 
         actions.append(approve, reject);
         card.append(summary, actions);
@@ -1064,10 +1066,26 @@ async function refreshApprovals() {
 
 async function decide(id, decision) {
     try {
-        const result = await api.post(`/api/approvals/${id}/${decision}`);
+        const answer = await api.post(`/api/approvals/${id}/${decision}`);
+
+        /*
+         * What the action actually did, from where the server actually puts it.
+         *
+         * This read `answer.result`, and the server sends the whole invocation
+         * under `invocation` — so every approved action reported "Done —
+         * undefined". The one moment somebody most needs to be told what
+         * happened is the moment after they have agreed to it, and it said
+         * nothing at all.
+         */
+        const done = answer.invocation || {};
+        const said = (done.result || '').trim();
+
         const note = decision === 'approve'
-            ? (result.error ? `Failed: ${result.error}` : `Done — ${result.result}`)
+            ? (answer.error
+                ? `Failed: ${answer.error}`
+                : (said ? `Done — ${said}` : 'Done.'))
             : 'Rejected. Nothing was changed.';
+
         addMessage('system', note, { cssClass: 'brain' });
     } catch (err) {
         addMessage('error', String(err.message || err), { cssClass: 'error' });
