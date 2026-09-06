@@ -1664,8 +1664,21 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.Privacy != nil {
+		/*
+		 * Applied, not merely recorded.
+		 *
+		 * Setting the field was all this did, and the mode is read once when
+		 * the brain is built — so the panel wrote the file, said "Saved", and
+		 * the brain went on behaving and reporting as it had before. Somebody
+		 * changing their privacy and seeing nothing change concludes the
+		 * program is lying to them about it, and they are half right.
+		 */
 		if mode := strings.TrimSpace(*body.Privacy); mode != "" {
-			s.brain.Cfg.Privacy = mode
+			if _, err := s.brain.UsePrivacy(mode); err != nil {
+				fail(w, http.StatusBadRequest, err.Error())
+
+				return
+			}
 		}
 	}
 

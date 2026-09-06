@@ -287,14 +287,16 @@ func TestRegisteredTools(t *testing.T) {
 	want := []string{
 		"brain_copies", "change_a_setting", "change_this_conversation",
 		"click", "decide_waiting", "do_in_background", "edit_file",
-		"forget_reminder", "how_fast_can_you_answer", "learn_from_folder", "list_background", "list_directory",
+		"fetch_url", "forget_reminder", "how_fast_can_you_answer",
+		"learn_from_folder", "list_background", "list_directory",
 		"list_drives", "list_models",
 		"list_reminders", "list_waiting", "list_windows", "look_at_screen",
 		"open_app", "places_it_learns_from", "put_it_back",
 		"read_document", "read_file", "remind_me", "run_command",
 		"scroll", "search_files", "set_appearance", "set_wake_word",
 		"stop_background", "stop_hearing_this_machine", "type_text",
-		"what_am_i_hearing", "what_can_you_do", "what_you_know", "write_document",
+		"web_search", "what_am_i_hearing", "what_can_you_do", "what_you_know",
+		"write_document",
 		"write_file",
 	}
 
@@ -369,7 +371,21 @@ func itoa(n int64) string { return strconv.FormatInt(n, 10) }
 // is not registered at all, rather than registered and refused — an assistant
 // that keeps proposing something it may never do is worse than one that simply
 // cannot.
-func TestWebToolExistsOnlyWhenPrivacyAllowsIt(t *testing.T) {
+/*
+ * Privacy decides what the model is shown and what it is allowed to run.
+ *
+ * It used to decide what was registered, which was simpler and could only
+ * change by restarting: somebody switching to research watched the setting
+ * save and nothing else happen, because the tools that make research mean
+ * anything had been decided minutes earlier.
+ *
+ * So both halves are checked. Hidden is what stops the model reaching for it —
+ * a tool it can see is a tool it will try. Refused is what stops it anyway,
+ * because a model that saw the tool earlier in a conversation will name it
+ * again after the rule changes, and a guard that only removes the menu is a
+ * convention rather than a rule.
+ */
+func TestPrivacyHidesAndRefusesTheWebTools(t *testing.T) {
 	cases := map[string]bool{"private": false, "research": true, "open": true}
 
 	for privacy, wantWeb := range cases {
@@ -388,12 +404,53 @@ func TestWebToolExistsOnlyWhenPrivacyAllowsIt(t *testing.T) {
 			b := brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"),
 				slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-			_, hasWeb := b.Agent.Registry.Get("fetch_url")
+			// Registered whatever the setting, so that changing it does not
+			// need the program restarted.
+			if _, present := b.Agent.Registry.Get("fetch_url"); !present {
+				t.Fatal("the web tool is not registered at all")
+			}
 
-			if hasWeb != wantWeb {
-				t.Errorf("privacy %q: fetch_url present = %v, want %v", privacy, hasWeb, wantWeb)
+			for _, name := range []string{"fetch_url", "web_search"} {
+				offLimits := b.Agent.OffLimits(name)
+
+				if offLimits == wantWeb {
+					t.Errorf("privacy %q: %s off limits = %v, want %v",
+						privacy, name, offLimits, !wantWeb)
+				}
 			}
 		})
+	}
+}
+
+/*
+ * And it follows the setting as it changes, without a restart.
+ *
+ * This is the whole point of moving the decision out of the registry. The file
+ * on the owner's machine said research while the program said private, because
+ * the program reports what it is using and it was using what it read at
+ * startup.
+ */
+func TestTheWebFollowsPrivacyWhileRunning(t *testing.T) {
+	_, _, b := newServer(t)
+
+	if !b.Agent.OffLimits("fetch_url") {
+		t.Fatal("the web is reachable in private mode")
+	}
+
+	if _, err := b.UsePrivacy("research"); err != nil {
+		t.Fatal(err)
+	}
+
+	if b.Agent.OffLimits("fetch_url") {
+		t.Fatal("switching to research left the web off limits")
+	}
+
+	if _, err := b.UsePrivacy("private"); err != nil {
+		t.Fatal(err)
+	}
+
+	if !b.Agent.OffLimits("fetch_url") {
+		t.Fatal("switching back to private left the web reachable")
 	}
 }
 

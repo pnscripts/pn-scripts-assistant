@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 )
 
 // Router chooses a provider and refuses the ones privacy forbids.
@@ -13,7 +14,18 @@ import (
 // a rule and a convention: a call site can forget to check, and one that
 // forgets is indistinguishable from one that chose not to.
 type Router struct {
-	mode      Mode
+	/*
+	 * mode is behind a lock because it can change while the brain is running.
+	 *
+	 * Privacy used to be fixed when the program started, so changing it in the
+	 * panel wrote the file, said "Saved", and did nothing until the next
+	 * launch — while the panel went on reporting the old setting, which made a
+	 * saved change look like a failed one. It takes effect now, which means it
+	 * is read on one goroutine while being written on another.
+	 */
+	mu   sync.RWMutex
+	mode Mode
+
 	providers map[string]Provider
 	fallback  string
 	embedder  Embedder
@@ -47,7 +59,31 @@ func NewRouter(mode Mode, defaultProvider string, providers ...Provider) *Router
 	return r
 }
 
-func (r *Router) Mode() Mode { return r.mode }
+func (r *Router) Mode() Mode {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.mode
+}
+
+/*
+ * UseMode changes what is allowed to leave this machine.
+ *
+ * The one setting where the direction of the change decides how careful this
+ * has to be. Tightening has to take effect at once and completely, because
+ * anything still running under the old rule is a disclosure somebody has just
+ * said they did not want. Loosening can afford to be gradual and is not.
+ *
+ * Everything that obtains a provider goes through Provider(), so setting this
+ * one field is the whole of it: there is no path that captured the old mode
+ * and could go on using it.
+ */
+func (r *Router) UseMode(mode Mode) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.mode = mode
+}
 
 // Provider returns the named provider, or the default when name is empty.
 func (r *Router) Provider(name string) (Provider, error) {
@@ -55,7 +91,7 @@ func (r *Router) Provider(name string) (Provider, error) {
 		name = r.fallback
 	}
 
-	if err := r.mode.GuardProvider(name); err != nil {
+	if err := r.Mode().GuardProvider(name); err != nil {
 		return nil, err
 	}
 
@@ -91,10 +127,14 @@ type Availability struct {
 // including the ones privacy forbids — showing a provider as forbidden is more
 // honest than hiding it and letting the user wonder where it went.
 func (r *Router) Availabilities(ctx context.Context) []Availability {
+	// Read once, so every provider in one listing is judged against the same
+	// rule even if it changes while the list is being built.
+	mode := r.Mode()
+
 	out := make([]Availability, 0, len(r.providers))
 
 	for name, p := range r.providers {
-		permitted := r.mode.AllowsProvider(name)
+		permitted := mode.AllowsProvider(name)
 
 		out = append(out, Availability{
 			Name:      name,

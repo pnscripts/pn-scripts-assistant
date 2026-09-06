@@ -165,16 +165,24 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.LookAtScreen{OllamaURL: cfg.OllamaURL},
 	}
 
-	// The web tool is not registered at all in private mode, rather than
-	// registered and refused. A tool the model can see is a tool it will try,
-	// and an assistant that keeps proposing something it may never do is worse
-	// than one that simply cannot.
-	if mode.AllowsWeb() {
-		available = append(available,
-			tools.FetchURL{},
-			tools.WebSearch{BraveKey: cfg.BraveKey},
-		)
-	}
+	/*
+	 * The web tools are registered whatever the privacy setting, and hidden
+	 * from the model when it forbids them.
+	 *
+	 * They used to be left out entirely, for a good reason: a tool the model
+	 * can see is a tool it will try, and an assistant that keeps proposing
+	 * something it may never do is worse than one that simply cannot. The
+	 * reason still holds and the mechanism has moved — they are filtered out
+	 * of what the model is shown, by the live setting, on every turn.
+	 *
+	 * Left out at startup, privacy could only change by restarting: somebody
+	 * switching to research saw the file change and nothing else, because the
+	 * tools that make research mean anything were decided minutes earlier.
+	 */
+	available = append(available,
+		tools.FetchURL{},
+		tools.WebSearch{BraveKey: cfg.BraveKey},
+	)
 
 	/*
 	 * Mail tools appear only when there is a mailbox.
@@ -354,6 +362,23 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		DB:       db,
 		Log:      logger,
 		Registry: tools.NewRegistry(available...),
+
+		/*
+		 * What the privacy setting forbids, asked fresh on every turn.
+		 *
+		 * The reason it is a function rather than a list: privacy can change
+		 * while the program is running, and it used to be able to change only
+		 * by restarting — which meant somebody switching to research watched
+		 * the file change and nothing else happen.
+		 */
+		OffLimits: func(tool string) bool {
+			switch tool {
+			case "fetch_url", "web_search":
+				return !b.Mode.AllowsWeb()
+			}
+
+			return false
+		},
 
 		// Read from the live settings each turn, so switching it off in the
 		// interface takes effect without a restart.
@@ -1755,4 +1780,51 @@ func (t talkingTo) History(id int64) ([]tools.Message, error) {
 	}
 
 	return out, nil
+}
+
+/*
+ * UsePrivacy changes what is allowed to leave this machine, while it runs.
+ *
+ * It used to be read once at startup, so changing it in the panel wrote the
+ * file, said "Saved", and did nothing — while the panel went on reporting the
+ * old setting, because the brain reports what it is using rather than what the
+ * file says. A saved change that looks like a failed one is worse than a
+ * refusal: somebody sets it three times, sees no effect, and concludes the
+ * program is lying about its privacy.
+ *
+ * Both places that hold the mode are set, and they are the only two: the brain
+ * answers questions about it and the router enforces it. Everything that
+ * obtains a provider goes through the router, so there is no path that
+ * captured the old mode and could go on using it.
+ */
+func (b *Brain) UsePrivacy(mode string) (llm.Mode, error) {
+	parsed := llm.ParseMode(mode)
+
+	/*
+	 * An unrecognised value is refused rather than quietly read as private.
+	 *
+	 * ParseMode is deliberately strict for configuration, where the safe
+	 * reading of a typo is the strict one. Here it would mean somebody asking
+	 * for "reserch" and being told they now have privacy they did not ask for
+	 * — the right answer either way, and it has to be said rather than done
+	 * silently.
+	 */
+	if string(parsed) != strings.ToLower(strings.TrimSpace(mode)) {
+		return b.Mode, fmt.Errorf("there is no privacy setting called %q", mode)
+	}
+
+	b.Mode = parsed
+	b.Cfg.Privacy = string(parsed)
+
+	if b.Router != nil {
+		b.Router.UseMode(parsed)
+	}
+
+	if err := b.Cfg.Save(b.Root); err != nil {
+		return b.Mode, err
+	}
+
+	b.Log.Info("privacy changed", "mode", parsed)
+
+	return parsed, nil
 }

@@ -56,6 +56,19 @@ type Loop struct {
 	Interrupted func() bool
 
 	/*
+	 * OffLimits hides a tool from the model and refuses to run it.
+	 *
+	 * For rules that can change while the program is running, which is
+	 * privacy and nothing else so far. A tool the model can see is a tool it
+	 * will try, so a forbidden one has to be invisible rather than merely
+	 * refused — and it has to be refused as well, because a model that has
+	 * seen it once in a conversation will name it again.
+	 *
+	 * Nil means everything registered is allowed.
+	 */
+	OffLimits func(tool string) bool
+
+	/*
 	 * Model chooses which model answers a turn, or is nil to leave it alone.
 	 *
 	 * Set by the brain, which knows what is installed. It is asked once per
@@ -365,6 +378,22 @@ func (l *Loop) RunShaped(
 				// Hallucinated tool names are common with small models. Telling
 				// the model rather than failing the turn lets it correct itself.
 				messages = append(messages, toolResult(call, "No such tool: "+call.Name))
+
+				continue
+			}
+
+			/*
+			 * And refused as well as hidden.
+			 *
+			 * Hiding it from the list is what stops the model reaching for it;
+			 * this is what stops it anyway. A model that saw the tool earlier
+			 * in a conversation will name it again after the rule changes, and
+			 * a guard that only removes the menu is a convention rather than a
+			 * rule.
+			 */
+			if l.OffLimits != nil && l.OffLimits(call.Name) {
+				messages = append(messages, toolResult(call,
+					"That is not allowed under the current privacy setting."))
 
 				continue
 			}
@@ -1020,7 +1049,30 @@ func (l *Loop) specs() []llm.ToolSpec {
 		l.cachedSpecs = out
 	})
 
-	return l.cachedSpecs
+	if l.OffLimits == nil {
+		return l.cachedSpecs
+	}
+
+	/*
+	 * The forbidden ones filtered out of the cached list, not out of the
+	 * cache.
+	 *
+	 * Privacy can change between one turn and the next, so this cannot be
+	 * decided once — but building every schema again on every turn would
+	 * throw away the caching that exists because whitespace in a schema is
+	 * tokens the model is charged for.
+	 */
+	out := make([]llm.ToolSpec, 0, len(l.cachedSpecs))
+
+	for _, spec := range l.cachedSpecs {
+		if l.OffLimits(spec.Name) {
+			continue
+		}
+
+		out = append(out, spec)
+	}
+
+	return out
 }
 
 // compactJSON strips formatting whitespace, leaving the schema unchanged.
