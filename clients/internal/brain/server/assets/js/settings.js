@@ -101,7 +101,21 @@ async function load() {
         }
     }
 
-    if (el('set-name')) {
+    /*
+     * The form is refilled from the server, but never while it is being filled
+     * in by a person.
+     *
+     * This panel is refreshed every three seconds, and refreshing meant
+     * overwriting every field with what the server currently holds. So
+     * choosing something from the privacy dropdown and taking more than three
+     * seconds to reach the Save button put the old value back underneath the
+     * cursor — the setting appeared not to work, and what was actually
+     * happening was that it was being un-set faster than it could be saved.
+     *
+     * Nothing is written back once somebody has touched the form, until they
+     * save it. A stale field they are editing is not stale: it is theirs.
+     */
+    if (el('set-name') && !beingEdited()) {
         el('set-name').value = status.name || '';
         el('set-owner').value = status.owner || '';
         el('set-wake').value = status.wake_word || '';
@@ -203,6 +217,32 @@ async function setColour(key, value) {
     renderColours();
 }
 
+/*
+ * beingEdited reports that the settings form is somebody's to change.
+ *
+ * True while any of its fields has focus, and true from the first keystroke or
+ * choice until it is saved — because a change made and then clicked away from
+ * is still a change waiting to be saved, and putting the old value back under
+ * it would be the same fault a moment later.
+ */
+let touched = false;
+
+function beingEdited() {
+    const form = el('settings-form');
+
+    if (!form) return false;
+
+    return touched || form.contains(document.activeElement);
+}
+
+const settingsForm = el('settings-form');
+
+if (settingsForm) {
+    for (const event of ['input', 'change']) {
+        settingsForm.addEventListener(event, () => { touched = true; });
+    }
+}
+
 async function save(values, note) {
     try {
         const saved = await fetch('/api/settings', {
@@ -218,6 +258,10 @@ async function save(values, note) {
         }
 
         if (note) note.textContent = 'Saved.';
+
+        // Saved, so the server's answer is the truth again and the form may be
+        // refilled from it.
+        touched = false;
 
         return true;
     } catch {

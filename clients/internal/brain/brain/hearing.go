@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"pn-brain/internal/brain/places"
 	"pn-brain/internal/brain/storage"
 	"strconv"
@@ -120,43 +121,115 @@ func Ago(at time.Time) string {
 }
 
 /*
- * somewhereToStart is the drives and folders the brain can see for itself.
+ * somewhereToStart is the folders the brain can see and could actually take on.
  *
- * The home directory and whatever is mounted, named the way a person would
- * name them. A closed list assembled from the machine — which is what makes it
- * safe to act on a spoken instruction: "learn everything" can pick from this
- * without any chance that a misheard word becomes a folder somebody never
- * meant it to read.
+ * Could actually take on is the whole of it. The first version offered the
+ * home folder and the drive the brain lives on, which are the two obvious
+ * answers and are both refused: a whole home folder is more than anybody means
+ * by "learn everything", and a brain cannot learn from the drive it keeps
+ * itself on. So "learn everything" was approved and then did nothing, with two
+ * refusals where the work should have been — which is worse than saying no,
+ * because somebody had already agreed to it.
+ *
+ * It offers what is inside them instead. A closed list still, assembled by
+ * looking at the machine rather than parsed out of speech, which is what makes
+ * it safe to act on a spoken instruction.
  */
 func (b *Brain) somewhereToStart() []tools.Candidate {
-	drives, err := storage.Drives(b.Root)
-	if err != nil {
-		return nil
-	}
-
 	var out []tools.Candidate
 
+	seen := map[string]bool{}
+
+	add := func(path, name string, home bool) {
+		clean := filepath.Clean(path)
+
+		if seen[clean] {
+			return
+		}
+
+		// Only somewhere that is there, is a folder, and is not refused for a
+		// reason the person would then have to be told about.
+		if info, err := os.Stat(clean); err != nil || !info.IsDir() {
+			return
+		}
+
+		if err := places.CanWatch(b.Root, clean); err != nil {
+			return
+		}
+
+		seen[clean] = true
+
+		out = append(out, tools.Candidate{Path: clean, Name: name, Home: home})
+	}
+
+	/*
+	 * The folders inside home that people keep work in.
+	 *
+	 * Named rather than discovered, because a home folder also holds fifty
+	 * dotfiles and a Trash, and offering somebody their own .cache is not an
+	 * offer anybody wants.
+	 */
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		out = append(out, tools.Candidate{
-			Path: home, Name: "your home folder", Home: true,
-		})
+		for _, kind := range []struct{ dir, name string }{
+			{"Documents", "your documents"},
+			{"Desktop", "your desktop"},
+			{"Downloads", "your downloads"},
+			{"Projects", "your projects"},
+			{"Development", "your development folder"},
+			{"DEV", "your development folder"},
+			{"Work", "your work folder"},
+		} {
+			add(filepath.Join(home, kind.dir), kind.name, true)
+		}
+	}
+
+	/*
+	 * And what is on the drives, one level in.
+	 *
+	 * The root of the drive the brain lives on is refused — it cannot learn
+	 * from where it keeps itself — so the folders beside the brain are what is
+	 * actually available, and on this machine that is where the work is.
+	 */
+	drives, err := storage.Drives(b.Root)
+	if err != nil {
+		return out
 	}
 
 	for _, d := range drives {
-		if d.MountPoint == "" || d.MountPoint == "/" {
+		if d.MountPoint == "" || d.MountPoint == "/" ||
+			strings.HasPrefix(d.MountPoint, "/home/") {
 			continue
 		}
 
-		// The home directory is already offered above, under a name somebody
-		// recognises.
-		if strings.HasPrefix(d.MountPoint, "/home/") {
+		/*
+		 * A name somebody would use for the drive, not its mount point.
+		 *
+		 * "DEV on /media/petar/c8fc2986-4b79-4d7b-9a8c-e6db653915ac" is a
+		 * path with a folder glued to the front of it. What somebody calls
+		 * that is the external drive.
+		 */
+		where := "the external drive"
+
+		if !d.Removable {
+			where = filepath.Base(d.MountPoint)
+		}
+
+		// The drive itself, when it is not the one the brain is on.
+		add(d.MountPoint, where, false)
+
+		entries, err := os.ReadDir(d.MountPoint)
+		if err != nil {
 			continue
 		}
 
-		out = append(out, tools.Candidate{
-			Path: d.MountPoint,
-			Name: places.Short(d.MountPoint),
-		})
+		for _, e := range entries {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") || housekeeping(e.Name()) {
+				continue
+			}
+
+			add(filepath.Join(d.MountPoint, e.Name()),
+				e.Name()+" on "+where, false)
+		}
 	}
 
 	return out
@@ -334,3 +407,24 @@ func (b *Brain) changeVoice(ctx context.Context, which string) (string, error) {
 
 	return fmt.Sprintf("This is the %s voice.", which), nil
 }
+
+/*
+ * housekeeping names folders that belong to the filesystem rather than to
+ * anybody.
+ *
+ * Offering somebody their own lost+found is not an offer. Every one of these
+ * exists on drives people actually use, and each would be read, embedded and
+ * remembered at the cost of the folders that matter.
+ */
+func housekeeping(name string) bool {
+	switch name {
+	case "lost+found", "System Volume Information", "$RECYCLE.BIN",
+		".Trash-1000", "snap", "PN-BRAIN-DATA":
+		return true
+	}
+
+	return false
+}
+
+// SomewhereToStart is what it would offer, for the interface and for tests.
+func (b *Brain) SomewhereToStart() []tools.Candidate { return b.somewhereToStart() }

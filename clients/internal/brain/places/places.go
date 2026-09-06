@@ -324,3 +324,10 @@ func Short(path string) string {
 
 	return "~" + strings.TrimPrefix(path, home)
 }
+
+// CanWatch reports whether a place could be taken on, without taking it on.
+//
+// So that somewhere can be offered only if agreeing to it would work. Offering
+// what will be refused is worse than offering nothing: somebody says yes, and
+// the refusal arrives after they have already agreed.
+func CanWatch(root, path string) error { return sensible(root, filepath.Clean(path)) }
