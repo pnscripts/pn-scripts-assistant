@@ -66,8 +66,14 @@ var (
  * design — that is the whole point — so the turn that eventually uses it takes
  * on the job of killing it if it is interrupted. See Piper.Speak.
  */
-func startVoice(binary, voice string) (*warmVoice, error) {
-	cmd := exec.Command(binary, "--model", voice, "--output-raw")
+func startVoice(binary, voice string, machine bool) (*warmVoice, error) {
+	args := []string{"--model", voice, "--output-raw"}
+
+	if machine {
+		args = append(args, machineArgs()...)
+	}
+
+	cmd := exec.Command(binary, args...)
 
 	dieWithParent(cmd)
 
@@ -93,7 +99,8 @@ func startVoice(binary, voice string) (*warmVoice, error) {
 	}
 
 	return &warmVoice{
-		cmd: cmd, words: words, audio: audio, voice: voice, started: time.Now(),
+		cmd: cmd, words: words, audio: audio, voice: key(voice, machine),
+		started: time.Now(),
 	}, nil
 }
 
@@ -104,14 +111,33 @@ func startVoice(binary, voice string) (*warmVoice, error) {
  * voice, and it never blocks the caller. Called at startup, and again each
  * time a spare is used up.
  */
-func WarmVoice(binary, voice string) {
+/*
+ * key identifies a waiting synthesiser by its voice and its delivery.
+ *
+ * Both, because the robot is built from the same model file as the ordinary
+ * voice and differs only in how it is told to speak it. Keyed on the path
+ * alone, a spare started for one would be handed the other's sentences — and
+ * the robot would occasionally answer in the plain voice, which is the kind of
+ * fault that looks like a haunting.
+ */
+func key(voice string, machine bool) string {
+	if machine {
+		return voice + "|machine"
+	}
+
+	return voice
+}
+
+func WarmVoice(binary, voice string, machine bool) {
 	if binary == "" || voice == "" {
 		return
 	}
 
+	want := key(voice, machine)
+
 	spareMu.Lock()
 
-	if warming || (spare != nil && spare.voice == voice) {
+	if warming || (spare != nil && spare.voice == want) {
 		spareMu.Unlock()
 
 		return
@@ -132,7 +158,7 @@ func WarmVoice(binary, voice string) {
 	}
 
 	go func() {
-		ready, err := startVoice(binary, voice)
+		ready, err := startVoice(binary, voice, machine)
 
 		spareMu.Lock()
 		defer spareMu.Unlock()
@@ -156,11 +182,11 @@ func WarmVoice(binary, voice string) {
 }
 
 // takeVoice hands over the waiting synthesiser if it is the right one.
-func takeVoice(voice string) *warmVoice {
+func takeVoice(voice string, machine bool) *warmVoice {
 	spareMu.Lock()
 	defer spareMu.Unlock()
 
-	if spare == nil || spare.voice != voice {
+	if spare == nil || spare.voice != key(voice, machine) {
 		return nil
 	}
 
@@ -250,10 +276,12 @@ func WarmTheVoice() {
 	}
 
 	voice := p.Voice
+	machine := false
 
 	if chosen := voiceForText(""); chosen.Engine == "piper" && chosen.Path != "" {
 		voice = chosen.Path
+		machine = chosen.ID == RobotID
 	}
 
-	WarmVoice(p.Binary, voice)
+	WarmVoice(p.Binary, voice, machine)
 }

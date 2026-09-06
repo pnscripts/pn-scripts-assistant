@@ -46,7 +46,7 @@ func fakeBinary(t *testing.T) string {
 func spareFor(t *testing.T, voice string) *warmVoice {
 	t.Helper()
 
-	WarmVoice(fakeBinary(t), voice)
+	WarmVoice(fakeBinary(t), voice, false)
 
 	// Started in the background, on purpose — nothing should ever wait for a
 	// spare to be ready.
@@ -62,7 +62,7 @@ func spareFor(t *testing.T, voice string) *warmVoice {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	got := takeVoice(voice)
+	got := takeVoice(voice, false)
 	if got == nil {
 		t.Fatal("no synthesiser was made ready")
 	}
@@ -91,7 +91,7 @@ func TestASpareIsOnlyHandedOutOnce(t *testing.T) {
 	first := spareFor(t, "a-voice")
 	defer first.discard()
 
-	if again := takeVoice("a-voice"); again != nil {
+	if again := takeVoice("a-voice", false); again != nil {
 		again.discard()
 
 		t.Fatal("the same synthesiser was handed out twice")
@@ -116,7 +116,7 @@ func TestASpareForAnotherVoiceIsNotUsed(t *testing.T) {
 	spare = ready
 	spareMu.Unlock()
 
-	if got := takeVoice("bulgarian"); got != nil {
+	if got := takeVoice("bulgarian", false); got != nil {
 		t.Fatal("a spare for the wrong voice was handed over")
 	}
 }
@@ -162,7 +162,7 @@ func TestAVeryOldSpareIsNotUsed(t *testing.T) {
 	spare = ready
 	spareMu.Unlock()
 
-	if got := takeVoice("a-voice"); got != nil {
+	if got := takeVoice("a-voice", false); got != nil {
 		got.discard()
 
 		t.Fatal("a stale synthesiser was handed over")
@@ -220,5 +220,80 @@ func TestInterruptingStopsTheVoiceGenerating(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("the synthesiser went on running after the turn was abandoned")
+	}
+}
+
+/*
+ * The robot and the ordinary voice are the same model file.
+ *
+ * They differ only in how piper is told to speak it, which means a waiting
+ * synthesiser has to be identified by both. Keyed on the path alone, a spare
+ * started for one would be handed the other's sentences — and the robot would
+ * occasionally answer in the plain voice, which is the kind of fault that
+ * looks like a haunting.
+ */
+func TestARobotSpareIsNotUsedForThePlainVoice(t *testing.T) {
+	defer StopWarmVoice()
+
+	const model = "/voices/lessac.onnx"
+
+	ready := spareFor(t, model)
+
+	spareMu.Lock()
+	spare = ready
+	spare.voice = key(model, true)
+	spareMu.Unlock()
+
+	if got := takeVoice(model, false); got != nil {
+		got.discard()
+
+		t.Fatal("a synthesiser set up for the robot was handed a plain sentence")
+	}
+
+	if got := takeVoice(model, true); got == nil {
+		t.Fatal("the robot's own spare was not handed back to it")
+	}
+}
+
+/*
+ * What makes it a machine is how it speaks, not what is done to the sound.
+ *
+ * Every earlier robot treated the audio — espeak, a ring modulator, a comb
+ * filter, a pitch shift — and every one of them cost some of the words. The
+ * expression is turned down instead, which leaves the phonemes exactly as the
+ * neural voice made them.
+ */
+func TestTheMachineIsInTheDeliveryAndCostsNoClarity(t *testing.T) {
+	args := machineArgs()
+
+	var flat, even, paced bool
+
+	for i, a := range args {
+		if i+1 >= len(args) {
+			break
+		}
+
+		switch a {
+		case "--noise_scale":
+			flat = args[i+1] < "0.300"
+		case "--noise_w":
+			even = args[i+1] < "0.300"
+		case "--length_scale":
+			paced = args[i+1] > "1.000"
+		}
+	}
+
+	if !flat || !even {
+		t.Fatalf("the delivery is not flat enough to read as a machine: %v", args)
+	}
+
+	if !paced {
+		t.Fatalf("a machine that is understood is not in a hurry: %v", args)
+	}
+
+	// And nothing here touches the audio: no filter, no modulator, no
+	// resampler. That is the whole point of the change.
+	if len(args) != 6 {
+		t.Fatalf("something beyond the delivery was added: %v", args)
 	}
 }

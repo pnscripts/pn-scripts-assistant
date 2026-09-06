@@ -206,10 +206,10 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 	 * happens on the very first sentence after the language changes — so it
 	 * has to work exactly as it used to, one second slower.
 	 */
-	synth := takeVoice(voice)
+	synth := takeVoice(voice, asMachine)
 
 	if synth == nil {
-		started, err := startVoice(p.Binary, voice)
+		started, err := startVoice(p.Binary, voice, asMachine)
 		if err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 	}
 
 	// And another for whatever is said next, made while this one is speaking.
-	defer WarmVoice(p.Binary, voice)
+	defer WarmVoice(p.Binary, voice, asMachine)
 
 	// A spare belongs to no turn, so this turn takes on stopping it. Without
 	// this, interrupting kills the player and leaves the voice generating.
@@ -246,24 +246,17 @@ func (p *Piper) Speak(ctx context.Context, text string) error {
 	play.Stderr = io.Discard
 
 	/*
-	 * And the machine timbre, put on the way past, when the robot is the one
-	 * speaking.
+	 * Nothing is done to the sound.
 	 *
-	 * Here rather than in the model, because the words and the timbre come
-	 * from different places on purpose: the clarity is the neural voice's and
-	 * the character is this. See robot.go.
+	 * The robot used to be made here, by modulating the audio on its way to
+	 * the player. That is gone: the machine is in how the voice speaks, not in
+	 * what is done to it afterwards, and every treatment that was tried cost
+	 * some of the words. See machinevoice.go.
 	 */
-	var treat func(io.Reader) io.Reader
-
-	if asMachine {
-		treat = func(from io.Reader) io.Reader { return robotise(from, p.Rate) }
-	}
-
 	return pumpAudio(synth, play, level, audioHooks{
 		playing:   level.start,
 		generated: level.seal,
 		done:      level.finish,
-		treat:     treat,
 	})
 }
 
