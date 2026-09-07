@@ -316,8 +316,8 @@ func transcribeViaServer(ctx context.Context, wav string) (string, error) {
  * quick question is followed by a wait — so when the transcript stops
  * mid-thought the microphone is simply opened again and the pieces joined.
  */
-func ListenForTurn(ctx context.Context, device string) (Heard, error) {
-	heard, err := listenOnce(ctx, device)
+func ListenForTurn(ctx context.Context, device string, meantForIt bool) (Heard, error) {
+	heard, err := listenOnce(ctx, device, meantForIt)
 	if err != nil || heard.Text == "" {
 		return heard, err
 	}
@@ -332,7 +332,7 @@ func ListenForTurn(ctx context.Context, device string) (Heard, error) {
 
 		progress.Detail("still talking — waiting for the rest")
 
-		more, err := listenAgain(ctx, device)
+		more, err := listenAgain(ctx, device, meantForIt)
 		if err != nil {
 			break
 		}
@@ -370,17 +370,17 @@ func itoa(n int) string {
 }
 
 // listenOnce records until the speaker falls quiet, once.
-func listenOnce(ctx context.Context, device string) (Heard, error) {
-	return listenWaiting(ctx, device, PatienceBeforeSpeech)
+func listenOnce(ctx context.Context, device string, meantForIt bool) (Heard, error) {
+	return listenWaiting(ctx, device, PatienceBeforeSpeech, meantForIt)
 }
 
 // listenAgain carries a turn on, waiting only briefly for it to resume.
-func listenAgain(ctx context.Context, device string) (Heard, error) {
-	return listenWaiting(ctx, device, PatienceForMore)
+func listenAgain(ctx context.Context, device string, meantForIt bool) (Heard, error) {
+	return listenWaiting(ctx, device, PatienceForMore, meantForIt)
 }
 
 func listenWaiting(
-	ctx context.Context, device string, patience time.Duration,
+	ctx context.Context, device string, patience time.Duration, meantForIt bool,
 ) (Heard, error) {
 	f, err := os.CreateTemp("", "pn-brain-turn-*.wav")
 	if err != nil {
@@ -506,7 +506,26 @@ func listenWaiting(
 	// Heard, but not yet understood. Worth saying, because on this machine the
 	// recogniser is a second of work on its own and the two stages fail for
 	// completely different reasons.
-	progress.Set("transcribing", "Making out the words")
+	/*
+	 * Announced only when it was meant for the brain.
+	 *
+	 * Everything the microphone catches is transcribed, because the only way to
+	 * find out whether its name was said is to make out the words first. So
+	 * this step runs on a cough, a door, a line of the film — and it used to
+	 * be a foreground step, which the page says out loud. Petar had it saying
+	 * "I am making out what you said" at every sound in the room.
+	 *
+	 * When the brain has already been addressed — mid-conversation, or being
+	 * interrupted — somebody is waiting on this and the line earns its place.
+	 * Otherwise it is speculative work nobody asked for, and it belongs where
+	 * the rest of that work is: on the screen, silently. See announce() in
+	 * working.js, which never speaks a background step.
+	 */
+	if meantForIt {
+		progress.Set("transcribing", "Making out the words")
+	} else {
+		progress.SetBackground("transcribing", "Making out the words")
+	}
 
 	/*
 	 * This step, so its findings are reported against it.

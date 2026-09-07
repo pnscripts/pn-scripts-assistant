@@ -92,7 +92,9 @@ func (s *Server) handleTeachVoice(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body)
 
-	heard, err := speech.ListenForTurn(r.Context(), body.Device)
+	// Asked for directly — somebody is on the Privacy page teaching it their
+	// voice and is waiting for this exact recording.
+	heard, err := speech.ListenForTurn(r.Context(), body.Device, true)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 

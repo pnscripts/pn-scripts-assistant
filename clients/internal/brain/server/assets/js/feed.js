@@ -319,23 +319,34 @@ pollFeed();
 const BACKGROUND_INTERVAL = 1500;
 
 function drawBackground(jobs) {
-    const host = document.getElementById('activity');
+    /*
+     * Its own box, which nothing else clears.
+     *
+     * This used to create a .jobs div and prepend it into #activity, and
+     * console.js begins its own refresh by emptying that element — so a
+     * running job was deleted every three seconds and rebuilt a second and a
+     * half later. Petar saw it blinking.
+     *
+     * The box is now in the page, owned here, and the empty note is settled by
+     * whichever of the two writers changed something. See brainActivityChanged.
+     */
+    const box = document.getElementById('activity-jobs');
 
-    if (!host) return;
-
-    let box = host.querySelector('.jobs');
+    if (!box) return;
 
     if (!jobs.length) {
-        if (box) box.remove();
+        if (box.children.length || !box.hidden) {
+            box.textContent = '';
+            box.dataset.jobs = '';
+            box.hidden = true;
+
+            if (window.brainActivityChanged) window.brainActivityChanged();
+        }
 
         return;
     }
 
-    if (!box) {
-        box = document.createElement('div');
-        box.className = 'jobs';
-        host.prepend(box);
-    }
+    box.hidden = false;
 
     // Running first: what is happening now matters more than what happened.
     const order = { running: 0, failed: 1, done: 2, stopped: 3 };
@@ -397,6 +408,8 @@ function drawBackground(jobs) {
         row.append(dot, body, took);
         box.appendChild(row);
     });
+
+    if (window.brainActivityChanged) window.brainActivityChanged();
 }
 
 async function pollBackground() {

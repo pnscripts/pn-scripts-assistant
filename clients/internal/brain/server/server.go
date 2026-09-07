@@ -760,7 +760,21 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body)
 
-	heard, err := speech.ListenForTurn(r.Context(), body.Device)
+	/*
+	 * Whether this recording was meant for the brain, as far as can be known
+	 * before the words are made out.
+	 *
+	 * Engaged is a conversation already under way and Interrupting is somebody
+	 * talking over an answer; in both, a person is waiting on this and the
+	 * program should say what it is doing. Otherwise the microphone is open on
+	 * a room, and everything it catches — a cough, a door, a line of a film —
+	 * is transcribed only to find out whether the name was said. Announcing
+	 * that is what had the brain saying "I am making out what you said" at
+	 * every sound in the house.
+	 */
+	meantForIt := body.Engaged || body.Interrupting
+
+	heard, err := speech.ListenForTurn(r.Context(), body.Device, meantForIt)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 

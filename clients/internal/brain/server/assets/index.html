@@ -301,7 +301,26 @@
 
                 <div class="card" data-area="activity">
                     <h2>Activity</h2>
-                    <div id="activity" class="activity"></div>
+                    <!--
+                        Two writers, one each.
+
+                        This was a single empty div that both feed.js and
+                        console.js drew into, and console.js began by clearing
+                        it — so every three seconds it deleted the running
+                        background job, and feed.js put it back a second and a
+                        half later. That is the flicker, and it is also how a
+                        job came to sit above the words "Nothing yet.": the
+                        panel was empty as far as the half that wrote them was
+                        concerned.
+
+                        Now each owns a box, and the empty note belongs to
+                        neither — it answers a question about both.
+                    -->
+                    <div id="activity" class="activity">
+                        <div id="activity-jobs" class="jobs" hidden></div>
+                        <div id="activity-items"></div>
+                        <p class="activity-empty" id="activity-empty">Nothing yet.</p>
+                    </div>
                 </div>
 
                 <!-- Row two: what it can do, what it is waiting on, what you can do. -->

@@ -1165,14 +1165,24 @@ async function refreshActivity() {
         return;
     }
 
-    const box = el('activity');
+    /*
+     * Its own box, not the whole panel.
+     *
+     * This used to clear #activity, which feed.js also draws into — so every
+     * three seconds it deleted whatever background job was running and feed.js
+     * put it back a second and a half later. That flicker was visible on
+     * screen, and the same collision is how a running job came to sit directly
+     * above the words "Nothing yet."
+     */
+    const box = el('activity-items');
+
+    if (!box) return;
+
     box.textContent = '';
 
     if (!items.length) {
-        const empty = document.createElement('div');
-        empty.className = 'activity-empty';
-        empty.textContent = 'Nothing yet.';
-        box.appendChild(empty);
+        window.brainActivityChanged();
+
         return;
     }
 
@@ -1220,7 +1230,31 @@ async function refreshActivity() {
         row.append(icon, text, tag);
         box.appendChild(row);
     });
+
+    window.brainActivityChanged();
 }
+
+/*
+ * "Nothing yet." belongs to neither half of the panel.
+ *
+ * It is the answer to a question about both — the background jobs feed.js
+ * draws and the entries this file draws — so it is settled in one place that
+ * both call, rather than by whichever of them happened to run last. Owning it
+ * separately is what put a running job directly above the words "Nothing yet."
+ */
+window.brainActivityChanged = function () {
+    const empty = el('activity-empty');
+
+    if (!empty) return;
+
+    const jobs = el('activity-jobs');
+    const items = el('activity-items');
+
+    const anything = (jobs && !jobs.hidden && jobs.children.length > 0)
+        || (items && items.children.length > 0);
+
+    empty.hidden = anything;
+};
 
 /*
  * How long ago, in words.
