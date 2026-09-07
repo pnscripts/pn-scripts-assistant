@@ -331,3 +331,34 @@ func Short(path string) string {
 // what will be refused is worse than offering nothing: somebody says yes, and
 // the refusal arrives after they have already agreed.
 func CanWatch(root, path string) error { return sensible(root, filepath.Clean(path)) }
+
+/*
+ * StartReadingAgain resets every place's progress without giving any of them up.
+ *
+ * Named apart from Forget, which drops a place from the list entirely — the
+ * two are opposite intentions and one letter apart in a hurry.
+ *
+ * For starting the reading again from nothing. The counters here — how much
+ * has been learned from a place, how much of it is left — are what the panel
+ * shows and what decides whether a place is finished; the record of which
+ * individual files have been seen lives in the database. Both have to go, or
+ * the second pass reports "42 learned" over a memory that holds none of it.
+ *
+ * The places themselves stay. Somebody who asks to start the learning again
+ * has not asked to take their drives off the list, and putting four folders
+ * back by hand is exactly the chore this feature exists to remove.
+ */
+func StartReadingAgain(root string) error {
+	list, err := List(root)
+	if err != nil {
+		return err
+	}
+
+	for i := range list {
+		list[i].Learned = 0
+		list[i].Waiting = 0
+		list[i].LastLearned = time.Time{}
+	}
+
+	return save(root, list)
+}

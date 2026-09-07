@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/places"
 
 	"pn-brain/internal/brain/store"
 )
@@ -491,4 +492,64 @@ func TestTheWholeListInstructionStartsAJobAndSaysSo(t *testing.T) {
 	}
 
 	b.Jobs.Stop(running[0].ID)
+}
+
+/*
+ * "I am learning from that", said every ninety seconds for an afternoon.
+ *
+ * A place is read a few files at a time over hours, and each bite was a fresh
+ * step for the page to narrate. What Petar asked for instead is one sentence
+ * when a folder is finished, saying what came out of it.
+ */
+func TestFinishingAFolderSaysWhatCameOutOfIt(t *testing.T) {
+	b := testBrain(t)
+
+	// Two waiting from this folder, one from somewhere else.
+	b.DB.AddLesson(0, "something from a document", "proposed", "high",
+		"document:/home/petar/Documents/a.pdf")
+	b.DB.AddLesson(0, "something else from a document", "proposed", "high",
+		"reading:/home/petar/Documents/b.pdf")
+	b.DB.AddLesson(0, "from another drive entirely", "proposed", "high",
+		"document:/media/drive/c.pdf")
+
+	said := b.finishedReading(
+		places.Place{Name: "your documents", Path: "/home/petar/Documents"},
+		places.Pass{
+			Place: places.Place{Name: "your documents", Learned: 31},
+			Known: 4,
+		})
+
+	for _, want := range []string{
+		"finished reading your documents",
+		"I learned 31 things",
+		"4 more I already knew",
+		"2 of them are waiting for you",
+	} {
+		if !strings.Contains(said, want) {
+			t.Errorf("the line does not say %q:\n  %s", want, said)
+		}
+	}
+
+	// And never the present tense that was the complaint.
+	if strings.Contains(said, "I am learning") {
+		t.Errorf("still narrating the middle: %s", said)
+	}
+}
+
+// A folder that held nothing says so, because "finished" on its own cannot be
+// told apart from "finished and found nothing worth having".
+func TestAnEmptyFolderSaysThatItWasEmpty(t *testing.T) {
+	b := testBrain(t)
+
+	said := b.finishedReading(
+		places.Place{Name: "your desktop", Path: "/home/petar/Desktop"},
+		places.Pass{Place: places.Place{Name: "your desktop", Learned: 0}})
+
+	if !strings.Contains(said, "nothing in it worth remembering") {
+		t.Errorf("an empty folder was reported as a success: %s", said)
+	}
+
+	if strings.Contains(said, "waiting for you") {
+		t.Errorf("invented something to review: %s", said)
+	}
 }

@@ -161,6 +161,7 @@ func usage() {
   brain tidy                clear self-descriptions out of the review queue
   brain start-over          empty the review queue and let those files be read again
   brain start-over --facts  forget memories of files in folders it no longer reads
+  brain start-over --all    forget everything learned and read every folder again
   brain setup               choose the drive, the model and the keys again
   brain start-again         stop waiting for a drive that is gone for good
   brain menu                put the brain in the applications menu
@@ -1669,6 +1670,8 @@ func runStartOver(args []string) error {
 	apply := fs.Bool("apply", false, "actually do it (otherwise only reports)")
 	facts := fs.Bool("facts", false,
 		"also forget what was already remembered from folders now skipped")
+	all := fs.Bool("all", false,
+		"forget everything learned and read every folder again from nothing")
 	fs.Parse(args)
 
 	db, root, err := openDB()
@@ -1676,6 +1679,10 @@ func runStartOver(args []string) error {
 		return err
 	}
 	defer db.Close()
+
+	if *all {
+		return learnFromNothing(db, root, *apply)
+	}
 
 	if *facts {
 		return forgetSkippedFolders(db, root, *apply)
@@ -1932,4 +1939,141 @@ func truncate(s string, n int) string {
 	}
 
 	return string(r[:n]) + "…"
+}
+
+/*
+ * learnFromNothing empties the knowledge and starts the reading again.
+ *
+ * The strongest of the three, and the only one that throws away things that
+ * were right. It exists because the rules for what is worth reading changed
+ * enough that what is stored was produced by rules nobody would choose now:
+ * two in three of Petar's memories were listings of a package cache, and the
+ * documents that should have been read instead are all marked as read.
+ * Tidying that leaves a memory that is half one set of rules and half another.
+ *
+ * Three things go, and all three have to. The facts, which are what it knows.
+ * The lessons, which are the record of every file it has been shown — keeping
+ * those would give a brain that knows nothing and believes it has read
+ * everything. And the counters beside each place, or the panel spends the next
+ * week reporting a hundred things learned from a memory holding none of them.
+ *
+ * The conversations stay, and so do the places themselves. Somebody asking to
+ * read their documents again has not asked to lose what they have said or to
+ * put four folders back by hand.
+ */
+func learnFromNothing(db *store.DB, root paths.Root, apply bool) error {
+	facts, err := db.CountFacts()
+	if err != nil {
+		return err
+	}
+
+	byKind, err := db.FactsByCategory()
+	if err != nil {
+		return err
+	}
+
+	waiting, err := db.CountPendingLessons()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("This forgets everything learned and reads every folder again.\n\n")
+	fmt.Printf("  %d memories", facts)
+
+	if len(byKind) > 0 {
+		kinds := make([]string, 0, len(byKind))
+
+		for k, n := range byKind {
+			kinds = append(kinds, fmt.Sprintf("%d %s", n, k))
+		}
+
+		sort.Strings(kinds)
+
+		fmt.Printf("  (%s)", strings.Join(kinds, ", "))
+	}
+
+	fmt.Printf("\n  %d waiting for review\n", waiting)
+	fmt.Printf("  every record of which files have been read\n")
+	fmt.Printf("  the learned and waiting counts beside each place\n\n")
+	fmt.Printf("Your conversations are not touched, and the places stay on the list.\n")
+
+	if !apply {
+		fmt.Println("\nNothing has been changed. Add --apply to do it.")
+
+		return nil
+	}
+
+	kept, err := backupEverything(db, root)
+	if err != nil {
+		return fmt.Errorf("writing the backup, so nothing was deleted: %w", err)
+	}
+
+	fmt.Printf("\nWritten to %s\n", kept)
+
+	goneFacts, goneLessons, err := db.ForgetEverythingLearned()
+	if err != nil {
+		return err
+	}
+
+	if err := places.StartReadingAgain(root.Path); err != nil {
+		return fmt.Errorf("after emptying the memory, resetting the places: %w", err)
+	}
+
+	fmt.Printf("Forgotten %d memories and %d records of files read.\n", goneFacts, goneLessons)
+	fmt.Println("It will start reading again a few minutes after the next launch.")
+
+	return nil
+}
+
+// backupEverything writes the facts and the lessons out before they go.
+func backupEverything(db *store.DB, root paths.Root) (string, error) {
+	name := filepath.Join(root.Path,
+		"everything-"+time.Now().Format("2006-01-02-150405")+".json")
+
+	f, err := os.Create(name)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+
+	facts, err := db.AllFacts()
+	if err != nil {
+		return "", err
+	}
+
+	for _, fact := range facts {
+		if err := enc.Encode(fact); err != nil {
+			return "", err
+		}
+	}
+
+	// Every status, not only the proposed ones: this is the record of what has
+	// been read, and it is about to stop existing.
+	for _, status := range []string{"proposed", "validated", "promoted", "rejected"} {
+		var after int64
+
+		for {
+			batch, err := db.LessonsAfter(status, after, 1000)
+			if err != nil {
+				return "", err
+			}
+
+			if len(batch) == 0 {
+				break
+			}
+
+			for _, l := range batch {
+				after = l.ID
+
+				if err := enc.Encode(l); err != nil {
+					return "", err
+				}
+			}
+		}
+	}
+
+	return name, f.Sync()
 }

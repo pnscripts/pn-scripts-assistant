@@ -55,14 +55,30 @@ func (g backgroundOf) Stop(id int64) error { return g.b.Jobs.Stop(id) }
  * who was out of the room still finds out.
  */
 func (b *Brain) announce(job jobs.Job) {
-	line := describeJob(job)
-
 	b.Log.Info("background work finished", "what", job.What, "state", job.State)
+
+	b.sayWhenFinished(describeJob(job))
+}
+
+/*
+ * sayWhenFinished puts a line where somebody will find it, and reads it out if
+ * they are listening.
+ *
+ * The shared half of announcing anything that happened without being asked
+ * for. A finished job used this and the background reading did not, which is
+ * how the reading came to say "I am learning from that" over and over instead:
+ * it had no way to say anything at the end, so all it could do was narrate the
+ * middle, and the middle is thousands of files long.
+ */
+func (b *Brain) sayWhenFinished(line string) {
+	if line == "" {
+		return
+	}
 
 	if _, err := b.DB.AddMessage(0, "assistant", "", "", line); err != nil {
 		// A conversation to attach it to is not always there; the spoken
 		// version is still worth having.
-		b.Log.Debug("could not record a finished job", "error", err)
+		b.Log.Debug("could not record something that finished", "error", err)
 	}
 
 	/*

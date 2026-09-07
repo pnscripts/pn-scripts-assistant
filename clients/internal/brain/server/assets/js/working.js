@@ -150,6 +150,22 @@ function announce(step) {
     if (!step) return;
     if (!shouldSay()) return;
 
+    /*
+     * Work nobody asked for stays quiet while it happens.
+     *
+     * The guard below says a line once and then holds its tongue — but it is
+     * keyed on the step, and reading a drive is thousands of steps: one per
+     * few files, each ending, each resetting the guard. So "I am learning from
+     * that" was said every ninety seconds for an afternoon.
+     *
+     * The same reasoning that keeps listening off this list. Announcing the
+     * middle of a long background job is worse than announcing nothing,
+     * because it talks over the person the work was meant to stay out of the
+     * way of. It is on the screen the whole time, and the brain says what it
+     * learned when the folder is finished — see finishedReading.
+     */
+    if (step.background) return;
+
     const said = SPOKEN[step.tool] || SPOKEN_KINDS[step.kind];
 
     if (!said || said === announced) return;

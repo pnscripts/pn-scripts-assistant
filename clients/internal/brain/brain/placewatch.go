@@ -126,6 +126,24 @@ func (b *Brain) lookAtOnePlace(ctx context.Context) bool {
 			"place", p.Path, "took", pass.Took,
 			"learned", pass.Learned, "left", pass.Place.Waiting)
 
+		/*
+		 * Said once, at the end, rather than on every bite.
+		 *
+		 * A place is read a few files at a time over hours, and each bite was
+		 * a fresh step for the page to narrate — so the brain said "I am
+		 * learning from that" every few seconds for an afternoon. Announcing
+		 * the middle of a long job is the one thing worse than announcing
+		 * nothing: it talks over the person the work was meant to stay out of
+		 * the way of.
+		 *
+		 * So the middle is silent on the screen only, and this is the sentence
+		 * — when the folder is finished, saying what came out of it. See
+		 * finishedReading.
+		 */
+		if pass.Finished {
+			b.sayWhenFinished(b.finishedReading(p, pass))
+		}
+
 		return true
 	}
 
@@ -147,4 +165,54 @@ func describePass(name string, pass places.Pass) string {
 	}
 
 	return learned + " from " + name + " — that is all of it"
+}
+
+/*
+ * finishedReading is the sentence said when a folder has been read to the end.
+ *
+ * What Petar asked for, in his words: not "I am learning from that" over and
+ * over, but "I learned …" once, when the queue for that thing is finished,
+ * with everything about it.
+ *
+ * Three numbers, and they answer three different questions. How much it now
+ * knows from there, because that is what the reading was for. How much of it
+ * turned out to be already known, because a folder that produced nothing new
+ * is not the same as a folder that produced nothing and somebody who is told
+ * only "finished" cannot tell those apart. And how much is waiting on them,
+ * because that is the only part that is now their job rather than the brain's.
+ */
+func (b *Brain) finishedReading(p places.Place, pass places.Pass) string {
+	waiting, err := b.DB.CountPendingUnder(p.Path)
+	if err != nil {
+		b.Log.Debug("could not count what is waiting from a place", "error", err)
+	}
+
+	line := fmt.Sprintf("I have finished reading %s.", p.Name)
+
+	// The total after this pass, not before it. p is the copy the loop was
+	// given at the top; pass.Place is the one that has just been written back.
+	learned := pass.Place.Learned
+
+	switch {
+	case learned == 0:
+		line += " There was nothing in it worth remembering."
+	case learned == 1:
+		line += " I learned one thing from it."
+	default:
+		line += fmt.Sprintf(" I learned %d things from it.", learned)
+	}
+
+	if pass.Known > 0 {
+		line += fmt.Sprintf(" %s already knew.",
+			count(pass.Known, "One more I", fmt.Sprintf("%d more I", pass.Known)))
+	}
+
+	switch {
+	case waiting == 1:
+		line += " One of them is waiting for you to keep or discard."
+	case waiting > 1:
+		line += fmt.Sprintf(" %d of them are waiting for you to keep or discard.", waiting)
+	}
+
+	return line
 }

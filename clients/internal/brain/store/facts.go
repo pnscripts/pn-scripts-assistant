@@ -363,3 +363,42 @@ func (d *DB) ReplaceEmbedding(id int64, embedding []float32) error {
 
 	return err
 }
+
+/*
+ * ForgetEverythingLearned empties the knowledge and the record of what has
+ * been read, leaving the conversations alone.
+ *
+ * For starting again from nothing, which is a different request from tidying
+ * up: the rules for what is worth reading changed enough that what is stored
+ * was produced by rules nobody would choose now, and re-reading under the new
+ * ones is only possible from an empty table.
+ *
+ * Both tables, and that is the whole point. Facts are what it knows; lessons
+ * are the record of every file it has been shown, whatever became of them.
+ * Emptying the first without the second gives a brain that knows nothing and
+ * believes it has already read everything.
+ *
+ * Conversations are not touched. Somebody asking to learn their documents
+ * again has not asked to lose what they have said, and the messages are the
+ * one thing here that cannot be derived a second time from anything else.
+ */
+func (d *DB) ForgetEverythingLearned() (facts, lessons int64, err error) {
+	kill := func(table string) (int64, error) {
+		res, err := d.sql().Exec(`DELETE FROM ` + table)
+		if err != nil {
+			return 0, fmt.Errorf("emptying %s: %w", table, err)
+		}
+
+		return res.RowsAffected()
+	}
+
+	if facts, err = kill("knowledge_facts"); err != nil {
+		return 0, 0, err
+	}
+
+	if lessons, err = kill("lessons"); err != nil {
+		return facts, 0, err
+	}
+
+	return facts, lessons, nil
+}

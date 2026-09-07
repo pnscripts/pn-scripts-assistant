@@ -241,6 +241,44 @@ func (d *DB) KnownSources(under string) (map[string]bool, error) {
 	return seen, rows.Err()
 }
 
+/*
+ * CountPendingUnder is how much of one folder is waiting for a person.
+ *
+ * For the sentence said when a place has been read to the end. "I have
+ * finished your documents" is half an answer; what somebody wants to know next
+ * is how much of it they now have to look at, and the global count is the
+ * wrong number when three drives are being read.
+ *
+ * Filtered in Go for the same reason as KnownSources: a source is written
+ * "document:/path", so a LIKE on the folder matches nothing, and a LIKE with a
+ * leading wildcard cannot use an index anyway.
+ */
+func (d *DB) CountPendingUnder(under string) (int, error) {
+	rows, err := d.sql().Query(
+		`SELECT source FROM lessons WHERE status = 'proposed' AND source IS NOT NULL AND source <> ''`)
+	if err != nil {
+		return 0, fmt.Errorf("counting what is waiting from a folder: %w", err)
+	}
+
+	defer rows.Close()
+
+	var n int
+
+	for rows.Next() {
+		var source string
+
+		if err := rows.Scan(&source); err != nil {
+			return 0, err
+		}
+
+		if strings.HasPrefix(pathOf(source), under) {
+			n++
+		}
+	}
+
+	return n, rows.Err()
+}
+
 // pathOf is the file a source refers to, without the kind in front of it.
 func pathOf(source string) string {
 	if at := strings.Index(source, ":"); at >= 0 {
