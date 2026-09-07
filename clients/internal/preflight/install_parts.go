@@ -1,8 +1,12 @@
 package preflight
 
 import (
+	"archive/zip"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -317,13 +321,30 @@ func installWhisper(w io.Writer) error {
 		return err
 	}
 
-	// And a model, without which it starts, prints an error and exits.
-	model := filepath.Join(src, "models", "ggml-base.en.bin")
+	/*
+	 * And a model, without which it starts, prints an error and exits.
+	 *
+	 * The multilingual one, and this is the whole of the decision.
+	 *
+	 * It used to install ggml-base.en.bin: a third the size, faster, and
+	 * unable to understand any language but English. Given Bulgarian it does
+	 * not fail — it invents English, confidently, and the words come back
+	 * fluent and wrong. Petar has been talking to a brain that could not
+	 * understand him and neither of us knew, because nothing anywhere said so.
+	 *
+	 * An English-only default is defensible only if everybody who will ever
+	 * run this speaks English. They do not. So the one that works for
+	 * everybody is the one that is installed, and English speakers pay for it
+	 * in seconds rather than everybody else paying for it in being
+	 * misunderstood.
+	 */
+	model := filepath.Join(src, "models", SpeechModel)
 
 	if info, err := os.Stat(model); err != nil || info.Size() < 50<<20 {
-		const from = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+		fmt.Fprintln(w, "Downloading the speech model — it understands 99 languages, "+
+			"which is why it is 488MB rather than 148.")
 
-		if err := download(from, model, w); err != nil {
+		if err := download(SpeechModelFrom, model, w); err != nil {
 			return err
 		}
 	}
@@ -357,4 +378,221 @@ func runIn(w io.Writer, dir string, argv []string) error {
 	cmd.Stderr = w
 
 	return cmd.Run()
+}
+
+/*
+ * Which speech model is installed, and where it comes from.
+ *
+ * Named here rather than written into the installer so that the interface can
+ * say what it is about to download before it starts, and so the two cannot
+ * drift apart — a setup screen promising one model and fetching another is a
+ * small lie that costs somebody 488MB of surprise.
+ */
+const (
+	// SpeechModel understands ninety-nine languages. See installWhisper for
+	// why that rather than the English-only one, which is a third the size.
+	SpeechModel = "ggml-small.bin"
+
+	SpeechModelFrom = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
+
+	// SpeechModelSize is what it costs, for saying so before asking.
+	SpeechModelSize = "488MB"
+)
+
+/*
+ * installGodot fetches the engine, which is one file and nothing else.
+ *
+ * No compiler, no dependencies, no package manager and no password: the Linux
+ * build is a single executable in a zip. That is what makes it worth offering
+ * here — everything else optional on this list either needs apt or needs
+ * building, and this needs neither.
+ *
+ * The release is asked for rather than pinned. A version written into this
+ * file is a version that is wrong a month after it is written, and the thing
+ * it would be wrong about is the engine somebody is going to build a game on.
+ */
+func installGodot(w io.Writer) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+
+	fmt.Fprintln(w, "Asking which version of Godot is current…")
+
+	url, name, err := latestGodot(ctx)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, "Downloading %s\n", name)
+
+	temp, err := os.MkdirTemp("", "pn-brain-godot-*")
+	if err != nil {
+		return err
+	}
+
+	defer os.RemoveAll(temp)
+
+	archive := filepath.Join(temp, "godot.zip")
+
+	if err := download(url, archive, w); err != nil {
+		return err
+	}
+
+	engine, err := unzipGodot(archive, temp)
+	if err != nil {
+		return err
+	}
+
+	into := filepath.Join(localBin(), "godot4")
+
+	if err := os.MkdirAll(filepath.Dir(into), 0o755); err != nil {
+		return err
+	}
+
+	if err := copyExecutable(engine, into); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, "Godot is installed at %s\n", into)
+
+	return nil
+}
+
+// latestGodot asks the project which build is current, for this machine.
+func latestGodot(ctx context.Context) (url, name string, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		"https://api.github.com/repos/godotengine/godot/releases/latest", nil)
+	if err != nil {
+		return "", "", err
+	}
+
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("could not ask which version is current: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("the release list answered %d", resp.StatusCode)
+	}
+
+	var body struct {
+		Assets []struct {
+			Name string `json:"name"`
+			URL  string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "", "", err
+	}
+
+	/*
+	 * The build for this machine, by architecture.
+	 *
+	 * The releases carry arm32, arm64, x86_32 and x86_64, and the wrong one
+	 * downloads perfectly and then will not run — a failure that arrives
+	 * minutes later and says "cannot execute binary file".
+	 */
+	want := map[string]string{
+		"amd64": "linux.x86_64",
+		"386":   "linux.x86_32",
+		"arm64": "linux.arm64",
+		"arm":   "linux.arm32",
+	}[runtime.GOARCH]
+
+	if want == "" {
+		return "", "", fmt.Errorf("there is no Godot build for %s", runtime.GOARCH)
+	}
+
+	for _, a := range body.Assets {
+		// Not the .NET build: it needs a whole runtime this program does not
+		// install and most people do not want.
+		if strings.Contains(a.Name, want) && strings.HasSuffix(a.Name, ".zip") &&
+			!strings.Contains(strings.ToLower(a.Name), "mono") {
+			return a.URL, a.Name, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("the current release has no build for %s", want)
+}
+
+// unzipGodot takes the engine out of the archive and returns where it landed.
+func unzipGodot(archive, into string) (string, error) {
+	r, err := zip.OpenReader(archive)
+	if err != nil {
+		return "", fmt.Errorf("the download is not a zip: %w", err)
+	}
+
+	defer r.Close()
+
+	for _, f := range r.File {
+		name := filepath.Base(f.Name)
+
+		if f.FileInfo().IsDir() || !strings.HasPrefix(strings.ToLower(name), "godot") {
+			continue
+		}
+
+		// The console wrapper is a shell script beside the engine; the engine
+		// is the one without an extension.
+		if strings.Contains(strings.ToLower(name), "console") {
+			continue
+		}
+
+		inside, err := f.Open()
+		if err != nil {
+			return "", err
+		}
+
+		out := filepath.Join(into, name)
+
+		written, err := os.OpenFile(out, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+		if err != nil {
+			inside.Close()
+
+			return "", err
+		}
+
+		_, err = io.Copy(written, inside)
+
+		inside.Close()
+		written.Close()
+
+		if err != nil {
+			return "", err
+		}
+
+		return out, nil
+	}
+
+	return "", fmt.Errorf("there is no engine in the archive")
+}
+
+// copyExecutable puts a file where it will be run from.
+//
+// Copied rather than linked: the source is in a temporary folder that is about
+// to be deleted, and a link to a deleted file is a Godot that vanishes the
+// moment setup finishes.
+func copyExecutable(from, to string) error {
+	source, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+
+	defer source.Close()
+
+	dest, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+	if err != nil {
+		return err
+	}
+
+	defer dest.Close()
+
+	if _, err := io.Copy(dest, source); err != nil {
+		return err
+	}
+
+	return dest.Sync()
 }

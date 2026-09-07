@@ -79,6 +79,21 @@ type Requirement struct {
 	 */
 	InstallFunc func(io.Writer) error
 
+	/*
+	 * Size is how big the download is, in words a person uses.
+	 *
+	 * The single most useful thing this screen was not saying. On a machine
+	 * with nothing installed, pressing Apply fetches about five gigabytes —
+	 * most of it one model — and somebody on a phone connection or a metered
+	 * line found that out by watching it happen. "What will happen" is not
+	 * answered by a list of names.
+	 *
+	 * Empty where there is nothing to download: an apt package pulls what the
+	 * system decides it needs, and inventing a number for that would be worse
+	 * than saying nothing.
+	 */
+	Size string
+
 	// NeedsRoot marks installs that will prompt for a password.
 	NeedsRoot bool
 

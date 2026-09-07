@@ -161,7 +161,7 @@ func FindRecogniser() (*Recogniser, string) {
 
 	return nil, command + " is installed but its speech model is missing. " +
 		"Open Setup to download one, or fetch it by hand with: " +
-		"bash ./models/download-ggml-model.sh base.en"
+		"bash ./models/download-ggml-model.sh small"
 }
 
 // MaxRecordSeconds bounds one utterance.

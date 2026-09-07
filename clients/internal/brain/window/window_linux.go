@@ -191,8 +191,46 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     // Forcing the policy measurably made things worse — the renderer went from
     // about a fifth of a processor core to nearly half — so the default stands.
 
+    // The dark ground, before there is anything to draw on it.
+    //
+    // A WebKitWebView paints white until the page has rendered, so opening the
+    // program flashed a white rectangle the size of the default window inside
+    // an already-maximised dark one, for the second or two it takes to load the
+    // console and get the first paint out. On a screen at night that is not a
+    // loading state, it is a light going on in your face, and it made a working
+    // program look broken.
+    //
+    // The same colour as the page's own --bg, so the window is one shade from
+    // the moment it appears and the interface fades in on top of it rather than
+    // replacing something else.
+    //
+    // Written with line comments, like everything else in this preamble: a
+    // block comment here closes the Go comment the whole C file lives in, and
+    // the compiler then reads C as Go.
+    GdkRGBA ground = {0x04 / 255.0, 0x08 / 255.0, 0x0f / 255.0, 1.0};
+    webkit_web_view_set_background_color(view, &ground);
+
+    // And the window behind it, for the instant before the view is mapped and
+    // for any edge the view does not cover while it is being resized.
+    GtkCssProvider *ground_style = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(ground_style,
+        "window, .background { background-color: #04080f; }", -1, NULL);
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+        GTK_STYLE_PROVIDER(ground_style), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(ground_style);
+
     pnbrain_view = view;
     webkit_web_view_load_uri(view, url);
+
+    // Filling the window, not sitting at its default size inside it.
+    //
+    // gtk_container_add gives the child the whole container, which is what was
+    // wanted, but the view was still being asked for the default size while the
+    // maximise request waited for an idle callback. Expanding says the answer
+    // is "all of it" whichever order those happen in.
+    gtk_widget_set_hexpand(GTK_WIDGET(view), TRUE);
+    gtk_widget_set_vexpand(GTK_WIDGET(view), TRUE);
+
     gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
     g_timeout_add(200, pnbrain_poll_navigation, window);

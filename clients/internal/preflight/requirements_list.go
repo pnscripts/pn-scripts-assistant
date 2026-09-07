@@ -18,6 +18,7 @@ func Requirements() []Requirement {
 			Name:        "Ollama",
 			Why:         "runs language models locally, for free and privately",
 			Consequence: "only the paid API provider will work",
+			Size:        "1.5GB",
 			Check: func() (State, string) {
 				if !commandExists("ollama") {
 					return Missing, ""
@@ -53,6 +54,7 @@ func Requirements() []Requirement {
 			Name:        "Chat model",
 			Why:         "the model PN Brain talks with",
 			Consequence: "local conversations will fail",
+			Size:        "4.7GB",
 			Check: func() (State, string) {
 				if !commandExists("ollama") {
 					return Unknown, "needs Ollama first"
@@ -71,6 +73,7 @@ func Requirements() []Requirement {
 			Name:        "Embedding model",
 			Why:         "turns memories into vectors so they can be recalled by meaning",
 			Consequence: "the brain cannot learn or recall anything",
+			Size:        "274MB",
 			Check: func() (State, string) {
 				if !commandExists("ollama") {
 					return Unknown, "needs Ollama first"
@@ -125,6 +128,7 @@ func Requirements() []Requirement {
 				Name:        "Voice (speaking)",
 				Why:         "lets the brain read its answers aloud",
 				Consequence: "the brain will listen and answer, but stay silent",
+				Size:        "63MB",
 				Optional:    true,
 				Check: func() (State, string) {
 					// piper first: it is a neural voice and sounds like one,
@@ -212,10 +216,141 @@ func Requirements() []Requirement {
 				InstallCmd: func() []string { return aptInstall("xdotool") },
 				NeedsRoot:  true,
 			},
+			/*
+			 * Four capabilities the brain has that setup never mentioned.
+			 *
+			 * Every one of them is used by code in this program and none of
+			 * them was ever checked, so each failed the same quiet way: the
+			 * feature exists, it is offered, and it does nothing. A PDF that
+			 * cannot be opened is recorded as a document with nothing in it. A
+			 * film with no subtitles is offered subtitles that never appear.
+			 *
+			 * "The setup must be able to install everything that is not on the
+			 * machine" — and the harder half of that is knowing what the
+			 * machine needs, which is a list that only grows as features are
+			 * added and nobody remembers to come back here.
+			 */
+			Requirement{
+				Name:        "Reading PDFs",
+				Why:         "lets the brain read what is inside your PDFs, not just their names",
+				Consequence: "every PDF is recorded as a document it could not open",
+				Optional:    true,
+				Check: func() (State, string) {
+					if commandExists("pdftotext") {
+						return OK, "pdftotext"
+					}
+
+					return Missing, ""
+				},
+				Where: func() string {
+					if at := whereIs("pdftotext"); at != "" {
+						return at
+					}
+
+					return "/usr/bin/pdftotext — installed by apt"
+				},
+				InstallCmd: func() []string { return aptInstall("poppler-utils") },
+				NeedsRoot:  true,
+				ManualHint: "sudo apt install poppler-utils",
+			},
+			Requirement{
+				Name:        "Sound from films",
+				Why:         "lets the brain listen to a film so it can write subtitles for it",
+				Consequence: "it can find films with no subtitles but cannot make any",
+				Optional:    true,
+				Check: func() (State, string) {
+					if commandExists("ffmpeg") {
+						return OK, "ffmpeg"
+					}
+
+					return Missing, ""
+				},
+				Where: func() string {
+					if at := whereIs("ffmpeg"); at != "" {
+						return at
+					}
+
+					return "/usr/bin/ffmpeg — installed by apt"
+				},
+				InstallCmd: func() []string { return aptInstall("ffmpeg") },
+				NeedsRoot:  true,
+				ManualHint: "sudo apt install ffmpeg",
+			},
+			Requirement{
+				Name: "Turning the music down",
+				Why: "lets the brain lower whatever is playing while it speaks, " +
+					"and put it back afterwards",
+				Consequence: "it talks over your music instead of under it",
+				Optional:    true,
+				Check: func() (State, string) {
+					// wpctl comes with WirePlumber and pw-play with PipeWire;
+					// both are needed and they ship separately.
+					switch {
+					case commandExists("wpctl") && commandExists("pw-play"):
+						return OK, "wpctl, pw-play"
+
+					case commandExists("wpctl") || commandExists("pw-play"):
+						return Missing, "only half of it is here"
+					}
+
+					return Missing, ""
+				},
+				Where: func() string {
+					if at := whereIs("wpctl"); at != "" {
+						return at
+					}
+
+					return "/usr/bin/wpctl — installed by apt"
+				},
+				InstallCmd: func() []string {
+					return aptInstall("wireplumber", "pipewire-audio-client-libraries", "pipewire-bin")
+				},
+				NeedsRoot:  true,
+				ManualHint: "sudo apt install wireplumber pipewire-bin",
+			},
+
+			/*
+			 * The game engine, for somebody who asked to make games.
+			 *
+			 * Optional and last, because most people will never want it and a
+			 * setup screen that demands an answer about a game engine has
+			 * misjudged who is reading it. But it is one 78MB file with no
+			 * dependencies and no compiler, which makes it the cheapest thing
+			 * on this list to offer and the most annoying to find by hand.
+			 */
+			Requirement{
+				Name:        "Godot (making games)",
+				Why:         "lets the brain write, run and export Godot games",
+				Consequence: "it can talk about game code but not run any of it",
+				Size:        "78MB",
+				Optional:    true,
+				Check: func() (State, string) {
+					for _, name := range []string{"godot4", "godot-4", "godot"} {
+						if commandExists(name) {
+							return OK, name
+						}
+					}
+
+					return Missing, ""
+				},
+				Where: func() string {
+					for _, name := range []string{"godot4", "godot-4", "godot"} {
+						if at := whereIs(name); at != "" {
+							return at
+						}
+					}
+
+					return filepath.Join(localBin(), "godot4")
+				},
+				InstallFunc: installGodot,
+				ManualHint: "Download the Linux build from godotengine.org, " +
+					"make it executable, and put it in ~/.local/bin",
+			},
 			Requirement{
 				Name:        "Voice (listening)",
 				Why:         "lets you talk to the brain instead of typing",
 				Consequence: "the Talk button will not appear",
+				Size:        "488MB, plus a few minutes to build the recogniser",
 				Optional:    true,
 				Check: func() (State, string) {
 					for _, r := range []string{"whisper-cli", "whisper-cpp", "whisper"} {
@@ -253,8 +388,10 @@ func Requirements() []Requirement {
 				},
 				InstallFunc: installWhisper,
 				NeedsRoot:   true,
+				// small, not base.en: the English-only model cannot understand
+				// anybody who is not speaking English, and does not say so.
 				ManualHint: "Build whisper.cpp, put whisper-cli on your PATH, then: " +
-					"bash models/download-ggml-model.sh base.en",
+					"bash models/download-ggml-model.sh small",
 			},
 		)
 	}
