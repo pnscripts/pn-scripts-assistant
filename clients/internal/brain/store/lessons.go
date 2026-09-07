@@ -63,6 +63,45 @@ func (d *DB) LessonsByStatus(status string, limit int) ([]Lesson, error) {
 	return out, rows.Err()
 }
 
+/*
+ * LessonsAfter returns lessons at one stage with an id past a mark.
+ *
+ * For walking the whole queue rather than looking at the front of it. Taking
+ * page after page of LessonsByStatus does not work here: accepting a lesson
+ * removes it from the results, so the next query returns a different hundred
+ * with everything shifted up — and anything that could *not* be accepted stays
+ * at the front and is met again on every pass, forever. A mark that only ever
+ * moves forward has neither problem, and 9,000 lessons are walked once.
+ */
+func (d *DB) LessonsAfter(status string, after int64, limit int) ([]Lesson, error) {
+	rows, err := d.sql().Query(`
+		SELECT id, COALESCE(conversation_id,0), content, status,
+		       COALESCE(confidence,''), COALESCE(source,''), created_at
+		FROM lessons WHERE status = ? AND id > ? ORDER BY id LIMIT ?`,
+		status, after, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []Lesson{}
+
+	for rows.Next() {
+		var l Lesson
+		var created string
+
+		if err := rows.Scan(&l.ID, &l.ConversationID, &l.Content, &l.Status,
+			&l.Confidence, &l.Source, &created); err != nil {
+			return nil, err
+		}
+
+		l.CreatedAt, _ = time.Parse(time.RFC3339, created)
+		out = append(out, l)
+	}
+
+	return out, rows.Err()
+}
+
 // SetLessonStatus moves a lesson through the pipeline.
 func (d *DB) SetLessonStatus(id int64, status string) error {
 	_, err := d.sql().Exec(

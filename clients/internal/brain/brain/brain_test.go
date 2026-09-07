@@ -317,3 +317,178 @@ func TestAQueueThatIsFinishedSaysNothingMore(t *testing.T) {
 		t.Errorf("would not say all when it really was all: %q", answer)
 	}
 }
+
+/*
+ * The sentence Petar actually said, three times, in three sessions.
+ *
+ * "I want you to start to remember one by one everything that is in the
+ * waiting list" went to the model every time, because the matcher only looked
+ * at sentences of six words or fewer. The model answered that it had processed
+ * a large number of lessons, having processed none — which is the exact
+ * failure this file exists to prevent, arriving through the door that was left
+ * open for long sentences.
+ */
+func TestNamingTheListMakesALongSentenceAnInstruction(t *testing.T) {
+	for _, said := range []string{
+		`I want you to start to remember one by one everything that is in the waiting list, the things that are in the waiting list.`,
+		`remember everything in the waiting list`,
+		`I want you to remember everything in "WAITING FOR YOU"`,
+		`please keep all the things in the review queue`,
+	} {
+		got := readLessonInstruction(said)
+
+		if !got.Found || !got.Accept {
+			t.Errorf("%q was not read as an instruction to keep: %+v", said, got)
+		}
+
+		if !got.All {
+			t.Errorf("%q asks for all of it, read as a hundred: %+v", said, got)
+		}
+	}
+
+	// And the other verb, on the same shape of sentence.
+	got := readLessonInstruction("discard everything in the waiting list")
+
+	if !got.Found || got.Accept || !got.All {
+		t.Errorf("discarding the whole list was read as %+v", got)
+	}
+}
+
+/*
+ * A question about the list is not an instruction about it.
+ *
+ * The cost of getting this wrong is nine thousand judgements made on somebody's
+ * behalf, from a sentence that was asking what was there.
+ */
+func TestAQuestionAboutTheListChangesNothing(t *testing.T) {
+	for _, said := range []string{
+		"what is in the waiting list?",
+		"do you remember the waiting list",
+		"how many things are in the review queue",
+		"can you show me the waiting list",
+		"what's waiting for you",
+		"tell me what is in the waiting list",
+	} {
+		if got := readLessonInstruction(said); got.Found {
+			t.Errorf("%q was treated as an instruction: %+v", said, got)
+		}
+	}
+}
+
+// "Remember them" is still the short form, and still means what is in front of
+// you rather than nine thousand.
+func TestTheShortFormIsStillOnePage(t *testing.T) {
+	got := readLessonInstruction("okay, remember them")
+
+	if !got.Found || !got.Accept {
+		t.Fatalf("the short form stopped working: %+v", got)
+	}
+
+	if got.All {
+		t.Error(`"remember them" was read as the whole queue`)
+	}
+}
+
+/*
+ * The whole queue, not the first hundred of it, and once each.
+ *
+ * Walking with LessonsByStatus would have been the obvious thing and is wrong
+ * twice over: accepting a lesson takes it out of the results, so "the first
+ * hundred proposed" returns a different hundred each time with everything
+ * shifted up, and anything that cannot be stored stays at the front and is met
+ * again on every pass, forever.
+ */
+func TestTheWholeQueueIsWalkedOnce(t *testing.T) {
+	b := testBrain(t)
+
+	const many = queuePage*2 + 7
+
+	for i := 0; i < many; i++ {
+		b.DB.AddLesson(0, fmt.Sprintf("a guess number %d", i), "proposed", "low", "")
+	}
+
+	// Discarding rather than accepting, so this is a test of the walk and not
+	// of the embedder.
+	answer, err := b.workThroughTheQueue(context.Background(), false, many)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	left, _ := b.DB.CountPendingLessons()
+	if left != 0 {
+		t.Errorf("%d still waiting after going through all of them", left)
+	}
+
+	if !strings.Contains(answer, fmt.Sprint(many)) {
+		t.Errorf("the report does not say how many: %q", answer)
+	}
+}
+
+// Stopping part way is not failing, and the answer says which it was.
+func TestStoppingPartWayIsReportedAsStopping(t *testing.T) {
+	b := testBrain(t)
+
+	for i := 0; i < 5; i++ {
+		b.DB.AddLesson(0, fmt.Sprintf("a guess number %d", i), "proposed", "low", "")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	answer, err := b.workThroughTheQueue(ctx, false, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if left, _ := b.DB.CountPendingLessons(); left != 5 {
+		t.Errorf("a cancelled walk still went through %d of them", 5-left)
+	}
+
+	if !strings.Contains(answer, "nothing in the waiting list") &&
+		!strings.Contains(answer, "Stopped") {
+		t.Errorf("a cancelled walk reported itself as finished: %q", answer)
+	}
+}
+
+/*
+ * The instruction reaches the background, and the answer says so.
+ *
+ * The end-to-end of the sentence Petar said: it is recognised, a job is
+ * started, and he is told it will take a while rather than being handed a
+ * finished-sounding sentence about a queue that has not moved.
+ */
+func TestTheWholeListInstructionStartsAJobAndSaysSo(t *testing.T) {
+	b := testBrain(t)
+
+	for i := 0; i < 250; i++ {
+		b.DB.AddLesson(0, fmt.Sprintf("a guess number %d", i), "proposed", "low", "")
+	}
+
+	answer, handled := b.handleLessonInstruction(context.Background(),
+		"I want you to start to remember one by one everything that is in the waiting list")
+
+	if !handled {
+		t.Fatal("the instruction was not recognised")
+	}
+
+	if !strings.Contains(answer, "250") {
+		t.Errorf("the answer does not say how many it is working through: %q", answer)
+	}
+
+	if !strings.Contains(strings.ToLower(answer), "background") {
+		t.Errorf("the answer does not say it is happening behind the conversation: %q", answer)
+	}
+
+	// And it really is a job, listed where somebody can stop it.
+	running := b.Jobs.List()
+
+	if len(running) != 1 {
+		t.Fatalf("%d background jobs, want 1", len(running))
+	}
+
+	if !strings.Contains(running[0].What, "250") {
+		t.Errorf("the job does not name the size of the queue: %q", running[0].What)
+	}
+
+	b.Jobs.Stop(running[0].ID)
+}
