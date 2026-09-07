@@ -39,6 +39,22 @@ type Config struct {
 	 */
 	Freedom string
 
+	/*
+	 * SetupDone records that somebody has been through setup.
+	 *
+	 * Separate from New, which only means a settings file existed. Setup is
+	 * for starting and for repairing, and it must not reappear on an ordinary
+	 * launch — a program that opens its installer every day has not finished
+	 * installing. Once this is set, setup happens only when it is asked for:
+	 * the button under System, or "brain setup".
+	 *
+	 * Kept as a setting rather than as the mere existence of a file, because a
+	 * settings file gets written by the naming card, by the privacy dropdown,
+	 * by anything at all — and "has a config" is not the same claim as
+	 * "somebody has seen the choices".
+	 */
+	SetupDone bool
+
 	// Models.
 	DefaultProvider string
 	OllamaURL       string
@@ -372,6 +388,10 @@ func Load(root string) (Config, error) {
 	assign(&cfg.Owner, "BRAIN_OWNER")
 	assign(&cfg.Privacy, "BRAIN_PRIVACY")
 	assign(&cfg.Freedom, "BRAIN_FREEDOM")
+
+	if v := get("BRAIN_SETUP_DONE"); v != "" {
+		cfg.SetupDone = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
 	assign(&cfg.DefaultProvider, "LLM_DEFAULT_PROVIDER")
 	assign(&cfg.OllamaURL, "OLLAMA_BASE_URL")
 	assign(&cfg.WakeWord, "BRAIN_WAKE_WORD")
@@ -464,7 +484,10 @@ func (c Config) Save(root string) error {
 	b.WriteString("# How much it may do on this machine without asking each time.\n")
 	b.WriteString("# ask | granted | everything   (a different question from privacy:\n")
 	b.WriteString("# privacy is what leaves the machine, this is what happens on it)\n")
-	b.WriteString("BRAIN_FREEDOM=" + c.Freedom + "\n\n")
+	b.WriteString("BRAIN_FREEDOM=" + c.Freedom + "\n")
+	b.WriteString("# Set once somebody has been through setup. Setup then only\n")
+	b.WriteString("# runs when it is asked for, from System or \"brain setup\".\n")
+	b.WriteString("BRAIN_SETUP_DONE=" + boolText(c.SetupDone) + "\n\n")
 	b.WriteString("# A word that must be said before it answers. Empty means it answers\n")
 	b.WriteString("# anything it hears, which is the default: requiring a name means\n")
 	b.WriteString("# transcription has to get that name right before anything can match.\n")

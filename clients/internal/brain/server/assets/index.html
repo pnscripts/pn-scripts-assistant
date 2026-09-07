@@ -567,6 +567,25 @@
                 </div>
 
                 <!--
+                    Models you could install, judged against this machine.
+
+                    Nothing said what could be installed, so choosing a
+                    different model meant knowing ollama's catalogue by heart
+                    and typing a name into a box — a capability for whoever
+                    already knew the answer.
+
+                    The list is written down; the opinion is not. Which of
+                    these is a good idea is entirely a fact about the computer
+                    it is asked on, and this runs on machines with no graphics
+                    card and machines with two.
+                -->
+                <div class="card">
+                    <h2>Models you can install</h2>
+                    <p class="insight-note" id="catalogue-machine">Looking at this machine…</p>
+                    <div id="catalogue-list"></div>
+                </div>
+
+                <!--
                     Connecting to a model that is not on this machine.
 
                     The keys have been in the settings file since the beginning
@@ -1063,6 +1082,27 @@
                     <p class="note" id="updates-note">Looking…</p>
                     <div id="updates-list" class="rows"></div>
                 </div>
+
+                <!--
+                    Installing the missing pieces without going back to setup.
+
+                    Setup could do this and the running program could not, so
+                    anything not chosen on the first day meant reopening a
+                    screen meant for starting. The same list setup reads, never
+                    a second copy: a parallel list is a list that goes stale,
+                    which is exactly how four capabilities came to be used by
+                    this program and checked by nothing.
+                -->
+                <div class="card">
+                    <h2>Pieces <span class="badge" id="parts-missing" hidden>0</span></h2>
+                    <p class="insight-note">
+                        Everything the brain can use. Each says what it is for,
+                        what stops working without it, how big it is, and where
+                        it goes. Installing happens in the background — you can
+                        carry on while it runs.
+                    </p>
+                    <div id="parts-list"></div>
+                </div>
             </div>
         </section>
 
@@ -1349,6 +1389,7 @@
 <script src="/js/permissions.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
+<script src="/js/install.js"></script>
 <script src="/js/history.js"></script>
 <script src="/js/copies.js"></script>
 <script src="/js/places.js"></script>

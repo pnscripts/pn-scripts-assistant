@@ -625,7 +625,7 @@ func runApp(args []string) error {
 	 * happens to have the pieces already is not a machine whose owner has
 	 * agreed to anything.
 	 */
-	if !*skipSetup && (missingEssentials() || cfg.New) {
+	if !*skipSetup && (missingEssentials() || !cfg.SetupDone) {
 		if _, err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
 			return err
 		}
@@ -633,6 +633,23 @@ func runApp(args []string) error {
 		// Settings may have changed during setup — an API key, a model.
 		if cfg, err = config.Load(root.Path); err != nil {
 			return err
+		}
+
+		/*
+		 * Written down, so setup does not open again tomorrow.
+		 *
+		 * A program that shows its installer on every launch has not finished
+		 * installing. From here it runs when it is asked for — the button
+		 * under System, or "brain setup" — and on its own only when something
+		 * essential has gone missing, which is a repair rather than a setup
+		 * and is the one case worth interrupting somebody for.
+		 */
+		if !cfg.SetupDone {
+			cfg.SetupDone = true
+
+			if err := cfg.Save(root.Path); err != nil {
+				logger.Warn("could not record that setup is finished", "error", err)
+			}
 		}
 	}
 

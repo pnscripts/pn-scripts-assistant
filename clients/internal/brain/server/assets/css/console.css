@@ -4617,3 +4617,20 @@ select { font-size: 13.5px; }
     .boot-iris-glow { animation: none; opacity: 0.12; }
     .boot-screen.done { transform: none; }
 }
+
+/*
+ * A row for something that is missing reads differently from one that is here.
+ *
+ * The same shape as the permissions rows, because they are the same kind of
+ * thing — a list of what exists with one decision each — and two lists that
+ * look different for no reason are two lists to learn.
+ */
+.permit[data-state="missing"] .permit-name,
+.permit[data-state="outdated"] .permit-name { color: var(--warn); }
+
+.permit[data-state="ok"] .permit-name { color: var(--text); }
+
+/* Needed rather than optional, said once and quietly. */
+.permit-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.permit .model-action { flex: none; }

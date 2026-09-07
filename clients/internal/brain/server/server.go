@@ -164,6 +164,17 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/steps", s.handleSteps)
 	s.mux.HandleFunc("GET /api/background", s.handleBackground)
 	s.mux.HandleFunc("GET /api/models", s.handleModels)
+	/*
+	 * Installing the missing pieces from inside the program.
+	 *
+	 * Setup could do this and the running program could not, so anything not
+	 * chosen on the first day meant going back to setup — a screen for
+	 * starting, not for changing your mind six weeks later.
+	 */
+	s.mux.HandleFunc("GET /api/parts", s.handleParts)
+	s.mux.HandleFunc("POST /api/parts/install", s.handleInstallPart)
+	s.mux.HandleFunc("GET /api/models/available", s.handleCatalogue)
+
 	s.mux.HandleFunc("GET /api/updates", s.handleUpdates)
 	s.mux.HandleFunc("GET /api/appearance", s.handleAppearance)
 	s.mux.HandleFunc("POST /api/settings", s.handleSettings)
