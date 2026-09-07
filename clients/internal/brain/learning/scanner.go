@@ -359,3 +359,66 @@ func FromDocuments(docs []Document, owner string) Observations {
 
 	return out
 }
+
+/*
+ * UnderASkippedFolder reports whether a path lies inside a folder the walk
+ * would now refuse to enter.
+ *
+ * For undoing what an earlier, looser rule let in. Petar's memory held 1,220
+ * facts and 746 of them were listings of files inside a Unity package cache, a
+ * vendored PHP library and two client sites' upload folders — remembered
+ * before those folders were on the skip list, and no less useless for having
+ * arrived first.
+ *
+ * Asked of the same functions the walk uses rather than of a list written out
+ * again here. A second list is a second thing to keep up to date, and the one
+ * that is not being read by the scanner every day is the one that goes stale.
+ */
+func UnderASkippedFolder(path string) bool {
+	if path == "" || !filepath.IsAbs(path) {
+		return false
+	}
+
+	parts := strings.Split(filepath.Clean(path), string(filepath.Separator))
+
+	// The last part is the file itself; only the directories above it decide.
+	at := string(filepath.Separator)
+
+	for _, name := range parts[1 : len(parts)-1] {
+		at = filepath.Join(at, name)
+
+		if !worthDescending(at, name) {
+			return true
+		}
+	}
+
+	return false
+}
+
+/*
+ * PathIn pulls the file out of a sentence the brain wrote about it.
+ *
+ * Both forms end the path the same way, with a comma or a full stop:
+ *
+ *   Petar has a text document called "x.txt" at /path/x.txt, last modified …
+ *   x.pdf, a PDF document at /path/x.pdf, says: …
+ *
+ * Returns empty when there is no path in it, which is most facts — a sentence
+ * about somebody's preferences is not about a file at all.
+ */
+func PathIn(sentence string) string {
+	i := strings.Index(sentence, " at "+string(filepath.Separator))
+	if i < 0 {
+		return ""
+	}
+
+	rest := sentence[i+len(" at "):]
+
+	for _, end := range []string{", last modified", ", says:", " and there is nothing in it"} {
+		if j := strings.Index(rest, end); j >= 0 {
+			rest = rest[:j]
+		}
+	}
+
+	return strings.TrimRight(strings.TrimSpace(rest), ".,")
+}

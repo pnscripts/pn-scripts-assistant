@@ -160,6 +160,7 @@ func usage() {
   brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
   brain start-over          empty the review queue and let those files be read again
+  brain start-over --facts  forget memories of files in folders it no longer reads
   brain setup               choose the drive, the model and the keys again
   brain start-again         stop waiting for a drive that is gone for good
   brain menu                put the brain in the applications menu
@@ -1666,6 +1667,8 @@ func printBanner(facts int, b *brain.Brain) {
 func runStartOver(args []string) error {
 	fs := flag.NewFlagSet("start-over", flag.ExitOnError)
 	apply := fs.Bool("apply", false, "actually do it (otherwise only reports)")
+	facts := fs.Bool("facts", false,
+		"also forget what was already remembered from folders now skipped")
 	fs.Parse(args)
 
 	db, root, err := openDB()
@@ -1673,6 +1676,10 @@ func runStartOver(args []string) error {
 		return err
 	}
 	defer db.Close()
+
+	if *facts {
+		return forgetSkippedFolders(db, root, *apply)
+	}
 
 	waiting, err := db.CountPendingLessons()
 	if err != nil {
@@ -1807,4 +1814,122 @@ func backupLessons(db *store.DB, root paths.Root) (string, error) {
 	}
 
 	return name, f.Sync()
+}
+
+/*
+ * forgetSkippedFolders removes memories of files the walk would now refuse.
+ *
+ * Tightening the rules stops new rubbish arriving and does nothing about what
+ * is already remembered. Petar's brain held 1,220 facts, and 746 of them were
+ * listings of files inside a Unity package cache, a vendored copy of
+ * HTMLPurifier, and two client sites' upload folders — "Petar has a text
+ * document called Attr.AllowedFrameTargets.txt at …". Three in five of
+ * everything it knew, and every search had to wade through it.
+ *
+ * Judged by asking the scanner, not by a list of bad words written out again
+ * here: a fact is removed when the folder its file sits in is one the walk
+ * would not now enter. So this stays right as the skip list grows, and it can
+ * never disagree with what the scanner is actually doing.
+ *
+ * Facts with no file in them are never touched. A sentence about somebody's
+ * preferences is not about a folder and has nothing to do with any of this.
+ */
+func forgetSkippedFolders(db *store.DB, root paths.Root, apply bool) error {
+	all, err := db.AllFacts()
+	if err != nil {
+		return err
+	}
+
+	var doomed []store.Fact
+
+	for _, f := range all {
+		path := learning.PathIn(f.Content)
+
+		if path == "" || !learning.UnderASkippedFolder(path) {
+			continue
+		}
+
+		doomed = append(doomed, f)
+	}
+
+	if len(doomed) == 0 {
+		fmt.Printf("All %d memories are from folders it would still read.\n", len(all))
+
+		return nil
+	}
+
+	fmt.Printf("%d of %d memories name a file in a folder that is now skipped.\n\n",
+		len(doomed), len(all))
+
+	for i, f := range doomed {
+		if i >= 5 {
+			fmt.Printf("  and %d more\n", len(doomed)-i)
+
+			break
+		}
+
+		fmt.Printf("  %s\n", truncate(f.Content, 110))
+	}
+
+	if !apply {
+		fmt.Println("\nNothing has been changed. Add --apply to forget them.")
+
+		return nil
+	}
+
+	kept, err := backupFacts(doomed, root)
+	if err != nil {
+		return fmt.Errorf("writing the backup, so nothing was deleted: %w", err)
+	}
+
+	fmt.Printf("\nWritten to %s\n", kept)
+
+	var gone int
+
+	for _, f := range doomed {
+		if err := db.DeleteFact(f.ID); err != nil {
+			return fmt.Errorf("after forgetting %d of them: %w", gone, err)
+		}
+
+		gone++
+	}
+
+	fmt.Printf("Forgotten %d. %d memories left.\n", gone, len(all)-gone)
+
+	return nil
+}
+
+// backupFacts writes what is about to be forgotten to a file beside the
+// database, because it was somebody's data even when it was a build directory.
+func backupFacts(facts []store.Fact, root paths.Root) (string, error) {
+	name := filepath.Join(root.Path,
+		"forgotten-"+time.Now().Format("2006-01-02-150405")+".json")
+
+	f, err := os.Create(name)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+
+	for _, fact := range facts {
+		if err := enc.Encode(fact); err != nil {
+			return "", err
+		}
+	}
+
+	return name, f.Sync()
+}
+
+// truncate shortens a line for a listing, by runes so it cannot split a letter.
+func truncate(s string, n int) string {
+	r := []rune(strings.Join(strings.Fields(s), " "))
+
+	if len(r) <= n {
+		return string(r)
+	}
+
+	return string(r[:n]) + "…"
 }

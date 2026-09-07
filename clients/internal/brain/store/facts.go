@@ -335,6 +335,21 @@ func (d *DB) AllFacts() ([]Fact, error) {
 	return out, rows.Err()
 }
 
+/*
+ * DeleteFact removes one remembered thing.
+ *
+ * Rare on purpose. Everything else here adds or corrects, because a memory
+ * that quietly loses things is worse than one that holds too much — but a
+ * memory that holds 746 listings of files inside a package cache is not
+ * holding too much, it is holding somebody else's build directory, and a
+ * search has to wade through all of it to reach anything of the owner's.
+ */
+func (d *DB) DeleteFact(id int64) error {
+	_, err := d.sql().Exec(`DELETE FROM knowledge_facts WHERE id = ?`, id)
+
+	return err
+}
+
 // ReplaceEmbedding writes a new vector for a fact.
 //
 // Used when the embedding model changes. Every vector has to be replaced or

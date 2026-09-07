@@ -174,3 +174,64 @@ func TestNumbersDoNotMakeTwoCopiesDifferent(t *testing.T) {
 		t.Error("two invoices read as two different lines")
 	}
 }
+
+/*
+ * Undoing what an earlier, looser rule let in.
+ *
+ * Petar's memory held 1,220 facts and 746 of them were listings of files
+ * inside a Unity package cache, a vendored PHP library and two client sites'
+ * upload folders. Judged by asking the same functions the walk uses, so this
+ * can never disagree with what the scanner is actually doing.
+ */
+func TestAFileInsideASkippedFolderIsRecognised(t *testing.T) {
+	for _, path := range []string{
+		"/drive/DEV/TestLLM/Library/PackageCache/com.unity.ugui/Documentation~/index.md",
+		"/drive/DEV/divacon.bg/tools/htmlpurifier/vendor/x/Attr.txt",
+		"/home/petar/site/public/uploads/2024/09/photo.pdf",
+		"/home/petar/app/node_modules/left-pad/readme.md",
+		"/home/petar/app/__pycache__/thing.txt",
+	} {
+		if !UnderASkippedFolder(path) {
+			t.Errorf("%s would still be remembered", path)
+		}
+	}
+
+	// And a file of his own is left alone.
+	for _, path := range []string{
+		"/home/petar/Documents/PN Scripts/Счетоводство/2025/фактура.pdf",
+		"/home/petar/Desktop/notes.md",
+		"/drive/DEV/Projects/pnscripts/products/pn-brain/README.md",
+	} {
+		if UnderASkippedFolder(path) {
+			t.Errorf("%s was treated as somebody else's", path)
+		}
+	}
+
+	// A relative path or none at all is not a judgement this can make.
+	for _, path := range []string{"", "notes.md", "./x/y.md"} {
+		if UnderASkippedFolder(path) {
+			t.Errorf("%q was judged when it could not be", path)
+		}
+	}
+}
+
+// The two sentences the brain writes about a file, and the many it writes
+// about everything else.
+func TestThePathIsFoundInWhatItWrote(t *testing.T) {
+	cases := []struct{ said, want string }{
+		{`Petar has a text document called "Attr.txt" at /a/b/Attr.txt, last modified 2024-01-02.`,
+			"/a/b/Attr.txt"},
+		{`cv.pdf, a PDF document at /home/petar/cv.pdf, says: he led the migration`,
+			"/home/petar/cv.pdf"},
+		{`Petar has a PDF at /home/petar/scan.pdf and there is nothing in it worth remembering — it holds no readable text.`,
+			"/home/petar/scan.pdf"},
+		{`Petar prefers Laravel over Python.`, ""},
+		{`He works at home, mostly in the evening.`, ""},
+	}
+
+	for _, c := range cases {
+		if got := PathIn(c.said); got != c.want {
+			t.Errorf("PathIn(%q) = %q, want %q", c.said, got, c.want)
+		}
+	}
+}
