@@ -7,12 +7,14 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 
 	"context"
 	"log/slog"
@@ -71,6 +73,8 @@ func main() {
 		err = runMove(os.Args[2:])
 	case "tidy":
 		err = runTidy(os.Args[2:])
+	case "start-over":
+		err = runStartOver(os.Args[2:])
 	case "promote":
 		err = runPromote(os.Args[2:])
 	case "copies":
@@ -155,6 +159,7 @@ func usage() {
   brain places              the drives and folders it learns from  (--read to read some)
   brain move <dir>          move the brain to another drive, verifying every byte
   brain tidy                clear self-descriptions out of the review queue
+  brain start-over          empty the review queue and let those files be read again
   brain setup               choose the drive, the model and the keys again
   brain start-again         stop waiting for a drive that is gone for good
   brain menu                put the brain in the applications menu
@@ -1637,4 +1642,169 @@ func printBanner(facts int, b *brain.Brain) {
 	work, _, _ := b.Roles()
 
 	fmt.Printf("  %d facts  ·  privacy: %s  ·  %s\n", facts, b.Mode, work)
+}
+
+/*
+ * runStartOver empties the review queue and lets those files be read again.
+ *
+ * The queue is meant to be a handful of judgements. Petar's held 9,199, and
+ * grouped by the folder they came from the top ten were all somebody else's —
+ * a game engine's package cache, a vendored PHP library, two client sites'
+ * upload folders. The rules that let those in have been tightened; this is the
+ * other half, because tightening them changes nothing about what is already
+ * there.
+ *
+ * Deleting rather than rejecting, and that is the whole point of the command.
+ * A rejected lesson still records that its file was seen, so a queue emptied
+ * by rejection is a queue that never refills — including for the documents
+ * that should be read again under the new rules. See DeleteLessonsByStatus.
+ *
+ * Everything is written out first. The rows are somebody's data even when they
+ * are nine thousand lines of a Unity manual, and a command that deletes
+ * without leaving a copy is one nobody should run twice.
+ */
+func runStartOver(args []string) error {
+	fs := flag.NewFlagSet("start-over", flag.ExitOnError)
+	apply := fs.Bool("apply", false, "actually do it (otherwise only reports)")
+	fs.Parse(args)
+
+	db, root, err := openDB()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	waiting, err := db.CountPendingLessons()
+	if err != nil {
+		return err
+	}
+
+	if waiting == 0 {
+		fmt.Println("Nothing is waiting for review.")
+
+		return nil
+	}
+
+	// By folder, because that is the reading that makes the number mean
+	// something: 9,199 is a shrug, and 3,589 of them from one package cache is
+	// a diagnosis.
+	byFolder := map[string]int{}
+
+	var after int64
+
+	for {
+		batch, err := db.LessonsAfter(learning.StatusProposed, after, 1000)
+		if err != nil {
+			return err
+		}
+
+		if len(batch) == 0 {
+			break
+		}
+
+		for _, l := range batch {
+			after = l.ID
+			byFolder[folderOf(l.Source)]++
+		}
+	}
+
+	type row struct {
+		dir string
+		n   int
+	}
+
+	rows := make([]row, 0, len(byFolder))
+
+	for dir, n := range byFolder {
+		rows = append(rows, row{dir, n})
+	}
+
+	sort.Slice(rows, func(i, j int) bool { return rows[i].n > rows[j].n })
+
+	fmt.Printf("%d waiting, from %d folders. The largest:\n\n", waiting, len(rows))
+
+	for i, r := range rows {
+		if i >= 10 {
+			fmt.Printf("  and %d more folders\n", len(rows)-i)
+
+			break
+		}
+
+		fmt.Printf("  %6d  %s\n", r.n, r.dir)
+	}
+
+	if !*apply {
+		fmt.Println("\nNothing has been changed. Run with --apply to empty the queue.")
+		fmt.Println("Everything removed is written to a file first, and those files")
+		fmt.Println("become readable again on the next pass, under the current rules.")
+
+		return nil
+	}
+
+	kept, err := backupLessons(db, root)
+	if err != nil {
+		return fmt.Errorf("writing the backup, so nothing was deleted: %w", err)
+	}
+
+	fmt.Printf("\nWritten to %s\n", kept)
+
+	gone, err := db.DeleteLessonsByStatus(learning.StatusProposed)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Removed %d. Those documents will be read again on the next pass.\n", gone)
+
+	return nil
+}
+
+// folderOf is the directory a lesson's source refers to, for grouping.
+func folderOf(source string) string {
+	if source == "" {
+		return "(no source)"
+	}
+
+	if i := strings.Index(source, ":"); i >= 0 {
+		source = source[i+1:]
+	}
+
+	return filepath.Dir(source)
+}
+
+// backupLessons writes every proposed lesson to a file beside the database.
+func backupLessons(db *store.DB, root paths.Root) (string, error) {
+	name := filepath.Join(root.Path,
+		"discarded-"+time.Now().Format("2006-01-02-150405")+".json")
+
+	f, err := os.Create(name)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+
+	var after int64
+
+	for {
+		batch, err := db.LessonsAfter(learning.StatusProposed, after, 1000)
+		if err != nil {
+			return "", err
+		}
+
+		if len(batch) == 0 {
+			break
+		}
+
+		for _, l := range batch {
+			after = l.ID
+
+			if err := enc.Encode(l); err != nil {
+				return "", err
+			}
+		}
+	}
+
+	return name, f.Sync()
 }

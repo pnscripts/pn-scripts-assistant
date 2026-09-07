@@ -44,6 +44,61 @@ var skipDirs = map[string]bool{
 	"bootstrap": true, ".next": true, "dist": true, "build": true,
 	".idea": true, ".vscode": true, "target": true,
 	"wp-content": true, "wp-includes": true, "wp-admin": true,
+
+	/*
+	 * Everything below this line came out of one measurement.
+	 *
+	 * Petar's review queue held 9,199 things. Grouped by the folder they came
+	 * from, the top ten were all somebody else's: 3,589 from a Unity project's
+	 * PackageCache and Bee artifacts, 362 from a vendored copy of HTMLPurifier,
+	 * 370 from the uploads folders of two client websites, 218 from mail
+	 * templates. None of it is his writing and none of it is about him, and it
+	 * had crowded out whatever was.
+	 *
+	 * The document walk had a skip list already; it was written for PHP and
+	 * JavaScript trees and had never met a game engine or a Python one.
+	 */
+	"packagecache": true, "bee": true, "scriptassemblies": true,
+	"bower_components": true, "pods": true, "packages": true,
+	"third_party": true, "thirdparty": true, "site-packages": true,
+	"venv": true, ".venv": true, "__pycache__": true, ".tox": true,
+	"obj": true, "out": true, "bin": true, "coverage": true,
+	"logs": true, "log": true, "cache": true, ".cache": true,
+	"tmp": true, "temp": true, ".gradle": true, ".m2": true,
+}
+
+/*
+ * Folders whose name alone is not enough to judge them.
+ *
+ * "Library" is where Unity keeps a gigabyte of regenerated build cache, and it
+ * is also a perfectly ordinary name for a folder of somebody's own documents.
+ * The difference is what stands beside it: a Unity project always has Assets
+ * next to Library, so that is what is asked rather than the name.
+ *
+ * "uploads" is the same shape of question. Under a website's public directory
+ * it is other people's files; anywhere else it is likely to be your own.
+ */
+func skipBecauseOfWhereItIs(path, name string) bool {
+	switch strings.ToLower(name) {
+	case "library":
+		if _, err := os.Stat(filepath.Join(filepath.Dir(path), "Assets")); err == nil {
+			return true
+		}
+
+	case "uploads":
+		if strings.EqualFold(filepath.Base(filepath.Dir(path)), "public") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// worthDescending is the whole rule for a directory, by name and by place.
+func worthDescending(path, name string) bool {
+	return !skipDirs[strings.ToLower(name)] &&
+		!strings.HasPrefix(name, ".") &&
+		!skipBecauseOfWhereItIs(path, name)
 }
 
 // skipNames match dated snapshots rather than a distinct current project.
@@ -113,7 +168,7 @@ func walkProjects(dir string, depth int, found *[]Project) error {
 	}
 
 	for _, e := range entries {
-		if !e.IsDir() || skipDirs[e.Name()] {
+		if !e.IsDir() || !worthDescending(filepath.Join(dir, e.Name()), e.Name()) {
 			continue
 		}
 
@@ -207,7 +262,7 @@ func ScanDocuments(root string) ([]Document, error) {
 		}
 
 		if d.IsDir() {
-			if skipDirs[d.Name()] || strings.HasPrefix(d.Name(), ".") {
+			if path != root && !worthDescending(path, d.Name()) {
 				return filepath.SkipDir
 			}
 

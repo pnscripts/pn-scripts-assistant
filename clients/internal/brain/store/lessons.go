@@ -102,6 +102,30 @@ func (d *DB) LessonsAfter(status string, after int64, limit int) ([]Lesson, erro
 	return out, rows.Err()
 }
 
+/*
+ * DeleteLessonsByStatus removes rows rather than moving them to rejected.
+ *
+ * The one operation where deleting is the point, and it needs saying why,
+ * because everything else in this file is careful not to. KnownSources reads
+ * this table to answer "have I already been shown this file", and it counts a
+ * lesson at any status — promoted, waiting, rejected all mean seen. That is
+ * right for the question it usually answers, and it means rejecting nine
+ * thousand proposals does not cause a single document to be read again: the
+ * rows are still there saying the file was seen.
+ *
+ * So "discard these and read those folders again" is two different verbs, and
+ * only this one is the second half of it. Callers are expected to write the
+ * rows out somewhere first — see the start-over command, which does.
+ */
+func (d *DB) DeleteLessonsByStatus(status string) (int64, error) {
+	res, err := d.sql().Exec(`DELETE FROM lessons WHERE status = ?`, status)
+	if err != nil {
+		return 0, fmt.Errorf("removing %s lessons: %w", status, err)
+	}
+
+	return res.RowsAffected()
+}
+
 // SetLessonStatus moves a lesson through the pipeline.
 func (d *DB) SetLessonStatus(id int64, status string) error {
 	_, err := d.sql().Exec(

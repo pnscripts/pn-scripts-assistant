@@ -422,6 +422,24 @@ const LeastWorthKeeping = 45
 // from a PDF is often a whole column on one line.
 const MostWorthKeeping = 320
 
+// LeastWordsInAStatement separates a sentence from a form field.
+//
+// A person's name, a street, "Фактура № 2 / 2025": prose by every other test
+// here, and meaningless once it is out of the form it was a line of.
+const LeastWordsInAStatement = 6
+
+/*
+ * SeenInThisManyDocuments is where a line stops being a fact and becomes a
+ * template.
+ *
+ * The same sentence, word for word, in three different files is not something
+ * the third file says — it is boilerplate: a licence header, a mail template,
+ * a VAT note at the foot of every invoice, the banner at the top of every page
+ * of a manual. Each copy of it arrived as a separate thing to remember, and
+ * three thousand of them arrived from one folder.
+ */
+const SeenInThisManyDocuments = 3
+
 /*
  * FromDocumentContents turns what a document says into things to remember.
  *
@@ -436,6 +454,13 @@ func FromDocumentContents(d Document, text, owner string) Observations {
 	var out Observations
 
 	for _, line := range worthKeeping(text) {
+		// The same sentence in a fourth document is a template. See
+		// boilerplate.go — it has to be asked here, while the line is still a
+		// line and not yet wrapped in a path that makes every copy unique.
+		if repeated.boilerplate(line, d.Path) {
+			continue
+		}
+
 		out = append(out, Observation{
 			Content: fmt.Sprintf("%s, a %s document at %s, says: %s",
 				d.Name, d.Kind, d.Path, line),
@@ -464,13 +489,37 @@ func worthKeeping(text string) []string {
 	for _, line := range strings.Split(text, "\n") {
 		line = strings.Join(strings.Fields(line), " ")
 
-		if len(line) < LeastWorthKeeping || len(line) > MostWorthKeeping {
+		/*
+		 * Counted in characters, not bytes.
+		 *
+		 * len() on a Go string is bytes, and Cyrillic is two bytes a letter —
+		 * so for everything Petar writes in Bulgarian the floor of 45 was
+		 * really 22 and the ceiling of 320 was really 160. Short fragments got
+		 * through and whole sentences were cut, on exactly the documents this
+		 * was most likely to be reading. "Петър Венциславов Николов" is 25
+		 * letters and reached his review queue as a thing worth remembering.
+		 */
+		length := utf8.RuneCountInString(line)
+
+		if length < LeastWorthKeeping || length > MostWorthKeeping {
 			continue
 		}
 
 		// Mostly numbers and punctuation is a table row, a reference list, or
 		// a page of figures — true, and unreadable out of context.
 		if !mostlyWords(line) {
+			continue
+		}
+
+		/*
+		 * A statement, not a label or a name.
+		 *
+		 * A form's header line — a name, an address, "Фактура № 2 / 2025" — is
+		 * prose by every test above and says nothing that survives being taken
+		 * out of the form. Six words is the cheapest thing that separates a
+		 * sentence from a field.
+		 */
+		if len(strings.Fields(line)) < LeastWordsInAStatement {
 			continue
 		}
 
