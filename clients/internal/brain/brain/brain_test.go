@@ -3,6 +3,7 @@ package brain
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -257,4 +258,62 @@ func (fixedEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
 	}
 
 	return vec, nil
+}
+
+/*
+ * A queue worked a hundred at a time must not report the hundred as the whole.
+ *
+ * Petar's queue held 9,197 lessons. Every count in the interface and every
+ * answer in the conversation was a report on one page of it: the badge read
+ * 100 because that is what the fetch returns, and the reply read "all 100"
+ * because that is what the batch contained. Both were true of the page and
+ * false of the queue, which is the only reading anybody cares about.
+ */
+func TestALargeQueueSaysWhatIsLeft(t *testing.T) {
+	b := testBrain(t)
+
+	for i := 0; i < queuePage+5; i++ {
+		b.DB.AddLesson(0, fmt.Sprintf("a guess number %d", i), "proposed", "low", "")
+	}
+
+	answer, handled := b.handleLessonInstruction(context.Background(), "forget them")
+
+	if !handled {
+		t.Fatal("not recognised")
+	}
+
+	left, _ := b.DB.CountPendingLessons()
+	if left != 5 {
+		t.Fatalf("%d left after one page, want 5", left)
+	}
+
+	if !strings.Contains(answer, "5 more are still waiting") {
+		t.Errorf("answer does not say what is left: %q", answer)
+	}
+
+	// "Discarded all 100" over five that are still there is the same lie in
+	// friendlier words.
+	if strings.Contains(answer, "all") {
+		t.Errorf("called one page of the queue all of it: %q", answer)
+	}
+}
+
+// The ordinary case must not grow a footnote: four lessons, four gone, nothing
+// behind them, so the answer ends where it always did.
+func TestAQueueThatIsFinishedSaysNothingMore(t *testing.T) {
+	b := testBrain(t)
+
+	for i := 0; i < 4; i++ {
+		b.DB.AddLesson(0, fmt.Sprintf("a guess number %d", i), "proposed", "low", "")
+	}
+
+	answer, _ := b.handleLessonInstruction(context.Background(), "forget them")
+
+	if strings.Contains(answer, "still waiting") {
+		t.Errorf("mentioned a remainder that does not exist: %q", answer)
+	}
+
+	if !strings.Contains(answer, "all 4") {
+		t.Errorf("would not say all when it really was all: %q", answer)
+	}
 }

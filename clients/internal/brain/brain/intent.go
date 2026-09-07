@@ -36,6 +36,13 @@ var rejectPhrases = []string{
 	"don't remember", "throw them away", "no forget",
 }
 
+// queuePage is how much of the queue one instruction works through.
+//
+// Accepting a lesson embeds it, so the whole of a nine-thousand-item queue
+// would hold the turn open far past the point where anybody is still listening.
+// A hundred is roughly a minute, and the answer says what is left.
+const queuePage = 100
+
 // LessonInstruction is a recognised instruction about the review queue.
 type LessonInstruction struct {
 	Accept bool
@@ -92,7 +99,7 @@ func (b *Brain) handleLessonInstruction(ctx context.Context, message string) (st
 		return "", false
 	}
 
-	pending, err := b.DB.LessonsByStatus(learning.StatusProposed, 100)
+	pending, err := b.DB.LessonsByStatus(learning.StatusProposed, queuePage)
 	if err != nil || len(pending) == 0 {
 		return "", false
 	}
@@ -102,9 +109,17 @@ func (b *Brain) handleLessonInstruction(ctx context.Context, message string) (st
 			b.DB.SetLessonStatus(l.ID, learning.StatusRejected)
 		}
 
-		return fmt.Sprintf("Discarded %s. I will not remember %s.",
-			count(len(pending), "one", "all "+fmt.Sprint(len(pending))),
-			map[bool]string{true: "it", false: "them"}[len(pending) == 1]), true
+		rest := andTheRest(b)
+		many := "all " + fmt.Sprint(len(pending))
+
+		if rest != "" {
+			many = fmt.Sprint(len(pending))
+		}
+
+		return fmt.Sprintf("Discarded %s. I will not remember %s.%s",
+			count(len(pending), "one", many),
+			map[bool]string{true: "it", false: "them"}[len(pending) == 1],
+			rest), true
 	}
 
 	var kept, duplicates int
@@ -124,16 +139,57 @@ func (b *Brain) handleLessonInstruction(ctx context.Context, message string) (st
 		kept++
 	}
 
+	// "All" only when there is nothing behind them. "Remembered all 100" above
+	// "9,097 more are waiting" is a sentence arguing with the sentence after it.
+	rest := andTheRest(b)
+	all := "all "
+
+	if rest != "" {
+		all = ""
+	}
+
 	switch {
 	case kept == 0 && duplicates > 0:
-		return "I already knew all of that, so nothing was stored twice.", true
+		return "I already knew all of that, so nothing was stored twice." + rest, true
 	case kept == 0:
 		return "I could not store those — the embedding model may not be running.", true
 	case duplicates > 0:
-		return fmt.Sprintf("Remembered %d. The other %d I already knew.", kept, duplicates), true
+		return fmt.Sprintf("Remembered %d. The other %d I already knew.%s",
+			kept, duplicates, rest), true
 	case kept == 1:
-		return "Remembered it.", true
+		return "Remembered it." + rest, true
 	default:
-		return fmt.Sprintf("Remembered all %d.", kept), true
+		return fmt.Sprintf("Remembered %s%d.%s", all, kept, rest), true
 	}
+}
+
+/*
+ * What is still in the queue, said out loud.
+ *
+ * The queue is worked a hundred at a time — accepting a lesson embeds it, and
+ * nine thousand of those would hold the turn open for an hour — so "remembered
+ * all 100" was true of the batch and false of the queue. Somebody who says
+ * "remember them", hears "all", and then sees the same badge is entitled to
+ * think nothing happened.
+ *
+ * Empty when the queue is clear, so the ordinary case of four lessons still
+ * ends on "Remembered all 4." and nothing more.
+ */
+func andTheRest(b *Brain) string {
+	left, err := b.DB.CountPendingLessons()
+	if err != nil || left == 0 {
+		return ""
+	}
+
+	if left == 1 {
+		return " One more is still waiting — say it again for that one."
+	}
+
+	// Only promise a hundred when there are a hundred to promise.
+	next := "the rest"
+	if left > queuePage {
+		next = "the next hundred"
+	}
+
+	return fmt.Sprintf(" %d more are still waiting — say it again for %s.", left, next)
 }
