@@ -269,7 +269,7 @@
                      footer now. They change perhaps twice a day, and they were
                      occupying the best position on the page while the thing
                      that changes every few seconds had nowhere to appear. -->
-                <div class="card" style="grid-area: core">
+                <div class="card" data-area="core">
                     <h2>Doing now</h2>
                     <!--
                         One line saying whether it is working on something.
@@ -290,7 +290,7 @@
                     </div>
                 </div>
 
-                <div class="card card-core" style="grid-area: reactor">
+                <div class="card card-core" data-area="reactor">
                     <h2>Core</h2>
                     <canvas id="brainmap" aria-hidden="true"></canvas>
                     <div class="core-caption">
@@ -299,13 +299,13 @@
                     </div>
                 </div>
 
-                <div class="card" style="grid-area: activity">
+                <div class="card" data-area="activity">
                     <h2>Activity</h2>
                     <div id="activity" class="activity"></div>
                 </div>
 
                 <!-- Row two: what it can do, what it is waiting on, what you can do. -->
-                <div class="card card-map" style="grid-area: map">
+                <div class="card card-map" data-area="map">
                     <h2>Memory map</h2>
                     <canvas id="memorymap"></canvas>
                     <p class="map-hover" id="memory-hover" hidden></p>
@@ -322,7 +322,7 @@
                     </aside>
                 </div>
 
-                <div class="card card-chat" style="grid-area: chat">
+                <div class="card card-chat" data-area="chat">
                     <h2>Conversation</h2>
                     <div class="transcript" id="transcript">
                         <div class="boot" id="boot">
@@ -336,7 +336,7 @@
                     </p>
                 </div>
 
-                <div class="card" style="grid-area: waiting">
+                <div class="card" data-area="waiting">
                     <h2>Waiting for you <span class="badge" id="waiting-count">0</span></h2>
                     <div id="approvals-panel" hidden>
                         <div id="approvals"></div>
@@ -344,6 +344,17 @@
                     <div id="lessons-panel" hidden>
                         <div id="lessons"></div>
                     </div>
+                    <!--
+                        The badge counts everything waiting; this line says how
+                        much of it is on screen.
+
+                        They were two different numbers under two different
+                        names: the badge read 100 because the list is fetched a
+                        hundred at a time, while "awaiting review" in the panel
+                        opposite read 9197, the true figure. Nothing said which
+                        was real, and neither admitted the other existed.
+                    -->
+                    <p class="queue-more" id="waiting-more" hidden></p>
                     <p class="activity-empty" id="waiting-empty">Nothing needs a decision.</p>
                     <span id="approval-count" hidden>0</span>
                     <span id="lesson-count" hidden>0</span>
@@ -355,7 +366,7 @@
                     is not what that space is for; what was said before, and
                     what the brain is doing right now, is.
                 -->
-                <div class="card" style="grid-area: knows">
+                <div class="card" data-area="knows">
                     <h2>Conversations</h2>
                     <div class="thinking-now" id="thinking-now" hidden>
                         <span class="thinking-dot" aria-hidden="true"></span>
@@ -370,7 +381,7 @@
                 <!-- Keeps its own colours: the gauges mean load, not status, and
                      tinting them by what the brain is doing would make a busy
                      processor look like a state of the conversation. -->
-                <div class="card card-measured" style="grid-area: monitor">
+                <div class="card card-measured" data-area="monitor">
                     <h2>System monitor</h2>
                     <div class="gauges">
                         <div class="gauge">
@@ -412,7 +423,7 @@
                     </button>
                 </div>
 
-                <div class="card" style="grid-area: commands">
+                <div class="card" data-area="commands">
                     <h2>What it knows</h2>
                     <!--
                         Outside the grid below, not inside it.
@@ -436,7 +447,19 @@
                         <div class="insight-figures">
                             <div><span class="figure" id="fig-facts">—</span><span class="figure-label">memories</span></div>
                             <div><span class="figure" id="fig-convos">—</span><span class="figure-label">threads</span></div>
-                            <div><span class="figure" id="fig-pending">—</span><span class="figure-label">awaiting review</span></div>
+                            <!--
+                                "Awaiting review" was here, and does not belong
+                                in a panel called What it knows: the queue is
+                                the exact opposite, the things it has not been
+                                allowed to know. It was also the biggest number
+                                on the panel, so the eye read 9197 as the size
+                                of its memory.
+
+                                It has two homes already — the badge on Waiting
+                                for you, which is where the decision is made,
+                                and the footer, which is where the standing
+                                figures live.
+                            -->
                         </div>
                     </div>
                 </div>
@@ -1091,7 +1114,13 @@
             <div class="tile">
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 12l5 5L20 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span class="tile-text">
-                    <span class="tile-label">Review queue</span>
+                    <!--
+                        One queue, one name. This tile said "review queue", the
+                        panel said "waiting for you" and the figures said
+                        "awaiting review" — three names for one list, which is
+                        how a person ends up believing there are three lists.
+                    -->
+                    <span class="tile-label">Waiting for you</span>
                     <span class="tile-value" id="tile-review">—</span>
                 </span>
             </div>

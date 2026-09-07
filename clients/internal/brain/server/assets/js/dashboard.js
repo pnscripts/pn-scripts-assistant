@@ -266,7 +266,7 @@
 
     if (bell) {
         bell.addEventListener('click', () => {
-            const card = document.querySelector('[style*="waiting"]');
+            const card = document.querySelector('[data-area="waiting"]');
 
             if (!card) return;
 
@@ -593,7 +593,6 @@
         // exist is how a removed panel comes back looking half-alive.
         text('fig-facts', memory.facts ?? '—');
         text('fig-convos', memory.conversations ?? '—');
-        text('fig-pending', memory.pending_lessons ?? '—');
 
         text('core-title', status.name || 'PN Brain');
         text('core-sub', status.model ? `${status.provider} · ${status.model}` : 'no model loaded');
@@ -626,8 +625,23 @@
         if (waitingCount) {
             const approvals = el('approvals');
             const lessons = el('lessons');
-            const total = (approvals ? approvals.children.length : 0)
+
+            /*
+             * The badge counts what is waiting; the list shows the first
+             * hundred of it.
+             *
+             * It used to count the cards on screen, which made it a report on
+             * the fetch rather than on the queue: /api/lessons returns a
+             * hundred at a time, so the badge read exactly 100 while the
+             * figure opposite read 9197. Both were describing the same list.
+             *
+             * Approvals are not paged — there are never many — so those can be
+             * counted where they are drawn. Lessons come from the status
+             * count, which is the whole queue.
+             */
+            const onScreen = (approvals ? approvals.children.length : 0)
                 + (lessons ? lessons.children.length : 0);
+            const total = (approvals ? approvals.children.length : 0) + waiting;
 
             waitingCount.textContent = total;
             waitingCount.hidden = total === 0;
@@ -639,7 +653,25 @@
                 badge.hidden = total === 0;
             }
 
-            if (waitingEmpty) waitingEmpty.hidden = total > 0;
+            /*
+             * Say plainly that there is more behind the list, so a queue that
+             * does not shrink when you clear the visible cards is explained
+             * before it is noticed.
+             */
+            const more = el('waiting-more');
+
+            if (more) {
+                const behind = total - onScreen;
+
+                more.textContent = behind > 0
+                    ? `Showing the first ${onScreen} · ${behind.toLocaleString()} more behind them`
+                    : '';
+                more.hidden = behind <= 0 || onScreen === 0;
+            }
+
+            // Keyed to the cards, not the count: "nothing needs a decision"
+            // has to agree with an empty panel underneath it.
+            if (waitingEmpty) waitingEmpty.hidden = onScreen > 0;
         }
 
         // Counts beside the places they belong to, as a nav should have.
