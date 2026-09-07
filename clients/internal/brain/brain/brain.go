@@ -25,6 +25,7 @@ import (
 	"pn-brain/internal/brain/machine"
 	"pn-brain/internal/brain/mail"
 	"pn-brain/internal/brain/models"
+	"pn-brain/internal/brain/permits"
 	"pn-brain/internal/brain/places"
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/protect"
@@ -95,6 +96,16 @@ type Brain struct {
 	// Jobs is work happening behind the conversation, so that "read through
 	// that folder" does not mean sitting in silence for four minutes.
 	Jobs *jobs.Runner
+
+	/*
+	 * Permits is what the brain has been allowed to do on this machine.
+	 *
+	 * Separate from Cfg.Privacy on purpose, and separate from the registry
+	 * too: a capability existing, being permitted to leave the machine, and
+	 * being permitted to act are three questions, and this program used to
+	 * have one answer for all of them.
+	 */
+	Permits *permits.Book
 
 	// Learner runs the Extractor/Validator/Curator pipeline in the background.
 	// Nil when no local model is available, since extraction must stay local.
@@ -217,6 +228,21 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	// Added after the brain exists, because they change the brain's own
 	// settings or act on its own queue, and so need a handle to it.
 	b.Jobs = &jobs.Runner{Announce: b.announce}
+
+	/*
+	 * What it has been allowed to do, read once at the start.
+	 *
+	 * A failure here is reported and not fatal, because the failure mode is
+	 * safe by construction: an empty book grants nothing and everything falls
+	 * back to asking. Refusing to start would refuse somebody their assistant
+	 * over a file that only ever widens what it can do.
+	 */
+	book, err := permits.Load(root)
+	if err != nil {
+		logger.Warn("permissions could not be read, so nothing is granted", "error", err)
+	}
+
+	b.Permits = book
 
 	available = append(available,
 		tools.InBackground{Jobs: backgroundOf{b}, Registry: func() *tools.Registry {
@@ -410,6 +436,25 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 * by restarting — which meant somebody switching to research watched
 		 * the file change and nothing else happen.
 		 */
+		/*
+		 * What may be done on this machine, which is not what may leave it.
+		 *
+		 * Asked fresh on every call for the same reason OffLimits is: somebody
+		 * can grant a permission in the approval they are looking at, and the
+		 * next call in the same turn should already know about it.
+		 */
+		MayI: func(tool string, changesSomething bool) permits.Answer {
+			if b.Permits == nil {
+				if changesSomething {
+					return permits.Ask
+				}
+
+				return permits.Allow
+			}
+
+			return b.Permits.Decide(tool, changesSomething, b.Freedom())
+		},
+
 		OffLimits: func(tool string) bool {
 			switch tool {
 			case "fetch_url", "web_search":
@@ -1866,4 +1911,58 @@ func (b *Brain) UsePrivacy(mode string) (llm.Mode, error) {
 	b.Log.Info("privacy changed", "mode", parsed)
 
 	return parsed, nil
+}
+
+/*
+ * Freedom is how much the brain may do on this machine without asking.
+ *
+ * Read from the configuration on every call rather than held, so that changing
+ * it takes effect in the next thing the brain does rather than at the next
+ * launch — which is the bug privacy had, and it was not obvious then either:
+ * the file changed, the program did not, and the person watching concluded the
+ * setting was broken.
+ *
+ * Anything unrecognised is the careful one. A typo in a permission setting
+ * must not be read as more permission.
+ */
+func (b *Brain) Freedom() permits.Freedom {
+	b.mu.Lock()
+	f := permits.Freedom(strings.TrimSpace(strings.ToLower(b.Cfg.Freedom)))
+	b.mu.Unlock()
+
+	if !permits.Known(f) {
+		return permits.AskEveryTime
+	}
+
+	return f
+}
+
+/*
+ * UseFreedom changes how much the brain may do, and says what that means.
+ *
+ * Set from the Permissions panel only, never from a conversation — the same
+ * rule privacy has, and for a stronger reason. A model that can widen its own
+ * permissions by being asked to has no permissions: anything that can talk to
+ * it, including a web page it was told to read, can ask.
+ */
+func (b *Brain) UseFreedom(level string) (permits.Freedom, error) {
+	f := permits.Freedom(strings.TrimSpace(strings.ToLower(level)))
+
+	if !permits.Known(f) {
+		return b.Freedom(), fmt.Errorf(
+			"%q is not something I understand. It is ask, granted, or everything", level)
+	}
+
+	b.mu.Lock()
+	b.Cfg.Freedom = string(f)
+	cfg := b.Cfg
+	b.mu.Unlock()
+
+	if err := cfg.Save(b.Root); err != nil {
+		return b.Freedom(), fmt.Errorf("could not write it down: %w", err)
+	}
+
+	b.Log.Info("freedom changed", "level", f)
+
+	return f, nil
 }

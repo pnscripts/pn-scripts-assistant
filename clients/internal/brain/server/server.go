@@ -94,6 +94,17 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("DELETE /api/conversations/{id}", s.handleDeleteConversation)
 	s.mux.HandleFunc("GET /api/approvals", s.handleApprovals)
 	s.mux.HandleFunc("POST /api/approvals/{id}/{decision}", s.handleDecision)
+	/*
+	 * What it may do on this machine, which is not what may leave it.
+	 *
+	 * Its own routes rather than more fields on /api/settings, because
+	 * permissions are the thing a person comes to look at deliberately and
+	 * burying them in a settings blob is how they never get looked at.
+	 */
+	s.mux.HandleFunc("GET /api/permissions", s.handlePermissions)
+	s.mux.HandleFunc("POST /api/permissions/decide", s.handleDecide)
+	s.mux.HandleFunc("POST /api/permissions/freedom", s.handleFreedom)
+
 	s.mux.HandleFunc("GET /api/lessons", s.handleLessons)
 	s.mux.HandleFunc("POST /api/lessons/{id}/{decision}", s.handleLessonDecision)
 	s.mux.HandleFunc("GET /api/drives", s.handleDrives)

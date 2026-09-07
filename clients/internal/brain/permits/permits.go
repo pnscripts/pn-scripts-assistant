@@ -1,0 +1,329 @@
+// Package permits decides what the brain is allowed to do on this machine.
+//
+// Privacy and permission are two different questions and this program had one
+// answer for both. Privacy is about what leaves the machine — whether a model
+// on somebody else's server may see what you said. Permission is about what
+// happens on the machine in front of you: writing a file, running a command,
+// sending a message, turning on a light. A brain set to keep everything local
+// is not thereby allowed to delete things, and a brain allowed to use a
+// hosted model is not thereby forbidden from writing a note.
+//
+// Tangling them meant the only way to let the brain do more was to let more
+// leave, which is the wrong trade and nobody would choose it if it were
+// written down as plainly as that.
+//
+// What was here before was two states: a tool either ran without asking or
+// stopped every single time. There was no way to say "yes, and stop asking me
+// about this one" — so somebody who uses a capability daily either approves it
+// forever by hand or turns their brain into a thing that cannot act. That is
+// the choice this package removes.
+package permits
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+)
+
+// FileName is where the standing grants live, beside the other small records
+// the brain keeps about itself.
+const FileName = "permissions.json"
+
+// Answer is what to do about one attempt to act.
+type Answer string
+
+const (
+	// Ask stops and puts it in front of a person. The default for anything
+	// that changes something.
+	Ask Answer = "ask"
+
+	// Allow runs it and records that it ran.
+	Allow Answer = "allow"
+
+	// Refuse declines without asking. For something a person has decided the
+	// brain should never do, so that saying no once is enough.
+	Refuse Answer = "refuse"
+)
+
+/*
+ * Freedom is how much the brain may do without being asked each time.
+ *
+ * Petar's words: "if a user decides to and tells it to do everything, then do
+ * it based on the permissions". So there are three settings and the middle one
+ * is the interesting one — it is what makes a granted permission mean
+ * something rather than being a note nobody reads.
+ */
+type Freedom string
+
+const (
+	// AskEveryTime is the default and the safe one.
+	AskEveryTime Freedom = "ask"
+
+	// WhatIveAllowed runs what has been granted and asks about the rest. The
+	// setting somebody arrives at after a week of using it.
+	WhatIveAllowed Freedom = "granted"
+
+	// Everything runs without asking. Still recorded, always — a permission to
+	// act is not a permission to act unaccountably, and the record is the only
+	// thing that makes this reversible.
+	Everything Freedom = "everything"
+)
+
+// Known reports whether a freedom is one this program has; anything else is
+// treated as the careful one.
+func Known(f Freedom) bool {
+	return f == AskEveryTime || f == WhatIveAllowed || f == Everything
+}
+
+// Grant is one standing decision about one capability.
+type Grant struct {
+	// Tool is the capability's name, as the registry knows it.
+	Tool string `json:"tool"`
+
+	Answer Answer `json:"answer"`
+
+	// Given is when, so a person can see what they agreed to and when, which
+	// is most of what makes a list of permissions reviewable rather than
+	// frightening.
+	Given time.Time `json:"given"`
+
+	// Why is what was being done at the time, in the words they were shown.
+	// A list of tool names is a list nobody can audit.
+	Why string `json:"why,omitempty"`
+}
+
+/*
+ * Book is the standing grants, plus the ones given only for this run.
+ *
+ * Two kinds and they are stored differently on purpose. "Always" belongs on
+ * disk: it is a decision about how somebody wants to live with the program.
+ * "Just this once, while I am doing this" belongs in memory and must not
+ * outlive the program, or it is not what was agreed to.
+ */
+type Book struct {
+	mu sync.RWMutex
+
+	root string
+
+	standing map[string]Grant
+	session  map[string]bool
+}
+
+// Load reads the standing grants. A missing file is an empty book, not an
+// error: a brain that has never been given a permission is the ordinary case.
+func Load(root string) (*Book, error) {
+	b := &Book{
+		root:     root,
+		standing: map[string]Grant{},
+		session:  map[string]bool{},
+	}
+
+	raw, err := os.ReadFile(filepath.Join(root, FileName))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return b, nil
+		}
+
+		return b, fmt.Errorf("reading %s: %w", FileName, err)
+	}
+
+	var list []Grant
+
+	if err := json.Unmarshal(raw, &list); err != nil {
+		/*
+		 * A damaged file is an empty book, and loudly so.
+		 *
+		 * The alternative is refusing to start, and the thing that would be
+		 * refused is somebody's assistant. Starting with no permissions is
+		 * safe — everything falls back to asking — where starting with
+		 * half-parsed permissions is not.
+		 */
+		return b, fmt.Errorf("%s is damaged, so nothing is granted until it is "+
+			"fixed or deleted: %w", FileName, err)
+	}
+
+	for _, g := range list {
+		if g.Tool == "" {
+			continue
+		}
+
+		b.standing[g.Tool] = g
+	}
+
+	return b, nil
+}
+
+/*
+ * Decide says what to do about one capability, given how much freedom the
+ * brain has been given.
+ *
+ * Refuse always wins. Somebody who has said "never" has said it about the tool
+ * and not about this moment, and a freedom setting that could override it
+ * would make saying never pointless.
+ */
+func (b *Book) Decide(tool string, changesSomething bool, freedom Freedom) Answer {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	if g, ok := b.standing[tool]; ok && g.Answer == Refuse {
+		return Refuse
+	}
+
+	// Reading and looking never needed permission and still do not: stopping
+	// to approve every directory listing teaches somebody to click yes.
+	if !changesSomething {
+		return Allow
+	}
+
+	if freedom == Everything {
+		return Allow
+	}
+
+	if b.session[tool] {
+		return Allow
+	}
+
+	if g, ok := b.standing[tool]; ok && g.Answer == Allow {
+		// A standing grant is only honoured once somebody has said they want
+		// their grants honoured. Otherwise "allow always" would quietly change
+		// the behaviour of a brain that is still set to ask about everything.
+		if freedom == WhatIveAllowed {
+			return Allow
+		}
+	}
+
+	return Ask
+}
+
+// Remember records a standing decision and writes it down.
+func (b *Book) Remember(tool string, answer Answer, why string) error {
+	if tool == "" {
+		return fmt.Errorf("which capability?")
+	}
+
+	if answer != Allow && answer != Refuse {
+		return fmt.Errorf("a standing decision is allow or refuse, not %q", answer)
+	}
+
+	b.mu.Lock()
+
+	b.standing[tool] = Grant{
+		Tool:   tool,
+		Answer: answer,
+		Given:  time.Now().UTC(),
+		Why:    strings.TrimSpace(why),
+	}
+
+	b.mu.Unlock()
+
+	return b.save()
+}
+
+// ForThisRun allows a capability until the program stops. Never written down.
+func (b *Book) ForThisRun(tool string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.session[tool] = true
+}
+
+// Forget removes a standing decision, so the capability goes back to asking.
+func (b *Book) Forget(tool string) error {
+	b.mu.Lock()
+
+	delete(b.standing, tool)
+	delete(b.session, tool)
+
+	b.mu.Unlock()
+
+	return b.save()
+}
+
+// List is every standing decision, newest first, for showing somebody what
+// they have agreed to.
+func (b *Book) List() []Grant {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	out := make([]Grant, 0, len(b.standing))
+
+	for _, g := range b.standing {
+		out = append(out, g)
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Given.After(out[j].Given) })
+
+	return out
+}
+
+// OnlyForThisRun is what has been allowed until the program stops, which is
+// worth showing separately: it is the part that will be gone tomorrow.
+func (b *Book) OnlyForThisRun() []string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	out := make([]string, 0, len(b.session))
+
+	for tool := range b.session {
+		out = append(out, tool)
+	}
+
+	sort.Strings(out)
+
+	return out
+}
+
+func (b *Book) save() error {
+	b.mu.RLock()
+
+	list := make([]Grant, 0, len(b.standing))
+
+	for _, g := range b.standing {
+		list = append(list, g)
+	}
+
+	b.mu.RUnlock()
+
+	sort.Slice(list, func(i, j int) bool { return list[i].Tool < list[j].Tool })
+
+	raw, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	// Written whole and moved into place: a permissions file half written by a
+	// program that was killed is a permissions file nobody can trust.
+	temp := filepath.Join(b.root, FileName+".new")
+
+	if err := os.WriteFile(temp, append(raw, '\n'), 0o600); err != nil {
+		return fmt.Errorf("writing %s: %w", FileName, err)
+	}
+
+	return os.Rename(temp, filepath.Join(b.root, FileName))
+}
+
+/*
+ * Means is what a freedom setting does, in a sentence somebody can act on.
+ *
+ * Beside the setting rather than in the interface, so that the words and the
+ * behaviour cannot drift apart — a permissions screen whose description is out
+ * of date with its code is worse than one with no description.
+ */
+func Means(f Freedom) string {
+	switch f {
+	case WhatIveAllowed:
+		return "It does what you have already allowed, and asks about everything else."
+
+	case Everything:
+		return "It does anything it can, without asking. Everything is still " +
+			"recorded, and anything you have refused stays refused."
+
+	default:
+		return "It asks before anything that changes something on this machine."
+	}
+}

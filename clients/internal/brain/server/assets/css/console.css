@@ -4224,3 +4224,83 @@ select { font-size: 13.5px; }
     .talkbar .talk-pill { flex: 1 1 100%; }
     .talkbar .hint { display: none; }
 }
+
+/* ---------- permissions ---------- */
+
+/*
+ * One capability a row: what it is, what it does, and the decision.
+ *
+ * The decision is a control rather than a badge because that is the whole
+ * point of the page — somewhere a person can change their mind about a thing
+ * they agreed to in a hurry, in the middle of doing something else.
+ */
+.permit {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.permit:last-child { border-bottom: none; }
+
+.permit-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+
+.permit-name {
+    font-size: 12.5px;
+    color: var(--text);
+    text-transform: capitalize;
+}
+
+.permit-what {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.permit-note { font-size: 11px; color: var(--text-faint); font-style: italic; }
+
+/* Reading never asks, and saying so once per row is what stops somebody
+   wondering why two thirds of the list has no control on it. */
+.permit-reading { font-size: 11px; color: var(--text-faint); flex: none; }
+
+/*
+ * A fixed width, said loudly enough to be heard.
+ *
+ * Every select in this program is width:100% because everywhere else they sit
+ * one per line in a form. In a row they must not be, and "flex: none" does not
+ * help: flex-basis auto reads the width property, so the select took the whole
+ * row and the name beside it collapsed to nothing — a column of single letters
+ * down the left of the page.
+ */
+.permit .permit-choice {
+    flex: 0 0 152px;
+    width: 152px;
+    min-width: 152px;
+}
+
+/*
+ * The colour is the decision, and only where a decision has been made.
+ *
+ * Ask is the default and gets nothing: a page where every row is coloured is a
+ * page where the colour means nothing.
+ */
+.permit[data-decision="allow"] .permit-name { color: var(--ok); }
+.permit[data-decision="refuse"] .permit-name { color: var(--danger); }
+
+/*
+ * "Always allow", beside Approve and quieter than it.
+ *
+ * The same weight as Approve would make the standing decision as easy to click
+ * as the one-off, and they are not the same size of decision.
+ */
+.approve-always {
+    background: none;
+    border: 1px solid var(--ok);
+    color: var(--ok);
+    opacity: 0.85;
+}
+
+.approve-always:hover { opacity: 1; }

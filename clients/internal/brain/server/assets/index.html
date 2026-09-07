@@ -206,6 +206,23 @@
             </svg>
             <span>Privacy</span>
         </button>
+        <!--
+            Beside Privacy and not inside it.
+
+            They are two questions with two answers: privacy is what may leave
+            this machine, permission is what may happen on it. Tangling them
+            meant the only way to let the brain do more was to let more leave,
+            which is a trade nobody would choose written down that plainly.
+        -->
+        <button type="button" class="nav-item" data-view="permissions">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M12 3l7 3v5c0 4.4-2.9 8.4-7 9.6C7.9 19.4 5 15.4 5 11V6z"
+                      fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M9 12l2 2 4-4" fill="none" stroke="currentColor"
+                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Permissions</span>
+        </button>
 
         <div class="nav-gap"></div>
 
@@ -970,6 +987,45 @@
             </div>
         </section>
 
+        <!--
+            What it may do on this machine.
+
+            Every capability is listed, not only the ones with a decision on
+            them: a page showing what you have already agreed to answers the
+            wrong question. The one somebody has is "what can this thing do",
+            and that list has to be complete or it is reassurance rather than
+            information.
+        -->
+        <section class="view" data-view="permissions" hidden>
+            <div class="view-inner">
+                <div class="card">
+                    <h2>What it may do on this machine</h2>
+                    <p class="privacy-summary" id="freedom-summary">—</p>
+
+                    <div class="field">
+                        <span>How much it may do without asking</span>
+                        <select id="freedom">
+                            <option value="ask">Ask me before anything that changes something</option>
+                            <option value="granted">Do what I have allowed, ask about the rest</option>
+                            <option value="everything">Do anything — still recorded, refusals still hold</option>
+                        </select>
+                    </div>
+
+                    <p class="insight-note" id="permissions-privacy-note"></p>
+                </div>
+
+                <div class="card">
+                    <h2>Every capability <span class="badge" id="permissions-count">0</span></h2>
+                    <p class="insight-note">
+                        Reading and looking never ask. The rest is your decision,
+                        and you can change any of it here at any time.
+                    </p>
+                    <div id="permissions-list"></div>
+                    <p class="activity-empty" id="permissions-empty">Nothing registered.</p>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="privacy" hidden>
             <div class="view-inner">
                 <div class="card">
@@ -1186,6 +1242,7 @@
 <script src="/js/models.js"></script>
 <script src="/js/updates.js"></script>
 <script src="/js/settings.js"></script>
+<script src="/js/permissions.js"></script>
 <script src="/js/history.js"></script>
 <script src="/js/copies.js"></script>
 <script src="/js/places.js"></script>

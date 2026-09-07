@@ -1113,10 +1113,46 @@ async function refreshApprovals() {
         reject.className = 'reject';
         reject.textContent = 'Reject';
         // "deny" is what the server calls it. This said "reject", so the button
-    // answered 400 and rejected nothing — the action stayed in the queue.
-    reject.onclick = () => decide(item.id, 'deny');
+        // answered 400 and rejected nothing — the action stayed in the queue.
+        reject.onclick = () => decide(item.id, 'deny');
 
-        actions.append(approve, reject);
+        /*
+         * "Yes, and stop asking me about this one."
+         *
+         * The decision belongs here, at the moment somebody is actually
+         * deciding, rather than only on a settings page they would have to
+         * think to visit. Before this there were two answers — yes now, or no
+         * — so a capability used every day was approved by hand every day
+         * until somebody stopped using it.
+         *
+         * It approves this call as well: nobody clicking "always" means
+         * "always, starting with the next one".
+         */
+        const always = document.createElement('button');
+        always.className = 'approve-always';
+        always.textContent = 'Always allow';
+        always.title = `Approve this, and stop asking about ${item.tool}`;
+        always.onclick = async () => {
+            try {
+                await api.post('/api/permissions/decide', {
+                    tool: item.tool,
+                    answer: 'allow',
+                    why: item.summary,
+                });
+            } catch (err) {
+                // Say so and do nothing else: approving the call while failing
+                // to record the permission would be the worst of both, because
+                // it looks like it worked and asks again tomorrow.
+                addMessage('error', `I could not record that: ${err.message || err}`,
+                    { cssClass: 'error' });
+
+                return;
+            }
+
+            decide(item.id, 'approve');
+        };
+
+        actions.append(approve, always, reject);
         card.append(summary, actions);
         list.appendChild(card);
     });

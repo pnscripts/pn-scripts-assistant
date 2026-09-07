@@ -1479,3 +1479,126 @@ func TestWhatWasHeardComesBackThroughTheTool(t *testing.T) {
 		t.Fatal("a turn with no sense of when it happened is not much of an account")
 	}
 }
+
+/*
+ * Permission is not privacy, and the API says so.
+ *
+ * Petar's first point: "yes it can have privacy but the permissions on the
+ * machine is other thing". They were one setting, so the only way to let the
+ * brain do more was to let more leave.
+ */
+func TestPermissionsAreSeparateFromPrivacy(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	var page struct {
+		Freedom      string `json:"freedom"`
+		Privacy      string `json:"privacy"`
+		Capabilities []struct {
+			Name     string `json:"name"`
+			Changes  bool   `json:"changes_something"`
+			Decision string `json:"decision"`
+		} `json:"capabilities"`
+	}
+
+	getJSON(t, ts.URL+"/api/permissions", &page)
+
+	if page.Freedom != "ask" {
+		t.Errorf("a new brain starts at %q, want ask", page.Freedom)
+	}
+
+	// Every capability, not only the ones with a decision on them: the
+	// question somebody has is "what can this thing do".
+	if len(page.Capabilities) < 30 {
+		t.Errorf("only %d capabilities listed", len(page.Capabilities))
+	}
+
+	var looks, changes int
+
+	for _, c := range page.Capabilities {
+		if c.Changes {
+			changes++
+
+			if c.Decision != "ask" {
+				t.Errorf("%s starts at %q, want ask", c.Name, c.Decision)
+			}
+
+			continue
+		}
+
+		looks++
+
+		// Reading never needed permission and still does not.
+		if c.Decision != "allow" {
+			t.Errorf("%s only looks and yet needs permission", c.Name)
+		}
+	}
+
+	if looks == 0 || changes == 0 {
+		t.Errorf("%d that look and %d that change — one of those is wrong", looks, changes)
+	}
+}
+
+// "Yes, and stop asking me about this one" — the whole reason for the page.
+func TestAStandingGrantIsRecordedAndCanBeTakenBack(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	send(t, ts.URL+"/api/permissions/decide",
+		`{"tool":"write_file","answer":"allow","why":"notes"}`)
+
+	send(t, ts.URL+"/api/permissions/freedom", `{"level":"granted"}`)
+
+	var page struct {
+		Freedom      string `json:"freedom"`
+		Capabilities []struct {
+			Name     string `json:"name"`
+			Decision string `json:"decision"`
+		} `json:"capabilities"`
+	}
+
+	getJSON(t, ts.URL+"/api/permissions", &page)
+
+	if page.Freedom != "granted" {
+		t.Errorf("freedom is %q, want granted", page.Freedom)
+	}
+
+	found := false
+
+	for _, c := range page.Capabilities {
+		if c.Name == "write_file" {
+			found = c.Decision == "allow"
+		}
+	}
+
+	if !found {
+		t.Error("the grant was not recorded")
+	}
+
+	// And taking it back puts the capability where it started.
+	send(t, ts.URL+"/api/permissions/decide", `{"tool":"write_file","answer":"ask"}`)
+
+	getJSON(t, ts.URL+"/api/permissions", &page)
+
+	for _, c := range page.Capabilities {
+		if c.Name == "write_file" && c.Decision != "ask" {
+			t.Errorf("a withdrawn grant is still %q", c.Decision)
+		}
+	}
+}
+
+// send posts a body and insists it worked, for the endpoints whose answer is
+// only "yes, that is recorded".
+func send(t *testing.T, url, body string) {
+	t.Helper()
+
+	resp, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		said, _ := io.ReadAll(resp.Body)
+		t.Fatalf("POST %s -> %d: %s", url, resp.StatusCode, said)
+	}
+}

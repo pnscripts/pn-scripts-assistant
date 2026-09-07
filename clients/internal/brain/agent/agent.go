@@ -23,6 +23,7 @@ import (
 
 	"pn-brain/internal/brain/llm"
 	"pn-brain/internal/brain/pace"
+	"pn-brain/internal/brain/permits"
 	"pn-brain/internal/brain/progress"
 	"pn-brain/internal/brain/protect"
 	"pn-brain/internal/brain/store"
@@ -67,6 +68,23 @@ type Loop struct {
 	 * Nil means everything registered is allowed.
 	 */
 	OffLimits func(tool string) bool
+
+	/*
+	 * MayI decides whether a tool that changes something runs or waits.
+	 *
+	 * A separate question from OffLimits, and the separation is the point.
+	 * OffLimits is privacy — what may leave the machine — and it hides a tool
+	 * entirely. This is permission: what may be done on the machine in front
+	 * of you, by a tool that is perfectly allowed to exist.
+	 *
+	 * Asked fresh at the moment of acting, because a person can grant a
+	 * permission in the approval they are looking at and the next call in the
+	 * same turn should already know about it.
+	 *
+	 * Nil keeps the old behaviour exactly: everything that changes something
+	 * stops and asks.
+	 */
+	MayI func(tool string, changesSomething bool) permits.Answer
 
 	/*
 	 * Model chooses which model answers a turn, or is nil to leave it alone.
@@ -421,9 +439,55 @@ func (l *Loop) RunShaped(
 				summary = protect.Explain(summary, held, rule)
 			}
 
-			// A Mutating tool is recorded and the turn stops. It is not run
-			// here under any circumstances.
-			if tool.Risk() == tools.Mutating || ask {
+			/*
+			 * Allowed, refused, or put in front of a person.
+			 *
+			 * This was two states — safe ran and mutating always stopped —
+			 * with no way to say "yes, and stop asking me about this one". So
+			 * somebody who used a capability daily either approved it by hand
+			 * every time or did without it. See the permits package.
+			 *
+			 * A protection rule still forces the question whatever has been
+			 * granted: those fire on the *arguments*, not the capability, and
+			 * "you may write files" is not "you may write this file".
+			 */
+			changes := tool.Risk() == tools.Mutating
+
+			answer := permits.Ask
+
+			if l.MayI != nil {
+				answer = l.MayI(tool.Name(), changes)
+			} else if !changes {
+				answer = permits.Allow
+			}
+
+			if answer == permits.Refuse {
+				l.Log.Info("refused by a standing decision", "tool", tool.Name())
+
+				/*
+				 * Told to the model, not only to the person.
+				 *
+				 * A refusal the model cannot see is a refusal it will make
+				 * again on the next step, and then a third time, until the
+				 * step limit — a turn that reads as the brain having hung. It
+				 * has to come back as the result of the call, in words that
+				 * say the decision is standing rather than that the tool is
+				 * broken.
+				 */
+				refused := fmt.Sprintf(
+					"Refused: %s is something the owner has told me never to do. "+
+						"Do not try it again; say so and offer something else. "+
+						"They can change it under Permissions.", tool.Name())
+
+				messages = append(messages, toolResult(call, refused))
+
+				l.DB.AddMessage(conversationID, llm.RoleTool, "", "",
+					"["+summary+"]\n"+refused)
+
+				continue
+			}
+
+			if answer == permits.Ask || ask {
 				progress.Set("waiting", "Waiting for you: "+summary)
 
 				id, err := l.DB.RecordInvocation(conversationID, tool.Name(), string(call.Arguments), summary, string(tools.Mutating))

@@ -26,6 +26,19 @@ type Config struct {
 	// so the strict-fallback rule lives in one place.
 	Privacy string
 
+	/*
+	 * Freedom is how much the brain may do on this machine without asking.
+	 *
+	 * Deliberately not part of Privacy, which is a different question with a
+	 * different answer. Privacy is what may leave the machine; this is what
+	 * may be done on it. Tangling them meant the only way to let the brain do
+	 * more was to let more leave, which is a trade nobody would choose if it
+	 * were written down that plainly.
+	 *
+	 * "ask" | "granted" | "everything" — see the permits package.
+	 */
+	Freedom string
+
 	// Models.
 	DefaultProvider string
 	OllamaURL       string
@@ -275,9 +288,15 @@ const FileName = "brain.conf"
 // shipped by somebody who never read this file.
 func Default() Config {
 	return Config{
-		Name:            "PN Brain",
-		Owner:           "",
-		Privacy:         "private",
+		Name:    "PN Brain",
+		Owner:   "",
+		Privacy: "private",
+
+		// Asks about everything that changes something, which is where this
+		// program has always started. A permission is something somebody
+		// gives, not something they find already given.
+		Freedom: "ask",
+
 		DefaultProvider: "ollama",
 		OllamaURL:       "http://127.0.0.1:11434",
 		WakeWord:        DefaultWakeWord,
@@ -352,6 +371,7 @@ func Load(root string) (Config, error) {
 	assign(&cfg.Name, "BRAIN_NAME")
 	assign(&cfg.Owner, "BRAIN_OWNER")
 	assign(&cfg.Privacy, "BRAIN_PRIVACY")
+	assign(&cfg.Freedom, "BRAIN_FREEDOM")
 	assign(&cfg.DefaultProvider, "LLM_DEFAULT_PROVIDER")
 	assign(&cfg.OllamaURL, "OLLAMA_BASE_URL")
 	assign(&cfg.WakeWord, "BRAIN_WAKE_WORD")
@@ -440,6 +460,11 @@ func (c Config) Save(root string) error {
 	b.WriteString("BRAIN_OWNER=" + c.Owner + "\n\n")
 	b.WriteString("# private | research | open   (anything unrecognised is treated as private)\n")
 	b.WriteString("BRAIN_PRIVACY=" + c.Privacy + "\n\n")
+
+	b.WriteString("# How much it may do on this machine without asking each time.\n")
+	b.WriteString("# ask | granted | everything   (a different question from privacy:\n")
+	b.WriteString("# privacy is what leaves the machine, this is what happens on it)\n")
+	b.WriteString("BRAIN_FREEDOM=" + c.Freedom + "\n\n")
 	b.WriteString("# A word that must be said before it answers. Empty means it answers\n")
 	b.WriteString("# anything it hears, which is the default: requiring a name means\n")
 	b.WriteString("# transcription has to get that name right before anything can match.\n")
