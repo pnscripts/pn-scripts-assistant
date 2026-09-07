@@ -640,7 +640,8 @@ func runApp(args []string) error {
 	}
 
 	if !*skipSetup && (missingEssentials() || !cfg.SetupDone) {
-		if _, err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
+		finished, err := runFirstRunSetup(config.Path(root.Path), cfg.Name)
+		if err != nil {
 			return err
 		}
 
@@ -650,15 +651,21 @@ func runApp(args []string) error {
 		}
 
 		/*
-		 * Written down, so setup does not open again tomorrow.
+		 * Written down only when somebody actually reached the end.
 		 *
-		 * A program that shows its installer on every launch has not finished
-		 * installing. From here it runs when it is asked for — the button
-		 * under System, or "brain setup" — and on its own only when something
+		 * Marked on the way past, at first, which meant closing the window
+		 * counted as finishing: shut it to go and read something, and setup
+		 * never offered itself again — the drive, the model and the privacy
+		 * rules all silently settled by their defaults. Closing a wizard is
+		 * how people leave a wizard they have not finished, so it is the one
+		 * case that must not be read as agreement.
+		 *
+		 * Once it is set, setup runs when it is asked for — the button under
+		 * System, or "brain setup" — and on its own only when something
 		 * essential has gone missing, which is a repair rather than a setup
-		 * and is the one case worth interrupting somebody for.
+		 * and is worth interrupting somebody for.
 		 */
-		if !cfg.SetupDone {
+		if finished && !cfg.SetupDone {
 			cfg.SetupDone = true
 
 			if err := cfg.Save(root.Path); err != nil {
