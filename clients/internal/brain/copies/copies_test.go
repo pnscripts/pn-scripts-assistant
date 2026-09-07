@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"pn-brain/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 // brain makes a working root: a marker, settings, and a database with

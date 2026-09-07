@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"pn-brain/internal/brain/undo"
+	"pn-scripts-assistant/internal/brain/undo"
 )
 
 /*

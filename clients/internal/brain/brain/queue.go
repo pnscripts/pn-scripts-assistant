@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"pn-brain/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 /*

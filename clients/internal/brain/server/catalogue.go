@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"pn-brain/internal/brain/catalogue"
-	"pn-brain/internal/brain/models"
+	"pn-scripts-assistant/internal/brain/catalogue"
+	"pn-scripts-assistant/internal/brain/models"
 )
 
 /*

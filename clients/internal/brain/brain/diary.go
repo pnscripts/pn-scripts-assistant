@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"pn-brain/internal/brain/speech"
-	"pn-brain/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/speech"
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 /*

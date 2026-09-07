@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"pn-brain/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/protect"
 )
 
 /*

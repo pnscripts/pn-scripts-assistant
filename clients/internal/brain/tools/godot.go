@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"pn-brain/internal/brain/godot"
-	"pn-brain/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/godot"
+	"pn-scripts-assistant/internal/brain/progress"
 )
 
 /*

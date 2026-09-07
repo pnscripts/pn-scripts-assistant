@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"pn-brain/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 /*

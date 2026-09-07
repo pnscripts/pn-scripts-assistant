@@ -10,18 +10,18 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"pn-brain/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/llm"
 	"strconv"
 	"strings"
 	"testing"
 
-	"pn-brain/internal/brain/brain"
-	"pn-brain/internal/brain/config"
-	"pn-brain/internal/brain/progress"
-	"pn-brain/internal/brain/protect"
-	"pn-brain/internal/brain/store"
-	"pn-brain/internal/brain/tools"
-	"pn-brain/internal/brain/wake"
+	"pn-scripts-assistant/internal/brain/brain"
+	"pn-scripts-assistant/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/wake"
 )
 
 func newServer(t *testing.T) (*httptest.Server, *store.DB, *brain.Brain) {

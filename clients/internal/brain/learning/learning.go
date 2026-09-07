@@ -20,8 +20,8 @@ import (
 	"os"
 	"strings"
 
-	"pn-brain/internal/brain/llm"
-	"pn-brain/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 // Status values a lesson moves through.

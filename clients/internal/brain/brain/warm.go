@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"pn-brain/internal/brain/llm"
-	"pn-brain/internal/brain/models"
-	"pn-brain/internal/brain/progress"
-	"pn-brain/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/models"
+	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 /*

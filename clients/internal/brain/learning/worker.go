@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"pn-brain/internal/brain/progress"
-	"pn-brain/internal/brain/speech"
+	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/speech"
 	"strings"
 	"sync"
 	"time"
 
-	"pn-brain/internal/brain/llm"
-	"pn-brain/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 // Worker runs the learning pipeline in the background.

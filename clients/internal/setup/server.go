@@ -9,17 +9,17 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"pn-brain/internal/brain/config"
-	"pn-brain/internal/brain/paths"
-	"pn-brain/internal/brain/storage"
+	"pn-scripts-assistant/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/paths"
+	"pn-scripts-assistant/internal/brain/storage"
 	"sort"
 	"strings"
 	"sync"
 
-	"pn-brain/internal/brain/desktop"
-	"pn-brain/internal/brain/protect"
-	"pn-brain/internal/preflight"
-	"pn-brain/internal/starter"
+	"pn-scripts-assistant/internal/brain/desktop"
+	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/preflight"
+	"pn-scripts-assistant/internal/starter"
 )
 
 // setupServer is a small HTTP server the desktop app runs itself, so first-run
@@ -668,7 +668,10 @@ func envKeyFor(provider string) string {
 // exactly this name when working out where an existing brain lives — and the
 // two spellings drifting apart would mean a brain that is created in one place
 // and looked for in another.
-const DataFolder = "PN-BRAIN-DATA"
+// The name lives in paths, beside the code that looks for it and beside the
+// old name it still recognises, so a rename cannot leave a brain created in
+// one place and looked for in another.
+const DataFolder = paths.DataFolder
 
 /*
  * drives lists where the brain could be kept.

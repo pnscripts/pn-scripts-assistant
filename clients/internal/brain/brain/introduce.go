@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"pn-brain/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/tools"
 	"sort"
 	"strings"
 )

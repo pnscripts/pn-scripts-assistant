@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"pn-brain/internal/brain/appearance"
+	"pn-scripts-assistant/internal/brain/appearance"
 )
 
 // SetAppearance changes what the core looks like.

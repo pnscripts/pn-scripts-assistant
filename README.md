@@ -1,4 +1,4 @@
-# pn-brain
+# PN Scripts Assistant
 
 A personal, self-learning AI assistant that runs entirely on your own machine.
 

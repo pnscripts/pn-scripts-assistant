@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"pn-brain/internal/brain/permits"
-	"pn-brain/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/permits"
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 /*

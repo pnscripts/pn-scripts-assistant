@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"pn-brain/internal/brain/exe"
-	"pn-brain/internal/brain/pace"
+	"pn-scripts-assistant/internal/brain/exe"
+	"pn-scripts-assistant/internal/brain/pace"
 	"strings"
 	"sync"
 )

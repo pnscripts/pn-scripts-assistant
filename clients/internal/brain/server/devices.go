@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"pn-brain/internal/brain/smarthome"
+	"pn-scripts-assistant/internal/brain/smarthome"
 )
 
 /*

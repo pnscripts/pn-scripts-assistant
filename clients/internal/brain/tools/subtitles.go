@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"pn-brain/internal/brain/progress"
-	"pn-brain/internal/brain/subtitles"
+	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/subtitles"
 )
 
 /*

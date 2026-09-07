@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"pn-brain/internal/brain/pace"
+	"pn-scripts-assistant/internal/brain/pace"
 	"strings"
 	"time"
 )

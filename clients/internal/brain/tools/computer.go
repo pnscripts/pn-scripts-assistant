@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"pn-brain/internal/brain/exe"
+	"pn-scripts-assistant/internal/brain/exe"
 )
 
 /*

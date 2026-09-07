@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"pn-brain/internal/brain/config"
-	"pn-brain/internal/brain/learning"
-	"pn-brain/internal/brain/places"
+	"pn-scripts-assistant/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/learning"
+	"pn-scripts-assistant/internal/brain/places"
 
-	"pn-brain/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 // Reply time on a CPU is close to linear in prompt size, and recall is the

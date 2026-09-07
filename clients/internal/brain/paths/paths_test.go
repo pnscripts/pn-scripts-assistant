@@ -358,3 +358,34 @@ func TestTheSameBrainFoundElsewhereIsNoticed(t *testing.T) {
 		t.Errorf("opening it where it already was reported a journey from %q", next.MovedFrom)
 	}
 }
+
+/*
+ * Renaming the product must not orphan anybody's brain.
+ *
+ * The folder used to be called PN-BRAIN-DATA because the program was called PN
+ * Brain. It is PN-SCRIPTS-ASSISTANT-DATA now, and a machine with the old one
+ * has to keep working — the alternative is somebody opening their assistant
+ * after an update and being told it has never met them.
+ */
+func TestAnOlderDataFolderIsStillFound(t *testing.T) {
+	drive := t.TempDir()
+
+	old := filepath.Join(drive, LegacyData)
+	os.MkdirAll(old, 0o755)
+	os.WriteFile(filepath.Join(old, Marker), []byte(`{"id":"older","schema":1}`), 0o644)
+
+	found := DataFolderIn(drive)
+
+	if len(found) != 2 {
+		t.Fatalf("looked in %d places, want the new name and the old", len(found))
+	}
+
+	// Newest first, so a machine carrying both prefers the current one.
+	if filepath.Base(found[0]) != DataFolder {
+		t.Errorf("looks for %q first, want %q", filepath.Base(found[0]), DataFolder)
+	}
+
+	if filepath.Base(found[1]) != LegacyData {
+		t.Errorf("does not look for the old name at all: %v", found)
+	}
+}

@@ -2,8 +2,8 @@ package speech
 
 import (
 	"context"
-	"pn-brain/internal/brain/pace"
-	"pn-brain/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/pace"
+	"pn-scripts-assistant/internal/brain/progress"
 	"strings"
 	"sync"
 	"unicode"

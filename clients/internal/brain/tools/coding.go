@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"pn-brain/internal/brain/undo"
+	"pn-scripts-assistant/internal/brain/undo"
 )
 
 /*

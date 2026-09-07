@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"pn-brain/internal/brain/brain"
+	"pn-scripts-assistant/internal/brain/brain"
 )
 
 /*

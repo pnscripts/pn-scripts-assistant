@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"pn-brain/internal/brain/mail"
+	"pn-scripts-assistant/internal/brain/mail"
 )
 
 /*

@@ -3,7 +3,7 @@ package brain
 import (
 	"os"
 
-	"pn-brain/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/config"
 	"strings"
 	"testing"
 )

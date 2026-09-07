@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"pn-brain/internal/brain/places"
-	"pn-brain/internal/brain/storage"
+	"pn-scripts-assistant/internal/brain/places"
+	"pn-scripts-assistant/internal/brain/storage"
 )
 
 /*

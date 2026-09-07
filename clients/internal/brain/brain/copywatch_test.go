@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"pn-brain/internal/brain/copies"
-	"pn-brain/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/copies"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 func withACopy(t *testing.T) (*Brain, string) {

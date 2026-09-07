@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"pn-brain/internal/brain/learning"
+	"pn-scripts-assistant/internal/brain/learning"
 )
 
 type rememberedWhat struct {

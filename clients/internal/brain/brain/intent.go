@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"pn-brain/internal/brain/learning"
-	"pn-brain/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/learning"
+	"pn-scripts-assistant/internal/brain/progress"
 )
 
 // Answering a direct instruction about the review queue, without the model.

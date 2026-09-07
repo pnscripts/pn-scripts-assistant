@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"pn-brain/internal/brain/undo"
+	"pn-scripts-assistant/internal/brain/undo"
 )
 
 /*

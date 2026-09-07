@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"pn-brain/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/protect"
 )
 
 // Files the brain must never read, whatever it is asked.

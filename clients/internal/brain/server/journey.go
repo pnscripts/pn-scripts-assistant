@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"pn-brain/internal/brain/copies"
-	"pn-brain/internal/brain/paths"
-	"pn-brain/internal/brain/storage"
+	"pn-scripts-assistant/internal/brain/copies"
+	"pn-scripts-assistant/internal/brain/paths"
+	"pn-scripts-assistant/internal/brain/storage"
 )
 
 /*
@@ -187,7 +187,7 @@ func (s *Server) handleWhereItCouldLive(w http.ResponseWriter, r *http.Request) 
 
 		out = append(out, map[string]any{
 			"mount_point": d.MountPoint,
-			"suggested":   filepath.Join(d.MountPoint, "PN-BRAIN-DATA"),
+			"suggested":   filepath.Join(d.MountPoint, paths.DataFolder),
 			"free_bytes":  d.FreeBytes,
 			"removable":   d.Removable,
 			"fits":        int64(d.FreeBytes) > report.DatabaseBytes*int64(copiesRoom),
@@ -216,7 +216,7 @@ func (s *Server) handleWhereItCouldLive(w http.ResponseWriter, r *http.Request) 
 		if !on.Current && canWriteHome(home) {
 			out = append(out, map[string]any{
 				"mount_point": home,
-				"suggested":   filepath.Join(home, "PN-BRAIN-DATA"),
+				"suggested":   filepath.Join(home, paths.DataFolder),
 				"free_bytes":  on.FreeBytes,
 				"removable":   false,
 				"home":        true,

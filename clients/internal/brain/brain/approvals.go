@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"pn-brain/internal/brain/protect"
-	"pn-brain/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 // PendingApprovals lists actions waiting for a decision.

@@ -9,7 +9,7 @@ import (
 	"io"
 	"os/exec"
 	"path/filepath"
-	"pn-brain/internal/brain/exe"
+	"pn-scripts-assistant/internal/brain/exe"
 	"strings"
 )
 

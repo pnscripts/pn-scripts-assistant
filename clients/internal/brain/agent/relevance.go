@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"pn-brain/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/llm"
 )
 
 /*

@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"pn-brain/internal/brain/machine"
-	"pn-brain/internal/brain/progress"
-	"pn-brain/internal/brain/storage"
+	"pn-scripts-assistant/internal/brain/machine"
+	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/storage"
 )
 
 /*

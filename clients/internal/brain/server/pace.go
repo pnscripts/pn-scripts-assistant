@@ -5,10 +5,10 @@ import (
 
 	"encoding/json"
 
-	"pn-brain/internal/brain/llm"
-	"pn-brain/internal/brain/pace"
-	"pn-brain/internal/brain/speech"
-	"pn-brain/internal/preflight"
+	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/pace"
+	"pn-scripts-assistant/internal/brain/speech"
+	"pn-scripts-assistant/internal/preflight"
 )
 
 /*

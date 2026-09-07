@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"pn-brain/internal/brain/places"
+	"pn-scripts-assistant/internal/brain/places"
 )
 
 /*

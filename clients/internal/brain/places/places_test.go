@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"pn-brain/internal/brain/learning"
+	"pn-scripts-assistant/internal/brain/learning"
 )
 
 // a brain's own folder, and somewhere with work in it.

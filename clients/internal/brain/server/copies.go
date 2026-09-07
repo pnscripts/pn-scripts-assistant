@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"pn-brain/internal/brain/copies"
-	"pn-brain/internal/brain/paths"
-	"pn-brain/internal/brain/storage"
+	"pn-scripts-assistant/internal/brain/copies"
+	"pn-scripts-assistant/internal/brain/paths"
+	"pn-scripts-assistant/internal/brain/storage"
 )
 
 /*

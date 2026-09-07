@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"pn-brain/internal/brain/storage"
+	"pn-scripts-assistant/internal/brain/storage"
 )
 
 /*

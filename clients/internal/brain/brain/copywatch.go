@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"pn-brain/internal/brain/copies"
+	"pn-scripts-assistant/internal/brain/copies"
 )
 
 /*

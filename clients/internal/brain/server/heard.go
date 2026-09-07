@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"pn-brain/internal/brain/brain"
-	"pn-brain/internal/brain/tools"
-	"pn-brain/internal/brain/wake"
+	"pn-scripts-assistant/internal/brain/brain"
+	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/wake"
 )
 
 /*

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"pn-brain/internal/preflight"
+	"pn-scripts-assistant/internal/preflight"
 )
 
 /*

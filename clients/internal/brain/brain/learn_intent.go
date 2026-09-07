@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"pn-brain/internal/brain/learning"
-	"pn-brain/internal/brain/progress"
-	"pn-brain/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/learning"
+	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 // Being told to learn something is an instruction, not a topic of conversation.

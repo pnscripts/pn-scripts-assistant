@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"pn-brain/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/progress"
 )
 
 /*

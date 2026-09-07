@@ -21,13 +21,13 @@ import (
 	"sync"
 	"time"
 
-	"pn-brain/internal/brain/llm"
-	"pn-brain/internal/brain/pace"
-	"pn-brain/internal/brain/permits"
-	"pn-brain/internal/brain/progress"
-	"pn-brain/internal/brain/protect"
-	"pn-brain/internal/brain/store"
-	"pn-brain/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/pace"
+	"pn-scripts-assistant/internal/brain/permits"
+	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 // MaxSteps caps model-to-tool-to-model round trips in a single turn.

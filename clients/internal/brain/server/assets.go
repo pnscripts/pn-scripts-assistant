@@ -9,7 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"pn-brain/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/config"
 	"strings"
 	"sync"
 	"time"

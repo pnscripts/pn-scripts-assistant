@@ -5,18 +5,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"pn-brain/internal/brain/places"
-	"pn-brain/internal/brain/storage"
+	"pn-scripts-assistant/internal/brain/paths"
+	"pn-scripts-assistant/internal/brain/places"
+	"pn-scripts-assistant/internal/brain/storage"
 	"strconv"
 	"strings"
 	"time"
 
-	"pn-brain/internal/brain/llm"
-	"pn-brain/internal/brain/pace"
-	"pn-brain/internal/brain/speech"
-	"pn-brain/internal/brain/tools"
-	"pn-brain/internal/brain/voiceprint"
-	"pn-brain/internal/preflight"
+	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/pace"
+	"pn-scripts-assistant/internal/brain/speech"
+	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/voiceprint"
+	"pn-scripts-assistant/internal/preflight"
 )
 
 /*
@@ -427,7 +428,7 @@ func (b *Brain) changeVoice(ctx context.Context, which string) (string, error) {
 func housekeeping(name string) bool {
 	switch name {
 	case "lost+found", "System Volume Information", "$RECYCLE.BIN",
-		".Trash-1000", "snap", "PN-BRAIN-DATA":
+		".Trash-1000", "snap", paths.DataFolder, paths.LegacyData:
 		return true
 	}
 

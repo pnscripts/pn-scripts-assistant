@@ -190,9 +190,11 @@ func Find() (Root, error) {
 	}
 
 	for _, dir := range SearchPaths() {
-		// A data root is either the directory itself or a PN-BRAIN-DATA inside
-		// it, because a drive holds other things too.
-		for _, candidate := range []string{dir, filepath.Join(dir, "PN-BRAIN-DATA")} {
+		// A data root is either the directory itself or one of the named
+		// folders inside it, because a drive holds other things too.
+		candidates := append([]string{dir}, DataFolderIn(dir)...)
+
+		for _, candidate := range candidates {
 			if _, err := os.Stat(filepath.Join(candidate, Marker)); err == nil {
 				return read(candidate)
 			}
@@ -434,5 +436,30 @@ func lastKnown() (path, id string, ok bool) {
 func Forget() {
 	if path, err := pointerFile(); err == nil {
 		_ = os.Remove(path)
+	}
+}
+
+/*
+ * DataFolder is what a new data folder is called; Legacy is what old ones were.
+ *
+ * The program was called PN Brain and its folder said so. Renaming the product
+ * must not orphan anybody's brain, so the old name is still recognised — a
+ * folder that already exists keeps working under whatever it was called, and
+ * only new ones get the new name.
+ *
+ * The marker file inside is what actually identifies a root, so this list is a
+ * convenience for finding one on a drive rather than the thing that decides.
+ */
+const (
+	DataFolder = "PN-SCRIPTS-ASSISTANT-DATA"
+	LegacyData = "PN-BRAIN-DATA"
+)
+
+// DataFolderIn is where a data root might sit inside a directory, newest name
+// first so a machine with both prefers the current one.
+func DataFolderIn(dir string) []string {
+	return []string{
+		filepath.Join(dir, DataFolder),
+		filepath.Join(dir, LegacyData),
 	}
 }

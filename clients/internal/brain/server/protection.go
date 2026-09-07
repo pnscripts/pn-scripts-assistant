@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"pn-brain/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/protect"
 )
 
 /*

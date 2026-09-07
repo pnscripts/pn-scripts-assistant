@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"pn-brain/internal/brain/machine"
+	"pn-scripts-assistant/internal/brain/machine"
 )
 
 /*

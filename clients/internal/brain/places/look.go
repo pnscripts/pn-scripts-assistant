@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"pn-brain/internal/brain/learning"
+	"pn-scripts-assistant/internal/brain/learning"
 )
 
 /*

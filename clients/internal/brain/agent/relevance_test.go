@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	"pn-brain/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/llm"
 )
 
 func allTools() []llm.ToolSpec {

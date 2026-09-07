@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"pn-brain/internal/brain/learning"
+	"pn-scripts-assistant/internal/brain/learning"
 )
 
 // LessonDecision is what happened to a proposed lesson.

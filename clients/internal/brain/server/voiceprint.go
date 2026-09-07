@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"pn-brain/internal/brain/progress"
-	"pn-brain/internal/brain/speech"
-	"pn-brain/internal/brain/voiceprint"
+	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/speech"
+	"pn-scripts-assistant/internal/brain/voiceprint"
 )
 
 /*

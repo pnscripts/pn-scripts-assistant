@@ -17,7 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"pn-brain/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/config"
 	"strings"
 )
 

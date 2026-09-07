@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"pn-brain/internal/brain/smarthome"
+	"pn-scripts-assistant/internal/brain/smarthome"
 )
 
 // ListDevices reports what is in the house and what state it is in.

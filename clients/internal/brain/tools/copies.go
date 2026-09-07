@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"pn-brain/internal/brain/copies"
+	"pn-scripts-assistant/internal/brain/copies"
 )
 
 /*

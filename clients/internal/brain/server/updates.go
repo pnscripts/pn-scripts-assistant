@@ -4,13 +4,13 @@ import (
 	"context"
 	"net/http"
 	"os/exec"
-	"pn-brain/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/config"
 	"runtime/debug"
 	"strings"
 	"time"
 
-	"pn-brain/internal/brain/models"
-	"pn-brain/internal/brain/speech"
+	"pn-scripts-assistant/internal/brain/models"
+	"pn-scripts-assistant/internal/brain/speech"
 )
 
 // What the brain is made of, and what any of it costs.

@@ -13,7 +13,7 @@ import (
 	"os"
 	"strings"
 
-	"pn-brain/internal/preflight"
+	"pn-scripts-assistant/internal/preflight"
 )
 
 const (
