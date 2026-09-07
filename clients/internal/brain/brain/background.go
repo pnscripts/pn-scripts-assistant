@@ -75,10 +75,30 @@ func (b *Brain) sayWhenFinished(line string) {
 		return
 	}
 
-	if _, err := b.DB.AddMessage(0, "assistant", "", "", line); err != nil {
-		// A conversation to attach it to is not always there; the spoken
-		// version is still worth having.
-		b.Log.Debug("could not record something that finished", "error", err)
+	/*
+	 * Into the latest conversation, not into nothing.
+	 *
+	 * This wrote to conversation 0, and messages.conversation_id is NOT NULL
+	 * with a foreign key to conversations — so every one of these was refused
+	 * by the database and swallowed by the Debug line below it. The comment
+	 * above says the line goes in the transcript either way so that somebody
+	 * who was out of the room still finds out; that has been false for as long
+	 * as it has been written down, and it took a test asking to read one back
+	 * to notice, because the only symptom is a sentence that is never there.
+	 *
+	 * A brain that has just finished reading a drive on its own may never have
+	 * been spoken to, so there is not always a conversation to join. Starting
+	 * one is right: something happened, and it is the first thing in it.
+	 */
+	id, err := b.somewhereToSayIt()
+	if err != nil {
+		b.Log.Warn("nowhere to record something that finished", "error", err)
+
+		return
+	}
+
+	if _, err := b.DB.AddMessage(id, "assistant", "", "", line); err != nil {
+		b.Log.Warn("could not record something that finished", "error", err)
 	}
 
 	/*
@@ -140,4 +160,25 @@ func describeJob(job jobs.Job) string {
 	default:
 		return fmt.Sprintf("Finished %s.", job.What)
 	}
+}
+
+/*
+ * somewhereToSayIt is the conversation an unprompted line belongs in.
+ *
+ * The one being held, when there is one, so that "I have finished reading your
+ * documents" arrives where somebody is already looking. Otherwise a new one,
+ * because work that finished while nobody was talking to the brain is still
+ * the first thing it has to say when they come back.
+ */
+func (b *Brain) somewhereToSayIt() (int64, error) {
+	latest, err := b.DB.LatestConversation()
+	if err != nil {
+		return 0, err
+	}
+
+	if latest != nil && latest.ID != 0 {
+		return latest.ID, nil
+	}
+
+	return b.DB.NewConversation("")
 }

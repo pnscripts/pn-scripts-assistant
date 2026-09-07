@@ -37,6 +37,29 @@ const BetweenRounds = 10 * time.Minute
 // models are loading and the disk is busy.
 const SettleBeforeLooking = 3 * time.Minute
 
+/*
+ * AsMuchAsAnyoneWillReview is where the brain stops asking and waits.
+ *
+ * The rule that matters most, and the only one here that does not depend on
+ * guessing whose writing a file is. Every other rule in this program is a
+ * judgement about content, and judgements are wrong sometimes — the queue went
+ * to 9,199, then to 2,895, each time because a rule that was right about
+ * yesterday's disk met a folder nobody had thought of. On a billion different
+ * machines it will keep meeting them, and no list of folder names written here
+ * will ever have seen what is on somebody else's.
+ *
+ * So the queue is bounded by what a person can actually do, rather than by how
+ * clever the filtering was. Two hundred is a long evening's work and a number
+ * somebody can imagine finishing. Nine thousand is not a queue, it is a wall,
+ * and the difference between them is not nine thousand — it is that one of
+ * them gets looked at.
+ *
+ * When it is full the reading stops rather than the proposing: work that will
+ * be thrown away is not worth the processor on a machine where an answer takes
+ * a minute. It starts again by itself the moment the queue comes down.
+ */
+const AsMuchAsAnyoneWillReview = 200
+
 func (b *Brain) keepPlaces(ctx context.Context) {
 	select {
 	case <-ctx.Done():
@@ -75,6 +98,20 @@ func (b *Brain) lookAtOnePlace(ctx context.Context) bool {
 	}
 
 	if b.Learner == nil {
+		return false
+	}
+
+	/*
+	 * Nothing is read while the person already has more than they will get
+	 * through. See AsMuchAsAnyoneWillReview.
+	 *
+	 * Checked before the work rather than after it: reading a folder is
+	 * minutes of processor on this machine, and producing things nobody will
+	 * ever look at is the most expensive way to do nothing.
+	 */
+	if waiting, err := b.DB.CountPendingLessons(); err == nil && waiting >= AsMuchAsAnyoneWillReview {
+		b.sayTheQueueIsFull(waiting)
+
 		return false
 	}
 
@@ -125,6 +162,12 @@ func (b *Brain) lookAtOnePlace(ctx context.Context) bool {
 		b.Log.Info("read some of a place",
 			"place", p.Path, "took", pass.Took,
 			"learned", pass.Learned, "left", pass.Place.Waiting)
+
+		// Reading at all means the queue came down, so the explanation for
+		// having stopped is due to be given afresh if it fills up once more.
+		b.mu.Lock()
+		b.saidQueueIsFull = false
+		b.mu.Unlock()
 
 		/*
 		 * Said once, at the end, rather than on every bite.
@@ -215,4 +258,37 @@ func (b *Brain) finishedReading(p places.Place, pass places.Pass) string {
 	}
 
 	return line
+}
+
+/*
+ * sayTheQueueIsFull explains the pause, once.
+ *
+ * Once, because this is checked every ten minutes for as long as the queue
+ * stays full, and a program that repeats itself every ten minutes is a program
+ * somebody turns off. The flag clears when the reading starts again, so it is
+ * said afresh the next time it happens.
+ *
+ * Said at all because a brain that has quietly stopped reading looks exactly
+ * like a brain that has finished, and those mean opposite things — one is
+ * waiting for its owner and the other is done. Somebody who is not told will
+ * conclude the feature is broken.
+ */
+func (b *Brain) sayTheQueueIsFull(waiting int) {
+	b.mu.Lock()
+	said := b.saidQueueIsFull
+	b.saidQueueIsFull = true
+	b.mu.Unlock()
+
+	if said {
+		return
+	}
+
+	b.Log.Info("paused reading: the review queue is full", "waiting", waiting)
+
+	b.sayWhenFinished(fmt.Sprintf(
+		"There are %d things waiting for you to keep or discard, which is as many "+
+			"as I will put in front of anybody at once. I have stopped reading until "+
+			"you have been through some of them — say \"remember everything in the "+
+			"waiting list\" and I will take them all, or go through them on the "+
+			"command centre.", waiting))
 }

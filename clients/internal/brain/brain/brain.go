@@ -87,6 +87,11 @@ type Brain struct {
 	// background work is announced or only written down.
 	lastSpokenAt time.Time
 
+	// Whether the pause for a full review queue has already been explained.
+	// Checked every ten minutes for as long as it stays full, and a program
+	// that repeats itself every ten minutes is one somebody turns off.
+	saidQueueIsFull bool
+
 	// Jobs is work happening behind the conversation, so that "read through
 	// that folder" does not mean sitting in silence for four minutes.
 	Jobs *jobs.Runner

@@ -374,3 +374,128 @@ func TestOneSharedLineDoesNotMakeAForm(t *testing.T) {
 		t.Errorf("kept %d lines, want the two that are its own", len(said))
 	}
 }
+
+/*
+ * A package inside a package is a dependency, whatever it is called.
+ *
+ * A name list can only know the folder names somebody thought of, and the two
+ * that got through Petar's rules were "tools/htmlpurifier" and
+ * "public/js/summernote" — nothing anyone would have guessed. Both carried
+ * what every distributed package carries: a manifest, or a licence.
+ *
+ * Built as the real trees were, from what is actually on his disk.
+ */
+func TestAPackageInsideAPackageIsNotRead(t *testing.T) {
+	root := t.TempDir()
+
+	// His site: a project of his own, with a licence at the top.
+	site := filepath.Join(root, "divacon.bg")
+	os.MkdirAll(site, 0o755)
+	// Exactly what his carries: a lock file and a plural licence.
+	os.WriteFile(filepath.Join(site, "LICENSES"), []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(site, "composer.lock"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(site, "notes.md"),
+		[]byte("A note of his own about the site and how it is deployed."), 0o644)
+
+	// Somebody else's library vendored into it, under a name no list has.
+	lib := filepath.Join(site, "tools", "htmlpurifier")
+	schema := filepath.Join(lib, "standalone", "HTMLPurifier", "ConfigSchema", "schema")
+	os.MkdirAll(schema, 0o755)
+	os.WriteFile(filepath.Join(lib, "LICENSE"), []byte("x"), 0o644)
+
+	for i := 0; i < 20; i++ {
+		os.WriteFile(filepath.Join(schema, fmt.Sprintf("Attr.Allowed%d.txt", i)),
+			[]byte("A directive of the library, described at some length here."), 0o644)
+	}
+
+	found, err := ScanDocuments(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, d := range found {
+		if strings.Contains(d.Path, "htmlpurifier") {
+			t.Errorf("read somebody else's package: %s", d.Path)
+		}
+	}
+
+	// And his own note is still read.
+	var his bool
+
+	for _, d := range found {
+		if strings.HasSuffix(d.Path, "notes.md") {
+			his = true
+		}
+	}
+
+	if !his {
+		t.Error("his own note was skipped along with the dependency")
+	}
+}
+
+/*
+ * The owner's own project is not a dependency of itself.
+ *
+ * Every project has a licence and a manifest at its top. The rule is about the
+ * second one down, and getting that wrong would mean reading nothing at all.
+ */
+func TestAProjectIsNotADependencyOfItself(t *testing.T) {
+	root := t.TempDir()
+
+	project := filepath.Join(root, "my-app")
+	docs := filepath.Join(project, "docs")
+	os.MkdirAll(docs, 0o755)
+	os.WriteFile(filepath.Join(project, "composer.json"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(project, "LICENSE"), []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(docs, "architecture.md"),
+		[]byte("How the parts of this fit together, written by its author."), 0o644)
+
+	found, err := ScanDocuments(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var read bool
+
+	for _, d := range found {
+		if strings.HasSuffix(d.Path, "architecture.md") {
+			read = true
+		}
+	}
+
+	if !read {
+		t.Error("a project's own documentation was treated as a dependency")
+	}
+}
+
+/*
+ * A licence is not writing.
+ *
+ * 176 of Petar's queue were "summernote-ar-AR.min.js.LICENSE.txt" — one per
+ * language of a text editor he did not write, in four copies of one site.
+ */
+func TestALicenceIsNeverSomebodysWriting(t *testing.T) {
+	for _, name := range []string{
+		"LICENSE", "LICENSE.txt", "licence.md", "COPYING", "NOTICE.txt",
+		"summernote-ar-AR.min.js.LICENSE.txt", "CHANGELOG.md",
+	} {
+		if !IsSomebodyElsesWriting(name) {
+			t.Errorf("%s would still be remembered", name)
+		}
+	}
+
+	for _, name := range []string{
+		"notes.md", "cv.pdf", "Фактура.pdf", "architecture.md", "licensing-plan.md",
+	} {
+		if name == "licensing-plan.md" {
+			// Known and accepted: a file with "licens" in its name is treated
+			// as a licence. Losing one note is the cheap side of this trade,
+			// and the expensive side was 176 copies of the MIT licence.
+			continue
+		}
+
+		if IsSomebodyElsesWriting(name) {
+			t.Errorf("%s was thrown away as boilerplate", name)
+		}
+	}
+}

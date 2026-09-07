@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"pn-brain/internal/brain/config"
+	"pn-brain/internal/brain/learning"
 	"pn-brain/internal/brain/places"
 
 	"pn-brain/internal/brain/store"
@@ -552,4 +553,99 @@ func TestAnEmptyFolderSaysThatItWasEmpty(t *testing.T) {
 	if strings.Contains(said, "waiting for you") {
 		t.Errorf("invented something to review: %s", said)
 	}
+}
+
+/*
+ * The queue is a person's attention, and it is finite.
+ *
+ * The one rule here that does not depend on guessing whose writing a file is.
+ * Every other rule is a judgement about content, and judgements are wrong
+ * sometimes: this queue reached 9,199, then 2,895, each time because a rule
+ * that was right about yesterday's disk met a folder nobody had thought of.
+ * On somebody else's machine it will meet another one.
+ *
+ * So the reading stops at a number a person can imagine finishing, and starts
+ * again by itself when they have.
+ */
+func TestReadingStopsWhenThePersonHasEnoughToDo(t *testing.T) {
+	b := testBrain(t)
+
+	// There has to be something that could read, or it stops for that reason
+	// instead and the check never runs.
+	b.Learner = &learning.Worker{DB: b.DB}
+
+	for i := 0; i < AsMuchAsAnyoneWillReview; i++ {
+		b.DB.AddLesson(0, fmt.Sprintf("a guess number %d", i), "proposed", "low", "")
+	}
+
+	if b.lookAtOnePlace(context.Background()) {
+		t.Error("kept reading with a full queue")
+	}
+
+	// And it says why, because a brain that has quietly stopped reading looks
+	// exactly like one that has finished, and those mean opposite things.
+	said, err := whatItSaid(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var explained bool
+
+	for _, m := range said {
+		if strings.Contains(m.Content, "waiting for you") &&
+			strings.Contains(m.Content, "stopped reading") {
+			explained = true
+		}
+	}
+
+	if !explained {
+		t.Errorf("stopped reading without saying so: %+v", said)
+	}
+}
+
+// And it says it once. Checked every ten minutes for as long as the queue
+// stays full, and a program that repeats itself every ten minutes is one
+// somebody turns off.
+func TestTheFullQueueIsExplainedOnce(t *testing.T) {
+	b := testBrain(t)
+	b.Learner = &learning.Worker{DB: b.DB}
+
+	for i := 0; i < AsMuchAsAnyoneWillReview; i++ {
+		b.DB.AddLesson(0, fmt.Sprintf("a guess number %d", i), "proposed", "low", "")
+	}
+
+	for i := 0; i < 4; i++ {
+		b.lookAtOnePlace(context.Background())
+	}
+
+	said, _ := whatItSaid(b)
+
+	var times int
+
+	for _, m := range said {
+		if strings.Contains(m.Content, "stopped reading") {
+			times++
+		}
+	}
+
+	if times != 1 {
+		t.Errorf("said it %d times, want once", times)
+	}
+}
+
+/*
+ * whatItSaid reads back the lines the brain wrote on its own.
+ *
+ * Through the conversation it actually chose, not conversation 0 — writing
+ * there is what made these lines vanish for as long as they have existed:
+ * messages.conversation_id is NOT NULL with a foreign key, so the database
+ * refused every one and the error was swallowed. See sayWhenFinished.
+ */
+func whatItSaid(b *Brain) ([]store.Message, error) {
+	latest, err := b.DB.LatestConversation()
+	if err != nil || latest == nil {
+		return nil, err
+	}
+
+	return b.DB.History(latest.ID)
 }

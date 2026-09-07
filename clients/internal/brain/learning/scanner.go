@@ -101,6 +101,92 @@ func worthDescending(path, name string) bool {
 		!skipBecauseOfWhereItIs(path, name)
 }
 
+/*
+ * What marks a directory as a distributable package.
+ *
+ * A name list can only ever know the folder names somebody thought of, and the
+ * two that got through here were called "tools/htmlpurifier" and
+ * "public/js/summernote" — nothing a list would have guessed. But both carried
+ * the thing every distributed package carries, in every language and every
+ * decade: a manifest saying what it is, or a licence saying who owns it.
+ *
+ * That is the signal worth using, because it is not a convention this program
+ * has noticed — it is the definition. A folder with a licence in it belongs to
+ * whoever wrote the licence.
+ */
+var packageMarks = map[string]bool{
+	// What it is, in every ecosystem that has a word for it.
+	"composer.json": true, "package.json": true, "go.mod": true,
+	"pyproject.toml": true, "setup.py": true, "requirements.txt": true,
+	"cargo.toml": true, "gemfile": true, "pom.xml": true,
+	"build.gradle": true, "bower.json": true, "podspec": true,
+	"pubspec.yaml": true, "project.godot": true,
+
+	// And what it depends on, which is the same statement written down twice.
+	// A lock file is the surest of all of these: nothing writes one but a
+	// package manager, and it writes one only for a package.
+	"composer.lock": true, "package-lock.json": true, "yarn.lock": true,
+	"gemfile.lock": true, "cargo.lock": true, "poetry.lock": true,
+	"pnpm-lock.yaml": true, "go.sum": true,
+
+	// Who owns it. Plurals included because they are just as common on disk
+	// and a rule that misses "LICENSES" misses the whole tree beneath it —
+	// which is exactly how a vendored copy of HTMLPurifier got through.
+	"license": true, "license.txt": true, "license.md": true,
+	"licenses": true, "licenses.txt": true,
+	"licence": true, "licence.txt": true, "licence.md": true,
+	"licences": true, "licences.txt": true,
+	"copying": true, "copying.txt": true, "copyright": true,
+	"notice": true, "notice.txt": true,
+	"license-mit": true, "license-apache": true,
+}
+
+// carriesAPackageMark reports whether a directory declares itself a package.
+func carriesAPackageMark(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+
+		if packageMarks[strings.ToLower(e.Name())] {
+			return true
+		}
+	}
+
+	return false
+}
+
+/*
+ * IsSomebodyElsesWriting reports whether a file is boilerplate that came with
+ * software rather than something a person wrote.
+ *
+ * A licence is the clearest case there is: it is the same text in millions of
+ * copies, it says nothing about the person whose disk it is on, and it is
+ * legally required to be there. 176 of Petar's review queue were files named
+ * "summernote-ar-AR.min.js.LICENSE.txt" — one per language of a text editor he
+ * did not write, in four copies of the same site.
+ */
+func IsSomebodyElsesWriting(name string) bool {
+	lower := strings.ToLower(name)
+
+	if packageMarks[lower] {
+		return true
+	}
+
+	for _, mark := range []string{"license", "licence", "copying", "notice", "changelog"} {
+		if strings.Contains(lower, mark) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // skipNames match dated snapshots rather than a distinct current project.
 var skipNames = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^backup[_-]`),
@@ -252,9 +338,28 @@ var documentKinds = map[string]string{
 	".ppt": "presentation", ".pptx": "presentation", ".md": "Markdown", ".txt": "text",
 }
 
-// ScanDocuments lists the documents under a directory.
+/*
+ * ScanDocuments lists the documents under a directory.
+ *
+ * Two things it will not do, and both are about whose writing a file is.
+ *
+ * A package inside a package is a dependency. The walk keeps track of whether
+ * anything above it declared itself a package — a manifest, a licence — and a
+ * directory that declares itself one again, inside that, is a copy of somebody
+ * else's work vendored into somebody's project. That is how every package
+ * manager on earth arranges things, so it holds without knowing the name of a
+ * single tool: "tools/htmlpurifier" and "public/js/summernote" are caught by
+ * the same rule as node_modules, without either name appearing anywhere.
+ *
+ * And a licence is not writing. See IsSomebodyElsesWriting.
+ */
 func ScanDocuments(root string) ([]Document, error) {
 	var found []Document
+
+	// Which directories sit inside something that called itself a package.
+	// WalkDir visits a parent before its children, so this is always filled in
+	// by the time it is asked for.
+	inside := map[string]bool{root: carriesAPackageMark(root)}
 
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -262,10 +367,29 @@ func ScanDocuments(root string) ([]Document, error) {
 		}
 
 		if d.IsDir() {
-			if path != root && !worthDescending(path, d.Name()) {
+			if path == root {
+				return nil
+			}
+
+			if !worthDescending(path, d.Name()) {
 				return filepath.SkipDir
 			}
 
+			under := inside[filepath.Dir(path)]
+			mine := carriesAPackageMark(path)
+
+			// A package declared inside a package is a dependency, and its
+			// documentation is its author's rather than this machine's owner's.
+			if under && mine {
+				return filepath.SkipDir
+			}
+
+			inside[path] = under || mine
+
+			return nil
+		}
+
+		if IsSomebodyElsesWriting(d.Name()) {
 			return nil
 		}
 
@@ -379,16 +503,39 @@ func UnderASkippedFolder(path string) bool {
 		return false
 	}
 
+	// A licence is not writing, wherever it sits.
+	if IsSomebodyElsesWriting(filepath.Base(path)) {
+		return true
+	}
+
 	parts := strings.Split(filepath.Clean(path), string(filepath.Separator))
 
 	// The last part is the file itself; only the directories above it decide.
 	at := string(filepath.Separator)
+
+	var insideAPackage bool
 
 	for _, name := range parts[1 : len(parts)-1] {
 		at = filepath.Join(at, name)
 
 		if !worthDescending(at, name) {
 			return true
+		}
+
+		/*
+		 * The same nesting rule the walk uses, asked of a path.
+		 *
+		 * A package declared inside a package is a dependency. Asked here as
+		 * well so that "forget what the rules would no longer read" means the
+		 * current rules in full, rather than the half of them that happens to
+		 * be about folder names.
+		 */
+		if carriesAPackageMark(at) {
+			if insideAPackage {
+				return true
+			}
+
+			insideAPackage = true
 		}
 	}
 
