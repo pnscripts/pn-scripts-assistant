@@ -558,6 +558,25 @@ func listenWaiting(
 	}
 
 	/*
+	 * And the recogniser reciting subtitles is not somebody talking either.
+	 *
+	 * Whisper was trained on subtitle files, and where there are no words it
+	 * returns the likeliest thing to appear in that position — which is
+	 * somebody thanking you for watching. It arrived in the conversation as
+	 * "Thanks for watching." while a film was on and nobody had said anything,
+	 * and the brain set about answering it.
+	 *
+	 * Worse than a misheard word, because there is nothing in the sentence to
+	 * give it away: it is well formed, it is in the right language, and it is
+	 * eligible to be learned as something its owner said.
+	 */
+	if Ghost(text) {
+		progress.DetailOn(transcribing, "that was the film, not you — ignored")
+
+		text = ""
+	}
+
+	/*
 	 * Its own voice is not a turn.
 	 *
 	 * Checked here rather than trusted to the canceller, because cancellation
