@@ -53,7 +53,20 @@
             return;
         }
 
-        const freedom = el('freedom');
+        const online = el('look-online');
+
+    if (online) {
+        online.onchange = async () => {
+            try {
+                await post('/api/permissions/look-online', { on: online.checked });
+            } catch (err) {
+                // Put it back rather than showing a switch that was not thrown.
+                online.checked = !online.checked;
+            }
+        };
+    }
+
+    const freedom = el('freedom');
 
         /*
          * The dropdown is not refilled while somebody is using it.
@@ -76,11 +89,19 @@
          * Somebody looking at permissions wants to know the other half exists
          * without the two being run together again.
          */
+        const lookingUp = el('look-online');
+
+        if (lookingUp && document.activeElement !== lookingUp) {
+            lookingUp.checked = data.look_online !== false;
+        }
+
         const note = el('permissions-privacy-note');
 
         if (note) {
-            note.textContent = 'Separately, privacy is set to “' + (data.privacy || '—')
-                + '” — that is what may leave this machine, and it is on the Privacy page.';
+            note.textContent = 'Privacy is a different question and is set to “'
+                + (data.privacy || '—') + '” on its own page: that decides where '
+                + 'your words go — whether a conversation reaches somebody else’s '
+                + 'model. Nothing on this page changes that.';
         }
 
         draw(data.capabilities || []);

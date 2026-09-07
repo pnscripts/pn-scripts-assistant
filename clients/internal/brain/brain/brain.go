@@ -403,9 +403,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 			},
 			// Reaching out is privacy's question, asked fresh: an update check
 			// is a small thing to leak and it still says this machine exists.
-			Online: func() bool { return b.Router.Mode().AllowsWeb() },
+			Online: func() bool { return b.Cfg.LookOnline },
 		},
-		tools.GodotDocs{Online: func() bool { return b.Router.Mode().AllowsWeb() }},
+		tools.GodotDocs{Online: func() bool { return b.Cfg.LookOnline }},
 		tools.GodotBuild{},
 
 		tools.Remind{Diary: diaryOf{b}},

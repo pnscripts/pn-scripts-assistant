@@ -55,6 +55,26 @@ type Config struct {
 	 */
 	SetupDone bool
 
+	/*
+	 * LookOnline is whether the program may look things up about itself.
+	 *
+	 * Separate from Privacy, and the separation is the whole point. Privacy is
+	 * about where *your* words go — whether a conversation reaches somebody
+	 * else's model. This is about whether the program may ask a public server
+	 * a question that contains nothing of yours: is there a newer version,
+	 * what models exist, what does this Godot class do.
+	 *
+	 * They were one setting, so keeping your conversation on this machine also
+	 * meant never being told an update existed and never seeing the list of
+	 * models you could install. Those are not the same decision and nobody
+	 * would make the second one on purpose.
+	 *
+	 * On by default, because it sends nothing about anybody. Off is for a
+	 * machine that must not talk to the internet at all, which is a real
+	 * requirement and a different one from privacy.
+	 */
+	LookOnline bool
+
 	// Models.
 	DefaultProvider string
 	OllamaURL       string
@@ -330,6 +350,10 @@ func Default() Config {
 		// gives, not something they find already given.
 		Freedom: "ask",
 
+		// Looking up its own updates and the list of models sends nothing
+		// about anybody, so it is on. See LookOnline.
+		LookOnline: true,
+
 		DefaultProvider: "ollama",
 		OllamaURL:       "http://127.0.0.1:11434",
 		WakeWord:        DefaultWakeWord,
@@ -405,6 +429,10 @@ func Load(root string) (Config, error) {
 	assign(&cfg.Owner, "BRAIN_OWNER")
 	assign(&cfg.Privacy, "BRAIN_PRIVACY")
 	assign(&cfg.Freedom, "BRAIN_FREEDOM")
+
+	if v := get("BRAIN_LOOK_ONLINE"); v != "" {
+		cfg.LookOnline = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
 
 	if v := get("BRAIN_SETUP_DONE"); v != "" {
 		cfg.SetupDone = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
@@ -504,7 +532,12 @@ func (c Config) Save(root string) error {
 	b.WriteString("BRAIN_FREEDOM=" + c.Freedom + "\n")
 	b.WriteString("# Set once somebody has been through setup. Setup then only\n")
 	b.WriteString("# runs when it is asked for, from System or \"brain setup\".\n")
-	b.WriteString("BRAIN_SETUP_DONE=" + boolText(c.SetupDone) + "\n\n")
+	b.WriteString("BRAIN_SETUP_DONE=" + boolText(c.SetupDone) + "\n")
+
+	b.WriteString("# Whether it may look things up about itself — updates, the\n")
+	b.WriteString("# list of models, documentation. Sends nothing about you, and is\n")
+	b.WriteString("# a different question from privacy, which is where your words go.\n")
+	b.WriteString("BRAIN_LOOK_ONLINE=" + boolText(c.LookOnline) + "\n\n")
 	b.WriteString("# A word that must be said before it answers. Empty means it answers\n")
 	b.WriteString("# anything it hears, which is the default: requiring a name means\n")
 	b.WriteString("# transcription has to get that name right before anything can match.\n")

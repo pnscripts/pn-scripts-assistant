@@ -1181,6 +1181,25 @@
                         </select>
                     </div>
 
+                    <!--
+                        A permission, on the permissions page, and named so it
+                        cannot be mistaken for the privacy setting.
+
+                        These were one switch, so keeping a conversation on this
+                        machine also meant never being told an update existed
+                        and never seeing the list of models. Nobody makes that
+                        second decision on purpose.
+                    -->
+                    <label class="field field-inline">
+                        <input type="checkbox" id="look-online">
+                        <span>
+                            May look things up about itself
+                            <span class="field-note">Updates, the list of models it could
+                            install, documentation. Sends nothing about you — this is not
+                            your privacy setting.</span>
+                        </span>
+                    </label>
+
                     <p class="insight-note" id="permissions-privacy-note"></p>
                 </div>
 

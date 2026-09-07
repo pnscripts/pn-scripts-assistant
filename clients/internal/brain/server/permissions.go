@@ -85,8 +85,13 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{
-		"freedom":      string(s.brain.Freedom()),
-		"privacy":      s.brain.Cfg.Privacy,
+		"freedom": string(s.brain.Freedom()),
+		"privacy": s.brain.Cfg.Privacy,
+
+		// Its own switch, on this page, because it is a permission and not a
+		// privacy setting: it asks public servers questions that contain
+		// nothing of the owner's.
+		"look_online":  s.brain.Cfg.LookOnline,
 		"capabilities": out,
 	})
 }
@@ -157,6 +162,42 @@ func (s *Server) handleDecide(w http.ResponseWriter, r *http.Request) {
 	s.brain.Log.Info("permission changed", "tool", tool, "answer", body.Answer)
 
 	ok(w, map[string]any{"tool": tool, "answer": body.Answer})
+}
+
+/*
+ * handleLookOnline switches looking things up on or off.
+ *
+ * Separate from privacy on purpose and deliberately not part of it. Privacy is
+ * where your words go; this is whether the program may ask a public server
+ * whether a newer version exists. They were one setting, so keeping a
+ * conversation on this machine also meant never being told an update existed —
+ * and nobody makes that second decision on purpose.
+ */
+func (s *Server) handleLookOnline(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		On bool `json:"on"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "I could not read that.")
+
+		return
+	}
+
+	cfg := s.brain.Cfg
+	cfg.LookOnline = body.On
+
+	if err := cfg.Save(s.brain.Root); err != nil {
+		fail(w, http.StatusInternalServerError, "I could not write it down: "+err.Error())
+
+		return
+	}
+
+	s.brain.Cfg = cfg
+
+	s.brain.Log.Info("looking things up online changed", "on", body.On)
+
+	ok(w, map[string]any{"look_online": body.On})
 }
 
 // handleFreedom changes how much may be done without asking each time.

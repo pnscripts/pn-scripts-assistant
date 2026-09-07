@@ -204,9 +204,10 @@ func (t GodotDocs) Execute(ctx context.Context, args json.RawMessage) (string, e
 
 	if t.Online != nil && !t.Online() {
 		return "", fmt.Errorf(
-			"the class reference is on the internet and your privacy setting keeps " +
-				"this machine to itself. Change it on the Privacy page, or open the " +
-				"reference in the Godot editor, which ships with it offline")
+			"the class reference is on the internet and looking things up is " +
+				"switched off. It is under Permissions — a separate switch from " +
+				"privacy, because a class name says nothing about anybody. Or " +
+				"open the reference in the Godot editor, which ships with it offline")
 	}
 
 	// The branch that matches the installed engine, so the answer is about the

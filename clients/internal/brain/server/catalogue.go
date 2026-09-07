@@ -65,12 +65,13 @@ func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
 	 * says this machine exists and is looking for models. Somebody who set
 	 * their brain to keep to itself did not make an exception for shopping.
 	 */
-	if !s.brain.Router.Mode().AllowsWeb() {
+	if !s.brain.Cfg.LookOnline {
 		ok(w, map[string]any{
 			"models": []Listed{},
-			"why": "The list of models lives on the internet, and your privacy " +
-				"setting keeps this machine to itself. Change it on the Privacy " +
-				"page to see what can be installed.",
+			"why": "The list of models lives on the internet and looking things " +
+				"up is switched off. Turn it on under Permissions — it is not " +
+				"your privacy setting, and asking what models exist sends " +
+				"nothing about you.",
 		})
 
 		return

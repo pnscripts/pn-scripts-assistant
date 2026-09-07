@@ -48,16 +48,22 @@ type Upkeep struct {
 // handleUpkeep checks everything that can be out of date.
 func (s *Server) handleUpkeep(w http.ResponseWriter, r *http.Request) {
 	/*
-	 * Every one of these asks somebody else's server, so privacy decides.
+	 * Whether it may look things up — which is not the privacy setting.
 	 *
-	 * An update check is a small thing to leak and it is still a request that
-	 * says this machine exists and runs this software at this version.
+	 * Privacy is about where your words go: whether a conversation reaches
+	 * somebody else's model. This asks a public server whether a newer version
+	 * exists, and carries nothing of anybody's. Gating it on privacy meant
+	 * that keeping your conversation on this machine also meant never being
+	 * told an update existed, and nobody makes that second decision on
+	 * purpose.
 	 */
-	if !s.brain.Router.Mode().AllowsWeb() {
+	if !s.brain.Cfg.LookOnline {
 		ok(w, map[string]any{
 			"items": []Upkeep{},
-			"why": "Checking for updates means asking other people's servers, " +
-				"and your privacy setting keeps this machine to itself.",
+			"why": "Looking things up online is switched off, so I cannot tell " +
+				"you whether anything is out of date. It is on the Permissions " +
+				"page — and it is a separate switch from privacy, because " +
+				"asking whether a newer version exists says nothing about you.",
 		})
 
 		return
