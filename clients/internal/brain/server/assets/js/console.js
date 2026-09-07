@@ -10,10 +10,34 @@
  * the interface stays one client among several rather than a privileged path.
  */
 
+/*
+ * The reason, not the number.
+ *
+ * Every failure here used to read "/api/turn -> 400", which names the endpoint
+ * that failed and nothing about why — and the server had put a sentence in the
+ * body explaining it. Petar got that string in red in the middle of his
+ * conversation, twice, with no way to tell a busy microphone from a broken
+ * one. The other panels in this program already read the body; the console,
+ * which is the one people look at, did not.
+ */
+async function why(res, path) {
+    let said = '';
+
+    try {
+        const data = await res.json();
+
+        said = (data && data.error) || '';
+    } catch {
+        said = '';
+    }
+
+    return new Error(said || `that did not work (${path} — ${res.status})`);
+}
+
 const api = {
     async get(path) {
         const res = await fetch(path, { headers: { Accept: 'application/json' } });
-        if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+        if (!res.ok) throw await why(res, path);
         return res.json();
     },
     async post(path, body, signal) {
@@ -26,7 +50,7 @@ const api = {
             // stops the model rather than just stopping the voice.
             signal,
         });
-        if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+        if (!res.ok) throw await why(res, path);
         return res.json();
     },
 };
@@ -540,6 +564,20 @@ async function talkLoop() {
 
     talking.running = true;
 
+    /*
+     * Consecutive failures, not failures.
+     *
+     * One failed listen used to put a red line in the transcript and close the
+     * microphone for good, and the commonest cause is the least serious: the
+     * device is held for a moment by its own voice, or by the turn already
+     * running. Petar typed and spoke the same sentence at once and got
+     * "/api/turn -> 400" in his conversation with listening switched off
+     * behind it, so the second half of what he said went nowhere.
+     *
+     * It gives up only when it is really not working, and says so once.
+     */
+    let trouble = 0;
+
     try {
         while (talking.on) {
             /*
@@ -563,9 +601,29 @@ async function talkLoop() {
                     device: el('microphone').value || '',
                     engaged: engaged(),
                 });
+
+                trouble = 0;
             } catch (err) {
-                addMessage('error', String(err.message || err), { cssClass: 'error' });
-                break;
+                if (!talking.on) break;
+
+                trouble += 1;
+
+                // Five in a row is a microphone that is not coming back, and
+                // worth a line in the transcript. One is a moment.
+                if (trouble >= 5) {
+                    addMessage('error',
+                        `I cannot open the microphone: ${String(err.message || err)}`,
+                        { cssClass: 'error' });
+
+                    break;
+                }
+
+                setTalkButton('waiting');
+                setVoiceStatus('the microphone was busy — trying again');
+
+                await new Promise((again) => setTimeout(again, 1200));
+
+                continue;
             }
 
             if (!talking.on) break;
