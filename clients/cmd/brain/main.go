@@ -610,7 +610,22 @@ func runApp(args []string) error {
 	// serve its own setup page while it is the thing that is missing. So setup
 	// runs first, in its own window, and only hands over once the machine can
 	// actually run an assistant.
-	if !*skipSetup && missingEssentials() {
+	/*
+	 * Setup runs when something is missing, and on a brand new brain.
+	 *
+	 * It used to run only when something essential was absent, so somebody who
+	 * already had Ollama and a model — or who had just reset a working machine
+	 * — was dropped straight at "what shall I call you" with every other
+	 * decision already made for them. Where the brain is kept, which model it
+	 * thinks with, what it asks permission for: all chosen silently, by this
+	 * program, on their behalf.
+	 *
+	 * Those are the decisions setup exists to put in front of a person, and
+	 * the first run is the one moment they are all still open. A machine that
+	 * happens to have the pieces already is not a machine whose owner has
+	 * agreed to anything.
+	 */
+	if !*skipSetup && (missingEssentials() || cfg.New) {
 		if _, err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
 			return err
 		}
