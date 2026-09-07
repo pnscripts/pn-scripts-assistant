@@ -594,6 +594,24 @@
         text('fig-facts', memory.facts ?? '—');
         text('fig-convos', memory.conversations ?? '—');
 
+        /*
+         * The loading screen is told, rather than left to guess.
+         *
+         * These are the two things it waits on from here: that the brain
+         * answered at all, and that its name is on the screen. See boot.js —
+         * a loading screen that polls for signs of life is one that is wrong
+         * about them.
+         */
+        if (window.brainBooted) {
+            window.brainBooted('answered');
+
+            if (status.name) {
+                if (window.brainBootName) window.brainBootName(status.name);
+
+                window.brainBooted('named');
+            }
+        }
+
         text('core-title', status.name || 'PN Brain');
         text('core-sub', status.model ? `${status.provider} · ${status.model}` : 'no model loaded');
 

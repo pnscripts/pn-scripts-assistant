@@ -4366,3 +4366,254 @@ select { font-size: 13.5px; }
 
 /* Taking a key back is a different weight of decision from saving one. */
 .model-action.danger { border-color: var(--danger); color: var(--danger); }
+
+/* ---------- the first frame ---------- */
+
+/*
+ * The loading screen, drawn before any script has run.
+ *
+ * Plain markup at the top of the body and its styles here, so it is on screen
+ * in the first frame — which is the only way a loading screen is ever seen. A
+ * splash that appears after the page has booted is a splash nobody looks at.
+ *
+ * It is the same shape as the thing being loaded: the triangle and the iris
+ * are the core panel's own artwork, so the program does not flash one identity
+ * and settle into another.
+ *
+ * Cinematic on a budget, and the budget is the point. This machine has no
+ * graphics acceleration and is about to give its whole processor to a language
+ * model, so everything here moves with transform and opacity only — the two
+ * things a compositor can do without waking the main thread. No animated
+ * filters, no box-shadow transitions, nothing that forces a repaint per frame.
+ */
+.boot-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    background:
+        radial-gradient(120% 90% at 50% 42%, #0a1a28 0%, #050c15 55%, #02060c 100%);
+    color: var(--accent);
+    overflow: hidden;
+    transition: opacity 640ms ease, visibility 640ms ease, transform 640ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/*
+ * The camera pushes through it.
+ *
+ * Not a fade. The console underneath is already drawn by the time this leaves,
+ * so scaling up while going transparent reads as moving into the room rather
+ * than as one picture being swapped for another.
+ */
+.boot-screen.done {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(1.08);
+}
+
+/*
+ * A slow push in, under everything else.
+ *
+ * Fifteen seconds to travel four percent: too slow to watch and just fast
+ * enough that the frame is never quite still, which is the whole difference
+ * between a loading screen and a photograph of one.
+ */
+.boot-mark {
+    position: relative;
+    animation: boot-push 15s ease-out forwards;
+}
+
+@keyframes boot-push {
+    from { transform: scale(0.96); }
+    to { transform: scale(1); }
+}
+
+/*
+ * The horizon line, sweeping once through the mark as it draws.
+ *
+ * One pass, not a loop: something that keeps sweeping is a barber's pole and
+ * says nothing. This crosses while the triangle is being drawn and is gone by
+ * the time the eye opens.
+ */
+.boot-screen::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    top: 50%;
+    background: linear-gradient(90deg,
+        transparent, rgba(77, 208, 225, 0.55) 35%, rgba(127, 228, 242, 0.9) 50%,
+        rgba(77, 208, 225, 0.55) 65%, transparent);
+    transform: translateY(-140px) scaleX(0.2);
+    opacity: 0;
+    animation: boot-sweep 2.4s cubic-bezier(0.35, 0, 0.2, 1) 200ms forwards;
+}
+
+@keyframes boot-sweep {
+    0% { transform: translateY(-140px) scaleX(0.2); opacity: 0; }
+    18% { opacity: 0.9; }
+    100% { transform: translateY(150px) scaleX(1); opacity: 0; }
+}
+
+/* And a vignette over the top, which is most of what makes a frame read as a
+   frame rather than as a page. */
+.boot-screen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(75% 62% at 50% 45%,
+        transparent 45%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.boot-mark svg { position: relative; z-index: 1; }
+
+/*
+ * The triangle draws itself.
+ *
+ * One path, dashed the length of its own perimeter and slid into place — no
+ * frames, no script, and it costs nothing on a machine whose processor is
+ * about to be busy with a language model.
+ */
+.boot-tri {
+    stroke-dasharray: 520;
+    stroke-dashoffset: 520;
+    animation: boot-draw 1.9s cubic-bezier(0.45, 0, 0.15, 1) forwards;
+}
+
+.boot-tri-inner { animation-delay: 320ms; }
+
+@keyframes boot-draw { to { stroke-dashoffset: 0; } }
+
+/* The eye opens once the shape around it exists. */
+.boot-iris-glow {
+    fill: var(--accent);
+    opacity: 0;
+    transform-origin: 100px 74px;
+    animation: boot-breathe 3.4s ease-in-out 1200ms infinite;
+}
+
+.boot-iris {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    opacity: 0;
+    transform-origin: 100px 74px;
+    animation: boot-open-iris 900ms cubic-bezier(0.2, 0, 0.2, 1) 1200ms forwards;
+}
+
+.boot-pupil {
+    fill: #02060c;
+    stroke: var(--accent);
+    stroke-width: 1;
+    opacity: 0;
+    transform-origin: 100px 74px;
+    animation: boot-open-iris 900ms cubic-bezier(0.2, 0, 0.2, 1) 1450ms forwards;
+}
+
+@keyframes boot-open {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* The eye dilates open rather than fading in. */
+@keyframes boot-open-iris {
+    from { opacity: 0; transform: scale(0.2); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes boot-breathe {
+    0%, 100% { opacity: 0.05; transform: scale(0.86); }
+    50% { opacity: 0.2; transform: scale(1.08); }
+}
+
+/*
+ * The name arrives a letter at a time, by uncovering rather than by typing.
+ *
+ * A clip that widens is one animated property on one element. Doing it with
+ * script would be a timer per letter, on the thread that is about to build the
+ * whole console.
+ */
+.boot-name {
+    font-family: var(--mono);
+    font-size: 15px;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    text-transform: uppercase;
+    color: var(--text);
+    position: relative;
+    z-index: 1;
+    opacity: 0;
+    animation:
+        boot-open 700ms ease-out 1700ms forwards,
+        boot-reveal 1.1s steps(9, end) 1700ms forwards;
+    clip-path: inset(0 100% 0 0);
+}
+
+@keyframes boot-reveal { to { clip-path: inset(0 -6% 0 0); } }
+
+/*
+ * What is actually happening, in the words the rest of the program uses.
+ *
+ * Not "loading". Every other panel in this program refuses to show a figure it
+ * has not measured, and a loading screen inventing reassurance would be the
+ * same lie in friendlier clothes.
+ */
+.boot-step {
+    font-size: 12px;
+    color: var(--text-dim);
+    min-height: 1em;
+    position: relative;
+    z-index: 1;
+    opacity: 0;
+    animation: boot-open 700ms ease-out 2000ms forwards;
+    transition: opacity 200ms ease;
+}
+
+.boot-bar {
+    width: 210px;
+    height: 2px;
+    background: var(--line);
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+    opacity: 0;
+    animation: boot-open 700ms ease-out 2000ms forwards;
+}
+
+/*
+ * The bar moves when something has happened, not on a clock.
+ *
+ * Its width is set from the steps that have actually completed — see boot.js.
+ * A bar that fills itself over three seconds is a decoration, and this program
+ * does not draw those.
+ */
+.boot-bar-fill {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+    transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Somebody who has asked for less movement gets the shape, not the show. */
+@media (prefers-reduced-motion: reduce) {
+    .boot-screen::before { display: none; }
+
+    .boot-mark,
+    .boot-tri, .boot-iris, .boot-pupil, .boot-name, .boot-step, .boot-bar {
+        animation: none;
+        opacity: 1;
+        transform: none;
+        stroke-dashoffset: 0;
+        clip-path: none;
+    }
+
+    .boot-iris-glow { animation: none; opacity: 0.12; }
+    .boot-screen.done { transform: none; }
+}

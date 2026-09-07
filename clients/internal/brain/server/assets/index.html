@@ -37,6 +37,45 @@
     from the database. Where something cannot be measured it says so rather than
     showing a number that moves.
 -->
+<!--
+    The first frame.
+
+    The program opened on a rectangle of nothing for the second or two it
+    takes to load the console, start the reactor and get a first paint out.
+    Dark nothing is better than white nothing and it is still nothing, and on
+    a machine where the model takes a minute to answer, the moments where the
+    program looks stopped are the ones that decide whether somebody trusts it.
+
+    Written as plain markup at the top of the body with its styles in the
+    stylesheet, so it is on screen in the first frame — before any script has
+    run, which is the only way a loading screen is ever seen. It says what is
+    actually happening, in the order it happens, and it is removed by the code
+    that finishes rather than by a timer: a progress bar that fills on a clock
+    is a decoration, and this program does not draw those.
+-->
+<div class="boot-screen" id="boot-screen">
+    <div class="boot-mark" aria-hidden="true">
+        <svg viewBox="0 0 200 180" width="200" height="180">
+            <!-- The triangle draws itself: one path, dashed the length of its
+                 own perimeter and slid into place. -->
+            <path class="boot-tri" d="M14 18 L186 18 L100 166 Z"
+                  fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linejoin="round"/>
+            <path class="boot-tri boot-tri-inner" d="M32 32 L168 32 L100 148 Z"
+                  fill="none" stroke="currentColor" stroke-width="1"
+                  stroke-linejoin="round" opacity="0.5"/>
+            <circle class="boot-iris-glow" cx="100" cy="74" r="30"/>
+            <circle class="boot-iris" cx="100" cy="74" r="17"/>
+            <circle class="boot-pupil" cx="100" cy="74" r="8"/>
+        </svg>
+    </div>
+
+    <div class="boot-name" id="boot-name">PN Brain</div>
+    <div class="boot-step" id="boot-step">waking up</div>
+
+    <div class="boot-bar"><span class="boot-bar-fill" id="boot-bar-fill"></span></div>
+</div>
+
 <div class="naming" id="naming" hidden>
     <form class="naming-card" id="naming-form">
         <h1>Before we start</h1>
@@ -1297,6 +1336,8 @@
 
 <!-- One status vocabulary and one palette, before anything that colours a
      status. See status.js. -->
+<!-- First, so brainBooted exists before anything can report finishing. -->
+<script src="/js/boot.js"></script>
 <script src="/js/status.js"></script>
 <script src="/js/console.js"></script>
 <script src="/js/dashboard.js"></script>

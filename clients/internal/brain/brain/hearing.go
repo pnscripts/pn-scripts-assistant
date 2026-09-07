@@ -227,8 +227,16 @@ func (b *Brain) somewhereToStart() []tools.Candidate {
 				continue
 			}
 
-			add(filepath.Join(d.MountPoint, e.Name()),
-				e.Name()+" on "+where, false)
+			at := filepath.Join(d.MountPoint, e.Name())
+
+			// Never its own storage, whatever the folder is called. See
+			// itsOwnData — offering it is offering to read its own memories
+			// back in as somebody else's documents.
+			if itsOwnData(at) {
+				continue
+			}
+
+			add(at, e.Name()+" on "+where, false)
 		}
 	}
 
@@ -421,6 +429,28 @@ func housekeeping(name string) bool {
 	case "lost+found", "System Volume Information", "$RECYCLE.BIN",
 		".Trash-1000", "snap", "PN-BRAIN-DATA":
 		return true
+	}
+
+	return false
+}
+
+/*
+ * itsOwnData reports whether a folder is the brain's own storage.
+ *
+ * By what is in it rather than by what it is called. PN-BRAIN-DATA was on the
+ * list above and a backup of it beside it was not, so the brain offered to
+ * learn from a folder holding a JSON dump of everything it had ever known —
+ * which is a loop: it would read its own memories back in as documents,
+ * attributed to a file, and propose remembering them again.
+ *
+ * A name list cannot catch this. Somebody's backup is called whatever they
+ * called it, and the copies feature makes them on purpose.
+ */
+func itsOwnData(path string) bool {
+	for _, mark := range []string{"brain.sqlite", "brain.conf", ".brain-root.json"} {
+		if _, err := os.Stat(filepath.Join(path, mark)); err == nil {
+			return true
+		}
 	}
 
 	return false

@@ -169,7 +169,34 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     if (icon_path != NULL && icon_path[0] != 0) {
         gtk_window_set_icon_from_file(GTK_WINDOW(window), icon_path, NULL);
     }
-    gtk_window_set_default_size(GTK_WINDOW(window), width, height);
+    // The screen's size, not a guess at one.
+    //
+    // Maximising is deferred to an idle callback because asking before the
+    // window is mapped is ignored, and until that fires the window is whatever
+    // default size was passed in — so opening the program showed a small
+    // rectangle of interface in the corner of a large dark window for a second
+    // or two, which is the thing the white background was only half of.
+    //
+    // Starting at the size of the work area means the first frame is already
+    // the right shape, and the maximise that follows only formalises it.
+    GdkRectangle work_area = {0, 0, width, height};
+    GdkDisplay *display = gdk_display_get_default();
+
+    if (display != NULL) {
+        GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
+
+        if (monitor == NULL && gdk_display_get_n_monitors(display) > 0) {
+            monitor = gdk_display_get_monitor(display, 0);
+        }
+
+        if (monitor != NULL) {
+            gdk_monitor_get_workarea(monitor, &work_area);
+        }
+    }
+
+    gtk_window_set_default_size(GTK_WINDOW(window),
+        work_area.width > 0 ? work_area.width : width,
+        work_area.height > 0 ? work_area.height : height);
     g_signal_connect(window, "destroy", G_CALLBACK(pnbrain_on_destroy), NULL);
 
     WebKitWebView *view = WEBKIT_WEB_VIEW(webkit_web_view_new());

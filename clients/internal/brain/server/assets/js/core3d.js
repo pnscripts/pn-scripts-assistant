@@ -849,6 +849,16 @@ const JUDGE_AFTER = 40;
         } else {
             renderer.render(scene, camera);
         }
+
+        /*
+         * The loading screen is waiting on this one.
+         *
+         * Reported after the first frame is on the screen rather than when the
+         * scene is built: a reactor that exists and has not drawn is exactly
+         * as blank as one that does not, and it is the drawing that somebody
+         * is waiting to see. See boot.js.
+         */
+        if (window.brainBooted) window.brainBooted('drawn');
     }
 
     requestAnimationFrame(frame);
