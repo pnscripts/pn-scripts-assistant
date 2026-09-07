@@ -80,6 +80,8 @@ func TestTheLevelIsHeldBetweenSentences(t *testing.T) {
 // Turning the feature off puts back anything currently down, at once. A
 // setting about sound in the room has to take effect in the room.
 func TestSwitchingItOffPutsTheLevelBackAtOnce(t *testing.T) {
+	set := inRoom(t, map[string]int{"Brave": 51})
+
 	reset()
 
 	duckMu.Lock()
@@ -96,6 +98,11 @@ func TestSwitchingItOffPutsTheLevelBackAtOnce(t *testing.T) {
 
 	if left != 0 || count != 0 {
 		t.Fatalf("%d levels left down and %d sentences still counted", left, count)
+	}
+
+	// And in the room, not only in the map.
+	if set[51] != 0.8 {
+		t.Errorf("Brave was left at %v, want 0.8", set[51])
 	}
 
 	DuckOthersWhileTalking(true)
@@ -205,6 +212,36 @@ func reset() {
 }
 
 /*
+ * inRoom says what this machine is playing, for the length of one test.
+ *
+ * Without it these tests read the real audio graph, and "was anything left
+ * turned down" then depends on whether a browser happens to be playing
+ * something while the suite runs. Two of them passed for exactly as long as
+ * there was a film open in Brave and failed on the same machine an hour later.
+ * A test that answers a question about the room has to be given a room.
+ *
+ * Returns the levels that were set, keyed by node, so a test can check what it
+ * actually did rather than only that it claimed success.
+ */
+func inRoom(t *testing.T, playing map[string]int) map[int]float64 {
+	t.Helper()
+
+	set := map[int]float64{}
+	wasStreams, wasPut := streamsNow, putLevel
+
+	streamsNow = func(context.Context) map[string]int { return playing }
+	putLevel = func(_ context.Context, id int, to float64) bool {
+		set[id] = to
+
+		return true
+	}
+
+	t.Cleanup(func() { streamsNow, putLevel = wasStreams, wasPut })
+
+	return set
+}
+
+/*
  * What was turned down is remembered by application, not by node.
  *
  * A browser destroys and recreates its stream whenever playback stops and
@@ -296,6 +333,8 @@ func TestNothingTurnedDownWritesNoNote(t *testing.T) {
  * on thinking. Which is minutes.
  */
 func TestLoweringThatFinishesAfterTheReleaseStillPutsItBack(t *testing.T) {
+	set := inRoom(t, map[string]int{"Brave": 51})
+
 	reset()
 
 	// A sentence starts and finishes while the lowering is still in flight.
@@ -324,6 +363,10 @@ func TestLoweringThatFinishesAfterTheReleaseStillPutsItBack(t *testing.T) {
 	if duckedAt != nil {
 		t.Fatal("something was left turned down after the sentence ended")
 	}
+
+	if set[51] != 0.9 {
+		t.Errorf("Brave was left at %v, want 0.9", set[51])
+	}
 }
 
 /*
@@ -339,6 +382,8 @@ func TestLoweringThatFinishesAfterTheReleaseStillPutsItBack(t *testing.T) {
  * gone, and Brave's new stream was sitting at 0.16.
  */
 func TestALevelThatCouldNotBePutBackIsKept(t *testing.T) {
+	// An empty room: nothing at all is playing.
+	inRoom(t, map[string]int{})
 	reset()
 
 	// Nothing by this name is playing, so nothing can be set.
@@ -353,7 +398,18 @@ func TestALevelThatCouldNotBePutBackIsKept(t *testing.T) {
 
 // And one that was put back is finished with.
 func TestALevelThatWentBackIsNotKept(t *testing.T) {
+	set := inRoom(t, map[string]int{"Brave": 51})
 	reset()
+
+	left := putBack(context.Background(), map[string]float64{"Brave": 0.85})
+
+	if len(left) != 0 {
+		t.Fatalf("kept a job that was done: %v", left)
+	}
+
+	if set[51] != 0.85 {
+		t.Errorf("Brave was left at %v, want 0.85", set[51])
+	}
 
 	if left := putBack(context.Background(), map[string]float64{}); len(left) != 0 {
 		t.Fatalf("invented work out of an empty list: %v", left)

@@ -122,7 +122,7 @@ func duckOthers(ctx context.Context) func() {
 func lower(ctx context.Context) {
 	found := map[string]float64{}
 
-	for name, id := range otherStreams(ctx) {
+	for name, id := range streamsNow(ctx) {
 		was, ok := volumeOf(ctx, id)
 		if !ok {
 			continue
@@ -134,7 +134,7 @@ func lower(ctx context.Context) {
 			continue
 		}
 
-		if setVolume(ctx, id, was*DuckedTo) {
+		if putLevel(ctx, id, was*DuckedTo) {
 			found[name] = was
 		}
 	}
@@ -228,6 +228,21 @@ func restore() {
 }
 
 /*
+ * The room, as two functions, so a test can supply one.
+ *
+ * The tests around this were reading the real machine: whether "nothing was
+ * left turned down" came out true depended on whether a browser happened to be
+ * playing something while the suite ran. They passed on the machine they were
+ * written on, with a film open in Brave, and failed on the same machine an
+ * hour later — which is worse than failing, because it is a green suite that
+ * has checked nothing.
+ */
+var (
+	streamsNow = otherStreams
+	putLevel   = setVolume
+)
+
+/*
  * putBack sets each remembered application back to the level it was found at.
  *
  * The ids are looked up again rather than remembered, because between lowering
@@ -236,7 +251,7 @@ func restore() {
  * reporting nothing.
  */
 func putBack(ctx context.Context, was map[string]float64) map[string]float64 {
-	now := otherStreams(ctx)
+	now := streamsNow(ctx)
 
 	// What could not be put back, because it is not playing at the moment.
 	left := map[string]float64{}
@@ -260,7 +275,7 @@ func putBack(ctx context.Context, was map[string]float64) map[string]float64 {
 			continue
 		}
 
-		if !setVolume(ctx, id, level) {
+		if !putLevel(ctx, id, level) {
 			left[name] = level
 		}
 	}
