@@ -237,7 +237,7 @@ func TestWhatADocumentSaysIsRemembered(t *testing.T) {
 		"server and onto the new one.\n" +
 		"Anna is leading the migration and expects it to take about six weeks.\n"
 
-	out := FromDocumentContents(doc, text, "Petar")
+	out, _ := FromDocumentContents(doc, text, "Petar")
 
 	if len(out) != 2 {
 		t.Fatalf("kept %d lines, want 2:\n%+v", len(out), out)
@@ -260,7 +260,7 @@ func TestWhatADocumentSaysIsRemembered(t *testing.T) {
 func TestWhatADocumentSaysIsAttributedToTheDocument(t *testing.T) {
 	doc := Document{Name: "contract.pdf", Path: "/home/petar/contract.pdf", Kind: "PDF"}
 
-	out := FromDocumentContents(doc,
+	out, _ := FromDocumentContents(doc,
 		"The client agrees to pay the sum of forty thousand on completion of the work.",
 		"Petar")
 
@@ -280,8 +280,10 @@ func TestWhatADocumentSaysIsAttributedToTheDocument(t *testing.T) {
 func TestContentsAreFiledUnderTheDocument(t *testing.T) {
 	doc := Document{Name: "plan.md", Path: "/home/petar/plan.md", Kind: "Markdown"}
 
-	for _, o := range FromDocumentContents(doc,
-		"A long enough line about the work to be worth keeping in memory here.", "Petar") {
+	said, _ := FromDocumentContents(doc,
+		"A long enough line about the work to be worth keeping in memory here.", "Petar")
+
+	for _, o := range said {
 		if o.Source != doc.Source() {
 			t.Fatalf("filed under %q rather than the document", o.Source)
 		}
@@ -302,7 +304,9 @@ func TestOnlyAFewLinesAreTakenFromEachDocument(t *testing.T) {
 		long.WriteString("This is a sentence with quite enough words in it to be kept.\n")
 	}
 
-	if got := len(FromDocumentContents(Document{Name: "x", Path: "/x"}, long.String(), "Petar")); got != FactsPerDocument {
+	kept, _ := FromDocumentContents(Document{Name: "x", Path: "/x"}, long.String(), "Petar")
+
+	if got := len(kept); got != FactsPerDocument {
 		t.Fatalf("kept %d lines, want %d", got, FactsPerDocument)
 	}
 }
@@ -312,7 +316,7 @@ func TestBoilerplateIsNotRemembered(t *testing.T) {
 	text := "Page 3 of 12\nCONFIDENTIAL\n2026-01-04\n7\n· · ·\n" +
 		"The report finds that the second option is cheaper over five years.\n"
 
-	out := FromDocumentContents(Document{Name: "r.pdf", Path: "/r.pdf"}, text, "Petar")
+	out, _ := FromDocumentContents(Document{Name: "r.pdf", Path: "/r.pdf"}, text, "Petar")
 
 	if len(out) != 1 {
 		t.Fatalf("kept %d lines, want only the sentence:\n%+v", len(out), out)
@@ -323,7 +327,7 @@ func TestBoilerplateIsNotRemembered(t *testing.T) {
 func TestATableRowIsNotRemembered(t *testing.T) {
 	text := "2024 118,402 91,220 27,182 30.1% 12,004 2025 133,900 99,100 34,800 35.1%\n"
 
-	if out := FromDocumentContents(Document{Name: "n.xlsx", Path: "/n"}, text, "Petar"); len(out) != 0 {
+	if out, _ := FromDocumentContents(Document{Name: "n.xlsx", Path: "/n"}, text, "Petar"); len(out) != 0 {
 		t.Fatalf("remembered a row of figures: %q", out[0].Content)
 	}
 }
@@ -331,7 +335,7 @@ func TestATableRowIsNotRemembered(t *testing.T) {
 // A document with nothing readable in it contributes nothing, which is not a
 // failure: a folder of photographs is not a fault.
 func TestADocumentWithNothingInItContributesNothing(t *testing.T) {
-	if out := FromDocumentContents(Document{Name: "e.txt", Path: "/e"}, "", "Petar"); len(out) != 0 {
+	if out, _ := FromDocumentContents(Document{Name: "e.txt", Path: "/e"}, "", "Petar"); len(out) != 0 {
 		t.Fatalf("invented %d things from an empty document", len(out))
 	}
 }

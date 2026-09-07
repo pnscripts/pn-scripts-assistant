@@ -1,6 +1,7 @@
 package learning
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,7 +123,7 @@ func TestTheSameLineInManyDocumentsStopsBeingAFact(t *testing.T) {
 	var kept int
 
 	for i := 0; i < 10; i++ {
-		said := FromDocumentContents(Document{
+		said, _ := FromDocumentContents(Document{
 			Name: "index.md",
 			Path: filepath.Join("/pkg", strings.Repeat("x", i+1), "index.md"),
 			Kind: "Markdown",
@@ -145,7 +146,7 @@ func TestARefrainWithinOneDocumentCountsOnce(t *testing.T) {
 	line := "This page is part of the handbook and may be reproduced freely"
 	page := strings.Repeat(line+"\n", 20)
 
-	said := FromDocumentContents(Document{
+	said, _ := FromDocumentContents(Document{
 		Name: "handbook.pdf", Path: "/docs/handbook.pdf", Kind: "PDF",
 	}, page, "Petar")
 
@@ -155,7 +156,7 @@ func TestARefrainWithinOneDocumentCountsOnce(t *testing.T) {
 
 	// Still countable as one document, so two more may carry it.
 	for i := 0; i < 2; i++ {
-		if got := FromDocumentContents(Document{
+		if got, _ := FromDocumentContents(Document{
 			Name: "other.pdf", Path: filepath.Join("/docs", strings.Repeat("y", i+1)+".pdf"),
 			Kind: "PDF",
 		}, line+"\n", "Petar"); len(got) == 0 {
@@ -164,14 +165,35 @@ func TestARefrainWithinOneDocumentCountsOnce(t *testing.T) {
 	}
 }
 
-// Numbers are what change between copies of a template.
-func TestNumbersDoNotMakeTwoCopiesDifferent(t *testing.T) {
-	if fingerprint("Page 3 of 12") != fingerprint("Page 7 of 12") {
-		t.Error("two pages of one document read as two different lines")
+/*
+ * Case and spacing are not a difference. A number is.
+ *
+ * Digits were stripped too, at first. Twelve different notes that differed by
+ * a number came out as one line repeated, and eleven of them were thrown away
+ * as a form — see TestTwelveDifferentDocumentsAreAllRead, which is what caught
+ * it. A number in a sentence is usually what the sentence is about.
+ */
+func TestWhatCountsAsTheSameLine(t *testing.T) {
+	same := [][2]string{
+		{"The  deployment window is  the first Tuesday", "the deployment window is the first tuesday"},
+		{"ПОЛУЧАТЕЛ ПН СКРИПТС ЕООД", "Получател ПН Скриптс ЕООД"},
 	}
 
-	if fingerprint("Фактура № 2 / 2025") != fingerprint("Фактура № 31 / 2025") {
-		t.Error("two invoices read as two different lines")
+	for _, c := range same {
+		if fingerprint(c[0]) != fingerprint(c[1]) {
+			t.Errorf("%q and %q read as different lines", c[0], c[1])
+		}
+	}
+
+	different := [][2]string{
+		{"Report for week 3 of the project", "Report for week 7 of the project"},
+		{"Предоставяне на услуги за месец 1", "Предоставяне на услуги за месец 2"},
+	}
+
+	for _, c := range different {
+		if fingerprint(c[0]) == fingerprint(c[1]) {
+			t.Errorf("%q and %q read as the same line", c[0], c[1])
+		}
 	}
 }
 
@@ -233,5 +255,122 @@ func TestThePathIsFoundInWhatItWrote(t *testing.T) {
 		if got := PathIn(c.said); got != c.want {
 			t.Errorf("PathIn(%q) = %q, want %q", c.said, got, c.want)
 		}
+	}
+}
+
+/*
+ * An invoice is a form, and the top of a form is the header block.
+ *
+ * Dropping repeated lines one at a time was not enough: the odd line of each
+ * invoice still got through — the service description, a total in words — and
+ * 2,300 invoices make a queue out of the odd line. So the question is asked of
+ * the file: if most of what it offers has already been read elsewhere, this is
+ * one rendering of a template and nothing in it is about itself.
+ *
+ * Built from what Petar's actually say, including the two lines that were
+ * still arriving after the line rule was in.
+ */
+func TestAFormStopsBeingReadOnceItIsRecognised(t *testing.T) {
+	repeated.Forget()
+
+	header := []string{
+		"Получател ПН СКРИПТС ЕООД Доставчик ПЛАНЕТ АКАУНТИНГ ЕООД",
+		"Адрес кв. Бенковски ул. Тетевенска 16 Адрес ул. Н. Некрасов 32",
+		"МОЛ ПЕТЪР ВЕНЦИСЛАВОВ НИКОЛОВ МОЛ Юлиана Петрова",
+		"Основание за неначисляване на ДДС чл.113, ал.9 от ЗДДС - лицето не е регистрирано",
+		"Код Наименование на стоката или услугата Мярка Количество Цена Сума общо",
+	}
+
+	var kept, forms int
+
+	for month := 1; month <= 12; month++ {
+		// Each invoice is the same form with one line that differs.
+		text := strings.Join(header, "\n") +
+			fmt.Sprintf("\nПредоставяне на софтуерни консултантски услуги за месец %d\n", month)
+
+		said, why := FromDocumentContents(Document{
+			Name: fmt.Sprintf("%d_Skillo.pdf", month),
+			Path: fmt.Sprintf("/docs/%d_Skillo.pdf", month),
+			Kind: "PDF",
+		}, text, "Petar")
+
+		kept += len(said)
+
+		if len(said) == 0 {
+			if why != ATemplate {
+				t.Errorf("invoice %d gave nothing for the wrong reason: %q", month, why)
+			}
+
+			forms++
+		}
+	}
+
+	// The first few are read, because nothing can know a template is a template
+	// until it has repeated. After that the file is not read at all.
+	if forms == 0 {
+		t.Fatal("twelve copies of one form and none was recognised as a form")
+	}
+
+	if kept > FactsPerDocument*SeenInThisManyDocuments {
+		t.Errorf("kept %d things from twelve copies of one invoice", kept)
+	}
+
+	t.Logf("kept %d from 12 invoices; %d recognised as forms", kept, forms)
+}
+
+/*
+ * And a folder of somebody's own writing is not a form.
+ *
+ * The rule that catches an invoice must not catch twelve different notes: they
+ * share nothing, so nothing about them is already known.
+ */
+func TestTwelveDifferentDocumentsAreAllRead(t *testing.T) {
+	repeated.Forget()
+
+	for i := 1; i <= 12; i++ {
+		said, why := FromDocumentContents(Document{
+			Name: fmt.Sprintf("note-%d.md", i),
+			Path: fmt.Sprintf("/notes/note-%d.md", i),
+			Kind: "Markdown",
+		}, fmt.Sprintf(
+			"The meeting on subject number %d settled that we would move the "+
+				"deployment to the following week instead.\n", i), "Petar")
+
+		if len(said) == 0 {
+			t.Fatalf("note %d was thrown away as a form: %q", i, why)
+		}
+	}
+}
+
+/*
+ * A document sharing one line with others is not a form.
+ *
+ * A note that quotes a line from another note is a note. More than half of
+ * everything worth reading is the threshold, and it has to stay above one.
+ */
+func TestOneSharedLineDoesNotMakeAForm(t *testing.T) {
+	repeated.Forget()
+
+	shared := "The deployment window is the first Tuesday of the month, every month."
+
+	// Enough copies of the shared line elsewhere that it counts as known.
+	for i := 0; i < 5; i++ {
+		FromDocumentContents(Document{
+			Name: "other.md", Path: fmt.Sprintf("/notes/other-%d.md", i), Kind: "Markdown",
+		}, shared+"\n", "Petar")
+	}
+
+	said, why := FromDocumentContents(Document{
+		Name: "mine.md", Path: "/notes/mine.md", Kind: "Markdown",
+	}, shared+"\n"+
+		"We agreed to move the reporting database onto the new machine first.\n"+
+		"Ivan is away for the whole of August so the migration waits for him.\n", "Petar")
+
+	if len(said) == 0 {
+		t.Fatalf("a note with two lines of its own was thrown away: %q", why)
+	}
+
+	if len(said) != 2 {
+		t.Errorf("kept %d lines, want the two that are its own", len(said))
 	}
 }

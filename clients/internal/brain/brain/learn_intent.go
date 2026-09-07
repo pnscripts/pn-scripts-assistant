@@ -245,7 +245,8 @@ func (b *Brain) observe(ctx context.Context, path string) (learning.Observations
 		 */
 		if learning.CanRead(path) {
 			if text, err := learning.TextOf(ctx, path); err == nil && text != "" {
-				out = append(out, learning.FromDocumentContents(doc, text, owner)...)
+				found, _ := learning.FromDocumentContents(doc, text, owner)
+				out = append(out, found...)
 			}
 		}
 

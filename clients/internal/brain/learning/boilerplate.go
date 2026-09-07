@@ -74,24 +74,22 @@ func (s *seenLines) Forget() {
 }
 
 /*
- * fingerprint is the line stripped of what varies between copies of it.
+ * fingerprint is the line with case and spacing taken out of it.
  *
- * Case and spacing, because a template rendered twice differs in neither in
- * any way that matters. Digits, because an invoice number, a year and a page
- * number are exactly the parts that change while the sentence around them
- * stays the same — "Page 3 of 12" and "Page 7 of 12" are one line.
+ * Those two only, because a template rendered twice differs in neither in any
+ * way that matters.
+ *
+ * Digits were stripped as well, at first, on the reasoning that an invoice
+ * number and a page number are exactly the parts that vary while the sentence
+ * around them stays the same. A test of twelve different notes threw eleven of
+ * them away: they differed by a number, which is what made them different, and
+ * without digits they were one line repeated. A number in a sentence is
+ * usually the content — an amount, a date, a week — and a rule that cannot
+ * tell "week 3" from "week 7" cannot tell a set of weekly reports from a form.
+ *
+ * The case it was defending turned out to be covered anyway: "Page 3 of 12" is
+ * four words and never gets this far. See LeastWordsInAStatement.
  */
 func fingerprint(line string) string {
-	var b strings.Builder
-
-	for _, r := range strings.ToLower(line) {
-		switch {
-		case r >= '0' && r <= '9':
-			continue
-		default:
-			b.WriteRune(r)
-		}
-	}
-
-	return strings.Join(strings.Fields(b.String()), " ")
+	return strings.Join(strings.Fields(strings.ToLower(line)), " ")
 }

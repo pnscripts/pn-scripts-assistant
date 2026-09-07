@@ -450,17 +450,51 @@ const SeenInThisManyDocuments = 3
  * least likely to be the owner's own — a contract, a paper, somebody else's
  * report — and those are exactly the ones a listing cannot tell apart.
  */
-func FromDocumentContents(d Document, text, owner string) Observations {
-	var out Observations
+func FromDocumentContents(d Document, text, owner string) (Observations, string) {
+	candidates := worthKeeping(text)
 
-	for _, line := range worthKeeping(text) {
+	/*
+	 * The whole document is judged before any of it is kept.
+	 *
+	 * Line by line was not enough. An invoice is a form, and the top of a form
+	 * is the header block: the two companies, the two addresses, the two
+	 * signatories, the column headings. Dropping those one at a time still
+	 * left the odd line of each invoice getting through, and 2,300 invoices
+	 * make a queue out of the odd line.
+	 *
+	 * So the question is asked of the file rather than the sentence: if most
+	 * of what this document offers has already been read in other documents,
+	 * this is a form and there is nothing in it that is about its own subject.
+	 * Nothing is taken, and it is marked read so it is not opened again.
+	 *
+	 * Every line is counted, including the ones past the four that would have
+	 * been kept — the judgement is about what the document is, so it wants all
+	 * the evidence rather than the first of it.
+	 */
+	var fresh []string
+
+	var known int
+
+	for _, line := range candidates {
 		// The same sentence in a fourth document is a template. See
 		// boilerplate.go — it has to be asked here, while the line is still a
 		// line and not yet wrapped in a path that makes every copy unique.
 		if repeated.boilerplate(line, d.Path) {
+			known++
+
 			continue
 		}
 
+		fresh = append(fresh, line)
+	}
+
+	if mostlyKnownAlready(known, len(candidates)) {
+		return nil, ATemplate
+	}
+
+	var out Observations
+
+	for _, line := range fresh {
 		out = append(out, Observation{
 			Content: fmt.Sprintf("%s, a %s document at %s, says: %s",
 				d.Name, d.Kind, d.Path, line),
@@ -472,7 +506,24 @@ func FromDocumentContents(d Document, text, owner string) Observations {
 		}
 	}
 
-	return out
+	if len(out) == 0 {
+		return nil, NoProse
+	}
+
+	return out, ""
+}
+
+/*
+ * mostlyKnownAlready decides that a document is a form rather than writing.
+ *
+ * More than half. A note that happens to quote a line from another note is not
+ * a form, and a form is not a form because of one shared line — but a file
+ * where the majority of everything worth reading has already been read
+ * elsewhere is a rendering of a template, and what varies between copies of it
+ * is figures and dates rather than anything it is about.
+ */
+func mostlyKnownAlready(known, all int) bool {
+	return all > 0 && known*2 > all
 }
 
 /*
@@ -626,6 +677,19 @@ func NothingInside(path, owner, why string) Observation {
 const (
 	NoText  = "it holds no readable text, most likely a scan or an image"
 	NoProse = "what it holds is headings, figures or fragments rather than sentences"
+
+	/*
+	 * ATemplate is the third way a document that opened fine says nothing.
+	 *
+	 * Distinct from the other two and worth its own sentence, because it is
+	 * the only one that is not about this file at all: everything in it has
+	 * been read in other files, so it is one rendering of a form. The reason
+	 * is stored where a person can read it, and "there was nothing in it" over
+	 * an invoice they can see with their own eyes is the kind of answer that
+	 * makes somebody stop trusting the rest.
+	 */
+	ATemplate = "everything in it also appears in other documents, so it is a " +
+		"form or a template rather than something written about itself"
 )
 
 /*
@@ -685,7 +749,7 @@ func ReadContents(ctx context.Context, observations Observations, owner string) 
 			continue
 		}
 
-		said := FromDocumentContents(Document{
+		said, why := FromDocumentContents(Document{
 			Name: filepath.Base(path),
 			Path: path,
 			Kind: KindOf(path),
@@ -694,12 +758,16 @@ func ReadContents(ctx context.Context, observations Observations, owner string) 
 		/*
 		 * Opened, read, and nothing in it worth keeping.
 		 *
-		 * A page of headings, a spreadsheet of figures, a two-line note. That
-		 * has to be recorded as well, or the file is opened again on every
-		 * pass for the rest of the machine's life.
+		 * A page of headings, a spreadsheet of figures, a two-line note, or a
+		 * form whose every line has been read in other copies of it. That has
+		 * to be recorded as well, or the file is opened again on every pass
+		 * for the rest of the machine's life — and the reason is recorded with
+		 * it, because "nothing in it" written about an invoice somebody can
+		 * see with their own eyes is the kind of answer that makes them stop
+		 * trusting the rest.
 		 */
 		if len(said) == 0 {
-			out = append(out, NothingInside(path, owner, NoProse))
+			out = append(out, NothingInside(path, owner, why))
 
 			continue
 		}
