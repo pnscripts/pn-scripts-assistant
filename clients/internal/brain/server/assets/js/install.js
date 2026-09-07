@@ -136,11 +136,32 @@
 
         row.appendChild(text);
 
+        /*
+         * Installed, out of date, or missing — three states and three
+         * different things to offer.
+         *
+         * "Installed" with no button is the answer to "is it there", which is
+         * the question somebody scanning this list actually has. An update
+         * offered on everything would bury the two rows that need attention
+         * under ten that do not.
+         */
         if (p.state === 'ok') {
             const here = document.createElement('span');
             here.className = 'permit-reading';
             here.textContent = 'installed';
             row.appendChild(here);
+
+            if (p.installable) {
+                const update = document.createElement('button');
+                update.className = 'model-action quiet';
+                update.textContent = 'Update';
+                update.title = `Fetch the current version of ${p.name}`;
+                update.onclick = () => press(update, async () => {
+                    await call('/api/parts/install', { name: p.name });
+                }, 'updating…');
+
+                row.appendChild(update);
+            }
 
             return row;
         }
@@ -157,10 +178,10 @@
 
         const button = document.createElement('button');
         button.className = 'model-action';
-        button.textContent = 'Install';
+        button.textContent = p.state === 'outdated' ? 'Update' : 'Install';
         button.onclick = () => press(button, async () => {
             await call('/api/parts/install', { name: p.name });
-        }, 'installing…');
+        }, p.state === 'outdated' ? 'updating…' : 'installing…');
 
         row.appendChild(button);
 
@@ -231,6 +252,26 @@
             here.className = 'permit-reading';
             here.textContent = 'installed';
             row.appendChild(here);
+
+            /*
+             * Updating a model is pulling it again.
+             *
+             * Ollama replaces it when the published one has changed and
+             * answers in a second when it has not, so the button is honest
+             * about what it does — it checks, and updates if there is
+             * anything to update. Claiming to know in advance would mean
+             * asking a registry on every page load for an answer that is
+             * almost always no.
+             */
+            const update = document.createElement('button');
+            update.className = 'model-action quiet';
+            update.textContent = 'Update';
+            update.title = `Fetch ${m.name} again if it has changed`;
+            update.onclick = () => press(update, async () => {
+                await call('/api/models/pull', { name: m.name });
+            }, 'checking…');
+
+            row.appendChild(update);
 
             return row;
         }

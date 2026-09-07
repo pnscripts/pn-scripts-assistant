@@ -335,6 +335,30 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 const el = id => document.getElementById(id);
 let busy = false;
 
+/*
+ * Closing the window in the middle of an install asks first.
+ *
+ * It used to be silent and permanent. The process dies, whatever was
+ * downloading stops, and — before part files — the half of it that had
+ * arrived kept the real name and was counted as installed ever after. The
+ * download is safe now; the interruption is still worth a question, because
+ * some of these are twenty minutes of building and starting again is starting
+ * from the beginning.
+ *
+ * The browser decides the wording, which is fine: the only job here is that
+ * closing during an install is a decision rather than an accident.
+ */
+window.addEventListener("beforeunload", (e) => {
+  if (!busy) return;
+
+  e.preventDefault();
+
+  // Old browsers want a returned string; current ones want preventDefault.
+  e.returnValue = "Something is still installing. Closing now stops it.";
+
+  return e.returnValue;
+});
+
 async function get(p){ const r = await fetch(p); return r.json(); }
 
 // Sends a choice and hands back what the server made of it.

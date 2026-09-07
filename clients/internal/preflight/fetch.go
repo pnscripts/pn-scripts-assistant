@@ -71,11 +71,10 @@ const mostBytes = 3 << 30 // 3GB
  * is a button somebody presses again.
  */
 func download(from, to string, w io.Writer) error {
+	// Where it is allowed to fetch from, decided before anything is opened.
+	// downloadVia does the work and does not repeat this check, which is why
+	// nothing outside this file may call it with an address from elsewhere.
 	if err := allowed(from); err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
 		return err
 	}
 
@@ -89,6 +88,22 @@ func download(from, to string, w io.Writer) error {
 		},
 	}
 
+	return downloadVia(client, from, to, w)
+}
+
+/*
+ * downloadVia is the fetching, separated from the deciding.
+ *
+ * Split out so the part that has been wrong — what is left on disk when a
+ * download stops early — can be tested against a server that stops early. It
+ * carries no opinion about which addresses are allowed; download does that
+ * above, before this is reached.
+ */
+func downloadVia(client *http.Client, from, to string, w io.Writer) error {
+	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
+		return err
+	}
+
 	res, err := client.Get(from)
 	if err != nil {
 		return fmt.Errorf("fetching %s: %w", from, err)
@@ -100,12 +115,34 @@ func download(from, to string, w io.Writer) error {
 		return fmt.Errorf("%s answered %s", from, res.Status)
 	}
 
-	file, err := os.Create(to)
+	/*
+	 * Written beside the destination and moved into place at the end.
+	 *
+	 * It used to write straight to the final path, which turns "somebody
+	 * closed the window" into a permanent broken install: a 488MB speech model
+	 * interrupted at 60MB leaves a 60MB file with the right name, and every
+	 * check in this program that asks "is it installed" looks at the name and
+	 * the size and says yes. Whisper then fails to load it, with an error
+	 * about the file format, on a machine where nothing appears to be wrong.
+	 *
+	 * A part file is nothing anybody mistakes for the real thing, and it is
+	 * removed on the way out however this ends. The rename is the only moment
+	 * the install becomes true, and a rename is atomic.
+	 */
+	part := to + ".part"
+
+	file, err := os.Create(part)
 	if err != nil {
 		return err
 	}
 
-	defer file.Close()
+	// Removed unless the rename below has already taken it. Interruptions get
+	// here through the process dying rather than through this defer, which is
+	// why the name matters as much as the cleanup.
+	defer func() {
+		file.Close()
+		os.Remove(part)
+	}()
 
 	fmt.Fprintf(w, "Downloading %s\n", filepath.Base(from))
 
@@ -113,6 +150,32 @@ func download(from, to string, w io.Writer) error {
 
 	if _, err := io.Copy(file, io.TeeReader(io.LimitReader(res.Body, mostBytes), counted)); err != nil {
 		return fmt.Errorf("downloading %s: %w", from, err)
+	}
+
+	/*
+	 * All of it, not most of it.
+	 *
+	 * A copy that ends without an error is not a complete download: a
+	 * connection dropped cleanly mid-file reads as end of stream. When the
+	 * server said how big it is, that is the only check worth making, and it
+	 * is the difference between a file that fails now and one that fails in
+	 * three weeks with no explanation.
+	 */
+	if res.ContentLength > 0 && counted.done != res.ContentLength {
+		return fmt.Errorf("%s stopped early: %s of %s",
+			filepath.Base(from), readable(counted.done), readable(res.ContentLength))
+	}
+
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("writing %s: %w", filepath.Base(to), err)
+	}
+
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("writing %s: %w", filepath.Base(to), err)
+	}
+
+	if err := os.Rename(part, to); err != nil {
+		return fmt.Errorf("putting %s in place: %w", filepath.Base(to), err)
 	}
 
 	fmt.Fprintf(w, "Downloaded %s\n", readable(counted.done))
@@ -370,4 +433,57 @@ func stripLeading(name string, n int) string {
 	}
 
 	return name
+}
+
+/*
+ * ClearHalfFinished removes what an interrupted install left behind.
+ *
+ * Closing the window during a download used to be permanent: the part file did
+ * not exist, so the truncated download wore the real name and every check
+ * agreed it was installed. Part files fix that going forward and they
+ * accumulate — one per interrupted attempt — so somebody who closed setup
+ * three times has three of them and no idea what they are.
+ *
+ * Called at startup rather than at install time, because the moment worth
+ * cleaning up is the one after the interruption rather than the one before the
+ * next attempt: a person who never tries again should not be left carrying a
+ * gigabyte of nothing.
+ */
+func ClearHalfFinished() (removed int, freed int64) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return 0, 0
+	}
+
+	// Where this program puts things it downloads, and nowhere else. A sweep
+	// for "*.part" across a home directory would delete somebody's own files.
+	for _, dir := range []string{
+		filepath.Join(home, ".local", "bin"),
+		filepath.Join(home, ".local", "share", "piper"),
+		filepath.Join(home, ".local", "src", "whisper.cpp", "models"),
+	} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".part") {
+				continue
+			}
+
+			at := filepath.Join(dir, e.Name())
+
+			info, err := e.Info()
+			if err == nil {
+				freed += info.Size()
+			}
+
+			if os.Remove(at) == nil {
+				removed++
+			}
+		}
+	}
+
+	return removed, freed
 }

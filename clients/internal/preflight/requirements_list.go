@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // requirements is the full list of what PN Brain needs, in the order a person
@@ -352,14 +353,40 @@ func Requirements() []Requirement {
 				Consequence: "the Talk button will not appear",
 				Size:        "488MB, plus a few minutes to build the recogniser",
 				Optional:    true,
+				/*
+				 * The recogniser and a model, because one without the other
+				 * cannot hear anything.
+				 *
+				 * This asked only whether whisper-cli existed. Delete the
+				 * speech model and it still answered "installed" — so the
+				 * setup screen said listening was fine, the Talk button
+				 * appeared, and pressing it failed with an error about a file
+				 * format. A check that reports a capability the machine does
+				 * not have is worse than no check: it sends somebody looking
+				 * for the fault everywhere except where it is.
+				 */
 				Check: func() (State, string) {
+					var found string
+
 					for _, r := range []string{"whisper-cli", "whisper-cpp", "whisper"} {
 						if commandExists(r) {
-							return OK, r
+							found = r
+
+							break
 						}
 					}
 
-					return Missing, ""
+					if found == "" {
+						return Missing, ""
+					}
+
+					if model := speechModelHere(); model != "" {
+						return OK, found + " · " + model
+					}
+
+					// Half of it, and said as half rather than as absent:
+					// what is left to do is a download, not a build.
+					return Missing, found + " is here but has no speech model"
 				},
 				/*
 				 * Built here, because there is no Linux binary to download.
@@ -397,4 +424,48 @@ func Requirements() []Requirement {
 	}
 
 	return list
+}
+
+/*
+ * speechModelHere reports which speech model is usable, if any.
+ *
+ * By size as well as by name: whisper.cpp ships test models of about a
+ * megabyte that would transcribe silence, and an interrupted download used to
+ * leave a truncated file wearing the real name. Anything under fifty megabytes
+ * is one of those rather than a model.
+ */
+func speechModelHere() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	dirs := []string{
+		filepath.Join(home, ".local", "src", "whisper.cpp", "models"),
+		filepath.Join(home, ".local", "share", "whisper"),
+		"/usr/share/whisper.cpp/models",
+	}
+
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasPrefix(e.Name(), "ggml-") ||
+				!strings.HasSuffix(e.Name(), ".bin") {
+				continue
+			}
+
+			info, err := e.Info()
+			if err != nil || info.Size() < 50<<20 {
+				continue
+			}
+
+			return e.Name()
+		}
+	}
+
+	return ""
 }

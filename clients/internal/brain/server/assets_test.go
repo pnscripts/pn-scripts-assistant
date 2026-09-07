@@ -252,7 +252,9 @@ func TestAnnouncedToolsExist(t *testing.T) {
 		t.Fatalf("could not read working.js: %v", err)
 	}
 
-	block := regexp.MustCompile(`(?s)const SPOKEN = \{(.*?)\n\};`).FindSubmatch(body)
+	// Matches the map whether it holds anything or not — an empty one is now
+	// the ordinary state, not a fault. See below.
+	block := regexp.MustCompile(`(?s)const SPOKEN = \{(.*?)\};`).FindSubmatch(body)
 	if block == nil {
 		t.Fatal("could not find the SPOKEN list in working.js")
 	}
@@ -263,9 +265,19 @@ func TestAnnouncedToolsExist(t *testing.T) {
 		announced = append(announced, string(m[1]))
 	}
 
-	if len(announced) == 0 {
-		t.Fatal("the SPOKEN list is empty, so no tool is ever announced")
-	}
+	/*
+	 * An empty list is the design, not a failure.
+	 *
+	 * This used to insist on at least one, from when every tool announced
+	 * itself. Twenty lines like "I am looking at the folder" described things
+	 * already on the screen, most covered tools that return in under a second,
+	 * and a turn using three tools spoke three of them before the answer. They
+	 * are gone; what a long wait needed is one line at forty seconds, and what
+	 * a person cannot miss is a decision waiting on them.
+	 *
+	 * The check that remains is the one that was always the point: if a tool
+	 * is named here it has to exist, or the line silently never plays.
+	 */
 
 	real := make(map[string]bool)
 	for _, tool := range toolNames(t) {

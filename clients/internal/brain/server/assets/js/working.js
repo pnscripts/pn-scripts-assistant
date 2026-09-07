@@ -21,86 +21,84 @@ const clock = document.getElementById('working-clock');
 const INTERVAL = 400;
 
 /*
- * What to say out loud as each tool starts.
+ * Nothing is said out loud as a tool starts.
  *
- * Somebody who asked by voice is not looking at the screen, so a tool that
- * takes twenty seconds is twenty seconds of silence that is indistinguishable
- * from the program having died. One short line at the start fixes that, and
- * only at the start: narrating progress through a long job is worse than
- * saying nothing, because it talks over the person while they are deciding
- * whether to interrupt.
+ * There were twenty lines here, one per tool: "I am reading it", "I am looking
+ * at the folder", "I am checking your reminders". Every one of them describes
+ * something already on the screen, most of the tools they cover return in
+ * under a second, and a turn that uses three tools said three of them before
+ * the answer. An assistant that narrates its own work is not being helpful, it
+ * is reading its to-do list aloud at somebody.
  *
- * Written the way somebody competent says it in passing — what is happening,
- * in one clause, then quiet. Not "I'll go ahead and take a look at that file
- * for you now", which says the same thing and takes four times as long to get
- * out of the way.
+ * The reasoning they were written under still holds and is answered better
+ * elsewhere: silence during a long wait is frightening, so there is one line
+ * at forty seconds — see stillWorking — rather than a line per step. And
+ * anything that needs a decision speaks, because that is the one thing
+ * somebody may not be looking at and cannot act on if they miss it.
  *
- * Tools missing from this list are deliberately silent. Anything that returns
- * instantly says nothing, because the line would arrive after the answer it
- * was meant to cover.
+ * Kept as an empty map rather than removed so the shape of announce() still
+ * says what it is for: a tool could earn a line here, and would have to earn
+ * it by being slow and by not being visible anywhere else.
  */
-const SPOKEN = {
-    // Files and folders.
-    read_file: 'I am reading it.',
-    write_file: 'I am writing that.',
-    edit_file: 'I am editing it.',
-    list_directory: 'I am looking at the folder.',
-    search_files: 'I am searching your files.',
+const SPOKEN = {};
 
-    // The world outside.
-    fetch_url: 'I am fetching the page.',
-    web_search: 'I am searching the web.',
-
-    // Things that take a while and can surprise you.
-    run_command: 'I am running it.',
-    do_in_background: 'I am starting that in the background.',
-
-    // Documents.
-    read_document: 'I am reading the document.',
-    write_document: 'I am writing the document.',
-
-    // Mail, where the wait is the network.
-    read_email: 'I am checking your mail.',
-    send_email: 'I am sending it.',
-
-    // The screen and the desktop.
-    look_at_screen: 'I am looking at your screen.',
-    list_windows: 'I am checking what is open.',
-    open_app: 'I am opening it.',
-
-    // Reminders.
-    remind_me: 'I am noting it.',
-    list_reminders: 'I am checking your reminders.',
-
-    // Models, which is the longest wait in the program.
-    list_models: 'I am checking the models.',
-
-    // The ones added since: looking things up about the machine itself.
-    list_drives: 'I am checking your drives.',
-    learn_from_folder: 'I am learning that folder.',
+/*
+ * Almost nothing is said out loud.
+ *
+ * This list had seven entries and a turn used three of them: "I am making out
+ * what you said", "I am thinking about that", "I am writing the answer" — all
+ * before the answer itself. Four spoken sentences for one question, three of
+ * them describing what was already on the screen in front of the person
+ * hearing them. That is not company, it is a colleague reading their own
+ * to-do list aloud.
+ *
+ * What is left is the one thing somebody might not be looking at and does
+ * need: something is waiting on a decision from them. Everything else stays on
+ * the screen, where it always was.
+ *
+ * The wait is handled separately and better. Silence after a question is only
+ * frightening when it goes on, so instead of narrating each step there is one
+ * line when a turn has been going a long time — see stillWorking below.
+ */
+const SPOKEN_KINDS = {
+    waiting: 'I need you to decide something.',
 };
 
 /*
- * And the steps that are not tools, which are most of the wait.
+ * How long a turn runs before it says anything about itself.
  *
- * Thinking is the longest thing that happens here and had nothing to say for
- * itself: a minute of silence between the question and the answer, with no way
- * to tell it from the program having stopped. Naming the step is not
- * decoration on this hardware, it is the only evidence there is.
- *
- * Listening is deliberately absent. It is what the brain does when nobody has
- * asked it anything, and announcing it would mean talking into an empty room
- * every few seconds.
+ * The reason the narration existed: on this hardware an answer can take a
+ * minute, and a minute of silence is indistinguishable from a program that has
+ * stopped. That is a real problem and it needed one sentence, not four — and
+ * it needed them at forty seconds rather than at the first step, because
+ * almost every turn finishes before that and never needs saying anything at
+ * all.
  */
-const SPOKEN_KINDS = {
-    thinking: 'I am thinking about that.',
-    transcribing: 'I am making out what you said.',
-    answering: 'I am writing the answer.',
-    learning: 'I am learning from that.',
-    embedding: 'I am re-indexing what I know.',
-    model: 'I am testing a model.',
-    waiting: 'I need you to decide something.',
-};
+const LONG_ENOUGH_TO_MENTION = 40;
+
+let mentioned = false;
+
+function stillWorking(step) {
+    if (!step.busy || step.background) {
+        mentioned = false;
+
+        return;
+    }
+
+    if (mentioned || (step.seconds || 0) < LONG_ENOUGH_TO_MENTION) return;
+    if (!shouldSay()) return;
+
+    mentioned = true;
+
+    // Said once per turn, and it says what is actually taking the time.
+    fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            text: `Still ${(step.note || 'working').toLowerCase()}. This machine takes a while.`,
+        }),
+    }).catch(() => {});
+}
 
 let announced = '';
 
@@ -233,6 +231,7 @@ function show(step) {
      * one, the kind's when there is not.
      */
     announce(step);
+    stillWorking(step);
 }
 
 // Read from the one place that asks, rather than asking again. See signals.js.

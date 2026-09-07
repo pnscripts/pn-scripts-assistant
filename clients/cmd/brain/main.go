@@ -625,6 +625,20 @@ func runApp(args []string) error {
 	 * happens to have the pieces already is not a machine whose owner has
 	 * agreed to anything.
 	 */
+	/*
+	 * Anything an interrupted install left half-written, cleared first.
+	 *
+	 * Closing the window during a download is the ordinary way these end —
+	 * somebody changes their mind, or the machine is needed for something else
+	 * — and it used to leave a truncated file wearing the real name, which
+	 * every check in this program then agreed was installed. Cleaned up before
+	 * the requirements are read, so what setup is told is the truth.
+	 */
+	if removed, freed := preflight.ClearHalfFinished(); removed > 0 {
+		logger.Info("cleared downloads that were interrupted",
+			"files", removed, "megabytes", freed/(1<<20))
+	}
+
 	if !*skipSetup && (missingEssentials() || !cfg.SetupDone) {
 		if _, err := runFirstRunSetup(config.Path(root.Path), cfg.Name); err != nil {
 			return err

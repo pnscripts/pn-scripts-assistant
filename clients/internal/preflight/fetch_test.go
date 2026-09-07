@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,5 +176,79 @@ func TestNothingClaimsAnInstallItCannotDo(t *testing.T) {
 		if r.Why == "" || r.Consequence == "" {
 			t.Errorf("%s does not say what it is for or what breaks without it", r.Name)
 		}
+	}
+}
+
+/*
+ * An interrupted download must not wear the real name.
+ *
+ * This is what "closing the window while it installs" used to do: a 488MB
+ * speech model stopped at 60MB left a 60MB file called ggml-small.bin, and
+ * every check in this program asks the name and the size — so it counted as
+ * installed for good. Whisper then failed to load it, with an error about the
+ * file format, on a machine where nothing appeared to be wrong.
+ */
+func TestAnInterruptedDownloadLeavesNothingWearingTheRealName(t *testing.T) {
+	// A server that promises more than it sends, which is what a dropped
+	// connection looks like from this end.
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1000")
+		w.WriteHeader(http.StatusOK)
+		w.Write(make([]byte, 200))
+	}))
+
+	defer server.Close()
+
+	into := filepath.Join(t.TempDir(), "ggml-small.bin")
+
+	err := downloadVia(server.Client(), server.URL+"/model.bin", into, io.Discard)
+	if err == nil {
+		t.Fatal("a download that stopped early was reported as finished")
+	}
+
+	/*
+	 * Two ways this ends and both are fine.
+	 *
+	 * A connection that drops mid-body errors during the copy; one that closes
+	 * cleanly after fewer bytes than it promised gets through the copy and is
+	 * caught by the length check. What matters is not which — it is that the
+	 * call fails and nothing is left behind wearing the real name.
+	 */
+	if _, err := os.Stat(into); err == nil {
+		t.Error("a half download is sitting there under the real name")
+	}
+
+	if _, err := os.Stat(into + ".part"); err == nil {
+		t.Error("the part file was left behind")
+	}
+}
+
+// And a complete one arrives, under the real name, with nothing beside it.
+func TestACompleteDownloadIsMovedIntoPlace(t *testing.T) {
+	body := make([]byte, 4096)
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(body)
+	}))
+
+	defer server.Close()
+
+	into := filepath.Join(t.TempDir(), "thing.bin")
+
+	if err := downloadVia(server.Client(), server.URL+"/thing.bin", into, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Stat(into)
+	if err != nil {
+		t.Fatal("the file is not there")
+	}
+
+	if info.Size() != int64(len(body)) {
+		t.Errorf("%d bytes arrived, want %d", info.Size(), len(body))
+	}
+
+	if _, err := os.Stat(into + ".part"); err == nil {
+		t.Error("the part file was left beside it")
 	}
 }

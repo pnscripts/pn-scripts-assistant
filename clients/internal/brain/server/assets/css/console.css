@@ -4634,3 +4634,20 @@ select { font-size: 13.5px; }
 .permit-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .permit .model-action { flex: none; }
+
+/*
+ * A second action on a row that is already fine.
+ *
+ * Update sits beside "installed" and must not compete with it: the row is not
+ * asking for anything, and a button with the same weight as the ones that are
+ * would make a settled list look like a list of chores.
+ */
+.model-action.quiet {
+    background: none;
+    border-color: var(--line);
+    color: var(--text-dim);
+    padding: 4px 9px;
+    font-size: 11px;
+}
+
+.model-action.quiet:hover { border-color: var(--accent-dim); color: var(--text); }
