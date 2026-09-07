@@ -19,6 +19,12 @@ static void pnbrain_on_destroy(GtkWidget *widget, gpointer data) {
 // desktop toolkit: one window, one web view, one URL.
 static WebKitWebView *pnbrain_view = NULL;
 
+// What the window is called, kept so that navigating within it does not
+// rename it. It used to be reset to a literal product name on every
+// navigation, which meant a window titled with whatever its owner had called
+// their assistant silently became something else the first time it moved.
+static char *pnbrain_title = NULL;
+
 // Navigation has to happen on the GTK main loop, so a pending URL is left here
 // and picked up by a timer rather than being loaded from the Go goroutine that
 // produced it. Touching GTK from another thread is undefined behaviour.
@@ -105,7 +111,7 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
 
     if (url != NULL && pnbrain_view != NULL) {
         webkit_web_view_load_uri(pnbrain_view, url);
-        gtk_window_set_title(GTK_WINDOW(data), "PN Brain");
+        gtk_window_set_title(GTK_WINDOW(data), pnbrain_title);
         g_free(url);
     }
 
@@ -247,6 +253,7 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     g_object_unref(ground_style);
 
     pnbrain_view = view;
+    pnbrain_title = g_strdup(title);
     webkit_web_view_load_uri(view, url);
 
     // Filling the window, not sitting at its default size inside it.

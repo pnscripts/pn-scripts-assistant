@@ -90,7 +90,7 @@ func NewOpenRouter(apiKey, model string) *OpenAICompatible {
 		BaseURL:      "https://openrouter.ai/api/v1",
 		HTTPClient:   &http.Client{Timeout: 120 * time.Second},
 		Referer:      "https://github.com/pnscripts/pn-brain",
-		Title:        "PN Brain",
+		Title:        "PN Scripts Assistant",
 	}
 }
 

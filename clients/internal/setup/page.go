@@ -16,7 +16,7 @@ const setupPage = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>PN Brain — Setup</title>
+<title>PN Scripts Assistant — Setup</title>
 <style>
 :root{--bg:#070a0f;--raised:#0d1219;--input:#111823;--line:#1b2634;--text:#d6dee8;
 --dim:#7d8b9c;--faint:#4a5769;--accent:#4dd0e1;--warn:#f0b26b;--danger:#e06c75;--ok:#7bc47f;
@@ -217,7 +217,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
       meet a blank rectangle where the program's face should be. Flat shapes
       and two CSS animations cannot fail that way.
   -->
-  <div class="core" aria-label="PN Brain">
+  <div class="core" aria-label="PN Scripts Assistant">
     <svg viewBox="0 0 120 120" role="img" aria-hidden="true">
       <defs>
         <radialGradient id="halo">
@@ -240,7 +240,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
       <circle class="pupil" cx="60" cy="60" r="13"/>
       <circle class="rim" cx="60" cy="60" r="13"/>
     </svg>
-    <h1>PN Brain</h1>
+    <h1>PN Scripts Assistant</h1>
   </div>
 
   <!--
@@ -268,7 +268,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 
   <div class="step" id="step-where">
     <h2>Where to keep it</h2>
-    <p class="sub">Everything PN Brain learns — what you tell it, what it reads,
+    <p class="sub">Everything the assistant learns — what you tell it, what it reads,
       every conversation — lives in one folder. Nothing else on your computer is
       touched, and deleting that folder removes the brain completely.</p>
     <p class="sub">Choosing now is free. Moving it later copies the lot and
@@ -284,7 +284,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 
   <div class="step" id="step-needs" hidden>
     <h2>What it needs</h2>
-    <p class="sub">These are the pieces PN Brain runs on. Each one says what it
+    <p class="sub">These are the pieces the assistant runs on. Each one says what it
       is for, what stops working without it, and where it goes on this machine.
       Setup installs them for you — nothing here needs a terminal.</p>
     <div id="reqs"></div>
@@ -327,7 +327,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
     <span class="status" id="status"></span>
     <span class="spacer"></span>
     <button id="next" hidden>Next</button>
-    <button id="continue" hidden disabled>Continue to PN Brain</button>
+    <button id="continue" hidden disabled>Continue to your assistant</button>
   </div>
 </div>
 
@@ -647,7 +647,7 @@ function renderBrainChoice(state){
   const note = document.createElement("p");
   note.className = "sub";
   note.style.marginBottom = "14px";
-  note.textContent = "PN Brain needs a language model to think with. You can run one on this "
+  note.textContent = "It needs a language model to think with. You can run one on this "
     + "machine for free, or use a paid API. You can change this later, or use both.";
   box.appendChild(note);
 
@@ -1082,7 +1082,7 @@ function renderPlan(state){
   /*
    * And a way to start it again afterwards.
    *
-   * Setup left the machine able to run PN Brain and left nobody a way to do
+   * Setup left the machine able to run the assistant and left nobody a way to do
    * it: no entry in the applications menu, so the only route back was the file
    * it happened to be launched from. Added last, because it is the step that
    * makes sense only once the rest worked, and listed rather than done quietly
@@ -1374,7 +1374,7 @@ async function refresh(){
 
 el("continue").onclick = async () => {
   el("continue").disabled = true;
-  el("status").textContent = "Starting PN Brain…";
+  el("status").textContent = "Starting your assistant…";
   await fetch("/done");
 };
 

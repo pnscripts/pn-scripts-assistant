@@ -832,8 +832,18 @@ func TestTheNameItShipsListeningFor(t *testing.T) {
 		t.Fatalf("the default wake word yields no names to match: %q", config.DefaultWakeWord)
 	}
 
-	if !wake.Listen("brain, what time is it", config.DefaultWakeWord, false).Addressed {
-		t.Error("it does not answer to the name it ships with")
+	/*
+	 * Said the way somebody says it, to the name it actually ships with.
+	 *
+	 * This was "brain, what time is it" from when the default was Brain. The
+	 * default is Assistant now — the product is called PN Scripts Assistant
+	 * and the thing in somebody's house is called whatever they call it, which
+	 * until they say is what it is rather than a brand.
+	 */
+	said := strings.ToLower(config.DefaultWakeWord) + ", what time is it"
+
+	if !wake.Listen(said, config.DefaultWakeWord, false).Addressed {
+		t.Errorf("it does not answer to the name it ships with: %q", said)
 	}
 
 	// And naming it replaces the shipped default rather than leaving a brain

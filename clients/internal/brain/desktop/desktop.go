@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pn-brain/internal/brain/config"
 	"strings"
 )
 
@@ -143,7 +144,7 @@ func Remove() error {
  */
 func entryText(name, exec string) string {
 	if strings.TrimSpace(name) == "" {
-		name = "PN Brain"
+		name = config.DefaultName
 	}
 
 	// Newlines in either would end the line and start something else; a name is

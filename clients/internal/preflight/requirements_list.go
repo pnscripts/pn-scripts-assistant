@@ -351,8 +351,10 @@ func Requirements() []Requirement {
 				Name:        "Voice (listening)",
 				Why:         "lets you talk to the brain instead of typing",
 				Consequence: "the Talk button will not appear",
-				Size:        "488MB, plus a few minutes to build the recogniser",
-				Optional:    true,
+				// Named from the installer's own constant, so the screen cannot
+				// promise one model and fetch another.
+				Size:     SpeechModelSize + ", plus a few minutes to build the recogniser",
+				Optional: true,
 				/*
 				 * The recogniser and a model, because one without the other
 				 * cannot hear anything.

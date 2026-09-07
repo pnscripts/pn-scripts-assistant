@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os/exec"
+	"pn-brain/internal/brain/config"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -59,7 +60,7 @@ func brainPart() Part {
 	}
 
 	return Part{
-		Name:    "PN Brain",
+		Name:    config.Product,
 		Version: version,
 		Status:  "running",
 		Cost:    "free",

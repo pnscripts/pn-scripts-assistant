@@ -955,7 +955,7 @@ func (b *Brain) Stop() {
 func (b *Brain) SystemPrompt() string {
 	name := b.Cfg.Name
 	if name == "" {
-		name = "PN Brain"
+		name = config.DefaultName
 	}
 
 	owner := b.Cfg.Owner
@@ -1178,7 +1178,7 @@ func (b *Brain) whereThingsAre() string {
 func (b *Brain) spokenSystemPrompt() string {
 	name := b.Cfg.Name
 	if name == "" {
-		name = "PN Brain"
+		name = config.DefaultName
 	}
 
 	owner := b.Cfg.Owner

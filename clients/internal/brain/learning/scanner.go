@@ -362,7 +362,15 @@ var documentKinds = map[string]string{
 	".mpeg": "film",
 }
 
-// FilmKinds is what counts as something to watch rather than to read.
+/*
+ * IsAFilm reports whether a path is something to watch rather than to read.
+ *
+ * The rule stated once, where the list of extensions is, so the two cannot
+ * disagree. Nothing in this package needs to ask — CanRead already refuses
+ * video, which is what keeps a film from being opened — and the question is
+ * worth being able to ask by name rather than by comparing a map lookup to a
+ * string at each call site.
+ */
 func IsAFilm(path string) bool {
 	return documentKinds[strings.ToLower(filepath.Ext(path))] == "film"
 }

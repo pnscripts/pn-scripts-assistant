@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"pn-brain/internal/brain/config"
 	"strings"
 	"sync"
 	"time"
@@ -113,7 +114,7 @@ var (
 func (s *Server) renderIndex(w http.ResponseWriter, r *http.Request) {
 	name := s.brain.Cfg.Name
 	if name == "" {
-		name = "PN Brain"
+		name = config.DefaultName
 	}
 
 	var buf bytes.Buffer

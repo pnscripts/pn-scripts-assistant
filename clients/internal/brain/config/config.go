@@ -262,7 +262,24 @@ type Config struct {
  * "Piembring" one time and "Piendren" the next — never the same way twice, so a
  * list of spellings never converges on it. "Brain" comes back as "Brain".
  */
-const DefaultWakeWord = "Brain"
+const DefaultWakeWord = "Assistant"
+
+/*
+ * Product is what this software is called; DefaultName is what an assistant is
+ * called before its owner has named it.
+ *
+ * Two different things and they were the same string, which is why "PN Brain"
+ * appeared both on the window and as the name somebody was expected to talk
+ * to. The product has a name because it is a product; the assistant in
+ * somebody's house should be called whatever they call it, and until they say,
+ * the honest default is what it is rather than a brand.
+ *
+ * Named here so there is one place to change them and nothing can drift.
+ */
+const (
+	Product     = "PN Scripts Assistant"
+	DefaultName = "Assistant"
+)
 
 // assignInt sets a number from a setting, leaving it alone when unset or
 // unreadable — a typo should not silently become port zero.
@@ -304,7 +321,7 @@ const FileName = "brain.conf"
 // shipped by somebody who never read this file.
 func Default() Config {
 	return Config{
-		Name:    "PN Brain",
+		Name:    DefaultName,
 		Owner:   "",
 		Privacy: "private",
 

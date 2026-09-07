@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"pn-brain/internal/brain/config"
 	"pn-brain/internal/brain/paths"
 	"pn-brain/internal/brain/storage"
 	"sort"
@@ -954,7 +955,7 @@ const menuStep = "menu:"
 
 func (s *Server) runOne(name string, w io.Writer) bool {
 	if name == menuStep {
-		entry, err := desktop.Install("PN Brain")
+		entry, err := desktop.Install(config.Product)
 		if err != nil {
 			fmt.Fprintf(w, "\nFailed: %v\n", err)
 

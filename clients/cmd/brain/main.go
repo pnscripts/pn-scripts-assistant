@@ -126,7 +126,7 @@ func runMenu(args []string) error {
 		return nil
 	}
 
-	cfg := config.Config{Name: "PN Brain"}
+	cfg := config.Config{Name: config.Product}
 
 	if root, err := paths.Find(); err == nil {
 		if loaded, err := config.Load(root.Path); err == nil {
