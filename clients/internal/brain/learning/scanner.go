@@ -346,6 +346,25 @@ var documentKinds = map[string]string{
 	".pdf": "PDF", ".doc": "Word", ".docx": "Word", ".dotx": "Word template",
 	".odt": "OpenDocument", ".ods": "spreadsheet", ".xlsx": "spreadsheet",
 	".ppt": "presentation", ".pptx": "presentation", ".md": "Markdown", ".txt": "text",
+
+	/*
+	 * Films and recordings, which are listed and never opened.
+	 *
+	 * "What films do I have" is a question about its owner and the brain could
+	 * not answer it, because a drive of 866 films was invisible to a scanner
+	 * that only knew about paperwork. The name and the path are the whole of
+	 * what is worth keeping: nothing here can watch a film, and the subtitles
+	 * beside it are a story rather than anything about him. See CanRead, which
+	 * is what stops these being opened, and subtitles.go for the rest.
+	 */
+	".mkv": "film", ".mp4": "film", ".avi": "film", ".mov": "film",
+	".m4v": "film", ".webm": "film", ".wmv": "film", ".mpg": "film",
+	".mpeg": "film",
+}
+
+// FilmKinds is what counts as something to watch rather than to read.
+func IsAFilm(path string) bool {
+	return documentKinds[strings.ToLower(filepath.Ext(path))] == "film"
 }
 
 /*

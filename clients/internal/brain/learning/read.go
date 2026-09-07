@@ -451,6 +451,12 @@ const SeenInThisManyDocuments = 3
  * report — and those are exactly the ones a listing cannot tell apart.
  */
 func FromDocumentContents(d Document, text, owner string) (Observations, string) {
+	// Dialogue from a film is not a memory, whatever the file is called.
+	// See subtitles.go, which says at length why not.
+	if LooksLikeSubtitles(text) {
+		return nil, ASubtitle
+	}
+
 	candidates := worthKeeping(text)
 
 	/*
@@ -690,6 +696,11 @@ const (
 	 */
 	ATemplate = "everything in it also appears in other documents, so it is a " +
 		"form or a template rather than something written about itself"
+
+	// ASubtitle is a film's dialogue: true, and about a story rather than
+	// about the person whose disk it is on. See subtitles.go.
+	ASubtitle = "it is the subtitles of a film, which is dialogue from a story " +
+		"rather than anything about you"
 )
 
 /*

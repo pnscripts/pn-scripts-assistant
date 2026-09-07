@@ -361,6 +361,40 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.Remind{Diary: diaryOf{b}},
 		tools.ListReminders{Diary: diaryOf{b}},
 		tools.ForgetReminder{Diary: diaryOf{b}},
+
+		/*
+		 * Subtitles for a film that has none.
+		 *
+		 * Asked for by name, one at a time, because a feature this expensive
+		 * has to be chosen rather than triggered. Listing what has none is
+		 * separate and safe: it is the question somebody asks before deciding,
+		 * and answering it must not start an hour of work.
+		 */
+		tools.FilmsWithoutSubtitles{Places: func() []string {
+			// Only where the brain has been given permission to look.
+			list, err := places.List(b.Root)
+			if err != nil {
+				return nil
+			}
+
+			out := make([]string, 0, len(list))
+
+			for _, p := range list {
+				out = append(out, p.Path)
+			}
+
+			return out
+		}},
+		tools.MakeSubtitles{Recogniser: func() (string, string, string) {
+			// Asked at call time, like the learner above: the recogniser is
+			// found on disk and can appear or vanish while this runs.
+			r, _ := speech.FindRecogniser()
+			if r == nil {
+				return "", "", ""
+			}
+
+			return r.Command, r.Model, speech.Language()
+		}},
 	)
 
 	b.Agent = &agent.Loop{
