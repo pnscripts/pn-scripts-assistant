@@ -477,7 +477,7 @@ func TestAProjectIsNotADependencyOfItself(t *testing.T) {
 func TestALicenceIsNeverSomebodysWriting(t *testing.T) {
 	for _, name := range []string{
 		"LICENSE", "LICENSE.txt", "licence.md", "COPYING", "NOTICE.txt",
-		"summernote-ar-AR.min.js.LICENSE.txt", "CHANGELOG.md",
+		"summernote-ar-AR.min.js.LICENSE.txt",
 	} {
 		if !IsSomebodyElsesWriting(name) {
 			t.Errorf("%s would still be remembered", name)
@@ -485,7 +485,9 @@ func TestALicenceIsNeverSomebodysWriting(t *testing.T) {
 	}
 
 	for _, name := range []string{
-		"notes.md", "cv.pdf", "Фактура.pdf", "architecture.md", "licensing-plan.md",
+		"notes.md", "cv.pdf", "Фактура.pdf", "architecture.md",
+		// Caught his own file when "notice" was matched as a substring.
+		"EmailNotice.pdf", "changelog-for-the-client.md", "licensing-plan.md",
 	} {
 		if name == "licensing-plan.md" {
 			// Known and accepted: a file with "licens" in its name is treated
@@ -497,5 +499,77 @@ func TestALicenceIsNeverSomebodysWriting(t *testing.T) {
 		if IsSomebodyElsesWriting(name) {
 			t.Errorf("%s was thrown away as boilerplate", name)
 		}
+	}
+}
+
+/*
+ * One stray file in a home folder must not disown the whole machine.
+ *
+ * Petar had run composer once in ~, so ~/composer.lock existed. With the home
+ * folder counted as a package, every project underneath became a package
+ * inside a package: 242 of his 573 memories were his own Laravel projects'
+ * README and documentation, disowned by a lock file he wrote by accident years
+ * ago. A home directory is not a package, whatever is lying in it.
+ */
+func TestAStrayLockFileInAHomeFolderDisownsNothing(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// The accident.
+	os.WriteFile(filepath.Join(home, "composer.lock"), []byte("{}"), 0o644)
+
+	// His project, and its own documentation.
+	project := filepath.Join(home, "Projects", "happymarketing")
+	docs := filepath.Join(project, "resources", "documentation")
+	os.MkdirAll(docs, 0o755)
+	os.WriteFile(filepath.Join(project, "composer.json"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(project, "README.md"),
+		[]byte("What this project is, written by the person whose disk it is on."), 0o644)
+	os.WriteFile(filepath.Join(docs, "loyal-offers.md"),
+		[]byte("How the loyalty offers work, written for the client."), 0o644)
+
+	// Somebody else's library inside it, which must still go.
+	lib := filepath.Join(project, "public", "js", "summernote")
+	os.MkdirAll(lib, 0o755)
+	os.WriteFile(filepath.Join(lib, "package.json"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(lib, "README.md"),
+		[]byte("The manual of a text editor somebody else wrote entirely."), 0o644)
+
+	for _, mine := range []string{
+		filepath.Join(project, "README.md"),
+		filepath.Join(docs, "loyal-offers.md"),
+	} {
+		if UnderASkippedFolder(mine) {
+			t.Errorf("his own writing was disowned: %s", mine)
+		}
+	}
+
+	if !UnderASkippedFolder(filepath.Join(lib, "README.md")) {
+		t.Error("a vendored library's manual was kept")
+	}
+
+	// And the walk agrees with the path check, which is the whole point of
+	// asking the same functions twice.
+	found, err := ScanDocuments(filepath.Join(home, "Projects"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var his, theirs int
+
+	for _, d := range found {
+		if strings.Contains(d.Path, "summernote") {
+			theirs++
+		} else {
+			his++
+		}
+	}
+
+	if his != 2 {
+		t.Errorf("read %d of his own documents, want 2", his)
+	}
+
+	if theirs != 0 {
+		t.Errorf("read %d documents out of a vendored library", theirs)
 	}
 }

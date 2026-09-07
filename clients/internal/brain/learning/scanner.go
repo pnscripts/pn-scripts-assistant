@@ -178,7 +178,17 @@ func IsSomebodyElsesWriting(name string) bool {
 		return true
 	}
 
-	for _, mark := range []string{"license", "licence", "copying", "notice", "changelog"} {
+	/*
+	 * Only the licence words, and only these, as part of a longer name.
+	 *
+	 * "summernote-ar-AR.min.js.LICENSE.txt" has to be caught, so the check
+	 * cannot be on the whole name — but every word added here is a word
+	 * somebody might have put in a file of their own. "notice" and "changelog"
+	 * were on this list for an hour and caught "EmailNotice.pdf" in Petar's own
+	 * documents. They are still recognised as a whole filename, which is how
+	 * they appear when they are boilerplate.
+	 */
+	for _, mark := range []string{"license", "licence"} {
 		if strings.Contains(lower, mark) {
 			return true
 		}
@@ -356,10 +366,24 @@ var documentKinds = map[string]string{
 func ScanDocuments(root string) ([]Document, error) {
 	var found []Document
 
-	// Which directories sit inside something that called itself a package.
-	// WalkDir visits a parent before its children, so this is always filled in
-	// by the time it is asked for.
-	inside := map[string]bool{root: carriesAPackageMark(root)}
+	/*
+	 * Which directories sit inside something that called itself a package.
+	 *
+	 * The root is never one of them, whatever is lying in it. It is where the
+	 * person pointed — "read my projects" — so the outermost package below it
+	 * is theirs, and only what is nested inside that is a dependency.
+	 *
+	 * Seeding it as a package instead was one stray file away from disaster:
+	 * somebody had run composer once in their home folder, so ~/composer.lock
+	 * existed, and every project on the machine became a package inside a
+	 * package. 242 of Petar's 573 memories were his own Laravel projects'
+	 * README and documentation, disowned by a lock file he wrote by accident
+	 * years ago.
+	 *
+	 * WalkDir visits a parent before its children, so this is always filled in
+	 * by the time it is asked for.
+	 */
+	inside := map[string]bool{root: false}
 
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -518,6 +542,18 @@ func UnderASkippedFolder(path string) bool {
 	for _, name := range parts[1 : len(parts)-1] {
 		at = filepath.Join(at, name)
 
+		/*
+		 * Nothing above the home folder is judged at all.
+		 *
+		 * Not for being a package — a home directory is not one, whatever
+		 * somebody once ran in it, and treating one as a package makes every
+		 * project on the machine a dependency — and not by name either, since
+		 * the folders on the way to somebody's home are not their doing.
+		 */
+		if aPlaceSomebodyLives(at) {
+			continue
+		}
+
 		if !worthDescending(at, name) {
 			return true
 		}
@@ -540,6 +576,22 @@ func UnderASkippedFolder(path string) bool {
 	}
 
 	return false
+}
+
+/*
+ * aPlaceSomebodyLives reports whether a directory is a home folder or above one.
+ *
+ * These are never package boundaries. A stray composer.lock in a home folder —
+ * from running the thing once, years ago, in the wrong directory — is the whole
+ * distance between "read my documents" and "read nothing at all".
+ */
+func aPlaceSomebodyLives(dir string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return dir == "/"
+	}
+
+	return dir == home || strings.HasPrefix(home, dir+string(filepath.Separator)) || dir == "/"
 }
 
 /*
