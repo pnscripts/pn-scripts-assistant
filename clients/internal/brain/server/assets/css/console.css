@@ -4304,3 +4304,65 @@ select { font-size: 13.5px; }
 }
 
 .approve-always:hover { opacity: 1; }
+
+/* ---------- providers, and anything else connected ---------- */
+
+/*
+ * One card per thing you could connect to.
+ *
+ * The state is a colour on the left edge and a sentence, not a dot: "no key"
+ * and "key that does not work" are the same red dot and completely different
+ * things to do next, and the sentence is the whole value of the page.
+ */
+.provider {
+    padding: 12px 0 14px 12px;
+    border-left: 2px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.provider:last-child { border-bottom: none; }
+
+.provider[data-state="reachable"] { border-left-color: var(--ok); }
+.provider[data-state="unreachable"] { border-left-color: var(--danger); }
+.provider[data-state="empty"] { border-left-color: var(--line); }
+.provider[data-state="forbidden"] { border-left-color: var(--warn); }
+
+.provider-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+
+.provider-name {
+    font-size: 13px;
+    color: var(--text);
+    text-transform: capitalize;
+}
+
+.provider-state { font-size: 11.5px; color: var(--text-dim); }
+
+.provider-default {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.provider-what { margin: 4px 0 10px; font-size: 11.5px; color: var(--text-faint); }
+
+.provider-fields { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 9px; }
+
+.provider-fields input {
+    flex: 1 1 220px;
+    min-width: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--hud-dim);
+    color: var(--text);
+    padding: 7px 9px;
+    font-family: inherit;
+    font-size: 12.5px;
+}
+
+.provider-fields input:focus { outline: none; border-color: var(--accent); }
+
+.provider-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Taking a key back is a different weight of decision from saving one. */
+.model-action.danger { border-color: var(--danger); color: var(--danger); }

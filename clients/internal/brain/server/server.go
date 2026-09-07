@@ -101,6 +101,29 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	 * permissions are the thing a person comes to look at deliberately and
 	 * burying them in a settings blob is how they never get looked at.
 	 */
+	/*
+	 * Connecting to a model that is not on this machine.
+	 *
+	 * The keys have been in the settings file since the beginning with
+	 * nowhere to type one, so using a hosted model meant finding the file and
+	 * knowing its name — which is not a feature this program has, it is a
+	 * feature its author has.
+	 */
+	/*
+	 * The things in the house.
+	 *
+	 * The code to talk to Home Assistant has been here the whole time with no
+	 * interface at all, so the capability existed in the sense that a library
+	 * existed.
+	 */
+	s.mux.HandleFunc("GET /api/devices", s.handleDevices)
+	s.mux.HandleFunc("POST /api/devices/connect", s.handleConnectDevices)
+	s.mux.HandleFunc("POST /api/devices/set", s.handleSetDevice)
+
+	s.mux.HandleFunc("GET /api/providers", s.handleProviders)
+	s.mux.HandleFunc("POST /api/providers/connect", s.handleConnectProvider)
+	s.mux.HandleFunc("POST /api/providers/{name}/test", s.handleTestProvider)
+
 	s.mux.HandleFunc("GET /api/permissions", s.handlePermissions)
 	s.mux.HandleFunc("POST /api/permissions/decide", s.handleDecide)
 	s.mux.HandleFunc("POST /api/permissions/freedom", s.handleFreedom)

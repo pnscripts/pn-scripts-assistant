@@ -126,30 +126,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 	ollama := llm.NewOllama(cfg.OllamaURL, cfg.OllamaModel, cfg.EmbedModel)
 
-	providers := []llm.Provider{ollama}
-
-	// Anthropic is registered only when a key exists. Registering it without
-	// one would show a provider in the interface that fails the moment it is
-	// chosen.
-	if cfg.OpenAIKey != "" {
-		providers = append(providers, llm.NewOpenAI(cfg.OpenAIKey, cfg.OpenAIModel))
-	}
-
-	/*
-	 * OpenRouter is one key reaching models from every major company.
-	 *
-	 * Worth having for its own sake, and it is also the honest answer to "why
-	 * only one paid provider": adding two more of them would still be a short
-	 * list, where this is most of them behind a single account.
-	 */
-	if cfg.OpenRouterKey != "" {
-		providers = append(providers,
-			llm.NewOpenRouter(cfg.OpenRouterKey, cfg.OpenRouterModel))
-	}
-
-	if cfg.AnthropicKey != "" {
-		providers = append(providers, llm.NewAnthropic(cfg.AnthropicKey, cfg.AnthropicModel))
-	}
+	providers := providersFor(cfg, ollama)
 
 	b := &Brain{
 		Look:   look,
@@ -222,7 +199,15 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	home := smarthome.New(cfg.HomeAssistantURL, cfg.HomeAssistantToken)
 
 	if home.Configured() {
-		available = append(available, tools.ListDevices{Home: home}, tools.SetDevice{Home: home})
+		/*
+		 * Registered as pointers so the connection can be replaced.
+		 *
+		 * By value they were copies, and ReloadHome's type switch would never
+		 * have matched one — so an address typed into the running program
+		 * would have looked saved and changed nothing, which is precisely the
+		 * bug this reload exists to fix.
+		 */
+		available = append(available, &tools.ListDevices{Home: home}, &tools.SetDevice{Home: home})
 	}
 
 	// Added after the brain exists, because they change the brain's own
@@ -384,6 +369,15 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 			},
 			Owner: b.Cfg.Owner,
 		},
+		/*
+		 * Asking, rather than guessing or ploughing on.
+		 *
+		 * Registered like any other capability so it is in the list the model
+		 * reads every turn. A convention in the prompt is something a model
+		 * does when it remembers to; a tool is something it can see.
+		 */
+		tools.Ask{Owner: b.Cfg.Owner},
+
 		tools.Remind{Diary: diaryOf{b}},
 		tools.ListReminders{Diary: diaryOf{b}},
 		tools.ForgetReminder{Diary: diaryOf{b}},
@@ -970,6 +964,25 @@ be told to go ahead. Not a summary of it: the actual message, the actual
 file, the actual amount. Somebody agreeing to "send an email to Anna"
 has agreed to nothing.
 
+When a request has two readings that lead to different work, call
+ask_first and put the choice to %s. Not "shall I go on" — the
+actual question, with the two readings named. One question, then stop;
+their next message is the answer. Guessing well is worse than asking,
+because a confident wrong reading is indistinguishable from a right one
+until the work is done.
+
+Ask while you are working too, not only at the start. If what you find
+changes what was asked for — the file is not what its name says, the
+folder holds ten thousand things rather than ten, the thing you were
+told to change has already been changed — stop and say so. Carrying on
+around a surprise is how a small misunderstanding becomes an hour of
+the wrong work.
+
+Ask once and about something that matters. Two readings that lead to
+the same work is not a question, and neither is checking that you were
+listened to. If you can find the answer with a tool, use the tool
+instead: asking somebody what is in their own folder is not diligence.
+
 Never state what is on this machine from memory. What is waiting, what
 reminders exist, which models are installed, what a file contains, what
 is in the mailbox — every one of those has a tool, and the tool is the
@@ -1020,7 +1033,7 @@ passing one to a tool produces a confident failure about a directory
 nobody has. If you do not know where something is, list one of the places
 above and look. Asking which folder is fair when looking has not settled
 it; inventing the folder is not.`,
-		name, owner, owner, owner, owner, owner, owner,
+		name, owner, owner, owner, owner, owner, owner, owner,
 		b.whereThingsAre(), b.whatIsRemembered())
 }
 
@@ -1965,4 +1978,96 @@ func (b *Brain) UseFreedom(level string) (permits.Freedom, error) {
 	b.Log.Info("freedom changed", "level", f)
 
 	return f, nil
+}
+
+/*
+ * providersFor is which model providers exist, given the keys.
+ *
+ * Its own function because it is now needed twice: once when the brain is
+ * built, and again when somebody types a key into the Models page. It used to
+ * happen only in New, so a key entered into a running program did nothing at
+ * all until the next launch — the same shape of bug privacy had, and it
+ * presents identically: the setting saves, the page says so, nothing works.
+ *
+ * A provider with no key is not registered. Registering one anyway would show
+ * it in the interface and fail the moment it was chosen.
+ */
+func providersFor(cfg config.Config, ollama llm.Provider) []llm.Provider {
+	providers := []llm.Provider{ollama}
+
+	if cfg.OpenAIKey != "" {
+		providers = append(providers, llm.NewOpenAI(cfg.OpenAIKey, cfg.OpenAIModel))
+	}
+
+	/*
+	 * OpenRouter is one key reaching models from every major company.
+	 *
+	 * Worth having for its own sake, and it is also the honest answer to "why
+	 * only one paid provider": adding two more of them would still be a short
+	 * list, where this is most of them behind a single account.
+	 */
+	if cfg.OpenRouterKey != "" {
+		providers = append(providers,
+			llm.NewOpenRouter(cfg.OpenRouterKey, cfg.OpenRouterModel))
+	}
+
+	if cfg.AnthropicKey != "" {
+		providers = append(providers, llm.NewAnthropic(cfg.AnthropicKey, cfg.AnthropicModel))
+	}
+
+	return providers
+}
+
+/*
+ * ReloadProviders rebuilds the router from the current keys.
+ *
+ * Called when somebody connects or disconnects a provider, so it takes effect
+ * in the next thing the brain does rather than at the next launch. The privacy
+ * mode is carried across rather than re-read: connecting a model is not a
+ * privacy decision and must not quietly become one.
+ */
+func (b *Brain) ReloadProviders() {
+	b.mu.Lock()
+	cfg := b.Cfg
+	b.mu.Unlock()
+
+	ollama := llm.NewOllama(cfg.OllamaURL, cfg.OllamaModel, cfg.EmbedModel)
+
+	router := llm.NewRouter(b.Router.Mode(), cfg.DefaultProvider, providersFor(cfg, ollama)...)
+
+	b.mu.Lock()
+	b.ollama = ollama
+	b.Router = router
+	b.mu.Unlock()
+
+	b.Log.Info("providers rebuilt", "count", len(providersFor(cfg, ollama)))
+}
+
+/*
+ * ReloadHome rebuilds the connection to the house from the current settings.
+ *
+ * The same reason as ReloadProviders: the tools hold a client built at startup,
+ * so an address typed into a running program changed the file and nothing
+ * else. Three settings in this program have had that bug now — privacy, the
+ * model keys, and this — which is enough for it to be the first thing to check
+ * whenever a setting appears not to work.
+ */
+func (b *Brain) ReloadHome() {
+	b.mu.Lock()
+	cfg := b.Cfg
+	b.mu.Unlock()
+
+	home := smarthome.New(cfg.HomeAssistantURL, cfg.HomeAssistantToken)
+
+	for _, t := range b.Agent.Registry.All() {
+		switch tool := t.(type) {
+		case *tools.ListDevices:
+			tool.Home = home
+
+		case *tools.SetDevice:
+			tool.Home = home
+		}
+	}
+
+	b.Log.Info("home connection rebuilt", "configured", home.Configured())
 }

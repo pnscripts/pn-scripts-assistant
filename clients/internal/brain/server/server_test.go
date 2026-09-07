@@ -285,7 +285,7 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"brain_copies", "change_a_setting", "change_this_conversation",
+		"ask_first", "brain_copies", "change_a_setting", "change_this_conversation",
 		"click", "decide_waiting", "do_in_background", "edit_file",
 		"fetch_url", "films_without_subtitles", "forget_reminder", "how_fast_can_you_answer",
 		"learn_from_folder", "list_background", "list_directory",
@@ -1600,5 +1600,199 @@ func send(t *testing.T, url, body string) {
 	if resp.StatusCode != http.StatusOK {
 		said, _ := io.ReadAll(resp.Body)
 		t.Fatalf("POST %s -> %d: %s", url, resp.StatusCode, said)
+	}
+}
+
+/*
+ * A key is never sent back to the page.
+ *
+ * Sending the whole thing back to be shown in a form is how a secret ends up
+ * in a screenshot. The page is told whether one is set and its last four
+ * characters — enough to tell two keys apart, useless to anybody else.
+ */
+func TestAKeyIsNeverSentBack(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	const key = "sk-ant-not-a-real-key-abcdefgh1234"
+
+	send(t, ts.URL+"/api/providers/connect",
+		`{"provider":"anthropic","key":"`+key+`","model":"claude-opus-5"}`)
+
+	raw := getRaw(t, ts.URL+"/api/providers")
+
+	if strings.Contains(raw, key) {
+		t.Fatal("the whole key came back to the page")
+	}
+
+	if !strings.Contains(raw, "1234") {
+		t.Error("the page cannot tell which key is set")
+	}
+
+	var page struct {
+		Providers []struct {
+			Name     string `json:"name"`
+			NeedsKey bool   `json:"needs_key"`
+			HasKey   bool   `json:"has_key"`
+			Model    string `json:"model"`
+		} `json:"providers"`
+	}
+
+	getJSON(t, ts.URL+"/api/providers", &page)
+
+	var seen int
+
+	for _, p := range page.Providers {
+		switch p.Name {
+		case "anthropic":
+			seen++
+
+			if !p.HasKey || p.Model != "claude-opus-5" {
+				t.Errorf("anthropic came back as %+v", p)
+			}
+
+		case "ollama":
+			seen++
+
+			if p.NeedsKey {
+				t.Error("the local one was said to need a key")
+			}
+		}
+	}
+
+	if seen != 2 {
+		t.Errorf("%d of the expected providers listed", seen)
+	}
+}
+
+/*
+ * An empty box means "leave it alone", never "delete the key".
+ *
+ * Those are different intentions and there is a separate button for the
+ * second. Saving a model name must not silently disconnect a provider.
+ */
+func TestSavingAModelDoesNotWipeTheKey(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	send(t, ts.URL+"/api/providers/connect",
+		`{"provider":"openai","key":"sk-something-9999"}`)
+
+	send(t, ts.URL+"/api/providers/connect",
+		`{"provider":"openai","model":"gpt-4o"}`)
+
+	var page struct {
+		Providers []struct {
+			Name   string `json:"name"`
+			HasKey bool   `json:"has_key"`
+			Model  string `json:"model"`
+		} `json:"providers"`
+	}
+
+	getJSON(t, ts.URL+"/api/providers", &page)
+
+	for _, p := range page.Providers {
+		if p.Name != "openai" {
+			continue
+		}
+
+		if !p.HasKey {
+			t.Error("saving a model name wiped the key")
+		}
+
+		if p.Model != "gpt-4o" {
+			t.Errorf("the model is %q", p.Model)
+		}
+	}
+
+	// And forgetting is deliberate, and works.
+	send(t, ts.URL+"/api/providers/connect", `{"provider":"openai","forget":true}`)
+
+	getJSON(t, ts.URL+"/api/providers", &page)
+
+	for _, p := range page.Providers {
+		if p.Name == "openai" && p.HasKey {
+			t.Error("the key survived being forgotten")
+		}
+	}
+}
+
+// getRaw reads a response as text, for asking whether something is in it at
+// all rather than what shape it has.
+func getRaw(t *testing.T, url string) string {
+	t.Helper()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return string(body)
+}
+
+/*
+ * Which half is missing, not "not configured".
+ *
+ * An address with no token and a token with no address are different mistakes
+ * with different next steps, and telling somebody neither is how a setup page
+ * becomes a guessing game.
+ */
+func TestTheHouseSaysWhichHalfIsMissing(t *testing.T) {
+	ts, _, _ := newServer(t)
+
+	var page struct {
+		URL       string `json:"url"`
+		HasToken  bool   `json:"has_token"`
+		TokenTail string `json:"token_tail"`
+		Connected bool   `json:"connected"`
+		Why       string `json:"why"`
+	}
+
+	getJSON(t, ts.URL+"/api/devices", &page)
+
+	if !strings.Contains(page.Why, "Not set up yet") {
+		t.Errorf("a brand new brain says %q", page.Why)
+	}
+
+	// An address alone.
+	send(t, ts.URL+"/api/devices/connect", `{"url":"http://homeassistant.local:8123"}`)
+	getJSON(t, ts.URL+"/api/devices", &page)
+
+	if !strings.Contains(page.Why, "no token") {
+		t.Errorf("with an address and no token it says %q", page.Why)
+	}
+
+	// And the token never comes back.
+	const token = "eyJhbGciOiJIUzI1NiJ9.secret-token-7788"
+
+	send(t, ts.URL+"/api/devices/connect", `{"token":"`+token+`"}`)
+
+	raw := getRaw(t, ts.URL+"/api/devices")
+
+	if strings.Contains(raw, token) {
+		t.Fatal("the whole token came back to the page")
+	}
+
+	getJSON(t, ts.URL+"/api/devices", &page)
+
+	if !page.HasToken || page.TokenTail != "7788" {
+		t.Errorf("the page cannot tell which token is set: %+v", page)
+	}
+
+	// Saving the address again must not wipe the token.
+	send(t, ts.URL+"/api/devices/connect", `{"url":"http://192.168.0.9:8123"}`)
+	getJSON(t, ts.URL+"/api/devices", &page)
+
+	if !page.HasToken {
+		t.Error("saving the address wiped the token")
+	}
+
+	if page.URL != "http://192.168.0.9:8123" {
+		t.Errorf("the address is %q", page.URL)
 	}
 }

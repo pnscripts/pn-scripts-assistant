@@ -214,6 +214,22 @@
             meant the only way to let the brain do more was to let more leave,
             which is a trade nobody would choose written down that plainly.
         -->
+        <!--
+            The things in the house.
+
+            The code to talk to them has been in this program the whole time
+            with no interface at all, so the capability existed in the sense
+            that a library existed.
+        -->
+        <button type="button" class="nav-item" data-view="devices">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M4 11l8-6 8 6" fill="none" stroke="currentColor"
+                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6 10v9h12v-9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="12" cy="14" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <span>The house</span>
+        </button>
         <button type="button" class="nav-item" data-view="permissions">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M12 3l7 3v5c0 4.4-2.9 8.4-7 9.6C7.9 19.4 5 15.4 5 11V6z"
@@ -506,9 +522,33 @@
         <section class="view" data-view="models" hidden>
             <div class="view-inner">
                 <div class="card">
-                    <h2>Models</h2>
+                    <h2>Models on this machine</h2>
                     <p class="note" id="models-note">Looking…</p>
                     <div id="models-list" class="rows"></div>
+                </div>
+
+                <!--
+                    Connecting to a model that is not on this machine.
+
+                    The keys have been in the settings file since the beginning
+                    and there has never been anywhere to type one — so using a
+                    hosted model meant finding the file and knowing its name,
+                    which is not a feature this program has, it is a feature its
+                    author has.
+
+                    A key is never sent back to this page. It is told whether
+                    one is set and its last four characters, which is enough to
+                    tell two keys apart and useless to somebody reading over a
+                    shoulder.
+                -->
+                <div class="card">
+                    <h2>Models somewhere else</h2>
+                    <p class="insight-note" id="providers-privacy">
+                        Anything but the first sends your conversation to another
+                        company's computers. Your privacy setting decides which
+                        are allowed at all.
+                    </p>
+                    <div id="providers-list"></div>
                 </div>
             </div>
         </section>
@@ -996,6 +1036,29 @@
             and that list has to be complete or it is reassurance rather than
             information.
         -->
+        <section class="view" data-view="devices" hidden>
+            <div class="view-inner">
+                <div class="card">
+                    <h2>The house</h2>
+                    <p class="note" id="devices-why">Looking…</p>
+
+                    <div class="provider-fields">
+                        <input id="ha-url" type="text" placeholder="http://homeassistant.local:8123">
+                        <input id="ha-token" type="password" autocomplete="off" placeholder="long-lived access token">
+                    </div>
+                    <div class="provider-actions">
+                        <button type="button" class="model-action" id="ha-save">Connect</button>
+                        <button type="button" class="model-action danger" id="ha-forget" hidden>Disconnect</button>
+                    </div>
+                </div>
+
+                <div class="card" id="devices-card" hidden>
+                    <h2>What is connected <span class="badge" id="devices-count">0</span></h2>
+                    <div id="devices-list"></div>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="permissions" hidden>
             <div class="view-inner">
                 <div class="card">
@@ -1243,6 +1306,8 @@
 <script src="/js/updates.js"></script>
 <script src="/js/settings.js"></script>
 <script src="/js/permissions.js"></script>
+<script src="/js/providers.js"></script>
+<script src="/js/devices.js"></script>
 <script src="/js/history.js"></script>
 <script src="/js/copies.js"></script>
 <script src="/js/places.js"></script>

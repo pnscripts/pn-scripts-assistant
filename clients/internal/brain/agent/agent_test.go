@@ -1097,3 +1097,98 @@ func TestAnObjectWithBracesInsideItIsReadWhole(t *testing.T) {
 		t.Fatalf("read %q", got)
 	}
 }
+
+/*
+ * A question ends the turn. It does not come back to the model.
+ *
+ * The whole point, and the easy thing to get wrong: a model that asks a
+ * question and is handed control again answers it itself on the next step,
+ * which is exactly the guessing this exists to stop.
+ */
+func TestAQuestionEndsTheTurnRatherThanBeingAnswered(t *testing.T) {
+	loop, db := newLoop(t, tools.Ask{Owner: "Petar"})
+
+	id, _ := db.NewConversation("")
+
+	model := &scripted{replies: []llm.Response{
+		{ToolCalls: []llm.ToolCall{{
+			ID:   "1",
+			Name: "ask_first",
+			Arguments: json.RawMessage(`{
+				"question": "Which of them did you mean?",
+				"why": "There are two folders called Skillo",
+				"options": ["~/Projects/Skillo", "/media/drive/DEV/Skillo"]
+			}`),
+		}}},
+
+		// If the loop ever hands control back, this is what would be said —
+		// and the test would see it instead of the question.
+		{Content: "I picked the first one and carried on."},
+	}}
+
+	out, err := loop.Run(context.Background(), id, model,
+		[]llm.Message{{Role: llm.RoleUser, Content: "look in Skillo"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !out.Asked {
+		t.Error("the turn did not report that it ended on a question")
+	}
+
+	if strings.Contains(out.Reply, "carried on") {
+		t.Errorf("the model answered its own question:\n%s", out.Reply)
+	}
+
+	for _, want := range []string{"two folders called Skillo", "Which of them did you mean?", "~/Projects/Skillo"} {
+		if !strings.Contains(out.Reply, want) {
+			t.Errorf("the question does not say %q:\n%s", want, out.Reply)
+		}
+	}
+
+	// Asked once: the model was never called a second time.
+	if len(model.seen) != 1 {
+		t.Errorf("the model was asked %d times, want once", len(model.seen))
+	}
+
+	// And it is in the conversation, so the answer has something to follow.
+	said, _ := db.History(id)
+
+	var found bool
+
+	for _, m := range said {
+		if strings.Contains(m.Content, "Which of them did you mean?") {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Error("the question was not written into the conversation")
+	}
+}
+
+// An ask_first call with nothing in it must not end a turn with silence.
+func TestAnEmptyQuestionDoesNotEndTheTurn(t *testing.T) {
+	loop, db := newLoop(t, tools.Ask{})
+
+	id, _ := db.NewConversation("")
+
+	model := &scripted{replies: []llm.Response{
+		{ToolCalls: []llm.ToolCall{{ID: "1", Name: "ask_first", Arguments: json.RawMessage(`{}`)}}},
+		{Content: "Here is the answer instead."},
+	}}
+
+	out, err := loop.Run(context.Background(), id, model,
+		[]llm.Message{{Role: llm.RoleUser, Content: "anything"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if out.Asked {
+		t.Error("an empty question ended the turn")
+	}
+
+	if out.Reply == "" {
+		t.Error("the turn ended with nothing at all")
+	}
+}

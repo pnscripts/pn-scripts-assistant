@@ -122,6 +122,16 @@ type Result struct {
 	ActionsTaken []string
 	Pending      []Pending
 	HitStepLimit bool
+
+	/*
+	 * Asked is true when the turn ended on a question rather than an answer.
+	 *
+	 * Worth distinguishing from an ordinary reply, because everything
+	 * downstream treats "here is what I found" and "which of these did you
+	 * mean" differently: the second is not something to learn from, and it is
+	 * the one case where the brain has deliberately not finished.
+	 */
+	Asked bool
 }
 
 // WaitingForApproval reports whether the turn stopped for a person.
@@ -440,6 +450,34 @@ func (l *Loop) RunShaped(
 			}
 
 			/*
+			 * A question ends the turn here, before anything else happens.
+			 *
+			 * Checked before permission, before protection, before execution,
+			 * because none of those apply: nothing is being done. The turn
+			 * stops and the question goes to the person, and their next
+			 * message is the answer.
+			 *
+			 * It has to end the turn rather than return a result. A model that
+			 * asks a question and is handed control again answers it itself on
+			 * the next step, which is exactly the guessing this exists to stop.
+			 */
+			if tool.Name() == askFirst {
+				if q, ok := tools.ReadQuestion(call.Arguments); ok {
+					l.Log.Info("asked rather than guessed", "question", q.Question)
+
+					text := q.Text()
+
+					l.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", text)
+
+					return Result{
+						Reply:        text,
+						ActionsTaken: actions,
+						Asked:        true,
+					}, nil
+				}
+			}
+
+			/*
 			 * Allowed, refused, or put in front of a person.
 			 *
 			 * This was two states — safe ran and mutating always stopped —
@@ -549,6 +587,10 @@ func (l *Loop) RunShaped(
 		HitStepLimit: true,
 	}, nil
 }
+
+// askFirst is the one tool the loop handles itself rather than executing.
+// See tools/ask.go.
+const askFirst = "ask_first"
 
 // awaitApproval ends the turn with the actions queued and nothing done.
 func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []Pending, actions []string) Result {
