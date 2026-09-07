@@ -287,7 +287,8 @@ func TestRegisteredTools(t *testing.T) {
 	want := []string{
 		"ask_first", "brain_copies", "change_a_setting", "change_this_conversation",
 		"click", "decide_waiting", "do_in_background", "edit_file",
-		"fetch_url", "films_without_subtitles", "forget_reminder", "how_fast_can_you_answer",
+		"fetch_url", "films_without_subtitles", "forget_reminder",
+		"godot_build", "godot_docs", "godot_status", "how_fast_can_you_answer",
 		"learn_from_folder", "list_background", "list_directory",
 		"list_drives", "list_models",
 		"list_reminders", "list_waiting", "list_windows", "look_at_screen",

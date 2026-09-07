@@ -378,6 +378,36 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 */
 		tools.Ask{Owner: b.Cfg.Owner},
 
+		/*
+		 * Making games with Godot.
+		 *
+		 * The reference lookup is the one that earns its place: a model asked
+		 * to write GDScript writes it whether or not it knows the engine, and
+		 * what comes out is fluent and half invented. Looking a class up is
+		 * authoritative, costs a second, and is checkable.
+		 */
+		tools.GodotStatus{
+			Places: func() []string {
+				list, err := places.List(b.Root)
+				if err != nil {
+					return nil
+				}
+
+				out := make([]string, 0, len(list))
+
+				for _, p := range list {
+					out = append(out, p.Path)
+				}
+
+				return out
+			},
+			// Reaching out is privacy's question, asked fresh: an update check
+			// is a small thing to leak and it still says this machine exists.
+			Online: func() bool { return b.Router.Mode().AllowsWeb() },
+		},
+		tools.GodotDocs{Online: func() bool { return b.Router.Mode().AllowsWeb() }},
+		tools.GodotBuild{},
+
 		tools.Remind{Diary: diaryOf{b}},
 		tools.ListReminders{Diary: diaryOf{b}},
 		tools.ForgetReminder{Diary: diaryOf{b}},
