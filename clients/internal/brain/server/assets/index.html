@@ -237,6 +237,16 @@
                 <path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" fill="none" stroke="currentColor" stroke-width="1.6"/>
             </svg>
             <span>What it runs on</span>
+            <!--
+                Noticed without going looking.
+
+                An update nobody is told about is an update nobody installs,
+                and the honest place to say so is beside the page that does
+                something about it. A number rather than a dot: "three things
+                are out of date" is a decision, "there are updates" is a badge
+                people learn to ignore.
+            -->
+            <span class="nav-count" id="nav-upkeep" hidden>0</span>
         </button>
         <button type="button" class="nav-item" data-view="privacy">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
@@ -1077,6 +1087,24 @@
 
         <section class="view" data-view="updates" hidden>
             <div class="view-inner">
+                <!--
+                    What is out of date, everywhere, in one place.
+
+                    Each piece was checked somewhere — the parts list knew
+                    about Ollama, the Godot tool asked its own project, the
+                    program knew its own commit and told nobody — so "is
+                    anything out of date" was a question with four answers in
+                    four places and no way to ask it once.
+                -->
+                <div class="card" id="upkeep-card">
+                    <h2>Up to date <span class="badge" id="upkeep-count" hidden>0</span></h2>
+                    <p class="insight-note" id="upkeep-note">Checking…</p>
+                    <div id="upkeep-list"></div>
+                    <div class="provider-actions">
+                        <button type="button" class="model-action quiet" id="upkeep-again">Check again</button>
+                    </div>
+                </div>
+
                 <div class="card">
                     <h2>What it runs on</h2>
                     <p class="note" id="updates-note">Looking…</p>
@@ -1390,6 +1418,7 @@
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>
+<script src="/js/upkeep.js"></script>
 <script src="/js/history.js"></script>
 <script src="/js/copies.js"></script>
 <script src="/js/places.js"></script>

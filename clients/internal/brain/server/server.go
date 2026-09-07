@@ -171,6 +171,14 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	 * chosen on the first day meant going back to setup — a screen for
 	 * starting, not for changing your mind six weeks later.
 	 */
+	/*
+	 * What is out of date, everywhere, in one answer.
+	 *
+	 * Each piece was checked somewhere and nothing asked the question once.
+	 */
+	s.mux.HandleFunc("GET /api/upkeep", s.handleUpkeep)
+	s.mux.HandleFunc("POST /api/upkeep/self", s.handleSelfUpdate)
+
 	s.mux.HandleFunc("GET /api/parts", s.handleParts)
 	s.mux.HandleFunc("POST /api/parts/install", s.handleInstallPart)
 	s.mux.HandleFunc("GET /api/models/available", s.handleCatalogue)

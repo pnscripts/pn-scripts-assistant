@@ -2,6 +2,7 @@ package preflight
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -53,22 +54,44 @@ func Requirements() []Requirement {
 		},
 		{
 			Name:        "Chat model",
-			Why:         "the model PN Brain talks with",
-			Consequence: "local conversations will fail",
-			Size:        "4.7GB",
+			Why:         "the model the assistant thinks with",
+			Consequence: "it cannot answer anything at all",
+			Size:        defaultChatModelSize(),
+
+			/*
+			 * Satisfied by any usable chat model, not by one name.
+			 *
+			 * It looked for "qwen2.5-coder" exactly, so a machine with
+			 * llama3.2 installed and working was told it had no chat model,
+			 * and setup offered to download five gigabytes of a second one.
+			 * The requirement is that the assistant can think, and any of
+			 * these lets it.
+			 */
 			Check: func() (State, string) {
 				if !commandExists("ollama") {
 					return Unknown, "needs Ollama first"
 				}
 
-				if !ollamaHasModel("qwen2.5-coder") {
-					return Missing, ""
+				if found := aChatModelHere(); found != "" {
+					return OK, found
 				}
 
-				return OK, "qwen2.5-coder"
+				return Missing, ""
 			},
-			Where:      func() string { return ollamaModelDir() },
-			InstallCmd: func() []string { return []string{"ollama", "pull", "qwen2.5-coder:7b"} },
+			Where: func() string { return ollamaModelDir() },
+
+			/*
+			 * And the one it installs is chosen for this machine.
+			 *
+			 * A fixed name is right on the computer it was written for. On a
+			 * machine with eight gigabytes and no graphics card, five
+			 * gigabytes of model is minutes per answer; on one with a card it
+			 * is the wrong way round. RecommendModel already measures the
+			 * machine and picks — it simply was not being asked.
+			 */
+			InstallCmd: func() []string {
+				return []string{"ollama", "pull", RecommendModel(DetectHardware()).Model}
+			},
 		},
 		{
 			Name:        "Embedding model",
@@ -470,4 +493,44 @@ func speechModelHere() string {
 	}
 
 	return ""
+}
+
+/*
+ * aChatModelHere reports which installed model the assistant could think with.
+ *
+ * Any of them, in the order they would be preferred. The check used to name
+ * one model, so somebody who had chosen a different one — or whose machine had
+ * been given the small one on purpose — was told they had nothing and offered
+ * a download they did not need.
+ *
+ * Embedding models are excluded deliberately: they turn text into numbers and
+ * cannot hold a conversation, and counting one would report a machine as ready
+ * to talk when it is not.
+ */
+func aChatModelHere() string {
+	out, err := exec.Command("ollama", "list").CombinedOutput()
+	if err != nil {
+		return ""
+	}
+
+	for _, line := range strings.Split(string(out), "\n")[1:] {
+		name, _, found := strings.Cut(strings.TrimSpace(line), " ")
+		if !found || name == "" {
+			continue
+		}
+
+		if strings.Contains(name, "embed") {
+			continue
+		}
+
+		return name
+	}
+
+	return ""
+}
+
+// defaultChatModelSize is what the model chosen for this machine costs, said
+// before it is downloaded rather than as a number typed here once.
+func defaultChatModelSize() string {
+	return strings.TrimPrefix(RecommendModel(DetectHardware()).SizeNote, "~")
 }

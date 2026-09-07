@@ -672,6 +672,35 @@ func runApp(args []string) error {
 				logger.Warn("could not record that setup is finished", "error", err)
 			}
 		}
+
+		/*
+		 * Without the essentials there is no program, so it says so and stops.
+		 *
+		 * It used to carry on: setup closed with Ollama or a model still
+		 * missing, the console opened, and every question came back as an
+		 * error from a layer four deep that named a port. An assistant that
+		 * cannot think is not a degraded assistant, it is a window — and
+		 * opening it anyway spends somebody's evening looking for a fault in
+		 * the wrong place.
+		 *
+		 * Named rather than counted, and with the way back in the same breath.
+		 * "Requirements not met" is a sentence that helps nobody.
+		 */
+		if still := preflight.Blocking(preflight.Check()); len(still) > 0 {
+			names := make([]string, 0, len(still))
+
+			for _, req := range still {
+				names = append(names, req.Requirement.Name)
+			}
+
+			return fmt.Errorf(
+				"%s cannot run without %s.\n  Open setup again to install "+
+					"%s: run \"%s setup\", or start the program and it will "+
+					"offer setup for as long as anything essential is missing",
+				config.Product, strings.Join(names, " and "),
+				map[bool]string{true: "it", false: "them"}[len(names) == 1],
+				filepath.Base(os.Args[0]))
+		}
 	}
 
 	/*
