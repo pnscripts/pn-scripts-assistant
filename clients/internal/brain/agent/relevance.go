@@ -99,7 +99,7 @@ var housekeeping = map[string][]string{
  * remembering. Those are the ordinary business of the assistant and guessing
  * about them would cost more than it saves.
  */
-func relevant(specs []llm.ToolSpec, message string) []llm.ToolSpec {
+func relevant(specs []llm.ToolSpec, message string, cued func(string) []string) []llm.ToolSpec {
 	text := strings.ToLower(message)
 
 	// A website in the question means the answer is out there, so the tools
@@ -109,6 +109,23 @@ func relevant(specs []llm.ToolSpec, message string) []llm.ToolSpec {
 	out := make([]llm.ToolSpec, 0, len(specs))
 
 	for _, spec := range specs {
+		/*
+		 * A tool that named its own cues is offered only when they appear.
+		 *
+		 * This is how a skill gets into the list without crowding it. Nothing
+		 * built in does this — the ordinary business of the assistant is
+		 * always offered — but skills are added by their owner and there is no
+		 * limit on how many, and a model already choosing badly among
+		 * thirty-one options does not get better with fifty.
+		 */
+		if own := cued(spec.Name); len(own) > 0 {
+			if mentions(text, own) {
+				out = append(out, spec)
+			}
+
+			continue
+		}
+
 		cues, isHousekeeping := housekeeping[spec.Name]
 
 		if !isHousekeeping {
@@ -138,4 +155,15 @@ func relevant(specs []llm.ToolSpec, message string) []llm.ToolSpec {
 	}
 
 	return out
+}
+
+// mentions reports whether any of the cues appears in the message.
+func mentions(text string, cues []string) bool {
+	for _, cue := range cues {
+		if cue != "" && strings.Contains(text, cue) {
+			return true
+		}
+	}
+
+	return false
 }

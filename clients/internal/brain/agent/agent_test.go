@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
@@ -881,6 +882,58 @@ func TestReadingSomethingProtectedStopsAndAsks(t *testing.T) {
 	}
 }
 
+/*
+ * And on "never stop, never refuse", not even that asks.
+ *
+ * The switch was offered as nothing asking, and chosen as that. A key file
+ * still stopping the work would be the one setting in the program that does
+ * not do what it says — while the record still names the file and the rule.
+ */
+func TestNeverStopReadsAProtectedFileWithoutAsking(t *testing.T) {
+	home := t.TempDir()
+	key := filepath.Join(home, ".ssh", "id_rsa")
+
+	os.MkdirAll(filepath.Dir(key), 0o700)
+	os.WriteFile(key, []byte("not a real key"), 0o600)
+
+	protect.Use(protect.Choices{})
+
+	loop, db := newLoop(t, tools.ReadFile{})
+	loop.NothingAsks = func() bool { return true }
+	loop.MayI = func(who, tool string, changes bool) permits.Answer { return permits.Allow }
+
+	model := &scripted{replies: []llm.Response{{
+		ToolCalls: []llm.ToolCall{{
+			ID: "c1", Name: "read_file",
+			Arguments: json.RawMessage(`{"path":` + quote(key) + `}`),
+		}},
+	}}}
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.Run(context.Background(), conv, model, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.WaitingForApproval() {
+		t.Fatalf("it stopped to ask on never stop: %+v", res.Pending)
+	}
+
+	messages, _ := db.History(conv)
+	recorded := false
+
+	for _, m := range messages {
+		if m.Role == llm.RoleTool && strings.Contains(strings.ToLower(m.Content), "ssh keys") {
+			recorded = true
+		}
+	}
+
+	if !recorded {
+		t.Error("the record does not say it read something protected")
+	}
+}
+
 // An ordinary file is read without ceremony. Both halves have to hold: a brain
 // that asks about everything is one whose questions stop being read.
 func TestAnOrdinaryFileIsJustRead(t *testing.T) {
@@ -1190,5 +1243,124 @@ func TestAnEmptyQuestionDoesNotEndTheTurn(t *testing.T) {
 
 	if out.Reply == "" {
 		t.Error("the turn ended with nothing at all")
+	}
+}
+
+/*
+ * The message that asked goes back with the answer.
+ *
+ * Feeding the result back is only half of it. Without the assistant's own
+ * message in front of it the result answers nothing, and the two strict APIs
+ * treat that differently but equally badly: Anthropic discards it and asks its
+ * question again, and every OpenAI-compatible service refuses the request. It
+ * is the reason a tool could only be used twice in one turn against Ollama,
+ * which is lenient enough to render the orphan as text.
+ */
+func TestTheCallGoesBackWithItsResult(t *testing.T) {
+	dir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	loop, db := newLoop(t, tools.ListDirectory{})
+
+	model := &scripted{replies: []llm.Response{
+		{ToolCalls: []llm.ToolCall{{
+			ID: "c1", Name: "list_directory",
+			Arguments: json.RawMessage(`{"path":` + quote(dir) + `}`),
+		}}},
+		{Content: "There is one file, a.txt."},
+	}}
+
+	conv, _ := db.NewConversation("t")
+
+	if _, err := loop.Run(context.Background(), conv, model, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	last := model.seen[len(model.seen)-1]
+
+	var asked *llm.Message
+
+	for i, m := range last.Messages {
+		if m.Role == llm.RoleAssistant && len(m.ToolCalls) > 0 {
+			asked = &last.Messages[i]
+		}
+	}
+
+	if asked == nil {
+		t.Fatal("the assistant's own call was never put back into the conversation")
+	}
+
+	if asked.ToolCalls[0].ID != "c1" || asked.ToolCalls[0].Name != "list_directory" {
+		t.Errorf("the call went back wrong: %+v", asked.ToolCalls[0])
+	}
+
+	// And it comes before the result that answers it, which is the whole
+	// point of putting it there.
+	var askedAt, answeredAt = -1, -1
+
+	for i, m := range last.Messages {
+		if m.Role == llm.RoleAssistant && len(m.ToolCalls) > 0 {
+			askedAt = i
+		}
+
+		if m.Role == llm.RoleTool && m.ToolCallID == "c1" {
+			answeredAt = i
+		}
+	}
+
+	if askedAt < 0 || answeredAt < 0 || askedAt > answeredAt {
+		t.Errorf("the call is at %d and its result at %d", askedAt, answeredAt)
+	}
+}
+
+/*
+ * A call the provider gave no id gets one, and two of them get different ones.
+ *
+ * Ollama sends no id and matches by position. A call recovered from prose used
+ * to carry the literal "recovered", so two in one reply shared an id — and two
+ * results answering the same call is the same refusal as no id at all.
+ */
+func TestEveryCallLeavesWithAnIdOfItsOwn(t *testing.T) {
+	dir := t.TempDir()
+
+	loop, db := newLoop(t, tools.ListDirectory{})
+
+	model := &scripted{replies: []llm.Response{
+		{ToolCalls: []llm.ToolCall{
+			{Name: "list_directory", Arguments: json.RawMessage(`{"path":` + quote(dir) + `}`)},
+			{Name: "list_directory", Arguments: json.RawMessage(`{"path":` + quote(dir) + `}`)},
+		}},
+		{Content: "Both are empty."},
+	}}
+
+	conv, _ := db.NewConversation("t")
+
+	if _, err := loop.Run(context.Background(), conv, model, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	seen := map[string]bool{}
+
+	for _, m := range model.seen[len(model.seen)-1].Messages {
+		if m.Role != llm.RoleTool {
+			continue
+		}
+
+		if m.ToolCallID == "" {
+			t.Fatal("a result went back answering no call")
+		}
+
+		if seen[m.ToolCallID] {
+			t.Fatalf("two results answer the same call: %q", m.ToolCallID)
+		}
+
+		seen[m.ToolCallID] = true
+	}
+
+	if len(seen) != 2 {
+		t.Errorf("expected two distinct calls, got %d", len(seen))
 	}
 }

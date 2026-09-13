@@ -42,7 +42,7 @@ func offered(specs []llm.ToolSpec) map[string]bool {
  * have held the answer.
  */
 func TestAWebsiteQuestionIsNotOfferedTheScreen(t *testing.T) {
-	got := offered(relevant(allTools(), "what do you think about pnscripts.com?"))
+	got := offered(relevant(allTools(), "what do you think about pnscripts.com?", noCues))
 
 	for _, wrong := range []string{"look_at_screen", "list_models", "list_windows", "set_device"} {
 		if got[wrong] {
@@ -60,13 +60,13 @@ func TestAWebsiteQuestionIsNotOfferedTheScreen(t *testing.T) {
 
 // Asked for directly, a housekeeping tool is offered as normal.
 func TestHousekeepingToolsAppearWhenAskedFor(t *testing.T) {
-	got := offered(relevant(allTools(), "which models are installed?"))
+	got := offered(relevant(allTools(), "which models are installed?", noCues))
 
 	if !got["list_models"] {
 		t.Error("list_models was withheld from a question about models")
 	}
 
-	screen := offered(relevant(allTools(), "what is on my screen right now?"))
+	screen := offered(relevant(allTools(), "what is on my screen right now?", noCues))
 
 	if !screen["look_at_screen"] {
 		t.Error("look_at_screen was withheld from a question about the screen")
@@ -94,7 +94,7 @@ func TestTheToolsThatOnlyLookAreAlwaysOffered(t *testing.T) {
 		"good morning",
 		"which models are installed?",
 	} {
-		got := offered(relevant(allTools(), message))
+		got := offered(relevant(allTools(), message, noCues))
 
 		for _, always := range []string{
 			"read_file", "list_directory", "search_files",
@@ -129,7 +129,7 @@ func TestNothingOffersToTypeUnlessAsked(t *testing.T) {
 		"how are you today",
 		"what is the weather in Sofia",
 	} {
-		got := offered(relevant(all, innocent))
+		got := offered(relevant(all, innocent, noCues))
 
 		for _, risky := range driving {
 			if got[risky] {
@@ -140,11 +140,11 @@ func TestNothingOffersToTypeUnlessAsked(t *testing.T) {
 	}
 
 	// And when somebody does ask, it is there.
-	if !offered(relevant(all, "type my email address into that box"))["type_text"] {
+	if !offered(relevant(all, "type my email address into that box", noCues))["type_text"] {
 		t.Error("type_text was withheld from somebody asking it to type")
 	}
 
-	if !offered(relevant(all, "click the save button"))["click"] {
+	if !offered(relevant(all, "click the save button", noCues))["click"] {
 		t.Error("click was withheld from somebody asking it to click")
 	}
 }
@@ -178,7 +178,7 @@ func TestConversationIsNotOfferedTheToolsForChangingThings(t *testing.T) {
 		"good evening",
 		"how are you today",
 	} {
-		got := offered(relevant(all, chat))
+		got := offered(relevant(all, chat, noCues))
 
 		for _, risky := range changing {
 			if got[risky] {
@@ -194,9 +194,13 @@ func TestConversationIsNotOfferedTheToolsForChangingThings(t *testing.T) {
 		{"run the tests for me", "run_command"},
 		{"what is still running in the background?", "list_background"},
 	} {
-		if !offered(relevant(all, c.asked))[c.want] {
+		if !offered(relevant(all, c.asked, noCues))[c.want] {
 			t.Errorf("%s was withheld from %q, which plainly asks for it",
 				c.want, c.asked)
 		}
 	}
 }
+
+// noCues is the ordinary case: nothing built in names its own cues, so every
+// test here is about the housekeeping list rather than about skills.
+func noCues(string) []string { return nil }

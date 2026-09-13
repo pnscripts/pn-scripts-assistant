@@ -84,7 +84,34 @@ type Loop struct {
 	 * Nil keeps the old behaviour exactly: everything that changes something
 	 * stops and asks.
 	 */
-	MayI func(tool string, changesSomething bool) permits.Answer
+	/*
+	 * MayI decides whether an action goes ahead, and who is asking.
+	 *
+	 * Who, because several agents mean several different amounts of
+	 * authority, and an agent able to borrow another's would make the roster
+	 * a way round the gate rather than a narrowing of it. Empty is the owner
+	 * talking to the assistant directly, which is where every decision used
+	 * to come from and still means the same thing.
+	 *
+	 * Still one closure, wired once. Several agents must not mean several
+	 * gates that are meant to agree.
+	 */
+	MayI func(who, tool string, changesSomething bool) permits.Answer
+
+	/*
+	 * NothingAsks is whether its owner has said never to stop.
+	 *
+	 * MayI already answers that for the capability. This is the other half:
+	 * a protected file puts a question whatever has been granted, because
+	 * "you may read files" is not "you may read this key" — and on "never
+	 * stop, never refuse" that question is exactly what its owner chose not
+	 * to be asked. The switch was offered as "nothing asks", and a key file
+	 * still stopping the work would be the setting not doing what it says.
+	 *
+	 * The summary still names the file and the rule, so the record says what
+	 * was read and why it would have been asked about. Nil keeps asking.
+	 */
+	NothingAsks func() bool
 
 	/*
 	 * Model chooses which model answers a turn, or is nil to leave it alone.
@@ -95,12 +122,36 @@ type Loop struct {
 	 */
 	Model func(message string) llm.Choice
 
+	/*
+	 * Quietly keeps this loop out of the panel that says what the brain is
+	 * doing for its owner.
+	 *
+	 * For the loop a task runs on. progress holds a single current step by
+	 * design — it is a line somebody reads while they wait, not a log — so a
+	 * task working in the background would overwrite the line belonging to the
+	 * conversation somebody is actually sitting in front of. "Is it working on
+	 * my question" would then have the wrong answer on screen while being
+	 * right underneath. A task's work still shows, in the activity feed and in
+	 * its own view.
+	 */
+	Quietly bool
+
 	DB       *store.DB
 	Registry *tools.Registry
 	Log      *slog.Logger
 
-	specsOnce   sync.Once
+	/*
+	 * The schemas, built once and rebuilt when the tool list changes.
+	 *
+	 * It was a sync.Once, from when the registry was built at startup and
+	 * never touched again. A skill can now be taught in the middle of a
+	 * conversation, and a cache that can never be invalidated would mean the
+	 * model was never told about it — the tool would exist, be callable, and
+	 * be invisible, which is the most confusing of the three possibilities.
+	 */
+	specsMu     sync.Mutex
 	cachedSpecs []llm.ToolSpec
+	specsFor    int64
 }
 
 // Pending is an action waiting for approval.
@@ -111,6 +162,29 @@ type Pending struct {
 }
 
 // Result is the outcome of one turn.
+/*
+ * Step is one thing the assistant did, kept in enough detail to be looked at.
+ *
+ * ActionsTaken has always been beside this and stays: it is the one-line
+ * summary a person reads without asking for more, and plenty of the interface
+ * wants exactly that. What it could not do is answer "yes, but what did it
+ * actually run, and what came back" — so watching the assistant work meant
+ * trusting a sentence that describes a category of action rather than the
+ * action.
+ *
+ * Asked is the arguments as the model wrote them; Result is what came back,
+ * trimmed. Both are the difference between a tool called with the wrong
+ * argument and a tool that is merely slow, which look identical from outside.
+ */
+type Step struct {
+	Tool    string `json:"tool"`
+	Summary string `json:"summary"`
+	Asked   string `json:"asked,omitempty"`
+	Result  string `json:"result,omitempty"`
+	Failed  bool   `json:"failed,omitempty"`
+	Millis  int64  `json:"millis"`
+}
+
 type Result struct {
 	// AlreadySpoken is true when the answer was said aloud as it was written,
 	// so the caller must not say the whole thing again.
@@ -120,8 +194,23 @@ type Result struct {
 	Provider     string
 	Model        string
 	ActionsTaken []string
+
+	// Steps is the same work with the detail kept, for an interface that lets
+	// somebody open one up.
+	Steps []Step
+
 	Pending      []Pending
 	HitStepLimit bool
+
+	/*
+	 * Rounds is how many times the model was asked during this turn.
+	 *
+	 * A turn that uses a tool is several calls, and on this machine each of
+	 * them is most of a minute — so anything budgeting a long piece of work in
+	 * model calls has to be told, rather than guessing from how many tools
+	 * happened to run.
+	 */
+	Rounds int
 
 	/*
 	 * Asked is true when the turn ended on a question rather than an answer.
@@ -173,7 +262,106 @@ func (l *Loop) RunShaped(
 	maxTokens int,
 	withTools bool,
 ) (Result, error) {
+	return l.RunAs(ctx, conversationID, provider, messages, maxTokens, withTools, llm.Choice{})
+}
+
+/*
+ * RunAs is RunShaped with the model already decided.
+ *
+ * For a caller that has more to go on than the message. The conductor knows
+ * which step of which task this is and what shape of work it is, where
+ * RunShaped has only a sentence to judge by. The choice is still made once and
+ * held for the whole turn, which is the property that matters — only who makes
+ * it moves.
+ *
+ * An empty Choice.Model falls back to l.Model exactly as before, so nothing
+ * that calls RunShaped notices this exists.
+ */
+func (l *Loop) RunAs(
+	ctx context.Context,
+	conversationID int64,
+	provider llm.Provider,
+	messages []llm.Message,
+	maxTokens int,
+	withTools bool,
+	choice llm.Choice,
+) (Result, error) {
+	return l.RunBrief(ctx, conversationID, provider, messages, Brief{
+		Choice: choice, WithTools: withTools, MaxTokens: maxTokens,
+	})
+}
+
+/*
+ * Brief is everything a caller decides about one turn.
+ *
+ * A struct rather than three more parameters, because the list had reached
+ * seven and the next thing to be decided about a turn will not be the last.
+ */
+type Brief struct {
+	// Choice is the model, already decided. An empty Model falls back to the
+	// loop's own chooser.
+	Choice llm.Choice
+
+	WithTools bool
+	MaxTokens int
+
+	/*
+	 * Only, when set, is the only tools this turn may use.
+	 *
+	 * A narrowing of what the assistant may already do, and never a widening:
+	 * everything named here still has to exist, still goes through the same
+	 * permits book, and is still refused by privacy. So an agent with a short
+	 * tool list can be given to a model that has talked its way into asking
+	 * for something else, and the answer is no.
+	 *
+	 * It also makes small models better rather than only safer. How well a
+	 * model chooses among tools falls off sharply with its size, and a
+	 * researcher offered five options chooses better than one offered
+	 * thirty-one.
+	 */
+	Only []string
+
+	/*
+	 * Never is tools this turn may not use, whatever else it may.
+	 *
+	 * Separate from Only because it answers a different question. Only is
+	 * "what is this job about" — a narrowing for the sake of the choice being
+	 * easy. Never is "what is not this job's to decide", and it has to hold
+	 * even for the generalist, whose Only list is empty precisely because it
+	 * does everything.
+	 *
+	 * What it exists for: decide_waiting carries out the actions the approval
+	 * gate is holding. In a conversation that is correct — it runs because
+	 * its owner asked for it in the sentence they just spoke. In a task the
+	 * sentence was written by a planner, and an agent working unattended
+	 * approving what its owner has not seen is the gate deciding itself.
+	 */
+	Never []string
+
+	/*
+	 * As is who is acting, by the name the roster knows them by.
+	 *
+	 * Empty is the owner's own assistant answering the owner. It reaches the
+	 * approval gate, so that what one agent has been allowed is not what all
+	 * of them have been allowed.
+	 */
+	As string
+}
+
+// RunBrief is one turn, with everything about it decided by the caller.
+func (l *Loop) RunBrief(
+	ctx context.Context,
+	conversationID int64,
+	provider llm.Provider,
+	messages []llm.Message,
+	brief Brief,
+) (result Result, err error) {
+	maxTokens, withTools, choice := brief.MaxTokens, brief.WithTools, brief.Choice
+
 	var actions []string
+
+	// The same work, kept in full. See Step.
+	var steps []Step
 
 	/*
 	 * Which model, decided once for the whole turn.
@@ -189,8 +377,14 @@ func (l *Loop) RunShaped(
 	// second, and "good morning" needs none of them.
 	offerTools := withTools
 
-	if l.Model != nil {
-		choice := l.Model(lastUserMessage(messages))
+	chosen := choice.Model != ""
+
+	if !chosen && l.Model != nil {
+		choice = l.Model(lastUserMessage(messages))
+		chosen = true
+	}
+
+	if chosen {
 		model = choice.Model
 		offerTools = withTools && choice.Tools
 
@@ -200,7 +394,7 @@ func (l *Loop) RunShaped(
 				llm.Message{Role: llm.RoleSystem, Content: choice.Guidance})
 		}
 
-		progress.UsingModel(choice.Model)
+		l.usingModel(choice.Model)
 
 		l.Log.Info("model for this turn",
 			"model", choice.Model, "why", choice.Why, "tools", offerTools)
@@ -223,7 +417,8 @@ func (l *Loop) RunShaped(
 		 * seven minutes reading a desktop that could not have held the
 		 * answer.
 		 */
-		specs = relevant(l.specs(), lastUserMessage(messages))
+		specs = relevant(without(onlyThese(l.specs(), brief.Only), brief.Never),
+			lastUserMessage(messages), l.cuesFor)
 	}
 
 	// Whether the model has already been asked to keep a promise this turn.
@@ -233,12 +428,26 @@ func (l *Loop) RunShaped(
 	// several model calls with work between them, and on this machine that can
 	// run to minutes — long enough that an interface saying nothing is
 	// indistinguishable from one that has crashed.
-	progress.Begin()
-	defer progress.Done()
+	l.began()
+	defer l.finished()
+
+	/*
+	 * How many times the model was asked, reported by every way out.
+	 *
+	 * A defer rather than a field on each of the five returns, for the same
+	 * reason the assistant's message is appended above the loop: a number that
+	 * five branches each have to remember to set is a number that is wrong on
+	 * whichever branch was added last.
+	 */
+	rounds := 0
+
+	defer func() { result.Rounds = rounds }()
 
 	for step := 0; step < MaxSteps; step++ {
-		progress.Round(step + 1)
-		progress.Set("thinking", "Thinking")
+		rounds++
+
+		l.round(step + 1)
+		l.doing("thinking", "Thinking")
 
 		/*
 		 * Which model, with how much to read, before it starts.
@@ -250,14 +459,14 @@ func (l *Loop) RunShaped(
 		 * seconds, and the size of the conversation because every token of it
 		 * is read again on every step of the turn.
 		 */
-		progress.Detail(fmt.Sprintf("%s · reading %s", model, sizeOfPrompt(messages)))
+		l.detail(fmt.Sprintf("%s · reading %s", model, sizeOfPrompt(messages)))
 
 		// Which step this is, so what the model produced is reported against
 		// the step that ran it. The call outlives its own step — it starts
 		// under "Thinking" and returns after answering and speaking — so
 		// attaching to whatever is current put a model's running time under
 		// "Listening", which had not been running at all.
-		thinkingStep := progress.Mark()
+		thinkingStep := l.mark()
 		thought := time.Now()
 
 		request := llm.Request{
@@ -318,12 +527,28 @@ func (l *Loop) RunShaped(
 		 * large for it, and those want opposite responses — wait, or choose a
 		 * smaller model. Tokens per second says which.
 		 */
-		progress.DetailOn(thinkingStep, rateOfReply(resp.Content, time.Since(thought)))
+		l.detailOn(thinkingStep, rateOfReply(resp.Content, time.Since(thought)))
 
 		if len(resp.ToolCalls) == 0 {
 			if recovered, ok := l.recoverToolCall(resp.Content); ok {
 				resp.ToolCalls = []llm.ToolCall{recovered}
 				resp.Content = ""
+			}
+		}
+
+		/*
+		 * An id for every call, whether or not the provider gave one.
+		 *
+		 * Ollama sends none and needs none — it matches results to calls by
+		 * position. Anthropic and every OpenAI-compatible service refuse a
+		 * result that names no call, so the id is the whole of what ties the
+		 * two together. A recovered call carried the literal "recovered",
+		 * which two of them in one reply would have shared, and two results
+		 * answering the same call is that same refusal by another route.
+		 */
+		for i := range resp.ToolCalls {
+			if id := resp.ToolCalls[i].ID; id == "" || id == "recovered" {
+				resp.ToolCalls[i].ID = fmt.Sprintf("call_%d_%d", step, i)
 			}
 		}
 
@@ -351,7 +576,7 @@ func (l *Loop) RunShaped(
 					llm.Message{Role: llm.RoleSystem, Content: keepThePromise})
 
 				l.Log.Info("the model promised an action without taking one; asking again")
-				progress.Set("thinking", "Doing it")
+				l.doing("thinking", "Doing it")
 
 				continue
 			}
@@ -394,9 +619,32 @@ func (l *Loop) RunShaped(
 				Provider:      resp.Provider,
 				Model:         resp.Model,
 				ActionsTaken:  actions,
+				Steps:         steps,
 				AlreadySpoken: resp.Spoken,
 			}, nil
 		}
+
+		/*
+		 * The message that asked, before any of the answers.
+		 *
+		 * This is the whole of why a hosted model could not use a tool twice.
+		 * Every path below appends the tool's result and none of them appended
+		 * the message that asked for it, so the conversation read as answers
+		 * to questions nobody had put: Anthropic dropped them and asked its
+		 * question again, unaware it had ever looked anything up, and every
+		 * OpenAI-compatible service refused the request outright.
+		 *
+		 * Appended once, here, so that every call in it is answered by one of
+		 * the branches below — including the ones naming a tool that does not
+		 * exist and the ones privacy refuses. Both APIs require an answer to
+		 * every call, and putting this above the loop makes that true by
+		 * construction rather than by five branches each remembering to.
+		 */
+		messages = append(messages, llm.Message{
+			Role:      llm.RoleAssistant,
+			Content:   resp.Content,
+			ToolCalls: resp.ToolCalls,
+		})
 
 		var pending []Pending
 
@@ -422,6 +670,38 @@ func (l *Loop) RunShaped(
 			if l.OffLimits != nil && l.OffLimits(call.Name) {
 				messages = append(messages, toolResult(call,
 					"That is not allowed under the current privacy setting."))
+
+				continue
+			}
+
+			/*
+			 * And refused as well as hidden, for the same reason.
+			 *
+			 * Leaving a tool out of the list is what stops it being reached
+			 * for; this is what stops it anyway. A model that saw the tool
+			 * earlier in the same conversation will name it again — and an
+			 * agent whose limits were only a shorter menu would be a
+			 * convention rather than a rule.
+			 */
+			if !allowedBy(brief.Only, call.Name) {
+				messages = append(messages, toolResult(call,
+					"That is not one of the tools for this piece of work."))
+
+				continue
+			}
+
+			/*
+			 * And what is not this job's to decide, whatever else it may do.
+			 *
+			 * Hidden above and refused here, like everything else: a model
+			 * that saw the tool in an earlier turn will name it again, and a
+			 * limit that is only a shorter menu is a convention rather than a
+			 * rule.
+			 */
+			if listed(brief.Never, call.Name) {
+				messages = append(messages, toolResult(call,
+					"That is the owner's own decision to make, not this job's. "+
+						"Say what needs deciding and leave it to them."))
 
 				continue
 			}
@@ -472,6 +752,7 @@ func (l *Loop) RunShaped(
 					return Result{
 						Reply:        text,
 						ActionsTaken: actions,
+						Steps:        steps,
 						Asked:        true,
 					}, nil
 				}
@@ -494,7 +775,7 @@ func (l *Loop) RunShaped(
 			answer := permits.Ask
 
 			if l.MayI != nil {
-				answer = l.MayI(tool.Name(), changes)
+				answer = l.MayI(brief.As, tool.Name(), changes)
 			} else if !changes {
 				answer = permits.Allow
 			}
@@ -525,8 +806,12 @@ func (l *Loop) RunShaped(
 				continue
 			}
 
+			if ask && l.NothingAsks != nil && l.NothingAsks() {
+				ask = false
+			}
+
 			if answer == permits.Ask || ask {
-				progress.Set("waiting", "Waiting for you: "+summary)
+				l.doing("waiting", "Waiting for you: "+summary)
 
 				id, err := l.DB.RecordInvocation(conversationID, tool.Name(), string(call.Arguments), summary, string(tools.Mutating))
 				if err != nil {
@@ -538,7 +823,7 @@ func (l *Loop) RunShaped(
 				continue
 			}
 
-			progress.SetTool(tool.Name(), summary)
+			l.usingTool(tool.Name(), summary)
 
 			/*
 			 * What it was actually asked to do, in its own words.
@@ -549,24 +834,38 @@ func (l *Loop) RunShaped(
 			 * a tool called with the wrong argument and a tool that is merely
 			 * slow look identical until you can see what it was handed.
 			 */
-			progress.Detail(askedFor(call.Arguments))
+			l.detail(askedFor(call.Arguments))
 
 			started := time.Now()
 
 			output, err := tool.Execute(ctx, call.Arguments)
+
+			step := Step{
+				Tool:    tool.Name(),
+				Summary: summary,
+				Asked:   askedFor(call.Arguments),
+				Millis:  time.Since(started).Milliseconds(),
+			}
+
 			if err != nil {
 				output = "Error: " + err.Error()
+				step.Failed = true
+				step.Result = err.Error()
 
-				progress.Detail("failed: " + truncate(err.Error(), 120))
+				l.detail("failed: " + truncate(err.Error(), 120))
 			} else {
 				actions = append(actions, summary)
+				step.Result = truncate(output, 4000)
 
 				// What came back and how long it took, so a tool that returned
 				// nothing is distinguishable from one that returned plenty —
 				// which is the difference between a wrong answer and no answer.
-				progress.Detail(fmt.Sprintf("%s in %s",
+				l.detail(fmt.Sprintf("%s in %s",
 					sizeOfResult(output), took(time.Since(started))))
 			}
+
+			step.Millis = time.Since(started).Milliseconds()
+			steps = append(steps, step)
 
 			messages = append(messages, toolResult(call, output))
 
@@ -576,7 +875,7 @@ func (l *Loop) RunShaped(
 		}
 
 		if len(pending) > 0 {
-			return l.awaitApproval(conversationID, resp, pending, actions), nil
+			return l.awaitApproval(conversationID, resp, pending, actions, steps), nil
 		}
 	}
 
@@ -584,6 +883,7 @@ func (l *Loop) RunShaped(
 		Reply: fmt.Sprintf("I stopped after %d steps without reaching an answer. "+
 			"Ask me to continue if that was too soon.", MaxSteps),
 		ActionsTaken: actions,
+		Steps:        steps,
 		HitStepLimit: true,
 	}, nil
 }
@@ -593,7 +893,7 @@ func (l *Loop) RunShaped(
 const askFirst = "ask_first"
 
 // awaitApproval ends the turn with the actions queued and nothing done.
-func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []Pending, actions []string) Result {
+func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []Pending, actions []string, steps []Step) Result {
 	var b strings.Builder
 
 	if text := presentable(resp.Content); text != "" {
@@ -620,6 +920,7 @@ func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []
 		Provider:     resp.Provider,
 		Model:        resp.Model,
 		ActionsTaken: actions,
+		Steps:        steps,
 		Pending:      pending,
 	}
 }
@@ -771,6 +1072,17 @@ func (l *Loop) recoverToolCall(content string) (llm.ToolCall, bool) {
  * said it would do the thing and did not do it, which is the worst outcome
  * available to it.
  */
+/*
+ * JSONObjects is every place in a reply that might be a JSON object.
+ *
+ * Exported for the planner, which has exactly the problem tool-call recovery
+ * has and no reason to solve it twice: a small model asked for JSON writes a
+ * sentence in front of it, or fences it, or wraps its working in <think> tags
+ * and puts the object after. Two copies of that brace counter is how one of
+ * them stops getting fixed.
+ */
+func JSONObjects(text string) []string { return jsonCandidates(text) }
+
 func jsonCandidates(content string) []string {
 	/*
 	 * The model's deliberation comes off first.
@@ -913,7 +1225,7 @@ func (l *Loop) streamAloud(
 
 	defer voice.Close()
 
-	progress.Set("answering", "Answering")
+	l.doing("answering", "Answering")
 
 	/*
 	 * Nothing is spoken until it is clear this is an answer and not a call.
@@ -964,7 +1276,7 @@ func (l *Loop) streamAloud(
 				voice.Write(opening.String())
 
 				written.WriteString(opening.String())
-				progress.Writing(written.String())
+				l.writing(written.String())
 			}
 
 			return
@@ -976,7 +1288,7 @@ func (l *Loop) streamAloud(
 			// Shown as well as said. A tool call is deliberately not shown:
 			// it is machinery, and half of one on screen is punctuation.
 			written.WriteString(text)
-			progress.Writing(written.String())
+			l.writing(written.String())
 		}
 	})
 	if err != nil {
@@ -1140,7 +1452,9 @@ func promised(content string) bool {
 // processing ten tokens a second that is real time spent transmitting
 // indentation.
 func (l *Loop) specs() []llm.ToolSpec {
-	l.specsOnce.Do(func() {
+	l.specsMu.Lock()
+
+	if version := l.Registry.Version(); l.cachedSpecs == nil || version != l.specsFor {
 		all := l.Registry.All()
 		out := make([]llm.ToolSpec, 0, len(all))
 
@@ -1152,11 +1466,15 @@ func (l *Loop) specs() []llm.ToolSpec {
 			})
 		}
 
-		l.cachedSpecs = out
-	})
+		l.cachedSpecs, l.specsFor = out, version
+	}
+
+	cached := l.cachedSpecs
+
+	l.specsMu.Unlock()
 
 	if l.OffLimits == nil {
-		return l.cachedSpecs
+		return cached
 	}
 
 	/*
@@ -1168,9 +1486,9 @@ func (l *Loop) specs() []llm.ToolSpec {
 	 * throw away the caching that exists because whitespace in a schema is
 	 * tokens the model is charged for.
 	 */
-	out := make([]llm.ToolSpec, 0, len(l.cachedSpecs))
+	out := make([]llm.ToolSpec, 0, len(cached))
 
-	for _, spec := range l.cachedSpecs {
+	for _, spec := range cached {
 		if l.OffLimits(spec.Name) {
 			continue
 		}
@@ -1473,3 +1791,131 @@ func repeatOf(reply string, messages []llm.Message) bool {
 func plainly(text string) string {
 	return strings.Join(strings.Fields(strings.ToLower(text)), " ")
 }
+
+/*
+ * What is happening, for anything watching — unless nobody is.
+ *
+ * Every one of these is progress.X guarded by Quietly. They exist because
+ * progress holds one current step for the whole program: a task working in the
+ * background and a person waiting on an answer would be writing to the same
+ * line, and the person would lose. Two background writers already clear a
+ * foreground turn this way, in the learning worker and the place watcher; this
+ * is at least not a third.
+ */
+func (l *Loop) began() {
+	if !l.Quietly {
+		progress.Begin()
+	}
+}
+
+func (l *Loop) finished() {
+	if !l.Quietly {
+		progress.Done()
+	}
+}
+
+func (l *Loop) round(n int) {
+	if !l.Quietly {
+		progress.Round(n)
+	}
+}
+
+func (l *Loop) doing(kind, note string) {
+	if !l.Quietly {
+		progress.Set(kind, note)
+	}
+}
+
+func (l *Loop) usingTool(name, note string) {
+	if !l.Quietly {
+		progress.SetTool(name, note)
+	}
+}
+
+func (l *Loop) usingModel(name string) {
+	if !l.Quietly {
+		progress.UsingModel(name)
+	}
+}
+
+func (l *Loop) detail(line string) {
+	if !l.Quietly {
+		progress.Detail(line)
+	}
+}
+
+func (l *Loop) writing(text string) {
+	if !l.Quietly {
+		progress.Writing(text)
+	}
+}
+
+func (l *Loop) mark() int64 {
+	if l.Quietly {
+		return 0
+	}
+
+	return progress.Mark()
+}
+
+func (l *Loop) detailOn(mark int64, line string) {
+	if !l.Quietly {
+		progress.DetailOn(mark, line)
+	}
+}
+
+// cuesFor is the words a tool said mean it is worth offering, or none. Only
+// skills say anything here; see tools.Cued.
+func (l *Loop) cuesFor(name string) []string {
+	tool, ok := l.Registry.Get(name)
+	if !ok {
+		return nil
+	}
+
+	if cued, ok := tool.(tools.Cued); ok {
+		return cued.Cues()
+	}
+
+	return nil
+}
+
+// onlyThese narrows a list of schemas to the ones a turn may use. An empty
+// list means no narrowing, which is the ordinary case.
+func onlyThese(specs []llm.ToolSpec, only []string) []llm.ToolSpec {
+	if len(only) == 0 {
+		return specs
+	}
+
+	out := make([]llm.ToolSpec, 0, len(only))
+
+	for _, spec := range specs {
+		if allowedBy(only, spec.Name) {
+			out = append(out, spec)
+		}
+	}
+
+	return out
+}
+
+func allowedBy(only []string, name string) bool { return tools.Allowed(only, name) }
+
+// without drops the tools a turn may not use. Separate from onlyThese because
+// an empty Never means nothing is dropped, where an empty Only means nothing
+// is filtered — the same value meaning opposite things.
+func without(specs []llm.ToolSpec, never []string) []llm.ToolSpec {
+	if len(never) == 0 {
+		return specs
+	}
+
+	out := make([]llm.ToolSpec, 0, len(specs))
+
+	for _, spec := range specs {
+		if !listed(never, spec.Name) {
+			out = append(out, spec)
+		}
+	}
+
+	return out
+}
+
+func listed(names []string, name string) bool { return tools.Listed(names, name) }
