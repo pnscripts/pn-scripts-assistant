@@ -171,6 +171,9 @@ type Conductor struct {
 	Hire     func(team.Wish) (team.Hired, error)
 	Dissolve func(task int64) ([]team.Agent, error)
 
+	// records is the team's record, remembered for a minute. See memory.go.
+	records records
+
 	// Now exists so the deadline can be tested without waiting half an hour.
 	Now func() time.Time
 }
@@ -853,6 +856,13 @@ func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool
 			return false, err
 		}
 
+		// Remembered by whoever did it, when it was established rather than
+		// only claimed — a memory of something that never happened is worse
+		// than none.
+		if step.Verdict == store.Verified && step.ReviewOf == 0 {
+			c.remember(member.Name, store.Found, task, step, step.Instruction+" — "+step.Answer)
+		}
+
 		// A review says what it found about the step it reviewed; anything
 		// else serious enough is looked at by somebody else before the plan
 		// moves on past it.
@@ -1110,7 +1120,7 @@ func (c *Conductor) choose(step *store.TaskStep, member team.Agent, through stri
  */
 func (c *Conductor) shortlist(request string) []team.Agent {
 	return team.Who(c.roster(), c.chart(), c.Occupations, c.Toolbox,
-		team.Wanted{Doing: request})
+		team.Wanted{Doing: request, Record: c.record()})
 }
 
 // chart is the organisation as it stands, or none — which is what a brain
@@ -1182,6 +1192,17 @@ func (c *Conductor) brief(task *store.Task, step *store.TaskStep, member team.Ag
 
 	if told := member.Manner.Told(); told != "" {
 		b.WriteString(told + "\n")
+	}
+
+	// What the job is, from the taxonomy, and what this one remembers.
+	fit := team.Settle(member, c.chart(), c.Occupations, nil)
+
+	if knows := knowledgeFor(fit); knows != "" {
+		b.WriteString(knows + "\n")
+	}
+
+	if remembered := c.recalled(member, step); remembered != "" {
+		b.WriteString("\n" + remembered)
 	}
 
 	b.WriteString("\n")

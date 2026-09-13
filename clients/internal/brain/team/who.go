@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"pn-scripts-assistant/internal/brain/org"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 /*
@@ -53,6 +54,9 @@ type Wanted struct {
 
 	// Most caps the shortlist. Zero means Most.
 	Most int
+
+	// Record is what each agent has got done, for breaking ties. See Who.
+	Record map[string]store.AgentWork
 }
 
 /*
@@ -98,7 +102,28 @@ func Who(roster []Agent, chart []org.Unit, known Occupations, box Toolbox, want 
 		found = append(found, scored{agent: a, score: score})
 	}
 
-	sort.SliceStable(found, func(i, j int) bool { return found[i].score > found[j].score })
+	/*
+	 * Best suited first, and between two equally suited people, the one more
+	 * of whose work has been verified.
+	 *
+	 * Only as a tie-break and only once both have done enough for the rate to
+	 * mean something. A record that could outvote suitability would send every
+	 * step to whoever happened to be given the easy ones first, and a rate
+	 * over three steps is a coincidence with a percentage sign.
+	 */
+	sort.SliceStable(found, func(i, j int) bool {
+		if found[i].score != found[j].score {
+			return found[i].score > found[j].score
+		}
+
+		a, b := want.Record[found[i].agent.Name], want.Record[found[j].agent.Name]
+
+		if a.Settled() && b.Settled() {
+			return a.Rate() > b.Rate()
+		}
+
+		return false
+	})
 
 	most := want.Most
 

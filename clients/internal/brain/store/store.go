@@ -688,6 +688,36 @@ var migrations = []string{
 	);
 	CREATE INDEX idx_imports_started ON imports(id DESC);
 	`,
+
+	/*
+	 * 15: what each agent remembers, and who handed a step on.
+	 *
+	 * Memory apart from knowledge, which is the distinction the organisation
+	 * rests on: what a backend engineer knows is the job's, shared by everyone
+	 * who holds it, and lives in the taxonomy. What this backend engineer did
+	 * last Tuesday, and what a review said was wrong with it, is this one's —
+	 * two agents in the same job remember different things.
+	 *
+	 * Not the owner's facts table. Those are what the assistant knows about
+	 * the person it works for, counted and said aloud as that, and a step's
+	 * finding about a slow query is not a thing it knows about anybody.
+	 *
+	 * handed_by keeps who handed a step on, because finishing the step records
+	 * the specialist who did it — and a delegation rate needs the other name.
+	 */
+	`
+	CREATE TABLE agent_memories (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		agent TEXT NOT NULL,
+		kind TEXT NOT NULL,
+		content TEXT NOT NULL,
+		task_id INTEGER,
+		step_id INTEGER,
+		created_at TEXT NOT NULL
+	);
+	CREATE INDEX idx_agent_memories_agent ON agent_memories(agent, id DESC);
+	ALTER TABLE task_steps ADD COLUMN handed_by TEXT;
+	`,
 }
 
 /*

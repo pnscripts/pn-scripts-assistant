@@ -31,6 +31,7 @@ func (s *Server) handleOrganisation(w http.ResponseWriter, r *http.Request) {
 
 	doing, waiting := s.workload()
 	record := s.record()
+	remembers, _ := s.brain.DB.HowMuchRemembered()
 
 	held := map[string][]map[string]any{}
 	seated := map[string]bool{}
@@ -57,9 +58,10 @@ func (s *Server) handleOrganisation(w http.ResponseWriter, r *http.Request) {
 
 			// What it is doing now and what is queued for it — the registry's
 			// "who is available" — and what it has actually got done.
-			"doing":   doing[agent.Name],
-			"waiting": waiting[agent.Name],
-			"record":  record[agent.Name],
+			"doing":     doing[agent.Name],
+			"waiting":   waiting[agent.Name],
+			"record":    record[agent.Name],
+			"remembers": remembers[agent.Name],
 		}
 
 		if fit.Job != nil {
@@ -551,6 +553,21 @@ func (s *Server) handleAgentState(w http.ResponseWriter, r *http.Request) {
 	team.Forget()
 
 	ok(w, map[string]any{"name": name, "state": state})
+}
+
+// handleMemories is what one agent remembers from its own work, newest first.
+// Reading, so not a decision: it is not on the desk-only list.
+func (s *Server) handleMemories(w http.ResponseWriter, r *http.Request) {
+	name := strings.ToLower(strings.TrimSpace(r.PathValue("name")))
+
+	memories, err := s.brain.DB.Memories(name, 20)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"memories": memories})
 }
 
 // handleRetire removes an agent. Built-in ones go back to what they shipped

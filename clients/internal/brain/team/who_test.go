@@ -137,3 +137,39 @@ func TestWhoKnowsSomethingIsAnswearedFromTheData(t *testing.T) {
 		t.Errorf("who knows postgresql came back as %v", got)
 	}
 }
+
+/*
+ * Between two equally suited people, the record decides — and only then, and
+ * only once it means something.
+ */
+func TestTheRecordBreaksTiesAndNothingElse(t *testing.T) {
+	roster := []Agent{
+		{Name: "first", Title: "First", For: "slow database queries"},
+		{Name: "second", Title: "Second", For: "slow database queries"},
+		{Name: "assistant", Title: "Assistant", For: "anything"},
+	}
+
+	want := Wanted{Doing: "fix the slow database queries", Record: map[string]store.AgentWork{
+		"first":  {Name: "first", Steps: 10, Verified: 2},
+		"second": {Name: "second", Steps: 10, Verified: 9},
+	}}
+
+	if got := Who(roster, nil, nil, nil, want); got[0].Name != "second" {
+		t.Errorf("the better record did not break the tie: %s first", got[0].Name)
+	}
+
+	// Too little of a record to go on, and the order is left alone.
+	want.Record["second"] = store.AgentWork{Name: "second", Steps: 2, Verified: 2}
+
+	if got := Who(roster, nil, nil, nil, want); got[0].Name != "first" {
+		t.Errorf("two steps of record reordered the shortlist: %s first", got[0].Name)
+	}
+
+	// And a record never outvotes being suited to the work.
+	roster[1].For = "writing newsletters"
+	want.Record["second"] = store.AgentWork{Name: "second", Steps: 50, Verified: 50}
+
+	if got := Who(roster, nil, nil, nil, want); got[0].Name != "first" {
+		t.Errorf("a perfect record outranked the person suited to the work: %s first", got[0].Name)
+	}
+}

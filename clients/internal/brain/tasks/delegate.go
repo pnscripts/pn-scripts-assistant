@@ -58,7 +58,7 @@ const (
  */
 func (c *Conductor) specialistFor(step *store.TaskStep, exclude map[string]bool) (team.Agent, bool) {
 	for _, candidate := range team.Who(c.roster(), c.chart(), c.Occupations, c.Toolbox,
-		team.Wanted{Doing: step.Instruction, Kind: step.Kind}) {
+		team.Wanted{Doing: step.Instruction, Kind: step.Kind, Record: c.record()}) {
 		if candidate.Name == "assistant" || exclude[candidate.Name] {
 			continue
 		}
@@ -196,10 +196,13 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 		return false, err
 	}
 
-	if err := c.DB.HandOn(step.ID, child, "handed to the "+strings.ToLower(orTitle(specialist))+
+	if err := c.DB.HandOn(step.ID, child, member.Name, "handed to the "+strings.ToLower(orTitle(specialist))+
 		" after: "+why); err != nil {
 		return false, err
 	}
+
+	c.remember(member.Name, store.Learned, task, step,
+		lessonOf(step, "went to the "+strings.ToLower(orTitle(specialist)), why))
 
 	c.Log.Info("handed a step to a specialist",
 		"task", task.ID, "step", step.ID, "from", member.Name, "to", specialist.Name, "child", child)
@@ -501,6 +504,9 @@ func (c *Conductor) escalate(task *store.Task, step *store.TaskStep, member team
 		return false, err
 	}
 
+	c.remember(member.Name, store.Learned, task, step,
+		lessonOf(step, "went up to the "+strings.ToLower(orTitle(manager)), why))
+
 	c.Log.Info("escalated a step to a manager",
 		"task", task.ID, "step", step.ID, "from", member.Name, "to", manager.Name)
 
@@ -580,6 +586,13 @@ func (c *Conductor) reviewed(review *store.TaskStep) error {
 
 	reviewed.Verdict = store.Unmet
 	reviewed.Why = "the " + strings.ToLower(review.Assignee) + " reviewed it: " + trimTo(review.Answer, 300)
+
+	// The lesson worth most: what somebody else found wrong with its work.
+	if task, err := c.DB.Task(reviewed.TaskID); err == nil && task != nil {
+		c.remember(reviewed.Assignee, store.Learned, task, reviewed,
+			fmt.Sprintf("a review of %q found it wrong: %s", trimTo(reviewed.Instruction, 120),
+				trimTo(review.Answer, 200)))
+	}
 
 	return c.DB.FinishStep(*reviewed)
 }

@@ -148,7 +148,49 @@
                 + done.verified + ' checked, ' + done.claimed + ' on its own word');
         }
 
+        // How the work went between people: none of these is a verdict on its
+        // own, and all of them are worth being able to see.
+        if (done.handed_on) facts.push('handed on ' + done.handed_on);
+        if (done.escalated) facts.push(done.escalated + ' sent up');
+        if (done.found_wrong) facts.push(done.found_wrong + ' found wrong on review');
+
         box.appendChild(line('note', facts.join(' · ')));
+
+        /*
+         * What it remembers, opened on request.
+         *
+         * Its own, and not the job's: two agents in one seat remember
+         * different things, which is the point of there being two of them.
+         */
+        if (agent.remembers) {
+            const memory = document.createElement('details');
+            const summary = document.createElement('summary');
+
+            summary.className = 'note';
+            summary.textContent = 'remembers ' + agent.remembers
+                + (agent.remembers === 1 ? ' thing' : ' things') + ' from its own work';
+            memory.appendChild(summary);
+
+            memory.addEventListener('toggle', async () => {
+                if (!memory.open || memory.dataset.loaded) return;
+
+                memory.dataset.loaded = '1';
+
+                try {
+                    const res = await fetch('/api/organisation/memories/' + encodeURIComponent(agent.name));
+                    const body = await res.json();
+
+                    for (const m of body.memories || []) {
+                        memory.appendChild(line('note',
+                            (m.kind === 'learned' ? 'lesson — ' : '') + m.content));
+                    }
+                } catch {
+                    memory.appendChild(line('note', 'could not read them'));
+                }
+            });
+
+            box.appendChild(memory);
+        }
 
         if (agent.built_in && !agent.state) return box;
 

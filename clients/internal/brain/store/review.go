@@ -67,6 +67,31 @@ type AgentWork struct {
 	// Seconds is how long its steps took in total, which is the number that
 	// says whether a model is worth what it costs in waiting.
 	Seconds float64 `json:"seconds"`
+
+	/*
+	 * And the three that say how the work went between people.
+	 *
+	 * HandedOn is steps it could not do and gave to somebody else; Escalated,
+	 * steps of its that went up to a manager; FoundWrong, steps of its a
+	 * review said were wrong. Each is a rate worth watching and none is a
+	 * verdict on its own — an agent handed the hardest work hands the most on.
+	 */
+	HandedOn   int `json:"handed_on"`
+	Escalated  int `json:"escalated"`
+	FoundWrong int `json:"found_wrong"`
+}
+
+// Settled is whether there is enough of somebody's record to go on. Below
+// it, a rate is a coincidence with a percentage sign.
+func (w AgentWork) Settled() bool { return w.Steps >= 5 }
+
+// Rate is how much of its work was verified, as a fraction of its steps.
+func (w AgentWork) Rate() float64 {
+	if w.Steps == 0 {
+		return 0
+	}
+
+	return float64(w.Verified) / float64(w.Steps)
 }
 
 // ModelWork is the same question asked of the models rather than the roles.
@@ -131,7 +156,10 @@ func (d *DB) HowItHasBeenGoing(since time.Time) (Review, error) {
 	stepRows, err := d.sql().Query(`
 		SELECT COALESCE(s.assignee,''), COALESCE(s.model,''), s.state,
 		       COALESCE(s.verdict,''),
-		       COALESCE((julianday(s.ended_at) - julianday(s.started_at)) * 86400, 0)
+		       COALESCE((julianday(s.ended_at) - julianday(s.started_at)) * 86400, 0),
+		       COALESCE(s.handed_by,''),
+		       EXISTS (SELECT 1 FROM task_steps e WHERE e.escalated_from = s.id),
+		       EXISTS (SELECT 1 FROM task_steps r WHERE r.review_of = s.id) AND s.verdict = 'unmet'
 		FROM task_steps s
 		JOIN tasks t ON t.id = s.task_id
 		WHERE t.created_at >= ?`, cutoff)
@@ -146,11 +174,13 @@ func (d *DB) HowItHasBeenGoing(since time.Time) (Review, error) {
 
 	for stepRows.Next() {
 		var (
-			who, model, state, verdict string
-			seconds                    float64
+			who, model, state, verdict, handedBy string
+			seconds                              float64
+			escalated, wrong                     bool
 		)
 
-		if err := stepRows.Scan(&who, &model, &state, &verdict, &seconds); err != nil {
+		if err := stepRows.Scan(&who, &model, &state, &verdict, &seconds, &handedBy,
+			&escalated, &wrong); err != nil {
 			return review, err
 		}
 
@@ -181,6 +211,25 @@ func (d *DB) HowItHasBeenGoing(since time.Time) (Review, error) {
 
 		person.Steps++
 		person.Seconds += seconds
+
+		if escalated {
+			person.Escalated++
+		}
+
+		if wrong {
+			person.FoundWrong++
+		}
+
+		// Handing on is counted against who handed it, not who finished it.
+		if handedBy != "" {
+			by, known := people[handedBy]
+			if !known {
+				by = &AgentWork{Name: handedBy}
+				people[handedBy] = by
+			}
+
+			by.HandedOn++
+		}
 
 		switch {
 		case verdict == Verified:

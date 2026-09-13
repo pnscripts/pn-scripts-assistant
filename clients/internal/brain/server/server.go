@@ -215,6 +215,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/organisation/agents", s.handleHire)
 	s.mux.HandleFunc("DELETE /api/organisation/agents/{name}", s.handleRetire)
 	s.mux.HandleFunc("POST /api/organisation/agents/{name}/state", s.handleAgentState)
+	s.mux.HandleFunc("GET /api/organisation/memories/{name}", s.handleMemories)
 	s.mux.HandleFunc("POST /api/organisation/hire", s.handleHireFor)
 	s.mux.HandleFunc("POST /api/organisation/import", s.handleImport)
 	s.mux.HandleFunc("GET /api/organisation/imports", s.handleImports)

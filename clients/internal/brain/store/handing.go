@@ -46,11 +46,11 @@ func withinText(within *[]string) any {
  * to give away again, and two handings-on of one step would be two
  * specialists doing the same work on one budget.
  */
-func (d *DB) HandOn(stepID, childID int64, why string) error {
+func (d *DB) HandOn(stepID, childID int64, by, why string) error {
 	res, err := d.sql().Exec(`
-		UPDATE task_steps SET state = ?, handed_to = ?, why = ?, updated_at = ?
+		UPDATE task_steps SET state = ?, handed_to = ?, handed_by = ?, why = ?, updated_at = ?
 		WHERE id = ? AND state IN (?, ?)`,
-		StepHandedOn, childID, why, time.Now().UTC().Format(time.RFC3339),
+		StepHandedOn, childID, by, why, time.Now().UTC().Format(time.RFC3339),
 		stepID, StepRunning, StepWaiting)
 	if err != nil {
 		return fmt.Errorf("handing the step on: %w", err)
