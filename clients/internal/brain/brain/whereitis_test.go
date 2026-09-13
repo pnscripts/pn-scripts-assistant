@@ -43,7 +43,7 @@ func TestTheAssistantIsToldWhereThingsAre(t *testing.T) {
  * path being made up.
  */
 func TestTheAssistantIsToldNotToInventPaths(t *testing.T) {
-	b := &Brain{Root: t.TempDir(), Cfg: config.Config{Name: "PN Brain", Owner: "Petar"}}
+	b := &Brain{Root: t.TempDir(), Cfg: config.Config{Name: "PN Scripts Assistant", Owner: "Petar"}}
 
 	/*
 	 * Whitespace collapsed before matching.

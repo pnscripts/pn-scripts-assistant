@@ -472,9 +472,15 @@ func ClearHalfFinished() (removed int, freed int64) {
 	 * nothing afterwards was looking for.
 	 *
 	 * By this program's own prefix and nothing else: a sweep of /tmp by
-	 * pattern is how somebody else's work gets deleted.
+	 * pattern is how somebody else's work gets deleted. Under the old name
+	 * too, for what a run from before the rename left.
 	 */
-	if archives, err := filepath.Glob(filepath.Join(os.TempDir(), "pn-brain-*")); err == nil {
+	for _, prefix := range []string{"pn-scripts-assistant-*", "pn-brain-*"} {
+		archives, err := filepath.Glob(filepath.Join(os.TempDir(), prefix))
+		if err != nil {
+			continue
+		}
+
 		for _, at := range archives {
 			info, err := os.Stat(at)
 			if err != nil || info.IsDir() {

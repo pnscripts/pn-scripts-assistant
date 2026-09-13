@@ -300,7 +300,7 @@ if (naming) {
         // The placeholders are real defaults, not hints: somebody who presses
         // Begin without typing has chosen them.
         const ok = await save({
-            name: el('naming-name').value || 'PN Brain',
+            name: el('naming-name').value || 'Assistant',
             owner: el('naming-owner').value || 'Petar',
         }, null);
 

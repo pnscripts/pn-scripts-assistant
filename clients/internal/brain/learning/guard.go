@@ -30,10 +30,10 @@ var firstPerson = []string{
 	"the assistant ", "as an ai",
 }
 
-// Every name this project has carried. Renaming left one stale identity claim
-// behind each time — "Sage is…", "Vesper is…" — and those are still
-// self-description, just outdated.
-var formerNames = []string{"sage", "vesper", "pnexus", "pn brain"}
+// Every name this project has carried, and the one it carries now. Renaming
+// left one stale identity claim behind each time — "Sage is…", "Vesper is…" —
+// and those are still self-description, just outdated.
+var formerNames = []string{"sage", "vesper", "pnexus", "pn brain", "pn scripts assistant"}
 
 // assistantSubject catches a sentence whose subject is an assistant under a
 // name this list has never seen.

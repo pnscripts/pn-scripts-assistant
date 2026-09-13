@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"pn-scripts-assistant/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/paths"
 	"strings"
 )
 
@@ -35,14 +36,29 @@ var icons embed.FS
 // Sizes the icon is drawn at, largest first.
 var Sizes = []int{512, 256, 128, 64, 48}
 
-// EntryName is the desktop entry's file name, and the icon's name in the theme.
-const EntryName = "pn-brain"
+/*
+ * EntryName is the desktop entry's file name, the icon's name in the theme and
+ * the window's class; LegacyEntryName is what all three were when the program
+ * was PN Brain.
+ *
+ * The window's class is the program's own file name, so these have to agree
+ * with what the binary is called or the dock shows the launcher and the window
+ * as two different things.
+ */
+const (
+	EntryName       = paths.Name
+	LegacyEntryName = paths.LegacyName
+)
 
 // Where returns the paths this would write, without writing them.
 func Where() (entry string, iconDir string) {
+	return whereFor(EntryName)
+}
+
+func whereFor(name string) (entry string, iconDir string) {
 	data := dataHome()
 
-	return filepath.Join(data, "applications", EntryName+".desktop"),
+	return filepath.Join(data, "applications", name+".desktop"),
 		filepath.Join(data, "icons", "hicolor")
 }
 
@@ -82,7 +98,7 @@ func Install(name string) (string, error) {
 	entry, iconRoot := Where()
 
 	for _, size := range Sizes {
-		body, err := icons.ReadFile(fmt.Sprintf("icons/pn-brain-%d.png", size))
+		body, err := icons.ReadFile(fmt.Sprintf("icons/%s-%d.png", EntryName, size))
 		if err != nil {
 			return "", fmt.Errorf("reading the %dpx icon: %w", size, err)
 		}
@@ -107,29 +123,46 @@ func Install(name string) (string, error) {
 		return "", fmt.Errorf("writing %s: %w", entry, err)
 	}
 
+	// The entry from before the rename would sit beside this one: the same
+	// program in the menu twice, one of them under a name it no longer has.
+	if err := removeEntry(LegacyEntryName); err != nil {
+		return "", err
+	}
+
 	refresh(iconRoot, filepath.Dir(entry))
 
 	return entry, nil
 }
 
-// Remove takes the entry and the icons out again.
+// Remove takes the entry and the icons out again, under either name.
 func Remove() error {
+	for _, name := range []string{EntryName, LegacyEntryName} {
+		if err := removeEntry(name); err != nil {
+			return err
+		}
+	}
+
 	entry, iconRoot := Where()
+
+	refresh(iconRoot, filepath.Dir(entry))
+
+	return nil
+}
+
+func removeEntry(name string) error {
+	entry, iconRoot := whereFor(name)
 
 	if err := os.Remove(entry); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
 	for _, size := range Sizes {
-		at := filepath.Join(iconRoot, fmt.Sprintf("%dx%d", size, size), "apps",
-			EntryName+".png")
+		at := filepath.Join(iconRoot, fmt.Sprintf("%dx%d", size, size), "apps", name+".png")
 
 		if err := os.Remove(at); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
-
-	refresh(iconRoot, filepath.Dir(entry))
 
 	return nil
 }
@@ -165,7 +198,7 @@ func entryText(name, exec string) string {
 		"Categories=Utility;\n" +
 		"Keywords=assistant;brain;voice;memory;\n" +
 		"StartupNotify=true\n" +
-		"StartupWMClass=pn-brain\n" +
+		"StartupWMClass=" + EntryName + "\n" +
 		/*
 		 * Setup on the right-click menu of the icon.
 		 *
@@ -200,7 +233,7 @@ func refresh(iconRoot, appDir string) {
  *
  * Inside an AppImage this is not what the program thinks it is. An AppImage
  * mounts itself under /tmp and runs from there, so asking the operating system
- * where this executable is gives a path like /tmp/.mount_PN-Braxyz/usr/bin/brain
+ * where this executable is gives a path like /tmp/.mount_PN-Scrxyz/usr/bin/pn-scripts-assistant
  * — which is gone the moment the program exits, leaving a menu entry that does
  * nothing at all when pressed. The runtime puts the real path of the file
  * somebody downloaded in APPIMAGE, and that is the one to run.
@@ -255,8 +288,19 @@ func dataHome() string {
  */
 func RepairIfStale(name string) (bool, error) {
 	entry, _ := Where()
+	legacy, _ := whereFor(LegacyEntryName)
 
 	if _, err := os.Stat(entry); err != nil {
+		// One made before the rename is somebody having asked for one, and it
+		// is replaced under the new name.
+		if _, err := os.Stat(legacy); err == nil {
+			if _, err := Install(name); err != nil {
+				return false, err
+			}
+
+			return true, nil
+		}
+
 		// Nobody asked for one. Not this function's business.
 		return false, nil
 	}

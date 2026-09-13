@@ -222,7 +222,7 @@ func TestAFileInsideASkippedFolderIsRecognised(t *testing.T) {
 	for _, path := range []string{
 		"/home/petar/Documents/PN Scripts/Счетоводство/2025/фактура.pdf",
 		"/home/petar/Desktop/notes.md",
-		"/drive/DEV/Projects/pnscripts/products/pn-brain/README.md",
+		"/drive/DEV/Projects/pnscripts/products/pn-scripts-assistant/README.md",
 	} {
 		if UnderASkippedFolder(path) {
 			t.Errorf("%s was treated as somebody else's", path)

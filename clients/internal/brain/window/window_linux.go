@@ -13,9 +13,9 @@ package window
 #include <stdio.h>
 #include <stdlib.h>
 
-// Declared here rather than further down because pnbrain_on_destroy clears it,
+// Declared here rather than further down because pnassistant_on_destroy clears it,
 // and C reads a file in order.
-static WebKitWebView *pnbrain_view = NULL;
+static WebKitWebView *pnassistant_view = NULL;
 
 // An X error must not kill the process.
 //
@@ -35,7 +35,7 @@ static WebKitWebView *pnbrain_view = NULL;
 // Line comments, like everything else in this preamble: it is one Go comment,
 // and a nested block comment ends it early — which is exactly what this
 // comment did on its first draft.
-static int pnbrain_x_error(Display *display, XErrorEvent *event) {
+static int pnassistant_x_error(Display *display, XErrorEvent *event) {
     char text[256];
 
     XGetErrorText(display, event->error_code, text, sizeof(text));
@@ -45,15 +45,15 @@ static int pnbrain_x_error(Display *display, XErrorEvent *event) {
 }
 
 // The ids of the callbacks that hold a pointer to the window, so they can be
-// taken off it when it goes away. See pnbrain_on_destroy.
-static guint pnbrain_poll_id = 0;
-static guint pnbrain_maximise_id = 0;
-static guint pnbrain_show_id = 0;
+// taken off it when it goes away. See pnassistant_on_destroy.
+static guint pnassistant_poll_id = 0;
+static guint pnassistant_maximise_id = 0;
+static guint pnassistant_show_id = 0;
 
-static void pnbrain_forget_sources(void) {
-    if (pnbrain_poll_id != 0) { g_source_remove(pnbrain_poll_id); pnbrain_poll_id = 0; }
-    if (pnbrain_maximise_id != 0) { g_source_remove(pnbrain_maximise_id); pnbrain_maximise_id = 0; }
-    if (pnbrain_show_id != 0) { g_source_remove(pnbrain_show_id); pnbrain_show_id = 0; }
+static void pnassistant_forget_sources(void) {
+    if (pnassistant_poll_id != 0) { g_source_remove(pnassistant_poll_id); pnassistant_poll_id = 0; }
+    if (pnassistant_maximise_id != 0) { g_source_remove(pnassistant_maximise_id); pnassistant_maximise_id = 0; }
+    if (pnassistant_show_id != 0) { g_source_remove(pnassistant_show_id); pnassistant_show_id = 0; }
 }
 
 // Three callbacks are left holding this window: a poll every 200ms, an idle
@@ -65,9 +65,9 @@ static void pnbrain_forget_sources(void) {
 // It died before anything after gtk_main() could run, which is why closing
 // setup half way through left everything it had installed on the machine: the
 // code that removes it again never got to start.
-static void pnbrain_on_destroy(GtkWidget *widget, gpointer data) {
-    pnbrain_forget_sources();
-    pnbrain_view = NULL;
+static void pnassistant_on_destroy(GtkWidget *widget, gpointer data) {
+    pnassistant_forget_sources();
+    pnassistant_view = NULL;
     gtk_main_quit();
 }
 
@@ -87,13 +87,13 @@ static void pnbrain_on_destroy(GtkWidget *widget, gpointer data) {
 // either exiting or about to open a different window, and the process tears
 // all of this down more safely than GTK manages at this particular moment.
 // Returning TRUE stops the default handler, which is the one that destroys.
-static gboolean pnbrain_on_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
-    pnbrain_forget_sources();
+static gboolean pnassistant_on_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
+    pnassistant_forget_sources();
 
     // The view first: unmapping it is what stops WebKit compositing into a
     // drawable that is about to stop existing.
-    if (pnbrain_view != NULL) {
-        gtk_widget_hide(GTK_WIDGET(pnbrain_view));
+    if (pnassistant_view != NULL) {
+        gtk_widget_hide(GTK_WIDGET(pnassistant_view));
     }
 
     gtk_widget_hide(widget);
@@ -105,22 +105,22 @@ static gboolean pnbrain_on_delete(GtkWidget *widget, GdkEvent *event, gpointer d
 // Opens a real GTK window containing a WebKit view and blocks until it closes.
 // Written here rather than through a binding library because the maintained Go
 // bindings still pkg-config against webkit2gtk-4.0, which Ubuntu 24.04 does not
-// ship at all — only 4.1 exists. This is the whole of what PN Brain needs from a
+// ship at all — only 4.1 exists. This is the whole of what PN Scripts Assistant needs from a
 // desktop toolkit: one window, one web view, one URL.
 
 // What the window is called, kept so that navigating within it does not
 // rename it. It used to be reset to a literal product name on every
 // navigation, which meant a window titled with whatever its owner had called
 // their assistant silently became something else the first time it moved.
-static char *pnbrain_title = NULL;
+static char *pnassistant_title = NULL;
 
 // Navigation has to happen on the GTK main loop, so a pending URL is left here
 // and picked up by a timer rather than being loaded from the Go goroutine that
 // produced it. Touching GTK from another thread is undefined behaviour.
-static char *pnbrain_pending_url = NULL;
-static gboolean pnbrain_pending_present = FALSE;
-static gboolean pnbrain_pending_quit = FALSE;
-static GMutex pnbrain_pending_lock;
+static char *pnassistant_pending_url = NULL;
+static gboolean pnassistant_pending_present = FALSE;
+static gboolean pnassistant_pending_quit = FALSE;
+static GMutex pnassistant_pending_lock;
 
 // Asked for by a second copy of the program that has just been started and is
 // about to exit, so that double-clicking the icon again brings this window
@@ -135,38 +135,38 @@ static GMutex pnbrain_pending_lock;
 //
 // Line comments, not a block: this whole preamble is one C comment, and a
 // nested block comment ends it early and takes the rest of the file with it.
-void pnbrain_request_quit(void) {
-    g_mutex_lock(&pnbrain_pending_lock);
-    pnbrain_pending_quit = TRUE;
-    g_mutex_unlock(&pnbrain_pending_lock);
+void pnassistant_request_quit(void) {
+    g_mutex_lock(&pnassistant_pending_lock);
+    pnassistant_pending_quit = TRUE;
+    g_mutex_unlock(&pnassistant_pending_lock);
 }
 
-void pnbrain_request_present(void) {
-    g_mutex_lock(&pnbrain_pending_lock);
-    pnbrain_pending_present = TRUE;
-    g_mutex_unlock(&pnbrain_pending_lock);
+void pnassistant_request_present(void) {
+    g_mutex_lock(&pnassistant_pending_lock);
+    pnassistant_pending_present = TRUE;
+    g_mutex_unlock(&pnassistant_pending_lock);
 }
 
-void pnbrain_request_navigation(const char *url) {
-    g_mutex_lock(&pnbrain_pending_lock);
-    g_free(pnbrain_pending_url);
-    pnbrain_pending_url = g_strdup(url);
-    g_mutex_unlock(&pnbrain_pending_lock);
+void pnassistant_request_navigation(const char *url) {
+    g_mutex_lock(&pnassistant_pending_lock);
+    g_free(pnassistant_pending_url);
+    pnassistant_pending_url = g_strdup(url);
+    g_mutex_unlock(&pnassistant_pending_lock);
 }
 
-static gboolean pnbrain_poll_navigation(gpointer data) {
+static gboolean pnassistant_poll_navigation(gpointer data) {
     char *url = NULL;
     gboolean present = FALSE;
     gboolean quit = FALSE;
 
-    g_mutex_lock(&pnbrain_pending_lock);
-    if (pnbrain_pending_url != NULL) {
-        url = pnbrain_pending_url;
-        pnbrain_pending_url = NULL;
+    g_mutex_lock(&pnassistant_pending_lock);
+    if (pnassistant_pending_url != NULL) {
+        url = pnassistant_pending_url;
+        pnassistant_pending_url = NULL;
     }
-    present = pnbrain_pending_present;
-    pnbrain_pending_present = FALSE;
-    quit = pnbrain_pending_quit;
+    present = pnassistant_pending_present;
+    pnassistant_pending_present = FALSE;
+    quit = pnassistant_pending_quit;
     // Taken, not just read — the same as present above, and for a reason that
     // cost a whole first run.
     //
@@ -177,8 +177,8 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
     // 200ms after it appeared. The program printed its banner, said which
     // model it was using, and exited without a word — which from outside is
     // "I clicked Continue and it did not start".
-    pnbrain_pending_quit = FALSE;
-    g_mutex_unlock(&pnbrain_pending_lock);
+    pnassistant_pending_quit = FALSE;
+    g_mutex_unlock(&pnassistant_pending_lock);
 
     if (quit) {
         // The window goes with the loop.
@@ -192,21 +192,21 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
         // The view is forgotten first: destroying the window destroys the view
         // inside it, and a navigation arriving in that moment would otherwise
         // be handed a pointer to freed memory.
-        pnbrain_view = NULL;
-        g_free(pnbrain_title);
-        pnbrain_title = NULL;
+        pnassistant_view = NULL;
+        g_free(pnassistant_title);
+        pnassistant_title = NULL;
 
         // This source is the one running, and returning G_SOURCE_REMOVE below
         // takes it off. Forgetting its id first stops the teardown removing it
         // a second time from underneath GLib.
-        pnbrain_poll_id = 0;
+        pnassistant_poll_id = 0;
 
-        // Hidden, not destroyed — the same reason as pnbrain_on_delete. The
+        // Hidden, not destroyed — the same reason as pnassistant_on_delete. The
         // window going away is what matters here; destroying it is what
         // crashes. Setup handing over to the brain reaches this line, and it
         // used to leave a dead setup window on screen beside the new one.
-        if (pnbrain_view != NULL) {
-            gtk_widget_hide(GTK_WIDGET(pnbrain_view));
+        if (pnassistant_view != NULL) {
+            gtk_widget_hide(GTK_WIDGET(pnassistant_view));
         }
 
         if (data != NULL) {
@@ -224,7 +224,7 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
         // gtk_window_present alone does not reliably restore a window that has
         // been minimised: the second copy reported "brought it to the front",
         // exited, and the window stayed exactly where it was. Somebody who
-        // minimised PN Brain and then pressed its icon got nothing at all, and
+        // minimised PN Scripts Assistant and then pressed its icon got nothing at all, and
         // no way to find out why, because the only explanation went to a
         // terminal they had not opened. That is indistinguishable from the
         // program being broken, and it is what "it will not open" means.
@@ -241,9 +241,9 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
         gtk_window_present_with_time(win, (guint32)(g_get_real_time() / 1000));
     }
 
-    if (url != NULL && pnbrain_view != NULL) {
-        webkit_web_view_load_uri(pnbrain_view, url);
-        gtk_window_set_title(GTK_WINDOW(data), pnbrain_title);
+    if (url != NULL && pnassistant_view != NULL) {
+        webkit_web_view_load_uri(pnassistant_view, url);
+        gtk_window_set_title(GTK_WINDOW(data), pnassistant_title);
         g_free(url);
     }
 
@@ -251,16 +251,16 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
 }
 
 // Runs once, after the main loop has mapped the window.
-static gboolean pnbrain_maximise_once(gpointer data) {
+static gboolean pnassistant_maximise_once(gpointer data) {
     GtkWindow *win = GTK_WINDOW(data);
 
     gtk_window_maximize(win);
 
     // Its own id, forgotten as it finishes. A one-shot source removes itself
-    // by returning this, so the id kept for pnbrain_on_destroy is stale the
+    // by returning this, so the id kept for pnassistant_on_destroy is stale the
     // moment it does — and removing a stale id is a GLib critical every time
     // a window closes normally.
-    pnbrain_maximise_id = 0;
+    pnassistant_maximise_id = 0;
 
     return G_SOURCE_REMOVE;
 }
@@ -276,7 +276,7 @@ static gboolean pnbrain_maximise_once(gpointer data) {
 //
 // GNOME remembers how an application's window was last left and applies that
 // after the window is mapped — later than any idle callback, which is why
-// deiconifying from one changed nothing. Once PN Brain had been minimised,
+// deiconifying from one changed nothing. Once PN Scripts Assistant had been minimised,
 // every launch after that opened minimised: the process started, served its
 // interface, answered on its port, and put nothing on the screen. From the
 // outside that is a program that does not open, and there is no way to tell it
@@ -286,24 +286,24 @@ static gboolean pnbrain_maximise_once(gpointer data) {
 // Once, and only at startup. A window somebody minimises a minute later is a
 // window they wanted minimised, and a program that refuses to stay out of the
 // way is worse than one that opens small.
-static gboolean pnbrain_show_once(gpointer data) {
+static gboolean pnassistant_show_once(gpointer data) {
     GtkWindow *win = GTK_WINDOW(data);
 
     gtk_window_deiconify(win);
     gtk_window_present(win);
 
-    pnbrain_show_id = 0;
+    pnassistant_show_id = 0;
 
     return G_SOURCE_REMOVE;
 }
 
-static void pnbrain_open_window(const char *url, const char *title, int width, int height, const char *icon_path) {
+static void pnassistant_open_window(const char *url, const char *title, int width, int height, const char *icon_path) {
     if (!gtk_init_check(NULL, NULL)) {
         return;
     }
 
-    // After gtk_init, which installs GDK's own. See pnbrain_x_error.
-    XSetErrorHandler(pnbrain_x_error);
+    // After gtk_init, which installs GDK's own. See pnassistant_x_error.
+    XSetErrorHandler(pnassistant_x_error);
 
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), title);
@@ -346,8 +346,8 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     gtk_window_set_default_size(GTK_WINDOW(window),
         work_area.width > 0 ? work_area.width : width,
         work_area.height > 0 ? work_area.height : height);
-    g_signal_connect(window, "destroy", G_CALLBACK(pnbrain_on_destroy), NULL);
-    g_signal_connect(window, "delete-event", G_CALLBACK(pnbrain_on_delete), NULL);
+    g_signal_connect(window, "destroy", G_CALLBACK(pnassistant_on_destroy), NULL);
+    g_signal_connect(window, "delete-event", G_CALLBACK(pnassistant_on_delete), NULL);
 
     WebKitWebView *view = WEBKIT_WEB_VIEW(webkit_web_view_new());
 
@@ -400,15 +400,15 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     // request_present can both be called while no window exists — a signal
     // during startup, a second copy arriving early — and either one left set
     // would act on the next window instead of the one it was meant for.
-    g_mutex_lock(&pnbrain_pending_lock);
-    pnbrain_pending_quit = FALSE;
-    pnbrain_pending_present = FALSE;
-    g_free(pnbrain_pending_url);
-    pnbrain_pending_url = NULL;
-    g_mutex_unlock(&pnbrain_pending_lock);
+    g_mutex_lock(&pnassistant_pending_lock);
+    pnassistant_pending_quit = FALSE;
+    pnassistant_pending_present = FALSE;
+    g_free(pnassistant_pending_url);
+    pnassistant_pending_url = NULL;
+    g_mutex_unlock(&pnassistant_pending_lock);
 
-    pnbrain_view = view;
-    pnbrain_title = g_strdup(title);
+    pnassistant_view = view;
+    pnassistant_title = g_strdup(title);
     webkit_web_view_load_uri(view, url);
 
     // Filling the window, not sitting at its default size inside it.
@@ -422,7 +422,7 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
 
     gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
-    pnbrain_poll_id = g_timeout_add(200, pnbrain_poll_navigation, window);
+    pnassistant_poll_id = g_timeout_add(200, pnassistant_poll_navigation, window);
 
     // Maximised, not fullscreen. The brain map wants room and the rail is a
     // column of readouts, so a small window wastes both — but fullscreen takes
@@ -442,11 +442,11 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     // columns of readouts, so a small window wastes both — but fullscreen takes
     // the title bar and the way out with it, which is more than double-clicking
     // an icon asks for.
-    pnbrain_maximise_id = g_idle_add(pnbrain_maximise_once, window);
+    pnassistant_maximise_id = g_idle_add(pnassistant_maximise_once, window);
 
     // Late enough that the desktop has finished restoring its remembered
     // state, which is what would otherwise leave a new window minimised.
-    pnbrain_show_id = g_timeout_add(600, pnbrain_show_once, window);
+    pnassistant_show_id = g_timeout_add(600, pnassistant_show_once, window);
 
     gtk_main();
 }
@@ -456,6 +456,7 @@ import "C"
 import (
 	"os"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/paths"
 	"runtime"
 	"unsafe"
 )
@@ -473,7 +474,7 @@ func OpenWithNavigation(url, title string, width, height int, navigate <-chan st
 	go func() {
 		for next := range navigate {
 			cNext := C.CString(next)
-			C.pnbrain_request_navigation(cNext)
+			C.pnassistant_request_navigation(cNext)
 			C.free(unsafe.Pointer(cNext))
 		}
 	}()
@@ -491,7 +492,7 @@ func Open(url, title string, width, height int) error {
 	cIcon := C.CString(iconPath())
 	defer C.free(unsafe.Pointer(cIcon))
 
-	C.pnbrain_open_window(cURL, cTitle, C.int(width), C.int(height), cIcon)
+	C.pnassistant_open_window(cURL, cTitle, C.int(width), C.int(height), cIcon)
 
 	return nil
 }
@@ -502,7 +503,7 @@ func Open(url, title string, width, height int) error {
 // program that has stopped serving but has not exited is worse than one still
 // running — it holds its data root and stops the next copy from starting.
 func Close() {
-	C.pnbrain_request_quit()
+	C.pnassistant_request_quit()
 }
 
 // Present brings the window to the front.
@@ -511,7 +512,7 @@ func Close() {
 // another window onto the same brain, the one already running comes forward and
 // the new process exits.
 func Present() {
-	C.pnbrain_request_present()
+	C.pnassistant_request_present()
 }
 
 // Available reports whether a native window can be opened by this build.
@@ -558,9 +559,11 @@ func iconPath() string {
 func findIcon(appdir, exe, home string, exists func(string) bool) string {
 	var places []string
 
+	icon := paths.Name + ".png"
+
 	// Inside an AppImage, where it is unpacked beside the binary.
 	if appdir != "" {
-		places = append(places, filepath.Join(appdir, "pn-brain.png"))
+		places = append(places, filepath.Join(appdir, icon))
 	}
 
 	if exe != "" {
@@ -568,20 +571,23 @@ func findIcon(appdir, exe, home string, exists func(string) bool) string {
 
 		places = append(places,
 			// Beside the binary, as a packaged build lays it out.
-			filepath.Join(beside, "pn-brain.png"),
+			filepath.Join(beside, icon),
 			// And in the project's assets, which is where a build from source
-			// finds itself: dist/pn-brain, assets/pn-brain.png.
-			filepath.Join(filepath.Dir(beside), "assets", "pn-brain.png"),
+			// finds itself: dist/pn-scripts-assistant, assets/pn-scripts-assistant.png.
+			filepath.Join(filepath.Dir(beside), "assets", icon),
 		)
 	}
 
-	// Installed for the desktop, which is where the menu entry points.
+	// Installed for the desktop, which is where the menu entry points — under
+	// the old name too, for a machine that installed it before the rename and
+	// has not started since.
 	if home != "" {
-		places = append(places,
-			filepath.Join(home, ".local", "share", "icons", "pn-brain.png"),
-			filepath.Join(home, ".local", "share", "icons", "hicolor", "256x256",
-				"apps", "pn-brain.png"),
-		)
+		for _, name := range []string{icon, paths.LegacyName + ".png"} {
+			places = append(places,
+				filepath.Join(home, ".local", "share", "icons", name),
+				filepath.Join(home, ".local", "share", "icons", "hicolor", "256x256", "apps", name),
+			)
+		}
 	}
 
 	for _, path := range places {

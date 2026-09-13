@@ -1,12 +1,12 @@
-# pn-brain-doctor (Go)
+# pn-scripts-assistant-doctor (Go)
 
-Checks what PN Brain needs from this machine, and installs what's missing.
+Checks what PN Scripts Assistant needs from this machine, and installs what's missing.
 
 ```bash
-pn-brain-doctor              # report
-pn-brain-doctor --install    # fix what can be fixed, asking before each step
-pn-brain-doctor --install --yes
-pn-brain-doctor --quiet      # silent when healthy; used by the launcher
+pn-scripts-assistant-doctor              # report
+pn-scripts-assistant-doctor --install    # fix what can be fixed, asking before each step
+pn-scripts-assistant-doctor --install --yes
+pn-scripts-assistant-doctor --quiet      # silent when healthy; used by the launcher
 ```
 
 ## Built to be run forever, not once
@@ -15,7 +15,7 @@ Setup tools usually assume a one-time install, which is wrong here: models get
 replaced, Ollama gets upgraded, a distribution moves a library out from under
 you. So this reports current state on every run, and installing is simply
 "make reality match the list" — the same command works on a fresh machine and
-on one that's been running PN Brain for a year. `scripts/pn-brain-launch.sh` runs it
+on one that's been running PN Scripts Assistant for a year. `scripts/pn-scripts-assistant-launch.sh` runs it
 quietly on every launch, so drift surfaces when it happens rather than as a
 confusing failure later.
 

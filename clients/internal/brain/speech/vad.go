@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"pn-scripts-assistant/internal/brain/paths"
 	"sort"
 	"sync"
 	"syscall"
@@ -404,7 +405,7 @@ func RecordTurnWaiting(
 		 * that is not working. Frame level and frame size told the difference
 		 * in one run, after two wrong guesses.
 		 */
-		if os.Getenv("PN_BRAIN_VAD_TRACE") != "" {
+		if paths.Env("VAD_TRACE") != "" {
 			fmt.Fprintf(os.Stderr, "TRACE rms=%d bytes=%d since=%dms\n",
 				rms, next-offset, time.Since(started)/time.Millisecond)
 		}

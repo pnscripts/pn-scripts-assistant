@@ -30,7 +30,7 @@ func blocksOf(t *testing.T, m anthropicMessage) []anthropicBlock {
 func TestToolOutputReachesAnthropicAsContentBlocks(t *testing.T) {
 	body := NewAnthropic("sk-ant-test", "").requestBody(Request{
 		Messages: []Message{
-			{Role: RoleSystem, Content: "You are PN Brain."},
+			{Role: RoleSystem, Content: "You are PN Scripts Assistant."},
 			{Role: RoleUser, Content: "what machine is this"},
 			{Role: RoleAssistant, ToolCalls: []ToolCall{{
 				ID:        "c1",
@@ -46,7 +46,7 @@ func TestToolOutputReachesAnthropicAsContentBlocks(t *testing.T) {
 	})
 
 	// The system prompt is a field of its own here, not a message.
-	if body.System != "You are PN Brain." {
+	if body.System != "You are PN Scripts Assistant." {
 		t.Errorf("the system prompt was not lifted out: %q", body.System)
 	}
 

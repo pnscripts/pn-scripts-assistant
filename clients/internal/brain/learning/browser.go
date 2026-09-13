@@ -166,7 +166,7 @@ func ScanBrowsers(home string) ([]Site, error) {
 }
 
 func readHistory(browser, path string) ([]Site, error) {
-	temp, err := os.CreateTemp("", "pn-brain-history-*.sqlite")
+	temp, err := os.CreateTemp("", "pn-scripts-assistant-history-*.sqlite")
 	if err != nil {
 		return nil, err
 	}

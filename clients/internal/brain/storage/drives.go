@@ -119,7 +119,7 @@ func isRemovable(mount string) bool {
 }
 
 func canWrite(dir string) bool {
-	probe := filepath.Join(dir, ".pn-brain-write-probe")
+	probe := filepath.Join(dir, ".pn-scripts-assistant-write-probe")
 
 	f, err := os.OpenFile(probe, os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {

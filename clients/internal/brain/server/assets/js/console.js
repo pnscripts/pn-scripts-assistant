@@ -1,5 +1,5 @@
 /*
- * PN Brain console.
+ * PN Scripts Assistant console.
  *
  * Vanilla, no framework and no build step: this ships inside a single
  * self-contained binary, and the whole surface is one chat plus a few polled
@@ -59,7 +59,7 @@ const el = (id) => document.getElementById(id);
 
 const state = {
     conversationId: null,
-    brainName: 'PN Brain',
+    brainName: 'Assistant',
     // What has to be said before it answers, or empty to answer everything.
     wakeWord: '',
     // Whether the name is needed on every sentence rather than once.

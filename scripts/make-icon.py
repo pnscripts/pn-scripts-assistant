@@ -212,13 +212,13 @@ full = draw()
 # five concentric rings.
 ICONS = "clients/internal/brain/desktop/icons"
 
-write_png(f"{ICONS}/pn-brain-512.png", full, SIZE)
+write_png(f"{ICONS}/pn-scripts-assistant-512.png", full, SIZE)
 
 for size in (256, 128, 64, 48):
-    write_png(f"{ICONS}/pn-brain-{size}.png", shrink(full, size), size)
+    write_png(f"{ICONS}/pn-scripts-assistant-{size}.png", shrink(full, size), size)
 
 # One copy for the AppImage, which wants it beside the binary rather than
 # inside it.
-write_png("assets/pn-brain.png", full, SIZE)
+write_png("assets/pn-scripts-assistant.png", full, SIZE)
 
 print(f"  written {SIZE}, 256, 128, 64, 48")

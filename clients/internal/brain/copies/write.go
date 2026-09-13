@@ -131,7 +131,7 @@ func note(src Source, root, dir string) (Copy, error) {
 		What string `json:"what"`
 	}{
 		Copy: c,
-		What: "A copy of a PN Brain. Not the brain itself — the program will not " +
+		What: "A copy of a PN Scripts Assistant brain. Not the brain itself — the program will not " +
 			"start from this folder unless you tell it to.",
 	}, "", "  ")
 	if err != nil {

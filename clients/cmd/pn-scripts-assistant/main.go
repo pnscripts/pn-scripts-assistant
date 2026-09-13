@@ -1,4 +1,4 @@
-// Command brain is PN Brain itself.
+// Command pn-scripts-assistant is PN Scripts Assistant itself.
 //
 // One binary, one file on disk for the data, and nothing else running. There is
 // no database server to install, no container runtime and no queue daemon. That
@@ -185,28 +185,28 @@ func runMenu(args []string) error {
 }
 
 func usage() {
-	fmt.Fprint(os.Stderr, `PN Brain
+	fmt.Fprint(os.Stderr, `PN Scripts Assistant
 
-  brain                     run the app: serve, and open the window
-  brain serve               serve only, without a window
-  brain status              where the data lives and what is in it
-  brain ingest <dir>...     learn about the projects and documents in a folder
-  brain ingest --browser    learn which websites you use (domains only, never URLs)
-  brain promote             turn validated lessons into durable knowledge
-  brain mic-test            listen once and report what the microphone heard
-  brain drives              where the brain could live, and how much room is left
-  brain copies              where copies of the brain are kept  (--now to copy)
-  brain places              the drives and folders it learns from  (--read to read some)
-  brain move <dir>          move the brain to another drive, verifying every byte
-  brain tidy                clear self-descriptions out of the review queue
-  brain start-over          empty the review queue and let those files be read again
-  brain start-over --facts  forget memories of files in folders it no longer reads
-  brain start-over --all    forget everything learned and read every folder again
-  brain setup               choose the drive, the model and the keys again
-  brain start-again         stop waiting for a drive that is gone for good
-  brain menu                put the brain in the applications menu
-  brain menu --remove       take it out again
-  brain rewrite-paths       repair stored paths after a move, then re-embed
+  pn-scripts-assistant                    run the app: serve, and open the window
+  pn-scripts-assistant serve              serve only, without a window
+  pn-scripts-assistant status             where the data lives and what is in it
+  pn-scripts-assistant ingest <dir>...    learn about the projects and documents in a folder
+  pn-scripts-assistant ingest --browser   learn which websites you use (domains only, never URLs)
+  pn-scripts-assistant promote            turn validated lessons into durable knowledge
+  pn-scripts-assistant mic-test           listen once and report what the microphone heard
+  pn-scripts-assistant drives             where the brain could live, and how much room is left
+  pn-scripts-assistant copies             where copies of the brain are kept  (--now to copy)
+  pn-scripts-assistant places             the drives and folders it learns from  (--read to read some)
+  pn-scripts-assistant move <dir>         move the brain to another drive, verifying every byte
+  pn-scripts-assistant tidy               clear self-descriptions out of the review queue
+  pn-scripts-assistant start-over         empty the review queue and let those files be read again
+  pn-scripts-assistant start-over --facts forget memories of files in folders it no longer reads
+  pn-scripts-assistant start-over --all   forget everything learned and read every folder again
+  pn-scripts-assistant setup              choose the drive, the model and the keys again
+  pn-scripts-assistant start-again        stop waiting for a drive that is gone for good
+  pn-scripts-assistant menu               put the brain in the applications menu
+  pn-scripts-assistant menu --remove      take it out again
+  pn-scripts-assistant rewrite-paths      repair stored paths after a move, then re-embed
 
 `)
 }
@@ -342,7 +342,7 @@ func runServe(args []string) error {
 		logger.Warn("could not close off imports that were cut short", "error", err)
 	}
 
-	interrupted, err := db.InterruptWorkingTasks("PN Brain was closed while this was running")
+	interrupted, err := db.InterruptWorkingTasks("PN Scripts Assistant was closed while this was running")
 	if err != nil {
 		logger.Warn("could not park tasks left running", "error", err)
 	} else if interrupted > 0 {
@@ -730,7 +730,7 @@ func runApp(args []string) error {
 		 * case that must not be read as agreement.
 		 *
 		 * Once it is set, setup runs when it is asked for — the button under
-		 * System, or "brain setup" — and on its own only when something
+		 * System, or "pn-scripts-assistant setup" — and on its own only when something
 		 * essential has gone missing, which is a repair rather than a setup
 		 * and is worth interrupting somebody for.
 		 */
@@ -812,7 +812,7 @@ func runApp(args []string) error {
 		logger.Warn("could not close off imports that were cut short", "error", err)
 	}
 
-	interrupted, err := db.InterruptWorkingTasks("PN Brain was closed while this was running")
+	interrupted, err := db.InterruptWorkingTasks("PN Scripts Assistant was closed while this was running")
 	if err != nil {
 		logger.Warn("could not park tasks left running", "error", err)
 	} else if interrupted > 0 {
@@ -1213,7 +1213,7 @@ func runFirstRunSetup(settingsPath, name string) (bool, error) {
 	 * Why setup is on the screen, which is not always the same reason.
 	 *
 	 * Opened deliberately to change a drive, it announced that the machine was
-	 * missing something PN Brain needs — which is alarming, wrong, and sends
+	 * missing something PN Scripts Assistant needs — which is alarming, wrong, and sends
 	 * somebody looking for a fault that is not there.
 	 */
 	if blocking := preflight.Blocking(preflight.Check()); len(blocking) > 0 {
@@ -1250,7 +1250,7 @@ func runFirstRunSetup(settingsPath, name string) (bool, error) {
 			 * would otherwise be a program that starts, shows nothing, and
 			 * exits — indistinguishable from one that does not work.
 			 */
-			window.Alert("PN Brain — Setup",
+			window.Alert("PN Scripts Assistant — Setup",
 				"Setup is ready but the browser could not be opened.\n\n"+
 					"Open this address yourself to continue:\n"+srv.URL())
 		}
@@ -1327,7 +1327,7 @@ func stillMissing(srv *setup.Server) error {
 
 	return fmt.Errorf("setup was closed before it finished, so nothing was changed.\n"+
 		"  Still needed: %s\n"+
-		"  Run it again with: brain setup",
+		"  Run it again with: pn-scripts-assistant setup",
 		strings.Join(names, ", "))
 }
 
@@ -1359,16 +1359,16 @@ func runSetup(args []string) error {
 	}
 
 	/*
-	 * And then actually continue to PN Brain, which is what the button says.
+	 * And then actually continue to PN Scripts Assistant, which is what the button says.
 	 *
-	 * This path is reached by "brain setup" and by the button in the running
+	 * This path is reached by "pn-scripts-assistant setup" and by the button in the running
 	 * program's settings. Pressing Continue closed setup and stopped, so the
 	 * button promised the assistant and delivered an empty screen.
 	 *
 	 * Started unconditionally when somebody pressed it: if a brain is already
 	 * running — which it is when this was opened from its own settings — the
 	 * one-at-a-time guard brings that window to the front instead of starting
-	 * a second one, which is the right answer to "continue to PN Brain" in
+	 * a second one, which is the right answer to "continue to PN Scripts Assistant" in
 	 * both cases.
 	 */
 	if !finished {
@@ -1382,7 +1382,7 @@ func runSetup(args []string) error {
 
 	brain := exec.Command(self)
 	if err := brain.Start(); err != nil {
-		return fmt.Errorf("could not start PN Brain: %w", err)
+		return fmt.Errorf("could not start PN Scripts Assistant: %w", err)
 	}
 
 	// Released rather than waited on: the assistant outlives the setup process
@@ -1404,9 +1404,9 @@ func runSetup(args []string) error {
  * to fall back on a terminal.
  */
 func brainAway(elsewhere *paths.AwayError) error {
-	fmt.Fprintf(os.Stderr, "\n  PN Brain keeps everything it knows at:\n    %s\n\n", elsewhere.Path)
+	fmt.Fprintf(os.Stderr, "\n  PN Scripts Assistant keeps everything it knows at:\n    %s\n\n", elsewhere.Path)
 	fmt.Fprint(os.Stderr, "  That place is not available right now. If it is on a drive,\n")
-	fmt.Fprint(os.Stderr, "  plug the drive in and start PN Brain again — nothing is lost.\n\n")
+	fmt.Fprint(os.Stderr, "  plug the drive in and start PN Scripts Assistant again — nothing is lost.\n\n")
 	fmt.Fprint(os.Stderr, "  If it is gone for good and you want to begin again:\n")
 	fmt.Fprint(os.Stderr, "    brain start-again\n\n")
 
@@ -1422,12 +1422,12 @@ func brainAway(elsewhere *paths.AwayError) error {
 	done := make(chan struct{})
 	go srv.Serve(func() { close(done) })
 
-	_ = window.Open(srv.URL(), "PN Brain", 640, 460)
+	_ = window.Open(srv.URL(), "PN Scripts Assistant", 640, 460)
 
 	if srv.StartAgain() {
 		paths.Forget()
 
-		fmt.Fprint(os.Stderr, "  Starting again. Run PN Brain once more.\n\n")
+		fmt.Fprint(os.Stderr, "  Starting again. Run PN Scripts Assistant once more.\n\n")
 	}
 
 	return errNothingMore
@@ -1443,14 +1443,14 @@ func runStartAgain(args []string) error {
 
 	away, ok := paths.LastKnown()
 	if !ok {
-		fmt.Print("\n  Nothing to forget — PN Brain is not waiting on anywhere.\n\n")
+		fmt.Print("\n  Nothing to forget — PN Scripts Assistant is not waiting on anywhere.\n\n")
 
 		return nil
 	}
 
 	paths.Forget()
 
-	fmt.Printf("\n  PN Brain will no longer wait for %s.\n", away)
+	fmt.Printf("\n  PN Scripts Assistant will no longer wait for %s.\n", away)
 	fmt.Print("  The next start makes a new, empty brain. Anything at that\n")
 	fmt.Print("  place is untouched, and plugging it back in still works —\n")
 	fmt.Print("  it is found again by being there, not by being remembered.\n\n")
@@ -1702,7 +1702,7 @@ func runDrives(args []string) error {
 			strings.Join(marks, ", "))
 	}
 
-	fmt.Printf("\n  Move it with:  brain move <folder on another drive>\n\n")
+	fmt.Printf("\n  Move it with:  pn-scripts-assistant move <folder on another drive>\n\n")
 
 	return nil
 }
@@ -1797,7 +1797,7 @@ func runMicTest(args []string) error {
 		fmt.Printf("   %s %s%s\n", mark, m.Name, map[bool]string{true: "  (system default)"}[m.Default])
 	}
 
-	f, err := os.CreateTemp("", "pn-brain-mictest-*.wav")
+	f, err := os.CreateTemp("", "pn-scripts-assistant-mictest-*.wav")
 	if err != nil {
 		return err
 	}

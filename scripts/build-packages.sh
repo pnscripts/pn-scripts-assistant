@@ -76,7 +76,7 @@ mkdir -p "$OUT"
 build_deb() {
     command -v dpkg-deb >/dev/null || { warn "dpkg-deb missing; skipping the .deb"; return; }
 
-    local stage="$ROOT/build/deb/pn-brain_${VERSION}_amd64"
+    local stage="$ROOT/build/deb/pn-scripts-assistant_${VERSION}_amd64"
 
     log "Ubuntu/Debian package $VERSION"
 
@@ -94,31 +94,31 @@ build_deb() {
     for size in 48 64 128 256 512; do
         mkdir -p "$stage/usr/share/icons/hicolor/${size}x${size}/apps"
 
-        local icon="$ROOT/clients/internal/brain/desktop/icons/pn-brain-${size}.png"
+        local icon="$ROOT/clients/internal/brain/desktop/icons/pn-scripts-assistant-${size}.png"
 
         [ -f "$icon" ] && install -m 644 "$icon" \
-            "$stage/usr/share/icons/hicolor/${size}x${size}/apps/pn-brain.png"
+            "$stage/usr/share/icons/hicolor/${size}x${size}/apps/pn-scripts-assistant.png"
     done
 
     CGO_ENABLED=1 go build -C "$ROOT/clients" -trimpath -ldflags="-s -w" \
-        -o "$stage/usr/bin/pn-brain" ./cmd/brain || die "build failed"
+        -o "$stage/usr/bin/pn-scripts-assistant" ./cmd/pn-scripts-assistant || die "build failed"
 
-    chmod 755 "$stage/usr/bin/pn-brain"
+    chmod 755 "$stage/usr/bin/pn-scripts-assistant"
 
     # Depends rather than Recommends for the window libraries: without them the
     # program runs but cannot open its own window, and somebody who installed a
     # desktop application has not asked for a thing that only serves a port.
     cat > "$stage/DEBIAN/control" <<CONTROL
-Package: pn-brain
+Package: pn-scripts-assistant
 Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: amd64
 Depends: libwebkit2gtk-4.1-0, libgtk-3-0t64 | libgtk-3-0
 Recommends: xdotool, espeak-ng
-Maintainer: PN Brain <noreply@localhost>
+Maintainer: PN Scripts Assistant <noreply@localhost>
 Description: A private assistant that runs entirely on this machine
- PN Brain is a personal, self-learning assistant. It keeps everything it
+ PN Scripts Assistant is a personal, self-learning assistant. It keeps everything it
  learns in one folder on your own computer, runs its language model locally,
  and by default sends nothing anywhere.
  .
@@ -126,31 +126,31 @@ Description: A private assistant that runs entirely on this machine
  run and installs them for you.
 CONTROL
 
-    cat > "$stage/usr/share/applications/pn-brain.desktop" <<'DESKTOP'
+    cat > "$stage/usr/share/applications/pn-scripts-assistant.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=PN Brain
+Name=PN Scripts Assistant
 GenericName=AI Assistant
 Comment=A private assistant that runs entirely on this machine
-Exec=pn-brain
-Icon=pn-brain
+Exec=pn-scripts-assistant
+Icon=pn-scripts-assistant
 Terminal=false
 Categories=Utility;
 Keywords=assistant;brain;voice;memory;
 StartupNotify=true
-StartupWMClass=pn-brain
+StartupWMClass=pn-scripts-assistant
 Actions=setup;
 
 [Desktop Action setup]
 Name=Set up again
-Exec=pn-brain setup
+Exec=pn-scripts-assistant setup
 DESKTOP
 
-    fakeroot dpkg-deb --build "$stage" "$OUT/pn-brain_${VERSION}_amd64.deb" >/dev/null \
+    fakeroot dpkg-deb --build "$stage" "$OUT/pn-scripts-assistant_${VERSION}_amd64.deb" >/dev/null \
         || die "dpkg-deb failed"
 
-    log "  $OUT/pn-brain_${VERSION}_amd64.deb"
+    log "  $OUT/pn-scripts-assistant_${VERSION}_amd64.deb"
 }
 
 # ---------------------------------------------------------------------------
@@ -166,10 +166,10 @@ prepare_notes() {
     mkdir -p "$ROOT/build/macos" "$ROOT/build/windows"
 
     cat > "$ROOT/build/macos/README.txt" <<'MACNOTE'
-PN Brain for macOS
+PN Scripts Assistant for macOS
 ==================
 
-Drag "PN Brain.app" to your Applications folder, then open it.
+Drag "PN Scripts Assistant.app" to your Applications folder, then open it.
 
 The first time, macOS will refuse
 ---------------------------------
@@ -183,12 +183,12 @@ then Open again in the dialog. You only do this once.
 
 What happens when it starts
 ---------------------------
-PN Brain checks what your machine has and opens setup in your browser. It
+PN Scripts Assistant checks what your machine has and opens setup in your browser. It
 will ask you to install Ollama, which it cannot install for you on macOS —
 get it from https://ollama.com/download, then continue. Everything after
 that, including the language model, it does itself.
 
-There is no separate window on macOS yet. PN Brain runs and shows its
+There is no separate window on macOS yet. PN Scripts Assistant runs and shows its
 interface in your browser.
 
 Where your data goes
@@ -199,10 +199,10 @@ kept by Ollama in ~/.ollama/models, which is separate from that folder.
 MACNOTE
 
     cat > "$ROOT/build/windows/README.txt" <<'WINNOTE'
-PN Brain for Windows
+PN Scripts Assistant for Windows
 ====================
 
-Put this folder anywhere you like and run pn-brain.exe.
+Put this folder anywhere you like and run pn-scripts-assistant.exe.
 
 The first time, Windows will refuse
 -----------------------------------
@@ -216,12 +216,12 @@ once.
 
 What happens when it starts
 ---------------------------
-PN Brain checks what your machine has and opens setup in your browser. It
+PN Scripts Assistant checks what your machine has and opens setup in your browser. It
 will ask you to install Ollama, which it cannot install for you on Windows
 -- get it from https://ollama.com/download, then continue. Everything after
 that, including the language model, it does itself.
 
-There is no separate window on Windows yet. PN Brain runs and shows its
+There is no separate window on Windows yet. PN Scripts Assistant runs and shows its
 interface in your browser.
 
 Where your data goes
@@ -248,7 +248,7 @@ WINNOTE
 build_macos() {
     local arch
     for arch in amd64 arm64; do
-        local app="$ROOT/build/macos/$arch/PN Brain.app"
+        local app="$ROOT/build/macos/$arch/PN Scripts Assistant.app"
 
         log "macOS bundle ($arch)"
 
@@ -260,23 +260,23 @@ build_macos() {
         # SDK on this machine and would still not add a window.
         GOOS=darwin GOARCH="$arch" CGO_ENABLED=0 \
             go build -C "$ROOT/clients" -trimpath -ldflags="-s -w" \
-            -o "$app/Contents/MacOS/pn-brain" ./cmd/brain || die "darwin/$arch build failed"
+            -o "$app/Contents/MacOS/pn-scripts-assistant" ./cmd/pn-scripts-assistant || die "darwin/$arch build failed"
 
-        chmod 755 "$app/Contents/MacOS/pn-brain"
+        chmod 755 "$app/Contents/MacOS/pn-scripts-assistant"
 
         cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>PN Brain</string>
-  <key>CFBundleDisplayName</key><string>PN Brain</string>
-  <key>CFBundleIdentifier</key><string>com.pnscripts.pn-brain</string>
+  <key>CFBundleName</key><string>PN Scripts Assistant</string>
+  <key>CFBundleDisplayName</key><string>PN Scripts Assistant</string>
+  <key>CFBundleIdentifier</key><string>com.pnscripts.pn-scripts-assistant</string>
   <key>CFBundleVersion</key><string>$VERSION</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleExecutable</key><string>pn-brain</string>
-  <key>CFBundleIconFile</key><string>pn-brain</string>
+  <key>CFBundleExecutable</key><string>pn-scripts-assistant</string>
+  <key>CFBundleIconFile</key><string>pn-scripts-assistant</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <!-- It serves its interface to a browser rather than drawing a window, so
        it has no dock icon of its own to manage. -->
@@ -286,15 +286,15 @@ build_macos() {
 </plist>
 PLIST
 
-        [ -f "$ROOT/assets/pn-brain.png" ] &&
-            cp "$ROOT/assets/pn-brain.png" "$app/Contents/Resources/pn-brain.png"
+        [ -f "$ROOT/assets/pn-scripts-assistant.png" ] &&
+            cp "$ROOT/assets/pn-scripts-assistant.png" "$app/Contents/Resources/pn-scripts-assistant.png"
 
         cp "$ROOT/build/macos/README.txt" "$ROOT/build/macos/$arch/" 2>/dev/null || true
 
-        tar -czf "$OUT/pn-brain-${VERSION}-macos-${arch}.tar.gz" \
+        tar -czf "$OUT/pn-scripts-assistant-${VERSION}-macos-${arch}.tar.gz" \
             -C "$ROOT/build/macos/$arch" . || die "packaging darwin/$arch failed"
 
-        log "  $OUT/pn-brain-${VERSION}-macos-${arch}.tar.gz"
+        log "  $OUT/pn-scripts-assistant-${VERSION}-macos-${arch}.tar.gz"
     done
 }
 
@@ -307,7 +307,7 @@ PLIST
 # installer is more alarming than a plain executable, not less — it asks for
 # more trust while offering the same unsigned binary.
 build_windows() {
-    local dir="$ROOT/build/windows/PN-Brain"
+    local dir="$ROOT/build/windows/PN-Scripts-Assistant"
 
     log "Windows package"
 
@@ -320,14 +320,14 @@ build_windows() {
     # must not be lost — setup could not be opened — is a message box instead.
     GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
         go build -C "$ROOT/clients" -trimpath -ldflags="-s -w -H windowsgui" \
-        -o "$dir/pn-brain.exe" ./cmd/brain || die "windows build failed"
+        -o "$dir/pn-scripts-assistant.exe" ./cmd/pn-scripts-assistant || die "windows build failed"
 
     cp "$ROOT/build/windows/README.txt" "$dir/" 2>/dev/null || true
 
-    ( cd "$ROOT/build/windows" && zip -qr "$OUT/pn-brain-${VERSION}-windows-amd64.zip" "PN-Brain" ) \
+    ( cd "$ROOT/build/windows" && zip -qr "$OUT/pn-scripts-assistant-${VERSION}-windows-amd64.zip" "PN-Scripts-Assistant" ) \
         || die "zip failed"
 
-    log "  $OUT/pn-brain-${VERSION}-windows-amd64.zip"
+    log "  $OUT/pn-scripts-assistant-${VERSION}-windows-amd64.zip"
 }
 
 case "$want" in

@@ -20,7 +20,7 @@ func (r Result) Satisfied() bool {
 	return r.State == OK
 }
 
-// Blocking reports whether this alone stops PN Brain from running.
+// Blocking reports whether this alone stops PN Scripts Assistant from running.
 func (r Result) Blocking() bool {
 	return r.State != OK && !r.Requirement.Optional
 }
@@ -39,7 +39,7 @@ func Check() []Result {
 	return results
 }
 
-// Blocking returns the requirements that stop PN Brain running, so a caller
+// Blocking returns the requirements that stop PN Scripts Assistant running, so a caller
 // can name them rather than only count them.
 func Blocking(results []Result) []Result {
 	return BlockingFor(results, false)

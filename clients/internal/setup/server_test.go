@@ -21,7 +21,7 @@ func startServer(t *testing.T) (*Server, string) {
 	dir := t.TempDir()
 	envPath := filepath.Join(dir, ".env")
 
-	if err := os.WriteFile(envPath, []byte("APP_NAME=\"PN Brain\"\nANTHROPIC_API_KEY=\n"), 0o600); err != nil {
+	if err := os.WriteFile(envPath, []byte("APP_NAME=\"PN Scripts Assistant\"\nANTHROPIC_API_KEY=\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -239,7 +239,7 @@ func TestEachDriveIsOfferedTheRightFolder(t *testing.T) {
  * file; finding it out after setup costs somebody their first impression.
  */
 func TestAFolderThatCannotBeWrittenIsNotOffered(t *testing.T) {
-	if canCreate("/proc/pn-brain-should-never-work") {
+	if canCreate("/proc/pn-scripts-assistant-should-never-work") {
 		t.Error("a folder that cannot exist was reported as usable")
 	}
 

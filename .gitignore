@@ -38,5 +38,4 @@ build/
 godot/.godot/
 
 # The exported visual is a build product, not source.
-dist/pn-brain-visuals
 godot/export_presets.cfg

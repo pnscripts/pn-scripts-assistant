@@ -172,7 +172,7 @@ func (f FetchURL) Execute(ctx context.Context, raw json.RawMessage) (string, err
 		return "", err
 	}
 
-	req.Header.Set("User-Agent", "PN Brain (personal assistant)")
+	req.Header.Set("User-Agent", "PN Scripts Assistant (personal assistant)")
 
 	resp, err := client.Do(req)
 	if err != nil {

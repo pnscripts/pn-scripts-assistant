@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/paths"
 	"sort"
 	"time"
 )
@@ -32,12 +33,7 @@ const HowManyFailuresToKeep = 6
 
 // FailedTurnsDir is where they go.
 func FailedTurnsDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-
-	return filepath.Join(home, ".pn-brain", "unheard")
+	return filepath.Join(paths.MachineFolder(), "unheard")
 }
 
 /*

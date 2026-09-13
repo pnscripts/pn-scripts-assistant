@@ -150,7 +150,7 @@ func convertedText(ctx context.Context, path string) (string, error) {
 			filepath.Base(path))
 	}
 
-	dir, err := tempDir("pn-brain-doc")
+	dir, err := tempDir("pn-scripts-assistant-doc")
 	if err != nil {
 		return "", err
 	}

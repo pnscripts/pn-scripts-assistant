@@ -671,7 +671,7 @@ func (s *Server) state() map[string]any {
 		/*
 		 * And whether there is any way to start this again afterwards.
 		 *
-		 * Setup left the machine able to run PN Brain and gave nobody a way to
+		 * Setup left the machine able to run PN Scripts Assistant and gave nobody a way to
 		 * do it: no menu entry, so the only route back was the file it was
 		 * launched from, or a terminal. Reported here so the last step can
 		 * offer it like everything else rather than doing it silently.
@@ -1125,7 +1125,7 @@ func (s *Server) drives() []map[string]any {
 func brainFolderOn(mount string) string {
 	home, err := os.UserHomeDir()
 	if err == nil && onSameFilesystem(home, mount) {
-		return filepath.Join(home, ".local", "share", "pn-brain")
+		return paths.HomeRootHere()
 	}
 
 	return filepath.Join(mount, DataFolder)
@@ -1172,7 +1172,7 @@ func canCreate(path string) bool {
 }
 
 func canWriteInto(dir string) bool {
-	probe := filepath.Join(dir, ".pn-brain-write-test")
+	probe := filepath.Join(dir, ".pn-scripts-assistant-write-test")
 
 	if err := os.WriteFile(probe, []byte("ok"), 0o600); err != nil {
 		return false
@@ -1197,12 +1197,7 @@ func (s *Server) chosenRoot() string {
 		return r.Path
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-
-	return filepath.Join(home, ".local", "share", "pn-brain")
+	return paths.HomeRootHere()
 }
 
 /*
@@ -1224,7 +1219,7 @@ func (s *Server) chooseRoot(path string) error {
 		return fmt.Errorf("could not create %s: %w", path, err)
 	}
 
-	probe := filepath.Join(path, ".pn-brain-write-test")
+	probe := filepath.Join(path, ".pn-scripts-assistant-write-test")
 
 	if err := os.WriteFile(probe, []byte("ok"), 0o600); err != nil {
 		return fmt.Errorf("%s cannot be written to: %w", path, err)
@@ -1329,7 +1324,7 @@ func menuPath() string {
 	return entry
 }
 
-// menuStep is the plan entry that puts PN Brain in the applications menu.
+// menuStep is the plan entry that puts PN Scripts Assistant in the applications menu.
 const menuStep = "menu:"
 
 func (s *Server) runOne(name string, w io.Writer) bool {

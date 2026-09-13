@@ -382,7 +382,7 @@ func listenAgain(ctx context.Context, device string, meantForIt bool) (Heard, er
 func listenWaiting(
 	ctx context.Context, device string, patience time.Duration, meantForIt bool,
 ) (Heard, error) {
-	f, err := os.CreateTemp("", "pn-brain-turn-*.wav")
+	f, err := os.CreateTemp("", "pn-scripts-assistant-turn-*.wav")
 	if err != nil {
 		return Heard{}, err
 	}

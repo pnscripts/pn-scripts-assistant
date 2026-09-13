@@ -93,7 +93,7 @@ func placesForACopy(root string) []map[string]any {
 
 		out = append(out, map[string]any{
 			"mount_point": d.MountPoint,
-			"suggested":   filepath.Join(d.MountPoint, "PN-BRAIN-COPY"),
+			"suggested":   filepath.Join(d.MountPoint, "PN-SCRIPTS-ASSISTANT-COPY"),
 			"free_bytes":  d.FreeBytes,
 			"removable":   d.Removable,
 		})
@@ -140,7 +140,7 @@ func homeAsAPlace(drives []storage.Drive) []map[string]any {
 
 	return []map[string]any{{
 		"mount_point": home,
-		"suggested":   filepath.Join(home, "PN-BRAIN-COPY"),
+		"suggested":   filepath.Join(home, "PN-SCRIPTS-ASSISTANT-COPY"),
 		"free_bytes":  on.FreeBytes,
 		"removable":   false,
 		"home":        true,
@@ -150,7 +150,7 @@ func homeAsAPlace(drives []storage.Drive) []map[string]any {
 // canWriteHome asks the only question that matters about a folder offered as a
 // destination, by trying it rather than reasoning about permissions.
 func canWriteHome(home string) bool {
-	f, err := os.CreateTemp(home, ".pn-brain-check-*")
+	f, err := os.CreateTemp(home, ".pn-scripts-assistant-check-*")
 	if err != nil {
 		return false
 	}
@@ -264,6 +264,6 @@ func (s *Server) handleUseCopy(w http.ResponseWriter, r *http.Request) {
 
 	ok(w, map[string]any{
 		"using": body.Path,
-		"note":  "Restart PN Brain to open this one. The brain it was copied from is still where it was.",
+		"note":  "Restart PN Scripts Assistant to open this one. The brain it was copied from is still where it was.",
 	})
 }

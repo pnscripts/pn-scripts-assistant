@@ -20,8 +20,10 @@ func TestSweepingLeavesALiveRecordingAlone(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("TMPDIR", dir)
 
-	fresh := filepath.Join(dir, "pn-brain-turn-999.wav")
-	stale := filepath.Join(dir, "pn-brain-turn-111.wav")
+	fresh := filepath.Join(dir, "pn-scripts-assistant-turn-999.wav")
+	stale := filepath.Join(dir, "pn-scripts-assistant-turn-111.wav")
+
+	// Named the way a run from before the rename named it.
 	listen := filepath.Join(dir, "pn-brain-listen-222.wav")
 	other := filepath.Join(dir, "something-else.wav")
 

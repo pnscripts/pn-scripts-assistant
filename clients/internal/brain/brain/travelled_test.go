@@ -19,8 +19,8 @@ import (
  * about everything else on the disk beside it.
  */
 func TestWhatToRewriteAfterAJourney(t *testing.T) {
-	from := "/media/petar/WORKDRIVE/PN-BRAIN-DATA"
-	to := "/Volumes/WORKDRIVE/PN-BRAIN-DATA"
+	from := "/media/petar/WORKDRIVE/PN-SCRIPTS-ASSISTANT-DATA"
+	to := "/Volumes/WORKDRIVE/PN-SCRIPTS-ASSISTANT-DATA"
 
 	old, now := prefixes(from, to)
 
@@ -62,7 +62,7 @@ func TestAJourneyThatBrokeNothingIsNotReported(t *testing.T) {
 func TestAJourneyThatBrokeSomethingSaysHowMuch(t *testing.T) {
 	b, _ := withACopy(t)
 
-	was := "/media/someone/OLDDRIVE/PN-BRAIN-DATA"
+	was := "/media/someone/OLDDRIVE/PN-SCRIPTS-ASSISTANT-DATA"
 	old, _ := prefixes(was, b.Root)
 
 	for i := 0; i < 3; i++ {

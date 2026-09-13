@@ -113,7 +113,7 @@ func TestPicksTheMicrophoneSomeoneIsSpeakingInto(t *testing.T) {
 func TestNeverRecordsFromTheSpeakers(t *testing.T) {
 	mics := []Microphone{
 		{ID: "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor", Name: "Monitor of Built-in"},
-		{ID: "pn_brain_echo_cancelled", Name: "Microphone (echo cancelled)"},
+		{ID: "pn_scripts_assistant_echo_cancelled", Name: "Microphone (echo cancelled)"},
 		{ID: "alsa_input.usb-145f_Trust.mono-fallback", Name: "Trust GXT 232"},
 	}
 
@@ -139,12 +139,14 @@ func TestNeverRecordsFromTheSpeakers(t *testing.T) {
  * words. Nothing anywhere said which input it had settled on.
  */
 func TestNoticesTheCancellerIsOnTheWrongMicrophone(t *testing.T) {
-	const wired = `pn-brain.echo-cancel.capture:input_MONO
+	const wired = `pn-scripts-assistant.echo-cancel.capture:input_MONO
   |<- alsa_input.usb-145f_Trust_GXT_232_Microphone-00.mono-fallback:capture_MONO
-pn_brain_echo_cancelled:capture_MONO
+pn_scripts_assistant_echo_cancelled:capture_MONO
   |-> pw-record:input_MONO
 `
 
+	// Under the old name, as a machine whose audio has not been restarted
+	// since the rename still lists it.
 	const misdirected = `pn-brain.echo-cancel.capture:input_FL
   |<- alsa_input.pci-0000_00_1f.3.analog-stereo:capture_FL
 pn-brain.echo-cancel.capture:input_FR
@@ -232,7 +234,7 @@ card 1: Microphone [Trust GXT 232 Microphone], device 0: USB Audio [USB Audio]
 func TestNeverHandsAPipeWireNameToALSA(t *testing.T) {
 	for _, id := range []string{
 		"alsa_input.usb-145f_Trust_GXT_232_Microphone-00.mono-fallback",
-		"pn_brain_echo_cancelled",
+		"pn_scripts_assistant_echo_cancelled",
 	} {
 		if alsaWouldUnderstand(id) {
 			t.Errorf("%q is a PipeWire name and would be passed to arecord", id)

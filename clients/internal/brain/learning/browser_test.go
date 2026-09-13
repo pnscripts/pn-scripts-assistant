@@ -100,9 +100,9 @@ func TestReverseHostUndoesFirefoxEncoding(t *testing.T) {
 // The URL must never survive; only its host.
 func TestDomainOfKeepsOnlyTheHost(t *testing.T) {
 	cases := map[string]string{
-		"https://github.com/PNScripts/pn-brain/issues/1?x=2#y": "github.com",
-		"http://user:pass@internal.host:8080/admin":            "internal.host",
-		"https://Example.COM/":                                 "example.com",
+		"https://github.com/pnscripts/pn-scripts-assistant/issues/1?x=2#y": "github.com",
+		"http://user:pass@internal.host:8080/admin":                        "internal.host",
+		"https://Example.COM/":                                             "example.com",
 	}
 
 	for in, want := range cases {

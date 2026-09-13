@@ -29,14 +29,14 @@ Audio
  │
  ├─ Sinks:
  │  *   61. Built-in Audio Analog Stereo        [vol: 0.65]
- │      74. pn_brain_echo_sink                  [vol: 1.00]
+ │      74. pn_scripts_assistant_echo_sink      [vol: 1.00]
  │
  ├─ Sources:
  │  *   66. Trust GXT 232 Microphone            [vol: 1.00]
- │      75. pn_brain_echo_cancelled             [vol: 1.00]
+ │      75. pn_scripts_assistant_echo_cancelled [vol: 1.00]
  │
  ├─ Filters:
- │      70. pn-brain.echo-cancel
+ │      70. pn-scripts-assistant.echo-cancel
  │
  └─ Streams:
         88. Brave
@@ -166,7 +166,7 @@ func TestPuttingTheSoundBackDoesNotNeedToHaveMovedIt(t *testing.T) {
 
 	// Nothing remembered, which is the state after a restart.
 	if found := anyRealSink(context.Background()); found != "" {
-		if strings.Contains(found, "pn_brain") || strings.Contains(found, "pn-brain") {
+		if isOwnAudio(found) {
 			t.Fatalf("offered the canceller's own sink as somewhere to put the sound back: %s",
 				found)
 		}

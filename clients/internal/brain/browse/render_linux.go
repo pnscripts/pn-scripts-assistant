@@ -21,46 +21,46 @@ package browse
 #include <stdlib.h>
 #include <string.h>
 
-extern void pnbrainPageRead(char *text);
-extern void pnbrainPageFailed(char *why);
+extern void pnassistantPageRead(char *text);
+extern void pnassistantPageFailed(char *why);
 
 // What to run once the page has settled. innerText rather than the HTML,
 // because what is wanted is what a person would read — and the HTML of a
 // modern page is mostly not that.
-static const char *pnbrain_extract =
+static const char *pnassistant_extract =
     "(function(){"
     "  var t = document.body ? document.body.innerText : '';"
     "  return (document.title ? document.title + '\\n\\n' : '') + t;"
     "})()";
 
-static void pnbrain_got_text(GObject *view, GAsyncResult *result, gpointer data) {
+static void pnassistant_got_text(GObject *view, GAsyncResult *result, gpointer data) {
     GError *error = NULL;
     JSCValue *value = webkit_web_view_evaluate_javascript_finish(
         WEBKIT_WEB_VIEW(view), result, &error);
 
     if (error != NULL) {
-        pnbrainPageFailed(g_strdup(error->message));
+        pnassistantPageFailed(g_strdup(error->message));
         g_error_free(error);
         gtk_main_quit();
         return;
     }
 
     char *text = jsc_value_to_string(value);
-    pnbrainPageRead(text);
+    pnassistantPageRead(text);
     gtk_main_quit();
 }
 
 // Read the page, whenever we decide it has settled. One function for both
 // routes in — the load finishing, and the giving-up timer — because two copies
 // of the same call is how one of them stops being fixed.
-static gboolean pnbrain_read_now(gpointer data) {
+static gboolean pnassistant_read_now(gpointer data) {
     webkit_web_view_evaluate_javascript(
-        WEBKIT_WEB_VIEW(data), pnbrain_extract, -1, NULL, NULL, NULL,
-        pnbrain_got_text, NULL);
+        WEBKIT_WEB_VIEW(data), pnassistant_extract, -1, NULL, NULL, NULL,
+        pnassistant_got_text, NULL);
     return G_SOURCE_REMOVE;
 }
 
-static void pnbrain_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpointer data) {
+static void pnassistant_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpointer data) {
     if (event != WEBKIT_LOAD_FINISHED) {
         return;
     }
@@ -69,26 +69,26 @@ static void pnbrain_load_changed(WebKitWebView *view, WebKitLoadEvent event, gpo
     // draws itself with scripts has run them by the time load finishes but has
     // often not put the result in the document yet, and reading too early
     // returns the empty shell that made the page look broken rather than slow.
-    g_timeout_add(600, pnbrain_read_now, view);
+    g_timeout_add(600, pnassistant_read_now, view);
 }
 
-static gboolean pnbrain_load_failed(WebKitWebView *view, WebKitLoadEvent event,
+static gboolean pnassistant_load_failed(WebKitWebView *view, WebKitLoadEvent event,
                                     gchar *uri, GError *error, gpointer data) {
-    pnbrainPageFailed(g_strdup(error ? error->message : "the page would not load"));
+    pnassistantPageFailed(g_strdup(error ? error->message : "the page would not load"));
     gtk_main_quit();
     return TRUE;
 }
 
-static gboolean pnbrain_gave_up(gpointer data) {
+static gboolean pnassistant_gave_up(gpointer data) {
     // A page that never finishes loading is the ordinary case rather than a
     // rare one: an advert that polls forever keeps a load open indefinitely.
     // Whatever has been rendered by the time we stop waiting is the answer.
-    return pnbrain_read_now(data);
+    return pnassistant_read_now(data);
 }
 
-static int pnbrain_render(const char *url, int seconds) {
+static int pnassistant_render(const char *url, int seconds) {
     if (!gtk_init_check(NULL, NULL)) {
-        pnbrainPageFailed(g_strdup("there is no display to render a page on"));
+        pnassistantPageFailed(g_strdup("there is no display to render a page on"));
         return 1;
     }
 
@@ -112,10 +112,10 @@ static int pnbrain_render(const char *url, int seconds) {
     gtk_container_add(GTK_CONTAINER(offscreen), GTK_WIDGET(view));
     gtk_widget_show_all(offscreen);
 
-    g_signal_connect(view, "load-changed", G_CALLBACK(pnbrain_load_changed), NULL);
-    g_signal_connect(view, "load-failed", G_CALLBACK(pnbrain_load_failed), NULL);
+    g_signal_connect(view, "load-changed", G_CALLBACK(pnassistant_load_changed), NULL);
+    g_signal_connect(view, "load-failed", G_CALLBACK(pnassistant_load_failed), NULL);
 
-    g_timeout_add_seconds(seconds, pnbrain_gave_up, view);
+    g_timeout_add_seconds(seconds, pnassistant_gave_up, view);
 
     webkit_web_view_load_uri(view, url);
 
@@ -138,15 +138,15 @@ var (
 	pageWhy  string
 )
 
-//export pnbrainPageRead
-func pnbrainPageRead(text *C.char) {
+//export pnassistantPageRead
+func pnassistantPageRead(text *C.char) {
 	pageText = C.GoString(text)
 
 	C.free(unsafe.Pointer(text))
 }
 
-//export pnbrainPageFailed
-func pnbrainPageFailed(why *C.char) {
+//export pnassistantPageFailed
+func pnassistantPageFailed(why *C.char) {
 	pageWhy = C.GoString(why)
 
 	C.free(unsafe.Pointer(why))
@@ -163,7 +163,7 @@ func RenderHere(url string, seconds int) error {
 	target := C.CString(url)
 	defer C.free(unsafe.Pointer(target))
 
-	C.pnbrain_render(target, C.int(seconds))
+	C.pnassistant_render(target, C.int(seconds))
 
 	if pageWhy != "" && pageText == "" {
 		/*

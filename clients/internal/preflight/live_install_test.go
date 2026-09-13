@@ -10,15 +10,15 @@ import (
 /*
  * Actually install the voice, into a home directory that is thrown away.
  *
- * Skipped unless PN_BRAIN_LIVE_INSTALL is set, because it downloads eighty
+ * Skipped unless PN_SCRIPTS_ASSISTANT_LIVE_INSTALL is set, because it downloads eighty
  * megabytes from the internet and no unit test should do that on its own. It
  * exists because the alternative was shipping an installer nobody had ever
  * run — and the first URL written into this file was a 404, which no amount of
  * reading it would have revealed.
  */
 func TestInstallingTheVoiceForReal(t *testing.T) {
-	if os.Getenv("PN_BRAIN_LIVE_INSTALL") == "" {
-		t.Skip("set PN_BRAIN_LIVE_INSTALL=1 to download and install for real")
+	if os.Getenv("PN_SCRIPTS_ASSISTANT_LIVE_INSTALL") == "" {
+		t.Skip("set PN_SCRIPTS_ASSISTANT_LIVE_INSTALL=1 to download and install for real")
 	}
 
 	home := t.TempDir()

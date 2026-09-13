@@ -79,8 +79,8 @@ func TestTheListingIsKeptAlongsideTheContents(t *testing.T) {
 // A project observation is not a document and must not be opened as one.
 func TestOnlyDocumentsAreOpened(t *testing.T) {
 	only := Observations{{
-		Content: "Petar has a Go project called pn-brain",
-		Source:  "project:/home/petar/pn-brain",
+		Content: "Petar has a Go project called pn-scripts-assistant",
+		Source:  "project:/home/petar/pn-scripts-assistant",
 	}}
 
 	if got := ReadContents(context.Background(), only, "Petar"); len(got) != 1 {

@@ -25,13 +25,13 @@ func TestReadableStripsWhatShouldNotBeSpoken(t *testing.T) {
 		},
 		{
 			name:    "url",
-			in:      "See https://github.com/PNScripts/pn-brain for details.",
+			in:      "See https://github.com/pnscripts/pn-scripts-assistant for details.",
 			absent:  []string{"github.com", "https"},
 			present: []string{"a link", "for details."},
 		},
 		{
 			name:    "code fence",
-			in:      "Run this:\n```bash\ngo build ./cmd/brain\n```\nThen try again.",
+			in:      "Run this:\n```bash\ngo build ./cmd/pn-scripts-assistant\n```\nThen try again.",
 			absent:  []string{"go build", "```"},
 			present: []string{"Run this:", "code", "Then try again."},
 		},

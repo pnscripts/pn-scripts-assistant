@@ -169,7 +169,7 @@ func TestAnUnreachableCopyIsListedRatherThanForgotten(t *testing.T) {
 	root, db := brain(t)
 
 	here := filepath.Join(t.TempDir(), "attached")
-	away := filepath.Join(t.TempDir(), "unplugged", "PN-BRAIN-COPY")
+	away := filepath.Join(t.TempDir(), "unplugged", "PN-SCRIPTS-ASSISTANT-COPY")
 
 	if err := Keep(root, here); err != nil {
 		t.Fatal(err)

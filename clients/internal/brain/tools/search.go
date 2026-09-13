@@ -216,7 +216,7 @@ func (s WebSearch) duckDuckGo(ctx context.Context, query string) ([]SearchResult
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; PN Brain personal assistant)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; PN Scripts Assistant personal assistant)")
 
 	resp, err := s.client().Do(req)
 	if err != nil {

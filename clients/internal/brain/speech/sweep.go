@@ -47,7 +47,13 @@ func SweepOldRecordings() (int, int64) {
 	 * them swept, because the sweeper knew about the two kinds of file that
 	 * were already being cleaned up properly and not the one that was not.
 	 */
+	//
+	// Under the old name as well as the new, for the ones a run from before
+	// the rename left behind.
 	for _, pattern := range []string{
+		"pn-scripts-assistant-turn-*.wav",
+		"pn-scripts-assistant-listen-*.wav",
+		"pn-scripts-assistant-probe-*.wav",
 		"pn-brain-turn-*.wav",
 		"pn-brain-listen-*.wav",
 		"pn-brain-probe-*.wav",

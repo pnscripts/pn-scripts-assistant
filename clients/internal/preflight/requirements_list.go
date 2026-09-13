@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// requirements is the full list of what PN Brain needs, in the order a person
+// requirements is the full list of what PN Scripts Assistant needs, in the order a person
 // should care about them.
 //
 // Deliberately one readable list: "what does this app expect of my machine?"

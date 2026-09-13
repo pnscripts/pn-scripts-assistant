@@ -907,7 +907,7 @@ func (s *Server) handleDrives(w http.ResponseWriter, r *http.Request) {
 		"storage":    s.brain.Storage(),
 		"drive_gone": gone,
 		"gone_since": since,
-		"how":        "Run 'pn-brain move <folder>' to relocate the brain. It verifies every byte before removing the original.",
+		"how":        "Run 'pn-scripts-assistant move <folder>' to relocate the brain. It verifies every byte before removing the original.",
 	})
 }
 

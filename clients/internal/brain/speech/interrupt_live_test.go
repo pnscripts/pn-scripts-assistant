@@ -18,8 +18,8 @@ import (
  * the sentence", which is the difference between a conversation and a lecture.
  */
 func TestInterruptingReallyStopsTheVoice(t *testing.T) {
-	if os.Getenv("PN_BRAIN_LIVE_VOICE") == "" {
-		t.Skip("set PN_BRAIN_LIVE_VOICE=1 to hear this one")
+	if os.Getenv("PN_SCRIPTS_ASSISTANT_LIVE_VOICE") == "" {
+		t.Skip("set PN_SCRIPTS_ASSISTANT_LIVE_VOICE=1 to hear this one")
 	}
 
 	if Available() == nil {

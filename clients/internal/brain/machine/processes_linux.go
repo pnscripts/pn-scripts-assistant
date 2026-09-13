@@ -453,7 +453,7 @@ func ownerOf(pid int) string {
  * the list is supposed to save.
  */
 func isOurs(command string) bool {
-	for _, ours := range []string{"pn-brain", "ollama", "whisper", "piper", "llama-server"} {
+	for _, ours := range []string{"pn-scripts-assistant", "pn-brain", "ollama", "whisper", "piper", "llama-server"} {
 		if strings.Contains(command, ours) {
 			return true
 		}

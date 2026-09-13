@@ -238,7 +238,7 @@ func cancellerHears(ctx context.Context) string {
 	/*
 	 * pw-link lists a port, then its connections indented beneath it:
 	 *
-	 *     pn-brain.echo-cancel.capture:input_MONO
+	 *     pn-scripts-assistant.echo-cancel.capture:input_MONO
 	 *       |<- alsa_input.usb-...Trust_GXT_232...:capture_MONO
 	 *
 	 * so the line after the canceller's input port names its source.
@@ -251,10 +251,11 @@ func whatFeedsCanceller(listing string) string {
 	/*
 	 * pw-link lists a port, then its connections indented beneath it:
 	 *
-	 *     pn-brain.echo-cancel.capture:input_MONO
+	 *     pn-scripts-assistant.echo-cancel.capture:input_MONO
 	 *       |<- alsa_input.usb-...Trust_GXT_232...:capture_MONO
 	 *
-	 * so the line after the canceller's input port names its source. The port
+	 * so the line after the canceller's input port names its source — under
+	 * the old name too, on a machine not restarted since the rename. The port
 	 * suffix differs by channel layout — input_MONO on a mono microphone,
 	 * input_FL on a stereo one — which is why the prefix is matched and the
 	 * rest of the port name is not.
@@ -262,7 +263,7 @@ func whatFeedsCanceller(listing string) string {
 	var atCapture bool
 
 	for _, line := range strings.Split(listing, "\n") {
-		if strings.HasPrefix(line, "pn-brain.echo-cancel.capture:") {
+		if node, _, found := strings.Cut(line, ":"); found && isCaptureNode(node) {
 			atCapture = true
 
 			continue
@@ -292,7 +293,7 @@ func alive(ctx context.Context, id string) bool {
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
 
-	sample, err := os.CreateTemp("", "pn-brain-probe-*.wav")
+	sample, err := os.CreateTemp("", "pn-scripts-assistant-probe-*.wav")
 	if err != nil {
 		return true
 	}
@@ -501,7 +502,7 @@ func EnsureEchoCancellation(ctx context.Context) error {
 		return fmt.Errorf("no microphone to cancel the echo from")
 	}
 
-	if hears := cancellerHears(ctx); hears == best {
+	if hears := cancellerHears(ctx); hears == best && !legacyCancellerPresent() {
 		return nil
 	}
 
@@ -616,17 +617,14 @@ func PreferredSpeaker(ctx context.Context) string {
 		return ""
 	}
 
-	if echoSinkPresent(ctx) {
-		return "pn_brain_echo_sink"
-	}
-
-	return ""
+	return echoSinkRunning(ctx)
 }
 
-// echoSinkPresent reports whether the canceller's sink is running.
-func echoSinkPresent(ctx context.Context) bool {
+// echoSinkRunning is the canceller's sink when it is running, by whichever
+// name it is running under.
+func echoSinkRunning(ctx context.Context) string {
 	if _, err := exec.LookPath("pw-dump"); err != nil {
-		return false
+		return ""
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -634,7 +632,7 @@ func echoSinkPresent(ctx context.Context) bool {
 
 	raw, err := exec.CommandContext(ctx, "pw-dump").Output()
 	if err != nil {
-		return false
+		return ""
 	}
 
 	var objects []struct {
@@ -644,7 +642,7 @@ func echoSinkPresent(ctx context.Context) bool {
 	}
 
 	if err := json.Unmarshal(raw, &objects); err != nil {
-		return false
+		return ""
 	}
 
 	for _, o := range objects {
@@ -654,10 +652,10 @@ func echoSinkPresent(ctx context.Context) bool {
 			continue
 		}
 
-		if str(props["node.name"]) == "pn_brain_echo_sink" {
-			return true
+		if name := str(props["node.name"]); isEchoSink(name) {
+			return name
 		}
 	}
 
-	return false
+	return ""
 }

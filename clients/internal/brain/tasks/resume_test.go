@@ -278,7 +278,7 @@ func TestAnInterruptedTaskWaitsToBePickedUp(t *testing.T) {
 	}
 
 	// What the program does when it opens and finds this.
-	n, err := db.InterruptWorkingTasks("PN Brain was closed while this was running")
+	n, err := db.InterruptWorkingTasks("PN Scripts Assistant was closed while this was running")
 	if err != nil || n != 1 {
 		t.Fatalf("parked %d tasks: %v", n, err)
 	}

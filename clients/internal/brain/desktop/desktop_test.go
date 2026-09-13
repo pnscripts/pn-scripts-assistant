@@ -16,16 +16,16 @@ import (
  * beside it, and pressing the launcher again does nothing visible.
  */
 func TestTheEntryDescribesThisProgram(t *testing.T) {
-	text := entryText("Ariel", "/home/somebody/Apps/PN-Brain.AppImage")
+	text := entryText("Ariel", "/home/somebody/Apps/PN-Scripts-Assistant.AppImage")
 
 	for _, want := range []string{
 		"[Desktop Entry]\n",
 		"Type=Application\n",
 		"Name=Ariel\n",
-		"Exec=/home/somebody/Apps/PN-Brain.AppImage\n",
-		"Icon=pn-brain\n",
+		"Exec=/home/somebody/Apps/PN-Scripts-Assistant.AppImage\n",
+		"Icon=pn-scripts-assistant\n",
 		"Terminal=false\n",
-		"StartupWMClass=pn-brain\n",
+		"StartupWMClass=pn-scripts-assistant\n",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the entry is missing %q", strings.TrimSuffix(want, "\n"))
@@ -74,7 +74,7 @@ func TestANameCannotBreakOutOfItsLine(t *testing.T) {
 // The setup action has to be declared before it is defined, or the desktop
 // ignores it — a section nothing lists is a section nothing reads.
 func TestSetupIsOfferedFromTheIcon(t *testing.T) {
-	text := entryText("PN Brain", "/opt/brain")
+	text := entryText("PN Scripts Assistant", "/opt/brain")
 
 	for _, want := range []string{
 		"Actions=setup;\n",
@@ -90,7 +90,7 @@ func TestSetupIsOfferedFromTheIcon(t *testing.T) {
 // Every size the icon theme is told about has to actually be in the binary.
 func TestTheIconTravelsInside(t *testing.T) {
 	for _, size := range Sizes {
-		name := filepath.Join("icons", "pn-brain-"+itoa(size)+".png")
+		name := filepath.Join("icons", "pn-scripts-assistant-"+itoa(size)+".png")
 
 		body, err := icons.ReadFile(name)
 		if err != nil {
@@ -121,7 +121,7 @@ func TestItWritesOnlyWhereItSaidItWould(t *testing.T) {
 		t.Fatalf("it would write outside the data directory: %s and %s", entry, iconRoot)
 	}
 
-	if _, err := Install("PN Brain"); err != nil {
+	if _, err := Install("PN Scripts Assistant"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -130,7 +130,7 @@ func TestItWritesOnlyWhereItSaidItWould(t *testing.T) {
 	}
 
 	for _, size := range Sizes {
-		at := filepath.Join(iconRoot, itoa(size)+"x"+itoa(size), "apps", "pn-brain.png")
+		at := filepath.Join(iconRoot, itoa(size)+"x"+itoa(size), "apps", "pn-scripts-assistant.png")
 
 		if _, err := os.Stat(at); err != nil {
 			t.Errorf("no %dpx icon: %v", size, err)
@@ -171,14 +171,14 @@ func itoa(n int) string {
  * file in APPIMAGE.
  */
 func TestAnAppImageRecordsTheFileSomebodyDownloaded(t *testing.T) {
-	t.Setenv("APPIMAGE", "/home/somebody/Apps/PN-Brain-x86_64.AppImage")
+	t.Setenv("APPIMAGE", "/home/somebody/Apps/PN-Scripts-Assistant-x86_64.AppImage")
 
 	at, err := self()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if at != "/home/somebody/Apps/PN-Brain-x86_64.AppImage" {
+	if at != "/home/somebody/Apps/PN-Scripts-Assistant-x86_64.AppImage" {
 		t.Errorf("the entry would run %q, which is a mount point that will be gone", at)
 	}
 
@@ -210,13 +210,13 @@ func TestAMovedProgramFixesItsOwnMenuEntry(t *testing.T) {
 	}
 
 	// An entry from a build that lived somewhere else.
-	stale := entryText("PN Brain", "/somewhere/that/is/gone/pn-brain")
+	stale := entryText("PN Scripts Assistant", "/somewhere/that/is/gone/pn-scripts-assistant")
 
 	if err := os.WriteFile(entry, []byte(stale), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	fixed, err := RepairIfStale("PN Brain")
+	fixed, err := RepairIfStale("PN Scripts Assistant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestAMovedProgramFixesItsOwnMenuEntry(t *testing.T) {
 	}
 
 	// Repairing twice is not writing twice.
-	if again, _ := RepairIfStale("PN Brain"); again {
+	if again, _ := RepairIfStale("PN Scripts Assistant"); again {
 		t.Error("an entry that was already correct was rewritten anyway")
 	}
 }
@@ -245,7 +245,7 @@ func TestStartingUpDoesNotInstallAMenuEntry(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", home)
 	t.Setenv("HOME", home)
 
-	if fixed, err := RepairIfStale("PN Brain"); fixed || err != nil {
+	if fixed, err := RepairIfStale("PN Scripts Assistant"); fixed || err != nil {
 		t.Errorf("it installed itself into the menu uninvited (%v, %v)", fixed, err)
 	}
 
@@ -253,5 +253,47 @@ func TestStartingUpDoesNotInstallAMenuEntry(t *testing.T) {
 
 	if _, err := os.Stat(entry); err == nil {
 		t.Error("a menu entry appeared without being asked for")
+	}
+}
+
+/*
+ * A menu entry from before the rename is replaced, not left beside the new one.
+ *
+ * Left, the program is in the menu twice — once under the name it has and once
+ * under the name it had, with an icon and a window class that no longer match
+ * the window it opens.
+ */
+func TestAnEntryFromBeforeTheRenameIsReplaced(t *testing.T) {
+	data := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", data)
+
+	old, iconRoot := whereFor(LegacyEntryName)
+	oldIcon := filepath.Join(iconRoot, "64x64", "apps", LegacyEntryName+".png")
+
+	for _, f := range []string{old, oldIcon} {
+		if err := os.MkdirAll(filepath.Dir(f), 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := os.WriteFile(f, []byte("old"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fixed, err := RepairIfStale("Assistant")
+	if err != nil || !fixed {
+		t.Fatalf("the old entry was not replaced: %v %v", fixed, err)
+	}
+
+	entry, _ := Where()
+
+	if _, err := os.Stat(entry); err != nil {
+		t.Errorf("no entry under the new name: %v", err)
+	}
+
+	for _, f := range []string{old, oldIcon} {
+		if _, err := os.Stat(f); !os.IsNotExist(err) {
+			t.Errorf("%s outlived the rename", f)
+		}
 	}
 }

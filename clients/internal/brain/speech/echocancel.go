@@ -30,13 +30,22 @@ import (
 // echoCancelConfig is where the file goes: the owner's own PipeWire settings,
 // so none of this needs a password and deleting the file undoes all of it.
 func echoCancelConfig() (string, error) {
+	return pipewireConfig("99-pn-scripts-assistant-echo-cancel.conf")
+}
+
+// legacyEchoCancelConfig is the same file as it was written before the
+// rename, when the program was PN Brain.
+func legacyEchoCancelConfig() (string, error) {
+	return pipewireConfig("99-pn-brain-echo-cancel.conf")
+}
+
+func pipewireConfig(name string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(home, ".config", "pipewire", "pipewire.conf.d",
-		"99-pn-brain-echo-cancel.conf"), nil
+	return filepath.Join(home, ".config", "pipewire", "pipewire.conf.d", name), nil
 }
 
 /*
@@ -67,9 +76,15 @@ func SetUpEchoCancellation(ctx context.Context, microphone string) error {
 
 	body := echoCancelText(microphone)
 
+	// A file from before the rename describes the same canceller under the
+	// old names; two would run two cancellers on one microphone.
+	legacy, _ := legacyEchoCancelConfig()
+	_, legacyErr := os.Stat(legacy)
+	hadLegacy := legacy != "" && legacyErr == nil
+
 	// Unchanged means nothing to restart, and restarting audio interrupts
 	// whatever is playing.
-	if existing, err := os.ReadFile(path); err == nil && string(existing) == body {
+	if existing, err := os.ReadFile(path); err == nil && string(existing) == body && !hadLegacy {
 		return nil
 	}
 
@@ -77,22 +92,56 @@ func SetUpEchoCancellation(ctx context.Context, microphone string) error {
 		return err
 	}
 
+	if hadLegacy {
+		if err := os.Remove(legacy); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+
 	return reloadAudio(ctx)
+}
+
+/*
+ * legacyCancellerPresent reports whether a canceller set up before the rename
+ * is still configured under the old names.
+ *
+ * Asked at startup, so the next check of the microphone rewrites it under the
+ * new ones: otherwise it runs on under PN Brain's names until somebody happens
+ * to change microphone, and nothing would ever say why. Rewriting restarts the
+ * audio for a moment — once, on the first start after the rename.
+ */
+func legacyCancellerPresent() bool {
+	legacy, err := legacyEchoCancelConfig()
+	if err != nil {
+		return false
+	}
+
+	_, err = os.Stat(legacy)
+
+	return err == nil
 }
 
 // EchoCancellationOn reports whether it is set up, and for which microphone.
 func EchoCancellationOn() (bool, string) {
-	path, err := echoCancelConfig()
-	if err != nil {
-		return false, ""
+	var body []byte
+
+	for _, where := range []func() (string, error){echoCancelConfig, legacyEchoCancelConfig} {
+		path, err := where()
+		if err != nil {
+			continue
+		}
+
+		if body, err = os.ReadFile(path); err == nil {
+			return true, targetIn(string(body))
+		}
 	}
 
-	body, err := os.ReadFile(path)
-	if err != nil {
-		return false, ""
-	}
+	return false, ""
+}
 
-	for _, line := range strings.Split(string(body), "\n") {
+// targetIn reads the microphone a canceller config names.
+func targetIn(body string) string {
+	for _, line := range strings.Split(body, "\n") {
 		line = strings.TrimSpace(line)
 
 		// The comments in this file explain what target.object is for, and
@@ -104,23 +153,25 @@ func EchoCancellationOn() (bool, string) {
 		}
 
 		if _, value, found := strings.Cut(line, "target.object"); found {
-			return true, strings.Trim(strings.TrimSpace(strings.TrimPrefix(
+			return strings.Trim(strings.TrimSpace(strings.TrimPrefix(
 				strings.TrimSpace(value), "=")), `"`)
 		}
 	}
 
-	return true, ""
+	return ""
 }
 
 // TurnOffEchoCancellation removes the file and puts the audio back.
 func TurnOffEchoCancellation(ctx context.Context) error {
-	path, err := echoCancelConfig()
-	if err != nil {
-		return err
-	}
+	for _, where := range []func() (string, error){echoCancelConfig, legacyEchoCancelConfig} {
+		path, err := where()
+		if err != nil {
+			return err
+		}
 
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 	}
 
 	return reloadAudio(ctx)
@@ -129,7 +180,7 @@ func TurnOffEchoCancellation(ctx context.Context) error {
 func echoCancelText(microphone string) string {
 	return `# Echo cancellation, so the brain does not hear itself.
 #
-# Written by PN Brain, and rewritten when the chosen microphone changes.
+# Written by PN Scripts Assistant, and rewritten when the chosen microphone changes.
 # Deleting this file and restarting PipeWire undoes it completely.
 #
 # target.object names the microphone explicitly, and that is the whole of the
@@ -140,20 +191,20 @@ context.modules = [
     {   name = libpipewire-module-echo-cancel
         args = {
             capture.props = {
-                node.name     = "pn-brain.echo-cancel.capture"
+                node.name     = "` + CaptureNode + `"
                 target.object = "` + microphone + `"
                 node.passive  = true
             }
             source.props = {
-                node.name        = "pn_brain_echo_cancelled"
+                node.name        = "` + CancelledSource + `"
                 node.description = "Microphone (echo cancelled)"
             }
             playback.props = {
-                node.name    = "pn-brain.echo-cancel.playback"
+                node.name    = "` + PlaybackNode + `"
                 node.passive = true
             }
             sink.props = {
-                node.name        = "pn_brain_echo_sink"
+                node.name        = "` + EchoSink + `"
                 node.description = "Speakers (echo cancelled)"
             }
         }

@@ -47,7 +47,7 @@ of a typo is the strict one.
 - For listening: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) with
   `whisper-cli` on your PATH and a model of 50MB or more
 
-Run `pn-brain-doctor` to see what is missing and install it. Nothing here is
+Run `pn-scripts-assistant-doctor` to see what is missing and install it. Nothing here is
 required — the brain reports what it cannot do rather than refusing to start,
 and controls for absent capabilities are not shown at all.
 
@@ -76,22 +76,22 @@ network, which undoes the careful part.
 One command, from anywhere (rebuilds if this tree is newer, then opens the window):
 
 ```bash
-pn-brain
+pn-scripts-assistant
 ```
 
-The app menu entry is **PN Brain**. If it is already running, that opens `http://127.0.0.1:8790` instead of starting a second copy.
+The app menu entry is **PN Scripts Assistant**. If it is already running, that opens `http://127.0.0.1:8790` instead of starting a second copy.
 
 Download the AppImage, make it executable, run it:
 
 ```bash
-chmod +x PN-Brain-x86_64.AppImage
-./PN-Brain-x86_64.AppImage
+chmod +x PN-Scripts-Assistant-x86_64.AppImage
+./PN-Scripts-Assistant-x86_64.AppImage
 ```
 
 Or build from source:
 
 ```bash
-CGO_ENABLED=1 go build -C clients -o ../dist/pn-brain ./cmd/brain
+CGO_ENABLED=1 go build -C clients -o ../dist/pn-scripts-assistant ./cmd/pn-scripts-assistant
 ```
 
 `CGO_ENABLED=0` builds fine too — you get the brain without a native window,
@@ -102,7 +102,10 @@ reachable in any browser at `127.0.0.1:8790`.
 The brain finds itself. It looks for a `.brain-root.json` marker across mounted
 drives, so the data can live on an external disk, be unplugged, reattached at a
 different path, or moved to another computer — nothing is pinned to a machine.
-With no marker anywhere, it creates one under `~/.local/share/pn-brain`.
+With no marker anywhere, it creates one under
+`~/.local/share/pn-scripts-assistant/data`. A brain made before the program was
+renamed from PN Brain stays where it was, in `~/.local/share/pn-brain`, and is
+still found there.
 
 Settings live beside the data in `brain.conf`, not beside the program, because
 they describe *this brain* rather than this installation.
@@ -127,7 +130,7 @@ schemas cost more time than the answer does, and nobody talking to an assistant
 is asking it to write a file. It also means a misheard sentence has nothing to
 reach. Anything that changes something is typed, and still stops for approval.
 
-If it does not hear you, `pn-brain mic-test` reports the three numbers that make
+If it does not hear you, `pn-scripts-assistant mic-test` reports the three numbers that make
 that answerable: your room's noise floor, what therefore counted as speech, and
 how loud you actually got.
 
@@ -149,19 +152,19 @@ hosted model, are the only things that change the order of magnitude — and in
 The interface does everything; these exist for people who prefer a terminal.
 
 ```
-pn-brain                    run the app: serve, and open the window
-pn-brain serve              serve only, without a window
-pn-brain status             where the data lives and what is in it
-pn-brain ingest <dir>...    learn about the projects and documents in a folder
-pn-brain ingest --browser   learn which websites you use (domains only, never URLs)
-pn-brain promote            turn validated lessons into durable knowledge
-pn-brain tidy               clear what is not worth remembering out of the queue
-pn-brain mic-test           listen once and report what the microphone heard
-pn-brain drives             where the brain could live, and how much room is left
-pn-brain move <dir>         move the brain to another drive, verifying every byte
-pn-brain rewrite-paths      repair stored paths after a move, then re-embed
-pn-brain copies             where copies of the brain are kept, and copy now
-pn-brain places             the drives and folders it learns from  (--read)
+pn-scripts-assistant                    run the app: serve, and open the window
+pn-scripts-assistant serve              serve only, without a window
+pn-scripts-assistant status             where the data lives and what is in it
+pn-scripts-assistant ingest <dir>...    learn about the projects and documents in a folder
+pn-scripts-assistant ingest --browser   learn which websites you use (domains only, never URLs)
+pn-scripts-assistant promote            turn validated lessons into durable knowledge
+pn-scripts-assistant tidy               clear what is not worth remembering out of the queue
+pn-scripts-assistant mic-test           listen once and report what the microphone heard
+pn-scripts-assistant drives             where the brain could live, and how much room is left
+pn-scripts-assistant move <dir>         move the brain to another drive, verifying every byte
+pn-scripts-assistant rewrite-paths      repair stored paths after a move, then re-embed
+pn-scripts-assistant copies             where copies of the brain are kept, and copy now
+pn-scripts-assistant places             the drives and folders it learns from  (--read)
 ```
 
 ## How it is built

@@ -423,7 +423,7 @@ type Heard struct {
 
 // Listen records from a microphone and returns what was said.
 func Listen(ctx context.Context, seconds int, device string) (Heard, error) {
-	f, err := os.CreateTemp("", "pn-brain-listen-*.wav")
+	f, err := os.CreateTemp("", "pn-scripts-assistant-listen-*.wav")
 	if err != nil {
 		return Heard{}, err
 	}

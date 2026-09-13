@@ -4,12 +4,12 @@
 #
 # Rebuilds from this tree when the source is newer than the binary, then opens
 # the window. If the brain is already running, it just brings the page up.
-# Double-clicking the desktop icon lands here; so does `pn-brain` on PATH.
+# Double-clicking the desktop icon lands here; so does `pn-scripts-assistant` on PATH.
 set -euo pipefail
 
 SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
 PROJECT_ROOT="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
-BIN="$PROJECT_ROOT/dist/pn-brain"
+BIN="$PROJECT_ROOT/dist/pn-scripts-assistant"
 CLIENTS="$PROJECT_ROOT/clients"
 URL="http://127.0.0.1:8790"
 
@@ -19,7 +19,7 @@ say() { printf '\033[36m→\033[0m %s\n' "$1"; }
 fail() {
     printf '\033[31m✗\033[0m %s\n' "$1" >&2
     if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
-        command -v notify-send >/dev/null && notify-send --urgency=critical "PN Brain" "$1" || true
+        command -v notify-send >/dev/null && notify-send --urgency=critical "PN Scripts Assistant" "$1" || true
     fi
     exit 1
 }
@@ -51,28 +51,41 @@ rebuild() {
     say "Building the brain (cgo=$cgo)"
     CGO_ENABLED="$cgo" go build -C "$CLIENTS" \
         -trimpath \
-        -o "$BIN" ./cmd/brain \
+        -o "$BIN" ./cmd/pn-scripts-assistant \
         || fail "Build failed. Run it from a terminal to see the compiler error."
 }
 
 install_shortcuts() {
     mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
-    ln -sfn "$PROJECT_ROOT/scripts/pn-brain-launch.sh" "$HOME/.local/bin/pn-brain"
 
-    local desktop="$HOME/.local/share/applications/pn-brain.desktop"
+    # The shortcuts from when the program was PN Brain point at a launcher that
+    # no longer exists under that name. Removed only when they are this
+    # project's own: a pn-brain command somebody made themselves is theirs.
+    local old_link="$HOME/.local/bin/pn-brain"
+    if [[ -L "$old_link" && "$(readlink "$old_link")" == "$PROJECT_ROOT/"* ]]; then
+        rm -f "$old_link"
+    fi
+
+    local old_desktop="$HOME/.local/share/applications/pn-brain.desktop"
+    if [[ -f "$old_desktop" ]] && grep -q "Exec=$PROJECT_ROOT/" "$old_desktop"; then
+        rm -f "$old_desktop"
+    fi
+    ln -sfn "$PROJECT_ROOT/scripts/pn-scripts-assistant-launch.sh" "$HOME/.local/bin/pn-scripts-assistant"
+
+    local desktop="$HOME/.local/share/applications/pn-scripts-assistant.desktop"
     cat > "$desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=PN Brain
+Name=PN Scripts Assistant
 GenericName=AI Assistant
 Comment=Personal self-learning AI assistant
-Exec=$PROJECT_ROOT/scripts/pn-brain-launch.sh
+Exec=$PROJECT_ROOT/scripts/pn-scripts-assistant-launch.sh
 Icon=applications-science
 Terminal=false
 StartupNotify=true
 Categories=Utility;
-Keywords=ai;assistant;brain;chat;pnbrain;
+Keywords=ai;assistant;brain;chat;pnscripts;
 DESKTOP
     chmod +x "$desktop"
 }
@@ -80,7 +93,7 @@ DESKTOP
 if already_running; then
     say "Already running at $URL"
     if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
-        command -v notify-send >/dev/null && notify-send "PN Brain" "Already running — opening $URL" || true
+        command -v notify-send >/dev/null && notify-send "PN Scripts Assistant" "Already running — opening $URL" || true
         command -v xdg-open >/dev/null && xdg-open "$URL" >/dev/null 2>&1 || true
     fi
     exit 0
@@ -96,5 +109,5 @@ install_shortcuts
 
 [[ -x "$BIN" ]] || fail "No binary at $BIN"
 
-# Remaining args go to the brain itself: `pn-brain serve`, `pn-brain status`, …
+# Remaining args go to the brain itself: `pn-scripts-assistant serve`, `pn-scripts-assistant status`, …
 exec "$BIN" "$@"

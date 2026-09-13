@@ -841,7 +841,7 @@ const JUDGE_AFTER = 40;
                     // Said once, because it is a visible change to the picture
                     // and somebody may wonder where the halo went.
                     console.info(
-                        `PN Brain: the glow costs ${each.toFixed(1)}ms a frame on this ` +
+                        `PN Scripts Assistant: the glow costs ${each.toFixed(1)}ms a frame on this ` +
                         'machine, which the processor is needed for. Drawing it plainly.'
                     );
                 }

@@ -71,7 +71,7 @@ func installOllama(w io.Writer) error {
 	 * extractor here, which checks every entry's path. Letting tar do both
 	 * would give up that check to save a line.
 	 */
-	tmp := filepath.Join(os.TempDir(), "pn-brain-ollama.tar.zst")
+	tmp := filepath.Join(os.TempDir(), "pn-scripts-assistant-ollama.tar.zst")
 	plain := strings.TrimSuffix(tmp, ".zst")
 
 	defer os.Remove(tmp)
@@ -186,7 +186,7 @@ func installPiper(w io.Writer) error {
 	}
 
 	into := localShare("piper")
-	tmp := filepath.Join(os.TempDir(), "pn-brain-piper.tgz")
+	tmp := filepath.Join(os.TempDir(), "pn-scripts-assistant-piper.tgz")
 
 	defer os.Remove(tmp)
 
@@ -430,7 +430,7 @@ func installGodot(w io.Writer) error {
 
 	fmt.Fprintf(w, "Downloading %s\n", name)
 
-	temp, err := os.MkdirTemp("", "pn-brain-godot-*")
+	temp, err := os.MkdirTemp("", "pn-scripts-assistant-godot-*")
 	if err != nil {
 		return err
 	}

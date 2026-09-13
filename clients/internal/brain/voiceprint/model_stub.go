@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/paths"
 )
 
 /*
@@ -23,12 +24,19 @@ import (
 // Where the parts would live, so the interface can name the folder even where
 // nothing can use it.
 func Parts() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join(os.TempDir(), "pn-brain", FolderName)
+	here := filepath.Join(paths.MachineFolder(), FolderName)
+
+	// Installed before the rename, under the old folder, and not downloaded
+	// again for the sake of a name.
+	if _, err := os.Stat(here); err != nil {
+		if legacy := paths.LegacyHomeRoot(); legacy != "" {
+			if _, err := os.Stat(filepath.Join(legacy, FolderName)); err == nil {
+				return filepath.Join(legacy, FolderName)
+			}
+		}
 	}
 
-	return filepath.Join(home, ".local", "share", "pn-brain", FolderName)
+	return here
 }
 
 // Folder is where this brain would keep the voice it knows.

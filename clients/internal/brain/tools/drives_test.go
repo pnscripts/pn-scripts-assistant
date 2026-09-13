@@ -37,7 +37,7 @@ func TestTheDrivesToolNamesEachDriveAndItsKind(t *testing.T) {
  * naming two homes, one of them wrong.
  */
 func TestOnlyOneDriveIsSaidToHoldTheBrain(t *testing.T) {
-	out, err := ListDrives{Root: "/media/somebody/stick/PN-BRAIN-DATA"}.
+	out, err := ListDrives{Root: "/media/somebody/stick/PN-SCRIPTS-ASSISTANT-DATA"}.
 		Execute(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)

@@ -35,9 +35,6 @@ import (
  * put back when the brain stops.
  */
 
-// EchoSink is the sink the canceller listens to.
-const EchoSink = "pn_brain_echo_sink"
-
 var routing struct {
 	mu       sync.Mutex
 	restore  string
@@ -66,20 +63,22 @@ func CancelWhatThisMachinePlays(ctx context.Context) error {
 		return fmt.Errorf("this machine's audio server cannot be asked to reroute sound")
 	}
 
-	if !sinkExists(ctx, EchoSink) {
+	sink := runningEchoSink(ctx)
+
+	if sink == "" {
 		return fmt.Errorf("the echo canceller is not running, so there is nothing to route through")
 	}
 
 	was := defaultSink(ctx)
 
-	if was == EchoSink {
+	if isEchoSink(was) {
 		// Already there, from a previous run that did not put it back.
 		routing.changed = true
 
 		return nil
 	}
 
-	if err := setDefaultSink(ctx, EchoSink); err != nil {
+	if err := setDefaultSink(ctx, sink); err != nil {
 		return err
 	}
 
@@ -187,8 +186,7 @@ func anyRealSink(ctx context.Context) string {
 			continue
 		}
 
-		if strings.Contains(object.Info.Props.Node, "pn_brain") ||
-			strings.Contains(object.Info.Props.Node, "pn-brain") {
+		if isOwnAudio(object.Info.Props.Node) {
 			continue
 		}
 
@@ -509,9 +507,11 @@ func appendPlaying(out []string, name string) []string {
 		return out
 	}
 
-	ours := []string{"pn-brain", "pn_brain", "pw-play", "piper", "speech-dispatcher"}
+	if isOwnAudio(name) {
+		return out
+	}
 
-	for _, mine := range ours {
+	for _, mine := range []string{"pw-play", "piper", "speech-dispatcher"} {
 		if strings.Contains(strings.ToLower(name), mine) {
 			return out
 		}

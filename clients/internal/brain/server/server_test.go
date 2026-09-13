@@ -229,7 +229,10 @@ func TestInterfaceIsServedFromTheBinary(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 
-	if !strings.Contains(string(body), "PN Brain") {
+	// In the title, where only the template can have put it: the name also
+	// appears in the page's own words, and a check for it anywhere passed on
+	// a sentence that happened to contain it.
+	if !strings.Contains(string(body), "<title>"+config.DefaultName+"</title>") {
 		t.Error("the brain's name did not reach the page")
 	}
 }
@@ -1431,7 +1434,7 @@ func TestApprovingAProtectedFileIsRemembered(t *testing.T) {
 func TestAnythingSaidOverTheTopOfItCounts(t *testing.T) {
 	_, _, b := newServer(t)
 
-	b.Cfg.WakeWord = "PN Brain"
+	b.Cfg.WakeWord = "PN Scripts Assistant"
 	b.Cfg.AlwaysName = true
 
 	s := New(b, slog.New(slog.NewTextHandler(io.Discard, nil)))

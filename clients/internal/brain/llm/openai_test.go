@@ -72,7 +72,7 @@ func TestAServiceWithNoKeyIsNotOffered(t *testing.T) {
 func TestTheConversationIsMappedForTheOpenAIShape(t *testing.T) {
 	body := NewOpenAI("sk-test", "gpt-4o-mini").requestBody(Request{
 		Messages: []Message{
-			{Role: RoleSystem, Content: "You are PN Brain."},
+			{Role: RoleSystem, Content: "You are PN Scripts Assistant."},
 			{Role: RoleUser, Content: "what is the weather"},
 			{Role: RoleAssistant, ToolCalls: []ToolCall{{
 				ID:        "call_1",

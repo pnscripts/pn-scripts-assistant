@@ -21,9 +21,9 @@ func TestTheIconIsFoundWhereverItIs(t *testing.T) {
 		home   = "/home/petar"
 	)
 
-	// A build from source: dist/pn-brain, with assets/pn-brain.png beside it.
-	source := "/work/pn-brain/dist/pn-brain"
-	wantSource := "/work/pn-brain/assets/pn-brain.png"
+	// A build from source: dist/pn-scripts-assistant, with assets/pn-scripts-assistant.png beside it.
+	source := "/work/pn-scripts-assistant/dist/pn-scripts-assistant"
+	wantSource := "/work/pn-scripts-assistant/assets/pn-scripts-assistant.png"
 
 	only := func(want string) func(string) bool {
 		return func(path string) bool { return filepath.Clean(path) == want }
@@ -34,16 +34,16 @@ func TestTheIconIsFoundWhereverItIs(t *testing.T) {
 	}
 
 	// An AppImage: its own directory wins, because that is the packaged mark.
-	wantPackaged := filepath.Join(appdir, "pn-brain.png")
+	wantPackaged := filepath.Join(appdir, "pn-scripts-assistant.png")
 
 	if got := findIcon(appdir, source, home, only(wantPackaged)); got != wantPackaged {
 		t.Errorf("an AppImage found %q, want %q", got, wantPackaged)
 	}
 
 	// Installed for the desktop, with nothing beside the binary.
-	wantInstalled := filepath.Join(home, ".local", "share", "icons", "pn-brain.png")
+	wantInstalled := filepath.Join(home, ".local", "share", "icons", "pn-scripts-assistant.png")
 
-	if got := findIcon("", "/usr/bin/pn-brain", home, only(wantInstalled)); got != wantInstalled {
+	if got := findIcon("", "/usr/bin/pn-scripts-assistant", home, only(wantInstalled)); got != wantInstalled {
 		t.Errorf("an installed copy found %q, want %q", got, wantInstalled)
 	}
 

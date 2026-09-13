@@ -70,7 +70,7 @@ func (s *Server) Serve(onDone func()) {
 
 const page = `<!doctype html>
 <meta charset="utf-8">
-<title>PN Brain</title>
+<title>PN Scripts Assistant</title>
 <style>
 :root{--bg:#070a0f;--raised:#0d1219;--line:#1b2634;--text:#d6dee8;--fg:#eaf1f8;
 --dim:#7d8b9c;--faint:#4a5769;--accent:#4dd0e1;--warn:#f0b26b}
@@ -90,15 +90,15 @@ button:hover{border-color:var(--accent);color:var(--accent)}
 .said{color:var(--warn);font-size:12.5px;margin-top:16px}
 </style>
 
-<h1>PN Brain cannot reach what it knows</h1>
+<h1>PN Scripts Assistant cannot reach what it knows</h1>
 
 <p>Everything it has learned is kept here:</p>
 <div class="where">%s</div>
 
-<p><strong>If that is a drive, plug it in and start PN Brain again.</strong>
+<p><strong>If that is a drive, plug it in and start PN Scripts Assistant again.</strong>
 Nothing is lost — it is found by being there, not by being remembered.</p>
 
-<p class="dim">PN Brain will not make a new brain on its own while it knows about
+<p class="dim">PN Scripts Assistant will not make a new brain on its own while it knows about
 that one, because a new one would be empty and would look exactly like having
 forgotten you.</p>
 
@@ -107,7 +107,7 @@ forgotten you.</p>
   <span class="dim">or close this window and plug the drive in</span>
 </div>
 
-<p class="said" id="said" hidden>PN Brain will stop waiting for it. Start the
+<p class="said" id="said" hidden>PN Scripts Assistant will stop waiting for it. Start the
 program again to make a new, empty brain. Nothing at the old place is deleted.</p>
 
 <script>

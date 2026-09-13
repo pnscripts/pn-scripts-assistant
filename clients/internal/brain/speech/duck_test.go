@@ -220,8 +220,8 @@ func TestLoweringThatFinishesAfterTheReleaseStillPutsItBack(t *testing.T) {
  */
 func TestItNeverTurnsItsOwnVoiceDown(t *testing.T) {
 	for _, name := range []string{
-		"pn-brain.echo-cancel.playback", "pw-play", "piper",
-		"speech-dispatcher-espeak-ng", "PN-Brain", "eSpeak",
+		"pn-scripts-assistant.echo-cancel.playback", "pn-brain.echo-cancel.playback",
+		"pw-play", "piper", "speech-dispatcher-espeak-ng", "PN-Scripts-Assistant", "eSpeak",
 	} {
 		if !ours(name) {
 			t.Errorf("%s would have been turned down", name)

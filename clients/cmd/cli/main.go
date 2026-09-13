@@ -1,4 +1,4 @@
-// pn-brain is a terminal client for the PN Brain API. It's the first of several
+// pn-scripts-assistant-cli is a terminal client for the PN Scripts Assistant API. It's the first of several
 // clients that talk to the one brain (see ../../app/Brain) over HTTP — each
 // client picks whatever language fits its platform; only the brain itself is
 // single-sourced.
@@ -58,7 +58,7 @@ func statePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	d := filepath.Join(dir, "pn-brain")
+	d := filepath.Join(dir, "pn-scripts-assistant")
 	if err := os.MkdirAll(d, 0o755); err != nil {
 		return "", err
 	}
@@ -72,7 +72,11 @@ func loadState() cliState {
 	}
 	b, err := os.ReadFile(p)
 	if err != nil {
-		return cliState{}
+		// Kept under the old name before the rename, which is still the
+		// conversation this terminal was in.
+		if b, err = os.ReadFile(filepath.Join(filepath.Dir(filepath.Dir(p)), "pn-brain", "cli.json")); err != nil {
+			return cliState{}
+		}
 	}
 	var s cliState
 	_ = json.Unmarshal(b, &s)

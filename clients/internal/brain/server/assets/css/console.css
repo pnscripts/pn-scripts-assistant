@@ -1,5 +1,5 @@
 /*
- * PN Brain command console.
+ * PN Scripts Assistant command console.
  *
  * Hand-written rather than Tailwind: this ships inside a single self-contained
  * binary, and a CSS build step would mean putting npm into the static build for

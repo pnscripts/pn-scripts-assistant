@@ -419,9 +419,13 @@ func text(v any) string {
  * not the brain's children, like speech-dispatcher's.
  */
 func ours(name string) bool {
+	if isOwnAudio(name) {
+		return true
+	}
+
 	folded := strings.ToLower(name)
 
-	for _, mine := range []string{"pn-brain", "pn_brain", "pw-play", "piper", "speech-dispatcher", "espeak"} {
+	for _, mine := range []string{"pw-play", "piper", "speech-dispatcher", "espeak"} {
 		if strings.Contains(folded, mine) {
 			return true
 		}

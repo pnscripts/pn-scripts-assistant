@@ -327,7 +327,7 @@ func Update(ctx context.Context, note func(string)) (string, error) {
 
 	next := exe + ".new"
 
-	build := exec.CommandContext(ctx, "go", "build", "-C", "clients", "-o", next, "./cmd/brain")
+	build := exec.CommandContext(ctx, "go", "build", "-C", "clients", "-o", next, "./cmd/pn-scripts-assistant")
 	build.Dir = where
 	build.Env = append(os.Environ(), "CGO_ENABLED=1")
 

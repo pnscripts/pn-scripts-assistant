@@ -284,7 +284,7 @@ func TestAnInterruptedTaskIsParkedRatherThanResumed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	n, err := db.InterruptWorkingTasks("PN Brain was closed while this was running")
+	n, err := db.InterruptWorkingTasks("PN Scripts Assistant was closed while this was running")
 	if err != nil {
 		t.Fatal(err)
 	}

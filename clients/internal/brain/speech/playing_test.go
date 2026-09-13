@@ -22,7 +22,7 @@ import (
 
 const realDump = `[
 {"id":40,"info":{"state":"running","props":{
-  "media.class":"Stream/Output/Audio","node.name":"pn-brain.echo-cancel.playback"}}},
+  "media.class":"Stream/Output/Audio","node.name":"pn-scripts-assistant.echo-cancel.playback"}}},
 {"id":86,"info":{"state":"idle","props":{
   "media.class":"Stream/Output/Audio","application.name":"speech-dispatcher-dummy",
   "node.name":"speech-dispatcher-dummy"}}},
@@ -36,7 +36,7 @@ const realDump = `[
 {"id":56,"info":{"state":"running","props":{
   "media.class":"Audio/Source","node.name":"alsa_input.usb-145f_Trust_GXT_232_Microphone"}}},
 {"id":38,"info":{"state":"running","props":{
-  "media.class":"Audio/Source","node.name":"pn_brain_echo_cancelled"}}}
+  "media.class":"Audio/Source","node.name":"pn_scripts_assistant_echo_cancelled"}}}
 ]`
 
 func TestTheBrowserPlayingMusicIsFoundAndNothingElseIs(t *testing.T) {
@@ -54,9 +54,12 @@ func TestTheBrowserPlayingMusicIsFoundAndNothingElseIs(t *testing.T) {
 // through the canceller and comes back out of the microphone subtracted.
 func TestOurOwnVoiceIsNeverCountedAsSomethingPlaying(t *testing.T) {
 	for _, name := range []string{
+		"pn-scripts-assistant.echo-cancel.playback",
+		"pn_scripts_assistant_echo_sink",
+		"PN-Scripts-Assistant",
+		// And under the old name, which a machine runs until its audio restarts.
 		"pn-brain.echo-cancel.playback",
 		"pn_brain_echo_sink",
-		"PN-Brain",
 		"piper",
 		"pw-play",
 		"speech-dispatcher-espeak-ng",
@@ -144,7 +147,7 @@ func TestDevicesAreNotProgramsPlayingSound(t *testing.T) {
 	{"id":2,"info":{"state":"running","props":{
 	  "media.class":"Audio/Source","node.name":"alsa_input.usb"}}},
 	{"id":3,"info":{"state":"running","props":{
-	  "media.class":"Stream/Input/Audio","application.name":"pn-brain"}}},
+	  "media.class":"Stream/Input/Audio","application.name":"pn-scripts-assistant"}}},
 	{"id":4,"info":{"state":"running","props":{
 	  "media.class":"Video/Source","node.name":"webcam"}}}]`
 
@@ -192,15 +195,15 @@ func TestRubbishIsAnErrorAndNotAnAnswer(t *testing.T) {
 const realListing = `	id 37, type PipeWire:Interface:Node/3
  		object.serial = "37"
  		node.description = "Echo-Cancel Capture"
- 		node.name = "pn-brain.echo-cancel.capture"
+ 		node.name = "pn-scripts-assistant.echo-cancel.capture"
  		media.class = "Stream/Input/Audio"
 	id 39, type PipeWire:Interface:Node/3
  		node.description = "Speakers (echo cancelled)"
- 		node.name = "pn_brain_echo_sink"
+ 		node.name = "pn_scripts_assistant_echo_sink"
  		media.class = "Audio/Sink"
 	id 40, type PipeWire:Interface:Node/3
  		node.description = "Echo-Cancel Playback"
- 		node.name = "pn-brain.echo-cancel.playback"
+ 		node.name = "pn-scripts-assistant.echo-cancel.playback"
  		media.class = "Stream/Output/Audio"
 	id 95, type PipeWire:Interface:Node/3
  		application.name = "speech-dispatcher-espeak-ng"

@@ -32,8 +32,8 @@ func TestEverySystemLooksWhereItsDrivesAppear(t *testing.T) {
 	// Isolated from whatever this machine has chosen for itself: a remembered
 	// root now outranks the search, so the real one would answer instead.
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("PN_BRAIN_SEARCH_PATHS", drive)
-	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+	setEnv(t, "SEARCH_PATHS", drive)
+	setEnv(t, "DATA_ROOT", "")
 
 	found, err := Find()
 	if err != nil {
@@ -67,8 +67,8 @@ func TestAMissingDriveIsNotAFirstRun(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", home)
 	t.Setenv("HOME", home)
-	t.Setenv("PN_BRAIN_DATA_ROOT", "")
-	t.Setenv("PN_BRAIN_SEARCH_PATHS", drive)
+	setEnv(t, "DATA_ROOT", "")
+	setEnv(t, "SEARCH_PATHS", drive)
 
 	if _, err := Create(root); err != nil {
 		t.Fatalf("creating the brain on the drive: %v", err)
@@ -132,7 +132,7 @@ func TestTheChosenPlaceWinsOverTheNearestOne(t *testing.T) {
 
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HOME", home)
-	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+	setEnv(t, "DATA_ROOT", "")
 
 	// A brain already in the home folder, as on any machine that has run this.
 	nearest := filepath.Join(home, ".local", "share", "pn-brain")
@@ -140,7 +140,7 @@ func TestTheChosenPlaceWinsOverTheNearestOne(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv("PN_BRAIN_SEARCH_PATHS", nearest+string(os.PathListSeparator)+drive)
+	setEnv(t, "SEARCH_PATHS", nearest+string(os.PathListSeparator)+drive)
 
 	// Without a choice, the nearest one is correct.
 	found, err := FindOrCreate()
@@ -171,7 +171,7 @@ func TestTheChosenPlaceWinsOverTheNearestOne(t *testing.T) {
 /*
  * Opening a brain once must not change which brain this machine uses.
  *
- * PN_BRAIN_DATA_ROOT names a root for one run — that is what the tests use,
+ * PN_SCRIPTS_ASSISTANT_DATA_ROOT names a root for one run — that is what the tests use,
  * and what anybody wanting to look at a second brain would use. But
  * FindOrCreate writes down whatever it found, so a single run with the
  * variable set replaced the machine's answer with a temporary folder.
@@ -191,7 +191,7 @@ func TestABorrowedRootDoesNotBecomeTheMachinesOwn(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", home)
 	t.Setenv("HOME", home)
-	t.Setenv("PN_BRAIN_SEARCH_PATHS", "")
+	setEnv(t, "SEARCH_PATHS", "")
 
 	drive := t.TempDir()
 	mine := filepath.Join(drive, "PN-BRAIN-DATA")
@@ -212,7 +212,7 @@ func TestABorrowedRootDoesNotBecomeTheMachinesOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv("PN_BRAIN_DATA_ROOT", scratch)
+	setEnv(t, "DATA_ROOT", scratch)
 
 	borrowed, err := FindOrCreate()
 	if err != nil {
@@ -224,7 +224,7 @@ func TestABorrowedRootDoesNotBecomeTheMachinesOwn(t *testing.T) {
 	}
 
 	// The run is over. The machine must be where it was.
-	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+	setEnv(t, "DATA_ROOT", "")
 
 	after, err := FindOrCreate()
 	if err != nil {
@@ -261,7 +261,7 @@ func TestACopyOnADriveIsNotFoundAsTheBrain(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", home)
 	t.Setenv("HOME", home)
-	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+	setEnv(t, "DATA_ROOT", "")
 
 	drive := t.TempDir()
 	backup := filepath.Join(drive, "PN-BRAIN-COPY")
@@ -275,7 +275,7 @@ func TestACopyOnADriveIsNotFoundAsTheBrain(t *testing.T) {
 	os.WriteFile(filepath.Join(backup, "brain.conf"), []byte("BRAIN_NAME=Ariel\n"), 0o600)
 	os.WriteFile(filepath.Join(backup, ".brain-copy.json"), []byte(`{"brain_id":"one"}`), 0o644)
 
-	t.Setenv("PN_BRAIN_SEARCH_PATHS", drive)
+	setEnv(t, "SEARCH_PATHS", drive)
 
 	if found, err := Find(); err == nil {
 		t.Errorf("a copy at %s was found and would have been opened as the brain", found.Path)
@@ -302,7 +302,7 @@ func TestTheSameBrainFoundElsewhereIsNoticed(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", home)
 	t.Setenv("HOME", home)
-	t.Setenv("PN_BRAIN_DATA_ROOT", "")
+	setEnv(t, "DATA_ROOT", "")
 
 	// Where it was, on the machine it came from.
 	before := filepath.Join(t.TempDir(), "OLDMOUNT", "PN-BRAIN-DATA")
@@ -333,7 +333,7 @@ func TestTheSameBrainFoundElsewhereIsNoticed(t *testing.T) {
 	// And the old place is gone, as it is when the drive is on another desk.
 	os.RemoveAll(filepath.Dir(before))
 
-	t.Setenv("PN_BRAIN_SEARCH_PATHS", filepath.Dir(after))
+	setEnv(t, "SEARCH_PATHS", filepath.Dir(after))
 
 	found, err := FindOrCreate()
 	if err != nil {
@@ -387,5 +387,108 @@ func TestAnOlderDataFolderIsStillFound(t *testing.T) {
 
 	if filepath.Base(found[1]) != LegacyData {
 		t.Errorf("does not look for the old name at all: %v", found)
+	}
+}
+
+// setEnv sets one of the program's variables for a test, and clears the name
+// it had before the rename — which would otherwise answer for it whenever the
+// machine running the suite still has the old one set.
+func setEnv(t *testing.T, name, value string) {
+	t.Helper()
+
+	t.Setenv("PN_SCRIPTS_ASSISTANT_"+name, value)
+	t.Setenv("PN_BRAIN_"+name, "")
+}
+
+// A variable set under the name from before the rename still works.
+func TestTheOldVariableNamesStillWork(t *testing.T) {
+	t.Setenv("PN_SCRIPTS_ASSISTANT_DATA_ROOT", "")
+	t.Setenv("PN_BRAIN_DATA_ROOT", "/somewhere/old")
+
+	if got := Env("DATA_ROOT"); got != "/somewhere/old" {
+		t.Errorf("the old name gave %q", got)
+	}
+
+	t.Setenv("PN_SCRIPTS_ASSISTANT_DATA_ROOT", "/somewhere/new")
+
+	if got := Env("DATA_ROOT"); got != "/somewhere/new" {
+		t.Errorf("the new name did not win: %q", got)
+	}
+}
+
+/*
+ * The pointer from before the rename is still read, and replaced.
+ *
+ * It is the only record of which drive somebody's brain is on. Not reading it
+ * would make a machine that has a brain look like one that never had, which
+ * is the fault TestAMissingDriveIsNotAFirstRun exists for.
+ */
+func TestThePointerFromBeforeTheRenameIsReadAndMoved(t *testing.T) {
+	config := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", config)
+
+	old := filepath.Join(config, LegacyName, "last-root.json")
+
+	if err := os.MkdirAll(filepath.Dir(old), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(old, []byte(`{"path":"/media/drive/PN-BRAIN-DATA","id":"42"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	path, id, ok := lastKnown()
+
+	if !ok || path != "/media/drive/PN-BRAIN-DATA" || id != "42" {
+		t.Fatalf("the old pointer read as %q %q %v", path, id, ok)
+	}
+
+	Remember(Root{Path: "/media/drive/PN-BRAIN-DATA", ID: "42"})
+
+	if _, err := os.Stat(filepath.Join(config, Name, "last-root.json")); err != nil {
+		t.Errorf("nothing was written under the new name: %v", err)
+	}
+
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Error("the old pointer outlived being written again under the new name")
+	}
+}
+
+// A brain made in the home folder before the rename is still found there, and
+// a new one is made under the new name.
+func TestTheHomeFolderUnderBothNames(t *testing.T) {
+	home := t.TempDir()
+
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	setEnv(t, "DATA_ROOT", "")
+	setEnv(t, "SEARCH_PATHS", "")
+
+	was := mounts
+	mounts = func() []string { return nil }
+
+	t.Cleanup(func() { mounts = was })
+
+	old := filepath.Join(home, ".local", "share", "pn-brain")
+
+	if _, err := Create(old); err != nil {
+		t.Fatal(err)
+	}
+
+	if found, err := Find(); err != nil || found.Path != old {
+		t.Fatalf("the brain from before the rename was not found: %v %v", found.Path, err)
+	}
+
+	if err := os.RemoveAll(old); err != nil {
+		t.Fatal(err)
+	}
+
+	created, err := FindOrCreate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if want := filepath.Join(home, ".local", "share", "pn-scripts-assistant", "data"); created.Path != want {
+		t.Errorf("a new brain was made at %q, want %q", created.Path, want)
 	}
 }

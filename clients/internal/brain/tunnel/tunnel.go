@@ -41,7 +41,7 @@ const FileName = "tunnel.json"
 
 // Interface is what the tunnel is called on this machine. Its own name rather
 // than wg0, so it cannot collide with a tunnel somebody already had.
-const Interface = "pnbrain"
+const Interface = "pnassistant"
 
 /*
  * Network is the addresses inside the tunnel.

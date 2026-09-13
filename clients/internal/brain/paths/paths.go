@@ -21,6 +21,84 @@ import (
 // Marker is the file that identifies a directory as a brain data root.
 const Marker = ".brain-root.json"
 
+/*
+ * Name is what this program's own files and folders are called; LegacyName is
+ * what they were called when the program was PN Brain.
+ *
+ * Everything new is made under Name. Everything that already exists under the
+ * old one is still found and still works, for the reason DataFolder gives
+ * below: renaming a product must not orphan anybody's brain, or their
+ * microphone settings, or the pointer that says which drive their brain is on.
+ */
+const (
+	Name       = "pn-scripts-assistant"
+	LegacyName = "pn-brain"
+)
+
+/*
+ * Env reads one of the program's own environment variables.
+ *
+ * PN_SCRIPTS_ASSISTANT_<name>, or the PN_BRAIN_<name> it used to be, so a
+ * script or a habit from before the rename still does what it did.
+ */
+func Env(name string) string {
+	if v := os.Getenv("PN_SCRIPTS_ASSISTANT_" + name); v != "" {
+		return v
+	}
+
+	return os.Getenv("PN_BRAIN_" + name)
+}
+
+/*
+ * MachineFolder is this user's folder for what belongs to the machine rather
+ * than to any one brain: downloaded catalogues, the voice-recognition model,
+ * recordings kept to diagnose a missed turn. Never inside a brain, because a
+ * brain can be moved to a drive and carried away, and these stay.
+ */
+func MachineFolder() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), Name)
+	}
+
+	return filepath.Join(home, ".local", "share", Name)
+}
+
+// HomeRoot is where a brain is made when there is no drive to put it on.
+func HomeRoot() string { return filepath.Join(MachineFolder(), "data") }
+
+/*
+ * HomeRootHere is the home-folder brain on this machine: the one made before
+ * the rename when that is the one there is, otherwise where a new one goes.
+ *
+ * So setup offering "this computer" names the folder somebody's brain is
+ * actually in, not an empty one beside it.
+ */
+func HomeRootHere() string {
+	if _, err := os.Stat(filepath.Join(HomeRoot(), Marker)); err == nil {
+		return HomeRoot()
+	}
+
+	if legacy := LegacyHomeRoot(); legacy != "" {
+		if _, err := os.Stat(filepath.Join(legacy, Marker)); err == nil {
+			return legacy
+		}
+	}
+
+	return HomeRoot()
+}
+
+// LegacyHomeRoot is where that was before the rename, and where a brain made
+// then still is.
+func LegacyHomeRoot() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(home, ".local", "share", LegacyName)
+}
+
 // Root describes a located data root.
 type Root struct {
 	Path    string `json:"-"`
@@ -28,7 +106,7 @@ type Root struct {
 	Schema  int    `json:"schema"`
 	Created string `json:"created"`
 
-	// Borrowed marks a root that was named by PN_BRAIN_DATA_ROOT for this run
+	// Borrowed marks a root that was named by PN_SCRIPTS_ASSISTANT_DATA_ROOT for this run
 	// only. It must never become what this machine remembers. See Find.
 	Borrowed bool `json:"-"`
 
@@ -53,17 +131,19 @@ type Root struct {
 func (r Root) DatabasePath() string { return filepath.Join(r.Path, "brain.sqlite") }
 
 // SearchPaths are the places a drive normally appears, in the order they are
-// tried. PN_BRAIN_DATA_ROOT overrides all of it for anyone who wants to be
-// explicit, which includes the tests.
+// tried. PN_SCRIPTS_ASSISTANT_DATA_ROOT overrides all of it for anyone who
+// wants to be explicit, which includes the tests.
 func SearchPaths() []string {
 	var out []string
 
-	if extra := os.Getenv("PN_BRAIN_SEARCH_PATHS"); extra != "" {
+	if extra := Env("SEARCH_PATHS"); extra != "" {
 		out = append(out, filepath.SplitList(extra)...)
 	}
 
-	if home, err := os.UserHomeDir(); err == nil {
-		out = append(out, filepath.Join(home, ".local", "share", "pn-brain"))
+	// The home folder under the current name, then under the old one — where
+	// every brain made on this machine before the rename still lives.
+	if _, err := os.UserHomeDir(); err == nil {
+		out = append(out, HomeRoot(), LegacyHomeRoot())
 	}
 
 	/*
@@ -145,7 +225,7 @@ func removableMounts() []string {
 
 // Find locates an existing data root, or reports that there is none.
 func Find() (Root, error) {
-	if explicit := os.Getenv("PN_BRAIN_DATA_ROOT"); explicit != "" {
+	if explicit := Env("DATA_ROOT"); explicit != "" {
 		r, err := read(explicit)
 		if err != nil {
 			return Root{}, err
@@ -315,12 +395,11 @@ func FindOrCreate() (Root, error) {
 		return Root{}, &AwayError{Path: away}
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
+	if _, err := os.UserHomeDir(); err != nil {
 		return Root{}, err
 	}
 
-	created, err := Create(filepath.Join(home, ".local", "share", "pn-brain"))
+	created, err := Create(HomeRoot())
 	if err == nil {
 		Remember(created)
 	}
@@ -348,7 +427,18 @@ func pointerFile() (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(dir, "pn-brain", "last-root.json"), nil
+	return filepath.Join(dir, Name, "last-root.json"), nil
+}
+
+// legacyPointerFile is where that was written before the rename. Still read,
+// because it is the only record of which drive somebody's brain is on.
+func legacyPointerFile() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, LegacyName, "last-root.json"), nil
 }
 
 /*
@@ -386,7 +476,16 @@ func Remember(r Root) {
 		return
 	}
 
-	_ = os.WriteFile(path, body, 0o600)
+	if os.WriteFile(path, body, 0o600) != nil {
+		return
+	}
+
+	// Written under the new name, so the old copy is only a way to disagree
+	// with it later. Its folder goes too, when that leaves it empty.
+	if legacy, err := legacyPointerFile(); err == nil {
+		_ = os.Remove(legacy)
+		_ = os.Remove(filepath.Dir(legacy))
+	}
 }
 
 // LastKnown reports the root this machine used before, when that place is not
@@ -411,7 +510,15 @@ func lastKnown() (path, id string, ok bool) {
 
 	raw, err := os.ReadFile(file)
 	if err != nil {
-		return "", "", false
+		// Not written under the new name yet: the one from before the rename.
+		legacy, lerr := legacyPointerFile()
+		if lerr != nil {
+			return "", "", false
+		}
+
+		if raw, err = os.ReadFile(legacy); err != nil {
+			return "", "", false
+		}
 	}
 
 	var noted struct {
@@ -436,6 +543,10 @@ func lastKnown() (path, id string, ok bool) {
 func Forget() {
 	if path, err := pointerFile(); err == nil {
 		_ = os.Remove(path)
+	}
+
+	if legacy, err := legacyPointerFile(); err == nil {
+		_ = os.Remove(legacy)
 	}
 }
 

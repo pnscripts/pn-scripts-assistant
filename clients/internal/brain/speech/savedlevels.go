@@ -256,6 +256,10 @@ func PutBackAnythingLeftDown() []string {
 	// done below, from what WirePlumber actually saved.
 	if home, err := os.UserHomeDir(); err == nil {
 		os.Remove(filepath.Join(home, ".pn-brain", "turned-down.json"))
+
+		// And the folder it was kept in, which held nothing else that is still
+		// used — removed only when that leaves nothing in it.
+		os.Remove(filepath.Join(home, ".pn-brain"))
 	}
 
 	if !haveGainControl() {

@@ -20,8 +20,8 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$PROJECT_ROOT/build"
-APPDIR="$BUILD_DIR/PN-Brain.AppDir"
-OUTPUT="$BUILD_DIR/PN-Brain-x86_64.AppImage"
+APPDIR="$BUILD_DIR/PN-Scripts-Assistant.AppDir"
+OUTPUT="$BUILD_DIR/PN-Scripts-Assistant-x86_64.AppImage"
 
 log()  { printf '\033[36m→\033[0m %s\n' "$1"; }
 warn() { printf '\033[33m!\033[0m %s\n' "$1"; }
@@ -49,7 +49,7 @@ mkdir -p "$PROJECT_ROOT/dist"
 
 CGO_ENABLED=$CGO go build -C "$PROJECT_ROOT/clients" \
     -trimpath -ldflags="-s -w" \
-    -o "$PROJECT_ROOT/dist/pn-brain" ./cmd/brain \
+    -o "$PROJECT_ROOT/dist/pn-scripts-assistant" ./cmd/pn-scripts-assistant \
     || die "Build failed."
 
 # ---------------------------------------------------------------------------
@@ -61,23 +61,23 @@ rm -rf "$APPDIR"
 mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" \
          "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 
-install -m 755 "$PROJECT_ROOT/dist/pn-brain" "$APPDIR/usr/bin/pn-brain"
+install -m 755 "$PROJECT_ROOT/dist/pn-scripts-assistant" "$APPDIR/usr/bin/pn-scripts-assistant"
 
 
-cat > "$APPDIR/pn-brain.desktop" <<'DESKTOP'
+cat > "$APPDIR/pn-scripts-assistant.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=PN Brain
+Name=PN Scripts Assistant
 GenericName=AI Assistant
 Comment=Personal self-learning AI assistant
-Exec=pn-brain
-Icon=pn-brain
+Exec=pn-scripts-assistant
+Icon=pn-scripts-assistant
 Terminal=false
 Categories=Utility;
 Keywords=ai;assistant;brain;chat;
 DESKTOP
-cp "$APPDIR/pn-brain.desktop" "$APPDIR/usr/share/applications/"
+cp "$APPDIR/pn-scripts-assistant.desktop" "$APPDIR/usr/share/applications/"
 
 # An AppImage without an icon shows as a blank square in every launcher and
 # looks broken before it has run.
@@ -86,16 +86,16 @@ cp "$APPDIR/pn-brain.desktop" "$APPDIR/usr/share/applications/"
 # the interface wears and the two should not be able to drift apart. It is drawn
 # by scripts/make-icon.py, from the same geometry the core is built from, so
 # regenerating it is a deliberate act rather than a side effect of packaging.
-if [ -f "$PROJECT_ROOT/assets/pn-brain.png" ]; then
-    cp "$PROJECT_ROOT/assets/pn-brain.png" "$APPDIR/pn-brain.png"
+if [ -f "$PROJECT_ROOT/assets/pn-scripts-assistant.png" ]; then
+    cp "$PROJECT_ROOT/assets/pn-scripts-assistant.png" "$APPDIR/pn-scripts-assistant.png"
 else
-    warn "No icon at assets/pn-brain.png; the launcher will show a blank square"
+    warn "No icon at assets/pn-scripts-assistant.png; the launcher will show a blank square"
     printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82' \
-        > "$APPDIR/pn-brain.png"
+        > "$APPDIR/pn-scripts-assistant.png"
 fi
 
-cp "$APPDIR/pn-brain.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/" 2>/dev/null || true
-install -D -m 644 "$APPDIR/pn-brain.png" "$APPDIR/usr/share/icons/hicolor/512x512/apps/pn-brain.png" 2>/dev/null || true
+cp "$APPDIR/pn-scripts-assistant.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/" 2>/dev/null || true
+install -D -m 644 "$APPDIR/pn-scripts-assistant.png" "$APPDIR/usr/share/icons/hicolor/512x512/apps/pn-scripts-assistant.png" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # AppRun: what happens on a double click
@@ -111,7 +111,7 @@ cat > "$APPDIR/AppRun" <<'APPRUN'
 set -uo pipefail
 
 HERE="$(dirname "$(readlink -f "${0}")")"
-exec "$HERE/usr/bin/pn-brain" "$@"
+exec "$HERE/usr/bin/pn-scripts-assistant" "$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"
 

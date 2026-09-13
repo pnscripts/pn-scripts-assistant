@@ -146,7 +146,7 @@ func (t LookAtScreen) Execute(ctx context.Context, raw json.RawMessage) (string,
 
 // captureScreen writes a picture of the whole screen and returns its path.
 func captureScreen(ctx context.Context) (string, error) {
-	file, err := os.CreateTemp("", "pn-brain-screen-*.png")
+	file, err := os.CreateTemp("", "pn-scripts-assistant-screen-*.png")
 	if err != nil {
 		return "", err
 	}

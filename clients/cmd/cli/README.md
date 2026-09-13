@@ -1,33 +1,33 @@
-# pn-brain (Go CLI)
+# pn-scripts-assistant-cli (Go CLI)
 
-Terminal client for the PN Brain API. Zero dependencies (standard library only).
+Terminal client for the PN Scripts Assistant API. Zero dependencies (standard library only).
 
 ## Build
 
 ```bash
-go build -o pn-brain .
+go build -o pn-scripts-assistant-cli .
 ```
 
 ## Use
 
 ```bash
-./pn-brain "what's on my mind lately?"     # single-shot, continues the last conversation
-./pn-brain --new "let's start fresh"       # start a new conversation
-./pn-brain --provider anthropic "..."      # force a provider for this message
-./pn-brain                                  # interactive mode (':new' to reset, 'exit' to quit)
+./pn-scripts-assistant-cli "what's on my mind lately?"  # single-shot, continues the last conversation
+./pn-scripts-assistant-cli --new "let's start fresh"    # start a new conversation
+./pn-scripts-assistant-cli --provider anthropic "..."   # force a provider for this message
+./pn-scripts-assistant-cli                              # interactive mode (':new' to reset, 'exit' to quit)
 ```
 
 Conversation state (just the current `conversation_id`) is kept in
-`$XDG_CONFIG_HOME/pn-brain/cli.json` (or the OS equivalent) — not in this repo.
+`$XDG_CONFIG_HOME/pn-scripts-assistant/cli.json` (or the OS equivalent) — not in this repo.
 
 By default it talks to `http://localhost:8090`; override with `--api` or `BRAIN_API_URL`.
 
 ## Install globally
 
 ```bash
-ln -sf "$(pwd)/pn-brain" ~/.local/bin/pn-brain   # ~/.local/bin must be on PATH
+ln -sf "$(pwd)/pn-scripts-assistant-cli" ~/.local/bin/pn-scripts-assistant-cli   # ~/.local/bin must be on PATH
 ```
 
-Then `pn-brain` works from any directory. It's a symlink to the binary here, so it
+Then `pn-scripts-assistant-cli` works from any directory. It's a symlink to the binary here, so it
 only works while this drive is plugged in and the containers are running
-(`../../scripts/pn-brain-launch.sh`).
+(`../../scripts/pn-scripts-assistant-launch.sh`).

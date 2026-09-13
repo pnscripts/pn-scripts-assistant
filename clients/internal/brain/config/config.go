@@ -715,7 +715,7 @@ func (c Config) Save(root string) error {
 
 	var b strings.Builder
 
-	b.WriteString("# PN Brain settings. Environment variables override these.\n\n")
+	b.WriteString("# " + Product + " settings. Environment variables override these.\n\n")
 	b.WriteString("BRAIN_NAME=" + c.Name + "\n")
 	b.WriteString("BRAIN_OWNER=" + c.Owner + "\n\n")
 	b.WriteString("# private | research | open. Worked out from BRAIN_FREEDOM below\n")

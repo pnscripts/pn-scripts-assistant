@@ -21,7 +21,7 @@ import (
  */
 
 // UnfinishedNote is what is written where an answer never arrived.
-const UnfinishedNote = "That turn was cut short — PN Brain stopped before it could answer. " +
+const UnfinishedNote = "That turn was cut short — PN Scripts Assistant stopped before it could answer. " +
 	"Nothing was lost except the answer; ask again."
 
 /*

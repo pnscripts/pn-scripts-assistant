@@ -537,7 +537,7 @@
             }
         }
 
-        text('core-title', status.name || 'PN Brain');
+        text('core-title', status.name || 'Assistant');
         text('core-sub', status.model ? `${status.provider} · ${status.model}` : 'no model loaded');
 
         text('owner-name', status.owner || status.name || '—');

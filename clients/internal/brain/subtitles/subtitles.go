@@ -165,7 +165,7 @@ func Make(ctx context.Context, film, recogniser, model, language string, note fu
 		return "", fmt.Errorf("ffmpeg is not installed, and it is what takes the sound out of a film")
 	}
 
-	sound, err := os.CreateTemp("", "pn-brain-film-*.wav")
+	sound, err := os.CreateTemp("", "pn-scripts-assistant-film-*.wav")
 	if err != nil {
 		return "", err
 	}

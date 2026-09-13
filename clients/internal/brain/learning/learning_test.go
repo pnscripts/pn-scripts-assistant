@@ -11,7 +11,7 @@ import (
 // seventeen pending, most of them the brain describing itself after a rename.
 func TestGuardRejectsSelfDescription(t *testing.T) {
 	reject := []string{
-		"I am PN Brain, a personal AI assistant.",
+		"I am PN Scripts Assistant, a personal AI assistant.",
 		"I can read files and run commands.",
 		"I will remember things across conversations.",
 		"My name is Vesper.",
@@ -22,10 +22,10 @@ func TestGuardRejectsSelfDescription(t *testing.T) {
 		"Sage is a self-learning assistant built on Laravel.",
 		"Vesper is Petar's personal AI assistant.",
 		"Pnexus is a private brain that learns over time.",
-		"PN Brain is a personal, self-learning AI assistant.",
+		"PN Scripts Assistant is a personal, self-learning AI assistant.",
 
 		// Wrapped claims: strip the wrapper before judging, or these sail past.
-		"Remember that I am PN Brain.",
+		"Remember that I am PN Scripts Assistant.",
 		"remember: I can act on the computer.",
 		"Note that I will ask before changing anything.",
 		"The user should know that I am an AI assistant.",
@@ -39,7 +39,7 @@ func TestGuardRejectsSelfDescription(t *testing.T) {
 	}
 
 	for _, lesson := range reject {
-		if !IsAboutTheAssistant(lesson, "PN Brain", "Petar") {
+		if !IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Petar") {
 			t.Errorf("guard let a self-description through: %q", lesson)
 		}
 	}
@@ -61,7 +61,7 @@ func TestGuardKeepsFactsAboutTheOwner(t *testing.T) {
 	}
 
 	for _, lesson := range keep {
-		if IsAboutTheAssistant(lesson, "PN Brain", "Petar") {
+		if IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Petar") {
 			t.Errorf("guard discarded a real fact about the owner: %q", lesson)
 		}
 	}
@@ -145,7 +145,7 @@ func TestCategoryFollowsTheSource(t *testing.T) {
 }
 
 func TestExtractorPromptRefusesSelfDescriptionAndAllowsNothing(t *testing.T) {
-	p := Extractor{Owner: "Petar", Name: "PN Brain"}.Prompt("user: hello")
+	p := Extractor{Owner: "Petar", Name: "PN Scripts Assistant"}.Prompt("user: hello")
 
 	// Finding nothing must be presented as normal, or a model asked to extract
 	// a fact will always invent one.
@@ -178,7 +178,7 @@ func TestGuardAgainstTheRealPendingLessons(t *testing.T) {
 	}
 
 	for _, lesson := range selfDescription {
-		if !IsAboutTheAssistant(lesson, "PN Brain", "Petar") {
+		if !IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Petar") {
 			t.Errorf("self-description survived: %q", lesson)
 		}
 	}
@@ -193,7 +193,7 @@ func TestGuardAgainstTheRealPendingLessons(t *testing.T) {
 	}
 
 	for _, lesson := range aboutTheOwner {
-		if IsAboutTheAssistant(lesson, "PN Brain", "Petar") {
+		if IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Petar") {
 			t.Errorf("real fact about the owner was discarded: %q", lesson)
 		}
 	}
@@ -214,7 +214,7 @@ func TestGuardDoesNotDiscardScannedFacts(t *testing.T) {
 	}
 
 	for _, fact := range scanned {
-		if IsAboutTheAssistant(fact, "PN Brain", "Petar") {
+		if IsAboutTheAssistant(fact, "PN Scripts Assistant", "Petar") {
 			t.Errorf("scanned fact was discarded: %q", fact)
 		}
 	}
@@ -227,7 +227,7 @@ func TestFragmentsAreNotFacts(t *testing.T) {
 	notFacts := []string{
 		"/media/petar/c8fc2986-4b79-4d7b-9a8c-e6db653915ac/DEV/Projects/xplorer/xplorer-golang-api",
 		"xplorer-golang-api",
-		"https://github.com/PNScripts/pn-brain",
+		"https://github.com/pnscripts/pn-scripts-assistant",
 		"the path /home/petar/Projects",
 		"",
 		"   ",
