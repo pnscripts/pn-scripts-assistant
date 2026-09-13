@@ -18,7 +18,7 @@ func TestReadingNeverNeedsPermission(t *testing.T) {
 	b, _ := Load(t.TempDir())
 
 	for _, freedom := range []Freedom{AskEveryTime, WhatIveAllowed, Everything} {
-		if got := b.Decide("list_directory", false, freedom); got != Allow {
+		if got := b.Decide("", "list_directory", false, freedom); got != Allow {
 			t.Errorf("looking at something needed permission under %q: %v", freedom, got)
 		}
 	}
@@ -28,7 +28,7 @@ func TestReadingNeverNeedsPermission(t *testing.T) {
 func TestChangingSomethingAsksByDefault(t *testing.T) {
 	b, _ := Load(t.TempDir())
 
-	if got := b.Decide("write_file", true, AskEveryTime); got != Ask {
+	if got := b.Decide("", "write_file", true, AskEveryTime); got != Ask {
 		t.Errorf("a mutating tool ran without asking: %v", got)
 	}
 }
@@ -54,11 +54,11 @@ func TestAStandingGrantIsHonouredOnceGrantsAreHonoured(t *testing.T) {
 	 * whose owner has not said they want their grants honoured — which is
 	 * agreeing to one thing and getting another.
 	 */
-	if got := b.Decide("write_file", true, AskEveryTime); got != Ask {
+	if got := b.Decide("", "write_file", true, AskEveryTime); got != Ask {
 		t.Errorf("a grant took effect under ask-every-time: %v", got)
 	}
 
-	if got := b.Decide("write_file", true, WhatIveAllowed); got != Allow {
+	if got := b.Decide("", "write_file", true, WhatIveAllowed); got != Allow {
 		t.Errorf("a granted capability still asked: %v", got)
 	}
 
@@ -68,7 +68,7 @@ func TestAStandingGrantIsHonouredOnceGrantsAreHonoured(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := again.Decide("write_file", true, WhatIveAllowed); got != Allow {
+	if got := again.Decide("", "write_file", true, WhatIveAllowed); got != Allow {
 		t.Error("the grant did not survive a restart")
 	}
 
@@ -85,7 +85,7 @@ func TestAGrantForThisRunIsNotWrittenDown(t *testing.T) {
 
 	b.ForThisRun("run_command")
 
-	if got := b.Decide("run_command", true, AskEveryTime); got != Allow {
+	if got := b.Decide("", "run_command", true, AskEveryTime); got != Allow {
 		t.Errorf("a grant for this run was not honoured: %v", got)
 	}
 
@@ -95,7 +95,7 @@ func TestAGrantForThisRunIsNotWrittenDown(t *testing.T) {
 
 	again, _ := Load(root)
 
-	if got := again.Decide("run_command", true, WhatIveAllowed); got != Ask {
+	if got := again.Decide("", "run_command", true, WhatIveAllowed); got != Ask {
 		t.Error("a grant for this run survived a restart")
 	}
 }
@@ -115,7 +115,7 @@ func TestARefusalOutranksEveryFreedom(t *testing.T) {
 	b.ForThisRun("send_email")
 
 	for _, freedom := range []Freedom{AskEveryTime, WhatIveAllowed, Everything} {
-		if got := b.Decide("send_email", true, freedom); got != Refuse {
+		if got := b.Decide("", "send_email", true, freedom); got != Refuse {
 			t.Errorf("a refusal was overridden by %q: %v", freedom, got)
 		}
 	}
@@ -125,7 +125,7 @@ func TestARefusalOutranksEveryFreedom(t *testing.T) {
 func TestDoingEverythingStillAsksNobody(t *testing.T) {
 	b, _ := Load(t.TempDir())
 
-	if got := b.Decide("write_file", true, Everything); got != Allow {
+	if got := b.Decide("", "write_file", true, Everything); got != Allow {
 		t.Errorf("still asking under 'everything': %v", got)
 	}
 }
@@ -142,7 +142,7 @@ func TestForgettingAGrantGoesBackToAsking(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := b.Decide("write_file", true, WhatIveAllowed); got != Ask {
+	if got := b.Decide("", "write_file", true, WhatIveAllowed); got != Ask {
 		t.Errorf("a forgotten grant was still honoured: %v", got)
 	}
 
@@ -166,7 +166,137 @@ func TestADamagedFileGrantsNothing(t *testing.T) {
 		t.Error("a damaged permissions file was accepted silently")
 	}
 
-	if got := b.Decide("write_file", true, WhatIveAllowed); got != Ask {
+	if got := b.Decide("", "write_file", true, WhatIveAllowed); got != Ask {
 		t.Errorf("a damaged file granted something: %v", got)
 	}
+}
+
+/*
+ * What one agent has been allowed is not what all of them have been allowed.
+ *
+ * The property the organisation rests on. Without it a roster would be a way
+ * of widening authority: hire an agent, have its work approved once, and every
+ * other agent inherits the grant. Several agents have to mean several amounts
+ * of authority, or they may as well be one.
+ */
+func TestOneAgentsPermissionIsNotEverybodys(t *testing.T) {
+	b := bookIn(t)
+
+	if err := b.RememberFor("developer", "run_command", Allow, "building the project"); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := b.Decide("developer", "run_command", true, WhatIveAllowed); got != Allow {
+		t.Errorf("the developer was told %q", got)
+	}
+
+	for _, who := range []string{"", "writer", "bookkeeper"} {
+		if got := b.Decide(who, "run_command", true, WhatIveAllowed); got != Ask {
+			t.Errorf("%q was told %q, want to be asked", who, got)
+		}
+	}
+}
+
+/*
+ * A refusal about one agent stops that one even where everybody else may.
+ *
+ * "Use the most restrictive applicable policy", and it is checked before
+ * anything else so that no later rule can talk its way past it — including
+ * Freedom being set to everything, which is otherwise a yes to all of it.
+ */
+func TestTheMostRestrictiveDecisionWins(t *testing.T) {
+	b := bookIn(t)
+
+	if err := b.Remember("send_email", Allow, "replying to the post"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := b.RememberFor("researcher", "send_email", Refuse, "it only reads"); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := b.Decide("writer", "send_email", true, WhatIveAllowed); got != Allow {
+		t.Errorf("the writer was told %q", got)
+	}
+
+	for _, freedom := range []Freedom{AskEveryTime, WhatIveAllowed, Everything} {
+		if got := b.Decide("researcher", "send_email", true, freedom); got != Refuse {
+			t.Errorf("under %q the researcher was told %q", freedom, got)
+		}
+	}
+}
+
+/*
+ * A refusal about everybody stops every agent, however it was hired.
+ *
+ * The other direction, and the one that makes a global refusal worth writing:
+ * it has to hold for agents that did not exist when it was written.
+ */
+func TestARefusalAboutEverybodyStopsEveryAgent(t *testing.T) {
+	b := bookIn(t)
+
+	if err := b.Remember("run_command", Refuse, "not on this machine"); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, who := range []string{"", "developer", "somebody_hired_later"} {
+		if got := b.Decide(who, "run_command", true, Everything); got != Refuse {
+			t.Errorf("%q was told %q", who, got)
+		}
+	}
+}
+
+/*
+ * A book written before any of this still means what it meant.
+ *
+ * Every permissions file in existence has grants with no agent on them. If
+ * those stopped applying to everybody, an upgrade would silently revoke every
+ * permission somebody had given — and the first sign would be the assistant
+ * asking about things it had been told not to ask about.
+ */
+func TestABookWrittenBeforeAgentsStillApplies(t *testing.T) {
+	root := t.TempDir()
+
+	written := `[{"tool":"write_file","answer":"allow","given":"2026-01-01T00:00:00Z","why":"notes"}]`
+
+	if err := os.WriteFile(filepath.Join(root, FileName), []byte(written), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, who := range []string{"", "writer", "developer"} {
+		if got := b.Decide(who, "write_file", true, WhatIveAllowed); got != Allow {
+			t.Errorf("%q was told %q", who, got)
+		}
+	}
+}
+
+// And for this run only, one agent at a time, gone when the program stops.
+func TestAPermissionForThisRunCanBeForOneAgent(t *testing.T) {
+	b := bookIn(t)
+
+	b.ForThisRunBy("developer", "run_command")
+
+	if got := b.Decide("developer", "run_command", true, AskEveryTime); got != Allow {
+		t.Errorf("the developer was told %q", got)
+	}
+
+	if got := b.Decide("writer", "run_command", true, AskEveryTime); got != Ask {
+		t.Errorf("the writer was told %q", got)
+	}
+}
+
+func bookIn(t *testing.T) *Book {
+	t.Helper()
+
+	b, err := Load(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return b
 }

@@ -28,6 +28,20 @@ type Message struct {
 	// for ordinary messages.
 	ToolCallID string `json:"tool_call_id,omitempty"`
 	Name       string `json:"name,omitempty"`
+
+	/*
+	 * ToolCalls is what an assistant asked for, carried on the assistant's own
+	 * message.
+	 *
+	 * Its absence is why using a tool twice in one turn only ever worked
+	 * locally. The loop appended the tool's result and never the message that
+	 * asked for it, so the conversation read as a set of answers to questions
+	 * nobody had put: Anthropic dropped them on the floor, because its mapping
+	 * had no case for a tool at all, and every OpenAI-compatible service
+	 * refused the request outright. Ollama is lenient and rendered the orphan
+	 * as text, which is the whole of why the local path appeared correct.
+	 */
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 }
 
 // ToolSpec describes a tool to the model. Parameters is a JSON Schema object.
@@ -37,7 +51,18 @@ type ToolSpec struct {
 	Parameters  json.RawMessage `json:"parameters"`
 }
 
-// ToolCall is the model asking for a tool to be run.
+/*
+ * ToolCall is the model asking for a tool to be run.
+ *
+ * Arguments is always a JSON *object*, never a JSON string. That is not
+ * pedantry: OpenAI and everything that copied its shape send this field as a
+ * string containing JSON, Ollama and Anthropic send an object, and the loop
+ * hands it straight to a tool that unmarshals it into a struct. Unquoting
+ * where it is parsed rather than where it is used means one rule instead of
+ * one per caller — and the caller that got it wrong failed with "cannot
+ * unmarshal string into Go value of type struct", which reads like a broken
+ * tool rather than a provider that writes its arguments differently.
+ */
 type ToolCall struct {
 	ID        string          `json:"id"`
 	Name      string          `json:"name"`

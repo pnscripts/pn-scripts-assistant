@@ -166,6 +166,41 @@ type ollamaChatResponse struct {
 }
 
 /*
+ * ollamaMessagesOf carries an assistant's own calls back with it.
+ *
+ * The field has been on ollamaMessage since it was written and was never
+ * filled, which mattered less here than anywhere else: Ollama accepts a tool
+ * result that answers nothing and renders it as text, so the local path worked
+ * while every hosted one refused the same conversation. Sending the calls is
+ * the shape Ollama documents, and it stops the local path being the odd one
+ * out — a turn now reads the same way whoever is asked.
+ *
+ * Unlike the hosted clients this does not go through Replayable. There is
+ * nothing here to repair, and rewriting the one conversation that has always
+ * been accepted would be a risk with nothing to buy.
+ */
+func ollamaMessagesOf(messages []Message) []ollamaMessage {
+	out := make([]ollamaMessage, 0, len(messages))
+
+	for _, m := range messages {
+		om := ollamaMessage{Role: m.Role, Content: m.Content}
+
+		for _, c := range m.ToolCalls {
+			var call ollamaToolCall
+
+			call.Function.Name = c.Name
+			call.Function.Arguments = AsObject(c.Arguments)
+
+			om.ToolCalls = append(om.ToolCalls, call)
+		}
+
+		out = append(out, om)
+	}
+
+	return out
+}
+
+/*
  * ChatStream answers a turn a piece at a time.
  *
  * The whole point is what can be started before the answer is finished. This
@@ -195,9 +230,7 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 		body.Options = map[string]any{"num_predict": req.MaxTokens}
 	}
 
-	for _, m := range req.Messages {
-		body.Messages = append(body.Messages, ollamaMessage{Role: m.Role, Content: m.Content})
-	}
+	body.Messages = ollamaMessagesOf(req.Messages)
 
 	/*
 	 * The tools travel with a streamed turn too.
@@ -323,9 +356,7 @@ func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
 		body.Options = map[string]any{"num_predict": req.MaxTokens}
 	}
 
-	for _, m := range req.Messages {
-		body.Messages = append(body.Messages, ollamaMessage{Role: m.Role, Content: m.Content})
-	}
+	body.Messages = ollamaMessagesOf(req.Messages)
 
 	for _, t := range req.Tools {
 		body.Tools = append(body.Tools, ollamaTool{

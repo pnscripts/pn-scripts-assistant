@@ -116,12 +116,35 @@ type openAIRequest struct {
 }
 
 type openAIMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role string `json:"role"`
+
+	// Content is a string, or nil on an assistant message that only asked for
+	// tools. Several of these services refuse an empty string alongside
+	// tool_calls, and all of them accept a null.
+	Content any `json:"content"`
 
 	// ToolCallID ties a result back to the call that asked for it. Only set on
 	// messages carrying tool output.
 	ToolCallID string `json:"tool_call_id,omitempty"`
+
+	// ToolCalls is what the assistant asked for on its own turn. Without it a
+	// message with role "tool" answers nothing, and these services refuse the
+	// whole request rather than ignoring the one message.
+	ToolCalls []openAIToolCall `json:"tool_calls,omitempty"`
+}
+
+type openAIToolCall struct {
+	ID       string             `json:"id"`
+	Type     string             `json:"type"` // always "function"
+	Function openAICallFunction `json:"function"`
+}
+
+type openAICallFunction struct {
+	Name string `json:"name"`
+
+	// A string containing JSON, which is both what these services send and
+	// what they expect back. See ToolCall for why that is worth naming.
+	Arguments string `json:"arguments"`
 }
 
 type openAITool struct {
@@ -237,9 +260,13 @@ func (o *OpenAICompatible) Chat(ctx context.Context, req Request) (Response, err
 
 	for _, call := range parsed.Choices[0].Message.ToolCalls {
 		out.ToolCalls = append(out.ToolCalls, ToolCall{
-			ID:        call.ID,
-			Name:      call.Function.Name,
-			Arguments: call.Function.Arguments,
+			ID:   call.ID,
+			Name: call.Function.Name,
+
+			// Unquoted here rather than at the tool, which is where it used to
+			// arrive still wrapped in its own quotes and fail as though the
+			// tool were at fault.
+			Arguments: AsObject(call.Function.Arguments),
 		})
 	}
 
@@ -262,11 +289,41 @@ func (o *OpenAICompatible) requestBody(req Request) openAIRequest {
 	 * that role are allowed and are simply read in order, so nothing has to be
 	 * joined together first.
 	 */
-	for _, m := range req.Messages {
+	messages := req.Messages
+
+	// A turn offered no tools cannot carry a call in its history; see
+	// withoutToolCalls.
+	if len(req.Tools) == 0 {
+		messages = withoutToolCalls(messages)
+	}
+
+	messages = Replayable(messages)
+
+	for _, m := range messages {
 		switch m.Role {
-		case RoleSystem, RoleUser, RoleAssistant:
+		case RoleSystem, RoleUser:
 			body.Messages = append(body.Messages,
 				openAIMessage{Role: m.Role, Content: m.Content})
+
+		case RoleAssistant:
+			out := openAIMessage{Role: m.Role, Content: m.Content}
+
+			for _, c := range m.ToolCalls {
+				call := openAIToolCall{ID: c.ID, Type: "function"}
+				call.Function.Name = c.Name
+				call.Function.Arguments = string(AsObject(c.Arguments))
+
+				out.ToolCalls = append(out.ToolCalls, call)
+			}
+
+			// Null rather than an empty string when the turn was only a
+			// request to run something.
+			if len(out.ToolCalls) > 0 && m.Content == "" {
+				out.Content = nil
+			}
+
+			body.Messages = append(body.Messages, out)
+
 		case RoleTool:
 			// Tool output travels as its own role, and without the id it is
 			// silently dropped by some of these services rather than refused.

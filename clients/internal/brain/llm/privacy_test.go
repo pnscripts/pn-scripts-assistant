@@ -6,20 +6,73 @@ import (
 	"testing"
 )
 
-// The single most important rule in the system: what the brain has learned
-// never goes to a third party, in any mode. If this test ever fails, the
-// program is leaking a dossier.
-func TestMemoryNeverLeavesForThirdParties(t *testing.T) {
-	for _, mode := range []Mode{ModePrivate, ModeResearch, ModeOpen} {
+/*
+ * What the brain has learned reaches a third party only when its owner has
+ * said everything is allowed.
+ *
+ * This test used to assert something stronger: that memory never left, in any
+ * mode, with no configuration that changed it. The reasoning was sound and is
+ * still worth stating — conversation is typed deliberately, and memory is
+ * assembled from somebody's disk without them composing it, so it is a dossier
+ * rather than a prompt.
+ *
+ * It is not absolute any more because the person it protects said to remove
+ * it. What replaces it is not nothing: it takes the most open setting there
+ * is, deliberately chosen, and the panel says so in as many words. Anything
+ * short of that behaves exactly as before.
+ */
+func TestMemoryLeavesOnlyWhenEverythingIsAllowed(t *testing.T) {
+	for _, mode := range []Mode{ModePrivate, ModeResearch} {
 		for _, provider := range []string{"anthropic", "openai", "gemini", "anything-else"} {
-			if AllowsMemoryFor(provider) {
+			if AllowsMemoryFor(provider, mode) {
 				t.Errorf("mode %q: memory was allowed to reach %q", mode, provider)
 			}
 		}
+	}
 
-		if !AllowsMemoryFor(Local) {
+	for _, provider := range []string{"anthropic", "openai"} {
+		if !AllowsMemoryFor(provider, ModeOpen) {
+			t.Errorf("memory was withheld from %q with everything allowed", provider)
+		}
+	}
+
+	// And the local model is never a third party, whatever the setting.
+	for _, mode := range []Mode{ModePrivate, ModeResearch, ModeOpen} {
+		if !AllowsMemoryFor(Local, mode) {
 			t.Errorf("mode %q: memory was withheld from the local model", mode)
 		}
+	}
+}
+
+/*
+ * One switch decides what may leave, and it is a ladder.
+ *
+ * There used to be two settings and the second was the one that actually
+ * stood in the way: its strictest value is also its default, and it refuses
+ * rather than asks. Somebody who had said "stop asking me" still found it
+ * refusing, from a setting they had not touched.
+ */
+func TestWhatMayLeaveFollowsHowMuchItAsks(t *testing.T) {
+	for freedom, want := range map[string]Mode{
+		"ask":        ModePrivate,
+		"granted":    ModeResearch,
+		"everything": ModeOpen,
+		"EVERYTHING": ModeOpen,
+		"":           ModePrivate,
+		"nonsense":   ModePrivate,
+	} {
+		if got := ModeFor(freedom); got != want {
+			t.Errorf("%q gave %q, want %q", freedom, got, want)
+		}
+	}
+
+	// Allowing everything blocks nothing, which is the whole point of it.
+	if err := ModeFor("everything").GuardProvider("anthropic"); err != nil {
+		t.Errorf("everything still refused a provider: %v", err)
+	}
+
+	if !ModeFor("everything").AllowsWeb() {
+		t.Error("everything still refused the web")
 	}
 }
 

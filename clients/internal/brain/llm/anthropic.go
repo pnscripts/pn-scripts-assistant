@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -53,8 +54,34 @@ type anthropicRequest struct {
 }
 
 type anthropicMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"`
+	Role string `json:"role"`
+
+	// Content is a string for an ordinary turn and a list of blocks for one
+	// that used a tool. Anthropic accepts both, and the string form is what
+	// nearly every message here is.
+	Content any `json:"content"`
+}
+
+/*
+ * anthropicBlock is one piece of a turn.
+ *
+ * Anthropic does not have a role for tool output. A call is a tool_use block
+ * on the assistant's own message and its result is a tool_result block on the
+ * next user message — which is why sending tool output as a role of its own
+ * did not fail loudly, it simply matched no case and was dropped, and the
+ * model was asked the same question again with no sign it had ever looked.
+ */
+type anthropicBlock struct {
+	Type string `json:"type"` // text | tool_use | tool_result
+
+	Text string `json:"text,omitempty"`
+
+	ID    string          `json:"id,omitempty"`
+	Name  string          `json:"name,omitempty"`
+	Input json.RawMessage `json:"input,omitempty"`
+
+	ToolUseID string `json:"tool_use_id,omitempty"`
+	Content   string `json:"content,omitempty"`
 }
 
 type anthropicTool struct {
@@ -83,40 +110,7 @@ func (a *Anthropic) Chat(ctx context.Context, req Request) (Response, error) {
 		return Response{}, fmt.Errorf("no Anthropic API key is configured")
 	}
 
-	model := req.Model
-	if model == "" {
-		model = a.Model
-	}
-
-	maxTokens := 4096
-	if req.MaxTokens > 0 {
-		maxTokens = req.MaxTokens
-	}
-
-	body := anthropicRequest{Model: model, MaxTokens: maxTokens}
-
-	// Anthropic takes the system prompt as its own field rather than as a
-	// message, so it is lifted out of the conversation here.
-	for _, m := range req.Messages {
-		switch m.Role {
-		case RoleSystem:
-			if body.System != "" {
-				body.System += "\n\n"
-			}
-
-			body.System += m.Content
-		case RoleUser, RoleAssistant:
-			body.Messages = append(body.Messages, anthropicMessage{Role: m.Role, Content: m.Content})
-		}
-	}
-
-	for _, t := range req.Tools {
-		body.Tools = append(body.Tools, anthropicTool{
-			Name:        t.Name,
-			Description: t.Description,
-			InputSchema: t.Parameters,
-		})
-	}
+	body := a.requestBody(req)
 
 	raw, err := json.Marshal(body)
 	if err != nil {
@@ -170,4 +164,108 @@ func (a *Anthropic) Chat(ctx context.Context, req Request) (Response, error) {
 	}
 
 	return result, nil
+}
+
+// requestBody maps one conversation onto the shape Anthropic expects.
+func (a *Anthropic) requestBody(req Request) anthropicRequest {
+	model := req.Model
+	if model == "" {
+		model = a.Model
+	}
+
+	maxTokens := 4096
+	if req.MaxTokens > 0 {
+		maxTokens = req.MaxTokens
+	}
+
+	body := anthropicRequest{Model: model, MaxTokens: maxTokens}
+
+	messages := req.Messages
+
+	// A turn offered no tools cannot carry a call in its history; see
+	// withoutToolCalls.
+	if len(req.Tools) == 0 {
+		messages = withoutToolCalls(messages)
+	}
+
+	messages = Replayable(messages)
+
+	// Anthropic takes the system prompt as its own field rather than as a
+	// message, so it is lifted out of the conversation here.
+	for i := 0; i < len(messages); i++ {
+		m := messages[i]
+
+		switch m.Role {
+		case RoleSystem:
+			if body.System != "" {
+				body.System += "\n\n"
+			}
+
+			body.System += m.Content
+
+		case RoleUser:
+			body.Messages = append(body.Messages,
+				anthropicMessage{Role: RoleUser, Content: m.Content})
+
+		case RoleAssistant:
+			if len(m.ToolCalls) == 0 {
+				body.Messages = append(body.Messages,
+					anthropicMessage{Role: RoleAssistant, Content: m.Content})
+
+				break
+			}
+
+			var blocks []anthropicBlock
+
+			if strings.TrimSpace(m.Content) != "" {
+				blocks = append(blocks, anthropicBlock{Type: "text", Text: m.Content})
+			}
+
+			for _, c := range m.ToolCalls {
+				blocks = append(blocks, anthropicBlock{
+					Type:  "tool_use",
+					ID:    c.ID,
+					Name:  c.Name,
+					Input: AsObject(c.Arguments),
+				})
+			}
+
+			body.Messages = append(body.Messages,
+				anthropicMessage{Role: RoleAssistant, Content: blocks})
+
+		case RoleTool:
+			/*
+			 * Every result for one assistant turn travels in a single message.
+			 *
+			 * Anthropic wants each tool_use answered in the user turn that
+			 * follows it, so two calls answered by two separate user messages
+			 * is a refused request — the second one arrives after the turn
+			 * that was supposed to contain it had already ended.
+			 */
+			var blocks []anthropicBlock
+
+			for ; i < len(messages) && messages[i].Role == RoleTool; i++ {
+				blocks = append(blocks, anthropicBlock{
+					Type:      "tool_result",
+					ToolUseID: messages[i].ToolCallID,
+					Content:   messages[i].Content,
+				})
+			}
+
+			i--
+
+			body.Messages = append(body.Messages,
+				anthropicMessage{Role: RoleUser, Content: blocks})
+		}
+	}
+
+	for _, t := range req.Tools {
+		body.Tools = append(body.Tools, anthropicTool{
+			Name:        t.Name,
+			Description: t.Description,
+			InputSchema: t.Parameters,
+		})
+	}
+
+	return body
 }

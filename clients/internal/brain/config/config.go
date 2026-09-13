@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/llm"
 	"strconv"
 	"strings"
 )
@@ -75,9 +76,73 @@ type Config struct {
 	 */
 	LookOnline bool
 
+	/*
+	 * ProfileToHosted is whether what you have written about yourself may go
+	 * to a paid service.
+	 *
+	 * Off. The profile is the most personal thing in the program — what you
+	 * do, who you work for, how you want things handled — and unlike a typed
+	 * message it would be sent again with every single turn, whether or not
+	 * the question had anything to do with it.
+	 *
+	 * It is a separate decision from Privacy rather than a consequence of it.
+	 * Opening privacy is agreeing that this conversation may be answered
+	 * elsewhere; it is not agreeing that a standing description of your
+	 * business is attached to all of them. The local model is given it in
+	 * every mode, because nothing leaves the machine.
+	 */
+	ProfileToHosted bool
+
+	/*
+	 * PicturesURL is an image server running on this machine.
+	 *
+	 * The shape Automatic1111 made and everything since has copied — SD.Next,
+	 * Forge, and most of what people actually install. Not ComfyUI's graph
+	 * API, which wants a whole workflow document per request: that is a thing
+	 * somebody builds, not a thing a program can reasonably compose.
+	 */
+	PicturesURL string
+
+	/*
+	 * Reach is how far this assistant answers: "here" or "network".
+	 *
+	 * Here is the default and was the only possibility until now: the listener
+	 * refuses to bind anywhere but loopback, and a connection is therefore a
+	 * proof that it came from this computer. Network binds the local network
+	 * and requires every request from elsewhere to carry a token given in
+	 * person, over TLS.
+	 *
+	 * Its own setting rather than a consequence of anything else, because it
+	 * is the single change in this program that cannot be undone by changing
+	 * it back: anything that reached the machine while it was open stays
+	 * reached. It should take a deliberate act, and be visible afterwards.
+	 */
+	Reach string
+
+	// PictureModel is which model a paid service should use. Empty means its
+	// default, which is the right answer until somebody has a reason.
+	PictureModel string
+
 	// Models.
 	DefaultProvider string
-	OllamaURL       string
+
+	/*
+	 * A key, a model and an address for every company there is.
+	 *
+	 * Three of them used to have a named field each, which is why there were
+	 * three: adding a fourth meant a field, a line in Load, a line in the
+	 * text written back out, and a branch in the router. Keyed by the id in
+	 * llm.Services instead, so a company added to that list is a company this
+	 * can hold a key for.
+	 *
+	 * The three original fields stay beside this and are filled from the same
+	 * settings, because plenty of code reads them by name and a settings file
+	 * written last month still spells them that way.
+	 */
+	ProviderKeys   map[string]string
+	ProviderModels map[string]string
+	ProviderURLs   map[string]string
+	OllamaURL      string
 	// New is true when there was no settings file to read: nobody has set this
 	// brain up yet. The interface uses it to ask for a name once, rather than
 	// silently calling itself whatever the default happens to be.
@@ -209,6 +274,22 @@ type Config struct {
 	 */
 	AlwaysSpeak bool
 
+	/*
+	 * AlwaysListen opens the microphone whenever the window is open.
+	 *
+	 * On, because somebody who has a microphone and a voice installed usually
+	 * wants to talk to it, and switching that on every time is a tax on the
+	 * thing they came for. But it was on with no way to say otherwise, which
+	 * is a different thing from a default: the Stop button worked until the
+	 * page was reloaded and then the microphone was open again.
+	 *
+	 * It costs more than it looks. Listening is not idle — it is voice
+	 * detection and then transcription of whatever the room said, on the same
+	 * processor the answers are worked out on, and it holds the microphone so
+	 * that nothing else on the machine can have it.
+	 */
+	AlwaysListen bool
+
 	// FastModel is the small one, or empty to pick whichever is installed.
 	FastModel      string
 	EmbedModel     string
@@ -322,6 +403,51 @@ func intText(n int) string {
 	return strconv.Itoa(n)
 }
 
+/*
+ * reconcile carries an old privacy setting onto the one switch that replaced
+ * it.
+ *
+ * Privacy and "how much it asks" used to be two settings. They are one now,
+ * and the mapping runs one way — the switch decides what may leave. Which
+ * means a brain whose owner had opened privacy, and left the asking alone,
+ * would have been quietly tightened by an upgrade: the program would have
+ * started refusing things it had allowed the day before, from a setting the
+ * owner never touched.
+ *
+ * So a privacy value that is more open than the switch raises the switch to
+ * match. Once, at load, and then the file is written back with both in
+ * agreement. It never tightens: an old privacy setting cannot take away
+ * something the switch already allows.
+ */
+// Asking is how much this configuration says the program should ask, with an
+// old privacy setting carried onto it. The one place that question is
+// answered, so that a Config built in a test and one read from a file behave
+// the same way.
+func (c Config) Asking() string { return reconcile(c.Freedom, c.Privacy) }
+
+func reconcile(freedom, privacy string) string {
+	openness := map[string]int{"private": 0, "research": 1, "open": 2}
+
+	wanted := map[string]string{"research": "granted", "open": "everything"}
+
+	by := map[string]int{"ask": 0, "granted": 1, "everything": 2}
+
+	was, known := openness[strings.ToLower(strings.TrimSpace(privacy))]
+	if !known {
+		return freedom
+	}
+
+	if by[strings.ToLower(strings.TrimSpace(freedom))] >= was {
+		return freedom
+	}
+
+	if raised, ok := wanted[strings.ToLower(strings.TrimSpace(privacy))]; ok {
+		return raised
+	}
+
+	return freedom
+}
+
 // boolText writes a setting the way the file reads it back.
 func boolText(on bool) string {
 	if on {
@@ -379,6 +505,7 @@ func Default() Config {
 		ModelChosen:     false,
 		AutoModel:       true,
 		AlwaysSpeak:     true,
+		AlwaysListen:    true,
 		EmbedModel:      "nomic-embed-text",
 		AnthropicModel:  "",
 		OpenAIKey:       "",
@@ -388,7 +515,15 @@ func Default() Config {
 		// Loopback only. Binding to every interface once exposed this brain's
 		// knowledge endpoints to the local network, which is a mistake worth
 		// making impossible rather than remembering not to make.
-		Addr:        "127.0.0.1:8790",
+		Addr: "127.0.0.1:8790",
+
+		// Where an image server listens by default, which is where every one
+		// of them listens unless somebody moved it.
+		PicturesURL: "http://127.0.0.1:7860",
+
+		// Only this computer, until somebody deliberately says otherwise.
+		Reach: ReachHere,
+
 		RecallLimit: 12,
 		RecallFloor: 0.5,
 	}
@@ -396,9 +531,21 @@ func Default() Config {
 
 // Load reads the settings for a data root.
 func Load(root string) (Config, error) {
-	cfg := Default()
+	return LoadFrom(filepath.Join(root, FileName))
+}
 
-	path := filepath.Join(root, FileName)
+/*
+ * LoadFrom reads a settings file by name rather than by the folder holding it.
+ *
+ * Load assumes the file is called FileName inside a root, which is true of
+ * every brain and not true of everything that holds settings — setup is handed
+ * an explicit path and had to reconstruct a folder from it to ask a question
+ * about its own file. That worked only while the two agreed, silently answered
+ * "no key" when they did not, and would have failed in exactly the way that is
+ * hardest to notice: a working key reported as absent.
+ */
+func LoadFrom(path string) (Config, error) {
+	cfg := Default()
 
 	if _, err := os.Stat(path); err != nil {
 		cfg.New = true
@@ -430,8 +577,26 @@ func Load(root string) (Config, error) {
 	assign(&cfg.Privacy, "BRAIN_PRIVACY")
 	assign(&cfg.Freedom, "BRAIN_FREEDOM")
 
+	cfg.Freedom = reconcile(cfg.Freedom, cfg.Privacy)
+
 	if v := get("BRAIN_LOOK_ONLINE"); v != "" {
 		cfg.LookOnline = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
+	if v := get("BRAIN_REACH"); v != "" {
+		cfg.Reach = strings.ToLower(strings.TrimSpace(v))
+	}
+
+	if v := get("PICTURES_URL"); v != "" {
+		cfg.PicturesURL = v
+	}
+
+	if v := get("PICTURE_MODEL"); v != "" {
+		cfg.PictureModel = v
+	}
+
+	if v := get("BRAIN_PROFILE_TO_HOSTED"); v != "" {
+		cfg.ProfileToHosted = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
 	if v := get("BRAIN_SETUP_DONE"); v != "" {
@@ -444,6 +609,10 @@ func Load(root string) (Config, error) {
 
 	if v := get("BRAIN_ALWAYS_SPEAK"); v != "" {
 		cfg.AlwaysSpeak = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
+	if v := get("BRAIN_ALWAYS_LISTEN"); v != "" {
+		cfg.AlwaysListen = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
 	if v := get("BRAIN_AUTO_MODEL"); v != "" {
@@ -489,6 +658,32 @@ func Load(root string) (Config, error) {
 	assign(&cfg.OpenAIModel, "OPENAI_MODEL")
 	assign(&cfg.OpenRouterKey, "OPENROUTER_API_KEY")
 	assign(&cfg.OpenRouterModel, "OPENROUTER_MODEL")
+	/*
+	 * And the same three, plus every other company, generically.
+	 *
+	 * After the named ones, so a settings file holding both spellings resolves
+	 * to the same value either way — they read the same setting names.
+	 */
+	if cfg.ProviderKeys == nil {
+		cfg.ProviderKeys = map[string]string{}
+		cfg.ProviderModels = map[string]string{}
+		cfg.ProviderURLs = map[string]string{}
+	}
+
+	for _, svc := range llm.Services() {
+		if v := get(llm.KeySetting(svc.ID)); v != "" {
+			cfg.ProviderKeys[svc.ID] = v
+		}
+
+		if v := get(llm.ModelSetting(svc.ID)); v != "" {
+			cfg.ProviderModels[svc.ID] = v
+		}
+
+		if v := get(llm.BaseURLSetting(svc.ID)); v != "" {
+			cfg.ProviderURLs[svc.ID] = v
+		}
+	}
+
 	assign(&cfg.Addr, "BRAIN_ADDR")
 	assign(&cfg.Voice, "BRAIN_VOICE")
 	assign(&cfg.Language, "BRAIN_LANGUAGE")
@@ -523,12 +718,19 @@ func (c Config) Save(root string) error {
 	b.WriteString("# PN Brain settings. Environment variables override these.\n\n")
 	b.WriteString("BRAIN_NAME=" + c.Name + "\n")
 	b.WriteString("BRAIN_OWNER=" + c.Owner + "\n\n")
-	b.WriteString("# private | research | open   (anything unrecognised is treated as private)\n")
+	b.WriteString("# private | research | open. Worked out from BRAIN_FREEDOM below\n")
+	b.WriteString("# and written here so the file says what is actually in force.\n")
+	b.WriteString("# Setting it by hand raises the freedom to match; it cannot\n")
+	b.WriteString("# lower it, since the switch below is the one that decides.\n")
 	b.WriteString("BRAIN_PRIVACY=" + c.Privacy + "\n\n")
 
-	b.WriteString("# How much it may do on this machine without asking each time.\n")
-	b.WriteString("# ask | granted | everything   (a different question from privacy:\n")
-	b.WriteString("# privacy is what leaves the machine, this is what happens on it)\n")
+	b.WriteString("# The one switch: how much it asks, and how much leaves.\n")
+	b.WriteString("# ask        — asks before anything that changes something,\n")
+	b.WriteString("#              and nothing leaves this machine\n")
+	b.WriteString("# granted    — does what has been allowed; the web is open,\n")
+	b.WriteString("#              the model answering stays here\n")
+	b.WriteString("# everything — never stops and never refuses. Hosted models,\n")
+	b.WriteString("#              the web, and what it knows about you may be sent.\n")
 	b.WriteString("BRAIN_FREEDOM=" + c.Freedom + "\n")
 	b.WriteString("# Set once somebody has been through setup. Setup then only\n")
 	b.WriteString("# runs when it is asked for, from System or \"brain setup\".\n")
@@ -538,6 +740,19 @@ func (c Config) Save(root string) error {
 	b.WriteString("# list of models, documentation. Sends nothing about you, and is\n")
 	b.WriteString("# a different question from privacy, which is where your words go.\n")
 	b.WriteString("BRAIN_LOOK_ONLINE=" + boolText(c.LookOnline) + "\n\n")
+
+	b.WriteString("# Whether what you wrote about yourself in profile.md may be sent to a\n")
+	b.WriteString("# paid service. Off: it is only ever given to the model on this machine.\n")
+	b.WriteString("# Unlike a message you type, it would go with every turn.\n")
+	b.WriteString("BRAIN_PROFILE_TO_HOSTED=" + boolText(c.ProfileToHosted) + "\n\n")
+
+	b.WriteString("# How far it answers: here, or network. Network binds the local\n")
+	b.WriteString("# network and requires every device to be paired in person, over TLS.\n")
+	b.WriteString("BRAIN_REACH=" + c.Reach + "\n\n")
+
+	b.WriteString("# An image server running on this machine, for making pictures without\n")
+	b.WriteString("# anything leaving it. Automatic1111, SD.Next or Forge all speak this.\n")
+	b.WriteString("PICTURES_URL=" + c.PicturesURL + "\n\n")
 	b.WriteString("# A word that must be said before it answers. Empty means it answers\n")
 	b.WriteString("# anything it hears, which is the default: requiring a name means\n")
 	b.WriteString("# transcription has to get that name right before anything can match.\n")
@@ -553,6 +768,7 @@ func (c Config) Save(root string) error {
 
 	b.WriteString("BRAIN_AUTO_MODEL=" + boolText(c.AutoModel) + "\n")
 	b.WriteString("BRAIN_ALWAYS_SPEAK=" + boolText(c.AlwaysSpeak) + "\n")
+	b.WriteString("BRAIN_ALWAYS_LISTEN=" + boolText(c.AlwaysListen) + "\n")
 	b.WriteString("OLLAMA_FAST_MODEL=" + c.FastModel + "\n\n")
 
 	b.WriteString("MAIL_HOST=" + c.MailHost + "\n")
@@ -642,3 +858,61 @@ func readFile(path string) (map[string]string, error) {
 // Exposed so callers that write settings — first-run setup, for one — do not
 // have to reconstruct the path and drift from it.
 func Path(root string) string { return filepath.Join(root, FileName) }
+
+/*
+ * HasPaidProvider reports whether anything is configured that can answer
+ * without a model on this machine.
+ *
+ * Asked because three of the requirements — Ollama, a chat model, an embedding
+ * model — exist only to run a brain locally. Demanded of somebody who has paid
+ * for a service, they are a gigabyte and a half of downloads with no purpose,
+ * and worse than pointless: they block the program from starting at all.
+ *
+ * A key for any company counts, and so does an address with no key: a server
+ * on your own network usually has none, which is the whole of what the
+ * "Somewhere else" entry is for.
+ */
+func (c Config) HasPaidProvider() bool {
+	for _, key := range c.ProviderKeys {
+		if strings.TrimSpace(key) != "" {
+			return true
+		}
+	}
+
+	/*
+	 * An address counts only where no key is wanted.
+	 *
+	 * That is the self-hosted entry — LM Studio, vLLM, a machine in the house
+	 * — which needs an address and usually no key at all. For a real company
+	 * the key is what makes it configured, and the address is a detail.
+	 *
+	 * The distinction is not academic. These are read from the environment as
+	 * well as the settings file, and ANTHROPIC_BASE_URL or OPENAI_BASE_URL is
+	 * an ordinary thing to have exported — a proxy, a gateway, a development
+	 * shim. Counting one as a configured brain told the program a paid service
+	 * was ready on a machine that had nothing: it skipped the pieces it needed,
+	 * started, and could not answer a single question.
+	 */
+	for _, svc := range llm.Services() {
+		if svc.NeedsKey {
+			continue
+		}
+
+		if strings.TrimSpace(c.ProviderURLs[svc.ID]) != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// How far the assistant answers. See Config.Reach.
+const (
+	ReachHere    = "here"
+	ReachNetwork = "network"
+)
+
+// OpenToNetwork reports whether this brain may be reached from off this
+// machine. Anything unrecognised means here, which is the safe way round: a
+// settings file with a typo in it must not quietly open a door.
+func (c Config) OpenToNetwork() bool { return c.Reach == ReachNetwork }

@@ -85,6 +85,20 @@ type Grant struct {
 	// Tool is the capability's name, as the registry knows it.
 	Tool string `json:"tool"`
 
+	/*
+	 * Who this decision is about, or empty for everybody.
+	 *
+	 * Empty is the ordinary case and the one every permissions file written
+	 * so far contains, which is why it has to mean everybody rather than
+	 * nobody: a book written before there was an organisation keeps meaning
+	 * what it meant.
+	 *
+	 * A decision about one agent never widens what anybody else may do. It
+	 * either takes something away from that one, or gives it something its
+	 * owner said yes to while watching it work.
+	 */
+	Who string `json:"who,omitempty"`
+
 	Answer Answer `json:"answer"`
 
 	// Given is when, so a person can see what they agreed to and when, which
@@ -152,7 +166,7 @@ func Load(root string) (*Book, error) {
 			continue
 		}
 
-		b.standing[g.Tool] = g
+		b.standing[key(g.Who, g.Tool)] = g
 	}
 
 	return b, nil
@@ -166,11 +180,20 @@ func Load(root string) (*Book, error) {
  * and not about this moment, and a freedom setting that could override it
  * would make saying never pointless.
  */
-func (b *Book) Decide(tool string, changesSomething bool, freedom Freedom) Answer {
+func (b *Book) Decide(who, tool string, changesSomething bool, freedom Freedom) Answer {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	if g, ok := b.standing[tool]; ok && g.Answer == Refuse {
+	/*
+	 * Refusals first, and the most restrictive wins.
+	 *
+	 * A refusal written about everybody stops this one too, and a refusal
+	 * written about this one stops it even where everybody else may. That is
+	 * the whole of "use the most restrictive applicable policy", and it is
+	 * checked before anything else so that no later rule can talk its way
+	 * past it — Freedom being set to everything included.
+	 */
+	if b.refuses(key("", tool)) || b.refuses(key(who, tool)) {
 		return Refuse
 	}
 
@@ -184,15 +207,12 @@ func (b *Book) Decide(tool string, changesSomething bool, freedom Freedom) Answe
 		return Allow
 	}
 
-	if b.session[tool] {
+	if b.session[key("", tool)] || b.session[key(who, tool)] {
 		return Allow
 	}
 
-	if g, ok := b.standing[tool]; ok && g.Answer == Allow {
-		// A standing grant is only honoured once somebody has said they want
-		// their grants honoured. Otherwise "allow always" would quietly change
-		// the behaviour of a brain that is still set to ask about everything.
-		if freedom == WhatIveAllowed {
+	if freedom == WhatIveAllowed {
+		if b.allows(key("", tool)) || b.allows(key(who, tool)) {
 			return Allow
 		}
 	}
@@ -200,8 +220,42 @@ func (b *Book) Decide(tool string, changesSomething bool, freedom Freedom) Answe
 	return Ask
 }
 
+func (b *Book) refuses(at string) bool {
+	g, ok := b.standing[at]
+
+	return ok && g.Answer == Refuse
+}
+
+func (b *Book) allows(at string) bool {
+	g, ok := b.standing[at]
+
+	return ok && g.Answer == Allow
+}
+
+/*
+ * key is how a decision about one agent is told from one about everybody.
+ *
+ * A separator that cannot occur in either half, since both are validated
+ * names: a tool name comes from the registry, and an agent's name is
+ * lower-case letters, digits and underscores. Nothing has to guess where the
+ * join is, and a book written before there was an organisation keys on the
+ * bare tool name exactly as it always did.
+ */
+func key(who, tool string) string {
+	if who == "" {
+		return tool
+	}
+
+	return who + " \u00b7 " + tool
+}
+
 // Remember records a standing decision and writes it down.
 func (b *Book) Remember(tool string, answer Answer, why string) error {
+	return b.RememberFor("", tool, answer, why)
+}
+
+// RememberFor is the same decision, about one agent rather than everybody.
+func (b *Book) RememberFor(who, tool string, answer Answer, why string) error {
 	if tool == "" {
 		return fmt.Errorf("which capability?")
 	}
@@ -212,8 +266,9 @@ func (b *Book) Remember(tool string, answer Answer, why string) error {
 
 	b.mu.Lock()
 
-	b.standing[tool] = Grant{
+	b.standing[key(who, tool)] = Grant{
 		Tool:   tool,
+		Who:    who,
 		Answer: answer,
 		Given:  time.Now().UTC(),
 		Why:    strings.TrimSpace(why),
@@ -225,19 +280,25 @@ func (b *Book) Remember(tool string, answer Answer, why string) error {
 }
 
 // ForThisRun allows a capability until the program stops. Never written down.
-func (b *Book) ForThisRun(tool string) {
+func (b *Book) ForThisRun(tool string) { b.ForThisRunBy("", tool) }
+
+// ForThisRunBy allows one agent a capability until the program stops.
+func (b *Book) ForThisRunBy(who, tool string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.session[tool] = true
+	b.session[key(who, tool)] = true
 }
 
 // Forget removes a standing decision, so the capability goes back to asking.
-func (b *Book) Forget(tool string) error {
+func (b *Book) Forget(tool string) error { return b.ForgetFor("", tool) }
+
+// ForgetFor removes one decision, so that capability goes back to asking.
+func (b *Book) ForgetFor(who, tool string) error {
 	b.mu.Lock()
 
-	delete(b.standing, tool)
-	delete(b.session, tool)
+	delete(b.standing, key(who, tool))
+	delete(b.session, key(who, tool))
 
 	b.mu.Unlock()
 
@@ -315,15 +376,26 @@ func (b *Book) save() error {
  * of date with its code is worse than one with no description.
  */
 func Means(f Freedom) string {
+	/*
+	 * Both halves, because this is one switch.
+	 *
+	 * It decides what the program may do on this machine and what may leave
+	 * it. Saying only the first half is how somebody ends up with a program
+	 * that has stopped asking and is still refusing, from a setting they
+	 * thought was about something else.
+	 */
 	switch f {
 	case WhatIveAllowed:
-		return "It does what you have already allowed, and asks about everything else."
+		return "It does what you have already allowed and asks about the rest. " +
+			"The web is open; the model answering you stays on this machine."
 
 	case Everything:
-		return "It does anything it can, without asking. Everything is still " +
-			"recorded, and anything you have refused stays refused."
+		return "It does anything it can, without asking, and nothing is held back — " +
+			"hosted models, the web, and what it has learned about you may all be " +
+			"sent. Everything is still recorded."
 
 	default:
-		return "It asks before anything that changes something on this machine."
+		return "It asks before anything that changes something, and nothing leaves " +
+			"this machine."
 	}
 }
