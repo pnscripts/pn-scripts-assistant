@@ -76,13 +76,26 @@ func Unasked(ctx context.Context) context.Context {
 	return context.WithValue(ctx, unpromptedKey{}, true)
 }
 
-// LevelFor is how loud this utterance should be.
+/*
+ * LevelFor is how loud this utterance should be.
+ *
+ * Three things multiplied, in order of who decided them: the level its owner
+ * set, how still the room is, and whether anybody asked for this. The set
+ * level is the ceiling and the other two only ever take away from it — see
+ * roomloudness.go for why that asymmetry is deliberate.
+ */
 func LevelFor(ctx context.Context) float64 {
+	level := Loudness() * RoomShare()
+
 	if was, _ := ctx.Value(unpromptedKey{}).(bool); was {
-		return Loudness() * UnpromptedShare
+		level *= UnpromptedShare
 	}
 
-	return Loudness()
+	if level < QuietestUseful {
+		level = QuietestUseful
+	}
+
+	return level
 }
 
 // volumeArgs is how a player is told the level, where it can be told at all.

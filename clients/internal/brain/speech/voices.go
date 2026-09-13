@@ -114,10 +114,49 @@ const RobotVoice = "system"
  * espeak is still here, and still called a robot, for the machine that has no
  * neural voice installed. It is a worse robot, not a different kind of thing.
  */
-const (
-	RobotModel = "en_US-lessac-medium"
-	RobotID    = "robot"
-)
+const RobotID = "robot"
+
+/*
+ * RobotModels is which voice the robot is built out of, in order of
+ * preference.
+ *
+ * A woman's voice, and the list is women's voices, because that is what was
+ * asked for and because it is the one thing about the robot that is a matter
+ * of taste rather than of clarity — the machine quality comes from the
+ * delivery, so the underlying voice is free to be whichever one somebody wants
+ * to listen to.
+ *
+ * An ordered list rather than one name, because a single hard-coded model
+ * means a machine that happens not to have that one file gets no neural robot
+ * at all and falls back to formant synthesis from 1985. The last entry is a
+ * man's voice on purpose: a robot that sounds like the wrong person is still
+ * far better than no robot, and the interface says whose voice it is.
+ *
+ * alba is deliberately absent, and it is the trap this list exists to avoid.
+ * The model the robot is made of is hidden from the list of voices — offering
+ * both would be offering a choice about whether an effect is applied — so a
+ * robot built from alba would silently remove the woman's voice somebody could
+ * otherwise have picked. The robot gets a model of its own.
+ */
+var RobotModels = []string{
+	"en_GB-jenny_dioco-medium",
+	"en_US-amy-medium",
+	"en_US-kathleen-low",
+	"en_GB-southern_english_female-low",
+	"en_US-lessac-medium",
+}
+
+// RobotModel is the one this machine will actually use, given what is
+// installed. Empty when none of them is.
+func RobotModel(installed map[string]string) string {
+	for _, want := range RobotModels {
+		if installed[want] != "" {
+			return want
+		}
+	}
+
+	return ""
+}
 
 func CurrentVoice() Voice {
 	available := Voices()
@@ -165,7 +204,19 @@ func Voices() []Voice {
 	var robotBuiltFrom string
 
 	if p := FindPiper(); p != nil {
-		for _, path := range piperVoiceFiles(p) {
+		files := piperVoiceFiles(p)
+
+		// Which voice the robot is made of depends on what is installed, so
+		// it is settled before the list is built rather than while walking it.
+		byID := map[string]string{}
+
+		for _, path := range files {
+			byID[strings.TrimSuffix(filepath.Base(path), ".onnx")] = path
+		}
+
+		robotModel := RobotModel(byID)
+
+		for _, path := range files {
 			id := strings.TrimSuffix(filepath.Base(path), ".onnx")
 
 			/*
@@ -177,7 +228,7 @@ func Voices() []Voice {
 			 * would be choosing whether an effect is applied — which is not
 			 * what the question "whose voice" is asking.
 			 */
-			if id == RobotModel {
+			if robotModel != "" && id == robotModel {
 				robotBuiltFrom = path
 
 				continue
@@ -225,9 +276,24 @@ func Voices() []Voice {
 			name = "An older robot (" + e.Name + ")"
 		}
 
+		/*
+		 * And named as a woman when it actually is one.
+		 *
+		 * On a machine with no neural voice this is the voice — so what it
+		 * says here is what somebody is choosing between, and calling a
+		 * woman's voice "a robot" tells them nothing about the thing they
+		 * would hear.
+		 */
+		sex := "robot"
+
+		if Variant() != "" {
+			name = "A woman, and plainly a machine (" + e.Name + ")"
+			sex = "woman"
+		}
+
 		out = append(out, Voice{
 			ID:     RobotVoice,
-			Sex:    "robot",
+			Sex:    sex,
 			Name:   name,
 			Engine: e.Name,
 		})

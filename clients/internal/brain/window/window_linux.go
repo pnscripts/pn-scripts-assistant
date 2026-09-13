@@ -3,13 +3,103 @@
 package window
 
 /*
-#cgo pkg-config: gtk+-3.0 webkit2gtk-4.1
+// x11 as well as gtk: the X error handler below calls into Xlib directly,
+// which GTK links but does not export to whoever links GTK.
+#cgo pkg-config: gtk+-3.0 webkit2gtk-4.1 x11
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
+#include <gdk/gdkx.h>
+#include <X11/Xlib.h>
+#include <stdio.h>
 #include <stdlib.h>
 
+// Declared here rather than further down because pnbrain_on_destroy clears it,
+// and C reads a file in order.
+static WebKitWebView *pnbrain_view = NULL;
+
+// An X error must not kill the process.
+//
+// GDK installs a handler that aborts, which is a reasonable default for a
+// program whose only job is its window and a catastrophic one here. Closing
+// the window makes WebKit draw one more frame into a drawable that has just
+// gone, X answers BadDrawable, and the abort landed before anything after
+// gtk_main() could run — so closing setup half way killed the program on the
+// spot, and the rollback that should have removed what it installed never
+// started. Whether it died or survived was a race, because X errors arrive
+// asynchronously: the same close crashed once and completed the next time.
+//
+// Reported and survived instead. An X error at teardown is a fact about
+// shutdown ordering, not a reason to lose somebody's data — and one during
+// normal running is still printed, so it is not hidden either.
+//
+// Line comments, like everything else in this preamble: it is one Go comment,
+// and a nested block comment ends it early — which is exactly what this
+// comment did on its first draft.
+static int pnbrain_x_error(Display *display, XErrorEvent *event) {
+    char text[256];
+
+    XGetErrorText(display, event->error_code, text, sizeof(text));
+    fprintf(stderr, "  (window: %s — carrying on)\n", text);
+
+    return 0;
+}
+
+// The ids of the callbacks that hold a pointer to the window, so they can be
+// taken off it when it goes away. See pnbrain_on_destroy.
+static guint pnbrain_poll_id = 0;
+static guint pnbrain_maximise_id = 0;
+static guint pnbrain_show_id = 0;
+
+static void pnbrain_forget_sources(void) {
+    if (pnbrain_poll_id != 0) { g_source_remove(pnbrain_poll_id); pnbrain_poll_id = 0; }
+    if (pnbrain_maximise_id != 0) { g_source_remove(pnbrain_maximise_id); pnbrain_maximise_id = 0; }
+    if (pnbrain_show_id != 0) { g_source_remove(pnbrain_show_id); pnbrain_show_id = 0; }
+}
+
+// Three callbacks are left holding this window: a poll every 200ms, an idle
+// that maximises it, and a timeout at 600ms that shows it. None of them were
+// taken off when the window was destroyed, so the next tick after a close
+// worked on freed memory and the program died with BadDrawable — on the most
+// ordinary path there is, somebody pressing the X.
+//
+// It died before anything after gtk_main() could run, which is why closing
+// setup half way through left everything it had installed on the machine: the
+// code that removes it again never got to start.
 static void pnbrain_on_destroy(GtkWidget *widget, gpointer data) {
+    pnbrain_forget_sources();
+    pnbrain_view = NULL;
     gtk_main_quit();
+}
+
+// Closing the window ends the loop; it does not tear the window down.
+//
+// Destroying it takes the WebKit view with it, and WebKit is usually drawing
+// when somebody presses the X. It then disconnects signal handlers from an
+// instance that has already gone, ends a frame clock that is no longer one,
+// and finally draws into a window that does not exist — which X answers with
+// BadDrawable and GDK turns into an abort.
+//
+// The program died right there, before anything after gtk_main() could run.
+// That is why closing setup half way left everything it had installed sitting
+// on the machine: the code that removes it again never reached its first line.
+//
+// Nothing here needs destroying. The loop is ending because the program is
+// either exiting or about to open a different window, and the process tears
+// all of this down more safely than GTK manages at this particular moment.
+// Returning TRUE stops the default handler, which is the one that destroys.
+static gboolean pnbrain_on_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
+    pnbrain_forget_sources();
+
+    // The view first: unmapping it is what stops WebKit compositing into a
+    // drawable that is about to stop existing.
+    if (pnbrain_view != NULL) {
+        gtk_widget_hide(GTK_WIDGET(pnbrain_view));
+    }
+
+    gtk_widget_hide(widget);
+    gtk_main_quit();
+
+    return TRUE;
 }
 
 // Opens a real GTK window containing a WebKit view and blocks until it closes.
@@ -17,7 +107,6 @@ static void pnbrain_on_destroy(GtkWidget *widget, gpointer data) {
 // bindings still pkg-config against webkit2gtk-4.0, which Ubuntu 24.04 does not
 // ship at all — only 4.1 exists. This is the whole of what PN Brain needs from a
 // desktop toolkit: one window, one web view, one URL.
-static WebKitWebView *pnbrain_view = NULL;
 
 // What the window is called, kept so that navigating within it does not
 // rename it. It used to be reset to a literal product name on every
@@ -78,9 +167,52 @@ static gboolean pnbrain_poll_navigation(gpointer data) {
     present = pnbrain_pending_present;
     pnbrain_pending_present = FALSE;
     quit = pnbrain_pending_quit;
+    // Taken, not just read — the same as present above, and for a reason that
+    // cost a whole first run.
+    //
+    // Setup and the brain are two windows in one process: setup opens one,
+    // Continue calls request_quit to close it, and the brain then opens
+    // another. The flag was never cleared, so the new window's poll timer read
+    // a quit left over from a button pressed a second earlier and shut it
+    // 200ms after it appeared. The program printed its banner, said which
+    // model it was using, and exited without a word — which from outside is
+    // "I clicked Continue and it did not start".
+    pnbrain_pending_quit = FALSE;
     g_mutex_unlock(&pnbrain_pending_lock);
 
     if (quit) {
+        // The window goes with the loop.
+        //
+        // gtk_main_quit only stops the loop; the window it was running stays
+        // realised and on screen. Setup and the brain are two windows in one
+        // process, so handing over left the finished setup sitting there while
+        // the brain opened a second window beside it — two windows with the
+        // same name, one of them dead, and no way to tell which was which.
+        //
+        // The view is forgotten first: destroying the window destroys the view
+        // inside it, and a navigation arriving in that moment would otherwise
+        // be handed a pointer to freed memory.
+        pnbrain_view = NULL;
+        g_free(pnbrain_title);
+        pnbrain_title = NULL;
+
+        // This source is the one running, and returning G_SOURCE_REMOVE below
+        // takes it off. Forgetting its id first stops the teardown removing it
+        // a second time from underneath GLib.
+        pnbrain_poll_id = 0;
+
+        // Hidden, not destroyed — the same reason as pnbrain_on_delete. The
+        // window going away is what matters here; destroying it is what
+        // crashes. Setup handing over to the brain reaches this line, and it
+        // used to leave a dead setup window on screen beside the new one.
+        if (pnbrain_view != NULL) {
+            gtk_widget_hide(GTK_WIDGET(pnbrain_view));
+        }
+
+        if (data != NULL) {
+            gtk_widget_hide(GTK_WIDGET(data));
+        }
+
         gtk_main_quit();
 
         return G_SOURCE_REMOVE;
@@ -124,6 +256,12 @@ static gboolean pnbrain_maximise_once(gpointer data) {
 
     gtk_window_maximize(win);
 
+    // Its own id, forgotten as it finishes. A one-shot source removes itself
+    // by returning this, so the id kept for pnbrain_on_destroy is stale the
+    // moment it does — and removing a stale id is a GLib critical every time
+    // a window closes normally.
+    pnbrain_maximise_id = 0;
+
     return G_SOURCE_REMOVE;
 }
 
@@ -154,6 +292,8 @@ static gboolean pnbrain_show_once(gpointer data) {
     gtk_window_deiconify(win);
     gtk_window_present(win);
 
+    pnbrain_show_id = 0;
+
     return G_SOURCE_REMOVE;
 }
 
@@ -161,6 +301,9 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     if (!gtk_init_check(NULL, NULL)) {
         return;
     }
+
+    // After gtk_init, which installs GDK's own. See pnbrain_x_error.
+    XSetErrorHandler(pnbrain_x_error);
 
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), title);
@@ -204,6 +347,7 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
         work_area.width > 0 ? work_area.width : width,
         work_area.height > 0 ? work_area.height : height);
     g_signal_connect(window, "destroy", G_CALLBACK(pnbrain_on_destroy), NULL);
+    g_signal_connect(window, "delete-event", G_CALLBACK(pnbrain_on_delete), NULL);
 
     WebKitWebView *view = WEBKIT_WEB_VIEW(webkit_web_view_new());
 
@@ -252,6 +396,17 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
         GTK_STYLE_PROVIDER(ground_style), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     g_object_unref(ground_style);
 
+    // No stale request outlives the window that made it. request_quit and
+    // request_present can both be called while no window exists — a signal
+    // during startup, a second copy arriving early — and either one left set
+    // would act on the next window instead of the one it was meant for.
+    g_mutex_lock(&pnbrain_pending_lock);
+    pnbrain_pending_quit = FALSE;
+    pnbrain_pending_present = FALSE;
+    g_free(pnbrain_pending_url);
+    pnbrain_pending_url = NULL;
+    g_mutex_unlock(&pnbrain_pending_lock);
+
     pnbrain_view = view;
     pnbrain_title = g_strdup(title);
     webkit_web_view_load_uri(view, url);
@@ -267,7 +422,7 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
 
     gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
-    g_timeout_add(200, pnbrain_poll_navigation, window);
+    pnbrain_poll_id = g_timeout_add(200, pnbrain_poll_navigation, window);
 
     // Maximised, not fullscreen. The brain map wants room and the rail is a
     // column of readouts, so a small window wastes both — but fullscreen takes
@@ -287,11 +442,11 @@ static void pnbrain_open_window(const char *url, const char *title, int width, i
     // columns of readouts, so a small window wastes both — but fullscreen takes
     // the title bar and the way out with it, which is more than double-clicking
     // an icon asks for.
-    g_idle_add(pnbrain_maximise_once, window);
+    pnbrain_maximise_id = g_idle_add(pnbrain_maximise_once, window);
 
     // Late enough that the desktop has finished restoring its remembered
     // state, which is what would otherwise leave a new window minimised.
-    g_timeout_add(600, pnbrain_show_once, window);
+    pnbrain_show_id = g_timeout_add(600, pnbrain_show_once, window);
 
     gtk_main();
 }

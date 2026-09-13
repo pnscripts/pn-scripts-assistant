@@ -150,3 +150,65 @@ func TestTheRobotCanBeAskedForByKind(t *testing.T) {
 		t.Errorf("asking for a robot gave %q, which is a %q", asked, sex)
 	}
 }
+
+/*
+ * The robot is built from a woman's voice.
+ *
+ * Asked for, and the only part of the robot that is a matter of taste: the
+ * machine quality comes from the delivery rather than from the timbre, so the
+ * voice underneath is free to be whichever one somebody wants to listen to.
+ */
+func TestTheRobotIsBuiltFromAWomansVoice(t *testing.T) {
+	for _, id := range RobotModels[:len(RobotModels)-1] {
+		if voiceSex[id] != "woman" {
+			t.Errorf("%s is the %q voice, and it is not the last resort", id, voiceSex[id])
+		}
+	}
+
+	// The last is a man's, deliberately: a robot that sounds like the wrong
+	// person beats no robot at all on a machine that has only that model.
+	last := RobotModels[len(RobotModels)-1]
+
+	if voiceSex[last] != "man" {
+		t.Errorf("the last resort is %q", voiceSex[last])
+	}
+}
+
+/*
+ * The robot never takes the woman's voice that is offered in the list.
+ *
+ * The model the robot is made of is hidden, so a robot built from alba would
+ * silently remove the woman's voice somebody could otherwise have chosen —
+ * leaving a list with a man and a robot on it and no way to say what happened.
+ */
+func TestTheRobotDoesNotTakeAVoiceThatIsOffered(t *testing.T) {
+	for _, id := range RobotModels {
+		if id == "en_GB-alba-medium" {
+			t.Error("the robot would take the woman's voice out of the list")
+		}
+	}
+}
+
+// Whichever of them is installed is the one used, in order, so a machine
+// missing the first still gets a neural robot rather than falling back to
+// formant synthesis from 1985.
+func TestTheRobotUsesWhicheverModelIsThere(t *testing.T) {
+	if got := RobotModel(map[string]string{}); got != "" {
+		t.Errorf("a machine with no voices gave %q", got)
+	}
+
+	only := map[string]string{"en_US-lessac-medium": "/somewhere/lessac.onnx"}
+
+	if got := RobotModel(only); got != "en_US-lessac-medium" {
+		t.Errorf("the only installed model gave %q", got)
+	}
+
+	both := map[string]string{
+		"en_US-lessac-medium":      "/somewhere/lessac.onnx",
+		"en_GB-jenny_dioco-medium": "/somewhere/jenny.onnx",
+	}
+
+	if got := RobotModel(both); got != "en_GB-jenny_dioco-medium" {
+		t.Errorf("with both installed it chose %q", got)
+	}
+}

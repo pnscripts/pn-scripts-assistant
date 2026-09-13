@@ -446,12 +446,21 @@ func Listen(ctx context.Context, seconds int, device string) (Heard, error) {
 	// something from the noise floor, which it does — "(waves crashing)" from
 	// an empty room on this machine.
 	if level.Silent {
+		HeardTheRoom(level)
+
 		return Heard{Level: level, Advice: Explain(level, "")}, nil
 	}
 
 	text, err := Transcribe(ctx, path)
 	if err != nil {
 		return Heard{Level: level}, err
+	}
+
+	// Nothing said means this recording is the room, whatever its level.
+	// That is the measurement that matters in a room too noisy ever to
+	// register as silent, which is exactly the room the voice has to carry in.
+	if strings.TrimSpace(text) == "" {
+		HeardTheRoom(level)
 	}
 
 	return Heard{Text: text, Level: level, Advice: Explain(level, text)}, nil

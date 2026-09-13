@@ -36,17 +36,34 @@ type Engine struct {
 // engines in preference order: quality first, then whatever is present.
 var engines = []Engine{
 	{
+		/*
+		 * espeak-ng first, ahead of speech-dispatcher, and the reason changed.
+		 *
+		 * speech-dispatcher used to come first because it routes through
+		 * whatever the desktop already has configured, which is the polite
+		 * thing to do. It stopped being the right thing when this program
+		 * started caring which voice comes out: spd-say is a client that
+		 * exits zero whether or not the voice it was given was used, so
+		 * asking it for a particular one and checking the result is not
+		 * possible — and it was already the reason this brain once reported
+		 * speech as a capability while making no sound at all.
+		 *
+		 * Nothing is lost by going direct. speech-dispatcher is only ever
+		 * offered here when one of espeak-ng, espeak, pico2wave or flite is
+		 * installed behind it, so it was driving this anyway.
+		 */
+		Name:    "espeak-ng",
+		Command: "espeak-ng",
+		Args:    func(text string) []string { return []string{"--", text} },
+	},
+	{
 		// speech-dispatcher: present on most desktop Linux installs, and it
-		// routes through whatever the desktop already has configured.
+		// routes through whatever the desktop already has configured. Kept
+		// for the machine that has it and no espeak of its own.
 		Name:        "speech-dispatcher",
 		Command:     "spd-say",
 		Args:        func(text string) []string { return []string{"--", text} },
 		NeedsEngine: true,
-	},
-	{
-		Name:    "espeak-ng",
-		Command: "espeak-ng",
-		Args:    func(text string) []string { return []string{"--", text} },
 	},
 	{
 		Name:    "espeak",
@@ -203,7 +220,16 @@ func SpeakAndWait(ctx context.Context, text string) error {
 		}
 	}
 
-	args := engine.Args(spoken)
+	/*
+	 * The voice comes first, because espeak takes it as an option and the
+	 * text after a bare "--".
+	 *
+	 * This is where the voice that actually comes out of the speakers is
+	 * decided on a machine with no neural model installed, which is most of
+	 * them. It used to be nothing at all — espeak's own default, which is a
+	 * man. See machinewoman.go.
+	 */
+	args := append(speakingAs(engine, spoken), engine.Args(spoken)...)
 
 	if engine.Command == "spd-say" {
 		// -w waits for the message to be spoken rather than queueing it.
@@ -295,7 +321,8 @@ func Speak(ctx context.Context, text string) error {
 	 */
 	held := waitToSpeak(context.WithoutCancel(ctx))
 
-	cmd := exec.CommandContext(ctx, engine.Command, engine.Args(spoken)...)
+	cmd := exec.CommandContext(ctx, engine.Command,
+		append(speakingAs(engine, spoken), engine.Args(spoken)...)...)
 
 	if err := cmd.Start(); err != nil {
 		if held {
