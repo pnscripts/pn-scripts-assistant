@@ -176,6 +176,20 @@ type ModelOption struct {
 
 	// Recommended marks the one RecommendModel would have picked alone.
 	Recommended bool
+
+	/*
+	 * Fits is whether this machine has the memory to run it without suffering.
+	 *
+	 * Listed rather than hidden when it does not. A list filtered down to what
+	 * fits cannot be told apart from a short list, and somebody about to add
+	 * memory — or wondering why their machine is not offered the big one —
+	 * gets no answer from an absence. Shown, marked, and left choosable: it is
+	 * their machine.
+	 */
+	Fits bool
+
+	// NeedsGB is roughly what it wants free to answer at a sensible speed.
+	NeedsGB int
 }
 
 /*
@@ -189,48 +203,51 @@ type ModelOption struct {
 func ModelOptions(hw Hardware) []ModelOption {
 	recommended := RecommendModel(hw)
 
-	var options []ModelOption
+	/*
+	 * The models offered by name, smallest first.
+	 *
+	 * A written list rather than everything ollama publishes: the library runs
+	 * to a few hundred entries and most of the difference between them does
+	 * not matter to somebody setting a program up for the first time. What
+	 * matters is size, speed and whether it handles tools, so the list is
+	 * short, ordered by what it costs to run, and says the one thing about
+	 * each that would change somebody's mind.
+	 *
+	 * Anything not here is still installable once the program is running,
+	 * where the whole library is listed and can be searched.
+	 */
+	catalogue := []struct {
+		label, model, size, speed string
+		needsGB                   int
+	}{
+		{"Smallest", "llama3.2:1b", "~1.3GB",
+			"answers immediately, and is easily confused", 4},
+		{"Quickest", "llama3.2:3b", "~2GB",
+			"answers in a few seconds on a processor", 8},
+		{"Balanced", "qwen2.5-coder:7b", "~4.7GB",
+			"slower, and noticeably better at using tools", 16},
+		{"General", "qwen2.5:7b", "~4.7GB",
+			"the same size, tuned for conversation rather than code", 16},
+		{"Mistral", "mistral:7b", "~4.1GB",
+			"good at European languages", 16},
+		{"Gemma", "gemma2:9b", "~5.4GB",
+			"Google's open model, strong at summarising", 20},
+		{"Reasoning", "deepseek-r1:8b", "~4.9GB",
+			"works problems through step by step, and takes its time", 20},
+		{"Largest", "qwen2.5:14b", "~9GB",
+			"the best answers this can run locally, if you have the memory", 32},
+	}
 
-	add := func(label, model, size, speed string) {
+	options := make([]ModelOption, 0, len(catalogue))
+
+	for _, c := range catalogue {
 		options = append(options, ModelOption{
-			ModelChoice: ModelChoice{Model: model, SizeNote: size, SpeedNote: speed},
-			Label:       label,
-			Recommended: model == recommended.Model,
+			ModelChoice: ModelChoice{Model: c.model, SizeNote: c.size, SpeedNote: c.speed},
+			Label:       c.label,
+			Recommended: c.model == recommended.Model,
+			Fits:        hw.RAMGB >= c.needsGB,
+			NeedsGB:     c.needsGB,
 		})
-	}
-
-	/*
-	 * The quick one is offered on every machine.
-	 *
-	 * It used to be avoided because it mishandled tools — asked to say a word
-	 * it called write_file instead. That was true of the model and is now
-	 * handled before the model sees anything: conversation is offered no tools
-	 * at all, and the ones that change the machine have to be asked for. The
-	 * reason for hiding it has gone, and on a processor the difference between
-	 * three billion parameters and seven is the difference between a reply and
-	 * a wait.
-	 */
-	add("Quickest", "llama3.2:3b", "~2GB", "answers in a few seconds on a processor")
-
-	if hw.RAMGB >= 16 {
-		add("Balanced", "qwen2.5-coder:7b", "~4.7GB",
-			"slower, and noticeably better at using tools")
-	}
-
-	if hw.RAMGB >= 16 && hw.HasGPU {
-		add("Best here", "qwen2.5:7b", "~4.7GB", "fast on your graphics card")
-	}
-
-	/*
-	 * A machine too small for any of the above still gets an answer.
-	 *
-	 * Offering nothing would be the honest reading of "this will disappoint
-	 * you", and it is the wrong one: somebody on a small machine would rather
-	 * have a slow assistant than a page telling them they cannot.
-	 */
-	if len(options) == 0 || hw.RAMGB < 8 {
-		add("Smallest", "llama3.2:1b", "~1.3GB",
-			"the only size that fits comfortably here")
 	}
 
 	/*
@@ -253,6 +270,7 @@ func ModelOptions(hw Hardware) []ModelOption {
 			ModelChoice: recommended,
 			Label:       "Suggested",
 			Recommended: true,
+			Fits:        true,
 		})
 	}
 

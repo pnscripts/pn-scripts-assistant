@@ -48,6 +48,21 @@ type Requirement struct {
 	// Optional requirements are reported but never block startup.
 	Optional bool
 
+	/*
+	 * OnlyForLocalBrain marks a piece that exists to run a model on this
+	 * machine, and is therefore not required of somebody using a paid service.
+	 *
+	 * Ollama, the chat model and the embedding model are all of them. Without
+	 * this the program refused to start for anybody on the paid path — the
+	 * wizard let them through, having asked how it should think and been told,
+	 * and then the launch checked a rule that had never heard the answer.
+	 *
+	 * A field rather than a list of names at each caller, because the two
+	 * callers that ask "what is still missing" are in different packages and a
+	 * rule written twice is a rule that drifts.
+	 */
+	OnlyForLocalBrain bool
+
 	// Check reports the current state and a human-readable detail
 	// (usually the installed version).
 	Check func() (State, string)
@@ -93,6 +108,36 @@ type Requirement struct {
 	 * than saying nothing.
 	 */
 	Size string
+
+	/*
+	 * RemoveFunc undoes what InstallFunc did, where that is this program's to
+	 * undo.
+	 *
+	 * Only the pieces installed into the user's own folders have one: ollama,
+	 * the voice, the recogniser and Godot were downloaded here, put in
+	 * ~/.local, and nothing else on the machine depends on them. The system
+	 * packages deliberately have none. ffmpeg and poppler arrived through apt
+	 * and are shared — poppler is what the printing system uses to render a
+	 * page — so a Remove button beside them would offer, in one click, to
+	 * break something the person never connected to this program. They are
+	 * reported as belonging to the system instead, which is true and is the
+	 * more useful answer.
+	 *
+	 * Nil means "not ours to remove", which the interface says in those words
+	 * rather than showing a button that fails.
+	 */
+	RemoveFunc func(io.Writer) error
+
+	/*
+	 * Occupies is every path this piece takes up, for measuring what removing
+	 * it would give back.
+	 *
+	 * The same list the remover deletes, not a second one beside it. Size on
+	 * disk and download size are different numbers and it is the first that
+	 * somebody clearing space needs: the recogniser is a 30MB download that
+	 * becomes half a gigabyte of built objects.
+	 */
+	Occupies func() []string
 
 	// NeedsRoot marks installs that will prompt for a password.
 	NeedsRoot bool

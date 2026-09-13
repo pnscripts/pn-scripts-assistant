@@ -450,9 +450,35 @@ func stripLeading(name string, n int) string {
  * gigabyte of nothing.
  */
 func ClearHalfFinished() (removed int, freed int64) {
+	/*
+	 * The downloaded archives first, which live in the temp directory.
+	 *
+	 * Ollama arrives as a 1.3GB compressed tar that is unpacked and deleted,
+	 * and the deleting is a deferred call — so it happens on every ordinary
+	 * path and on none of the ones that matter here. A process killed during
+	 * an install, or a machine turned off, leaves two gigabytes in /tmp that
+	 * nothing afterwards was looking for.
+	 *
+	 * By this program's own prefix and nothing else: a sweep of /tmp by
+	 * pattern is how somebody else's work gets deleted.
+	 */
+	if archives, err := filepath.Glob(filepath.Join(os.TempDir(), "pn-brain-*")); err == nil {
+		for _, at := range archives {
+			info, err := os.Stat(at)
+			if err != nil || info.IsDir() {
+				continue
+			}
+
+			if os.RemoveAll(at) == nil {
+				removed++
+				freed += info.Size()
+			}
+		}
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return 0, 0
+		return removed, freed
 	}
 
 	// Where this program puts things it downloads, and nowhere else. A sweep
@@ -460,6 +486,11 @@ func ClearHalfFinished() (removed int, freed int64) {
 	for _, dir := range []string{
 		filepath.Join(home, ".local", "bin"),
 		filepath.Join(home, ".local", "share", "piper"),
+
+		// The voices land a directory deeper than piper itself, and three of
+		// them are fetched in a row — so an interrupted install leaves its
+		// half-written file here rather than in the directory above.
+		filepath.Join(home, ".local", "share", "piper", "voices"),
 		filepath.Join(home, ".local", "src", "whisper.cpp", "models"),
 	} {
 		entries, err := os.ReadDir(dir)

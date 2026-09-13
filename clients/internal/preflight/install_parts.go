@@ -240,8 +240,14 @@ func installPiper(w io.Writer) error {
 		 * Medium rather than high: this is synthesised on the same processor
 		 * the language model runs on, and high costs about twice as long to
 		 * speak for a difference nobody has asked for.
+		 *
+		 * A woman's voice, and one of its own rather than the one above. The
+		 * model the robot is made of is hidden from the list of voices, so
+		 * building it out of alba would have quietly taken the woman's voice
+		 * off the menu to put it behind an effect.
 		 */
-		{"en_US-lessac-medium", "en_US/lessac/medium/en_US-lessac-medium"},
+		{"en_GB-jenny_dioco-medium",
+			"en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium"},
 	} {
 		for _, part := range []string{".onnx", ".onnx.json"} {
 			if err := download(voiceBase+voice.path+part,

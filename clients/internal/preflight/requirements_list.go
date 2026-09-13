@@ -1,6 +1,7 @@
 package preflight
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,10 +18,11 @@ import (
 func Requirements() []Requirement {
 	list := []Requirement{
 		{
-			Name:        "Ollama",
-			Why:         "runs language models locally, for free and privately",
-			Consequence: "only the paid API provider will work",
-			Size:        "1.5GB",
+			Name:              "Ollama",
+			OnlyForLocalBrain: true,
+			Why:               "runs language models locally, for free and privately",
+			Consequence:       "only the paid API provider will work",
+			Size:              "1.5GB",
 			Check: func() (State, string) {
 				if !commandExists("ollama") {
 					return Missing, ""
@@ -50,13 +52,16 @@ func Requirements() []Requirement {
 				return "~/.local/bin/ollama"
 			},
 			InstallFunc: installOllama,
+			RemoveFunc:  removeOllama,
+			Occupies:    ollamaPaths,
 			ManualHint:  "Install from ollama.com/download",
 		},
 		{
-			Name:        "Chat model",
-			Why:         "the model the assistant thinks with",
-			Consequence: "it cannot answer anything at all",
-			Size:        defaultChatModelSize(),
+			Name:              "Chat model",
+			OnlyForLocalBrain: true,
+			Why:               "the model the assistant thinks with",
+			Consequence:       "it cannot answer anything at all",
+			Size:              defaultChatModelSize(),
 
 			/*
 			 * Satisfied by any usable chat model, not by one name.
@@ -92,12 +97,25 @@ func Requirements() []Requirement {
 			InstallCmd: func() []string {
 				return []string{"ollama", "pull", RecommendModel(DetectHardware()).Model}
 			},
+
+			/*
+			 * And undone by removing the one it installed.
+			 *
+			 * The same model the installer above chose, which is safe because
+			 * this only ever runs against something this program installed:
+			 * a rollback records a piece only when it was missing before, so a
+			 * model somebody already had never reaches here.
+			 */
+			RemoveFunc: func(w io.Writer) error {
+				return removeOllamaModel(RecommendModel(DetectHardware()).Model)(w)
+			},
 		},
 		{
-			Name:        "Embedding model",
-			Why:         "turns memories into vectors so they can be recalled by meaning",
-			Consequence: "the brain cannot learn or recall anything",
-			Size:        "274MB",
+			Name:              "Embedding model",
+			OnlyForLocalBrain: true,
+			Why:               "turns memories into vectors so they can be recalled by meaning",
+			Consequence:       "the brain cannot learn or recall anything",
+			Size:              "274MB",
 			Check: func() (State, string) {
 				if !commandExists("ollama") {
 					return Unknown, "needs Ollama first"
@@ -111,6 +129,7 @@ func Requirements() []Requirement {
 			},
 			Where:      func() string { return ollamaModelDir() },
 			InstallCmd: func() []string { return []string{"ollama", "pull", "nomic-embed-text"} },
+			RemoveFunc: removeOllamaModel("nomic-embed-text"),
 		},
 	}
 
@@ -216,6 +235,8 @@ func Requirements() []Requirement {
 					return "~/.local/src/piper"
 				},
 				InstallFunc: installPiper,
+				RemoveFunc:  removeVoice,
+				Occupies:    voicePaths,
 				ManualHint:  "Install piper, or: sudo apt install espeak-ng",
 			},
 			Requirement{
@@ -301,6 +322,33 @@ func Requirements() []Requirement {
 				ManualHint: "sudo apt install ffmpeg",
 			},
 			Requirement{
+				Name: "Reaching it from outside",
+				Why: "lets a phone reach the assistant from anywhere, through a " +
+					"tunnel into your own home network",
+				Consequence: "it can only be reached on your own network, at home",
+				Optional:    true,
+				Check: func() (State, string) {
+					if commandExists("wg-quick") {
+						return OK, "wireguard-tools"
+					}
+
+					return Missing, ""
+				},
+				Where: func() string {
+					if at := whereIs("wg-quick"); at != "" {
+						return at
+					}
+
+					return "/usr/bin/wg-quick — installed by apt"
+				},
+
+				// The tunnel itself is in the kernel already; this is the tool
+				// that configures it.
+				InstallCmd: func() []string { return aptInstall("wireguard-tools") },
+				NeedsRoot:  true,
+				ManualHint: "sudo apt install wireguard-tools",
+			},
+			Requirement{
 				Name: "Turning the music down",
 				Why: "lets the brain lower whatever is playing while it speaks, " +
 					"and put it back afterwards",
@@ -367,6 +415,8 @@ func Requirements() []Requirement {
 					return filepath.Join(localBin(), "godot4")
 				},
 				InstallFunc: installGodot,
+				RemoveFunc:  removeGodot,
+				Occupies:    godotPaths,
 				ManualHint: "Download the Linux build from godotengine.org, " +
 					"make it executable, and put it in ~/.local/bin",
 			},
@@ -439,6 +489,8 @@ func Requirements() []Requirement {
 					return "~/.local/src/whisper.cpp"
 				},
 				InstallFunc: installWhisper,
+				RemoveFunc:  removeListening,
+				Occupies:    listeningPaths,
 				NeedsRoot:   true,
 				// small, not base.en: the English-only model cannot understand
 				// anybody who is not speaking English, and does not say so.

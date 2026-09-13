@@ -27,10 +27,41 @@ func TestEveryMachineIsOfferedAChoice(t *testing.T) {
 			continue
 		}
 
-		// Few enough to read at a glance. More than this is the list that made
-		// a single suggestion the better design in the first place.
-		if len(options) > 4 {
-			t.Errorf("%dGB: offered %d models, which is a list rather than a choice",
+		/*
+		 * Short enough to read, and the whole library is elsewhere.
+		 *
+		 * This used to insist on four or fewer, from when these were the only
+		 * models on offer and a long list was the thing to guard against. The
+		 * setup page now shows this shortlist and a searchable four hundred
+		 * behind a button, so the job here changed: be the handful worth
+		 * choosing between at a glance, not be the entire catalogue.
+		 *
+		 * A dozen is where a glance stops being a glance.
+		 */
+		if len(options) > 12 {
+			t.Errorf("%dGB: offered %d models, which is a catalogue rather than a shortlist",
+				hw.RAMGB, len(options))
+		}
+
+		/*
+		 * And at least one that this machine can actually run.
+		 *
+		 * The list is no longer filtered by what fits — the big ones are shown
+		 * and marked, because hiding them cannot be told apart from not having
+		 * them. That makes this worth asserting: a small machine offered
+		 * eight models, every one of them too large, would be a page that
+		 * looks generous and helps nobody.
+		 */
+		fits := 0
+
+		for _, o := range options {
+			if o.Fits {
+				fits++
+			}
+		}
+
+		if fits == 0 {
+			t.Errorf("%dGB: offered %d models and none of them fit",
 				hw.RAMGB, len(options))
 		}
 
