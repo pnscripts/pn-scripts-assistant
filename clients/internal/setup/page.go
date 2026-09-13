@@ -25,7 +25,18 @@ const setupPage = `<!doctype html>
    makes the whole declaration invalid, so the background was never set at all
    and WebKit drew its own. --fg is the bright end of --text, --card the panel
    the picker sits on, --accent-dim the accent at rest. */
---fg:#eaf1f8;--card:#0d1219;--accent-dim:#1f6b75}
+--fg:#eaf1f8;--card:#0d1219;--accent-dim:#1f6b75;
+
+/* The half of a select that CSS cannot reach.
+   appearance:none and a background colour dress the closed box, and the list
+   that drops out of it is not part of the page at all — WebKit asks GTK for a
+   real menu, and GTK draws it in the system theme. So the picker looked right
+   until it was opened, and then a white list appeared over a black page.
+   option{} rules do not touch it either; they style a DOM element that is not
+   what gets drawn. color-scheme is the one thing that does: it tells the
+   engine which theme to ask for, and it covers the other native furniture —
+   scrollbars, the focus ring, the text cursor — for the same reason. */
+color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 -webkit-font-smoothing:antialiased}
@@ -98,7 +109,33 @@ padding:8px 15px;cursor:pointer;background:var(--accent);color:#04191c}
 /* One button per model, stacked, each naming what it is and what it costs in
    time. A row of three would put the names first and the difference last,
    which is the wrong way round: the difference is what is being chosen. */
+/* A row each, not a paragraph of twelve.
+   .field-check was put on every one of these labels and never defined
+   anywhere, and a label is inline by default — so the ten protected
+   places ran together into one block of prose with the checkboxes buried
+   mid-sentence, and the list that is supposed to show what the assistant
+   will ask about was the hardest thing on the page to read. .muted was
+   undefined for the same reason, which left every explanation at full
+   strength and nothing looking secondary to anything. */
+.field-check{display:flex;align-items:flex-start;gap:9px;padding:9px 0;
+  border-bottom:1px solid var(--line);cursor:pointer}
+.field-check:last-of-type{border-bottom:0}
+.field-check input{margin:3px 0 0;flex:0 0 auto}
+.field-check b{font-weight:600}
+.field-check .muted{font-weight:400}
+.muted{color:var(--dim)}
 .models{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+/* A fixed width on the sample button, not a proportion. A percentage let the
+   longest voice name decide how wide "Hear it" was, so the three buttons in
+   the column came out three different sizes. */
+.voice-row{display:flex;gap:7px;align-items:stretch;margin-top:7px}
+.voice-row .pick{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;
+  align-items:flex-start;gap:2px;text-align:left}
+.voice-row .pick span{font-weight:400;font-size:11.5px;opacity:.72}
+.voice-row .hear{flex:0 0 104px;width:104px;font-size:11.5px}
+.voice-row .hear:disabled{opacity:.45}
+#voice-pick{margin-top:22px}
+#voice-pick h3{margin:0 0 4px;font-size:13px}
 
 /*
  * Choosing marks the button; it does not restyle the row.
@@ -166,8 +203,107 @@ background:var(--accent);border-radius:9px;padding:2px 8px;margin-left:8px;verti
   font-family:ui-monospace,monospace;word-break:break-all}
 input[type=password],input[type=text]{width:100%;background:var(--input);border:1px solid var(--line);
 border-radius:7px;color:var(--text);padding:9px 11px;font:inherit;font-size:13px;margin-bottom:9px}
-pre{background:#05080c;border:1px solid var(--line);border-radius:8px;padding:12px;
-font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre-wrap;margin:12px 0 0}
+/* Whole lines, or none.
+   The height was 230px against an unstated line-height, so the box was about
+   twelve and a half rows tall — and because it is scrolled to the bottom while
+   something installs, the half row was at the top, permanently sliced through
+   the middle of a line of build output. Both numbers are stated now and the
+   height is a multiple of the line, so the top row is a row.
+
+   break-word as well as wrapping: build output is full of long paths with no
+   spaces in them, which wrap alone cannot break and which pushed the box wider
+   than the column it sits in. */
+pre{background:#05080c;border:1px solid var(--line);border-radius:8px;
+padding:10px 12px;font-size:11.5px;line-height:18px;color:var(--dim);
+max-height:234px;overflow:auto;overscroll-behavior:contain;
+white-space:pre-wrap;word-break:break-word;margin:8px 0 0}
+/* Classes, not ids: there can be one of these inside the card that is
+   installing and another at the foot for work no card is showing. */
+#progress{margin:22px 0 0}
+.prog{margin-top:10px}
+.card .prog, .model-progress .prog{margin-top:8px}
+.prog-head{display:flex;align-items:baseline;gap:12px;font-size:12px;color:var(--dim)}
+.prog-what{flex:1 1 auto;min-width:0}
+.prog-pct{flex:0 0 auto;font-family:var(--mono,monospace);color:var(--text)}
+/* A track that is always the same width, so the bar means something.
+   Height in px rather than em: this is a rule, not text. */
+.prog-track{height:6px;background:var(--input);border:1px solid var(--line);
+  border-radius:4px;overflow:hidden;margin:7px 0 0}
+.prog-bar{height:100%;width:0;background:var(--accent);
+  transition:width .3s ease}
+/* Unknown position is drawn as a stripe that moves, never as 0%: "starting"
+   and "no idea how far" are different things and a bar stuck at zero says the
+   wrong one. */
+.prog-bar.unknown{width:100%;opacity:.35;
+  background:repeating-linear-gradient(90deg,var(--accent) 0 12px,transparent 12px 24px);
+  animation:creep 1s linear infinite}
+@keyframes creep{from{background-position:0 0}to{background-position:24px 0}}
+.prog-note{margin:6px 0 0}
+/* The card doing the work is lit, so it is findable in a list of twelve. */
+.card.working{border-color:var(--accent)}
+.model-row.working .model-name{color:var(--accent)}
+.model-progress{padding:0 0 10px}
+.log-wrap{margin-top:10px}
+.log-wrap>summary{cursor:pointer;font-size:11.5px;color:var(--faint);
+  list-style:none;padding:2px 0}
+.log-wrap>summary::-webkit-details-marker{display:none}
+.log-wrap>summary::before{content:"\203A ";display:inline-block;
+  transition:transform .12s}
+.log-wrap[open]>summary::before{transform:rotate(90deg)}
+.log-wrap>summary:hover{color:var(--dim)}
+/* The band between "needed" and "optional". The first one has no space above
+   it: it is the first thing in the list, and a gap there reads as a missing
+   card rather than as separation. */
+h3.group{margin:26px 0 2px;font-size:13px}
+#reqs>h3.group:first-child{margin-top:8px}
+.group-note{margin:0 0 10px}
+/* A row, not a card: eight of these on one screen, each answering the same
+   three questions in the same places. */
+.model-row{display:flex;align-items:center;gap:12px;padding:9px 0;
+  border-bottom:1px solid var(--line)}
+.model-row:last-child{border-bottom:0}
+.model-body{flex:1 1 auto;min-width:0}
+.model-name{font-weight:600;font-size:13px;display:flex;align-items:center;gap:7px}
+.model-detail{font-size:11.5px;color:var(--dim);margin-top:2px}
+.model-row button{flex:0 0 84px;width:84px}
+.model-here{flex:0 0 84px;width:84px;text-align:center;font-size:11.5px;color:var(--ok)}
+/* Said, not offered. Same width as the button it stands in place of, so the
+   column of them does not wander. */
+.req-done{flex:0 0 84px;width:84px;text-align:center;font-size:11.5px;color:var(--ok)}
+/* One line per check. The mark column is fixed so the ticks line up as a
+   column rather than wandering with the length of each sentence.
+
+   A grid, not a row of flex items. The note was a flex item that would not
+   shrink, so a long one — the folder path, and then the list of who on the
+   organisation is held back on this machine — squeezed the sentence it
+   explains down to a word a line and pushed the page sideways. The sentence
+   keeps a readable minimum; the note takes what is left and wraps inside it. */
+.tick-row{display:grid;grid-template-columns:14px minmax(11em,1fr) auto;
+  align-items:baseline;column-gap:9px;padding:5px 0;
+  border-bottom:1px solid var(--line);font-size:12.5px}
+.tick-row:last-of-type{border-bottom:0}
+.tick-row .mark{flex:0 0 14px;width:14px;text-align:center}
+.tick-row.yes .mark{color:var(--ok)}
+.tick-row.no .mark{color:var(--danger)}
+.tick-row.skip .mark{color:var(--warn)}
+.tick-row.checking .mark{color:var(--faint)}
+.tick-what{min-width:0}
+.tick-note{min-width:0;color:var(--dim);font-size:11.5px;text-align:right;
+  overflow-wrap:anywhere}
+.cost{font-size:11.5px;color:var(--dim);margin-top:3px}
+/* Lit only when the room is tight, so the ordinary case stays quiet. */
+.cost.tight{color:var(--warn)}
+.models-room{margin-top:-4px}
+.linky-btn{margin-top:12px}
+#library input[type=text]{margin:10px 0 4px}
+/* Quiet tags for what a model can do, so they sit beside the name without
+   competing with "recommended". */
+.tag.quiet{background:transparent;border:1px solid var(--line);color:var(--dim);
+  font-weight:400}
+.model-row.here .model-name{color:var(--ok)}
+.tag.warn{background:var(--warn);color:#1c1206}
+.api-held{font-size:12px;color:var(--ok);margin:0 0 4px}
+.api-held::before{content:"\2713 ";font-weight:700}
 .footer{margin-top:32px;display:flex;align-items:center;gap:12px}
 
 /*
@@ -266,7 +402,19 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
        is the part a list of checkboxes leaves out. -->
   <ol class="steps" id="steps"></ol>
 
-  <div class="step" id="step-where">
+  <div class="step" id="step-welcome">
+    <h2>A private assistant, on your own computer</h2>
+    <p class="sub">It listens, answers, remembers what you tell it, and reads
+      the files you point it at. All of that happens here — nothing you say
+      leaves this machine unless you choose to use a paid service, and it goes
+      on working with the network unplugged.</p>
+    <p class="sub">Setting it up takes a few minutes and one large download.
+      This will say what each piece is for, how big it is and where it goes,
+      before it fetches anything.</p>
+    <div id="welcome-cost"></div>
+  </div>
+
+  <div class="step" id="step-where" hidden>
     <h2>Where to keep it</h2>
     <p class="sub">Everything the assistant learns — what you tell it, what it reads,
       every conversation — lives in one folder. Nothing else on your computer is
@@ -280,6 +428,16 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 
   <div class="step" id="step-brain" hidden>
     <div id="brain-section"></div>
+    <div id="models-section"></div>
+    <!-- Its own container, outside the one that is rebuilt every two seconds.
+         See renderApiChoice. -->
+    <div id="api-section"></div>
+    <!-- The whole library goes last, below the paid-API card rather than
+         above it. Expanded, it is sixty rows of models — and the card offering
+         the alternative to all of them was sitting underneath, which made
+         "use a paid API" something you found by scrolling past four hundred
+         reasons not to. -->
+    <div id="library-section"></div>
   </div>
 
   <div class="step" id="step-needs" hidden>
@@ -290,12 +448,33 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
     <div id="reqs"></div>
   </div>
 
+  <div class="step" id="step-name" hidden>
+    <h2>What to call it</h2>
+    <p class="sub">It answers to its name, so this is both what it is called
+      and the word that wakes it when you speak.</p>
+
+    <!-- Only the typed fields are inside the form. The voice picker below
+         redraws on every poll — it has to, because the human voices appear
+         partway through an install — and wrapping it here would freeze it.
+         See identityBeingEdited. -->
+    <div id="name-form"></div>
+
+    <div id="voice-pick"></div>
+  </div>
+
   <div class="step" id="step-privacy" hidden>
     <h2>What it asks you about</h2>
-    <p class="sub">Nothing on this machine is off limits to it. These are the
-      files where it stops and puts the request to you first — and it remembers
-      what you answer, so it asks once rather than every time. You can change
-      any of this later, in Privacy.</p>
+    <p class="sub">One switch decides how much it stops to ask, and how much
+      may leave this machine. It is the same switch as under Permissions, and
+      you can change it there at any time.</p>
+
+    <!-- The one switch first, because everything below it depends on the
+         answer: on "never stop" the files listed underneath are recorded
+         rather than asked about, and a list of questions that will not be
+         asked should not be read as if it will. -->
+    <div id="freedom-pick" class="models"></div>
+    <p class="sub" id="freedom-files"></p>
+
     <div id="privacy-rules"></div>
     <label class="field">
       <span>Anything else it should ask about</span>
@@ -307,18 +486,25 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
 
   <div class="step" id="step-apply" hidden>
     <h2>Ready</h2>
-    <p class="sub">Nothing has been installed or changed yet. Everything below
-      is what will happen when you press Apply — every folder that gets made,
-      every piece that gets installed and where it lands, and every download
-      with its size. Read it before you agree to it.</p>
+    <!-- It used to describe what pressing Apply would do. Each step installs
+         its own things now, so by the time somebody arrives here it has all
+         happened — and the useful thing to show is what is on the machine,
+         not a promise about what might be. -->
+    <p class="sub">This is what is on your machine now, and where each piece
+      of it lives.</p>
+    <div id="ready-ticks"></div>
     <div id="overview"></div>
     <div id="plan"></div>
 
-    <!-- Inside the step that produces it. Outside, it followed somebody back to
-         "Where to keep it" and sat under the drive buttons reporting on an apt
-         install, which belongs to a decision three steps away. -->
-    <pre id="log" hidden></pre>
   </div>
+
+  <!-- What is happening, under whichever step is doing it.
+       It lived inside the last step while everything installed at the end.
+       Each step installs its own things now, so it sits below all of them and
+       follows the work rather than the reader. The log is still complete,
+       behind a fold: several thousand lines of cmake output is the honest
+       answer to "how much longer" and an unreadable one. -->
+  <div id="progress" hidden></div>
 
   <p class="gate" id="gate" hidden></p>
 
@@ -327,7 +513,7 @@ font-size:11.5px;color:var(--dim);max-height:230px;overflow:auto;white-space:pre
     <span class="status" id="status"></span>
     <span class="spacer"></span>
     <button id="next" hidden>Next</button>
-    <button id="continue" hidden disabled>Continue to your assistant</button>
+    <button id="continue" hidden disabled>Start the program</button>
   </div>
 </div>
 
@@ -378,9 +564,174 @@ function machineLine(h){
   return bits.join("  ·  ");
 }
 
+/*
+ * Everything needed is chosen already; everything else is not.
+ *
+ * Setup used to make no distinction: twelve cards, each with its own Install
+ * button, and a line at the bottom naming what was "still to deal with". So
+ * the shortest path to a working assistant was to read twelve entries and
+ * work out which four mattered — and the longest was to install all of it,
+ * including a recogniser that takes minutes to compile, before finding out
+ * whether any of it was wanted.
+ *
+ * Neither is the right default. What it cannot run without is chosen here so
+ * that pressing Next twice gives somebody a working assistant; what it can
+ * run without is left alone, listed under a heading that says it can be added
+ * later — which is true, and now true from inside the program rather than by
+ * running setup again.
+ */
 function renderRequirements(state){
   el("reqs").textContent = "";
-  state.requirements.forEach(r => {
+
+  /*
+   * The chat model is not listed here, because the next step is entirely
+   * about it.
+   *
+   * It is a requirement and it does block, so it belongs in the checks — but
+   * "Chat model · needs Ollama first" sitting in a list of programs, one step
+   * before a screen offering eight models to choose between, asks the same
+   * question twice and answers it differently each time.
+   */
+  const needed = (state.requirements || [])
+    .filter(r => !r.optional && r.name !== "Chat model");
+  const extras = (state.requirements || []).filter(r => r.optional);
+
+  const onPaid = brainWay === "paid";
+
+  heading("reqs", onPaid ? "For a brain on this machine" : "Needed to run",
+    onPaid
+      ? "You chose a paid service, so none of these are required — it can "
+        + "answer without them. Install them if you also want it to work "
+        + "offline and to remember things: the embedding model is what "
+        + "memory is made of."
+      : "Without these it cannot answer at all. Install anything marked "
+        + "missing before going on.");
+
+  /*
+   * The escape hatch that used to be here is gone, along with what it escaped.
+   *
+   * It jumped forward to the paid-API screen, because this step came first and
+   * demanded a gigabyte and a half from somebody who had no use for it. That
+   * question is asked two steps earlier now, and the answer is what decides
+   * whether anything here is required — so there is nothing left to escape.
+   */
+
+  installAllButton("reqs", needed, "Install what's needed");
+
+  needed.forEach(r => requirementCard(r, state));
+
+  if (extras.length){
+    heading("reqs", "Add when you want them",
+      "None of these are needed to start. Install any you want now, or add "
+      + "them later from inside the program — you will not have to come back "
+      + "here.");
+
+    installAllButton("reqs", extras, "Install the extras");
+
+    extras.forEach(r => requirementCard(r, state));
+  }
+}
+
+/*
+ * One press for a whole group, beside the press-by-press buttons.
+ *
+ * Both are wanted and they answer different people. Somebody who cares which
+ * pieces land on their machine has a button per piece and a card explaining
+ * each; somebody who wants an assistant has one button and a number. The list
+ * that made you press four buttons to reach a working program was serving the
+ * first person at the second one's expense.
+ *
+ * It sends the whole group to /apply, which already installs in order, stops
+ * at the first failure and reports which step it is on — so each card lights
+ * up and shows its own bar in turn, with nothing new to write.
+ */
+function installAllButton(into, group, label){
+  const todo = group.filter(r => r.state !== "ok" && r.installable);
+  if (todo.length < 2) return;
+
+  /*
+   * Anything wanting a password goes last.
+   *
+   * A run stops at the first failure and a dismissed password box is one, so
+   * an apt package early in the list could abandon everything queued behind
+   * it. Ordered here rather than on the server because the server's order is
+   * the dependency order, which is right and is a different question.
+   */
+  const ordered = [...todo].sort((a, b) =>
+    (a.needs_password ? 1 : 0) - (b.needs_password ? 1 : 0));
+
+  let total = 0;
+  ordered.forEach(r => { total += sizeInGB(r.size); });
+
+  const b = document.createElement("button");
+  b.className = "ghost linky-btn";
+  b.disabled = busy;
+  b.textContent = label + " · " + ordered.length + " things"
+    + (total > 0
+      ? ", about " + (total < 1
+        ? Math.round(total * 1024) + "MB"
+        : total.toFixed(1) + "GB")
+      : "");
+
+  b.onclick = () => installAll(ordered.map(r => r.name));
+
+  el(into).appendChild(b);
+}
+
+async function installAll(names){
+  if (!names.length) return;
+
+  // Set here rather than waited for: the server marks itself busy the moment
+  // the request lands, but the next poll is up to two seconds away, and a
+  // button that stays live for two seconds after being pressed gets pressed
+  // twice.
+  busy = true;
+  refresh();
+
+  await post("/apply", {steps: names});
+  refresh();
+}
+
+// heading puts a titled band between groups of cards.
+function heading(into, title, note){
+  const h = document.createElement("h3");
+  h.className = "group";
+  h.textContent = title;
+  el(into).appendChild(h);
+
+  const p = document.createElement("p");
+  p.className = "sub group-note";
+  p.textContent = note;
+  el(into).appendChild(p);
+}
+
+/*
+ * sizeInGB reads "~4.7GB" or "488MB" back into a number.
+ *
+ * The sizes are written for people — a tilde, a unit, sometimes a space — and
+ * are compared against free space only to decide whether to light a warning.
+ * Anything unparseable returns 0, which lights nothing: a missing warning is
+ * better than one raised by a string this did not understand.
+ */
+function sizeInGB(text){
+  if (!text) return 0;
+
+  const m = String(text).match(/([\d.]+)\s*([KMG])i?B/i);
+  if (!m) return 0;
+
+  const n = parseFloat(m[1]);
+  if (!isFinite(n)) return 0;
+
+  switch (m[2].toUpperCase()){
+    case "G": return n;
+    case "M": return n / 1024;
+    case "K": return n / (1024 * 1024);
+    default:  return 0;
+  }
+}
+
+function requirementCard(r, state){
+  [r].forEach(r => {
     const ok = r.state === "ok";
     const cls = ok ? "ok" : (r.optional ? "optional" : "missing");
     const card = document.createElement("div");
@@ -428,6 +779,39 @@ function renderRequirements(state){
       body.appendChild(wh);
     }
 
+    /*
+     * What it costs, and whether there is room for it.
+     *
+     * Both were known and neither was said: this offered to fetch a gigabyte
+     * onto a disk whose free space it had already measured. Together on one
+     * line because they are one question — "1.3GB, and 38GB free where it
+     * goes" answers it, while either number alone does not.
+     *
+     * Only for things not yet installed. Beside something already on the
+     * machine, a download size is a fact about the past.
+     */
+    if (!ok && (r.size || r.free_gb)){
+      const cost = document.createElement("div");
+      cost.className = "cost";
+
+      const parts = [];
+
+      if (r.size) parts.push(r.size + " to download");
+      if (r.free_gb) parts.push(r.free_gb + "GB free where it goes");
+
+      cost.textContent = parts.join(" · ");
+
+      // Lit when the download would not comfortably fit, which is the one
+      // time this line needs to be read rather than glanced at.
+      const wants = sizeInGB(r.size);
+
+      if (wants && r.free_gb && r.free_gb < wants * 1.5){
+        cost.classList.add("tight");
+      }
+
+      body.appendChild(cost);
+    }
+
     if (!ok){
       const c = document.createElement("div");
       c.className = "consequence";
@@ -445,19 +829,24 @@ function renderRequirements(state){
     row.append(mark, body);
 
     /*
-     * Install what is missing, and update what is not.
+     * A button only where there is something to do.
      *
-     * The button used to appear only for things that were absent, so anything
-     * already installed could never be changed from here: an Ollama from a
-     * year ago reported "ok" for ever, and the only way to move it on was to
-     * find where it lived and delete it by hand. That is precisely the
-     * knowledge this page exists to spare somebody.
+     * Every installed piece used to carry an Update button, which made a list
+     * of twelve read as twelve outstanding jobs when eleven of them were
+     * finished and current. The check already knows the difference — it
+     * reports "outdated" separately from "ok" — and the page was throwing that
+     * away by treating anything installed as updatable.
      *
-     * The same action either way — it fetches the current release and puts it
-     * in place — so the only difference is the word, and the word matters:
-     * "Install" beside a tick would read as though something were wrong.
+     * So: Install what is missing, Update what is behind, and say "installed"
+     * for the rest. A word rather than a button, because there is nothing to
+     * press: pressing it would refetch a version already on the machine.
      */
-    if (r.installable){
+    if (ok){
+      const done = document.createElement("span");
+      done.className = "req-done";
+      done.textContent = "installed";
+      row.appendChild(done);
+    } else if (r.installable){
       /*
        * Chosen now, done at the end.
        *
@@ -466,17 +855,34 @@ function renderRequirements(state){
        * instead means somebody can pick four things, look at what that adds up
        * to, and take one back out.
        */
-      const chosen = planned.has(r.name);
-
+      /*
+       * Pressed, done — not pressed, queued.
+       *
+       * These used to add to a list carried out on the last step, so that
+       * four things could be chosen and reconsidered before any of them
+       * happened. That was the right shape for a page whose last step did
+       * everything, and it is the wrong shape for one where each step
+       * finishes its own work: it left somebody on the models step wondering
+       * whether Ollama was there, because "chosen" and "installed" looked the
+       * same and neither was true yet.
+       */
       const b = document.createElement("button");
-      b.textContent = ok ? "Update" : "Install";
-      b.className = "ghost pick" + (chosen ? " chosen" : "");
+      b.textContent = r.state === "outdated" ? "Update" : "Install";
+      b.className = "ghost";
       b.disabled = busy;
-      b.onclick = () => plan(r.name, (ok ? "Update " : "Install ") + r.name);
+      b.onclick = () => install(r.name);
       row.appendChild(b);
     }
 
     card.appendChild(row);
+
+    // The bar goes in the card doing the work, not at the foot of a list of
+    // twelve. See progressBlock.
+    if (state && whatIsInstalling(state) === r.name){
+      card.classList.add("working");
+      card.appendChild(progressBlock(state));
+    }
+
     el("reqs").appendChild(card);
   });
 }
@@ -540,6 +946,164 @@ function renderDriveChoice(state){
   });
 
   box.appendChild(list);
+
+}
+
+/*
+ * The whole library: loaded once, then filtered in the page.
+ *
+ * Filtered here rather than re-fetched because a search that waits on a
+ * website between keystrokes is a search nobody finishes.
+ */
+let libraryShown = false;
+let libraryModels = null;
+let libraryError = "";
+let librarySearch = "";
+
+async function loadLibrary(){
+  refresh();
+
+  try {
+    const res = await (await fetch("/library")).json();
+
+    if (!res.ok){
+      libraryError = res.error || "I could not reach the library.";
+      libraryModels = [];
+    } else {
+      libraryModels = res.models || [];
+      libraryError = "";
+    }
+  } catch (e){
+    libraryError = "I could not reach the library.";
+    libraryModels = [];
+  }
+
+  refresh();
+}
+
+function renderLibrary(){
+  const box = el("library-section");
+  if (!box) return;
+
+  box.textContent = "";
+
+  if (libraryModels === null){
+    const wait = document.createElement("p");
+    wait.className = "sub";
+    wait.textContent = "Reading ollama's library…";
+    box.appendChild(wait);
+
+    return;
+  }
+
+  if (libraryError){
+    const err = document.createElement("p");
+    err.className = "sub";
+    err.textContent = libraryError;
+    box.appendChild(err);
+
+    return;
+  }
+
+  const head = document.createElement("h3");
+  head.className = "group";
+  head.textContent = "Every model there is";
+  box.appendChild(head);
+
+  const note = document.createElement("p");
+  note.className = "sub group-note";
+  note.textContent = libraryModels.length + " to choose from, the ones this "
+    + "machine can run first. Anything here installs the same way.";
+  box.appendChild(note);
+
+  const find = document.createElement("input");
+  find.type = "text";
+  find.placeholder = "Search by name — llama, qwen, vision, code…";
+  find.value = librarySearch;
+  find.oninput = () => { librarySearch = find.value; renderLibrary(); find.focus(); };
+  box.appendChild(find);
+
+  const want = librarySearch.trim().toLowerCase();
+
+  const shown = libraryModels.filter(m => !want
+    || m.name.toLowerCase().includes(want)
+    || (m.what || "").toLowerCase().includes(want)
+    || (m.can || []).some(c => c.toLowerCase().includes(want)));
+
+  const list = document.createElement("div");
+  list.className = "models";
+
+  // A cap, with the count said plainly. Four hundred rows in one page is slow
+  // to draw and no easier to read than the first fifty and a search box.
+  shown.slice(0, 60).forEach(m => list.appendChild(libraryRow(m)));
+
+  box.appendChild(list);
+
+  if (shown.length > 60){
+    const cut = document.createElement("p");
+    cut.className = "sub";
+    cut.textContent = "Showing 60 of " + shown.length + ". Search to narrow it.";
+    box.appendChild(cut);
+  }
+
+  if (!shown.length){
+    const none = document.createElement("p");
+    none.className = "sub";
+    none.textContent = "Nothing matches that.";
+    box.appendChild(none);
+  }
+}
+
+function libraryRow(m){
+  const row = document.createElement("div");
+  row.className = "model-row" + (m.installed ? " here" : "");
+
+  const body = document.createElement("div");
+  body.className = "model-body";
+
+  const name = document.createElement("div");
+  name.className = "model-name";
+  name.textContent = m.name;
+
+  (m.can || []).forEach(c => {
+    const tag = document.createElement("span");
+    tag.className = "tag quiet";
+    tag.textContent = c;
+    name.appendChild(tag);
+  });
+
+  if (!m.fits && m.needs_gb){
+    const warn = document.createElement("span");
+    warn.className = "tag warn";
+    warn.textContent = "wants " + m.needs_gb + "GB";
+    name.appendChild(warn);
+  }
+
+  body.appendChild(name);
+
+  const detail = document.createElement("div");
+  detail.className = "model-detail";
+  detail.textContent = [m.what, m.pulls ? m.pulls + " pulls" : ""]
+    .filter(Boolean).join(" · ");
+  body.appendChild(detail);
+
+  row.appendChild(body);
+
+  if (m.installed){
+    const here = document.createElement("span");
+    here.className = "model-here";
+    here.textContent = "installed";
+    row.appendChild(here);
+  } else {
+    const b = document.createElement("button");
+    b.className = "ghost";
+    b.textContent = "Install";
+    b.disabled = busy;
+    b.onclick = () => pullModel(m.name);
+    row.appendChild(b);
+  }
+
+  return row;
 }
 
 /*
@@ -554,6 +1118,10 @@ function renderDriveChoice(state){
 function renderFolderChoice(state){
   const box = el("folder-section");
   if (!box) return;
+
+  // Which companies are done. Redrawn every time — it is text, it holds no
+  // typing, and it is the one part of this card that changes.
+  renderSavedKeys(state);
 
   if (box.dataset.ready === "1"){
     // Only the parts that follow the state; the field is left alone so it does
@@ -633,12 +1201,39 @@ function renderFolderChoice(state){
   box.append(row, err);
 }
 
+/*
+ * Which kind of brain, before which one.
+ *
+ * Both were shown at once: eight local models, then the paid-API card, then a
+ * button revealing four hundred more. For somebody who had decided to use a
+ * paid service, all of that was a list of things they had already chosen not
+ * to do — and the card they wanted sat underneath it.
+ *
+ * They are alternatives, so this asks which alternative first and shows only
+ * that one. Switching back is one press, and having both is still allowed —
+ * a key saved alongside a local model gives the router something to fall back
+ * to — but it is a thing somebody does deliberately, not the default view.
+ */
+let brainWay = "";
+
 function renderBrainChoice(state){
   const box = el("brain-section");
   box.textContent = "";
 
   const hasModel = state.requirements.some(r => r.name === "Chat model" && r.state === "ok");
-  if (hasModel || state.has_api_key) return;
+
+  /*
+   * Decided once, from what is already here.
+   *
+   * Somebody who has saved a key is on the paid path and should not have to
+   * say so again; somebody with a model installed is on the local one. With
+   * neither, local is the default, because it is the private answer and this
+   * program's whole argument is that private is the better default.
+   */
+  if (!brainWay){
+    if (state.has_api_key && !hasModel) brainWay = "paid";
+    else brainWay = "local";
+  }
 
   const h = document.createElement("h2");
   h.textContent = "Choose a brain";
@@ -646,123 +1241,409 @@ function renderBrainChoice(state){
 
   const note = document.createElement("p");
   note.className = "sub";
-  note.style.marginBottom = "14px";
-  note.textContent = "It needs a language model to think with. You can run one on this "
-    + "machine for free, or use a paid API. You can change this later, or use both.";
+  note.textContent = "It needs a language model to think with. Run one on this "
+    + "machine, or send your messages to a paid service. You can change this "
+    + "later, or have both.";
   box.appendChild(note);
 
-  // Local
-  const local = document.createElement("div");
-  local.className = "choice" + (state.hardware.can_local ? " rec" : "");
-  const lh = document.createElement("h3");
-  lh.textContent = "Run it locally";
-  local.appendChild(lh);
+  const pick = document.createElement("div");
+  pick.className = "models";
 
-  /*
-   * The word "recommended" appears once on this page.
-   *
-   * It was on the card and again on the model inside it, which read as the
-   * same recommendation made twice and left it unclear which of the two was
-   * being recommended. The card is marked by its lit border, which is what the
-   * border was for; the badge belongs on the thing that is actually pressed.
-   */
+  [
+    {
+      id: "local", title: "Run one here",
+      why: state.hardware.can_local
+        ? "Free and private. Nothing you say leaves this computer, and it "
+          + "keeps working with the network unplugged."
+        : "Free and private, but this machine has " + state.hardware.ram_gb
+          + "GB of RAM — enough to work, slowly enough to be frustrating.",
+    },
+    {
+      id: "paid", title: "Use a paid API",
+      why: "Stronger answers and fast on any machine. It costs per use, and "
+        + "your messages go to whichever company you choose.",
+    },
+  ].forEach(o => {
+    const b = document.createElement("button");
+    b.className = "ghost pick" + (brainWay === o.id ? " chosen" : "");
 
-  const lp = document.createElement("p");
-  lp.className = "pros";
-  lp.textContent = state.hardware.can_local
-    ? "Free, private, works offline. Nothing you say leaves this computer, and "
-      + "it keeps working with the network unplugged."
-    : "Your machine has " + state.hardware.ram_gb + "GB of RAM, which is really too "
-      + "little to run a model well. It would work, but slowly enough to be frustrating.";
-  local.appendChild(lp);
+    const name = document.createElement("strong");
+    name.textContent = o.title;
 
-  /*
-   * One button per model, rather than one button.
-   *
-   * The single suggestion was the right answer for somebody with no way to
-   * judge between eight names, but it made a trade on their behalf — a larger
-   * model that answers well and slowly — and that is exactly the trade people
-   * differ on. Somebody who would rather wait two seconds than get the better
-   * answer could not see that the option existed.
-   *
-   * The recommendation keeps its place in the order rather than being lifted
-   * to the top: on a machine where the sensible default is the middle one,
-   * showing it first would hide that something faster exists.
-   */
-  const options = state.model_options || [];
+    // Marked on the local one, and only when this machine can actually do it.
+    if (o.id === "local" && state.hardware.can_local){
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "private";
+      name.appendChild(tag);
+    }
 
-  if (options.length > 1){
-    const pick = document.createElement("div");
-    pick.className = "models";
+    b.appendChild(name);
 
-    options.forEach(o => {
-      const chosen = planned.has("model:" + o.model);
+    const why = document.createElement("span");
+    why.textContent = o.why;
+    b.appendChild(why);
 
-      /*
-       * Chosen and recommended are different things and must look it.
-       *
-       * Both used to be drawn as the solid button, so picking the other one
-       * made the highlight jump across and read as the two swapping places —
-       * when nothing had moved and only the selection had changed.
-       * Recommended is a fact about this machine and stays where it is;
-       * chosen is a state of the button and is marked on the button.
-       */
-      const b = document.createElement("button");
-      b.className = "ghost pick" + (chosen ? " chosen" : "");
-      b.disabled = busy;
-      b.onclick = () => {
-        // One model, not four: choosing another replaces the last.
-        [...planned.keys()]
-          .filter(k => k.startsWith("model:"))
-          .forEach(k => planned.delete(k));
+    b.onclick = () => { brainWay = o.id; refresh(); };
 
-        if (!chosen) planned.set("model:" + o.model, "Download " + o.model + " (" + o.size + ")");
+    pick.appendChild(b);
+  });
 
-        refresh();
-      };
+  box.appendChild(pick);
 
-      const name = document.createElement("strong");
-      name.textContent = o.label;
+  renderApiChoice(state);
+  renderModelList(state);
+}
 
-      if (o.recommended){
-        const tag = document.createElement("span");
-        tag.className = "tag";
-        tag.textContent = "recommended";
-        name.appendChild(tag);
-      }
+/*
+ * renderModelList is every model this can install, with what each costs.
+ *
+ * A list rather than two cards. Two was enough while the last step did the
+ * installing and the question was only "which one" — but the question people
+ * actually have is "what can I run on this machine", and a choice between
+ * Quickest and Balanced answers a narrower one than it appears to.
+ *
+ * Everything is listed, including what will not fit: a list filtered down to
+ * what fits cannot be told apart from a short list, and somebody wondering why
+ * their machine is not offered the big one gets no answer from an absence. It
+ * is marked and left choosable — it is their machine.
+ */
+/*
+ * renderWelcome says what this is about to cost, before anything is fetched.
+ *
+ * The number nobody was given. Setup asked for a folder, a model and a
+ * handful of permissions and only then, on the screen that downloads, said how
+ * large any of it was — by which point somebody on a metered line had already
+ * agreed to the shape of the thing. Said first instead, from the same sizes
+ * the requirement cards carry, so it cannot drift from what actually happens.
+ */
+function renderWelcome(state){
+  const box = el("welcome-cost");
+  if (!box) return;
 
-      b.appendChild(name);
+  box.textContent = "";
 
-      const detail = document.createElement("span");
-      detail.textContent = o.model + " · " + o.size + " · " + o.speed;
-      b.appendChild(detail);
+  const machine = document.createElement("p");
+  machine.className = "sub";
+  machine.textContent = machineLine(state.hardware);
+  box.appendChild(machine);
 
-      pick.appendChild(b);
-    });
+  // The recommended path: what it cannot run without, plus the model it would
+  // choose for this machine. Not the extras — those are a later decision and
+  // counting them here would overstate the price of getting started.
+  let total = 0;
 
-    local.appendChild(pick);
-  } else {
-    const lb = document.createElement("button");
-    lb.textContent = "Download " + state.recommended_model.model;
-    lb.disabled = busy;
-    lb.onclick = () => pullModel(state.recommended_model.model);
-    local.appendChild(lb);
+  (state.requirements || []).forEach(r => {
+    if (r.optional || r.state === "ok") return;
+    if (r.name === "Chat model") return;
+
+    total += sizeInGB(r.size);
+  });
+
+  const pick = (state.model_options || []).find(m => m.recommended);
+  if (pick) total += sizeInGB(pick.size);
+
+  if (total <= 0) return;
+
+  const cost = document.createElement("p");
+  cost.className = "sub";
+  cost.textContent = "On this machine that is about "
+    + (total < 1 ? Math.round(total * 1024) + "MB" : total.toFixed(1) + "GB")
+    + " to download. You can choose a smaller brain, or use a paid service and "
+    + "download almost nothing.";
+  box.appendChild(cost);
+}
+
+function renderModelList(state){
+  const box = el("models-section");
+  if (!box) return;
+
+  box.textContent = "";
+
+  // Not on the paid path: these are the thing somebody there has chosen not
+  // to do, and the library button below them opens four hundred more.
+  const lib = el("library-section");
+
+  if (brainWay !== "local"){
+    if (lib) lib.textContent = "";
+
+    return;
   }
 
-  box.appendChild(local);
+  const options = state.model_options || [];
+  if (!options.length) return;
 
-  // API
+  /*
+   * No heading, and no second description.
+   *
+   * The card above already says "Run one here" and what it means, and this
+   * repeated both a centimetre below it — the same title twice and two
+   * sentences making the same promise. Once the choice became explicit, the
+   * section under it stopped needing to introduce itself.
+   *
+   * What is left is the one thing the card does not say: that installing
+   * several is allowed and which of them answers is decided later.
+   */
+  const note = document.createElement("p");
+  note.className = "sub group-note";
+  note.textContent = "Install as many as you like — you choose which one "
+    + "answers later, and can add any of the others from inside the program.";
+  box.appendChild(note);
+
+  /*
+   * Where they land and what is left there, once, above the list.
+   *
+   * Once rather than on every row: it is the same disk for all of them, and
+   * eight rows each repeating the same free-space figure would be noise. It
+   * is worth saying at all because it is not the drive chosen on the first
+   * step — ollama keeps its models in its own directory wherever the brain
+   * was put, which is the single most surprising thing on this page for
+   * somebody who moved the brain to a big disk to hold them.
+   */
+  const room = (state.requirements || []).find(r => r.name === "Chat model");
+
+  if (room && (room.where || room.free_gb)){
+    const where = document.createElement("p");
+    where.className = "sub group-note models-room";
+    where.textContent = "They go to " + (room.where || "ollama's own folder")
+      + (room.free_gb ? " — " + room.free_gb + "GB free there" : "");
+    box.appendChild(where);
+  }
+
+  const list = document.createElement("div");
+  list.className = "models";
+
+  options.forEach(o => {
+    const row = document.createElement("div");
+    row.className = "model-row" + (o.installed ? " here" : "");
+
+    const body = document.createElement("div");
+    body.className = "model-body";
+
+    const name = document.createElement("div");
+    name.className = "model-name";
+    name.textContent = o.label;
+
+    if (o.recommended){
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "recommended";
+      name.appendChild(tag);
+    }
+
+    if (!o.fits){
+      /*
+       * Said as a fact about the machine, not as a refusal.
+       *
+       * "Needs 32GB" is checkable and leaves the decision where it belongs.
+       * "Too big" is this program deciding for somebody what their own
+       * computer can do, on a guess about memory.
+       */
+      const warn = document.createElement("span");
+      warn.className = "tag warn";
+      warn.textContent = "wants " + o.needs_gb + "GB";
+      name.appendChild(warn);
+    }
+
+    body.appendChild(name);
+
+    const detail = document.createElement("div");
+    detail.className = "model-detail";
+    detail.textContent = o.model + " · " + o.size + " · " + o.speed;
+    body.appendChild(detail);
+
+    row.appendChild(body);
+
+    if (o.installed){
+      /*
+       * Installed, and possibly the one that answers.
+       *
+       * Only offered as a choice when there is a choice to make: with one
+       * model installed, "which should answer?" is a question with one answer
+       * and the row just says it is here. The second model is what turns it
+       * into a decision.
+       */
+      const several = (state.model_options || []).filter(m => m.installed).length > 1;
+      const answering = state.chosen_model === o.model
+        || state.chosen_model === o.model + ":latest";
+
+      if (!several){
+        const here = document.createElement("span");
+        here.className = "model-here";
+        here.textContent = answering ? "answers" : "installed";
+        row.appendChild(here);
+      } else {
+        const b = document.createElement("button");
+        b.className = "ghost pick" + (answering ? " chosen" : "");
+        b.style.flex = "0 0 84px";
+        b.style.width = "84px";
+        b.textContent = answering ? "answers" : "use this";
+        b.disabled = busy;
+        b.onclick = async () => {
+          await post("/chosen-model", {model: o.model});
+          refresh();
+        };
+        row.appendChild(b);
+      }
+    } else {
+      const b = document.createElement("button");
+      b.className = "ghost";
+      b.textContent = "Install";
+      b.disabled = busy;
+      b.onclick = () => pullModel(o.model);
+      row.appendChild(b);
+    }
+
+    list.appendChild(row);
+
+    /*
+     * A model's progress goes under its own row.
+     *
+     * Outside the row rather than inside it: the row is a line of flex boxes
+     * across, and a progress bar is a block below. Wrapped so it still reads
+     * as belonging to the row above it.
+     */
+    if (whatIsInstalling(state) === "model:" + o.model){
+      row.classList.add("working");
+
+      const under = document.createElement("div");
+      under.className = "model-progress";
+      under.appendChild(progressBlock(state));
+      list.appendChild(under);
+    }
+  });
+
+  box.appendChild(list);
+
+  /*
+   * And the rest of them, for anybody who asks.
+   *
+   * Eight is the right number to show first and the wrong number to show
+   * only: the honest answer to "are those the only ones?" is no, and a list
+   * of eight that does not say so has answered with a smaller truth. Behind a
+   * press because a few hundred entries is not a choice, it is a search — and
+   * because fetching it reaches the network, which is somebody's decision to
+   * make rather than a page's.
+   */
+  const more = el("library-section");
+  if (!more) return;
+
+  more.textContent = "";
+  more.id = "library-section";
+
+  if (!libraryShown){
+    const open = document.createElement("button");
+    open.className = "ghost linky-btn";
+    open.textContent = "Show every model there is";
+    open.onclick = () => { libraryShown = true; loadLibrary(); };
+    more.appendChild(open);
+
+    return;
+  }
+
+  renderLibrary();
+}
+
+/*
+ * renderSavedKeys says which companies already have a key here.
+ *
+ * Names, never keys. It answers the question somebody has after saving one —
+ * "did that work, and can I add another" — which the card could not answer
+ * before because it vanished at exactly that moment.
+ */
+function renderSavedKeys(state){
+  const box = el("api-saved");
+  if (!box) return;
+
+  const names = {anthropic: "Anthropic", openai: "OpenAI", openrouter: "OpenRouter"};
+  const held = state.api_keys || [];
+
+  box.textContent = "";
+
+  if (!held.length) return;
+
+  held.forEach(id => {
+    const row = document.createElement("div");
+    row.className = "api-held";
+    row.textContent = (names[id] || id) + " — key saved";
+    box.appendChild(row);
+  });
+
+  const more = document.createElement("p");
+  more.className = "sub";
+  more.textContent = held.length === 1
+    ? "You can add another company below — it keeps one key for each."
+    : "Choose which one answers in Settings, at any time.";
+  box.appendChild(more);
+}
+
+/*
+ * renderApiChoice builds the paid-API card once and then leaves it alone.
+ *
+ * It used to be rebuilt with everything else, and everything else is rebuilt
+ * every two seconds by the poll. A <select> and a password field cannot
+ * survive that: the dropdown was destroyed under the cursor mid-choice, the
+ * provider snapped back to the first one, and a key being typed was wiped
+ * between one character and the next. Choosing OpenAI and saving a key for it
+ * was not difficult, it was impossible — the control was replaced before the
+ * choice could be used.
+ *
+ * The folder field on the first step already solved this and said why: the
+ * field is left alone so it does not fight whoever is typing in it. This is
+ * the same rule, applied to the other two controls somebody has to type into.
+ */
+function renderApiChoice(state){
+  const box = el("api-section");
+  if (!box) return;
+
+  const hasModel = state.requirements.some(r => r.name === "Chat model" && r.state === "ok");
+
+  /*
+   * Shown even once a key is saved, because one is not the limit.
+   *
+   * It used to hide itself the moment any key existed, which made saving a
+   * second one impossible: the card that saves keys disappeared as soon as
+   * the first was saved. The settings file has always had a separate place
+   * for each company, so holding all three was supported everywhere except
+   * the one screen where they are entered.
+   *
+   * It still goes away once a model runs here and no key has been saved —
+   * somebody who chose a local brain does not need a paid one explained at
+   * them — but never once there is something in it to see.
+   */
+  /*
+   * Shown on the paid path, and once there is a key to see.
+   *
+   * It used to hide itself the moment any key existed, which made saving a
+   * second one impossible: the card that saves keys disappeared as soon as
+   * the first was saved. The settings file has always had a separate place
+   * for each company — holding all three was supported everywhere except the
+   * one screen where they are entered.
+   */
+  box.hidden = brainWay !== "paid" && !(state.api_keys || []).length;
+
+  if (box.dataset.ready === "1"){
+    /*
+     * Only what follows the machine, and only when it is not what somebody is
+     * looking at. Recommending the API on a machine that cannot run a model
+     * is a fact about the machine and it does not change while setup is open;
+     * re-reading it here would be an excuse to touch the card again.
+     */
+    return;
+  }
+
+  box.dataset.ready = "1";
+
   const api = document.createElement("div");
   api.className = "choice" + (state.hardware.can_local ? "" : " rec");
-  const ah = document.createElement("h3");
-  ah.textContent = "Use a paid API";
-  api.appendChild(ah);
-
+  /*
+   * The title and the pitch live on the choice card above. What is left here
+   * is the one fact that card cannot carry, because it is about this machine
+   * rather than about the choice: the key does not leave it.
+   */
   const ap = document.createElement("p");
-  ap.className = "pros";
-  ap.textContent = "Much stronger answers and fast on any machine, but it costs per use "
-    + "and your messages go to whichever company you choose. The key is stored only on "
-    + "this computer.";
+  ap.className = "sub group-note";
+  ap.textContent = "The key is stored only on this computer.";
   api.appendChild(ap);
 
   /*
@@ -774,14 +1655,17 @@ function renderBrainChoice(state){
    * Naming where to get each key is the difference between a choice and a
    * default nobody noticed making.
    */
-  const services = [
-    {id: "anthropic", name: "Anthropic", hint: "sk-ant-…",
-     where: "console.anthropic.com"},
-    {id: "openai", name: "OpenAI", hint: "sk-…",
-     where: "platform.openai.com/api-keys"},
-    {id: "openrouter", name: "OpenRouter", hint: "sk-or-…",
-     where: "openrouter.ai/keys — one key, models from every major company"},
-  ];
+  /*
+   * Every company, from the one list the rest of the program uses.
+   *
+   * This used to be three of them written out here, which is why there were
+   * three: the picker, the settings file, the key check and the router each
+   * held their own copy, and adding a company meant finding all four. Almost
+   * all of them speak the same protocol as OpenAI, which is the only reason
+   * the list can be long — a company is a name and an address, not a client
+   * to write.
+   */
+  const services = state.services || [];
 
   const choose = document.createElement("select");
 
@@ -790,9 +1674,14 @@ function renderBrainChoice(state){
     opt.value = sv.id;
     opt.textContent = sv.name;
     choose.appendChild(opt);
+
   });
 
   api.appendChild(choose);
+
+  const saved = document.createElement("div");
+  saved.id = "api-saved";
+  api.appendChild(saved);
 
   const where = document.createElement("p");
   where.className = "sub";
@@ -802,10 +1691,33 @@ function renderBrainChoice(state){
   input.type = "password";
   api.appendChild(input);
 
+  /*
+   * A field for the address, shown only for the entry that needs one.
+   *
+   * Everything else has a fixed endpoint and asking for it would be asking
+   * somebody to type a URL this program already knows.
+   */
+  const addr = document.createElement("input");
+  addr.type = "text";
+  addr.placeholder = "http://localhost:1234/v1";
+  addr.hidden = true;
+  api.insertBefore(addr, input);
+
   const describe = () => {
     const sv = services.find(x => x.id === choose.value) || services[0];
-    input.placeholder = sv.hint;
-    where.textContent = "Get a key at " + sv.where;
+    if (!sv) return;
+
+    addr.hidden = !sv.custom;
+    input.hidden = sv.needs_key === false && !sv.custom;
+
+    // The prefix as the hint, where the company commits to one. Several do
+    // not, and inventing an example would teach somebody to distrust a key
+    // that is perfectly good.
+    input.placeholder = sv.prefix ? sv.prefix + "…" : "your key";
+
+    where.textContent = sv.custom
+      ? sv.note + " Give its address above; most need no key."
+      : "Get a key at " + sv.where + (sv.note ? " — " + sv.note : "");
   };
 
   choose.onchange = describe;
@@ -824,9 +1736,16 @@ function renderBrainChoice(state){
     const res = await fetch("/api-key", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({key: input.value, provider: choose.value})
+      body: JSON.stringify({
+        key: input.value,
+        provider: choose.value,
+        base_url: addr.hidden ? "" : addr.value,
+      })
     }).then(r => r.json());
     if (!res.ok){ err.textContent = res.error; err.hidden = false; return; }
+
+    // The key goes, the company stays: somebody saving a second key is more
+    // likely to want the picker where they left it than reset to the first.
     input.value = "";
     refresh();
   };
@@ -834,18 +1753,30 @@ function renderBrainChoice(state){
   box.appendChild(api);
 }
 
+
+/*
+ * install and pullModel start the work and let the poll report it.
+ *
+ * busy is set here rather than waited for: the server sets its own the moment
+ * the request lands, but the next poll is up to two seconds away, and a row
+ * whose button stays live for two seconds after being pressed gets pressed
+ * again. Neither touches the log any more — progressBlock owns the panel and
+ * shows it whenever there is something to show, on whichever step is doing it.
+ */
 async function install(name){
   // Updating is the same request; the server re-runs the installer, which
   // fetches the current release and puts it over what is there.
   busy = true;
-  el("log").hidden = false;
+  refresh();
+
   await fetch("/install?name=" + encodeURIComponent(name));
   refresh();
 }
 
 async function pullModel(model){
   busy = true;
-  el("log").hidden = false;
+  refresh();
+
   // Which model, so the choice made on the page is the one that arrives.
   await fetch("/choose-model", {
     method: "POST",
@@ -878,8 +1809,46 @@ async function pullModel(model){
  * Only genuinely required things block. The optional pieces are optional, and
  * a step that insisted on them would be lying about the word.
  */
+/*
+ * The steps, in the order the work has to happen in.
+ *
+ * "What it needs" comes before the models now, and that is the whole of the
+ * reordering: a model cannot be downloaded before the thing that runs models
+ * exists. While everything installed at the end, the order of the steps was
+ * only the order of the questions and either arrangement read fine. Now that
+ * each step installs what it lists, the steps are the order of the work, and
+ * asking somebody to choose a model on a machine with no Ollama would offer
+ * them a button that could not work.
+ */
+/*
+ * The steps, in the order the answers depend on each other.
+ *
+ * "What it needs" used to come first, which put the demand before the decision:
+ * somebody intending to use a paid service was told to install Ollama and an
+ * embedding model in order to reach the screen where they say they want
+ * neither. That was patched with a button to escape it, which is evidence the
+ * order was wrong rather than a fix.
+ *
+ * So the fork comes first and everything after is filtered by the answer. What
+ * counts as required on the needs step is now a consequence of how somebody
+ * said it should think, and nothing irrelevant is ever demanded.
+ */
 const STEPS = [
-  {id: "where", title: "Where to keep it",
+  {id: "welcome", title: "Welcome", shown: () => true, blocks: () => ""},
+
+  {id: "brain", title: "How it thinks", shown: () => true,
+   blocks: st => {
+     // Something to think with, and it has to be here rather than chosen:
+     // this step installs what it lists.
+     const localHere = (st.requirements || [])
+       .some(r => r.name === "Chat model" && r.state === "ok");
+
+     if (localHere || st.has_api_key) return "";
+
+     return "Install a model to run here, or save a key for a paid API.";
+   }},
+
+  {id: "where", title: "Where it lives",
    shown: st => (st.drives || []).length > 1,
    /*
     * Never blocks: there is always a sensible default, and the step exists to
@@ -888,18 +1857,44 @@ const STEPS = [
     */
    blocks: () => ""},
 
-  {id: "brain", title: "Its brain", shown: () => true,
+  {id: "needs", title: "What it needs", shown: () => true,
    blocks: st => {
-     // A model to think with, from somewhere. Either a local one that is
-     // installed or about to be, or a key for a paid service.
-     const localPlanned = [...planned.keys()].some(k => k.startsWith("model:"));
-     const localHere = (st.requirements || [])
-       .some(r => r.name === "Chat model" && r.state === "ok");
+     /*
+      * Required is a consequence of the answer two steps back.
+      *
+      * Ollama runs models on this machine and the embedding model is one of
+      * them, so both exist to serve a local brain. On the paid path they are
+      * worth having and are not needed — the step says so and lets somebody
+      * through, rather than barring the way over a thing they chose not to
+      * use.
+      *
+      * Read from brainWay rather than from whether a key happens to exist:
+      * somebody who has chosen the paid path and not yet pasted a key is
+      * still on the paid path, and should not be told to install a gigabyte
+      * and a half on the way to the box they are about to type into.
+      */
+     if (brainWay === "paid") return "";
 
-     if (localPlanned || localHere || st.has_api_key) return "";
+     const missing = (st.requirements || [])
+       .filter(r => !r.optional && r.state !== "ok" && r.name !== "Chat model")
+       .map(r => r.name);
 
-     return "Choose a model to run here, or save a key for a paid API.";
+     if (!missing.length) return "";
+
+     return "Still to install: " + missing.join(", ") + ".";
    }},
+
+  /*
+   * Name and voice, after the install rather than beside the other questions.
+   *
+   * The two human voices do not exist until piper does, and a picker offering
+   * buttons that cannot play is asking somebody to choose between things they
+   * cannot hear.
+   *
+   * Never blocks: it has a name already, and keeping the one it came with is
+   * a perfectly good answer from somebody who does not want to give it another.
+   */
+  {id: "name", title: "Name and voice", shown: () => true, blocks: () => ""},
 
   {id: "privacy", title: "What it asks you about", shown: () => true,
    /*
@@ -909,246 +1904,15 @@ const STEPS = [
     */
    blocks: () => ""},
 
-  {id: "needs", title: "What it needs", shown: () => true,
-   blocks: st => {
-     /*
-      * Everything that blocks has to be either present or chosen.
-      *
-      * Not installed — chosen. Nothing installs until Apply, so the question
-      * this step asks is whether the plan covers what is missing, and the
-      * answer to "you have not dealt with Ollama" should arrive here rather
-      * than three steps later.
-      */
-     const localPlanned = [...planned.keys()].some(k => k.startsWith("model:"));
-
-     const unhandled = (st.requirements || []).filter(r => {
-       if (r.optional || r.state === "ok" || planned.has(r.name)) return false;
-
-       /*
-        * The model chosen on the previous step is the chat model.
-        *
-        * They are the same download under two names, so asking for it again
-        * here reads as the page having forgotten the answer — and pressing
-        * Install would queue the same several gigabytes twice.
-        */
-       if (r.name === "Chat model" && localPlanned) return false;
-
-       return true;
-     });
-
-     if (!unhandled.length) return "";
-
-     return "Still to deal with: " + unhandled.map(r => r.name).join(", ") + ".";
-   }},
-
   {id: "apply", title: "Ready", shown: () => true, blocks: () => ""},
 ];
 
-/*
- * What has been chosen but not yet done.
- *
- * Setup collects decisions and the last step carries them out, rather than
- * each button acting the moment it is pressed. Somebody picking a drive, a
- * model and two optional pieces should be able to change their mind about any
- * of them without having already downloaded five gigabytes of the first
- * answer.
- */
-const planned = new Map();
-
-function plan(name, describe){
-  if (planned.has(name)) planned.delete(name);
-  else planned.set(name, describe);
-
-  refresh();
-}
-
-/*
- * renderPlan lists what will happen, in the order it will happen.
- *
- * Ordered by dependency rather than by when it was chosen: a model cannot be
- * downloaded before the thing that runs models exists, and a list that reads
- * in a different order from the one it runs in would make a failure halfway
- * through impossible to follow.
- */
-/*
- * The whole picture, before anybody agrees to it.
- *
- * The last step listed what would be installed and nothing about where any of
- * it would land — so the thing being agreed to was "install four pieces,
- * somewhere". This says where the brain's own folder goes, where each piece
- * goes, and which of them ignore the drive that was chosen.
- *
- * That last part matters and is easy to get wrong: the models are by far the
- * largest download here and they go to ollama's own directory whatever drive
- * the brain was put on. Somebody who moved the brain to a big disk
- * specifically to hold them would otherwise find that out afterwards.
- */
-/*
- * What a plan step is called when somebody reads it.
- *
- * "menu:" is an identifier the server understands and nobody else should have
- * to.
- */
-function planLabel(key, state){
-  if (key === "menu:") return "Add to the applications menu";
-
-  return planned.get(key) || key;
-}
-
-function renderOverview(state){
-  const box = el("overview");
-  box.textContent = "";
-
-  const rows = [];
-
-  rows.push(["Everything it learns", state.chosen_drive || "the default folder", true]);
-
-  const willInstall = (state.requirements || []).filter(r => planned.has(r.name));
-  const already = (state.requirements || []).filter(
-    r => !planned.has(r.name) && r.state === "ok" && r.where);
-
-  willInstall.forEach(r => rows.push([r.name + " — will be installed", r.where || "—", false]));
-  already.forEach(r => rows.push([r.name + " — already here", r.where || "—", false]));
-
-  const models = [...planned.entries()].filter(([k]) => k.startsWith("model:"));
-
-  models.forEach(([, describe]) => rows.push([describe, state.model_dir || "ollama's own folder", false]));
-
-  // The menu entry, named with the file it writes — it is a change to the
-  // desktop, and this page names every change before making it.
-  if (!state.menu_installed){
-    rows.push(["Applications menu — will be added",
-      state.menu_path || "the applications folder", false]);
-  }
-
-  const table = document.createElement("div");
-  table.className = "overview";
-
-  rows.forEach(([what, where, strong]) => {
-    const line = document.createElement("div");
-    line.className = "ov-row";
-
-    const a = document.createElement("div");
-    a.className = "ov-what" + (strong ? " ov-strong" : "");
-    a.textContent = what;
-
-    const b = document.createElement("div");
-    b.className = "ov-where";
-    b.textContent = where;
-
-    line.append(a, b);
-    table.appendChild(line);
-  });
-
-  box.appendChild(table);
-
-  /*
-   * Said plainly, because it contradicts what the first step implies.
-   *
-   * "Where to keep it" reads as though it governs everything setup is about
-   * to put on the machine, and for the models it does not.
-   */
-  if (models.length){
-    const caveat = document.createElement("p");
-    caveat.className = "ov-note";
-    caveat.textContent = "The models do not go in the folder chosen above — ollama "
-      + "keeps them in its own directory, shown against each one. Everything PN "
-      + "Brain itself learns does go where you chose.";
-    box.appendChild(caveat);
-  }
-
-  if (!willInstall.length && !models.length){
-    const none = document.createElement("p");
-    none.className = "ov-note";
-    none.textContent = "Nothing will be installed — everything needed is already here.";
-    box.appendChild(none);
-  }
-}
-
-function renderPlan(state){
-  const box = el("plan");
-  box.textContent = "";
-
-  const missing = (state.requirements || [])
-    .filter(r => r.state !== "ok" && !r.optional)
-    .map(r => r.name);
-
-  const order = [...planned.keys()].sort((a, b) => {
-    const rank = n => n.startsWith("model:") ? 2 : (missing.includes(n) ? 0 : 1);
-
-    return rank(a) - rank(b);
-  });
-
-  /*
-   * And a way to start it again afterwards.
-   *
-   * Setup left the machine able to run the assistant and left nobody a way to do
-   * it: no entry in the applications menu, so the only route back was the file
-   * it happened to be launched from. Added last, because it is the step that
-   * makes sense only once the rest worked, and listed rather than done quietly
-   * — everything else on this page is agreed to before it happens.
-   */
-  if (!state.menu_installed) order.push("menu:");
-
-  if (state.chosen_drive){
-    const where = document.createElement("p");
-    where.className = "sub";
-    where.textContent = "It will keep itself in " + state.chosen_drive;
-    box.appendChild(where);
-  }
-
-  if (!order.length){
-    const none = document.createElement("p");
-    none.className = "sub";
-    none.textContent = "Nothing left to install. You can go straight in.";
-    box.appendChild(none);
-
-    return;
-  }
-
-  const list = document.createElement("ol");
-  list.className = "plan";
-
-  order.forEach(name => {
-    const li = document.createElement("li");
-    li.textContent = planLabel(name, state);
-    list.appendChild(li);
-  });
-
-  box.appendChild(list);
-
-  const go = document.createElement("button");
-
-  // "Install all of it" over a list that installs nothing — a menu entry, say
-  // — describes the wrong action at the moment of agreeing to it.
-  const installs = order.some(n => n !== "menu:");
-
-  go.textContent = installs ? "Install all of it" : "Do it";
-  go.disabled = busy;
-  go.onclick = async () => {
-    busy = true;
-    el("log").hidden = false;
-    await fetch("/apply", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({steps: order}),
-    });
-    refresh();
-  };
-
-  box.appendChild(go);
-}
-
+// Which step is on screen. Moved by Back and Next, and once at the start by
+// placeAtFirstUnfinished.
 let step = 0;
 
 /*
  * Where to open, which is not always the beginning.
- *
- * Setup started at step one every time, including on a machine where step one
- * has nothing left to decide — so somebody who reopened it to change a model
- * was walked back through the drive they already chose. It goes to the first
- * step that is actually waiting for something, and to the last one when
- * nothing is.
  *
  * Once, on the first load. After that the step is wherever the person has
  * navigated to, and moving it under them as requirements are satisfied would
@@ -1156,10 +1920,35 @@ let step = 0;
  */
 let placed = false;
 
+function visibleSteps(state){ return STEPS.filter(s => s.shown(state)); }
+
+
 function placeAtFirstUnfinished(state){
   if (placed) return;
 
   placed = true;
+
+  /*
+   * A first run starts at the first step. Every time.
+   *
+   * This used to open on the first step that *blocked*, which is a different
+   * thing and quietly skipped the most consequential question on the page:
+   * "Where to keep it" does not block, because there is always a default
+   * folder — so somebody setting this up for the first time was put on step
+   * two, and the drive their assistant would live on was decided for them by
+   * a step they never saw. On a machine with a small home disk and a large
+   * external one, that is the wrong answer chosen silently.
+   *
+   * Guarded by "placed" like everything else here: deciding this on every
+   * poll would drag somebody back to step one every two seconds for as long
+   * as anything remained uninstalled. No backticks in this file, either —
+   * the whole page is one Go raw string and a backtick ends it.
+   */
+  if (state.blocking > 0){
+    step = 0;
+
+    return;
+  }
 
   const shown = visibleSteps(state);
 
@@ -1174,7 +1963,6 @@ function placeAtFirstUnfinished(state){
   step = shown.length - 1;
 }
 
-function visibleSteps(state){ return STEPS.filter(s => s.shown(state)); }
 
 /*
  * What it will stop and ask about, offered as a choice rather than announced.
@@ -1184,7 +1972,84 @@ function visibleSteps(state){ return STEPS.filter(s => s.shown(state)); }
  * starts on, so the answer for somebody who skips this step is the protective
  * one.
  */
+/*
+ * The one switch, in the words the program uses for it.
+ *
+ * Copied from Permissions rather than paraphrased: somebody who picks
+ * "never stop" here and later opens that page should find the same sentence
+ * beside the same choice, not a second description that might mean something
+ * slightly different.
+ */
+const FREEDOM = [
+  {level: "ask", name: "Ask me first — and nothing leaves this machine",
+   means: "It asks before anything that changes something, and nothing leaves this "
+     + "machine — no hosted model, no web."},
+  {level: "granted", name: "Do what I have allowed — the web is open, the model stays here",
+   means: "It does what you have already allowed and asks about the rest. The web "
+     + "is open; the model answering you stays on this machine."},
+  {level: "everything", name: "Never stop, never refuse — hosted models, the web, memory, all of it",
+   means: "It does anything it can, without asking, and nothing is held back: "
+     + "hosted models, the web, and what it has learned about you may all be sent. "
+     + "Everything is still recorded."},
+];
+
+// Set while a choice is on its way, so a poll landing in between does not
+// put the tick back on the old answer and make the click look ignored.
+let freedomSaving = "";
+
+function renderFreedomChoice(state){
+  const box = el("freedom-pick");
+  if (!box) return;
+
+  const chosen = freedomSaving || state.freedom || "ask";
+
+  box.textContent = "";
+
+  FREEDOM.forEach(f => {
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "ghost pick" + (chosen === f.level ? " chosen" : "");
+    pick.disabled = freedomSaving !== "";
+
+    const name = document.createElement("strong");
+    name.textContent = f.name;
+
+    const means = document.createElement("span");
+    means.textContent = f.means;
+
+    pick.append(name, means);
+
+    pick.onclick = async () => {
+      freedomSaving = f.level;
+      renderFreedomChoice(state);
+
+      try {
+        await post("/freedom", {level: f.level});
+      } finally {
+        freedomSaving = "";
+        refresh();
+      }
+    };
+
+    box.appendChild(pick);
+  });
+
+  const files = el("freedom-files");
+
+  if (files){
+    files.textContent = chosen === "everything"
+      ? "With the switch on never stop, these files do not stop it either. Reading "
+        + "one is written down with the reason it would have asked, and nothing waits "
+        + "for you."
+      : "These are the files where it stops and puts the request to you first, "
+        + "whatever else you have allowed — and it remembers what you answer, so it "
+        + "asks once rather than every time.";
+  }
+}
+
 function renderPrivacyChoice(state){
+  renderFreedomChoice(state);
+
   const box = el("privacy-rules");
 
   if (!box || !state.protection) return;
@@ -1208,11 +2073,22 @@ function renderPrivacyChoice(state){
       "<br><span class=\"muted\">" + rule.why + "</span>";
 
     tick.onchange = async () => {
-      const now = new Set(off);
+      /*
+       * Read at click time, not at draw time.
+       *
+       * This used to build its new list from the set captured when the row was
+       * drawn, and the server replaces the whole list rather than merging. So
+       * two quick clicks on different rules both started from the same stale
+       * picture and the second silently undid the first — on the one screen in
+       * the program where a setting quietly not taking is a file left
+       * unprotected.
+       */
+      const live = new Set((lastState && lastState.protection
+        && lastState.protection.off) || off);
 
-      if (tick.checked) now.delete(rule.id); else now.add(rule.id);
+      if (tick.checked) live.delete(rule.id); else live.add(rule.id);
 
-      await post("/protection", {off: [...now]});
+      await post("/protection", {off: [...live]});
       refresh();
     };
 
@@ -1266,6 +2142,7 @@ function renderPrivacyChoice(state){
     };
   }
 }
+
 
 function renderSteps(state){
   const shown = visibleSteps(state);
@@ -1329,26 +2206,581 @@ function renderSteps(state){
 el("back").onclick = () => { step -= 1; refresh(); };
 el("next").onclick = () => { step += 1; refresh(); };
 
+
+/*
+ * Where an install has got to, drawn wherever it belongs.
+ *
+ * It used to be one panel at the foot of the page. That reads fine while the
+ * page is short and badly once it is not: installing Ollama from a list of
+ * twelve pieces put the bar below all twelve, so the thing being installed was
+ * scrolled off the top while a bar at the bottom said 503MB of 1.3GB, and
+ * nothing on screen connected the two.
+ *
+ * So it is built here and placed by the caller — inside the card of the piece
+ * being installed, and at the foot only when whatever is installing is not on
+ * screen to hold it.
+ */
+/*
+ * Whether the log is folded open, remembered across redraws.
+ *
+ * The card is rebuilt every two seconds while something installs, and a fresh
+ * <details> starts closed — so opening the technical details lasted until the
+ * next poll and then shut itself, over and over. The same shape of bug as the
+ * provider picker that could not be chosen from: state living in a DOM node
+ * that something else is busy replacing.
+ */
+let logOpen = false;
+
+function progressBlock(state){
+  const box = document.createElement("div");
+  box.className = "prog";
+
+  const done = !state.busy;
+
+  const head = document.createElement("div");
+  head.className = "prog-head";
+
+  const what = document.createElement("span");
+  what.id = "";
+  what.className = "prog-what";
+  what.textContent = done
+    ? (state.apply_failed ? "Stopped part way" : "Done")
+    : (state.step_name || "Working…");
+  head.appendChild(what);
+
+  const pct = document.createElement("span");
+  pct.className = "prog-pct";
+  head.appendChild(pct);
+
+  box.appendChild(head);
+
+  const track = document.createElement("div");
+  track.className = "prog-track";
+
+  const bar = document.createElement("div");
+  bar.className = "prog-bar";
+  track.appendChild(bar);
+  box.appendChild(track);
+
+  const percent = state.percent;
+
+  if (done){
+    bar.style.width = state.apply_failed ? "0%" : "100%";
+  } else if (percent >= 0){
+    pct.textContent = percent + "%";
+    bar.style.width = percent + "%";
+  } else {
+    // Running, position unknown — a moving stripe rather than a bar at zero.
+    // "Starting" and "no idea how far" are different things.
+    bar.className = "prog-bar unknown";
+  }
+
+  /*
+   * The last line that says something, not the last line.
+   *
+   * cmake and ollama both end their output with blank lines and redraw codes,
+   * so "the last line" was regularly empty — a note appearing and vanishing
+   * several times a second while the rest of the panel sat still.
+   */
+  const lines = (state.log || "").replace(/\r/g, "\n").split("\n")
+    .map(l => l.replace(/\u001b\[[0-9;?]*[A-Za-z]/g, "").trim())
+    .filter(l => l && !l.startsWith("["));
+
+  if (!done && lines.length){
+    const note = document.createElement("p");
+    note.className = "sub prog-note";
+    note.textContent = lines[lines.length - 1];
+    box.appendChild(note);
+  }
+
+  const fold = document.createElement("details");
+  fold.className = "log-wrap";
+  fold.open = logOpen;
+  fold.ontoggle = () => { logOpen = fold.open; };
+
+  const sum = document.createElement("summary");
+  sum.textContent = "Show the technical details";
+  fold.appendChild(sum);
+
+  const pre = document.createElement("pre");
+  pre.textContent = state.log || "";
+  fold.appendChild(pre);
+
+  // Scrolled to the end once it is in the document, which is the only moment
+  // the height is known. A live log is read at the bottom, and this one is
+  // replaced wholesale every couple of seconds, so there is no scroll position
+  // of somebody's own to preserve.
+  setTimeout(() => { pre.scrollTop = pre.scrollHeight; }, 0);
+
+  box.appendChild(fold);
+
+  return box;
+}
+
+/*
+ * whatIsInstalling names the card the progress belongs in.
+ *
+ * The raw step name from the server: "Ollama", or "model:qwen2.5-coder:7b".
+ * Empty when nothing is running.
+ */
+function whatIsInstalling(state){
+  return state.busy ? (state.step_target || "") : "";
+}
+
+/*
+ * renderFootProgress is the fallback, for work no card on screen is showing.
+ *
+ * Installing the menu entry belongs to no card; so does anything started on a
+ * step somebody has since walked away from. Without this they would run with
+ * nothing on screen saying so, which is the state this whole panel exists to
+ * prevent — but with it shown unconditionally, a card and the foot would draw
+ * the same bar twice.
+ */
+function renderFootProgress(state){
+  const box = el("progress");
+  if (!box) return;
+
+  box.textContent = "";
+
+  if (!state.log){
+    box.hidden = true;
+
+    return;
+  }
+
+  // Claimed by a card already on screen? Then it is being shown there.
+  const target = whatIsInstalling(state);
+
+  if (target && document.querySelector(".card.working, .model-row.working")){
+    box.hidden = true;
+
+    return;
+  }
+
+  box.hidden = false;
+  box.appendChild(progressBlock(state));
+}
+
+function renderOverview(state){
+  const box = el("overview");
+  box.textContent = "";
+
+  const rows = [];
+
+  rows.push(["Everything it learns", state.chosen_drive || "the default folder", true]);
+
+  /*
+   * What is here, and what is not.
+   *
+   * This used to list what pressing Apply was about to do, which was the right
+   * thing to show while the last step did the installing. Nothing is pending
+   * by the time somebody reaches this step now, so the question it answers has
+   * changed from "what will happen" to "what happened" — and the answer worth
+   * having includes the optional pieces that were skipped, because otherwise
+   * the only way to find out that there is no voice is to notice the silence.
+   */
+  const here = (state.requirements || []).filter(r => r.state === "ok");
+  const skipped = (state.requirements || []).filter(r => r.state !== "ok");
+
+  here.forEach(r => rows.push([r.name, r.where || "—", false]));
+
+  const table = document.createElement("div");
+  table.className = "overview";
+
+  rows.forEach(([what, where, strong]) => {
+    const line = document.createElement("div");
+    line.className = "ov-row";
+
+    const a = document.createElement("div");
+    a.className = "ov-what" + (strong ? " ov-strong" : "");
+    a.textContent = what;
+
+    const b = document.createElement("div");
+    b.className = "ov-where";
+    b.textContent = where;
+
+    line.append(a, b);
+    table.appendChild(line);
+  });
+
+  box.appendChild(table);
+
+  if (skipped.length){
+    const note = document.createElement("p");
+    note.className = "ov-note";
+    note.textContent = "Not installed: " + skipped.map(r => r.name).join(", ")
+      + ". You can add any of them later from inside the program.";
+    box.appendChild(note);
+  }
+}
+
+/*
+ * The readiness ticks: what was checked, rather than what was installed.
+ *
+ * Fetched on its own schedule, not from /state — two of these ask a model a
+ * question, and /state is read every two seconds by a page that must stay
+ * responsive. The server answers immediately with whatever the slow ones have
+ * reached, so this never waits either.
+ */
+let readyTicks = null;
+let readyFetchedFor = "";
+
+function renderReadyTicks(state){
+  const box = el("ready-ticks");
+  if (!box) return;
+
+  // Re-asked when an install finishes, because that is exactly when the
+  // answer changes — and not on every poll, because two of them are slow.
+  const key = String(state.busy) + ":" + step;
+
+  if (readyFetchedFor !== key){
+    readyFetchedFor = key;
+
+    get("/ready").then(got => { readyTicks = got.ticks || []; drawTicks(); })
+      .catch(() => {});
+  }
+
+  drawTicks();
+}
+
+function drawTicks(){
+  const box = el("ready-ticks");
+  if (!box || !readyTicks) return;
+
+  box.textContent = "";
+
+  const h = document.createElement("h3");
+  h.className = "group";
+  h.textContent = "Checked, not assumed";
+  box.appendChild(h);
+
+  readyTicks.forEach(t => {
+    const row = document.createElement("div");
+    row.className = "tick-row " + t.state;
+
+    const mark = document.createElement("span");
+    mark.className = "mark";
+    mark.textContent = t.state === "yes" ? "✓"
+      : t.state === "no" ? "✗"
+      : t.state === "checking" ? "…" : "!";
+    row.appendChild(mark);
+
+    const what = document.createElement("span");
+    what.className = "tick-what";
+    what.textContent = t.what;
+    row.appendChild(what);
+
+    const note = document.createElement("span");
+    note.className = "tick-note";
+    note.textContent = t.note || "";
+    row.appendChild(note);
+
+    box.appendChild(row);
+  });
+
+  const again = document.createElement("button");
+  again.className = "ghost linky-btn";
+  again.textContent = "Check again";
+  again.onclick = async () => {
+    readyTicks = null;
+    readyFetchedFor = "";
+    await post("/ready", {});
+    refresh();
+  };
+  box.appendChild(again);
+}
+
+/*
+ * The name and the language, which are the only typed answers in the wizard.
+ *
+ * identityTouched plus focus, rather than the build-once dataset.ready used by
+ * the folder and API cards. Build-once means never updating, which is right
+ * for a card whose only live content is a span and wrong here: this step sits
+ * beside a voice picker that changes as piper arrives, and freezing the pair
+ * would leave "not yet" beside two voices that had finished installing.
+ *
+ * The guard is the running program's own — a flag plus contains(activeElement)
+ * — so the poll never writes over somebody mid-word, and never over a change
+ * they made and clicked away from without saving.
+ */
+let identity = null;
+let identityTouched = false;
+let identitySaid = "";
+
+function identityBeingEdited(){
+  const form = el("name-form");
+
+  if (!form) return false;
+
+  return identityTouched || form.contains(document.activeElement);
+}
+
+function renderIdentity(state){
+  const box = el("name-form");
+  if (!box) return;
+
+  if (identity === null){
+    identity = {};
+
+    get("/identity").then(got => { identity = got; renderIdentity(state); })
+      .catch(() => {});
+
+    return;
+  }
+
+  if (!identity.languages) return;
+
+  // Never under somebody's hands. See identityBeingEdited.
+  if (identityBeingEdited()) return;
+
+  box.textContent = "";
+
+  const nameRow = document.createElement("div");
+  nameRow.className = "folder-row";
+
+  const name = document.createElement("input");
+  name.type = "text";
+  name.id = "identity-name";
+  name.value = identity.name || identity.default_name || "";
+  name.placeholder = identity.default_name || "Assistant";
+  name.oninput = () => { identityTouched = true; };
+  name.onkeydown = e => { if (e.key === "Enter") saveIdentity(); };
+  nameRow.appendChild(name);
+
+  const save = document.createElement("button");
+  save.className = "ghost";
+  save.textContent = "Save";
+  save.onclick = () => saveIdentity();
+  nameRow.appendChild(save);
+
+  box.appendChild(nameRow);
+
+  const wake = document.createElement("p");
+  wake.className = "sub";
+  wake.textContent = "Say this word and it starts listening. "
+    + "You can add other things it answers to later.";
+  box.appendChild(wake);
+
+  const lh = document.createElement("h3");
+  lh.className = "group";
+  lh.textContent = "The language you speak";
+  box.appendChild(lh);
+
+  const ln = document.createElement("p");
+  ln.className = "sub group-note";
+  ln.textContent = "Told rather than guessed. Left to guess at a language it "
+    + "is unsure of, it translates instead of writing down what you said — so "
+    + "you get an answer in English about something you did not ask.";
+  box.appendChild(ln);
+
+  const pick = document.createElement("select");
+
+  identity.languages.forEach(l => {
+    const o = document.createElement("option");
+    o.value = l.code;
+    o.textContent = l.name;
+    pick.appendChild(o);
+  });
+
+  pick.value = identity.language || "";
+  pick.onchange = () => {
+    identity.language = pick.value;
+    saveIdentity();
+  };
+
+  box.appendChild(pick);
+
+  if (identitySaid){
+    const said = document.createElement("p");
+    said.className = "sub";
+    said.textContent = identitySaid;
+    box.appendChild(said);
+  }
+}
+
+async function saveIdentity(){
+  const field = el("identity-name");
+  const chosen = identity || {};
+
+  const res = await post("/identity", {
+    name: field ? field.value : chosen.name,
+    language: chosen.language || "",
+  });
+
+  identityTouched = false;
+
+  if (res && res.ok === false){
+    identitySaid = res.error || "That could not be saved.";
+  } else {
+    identitySaid = "Saved.";
+
+    // Re-read, so the wake word the server derived is what is shown.
+    identity = null;
+  }
+
+  refresh();
+}
+
+/*
+ * The voice picker, on the last step.
+ *
+ * voiceFetchedFor is what the list was last fetched for: the voices appear
+ * partway through the install, so a list read once at the top of setup would
+ * still say "not yet" beside a voice that had finished downloading two
+ * minutes earlier.
+ */
+let voiceState = null;
+let voiceFetchedFor = null;
+let voiceSpeaking = "";
+let voiceNote = "";
+
+function renderVoices(state){
+  const speaking = (state.requirements || []).find(r => r.name === "Voice (speaking)");
+  const key = (speaking ? speaking.state + ":" + speaking.detail : "none") + ":" + state.busy;
+
+  if (voiceFetchedFor !== key){
+    voiceFetchedFor = key;
+    get("/voices").then(v => { voiceState = v; drawVoices(); }).catch(() => {});
+  }
+
+  drawVoices();
+}
+
+function drawVoices(){
+  const box = el("voice-pick");
+  if (!box) return;
+
+  box.textContent = "";
+
+  const voices = (voiceState && voiceState.voices) || [];
+  if (!voices.length) return;
+
+  const h = document.createElement("h3");
+  h.textContent = "How it will sound";
+  box.appendChild(h);
+
+  const p = document.createElement("p");
+  p.className = "sub";
+  p.textContent = "Press Hear it to listen to each one, then pick the one you want. "
+    + "You can change this later in Settings.";
+  box.appendChild(p);
+
+  voices.forEach(v => {
+    const row = document.createElement("div");
+    row.className = "voice-row";
+
+    const pick = document.createElement("button");
+    pick.className = "ghost pick" + (voiceState.chosen === v.kind ? " chosen" : "");
+    pick.disabled = !v.available || voiceSpeaking !== "";
+    pick.onclick = () => chooseVoice(v.kind);
+
+    const name = document.createElement("strong");
+    name.textContent = v.name;
+    pick.appendChild(name);
+
+    const detail = document.createElement("span");
+    detail.textContent = v.detail;
+    pick.appendChild(detail);
+
+    row.appendChild(pick);
+
+    const hear = document.createElement("button");
+    hear.className = "ghost hear";
+    hear.textContent = voiceSpeaking === v.kind ? "speaking…"
+      : (v.available ? "▶ Hear it" : "not yet");
+    hear.disabled = !v.available || voiceSpeaking !== "";
+    hear.onclick = () => hearVoice(v.kind);
+    row.appendChild(hear);
+
+    box.appendChild(row);
+  });
+
+  if (voiceNote){
+    const n = document.createElement("p");
+    n.className = "sub";
+    n.textContent = voiceNote;
+    box.appendChild(n);
+  }
+}
+
+/*
+ * One voice at a time.
+ *
+ * The request only returns once the words have finished, so every button
+ * stays disabled for exactly as long as something is talking. Two samples
+ * playing over each other would be the one thing this feature exists to
+ * prevent somebody hearing.
+ */
+async function hearVoice(kind){
+  voiceSpeaking = kind;
+  voiceNote = "";
+  drawVoices();
+
+  try {
+    const r = await (await fetch("/hear?kind=" + encodeURIComponent(kind),
+      {method: "POST"})).json();
+
+    if (!r.ok) voiceNote = r.error || "That voice could not speak.";
+  } catch (e){
+    voiceNote = "That voice could not speak.";
+  }
+
+  voiceSpeaking = "";
+  drawVoices();
+}
+
+async function chooseVoice(kind){
+  try {
+    const r = await (await fetch("/voice?kind=" + encodeURIComponent(kind),
+      {method: "POST"})).json();
+
+    if (r.ok){
+      if (voiceState) voiceState.chosen = kind;
+      voiceNote = "";
+    } else {
+      voiceNote = r.error || "That voice could not be chosen.";
+    }
+  } catch (e){
+    voiceNote = "That voice could not be chosen.";
+  }
+
+  drawVoices();
+}
+
+/*
+ * The most recent answer from the server, for handlers that fire between
+ * polls and must not act on the picture they were drawn with.
+ */
+let lastState = null;
+
 async function refresh(){
   const state = await get("/state");
+  lastState = state;
   busy = state.busy;
 
   el("machine").textContent = machineLine(state.hardware);
+  /*
+   * The fork first, then everything that depends on the answer.
+   *
+   * renderBrainChoice is what sets brainWay, and the needs step's gate reads
+   * it. Run the other way round, the very first paint judged the requirements
+   * against an unanswered question — so somebody who had chosen a paid
+   * service saw "Without these it cannot answer at all" for a frame before it
+   * corrected itself.
+   */
+  renderBrainChoice(state);
   renderRequirements(state);
   renderDriveChoice(state);
+  renderWelcome(state);
   renderFolderChoice(state);
-  renderBrainChoice(state);
   renderPrivacyChoice(state);
   renderOverview(state);
-  renderPlan(state);
+  renderReadyTicks(state);
+  renderIdentity(state);
+  renderVoices(state);
+  renderFootProgress(state);
   placeAtFirstUnfinished(state);
   renderSteps(state);
-
-  if (state.log){
-    el("log").hidden = false;
-    el("log").textContent = state.log;
-    el("log").scrollTop = el("log").scrollHeight;
-  }
 
   const hasBrain = state.requirements.some(r => r.name === "Chat model" && r.state === "ok")
     || state.has_api_key;

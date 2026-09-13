@@ -8,8 +8,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"pn-scripts-assistant/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/paths"
 	"pn-scripts-assistant/internal/brain/storage"
 	"sort"
@@ -17,6 +19,7 @@ import (
 	"sync"
 
 	"pn-scripts-assistant/internal/brain/desktop"
+	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/preflight"
 	"pn-scripts-assistant/internal/starter"
@@ -44,6 +47,11 @@ type Server struct {
 	// the window. See Finished.
 	finished bool
 
+	// voice is which of robot/man/woman was picked, so the page can show
+	// which one is chosen after a reload. The setting itself is written to
+	// the settings file the moment it is chosen; this is only the mark.
+	voice string
+
 	/*
 	 * How the last apply ended, because the requirement counts cannot say.
 	 *
@@ -54,6 +62,45 @@ type Server struct {
 	 * question is no defence when the two sit one above the other.
 	 */
 	applyFailed bool
+
+	/*
+	 * Where the install has got to, said as a person would say it.
+	 *
+	 * The log was the only answer to "how much longer": several thousand lines
+	 * of cmake output, in which the honest answer is present and unreadable.
+	 * These three are what somebody actually wants — which piece, how many
+	 * pieces, and how far into this one — and they are kept here rather than
+	 * parsed out of the log by the page, because the page would then be
+	 * guessing at the meaning of somebody else's build output.
+	 */
+	stepNow   int
+	stepTotal int
+	stepName  string
+
+	/*
+	 * The raw name of what is installing, as the page spells it.
+	 *
+	 * stepName beside it is the readable version — "Downloading qwen2.5-coder:7b"
+	 * — which is what somebody reads and useless for matching. The page needs
+	 * to put the progress inside the card of the thing being installed, and
+	 * for that it has to be able to say which card that is.
+	 */
+	stepTarget string
+
+	// What this run put on the machine, so closing setup half way can take it
+	// back off. See rollback.go.
+	added []added
+
+	/*
+	 * The readiness ticks, cached because two of them are slow.
+	 *
+	 * Its own lock rather than the one above: the slow probes take minutes on
+	 * a processor, and holding the server's lock for that would stall every
+	 * two-second poll behind them. It deliberately does not set s.busy either
+	 * — RollBack waits on that before removing anything, so a probe running
+	 * when somebody closes the window would make the close hang.
+	 */
+	ready readiness
 }
 
 func New(envPath string) (*Server, error) {
@@ -88,6 +135,26 @@ func (s *Server) Serve(onReady func()) {
 		go s.install(name)
 		s.writeJSON(w, map[string]any{"started": true})
 	})
+
+	// Which of the installed models should answer.
+	mux.HandleFunc("/chosen-model", s.handleChosenModel)
+
+	// Whether it actually works, rather than whether it is installed.
+	mux.HandleFunc("/ready", s.handleReady)
+
+	// Who it is: a name to call it, and the language it should expect to hear.
+	mux.HandleFunc("/identity", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			s.saveIdentity(w, r)
+
+			return
+		}
+
+		s.writeJSON(w, s.identity())
+	})
+
+	// Every model there is, for somebody who wants more than the eight.
+	mux.HandleFunc("/library", s.handleLibrary)
 
 	mux.HandleFunc("/choose-model", func(w http.ResponseWriter, r *http.Request) {
 		/*
@@ -233,6 +300,10 @@ func (s *Server) Serve(onReady func()) {
 			// Which service the key belongs to. Empty means Anthropic, which
 			// is what the page sent before there was anywhere else to send.
 			Provider string `json:"provider"`
+
+			// Where it lives, for a server this program cannot know the
+			// address of — LM Studio, vLLM, another machine in the house.
+			BaseURL string `json:"base_url"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -241,7 +312,8 @@ func (s *Server) Serve(onReady func()) {
 			return
 		}
 
-		if err := s.saveAPIKey(body.Provider, strings.TrimSpace(body.Key)); err != nil {
+		if err := s.saveProvider(body.Provider, strings.TrimSpace(body.Key),
+			strings.TrimSpace(body.BaseURL)); err != nil {
 			s.writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
 
 			return
@@ -311,6 +383,71 @@ func (s *Server) Serve(onReady func()) {
 		s.writeJSON(w, map[string]any{"ok": true})
 	})
 
+	/*
+	 * The one switch: how much it asks, and how much leaves.
+	 *
+	 * The same three answers the program offers under Permissions, asked
+	 * here because it is the question every later approval prompt is the
+	 * consequence of. Somebody who wanted it never to stop should not first
+	 * have to meet a stream of questions to discover that it can.
+	 */
+	mux.HandleFunc("/freedom", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Level string `json:"level"`
+		}
+
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+
+			return
+		}
+
+		level, err := s.saveFreedom(body.Level)
+		if err != nil {
+			s.writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+
+			return
+		}
+
+		s.writeJSON(w, map[string]any{"ok": true, "freedom": string(level)})
+	})
+
+	/*
+	 * How it will sound, before setup closes.
+	 *
+	 * On the last step rather than beside the other choices, because the
+	 * voices do not exist until the install has run — a voice picker offered
+	 * three buttons of which two could not play would be asking somebody to
+	 * choose between things they cannot hear.
+	 */
+	mux.HandleFunc("/voices", func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		chosen := s.voice
+		s.mu.Unlock()
+
+		s.writeJSON(w, map[string]any{"voices": voiceChoices(), "chosen": chosen})
+	})
+
+	mux.HandleFunc("/hear", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.hear(r.URL.Query().Get("kind")); err != nil {
+			s.writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+
+			return
+		}
+
+		s.writeJSON(w, map[string]any{"ok": true})
+	})
+
+	mux.HandleFunc("/voice", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.chooseVoice(r.URL.Query().Get("kind")); err != nil {
+			s.writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+
+			return
+		}
+
+		s.writeJSON(w, map[string]any{"ok": true})
+	})
+
 	mux.HandleFunc("/done", func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		s.finished = true
@@ -356,6 +493,28 @@ type requirementView struct {
 
 	// Where it is now, or where it will go. See Requirement.Where.
 	Where string `json:"where"`
+
+	/*
+	 * What it costs and whether there is room for it.
+	 *
+	 * Both were known here and said nowhere: the page offered to download nine
+	 * gigabytes onto a disk whose free space it had already measured. Free is
+	 * for the filesystem this particular piece lands on, which is not one
+	 * number for the page — the models go to ollama's own directory whatever
+	 * drive the brain was put on.
+	 */
+	Size   string `json:"size,omitempty"`
+	FreeGB int    `json:"free_gb,omitempty"`
+
+	/*
+	 * NeedsRoot marks an install that will raise a password prompt.
+	 *
+	 * Worth saying on the card, and worth knowing when several are installed
+	 * in one press: a run stops at the first failure, and a dismissed password
+	 * box is a failure. Those go last, so cancelling one does not abandon
+	 * everything queued behind it.
+	 */
+	NeedsRoot bool `json:"needs_password,omitempty"`
 }
 
 func (s *Server) state() map[string]any {
@@ -363,7 +522,18 @@ func (s *Server) state() map[string]any {
 	views := make([]requirementView, 0, len(results))
 
 	for _, r := range results {
+		free := 0
+
+		if where := r.Requirement.Location(); where != "" {
+			if _, usable, err := storage.SpaceOn(where); err == nil {
+				free = int(usable / (1 << 30))
+			}
+		}
+
 		views = append(views, requirementView{
+			NeedsRoot:   r.Requirement.NeedsRoot,
+			Size:        r.Requirement.Size,
+			FreeGB:      free,
 			Name:        r.Requirement.Name,
 			Why:         r.Requirement.Why,
 			Consequence: r.Requirement.Consequence,
@@ -376,11 +546,29 @@ func (s *Server) state() map[string]any {
 		})
 	}
 
+	// Whether anything is configured that can answer without a local model.
+	// Loaded rather than inferred from s.keysHeld so a custom server with no
+	// key counts too.
+	paidBrain := false
+	chosenModel := ""
+	freedom := string(permits.AskEveryTime)
+
+	if cfg, err := config.LoadFrom(s.envPath); err == nil {
+		paidBrain = cfg.HasPaidProvider()
+		chosenModel = cfg.OllamaModel
+
+		if asking := permits.Freedom(cfg.Asking()); permits.Known(asking) {
+			freedom = string(asking)
+		}
+	}
+
 	hw := preflight.DetectHardware()
 	model := preflight.RecommendModel(hw)
 
 	s.mu.Lock()
 	logText, busy, failed := s.log.String(), s.busy, s.applyFailed
+	stepNow, stepTotal, stepName := s.stepNow, s.stepTotal, s.stepName
+	stepTarget := s.stepTarget
 	s.mu.Unlock()
 
 	/*
@@ -402,13 +590,29 @@ func (s *Server) state() map[string]any {
 
 	return map[string]any{
 		"requirements": views,
+
+		// The one switch, as the file has it. See /freedom.
+		"freedom": freedom,
+
 		"protection": map[string]any{
 			"rules": rules,
 			"off":   chosen.Off,
 			"yours": chosen.Extra,
 		},
-		"blocking":     preflight.BlockingCount(results),
-		"busy":         busy,
+		// Counted against the chosen path: the pieces that only run a local
+		// model are not missing from somebody using a paid service, they are
+		// irrelevant to them. See preflight.BlockingFor.
+		"blocking": preflight.BlockingCountFor(results, paidBrain),
+		"busy":     busy,
+
+		// Which piece, of how many, and how far into it. See the fields.
+		"step_now":   stepNow,
+		"step_total": stepTotal,
+		"step_name":  stepName,
+
+		// Which card the progress belongs in. See stepTarget.
+		"step_target":  stepTarget,
+		"percent":      percentOf(logText),
 		"apply_failed": failed,
 		"log":          logText,
 		"hardware": map[string]any{
@@ -435,6 +639,14 @@ func (s *Server) state() map[string]any {
 		"model_options": modelOptions(hw),
 		"has_api_key":   s.hasAPIKey(),
 
+		// Which companies already have one, so the page can show them and
+		// offer the rest. Names only — never the keys themselves.
+		"api_keys": s.keysHeld(),
+
+		// And every company there is, from the one list. The picker used to
+		// carry its own copy of three of them.
+		"services": serviceViews(),
+
 		/*
 		 * And where the brain should live.
 		 *
@@ -445,6 +657,7 @@ func (s *Server) state() map[string]any {
 		 * have wanted it there from the start rather than after.
 		 */
 		"drives":       s.drives(),
+		"chosen_model": chosenModel,
 		"chosen_drive": s.chosenRoot(),
 
 		// Where the models land, which is not the folder chosen above — see
@@ -474,72 +687,230 @@ func (s *Server) install(name string) {
 
 	s.busy = true
 	s.log.Reset()
+
+	/*
+	 * Which piece, so the page can put the progress inside its card.
+	 *
+	 * Set here as well as in applyAll, and it matters more here: every install
+	 * goes through this path now that each step installs its own things, so
+	 * without it the bar had no idea what it belonged to and fell back to the
+	 * foot of the page for everything.
+	 */
+	s.stepName, s.stepTarget = readableStep(name), name
+	s.stepNow, s.stepTotal = 1, 1
 	s.mu.Unlock()
 
 	defer func() {
 		s.mu.Lock()
 		s.busy = false
+		s.stepNow, s.stepTotal, s.stepName = 0, 0, ""
+		s.stepTarget = ""
 		s.mu.Unlock()
 	}()
 
-	if chosen, ok := strings.CutPrefix(name, modelPrefix); ok {
-		if chosen == "" {
-			chosen = preflight.RecommendModel(preflight.DetectHardware()).Model
-		}
-
-		s.runModelPull(chosen)
-
-		return
-	}
-
-	for _, r := range preflight.Check() {
-		if r.Requirement.Name != name {
-			continue
-		}
-
-		if err := preflight.Install(r.Requirement, &syncWriter{s: s}); err != nil {
-			fmt.Fprintf(&syncWriter{s: s}, "\nFailed: %v\n", err)
-		}
-
-		return
-	}
-}
-
-func (s *Server) runModelPull(model string) {
+	/*
+	 * The same installer applyAll uses, not a second one beside it.
+	 *
+	 * This used to have its own copy — find the requirement, install it,
+	 * report a failure — which was harmless while it was the minor path and
+	 * became a real hole when each step started installing its own things and
+	 * this became the only path. runOne records what it installs so that
+	 * closing setup half way can take it off again; this did not, so the
+	 * rollback quietly had nothing to undo.
+	 */
 	w := &syncWriter{s: s}
-	fmt.Fprintf(w, "Pulling %s — this downloads a few GB and can take a while.\n\n", model)
 
-	req := preflight.Requirement{
-		Name:       "model",
-		InstallCmd: func() []string { return []string{"ollama", "pull", model} },
+	/*
+	 * A model needs somewhere to run, and that is not somebody's problem.
+	 *
+	 * Choosing how it thinks now comes before the list of pieces, which is the
+	 * right order for the decision and the wrong one for the dependency: the
+	 * model cannot be pulled until Ollama exists. The alternative was to put
+	 * the demand back — "install Ollama before you may choose a model" — which
+	 * is the ordering this whole change exists to remove.
+	 *
+	 * So it is fetched first, silently in the sense that nobody had to ask for
+	 * it, and loudly in the sense that the progress says what it is doing.
+	 * Ollama still appears on the pieces step, by then already ticked, because
+	 * "what is on my machine" deserves a complete answer even when the person
+	 * never had to think about one of the entries.
+	 */
+	_, isModel := strings.CutPrefix(name, modelPrefix)
+	_, haveOllama := exec.LookPath("ollama")
+
+	if isModel && haveOllama != nil {
+		fmt.Fprintln(w, "This needs Ollama to run models. Fetching that first.")
+
+		s.mu.Lock()
+		s.stepName, s.stepTarget = "Installing Ollama", "Ollama"
+		s.stepNow, s.stepTotal = 1, 2
+		s.mu.Unlock()
+
+		// Through runOne like everything else, so closing setup half way can
+		// still take it back off again.
+		if !s.runOne("Ollama", w) {
+			fmt.Fprintln(w, "\nOllama could not be installed, so the model was not fetched.")
+
+			return
+		}
+
+		s.mu.Lock()
+		s.stepName, s.stepTarget = readableStep(name), name
+		s.stepNow, s.stepTotal = 2, 2
+		s.mu.Unlock()
 	}
 
-	if err := preflight.Install(req, w); err != nil {
-		fmt.Fprintf(w, "\nFailed: %v\n", err)
-
-		return
-	}
-
-	fmt.Fprintf(w, "\nDone. %s is ready.\n", model)
+	s.runOne(name, w)
 }
 
 // saveAPIKey writes the key into the brain's settings file. It is never logged or echoed back: the
 // setup log is displayed in the window, and a key that appears there would be
 // a key shown to anyone looking over the user's shoulder.
+/*
+ * saveProvider records what is needed to reach one company.
+ *
+ * A key for most of them, an address for the one that has none of its own, and
+ * for a self-hosted server neither is optional in the same way: it needs the
+ * address and usually no key at all. So "no key given" stopped being the only
+ * failure worth naming.
+ */
+func (s *Server) saveProvider(provider, key, baseURL string) error {
+	/*
+	 * No company named means Anthropic.
+	 *
+	 * What the page sent before there was anywhere else to send, and what an
+	 * older one still sends. Rejecting it broke saving a key at all from any
+	 * caller that had not been updated — including this package's own tests,
+	 * which is how it was caught.
+	 */
+	if strings.TrimSpace(provider) == "" {
+		provider = "anthropic"
+	}
+
+	svc, known := llm.ServiceByID(provider)
+	if !known {
+		return fmt.Errorf("I do not know a service called %q", provider)
+	}
+
+	if baseURL != "" {
+		if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+			return fmt.Errorf("that address needs to start with http:// or https://")
+		}
+
+		if err := s.writeSetting(llm.BaseURLSetting(svc.ID), baseURL, 0o600); err != nil {
+			return err
+		}
+	}
+
+	if !svc.NeedsKey && key == "" {
+		if baseURL == "" {
+			return fmt.Errorf("give the address of the server")
+		}
+
+		return nil
+	}
+
+	return s.saveAPIKey(provider, key)
+}
+
 func (s *Server) saveAPIKey(provider, key string) error {
-	setting := envKeyFor(provider)
+	setting := llm.KeySetting(provider)
 
 	if key == "" {
 		return fmt.Errorf("no key given")
 	}
 
-	if !strings.HasPrefix(key, "sk-ant-") {
-		return fmt.Errorf("that does not look like an Anthropic key (they start with sk-ant-)")
+	if err := llm.CheckKey(provider, key); err != nil {
+		return err
 	}
 
-	// On a first run the settings file does not exist yet — which is exactly
-	// when somebody is most likely to be pasting in a key. A missing file means
-	// "no settings", not a failure.
+	// 0600: this file now holds a credential.
+	return s.writeSetting(setting, key, 0o600)
+}
+
+/*
+ * keysHeld lists the companies a key has been saved for.
+ *
+ * Names only, never the keys: this goes to the page, and a key that reaches an
+ * interface is a key in a place it was not put. Setup can hold one for each
+ * company at once — they are separate settings and always have been — and this
+ * is what lets the page say which are done and offer the rest.
+ */
+func (s *Server) keysHeld() []string {
+	held := []string{}
+
+	data, err := os.ReadFile(s.envPath)
+	if err != nil {
+		return held
+	}
+
+	lines := strings.Split(string(data), "\n")
+
+	for _, svc := range llm.Services() {
+		setting := llm.KeySetting(svc.ID) + "="
+
+		for _, line := range lines {
+			if !strings.HasPrefix(line, setting) {
+				continue
+			}
+
+			if strings.TrimSpace(strings.TrimPrefix(line, setting)) != "" {
+				held = append(held, svc.ID)
+			}
+
+			break
+		}
+	}
+
+	return held
+}
+
+/*
+ * serviceViews is the company list as the page needs it.
+ *
+ * Base URLs and default models are left out: neither is a decision anybody
+ * makes on this screen, and the address of a company's API is not information,
+ * it is trivia. The custom entry is the exception and says so in its note.
+ */
+func serviceViews() []map[string]any {
+	out := []map[string]any{}
+
+	for _, svc := range llm.Services() {
+		out = append(out, map[string]any{
+			"id":        svc.ID,
+			"name":      svc.Name,
+			"where":     svc.Where,
+			"note":      svc.Note,
+			"prefix":    svc.Prefix,
+			"needs_key": svc.NeedsKey,
+			"custom":    svc.ID == "custom",
+		})
+	}
+
+	return out
+}
+
+/*
+ * writeSetting puts one name=value into the settings file.
+ *
+ * Line by line rather than by rewriting the file from a parsed structure: the
+ * file is full of comments explaining what each setting does, and a rewrite
+ * would throw away the explanation along with the formatting. Somebody who
+ * opens it after setup should find the same document they would have found
+ * before, with one line changed.
+ *
+ * On a first run the file does not exist yet, which is exactly when somebody
+ * is most likely to be choosing something here. A missing file means "no
+ * settings", not a failure.
+ */
+func (s *Server) writeSetting(name, value string, mode os.FileMode) error {
+	return s.writeSettings(mode, [2]string{name, value})
+}
+
+// writeSettings is writeSetting for settings that must change together, in
+// one write, so the file is never read with one of them changed and not the
+// other.
+func (s *Server) writeSettings(mode os.FileMode, settings ...[2]string) error {
 	data, err := os.ReadFile(s.envPath)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("could not read %s: %w", s.envPath, err)
@@ -550,54 +921,63 @@ func (s *Server) saveAPIKey(provider, key string) error {
 	}
 
 	lines := strings.Split(string(data), "\n")
-	replaced := false
 
-	for i, line := range lines {
-		if strings.HasPrefix(line, setting+"=") {
-			lines[i] = setting + "=" + key
-			replaced = true
+	for _, setting := range settings {
+		name := setting[0]
 
-			break
+		/*
+		 * One line, whatever was typed.
+		 *
+		 * This file is name=value a line at a time, and every caller so far
+		 * has passed a key, a URL or a voice id — none of which can contain a
+		 * newline. A name can: it is the first free-text value a person gets
+		 * to type, and "Bob\nANTHROPIC_API_KEY=..." would write a second
+		 * setting nobody asked for. Flattened here rather than at the caller,
+		 * so the next free-text setting is safe without anybody remembering.
+		 */
+		value := strings.NewReplacer("\r", " ", "\n", " ").Replace(setting[1])
+
+		replaced := false
+
+		for i, line := range lines {
+			if strings.HasPrefix(line, name+"=") {
+				lines[i] = name + "=" + value
+				replaced = true
+
+				break
+			}
+		}
+
+		if !replaced {
+			lines = append(lines, name+"="+value)
 		}
 	}
 
-	if !replaced {
-		lines = append(lines, setting+"="+key)
-	}
-
-	// 0600: this file now holds a credential.
-	return os.WriteFile(s.envPath, []byte(strings.Join(lines, "\n")), 0o600)
+	return os.WriteFile(s.envPath, []byte(strings.Join(lines, "\n")), mode)
 }
 
+/*
+ * hasAPIKey reports whether anything is configured that can answer.
+ *
+ * One rule, in config, asked from here. It used to name three companies while
+ * the picker offered thirteen — so a Groq key saved perfectly well, the card
+ * said "key saved", and this returned false. Survivable while it shut one
+ * step; not survivable once the wizard asks how it should think as its first
+ * question, because the gate on that step reads this.
+ *
+ * Then it briefly counted a bare base URL, which is worse in the other
+ * direction: ANTHROPIC_BASE_URL is an ordinary thing to have exported, and a
+ * machine with nothing installed reported a brain it did not have. Both
+ * mistakes are avoided by asking config, which is where the question belongs
+ * and where the running program asks it too.
+ */
 func (s *Server) hasAPIKey() bool {
-	data, err := os.ReadFile(s.envPath)
+	cfg, err := config.LoadFrom(s.envPath)
 	if err != nil {
-		return false
+		return len(s.keysHeld()) > 0
 	}
 
-	/*
-	 * Any of them counts.
-	 *
-	 * This decides whether setup can be finished without a local model, and
-	 * that question is about having somewhere to send a request — not about
-	 * which company. Checking only Anthropic would have told somebody with an
-	 * OpenAI key that they still had nothing.
-	 */
-	for _, line := range strings.Split(string(data), "\n") {
-		for _, setting := range []string{
-			"ANTHROPIC_API_KEY=", "OPENAI_API_KEY=", "OPENROUTER_API_KEY=",
-		} {
-			if !strings.HasPrefix(line, setting) {
-				continue
-			}
-
-			if strings.TrimSpace(strings.TrimPrefix(line, setting)) != "" {
-				return true
-			}
-		}
-	}
-
-	return false
+	return cfg.HasPaidProvider()
 }
 
 // syncWriter funnels install output into the buffer the window polls.
@@ -615,6 +995,7 @@ func (w *syncWriter) Write(p []byte) (int, error) {
 // modelOptions renders the models worth offering this machine.
 func modelOptions(hw preflight.Hardware) []map[string]any {
 	options := preflight.ModelOptions(hw)
+	here := modelsHere()
 
 	out := make([]map[string]any, 0, len(options))
 
@@ -625,6 +1006,12 @@ func modelOptions(hw preflight.Hardware) []map[string]any {
 			"speed":       o.SpeedNote,
 			"label":       o.Label,
 			"recommended": o.Recommended,
+			"fits":        o.Fits,
+			"needs_gb":    o.NeedsGB,
+
+			// So the row can say "installed" instead of offering to fetch
+			// something that is already here.
+			"installed": here[o.Model] || here[o.Model+":latest"],
 		})
 	}
 
@@ -641,26 +1028,6 @@ func modelOptions(hw preflight.Hardware) []map[string]any {
 const modelPrefix = "model:"
 
 func modelRequest(model string) string { return modelPrefix + strings.TrimSpace(model) }
-
-/*
- * envKeyFor is the setting a provider's key is written to.
- *
- * Separate settings rather than one, because they are separate decisions:
- * privacy is judged by which company a request goes to, and somebody who
- * agreed to send conversation to OpenAI has not thereby agreed to OpenRouter.
- * An unknown name falls back to Anthropic, which is what every key meant
- * before there was a choice.
- */
-func envKeyFor(provider string) string {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai":
-		return "OPENAI_API_KEY"
-	case "openrouter":
-		return "OPENROUTER_API_KEY"
-	default:
-		return "ANTHROPIC_API_KEY"
-	}
-}
 
 // DataFolder is the directory the brain keeps itself in on a chosen drive.
 //
@@ -909,6 +1276,11 @@ func (s *Server) applyAll(steps []string) {
 	w := &syncWriter{s: s}
 
 	for i, name := range steps {
+		s.mu.Lock()
+		s.stepNow, s.stepTotal, s.stepName = i+1, len(steps), readableStep(name)
+		s.stepTarget = name
+		s.mu.Unlock()
+
 		fmt.Fprintf(w, "\n[%d of %d] %s\n", i+1, len(steps), readableStep(name))
 
 		if !s.runOne(name, w) {
@@ -966,6 +1338,7 @@ func (s *Server) runOne(name string, w io.Writer) bool {
 		}
 
 		fmt.Fprintf(w, "Added to the applications menu: %s\n", entry)
+		s.note(added{kind: "menu"})
 
 		return true
 	}
@@ -980,11 +1353,24 @@ func (s *Server) runOne(name string, w io.Writer) bool {
 			InstallCmd: func() []string { return []string{"ollama", "pull", model} },
 		}
 
+		// Asked before, because "was it here already" cannot be answered
+		// afterwards — and pulling a model somebody already had must not
+		// record it as this run's to delete.
+		wasHere := modelPresent(model)
+
 		if err := preflight.Install(req, w); err != nil {
 			fmt.Fprintf(w, "\nFailed: %v\n", err)
 
 			return false
 		}
+
+		if !wasHere {
+			s.note(added{kind: "model", name: model})
+		}
+
+		// So a machine with one model does not leave the program guessing
+		// which one to use. See noteFirstModel.
+		s.noteFirstModel(model)
 
 		return true
 	}
@@ -994,10 +1380,20 @@ func (s *Server) runOne(name string, w io.Writer) bool {
 			continue
 		}
 
+		// r.State is what it was before this ran: preflight.Check was called
+		// at the top of the loop. An update to something already installed
+		// records nothing — undoing an update by deleting the thing would
+		// leave somebody worse off than never having run setup.
+		wasMissing := r.State != preflight.OK
+
 		if err := preflight.Install(r.Requirement, w); err != nil {
 			fmt.Fprintf(w, "\nFailed: %v\n", err)
 
 			return false
+		}
+
+		if wasMissing {
+			s.note(added{kind: "part", name: r.Requirement.Name})
 		}
 
 		return true
@@ -1006,4 +1402,36 @@ func (s *Server) runOne(name string, w io.Writer) bool {
 	fmt.Fprintf(w, "\nNothing here is called %q.\n", name)
 
 	return false
+}
+
+/*
+ * modelsHere is what ollama already holds, as a set.
+ *
+ * Read once per state rather than once per row: ollama list runs a process,
+ * and the page polls every two seconds.
+ */
+func modelsHere() map[string]bool {
+	out := map[string]bool{}
+
+	listed, err := exec.Command("ollama", "list").Output()
+	if err != nil {
+		return out
+	}
+
+	for i, line := range strings.Split(string(listed), "\n") {
+		// The first line is the header.
+		if i == 0 {
+			continue
+		}
+
+		name, _, _ := strings.Cut(strings.TrimSpace(line), " ")
+		if name == "" {
+			continue
+		}
+
+		out[name] = true
+		out[strings.TrimSuffix(name, ":latest")] = true
+	}
+
+	return out
 }
