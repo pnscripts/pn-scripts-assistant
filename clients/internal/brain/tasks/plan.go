@@ -62,6 +62,9 @@ Rules:
 - Between two and eight steps for anything that needs more than one.
 - who must be one of the names below. Pick on what the step needs doing to it,
   not on what the job is about as a whole.
+- Add "with_previous":true to a step only when it needs nothing at all from the
+  step before it, so the two can be done at the same time by different people.
+  Leave it out whenever one step uses what another found.
 
 The team:
 %s
@@ -94,6 +97,10 @@ func (c *Conductor) plan(ctx context.Context, request, provider string, forced b
 	}
 
 	model, err := c.Provider(provider)
+	if err == nil {
+		model = c.asking(model, "The planner", request)
+	}
+
 	if err != nil {
 		// No model to plan with. Forced still gets a task, which will stop at
 		// its first step and say the same thing in the report.
@@ -179,6 +186,10 @@ type writtenPlan struct {
 		Kind     string `json:"kind"`
 		Who      string `json:"who"`
 		Changes  bool   `json:"changes"`
+
+		// WithPrevious is the planner saying this step stands alone. See
+		// migration 12.
+		WithPrevious bool `json:"with_previous"`
 	} `json:"steps"`
 }
 
@@ -227,6 +238,10 @@ func readPlan(content string, most int) (Plan, bool) {
 				// for a model inventing a job title.
 				Assignee: strings.ToLower(strings.TrimSpace(s.Who)),
 				Changes:  s.Changes,
+
+				// Never on the first step, which has nothing before it to
+				// stand beside.
+				Together: s.WithPrevious && len(plan.Steps) > 0,
 			})
 		}
 

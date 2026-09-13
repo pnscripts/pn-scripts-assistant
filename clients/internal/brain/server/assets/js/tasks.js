@@ -324,6 +324,13 @@
                 body.appendChild(acted);
             }
 
+            if (step.state === 'running' && waitingFor['step:' + step.id]) {
+                const queued = document.createElement('div');
+                queued.className = 'task-step-note';
+                queued.textContent = waitingFor['step:' + step.id];
+                body.appendChild(queued);
+            }
+
             const words = verdictWords(step);
             if (words) {
                 const note = document.createElement('div');
@@ -397,6 +404,60 @@
         }
     }
 
+    /*
+     * The lanes, in a sentence each.
+     *
+     * "Waiting" on its own is the word that makes queued work look stuck, so
+     * a lane says who has it and who is behind them, in the order they will
+     * go. And the steps that are waiting are remembered, so the task detail
+     * can say the same beside the step itself.
+     */
+    let waitingFor = {};
+
+    function drawLanes(lanes) {
+        waitingFor = {};
+
+        const node = el('task-lanes');
+        if (!node) return;
+
+        node.textContent = '';
+
+        for (const lane of lanes) {
+            const inIt = lane.in || [];
+            const behind = lane.waiting || [];
+
+            behind.forEach((seat, i) => {
+                if (!seat.key) return;
+                const holders = inIt.map((s) => s.who.toLowerCase()).join(' and ');
+                waitingFor[seat.key] = 'waiting for ' + lane.name +
+                    (holders ? ' — the ' + holders + (inIt.length > 1 ? ' have' : ' has') + ' it' : '') +
+                    (i > 0 ? ', ' + i + ' ahead' : '');
+            });
+
+            if (!inIt.length && !behind.length) continue;
+
+            const row = document.createElement('p');
+            row.className = 'task-lane';
+
+            const name = document.createElement('b');
+            name.textContent = lane.name[0].toUpperCase() + lane.name.slice(1) +
+                (lane.size > 1 ? ' (' + inIt.length + ' of ' + lane.size + ')' : '');
+            row.appendChild(name);
+
+            row.append(': ' + (inIt.length
+                ? inIt.map((s) => s.who + ' — ' + s.what).join('; ')
+                : 'free'));
+
+            if (behind.length) {
+                row.append('. Waiting, in order: ' + behind.map((s) => s.who).join(', ') + '.');
+            }
+
+            node.appendChild(row);
+        }
+
+        node.hidden = node.childElementCount === 0;
+    }
+
     async function refresh() {
         let body;
 
@@ -413,6 +474,7 @@
             (t) => !live.some((l) => l.id === t.id));
 
         strip(live);
+        drawLanes(body.lanes || []);
 
         const liveNode = el('task-live');
         const recentNode = el('task-recent');

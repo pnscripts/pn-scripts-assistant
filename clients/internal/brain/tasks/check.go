@@ -119,6 +119,10 @@ func (c *Conductor) check(ctx context.Context, task *store.Task, step *store.Tas
 // actually there.
 func (c *Conductor) ask(ctx context.Context, task *store.Task, step *store.TaskStep, res agent.Result, evidence string) Checked {
 	model, err := c.Provider(task.Provider)
+	if err == nil {
+		model = c.asking(model, "The checker", step.Instruction)
+	}
+
 	if err != nil {
 		return Checked{Verdict: store.Claimed, Evidence: evidence,
 			Why: "there was no model available to check this"}

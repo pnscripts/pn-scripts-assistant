@@ -41,7 +41,19 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, map[string]any{"tasks": live, "recent": recent})
+	/*
+	 * And the lanes: who has the model, and who is waiting for it.
+	 *
+	 * Beside the tasks rather than inside each one, because a lane is shared —
+	 * "waiting" on a task means nothing until it says what for and behind whom.
+	 */
+	var lanes any
+
+	if s.brain.Lanes != nil {
+		lanes = s.brain.Lanes.Now()
+	}
+
+	ok(w, map[string]any{"tasks": live, "recent": recent, "lanes": lanes})
 }
 
 // handleTask is one task with every step, its evidence and its verdicts.

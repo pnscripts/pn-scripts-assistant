@@ -207,7 +207,7 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 	}
 
 	if c.Jobs != nil {
-		job, err := c.Jobs.StartSilent("For "+task.Name, func(ctx context.Context) (string, error) {
+		job, err := c.Jobs.StartQueued("For "+task.Name, func(ctx context.Context) (string, error) {
 			return "", c.Work(ctx, child)
 		})
 		if err != nil {
@@ -420,7 +420,7 @@ func (c *Conductor) childFinished(child *store.Task, state string) error {
 		return nil
 	}
 
-	job, err := c.Jobs.StartSilent(parent.Name, func(ctx context.Context) (string, error) {
+	job, err := c.Jobs.StartQueued(parent.Name, func(ctx context.Context) (string, error) {
 		return "", c.Work(ctx, parent.ID)
 	})
 	if err != nil {

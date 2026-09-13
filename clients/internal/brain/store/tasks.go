@@ -159,6 +159,10 @@ type TaskStep struct {
 	EscalatedFrom int64 `json:"escalated_from,omitempty"`
 	ReviewOf      int64 `json:"review_of,omitempty"`
 
+	// Together is whether this step may run at the same time as the one
+	// before it. See migration 12.
+	Together bool `json:"together,omitempty"`
+
 	Answer    string `json:"answer,omitempty"`
 	Evidence  string `json:"evidence,omitempty"`
 	CheckedBy string `json:"checked_by,omitempty"`
@@ -506,11 +510,11 @@ func (d *DB) AddSteps(taskID int64, steps []TaskStep) error {
 		_, err := tx.Exec(`
 			INSERT INTO task_steps (task_id, position, instruction, done_when, kind,
 				changes, assignee, risk, state, created_at, updated_at,
-				escalated_from, review_of)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+				escalated_from, review_of, together)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			taskID, highest+i+1, s.Instruction, s.DoneWhen, orElse(s.Kind, StepDo),
 			s.Changes, s.Assignee, orElse(s.Risk, "low"), StepWaiting, now, now,
-			nullable(s.EscalatedFrom), nullable(s.ReviewOf))
+			nullable(s.EscalatedFrom), nullable(s.ReviewOf), s.Together && i > 0)
 		if err != nil {
 			return fmt.Errorf("writing step %d: %w", i+1, err)
 		}
@@ -524,7 +528,8 @@ const stepColumns = `id, task_id, position, instruction, done_when, kind, change
 	COALESCE(answer,''), COALESCE(evidence,''), COALESCE(checked_by,''),
 	COALESCE(verdict,''), COALESCE(why,''),
 	COALESCE(started_at,''), COALESCE(ended_at,''), COALESCE(risk,''), COALESCE(acted,''),
-	COALESCE(handed_to,0), COALESCE(escalated_from,0), COALESCE(review_of,0)`
+	COALESCE(handed_to,0), COALESCE(escalated_from,0), COALESCE(review_of,0),
+	COALESCE(together,0)`
 
 func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	var (
@@ -535,7 +540,7 @@ func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	err := row.Scan(&s.ID, &s.TaskID, &s.Position, &s.Instruction, &s.DoneWhen,
 		&s.Kind, &s.Changes, &s.Assignee, &s.Provider, &s.Model, &s.State,
 		&s.Attempts, &s.Answer, &s.Evidence, &s.CheckedBy, &s.Verdict, &s.Why,
-		&started, &ended, &s.Risk, &s.Acted, &s.HandedTo, &s.EscalatedFrom, &s.ReviewOf)
+		&started, &ended, &s.Risk, &s.Acted, &s.HandedTo, &s.EscalatedFrom, &s.ReviewOf, &s.Together)
 	if err != nil {
 		return s, err
 	}

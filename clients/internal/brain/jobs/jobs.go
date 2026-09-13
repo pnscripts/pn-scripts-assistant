@@ -48,6 +48,10 @@ type Job struct {
 	 */
 	Silent bool `json:"silent,omitempty"`
 
+	// Queued is a job whose model calls wait their turn in a lane, and so is
+	// not counted against AtMost. See StartQueued.
+	Queued bool `json:"queued,omitempty"`
+
 	cancel context.CancelFunc
 }
 
@@ -122,15 +126,38 @@ func HowManyAtOnce(tier string) int {
  * produced it.
  */
 func (r *Runner) Start(what string, work func(context.Context) (string, error)) (Job, error) {
-	return r.start(what, false, work)
+	return r.start(what, false, false, work)
 }
 
 // StartSilent is Start for work that will say what it did in its own words.
 func (r *Runner) StartSilent(what string, work func(context.Context) (string, error)) (Job, error) {
-	return r.start(what, true, work)
+	return r.start(what, true, false, work)
 }
 
-func (r *Runner) start(what string, silent bool, work func(context.Context) (string, error)) (Job, error) {
+/*
+ * StartQueued is StartSilent for work whose thinking queues in a lane.
+ *
+ * AtMost exists because every background job was a model call on the
+ * processor, and two of those at once are slower than one after the other.
+ * A task's calls now wait their turn in the lanes instead, so counting its
+ * job here as well limits the same thing twice — and wrongly: on a machine
+ * allowed one job, a task handing a step to a specialist was refused the
+ * specialist's job by its own, still running, and the step sat waiting for
+ * somebody to press a button.
+ *
+ * Still bounded, by MostQueued, because a limit on thinking is not a licence
+ * for a thousand goroutines.
+ */
+func (r *Runner) StartQueued(what string, work func(context.Context) (string, error)) (Job, error) {
+	return r.start(what, true, true, work)
+}
+
+// MostQueued is how many queued jobs may exist at once. Far more than the
+// lanes will let think, on purpose: the lanes decide the pace, and this only
+// stops something having gone badly wrong from becoming a thousand of them.
+const MostQueued = 24
+
+func (r *Runner) start(what string, silent, queued bool, work func(context.Context) (string, error)) (Job, error) {
 	r.mu.Lock()
 
 	if r.jobs == nil {
@@ -142,15 +169,26 @@ func (r *Runner) start(what string, silent bool, work func(context.Context) (str
 		limit = DefaultAtMost
 	}
 
-	running := 0
+	running, waiting := 0, 0
 
 	for _, j := range r.jobs {
-		if j.State == Running {
+		switch {
+		case j.State != Running:
+		case j.Queued:
+			waiting++
+		default:
 			running++
 		}
 	}
 
-	if running >= limit {
+	if queued && waiting >= MostQueued {
+		r.mu.Unlock()
+
+		return Job{}, fmt.Errorf("already %d pieces of work waiting their turn; "+
+			"ask again when some of them have finished", waiting)
+	}
+
+	if !queued && running >= limit {
 		r.mu.Unlock()
 
 		return Job{}, fmt.Errorf(
@@ -168,6 +206,7 @@ func (r *Runner) start(what string, silent bool, work func(context.Context) (str
 		State:   Running,
 		Started: time.Now(),
 		Silent:  silent,
+		Queued:  queued,
 		cancel:  cancel,
 	}
 

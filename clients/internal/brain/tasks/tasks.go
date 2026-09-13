@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
 	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/jobs"
+	"pn-scripts-assistant/internal/brain/lanes"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/org"
 	"pn-scripts-assistant/internal/brain/risk"
@@ -153,6 +155,14 @@ type Conductor struct {
 
 	Budget Budget
 
+	/*
+	 * Lanes is how many model calls may run at once, and who is waiting.
+	 *
+	 * Nil runs every call as it comes, which is what a test with a scripted
+	 * model wants and what this program did before there were lanes.
+	 */
+	Lanes *lanes.Lanes
+
 	// Now exists so the deadline can be tested without waiting half an hour.
 	Now func() time.Time
 }
@@ -247,7 +257,7 @@ func (c *Conductor) Take(ctx context.Context, conversationID int64, request, pro
 		return nil, true, err
 	}
 
-	job, err := c.Jobs.StartSilent(plan.Name, func(ctx context.Context) (string, error) {
+	job, err := c.Jobs.StartQueued(plan.Name, func(ctx context.Context) (string, error) {
 		return "", c.Work(ctx, id)
 	})
 	if err != nil {
@@ -368,7 +378,25 @@ func (c *Conductor) Work(ctx context.Context, taskID int64) error {
 			return c.finish(task, store.TaskBlocked, "it reached the most steps it was allowed for one job")
 		}
 
-		carryOn, err := c.runStep(ctx, task, step)
+		/*
+		 * The step and any after it that the plan said stand alone, at once.
+		 *
+		 * Only as many as there are steps left to spend. One is the ordinary
+		 * case and runs exactly as a step always did.
+		 */
+		group, err := c.together(taskID, step, task.StepsLeft)
+		if err != nil {
+			return err
+		}
+
+		var carryOn bool
+
+		if len(group) == 1 {
+			carryOn, err = c.runStep(ctx, task, step)
+		} else {
+			carryOn, err = c.runTogether(ctx, task, group)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -377,6 +405,165 @@ func (c *Conductor) Work(ctx context.Context, taskID int64) error {
 			return nil
 		}
 	}
+}
+
+/*
+ * together is the next step and the waiting steps straight after it that were
+ * planned to stand alone, up to what may be spent.
+ */
+func (c *Conductor) together(taskID int64, first *store.TaskStep, most int) ([]*store.TaskStep, error) {
+	group := []*store.TaskStep{first}
+
+	steps, err := c.DB.Steps(taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, s := range steps {
+		if s.ID != first.ID {
+			continue
+		}
+
+		for _, next := range steps[i+1:] {
+			if !next.Together || next.State != store.StepWaiting || len(group) >= most {
+				break
+			}
+
+			next := next
+			group = append(group, &next)
+		}
+
+		break
+	}
+
+	return group, nil
+}
+
+/*
+ * runTogether works on several steps at once.
+ *
+ * Prepared in order, thought about side by side — each model call taking its
+ * turn in its lane, so on this machine they still go one at a time and on a
+ * hosted service they genuinely overlap — and settled in order again, because
+ * settling is where a task retries, hands on, escalates and replans, and two
+ * steps doing that at once would be two steps changing one plan.
+ *
+ * Once one of them stops the task, the rest are only written down: what they
+ * found is kept, a question they raised is linked so its answer still reaches
+ * the task, and a step that neither finished nor asked goes back to waiting to
+ * be done when the task picks up again.
+ */
+func (c *Conductor) runTogether(ctx context.Context, task *store.Task, group []*store.TaskStep) (bool, error) {
+	turns := []*turn{}
+
+	for _, step := range group {
+		t, err := c.prepare(task, step)
+		if t == nil {
+			if err != nil {
+				return false, err
+			}
+
+			break
+		}
+
+		turns = append(turns, t)
+	}
+
+	if len(turns) == 0 {
+		return false, nil
+	}
+
+	var wg sync.WaitGroup
+
+	for _, t := range turns {
+		wg.Add(1)
+
+		go func(t *turn) {
+			defer wg.Done()
+
+			c.think(ctx, task, t)
+		}(t)
+	}
+
+	wg.Wait()
+
+	carryOn := true
+
+	for _, t := range turns {
+		fresh, err := c.DB.Task(task.ID)
+		if err != nil {
+			return false, err
+		}
+
+		if carryOn && fresh.State == store.TaskWorking {
+			more, err := c.settle(ctx, fresh, t)
+			if err != nil {
+				return false, err
+			}
+
+			carryOn = more
+
+			continue
+		}
+
+		if err := c.setDown(fresh, t); err != nil {
+			return false, err
+		}
+	}
+
+	return carryOn, nil
+}
+
+// setDown records a step that ran beside one that stopped the task. See
+// runTogether.
+func (c *Conductor) setDown(task *store.Task, t *turn) error {
+	step := t.step
+
+	if t.res.WaitingForApproval() {
+		for _, p := range t.res.Pending {
+			if err := c.DB.LinkInvocationToStep(p.ID, task.ID, step.ID); err != nil {
+				return err
+			}
+		}
+
+		step.State = store.StepNeedsYou
+		step.Answer = t.res.Reply
+
+		return c.DB.FinishStep(*step)
+	}
+
+	step.State = store.StepWaiting
+	step.Answer = t.res.Reply
+
+	return c.DB.FinishStep(*step)
+}
+
+/*
+ * inLane is a provider whose calls queue in the right lane, named for the
+ * person and the step, so the view can say who has the model and who is
+ * waiting for it.
+ */
+func (c *Conductor) inLane(provider llm.Provider, member team.Agent, step *store.TaskStep) llm.Provider {
+	if c.Lanes == nil {
+		return provider
+	}
+
+	return lanes.Provider{Provider: provider, Lanes: c.Lanes, Seat: lanes.Seat{
+		Who:  orTitle(member),
+		What: trimTo(step.Instruction, 80),
+		Key:  fmt.Sprintf("step:%d", step.ID),
+	}}
+}
+
+// asking is a provider for the conductor's own calls — planning and checking
+// — queued like everybody else's.
+func (c *Conductor) asking(provider llm.Provider, who, what string) llm.Provider {
+	if c.Lanes == nil {
+		return provider
+	}
+
+	return lanes.Provider{Provider: provider, Lanes: c.Lanes, Seat: lanes.Seat{
+		Who: who, What: trimTo(what, 80)}}
 }
 
 // outOfBudget says which allowance ran out, in the owner's terms rather than
@@ -400,8 +587,42 @@ func (c *Conductor) outOfBudget(task *store.Task) string {
  * made rather than when this function is called again.
  */
 func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.TaskStep) (bool, error) {
+	t, err := c.prepare(task, step)
+	if t == nil {
+		return false, err
+	}
+
+	c.think(ctx, task, t)
+
+	return c.settle(ctx, task, t)
+}
+
+/*
+ * A turn is one step being worked on, from who is doing it to what came back.
+ *
+ * Split in three so that several can think at once while everything that
+ * decides what happens next still happens one step at a time. Preparing
+ * touches the row and the budget; thinking is the long part, and is all a
+ * model call; settling checks, retries, hands on, escalates, reviews and
+ * replans — any of which can change the task, and none of which may race
+ * another step doing the same.
+ */
+type turn struct {
+	step     *store.TaskStep
+	member   team.Agent
+	fit      team.Fit
+	provider llm.Provider
+	brief    agent.Brief
+
+	res agent.Result
+	err error
+}
+
+// prepare decides who does a step, with what, through which service. Nil
+// means it could not be started, and the task has already been told why.
+func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, error) {
 	if c.Agent == nil || c.Provider == nil {
-		return false, c.finish(task, store.TaskBlocked, "this build cannot run tasks")
+		return nil, c.finish(task, store.TaskBlocked, "this build cannot run tasks")
 	}
 
 	/*
@@ -463,11 +684,11 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 	if err != nil {
 		// Nothing can answer at all. Stopping at the next step is the point of
 		// asking every time.
-		return false, c.finish(task, store.TaskBlocked, plainly(err))
+		return nil, c.finish(task, store.TaskBlocked, plainly(err))
 	}
 
 	if err := c.DB.StartStep(step.ID, member.Name, provider.Name(), choice.Model); err != nil {
-		return false, err
+		return nil, err
 	}
 
 	step.Assignee = member.Name
@@ -484,7 +705,7 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 		step.Risk = string(now)
 
 		if err := c.DB.RaiseRisk(task.ID, step.ID, step.Risk); err != nil {
-			return false, err
+			return nil, err
 		}
 	}
 
@@ -500,7 +721,7 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 	step.Attempts++
 
 	if _, err := c.DB.SpendAStep(task.ID); err != nil {
-		return false, err
+		return nil, err
 	}
 
 	/*
@@ -527,23 +748,39 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 		only, withTools = c.lookingOnly(only, withTools)
 	}
 
-	res, err := c.Agent.RunBrief(ctx, task.WorkConversationID, provider,
-		c.brief(task, step, member), agent.Brief{
+	return &turn{
+		step:     step,
+		member:   member,
+		fit:      fit,
+		provider: c.inLane(provider, member, step),
+		brief: agent.Brief{
 			Choice: choice, WithTools: choice.Tools && withTools,
 			Only:  only,
 			Never: mergeLists(mergeLists(fit.Never, task.Never), TheOwnersOwn),
 			As:    member.Name,
 			Risk:  risk.Parse(step.Risk),
-		})
+		},
+	}, nil
+}
+
+// think is the model call, which is the part worth running side by side.
+func (c *Conductor) think(ctx context.Context, task *store.Task, t *turn) {
+	t.res, t.err = c.Agent.RunBrief(ctx, task.WorkConversationID, t.provider,
+		c.brief(task, t.step, t.member), t.brief)
 
 	// Whatever ran at high or critical without a question, kept on the row
 	// whether or not the step goes on to succeed. It happened either way.
-	step.Acted = withActed(step.Acted, actedUnasked(res))
+	t.step.Acted = withActed(t.step.Acted, actedUnasked(t.res))
 
 	// Spent whether or not it worked. A call that failed still cost the time.
-	if _, spendErr := c.DB.SpendOnTask(task.ID, atLeastOne(res.Rounds)); spendErr != nil {
+	if _, spendErr := c.DB.SpendOnTask(task.ID, atLeastOne(t.res.Rounds)); spendErr != nil {
 		c.Log.Warn("could not record what a step cost", "task", task.ID, "error", spendErr)
 	}
+}
+
+// settle is everything that follows from what came back.
+func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool, error) {
+	step, member, fit, res, err := t.step, t.member, t.fit, t.res, t.err
 
 	if err != nil {
 		step.State = store.StepFailed
@@ -1321,7 +1558,7 @@ func (c *Conductor) Resolved(ctx context.Context, invocation store.Invocation) e
 	 * for it. The budget and the deadline are read from the row, so a task
 	 * cannot buy itself more of either by having been parked.
 	 */
-	job, err := c.Jobs.StartSilent(task.Name, func(ctx context.Context) (string, error) {
+	job, err := c.Jobs.StartQueued(task.Name, func(ctx context.Context) (string, error) {
 		return "", c.Work(ctx, task.ID)
 	})
 	if err != nil {
@@ -1375,7 +1612,7 @@ func (c *Conductor) Resume(taskID int64) error {
 		return err
 	}
 
-	job, err := c.Jobs.StartSilent(task.Name, func(ctx context.Context) (string, error) {
+	job, err := c.Jobs.StartQueued(task.Name, func(ctx context.Context) (string, error) {
 		return "", c.Work(ctx, taskID)
 	})
 	if err != nil {

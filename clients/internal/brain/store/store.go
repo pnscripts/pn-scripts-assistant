@@ -629,6 +629,20 @@ var migrations = []string{
 	ALTER TABLE task_steps ADD COLUMN review_of INTEGER;
 	CREATE INDEX idx_tasks_parent ON tasks(parent_task_id);
 	`,
+
+	/*
+	 * 12: steps that can be done at the same time as the one before.
+	 *
+	 * Said by the planner, and only ever a permission: the conductor still
+	 * runs them one model call at a time on this machine's lane, and side by
+	 * side only where the lanes have room. A step that needs what the step
+	 * before it found is never marked, so marking one wrongly costs a step
+	 * that could not see something it would have been told — which is why
+	 * the planner is asked to mark only what plainly stands alone.
+	 */
+	`
+	ALTER TABLE task_steps ADD COLUMN together INTEGER;
+	`,
 }
 
 /*

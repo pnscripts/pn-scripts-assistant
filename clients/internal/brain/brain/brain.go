@@ -20,6 +20,7 @@ import (
 	"pn-scripts-assistant/internal/brain/appearance"
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/jobs"
+	"pn-scripts-assistant/internal/brain/lanes"
 	"pn-scripts-assistant/internal/brain/learning"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/machine"
@@ -134,6 +135,10 @@ type Brain struct {
 
 	// Tasks is work that outlives the sentence that asked for it.
 	Tasks *tasks.Conductor
+
+	// Lanes is how many model calls the work may make at once, and who is
+	// waiting for one. See the lanes package.
+	Lanes *lanes.Lanes
 
 	// taught is which skills are currently in the registry, so a reload can
 	// remove the ones whose files have gone.
@@ -252,6 +257,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	// Added after the brain exists, because they change the brain's own
 	// settings or act on its own queue, and so need a handle to it.
 	b.Jobs = &jobs.Runner{Announce: b.announce}
+
+	// Sized properly once the machine has been measured, in modelRoles; until
+	// then the fewest hosted lanes there may be, and one for this machine.
+	b.Lanes = lanes.New(lanes.FewestHosted)
 
 	/*
 	 * What it has been allowed to do, read once at the start.
@@ -708,6 +717,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Prompt:      func(provider string) string { return b.personaFor(provider, true) },
 		Say:         b.SayInto,
 		Budget:      tasks.Sensible(),
+		Lanes:       b.Lanes,
 	}
 
 	/*
@@ -847,6 +857,17 @@ func (b *Brain) modelRoles() llm.Sizes {
 
 			b.Log.Info("how much can run at once",
 				"tier", power.Tier(), "background jobs", b.Jobs.AtMost)
+		}
+
+		/*
+		 * And how many hosted calls may overlap, from the same measurement.
+		 *
+		 * The local lane is always one, whatever the machine: the model is in
+		 * one slot. What the machine decides is how much of somebody else's
+		 * thinking it can keep up with at once.
+		 */
+		if b.Lanes != nil {
+			b.Lanes.SetHosted(jobs.HowManyAtOnce(string(power.Tier())))
 		}
 
 		b.Log.Info("what this machine can run",
