@@ -32,6 +32,7 @@ import (
 	"pn-scripts-assistant/internal/brain/profile"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/smarthome"
 	"pn-scripts-assistant/internal/brain/speech"
 	"pn-scripts-assistant/internal/brain/storage"
@@ -565,7 +566,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 * can grant a permission in the approval they are looking at, and the
 		 * next call in the same turn should already know about it.
 		 */
-		MayI: func(who, tool string, changesSomething bool) permits.Answer {
+		MayI: func(who, tool string, changesSomething bool, level risk.Level) permits.Answer {
 			if b.Permits == nil {
 				if changesSomething {
 					return permits.Ask
@@ -574,7 +575,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 				return permits.Allow
 			}
 
-			return b.Permits.Decide(who, tool, changesSomething, b.Freedom())
+			return b.Permits.DecideAt(who, tool, changesSomething, b.Freedom(), level)
 		},
 
 		NothingAsks: func() bool { return b.Freedom() == permits.Everything },

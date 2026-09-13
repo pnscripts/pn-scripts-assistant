@@ -28,6 +28,7 @@ import (
 	"pn-scripts-assistant/internal/brain/jobs"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/org"
+	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/team"
 )
@@ -192,6 +193,9 @@ func (c *Conductor) Take(ctx context.Context, conversationID int64, request, pro
 
 	budget := c.budget()
 
+	// How serious it is, decided before anything is written or started.
+	serious := c.weighPlan(plan.Steps)
+
 	work, err := c.DB.NewTaskThread(plan.Name)
 	if err != nil {
 		return nil, false, err
@@ -210,6 +214,9 @@ func (c *Conductor) Take(ctx context.Context, conversationID int64, request, pro
 		ReplansLeft:        budget.MostReplans,
 		Deadline:           c.now().Add(budget.HowLong),
 	})
+	if err == nil {
+		err = c.DB.RaiseRisk(id, 0, string(serious))
+	}
 	if err != nil {
 		return nil, false, err
 	}
@@ -453,6 +460,22 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 	step.Assignee = member.Name
 
 	/*
+	 * And how serious it is, now that it is known who is doing it.
+	 *
+	 * The planner's name for the doer was a guess and this is who turned up.
+	 * A lawyer taking a step planned for the generalist makes it more
+	 * serious, never less — so it is raised on the row as well, and the task
+	 * with it, before any tool can run.
+	 */
+	if now := risk.Max(risk.Parse(step.Risk), c.weigh(*step, member)); now != risk.Parse(step.Risk) {
+		step.Risk = string(now)
+
+		if err := c.DB.RaiseRisk(task.ID, step.ID, step.Risk); err != nil {
+			return false, err
+		}
+	}
+
+	/*
 	 * The row counted this attempt, so the struct has to as well.
 	 *
 	 * Left at what NextStep read, the comparison below is always one behind:
@@ -487,7 +510,12 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 			Only:  only,
 			Never: append(append([]string{}, fit.Never...), TheOwnersOwn...),
 			As:    member.Name,
+			Risk:  risk.Parse(step.Risk),
 		})
+
+	// Whatever ran at high or critical without a question, kept on the row
+	// whether or not the step goes on to succeed. It happened either way.
+	step.Acted = withActed(step.Acted, actedUnasked(res))
 
 	// Spent whether or not it worked. A call that failed still cost the time.
 	if _, spendErr := c.DB.SpendOnTask(task.ID, atLeastOne(res.Rounds)); spendErr != nil {
@@ -648,7 +676,13 @@ func (c *Conductor) replan(ctx context.Context, task *store.Task, failed *store.
 		return false, err
 	}
 
+	serious := c.weighPlan(plan.Steps)
+
 	if err := c.DB.AddSteps(task.ID, plan.Steps); err != nil {
+		return false, err
+	}
+
+	if err := c.DB.RaiseRisk(task.ID, 0, string(serious)); err != nil {
 		return false, err
 	}
 
@@ -998,6 +1032,30 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 
 	if len(tail) > 0 {
 		sections = append(sections, strings.Join(tail, " "))
+	}
+
+	/*
+	 * And what it did that would have been asked about, had anything asked.
+	 *
+	 * Last, and always when there is any. Never stop is its owner's choice,
+	 * and the account of a task run under it is where that choice is
+	 * reviewed: which payments, which deletions, which messages went out
+	 * without a question. Leaving them to be found in the step detail would
+	 * be the setting working and nobody being able to tell what it did.
+	 */
+	var acted []string
+
+	for _, s := range steps {
+		for _, line := range strings.Split(s.Acted, "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				acted = append(acted, "• "+line)
+			}
+		}
+	}
+
+	if len(acted) > 0 {
+		sections = append(sections, "Done without asking, because it is set never to stop:\n"+
+			strings.Join(acted, "\n"))
 	}
 
 	return strings.Join(sections, "\n\n")

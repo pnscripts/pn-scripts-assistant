@@ -71,6 +71,26 @@
         return '';
     }
 
+    /*
+     * The level as a tag, or nothing.
+     *
+     * quietFrom is the least serious level worth drawing at all: in a list of
+     * tasks only high and critical earn the space, while the detail of one
+     * task names every level so nothing about it is left unsaid.
+     */
+    const LEVELS = ['low', 'medium', 'high', 'critical'];
+
+    function riskTag(level, quietFrom) {
+        const at = LEVELS.indexOf(level || 'low');
+
+        if (at < LEVELS.indexOf(quietFrom)) return null;
+
+        const tag = document.createElement('span');
+        tag.className = 'risk-tag risk-' + LEVELS[Math.max(at, 0)];
+        tag.textContent = LEVELS[Math.max(at, 0)] + ' risk';
+        return tag;
+    }
+
     function taskRow(task, withButtons) {
         const row = document.createElement('div');
         row.className = 'task-row';
@@ -86,6 +106,9 @@
         state.className = 'task-state';
         state.textContent = stateOf(task);
         row.appendChild(state);
+
+        const tag = riskTag(task.risk, 'high');
+        if (tag) row.insertBefore(tag, state);
 
         if (!withButtons) return row;
 
@@ -179,7 +202,9 @@
         card.hidden = false;
         el('task-detail-name').textContent = task.name;
 
-        el('task-detail-state').textContent = stateOf(task);
+        const stateLine = el('task-detail-state');
+        stateLine.textContent = stateOf(task) + ' ';
+        stateLine.appendChild(riskTag(task.risk, 'low'));
 
         /*
          * The report below the state, not appended to it.
@@ -214,7 +239,32 @@
             const what = document.createElement('div');
             what.className = 'task-step-what';
             what.textContent = step.instruction;
+
+            const stepTag = riskTag(step.risk, 'medium');
+            if (stepTag) what.appendChild(stepTag);
+
             body.appendChild(what);
+
+            /*
+             * What ran at high or critical without a question.
+             *
+             * Only ever on never stop. Listed on the step as well as in the
+             * report, so the one that moved money can be found where it
+             * happened rather than only in a paragraph at the end.
+             */
+            if (step.acted) {
+                const acted = document.createElement('ul');
+                acted.className = 'task-acted';
+
+                for (const line of step.acted.split('\n')) {
+                    if (!line.trim()) continue;
+                    const li = document.createElement('li');
+                    li.textContent = 'done without asking: ' + line;
+                    acted.appendChild(li);
+                }
+
+                body.appendChild(acted);
+            }
 
             const words = verdictWords(step);
             if (words) {

@@ -15,6 +15,7 @@ import (
 	"pn-scripts-assistant/internal/brain/jobs"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/permits"
+	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 )
@@ -158,7 +159,7 @@ func newConductor(t *testing.T, model llm.Provider, ts ...tools.Tool) (*Conducto
 
 			// The same gate a conversation gets: safe tools run, anything that
 			// changes something stops and asks.
-			MayI: func(_, _ string, changes bool) permits.Answer {
+			MayI: func(_, _ string, changes bool, _ risk.Level) permits.Answer {
 				if changes {
 					return permits.Ask
 				}

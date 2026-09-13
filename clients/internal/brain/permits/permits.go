@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/risk"
 )
 
 // FileName is where the standing grants live, beside the other small records
@@ -181,6 +183,24 @@ func Load(root string) (*Book, error) {
  * would make saying never pointless.
  */
 func (b *Book) Decide(who, tool string, changesSomething bool, freedom Freedom) Answer {
+	return b.DecideAt(who, tool, changesSomething, freedom, risk.Medium)
+}
+
+/*
+ * DecideAt is Decide for a piece of work known to be this serious.
+ *
+ * One addition, and it only ever adds a question. A critical action is asked
+ * about even where a standing grant or a yes-for-this-run would have let it
+ * through, because those were given about a capability and a capability is
+ * not a size: somebody who said "stop asking me about commands" said it about
+ * listing folders and running tests, not about formatting a disk.
+ *
+ * Except on never stop, never refuse. Its owner was offered that as nothing
+ * asking, including the risky ones, and chose it — so critical there is
+ * recorded rather than asked, and the record says what it would have been.
+ * Refusals still come first at every level: never is never.
+ */
+func (b *Book) DecideAt(who, tool string, changesSomething bool, freedom Freedom, level risk.Level) Answer {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
@@ -205,6 +225,10 @@ func (b *Book) Decide(who, tool string, changesSomething bool, freedom Freedom) 
 
 	if freedom == Everything {
 		return Allow
+	}
+
+	if level.AtLeast(risk.Critical) {
+		return Ask
 	}
 
 	if b.session[key("", tool)] || b.session[key(who, tool)] {

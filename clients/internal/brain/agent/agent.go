@@ -26,6 +26,7 @@ import (
 	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 )
@@ -96,7 +97,7 @@ type Loop struct {
 	 * Still one closure, wired once. Several agents must not mean several
 	 * gates that are meant to agree.
 	 */
-	MayI func(who, tool string, changesSomething bool) permits.Answer
+	MayI func(who, tool string, changesSomething bool, level risk.Level) permits.Answer
 
 	/*
 	 * NothingAsks is whether its owner has said never to stop.
@@ -183,6 +184,10 @@ type Step struct {
 	Result  string `json:"result,omitempty"`
 	Failed  bool   `json:"failed,omitempty"`
 	Millis  int64  `json:"millis"`
+
+	// Level is how serious the call was, weighed on what it was handed. See
+	// the risk package.
+	Level risk.Level `json:"level,omitempty"`
 }
 
 type Result struct {
@@ -346,6 +351,16 @@ type Brief struct {
 	 * of them have been allowed.
 	 */
 	As string
+
+	/*
+	 * Risk is how serious the work this turn belongs to is.
+	 *
+	 * A floor under every call that changes something, never under a look:
+	 * a critical step's file write is as critical as the step, where its
+	 * directory listing is still only a directory listing. Empty is a
+	 * conversation, where each call is weighed on its own.
+	 */
+	Risk risk.Level
 }
 
 // RunBrief is one turn, with everything about it decided by the caller.
@@ -772,10 +787,21 @@ func (l *Loop) RunBrief(
 			 */
 			changes := tool.Risk() == tools.Mutating
 
+			/*
+			 * How serious this call is: the tool's own weighing of what it was
+			 * handed, and — for anything that changes something — never less
+			 * than the work it belongs to.
+			 */
+			level := tools.LevelOf(tool, call.Arguments)
+
+			if changes {
+				level = risk.Max(level, brief.Risk)
+			}
+
 			answer := permits.Ask
 
 			if l.MayI != nil {
-				answer = l.MayI(brief.As, tool.Name(), changes)
+				answer = l.MayI(brief.As, tool.Name(), changes, level)
 			} else if !changes {
 				answer = permits.Allow
 			}
@@ -810,7 +836,22 @@ func (l *Loop) RunBrief(
 				ask = false
 			}
 
+			/*
+			 * The level said in the question, when it is worth saying.
+			 *
+			 * High and critical only. Prefixing every approval with "medium"
+			 * would be a word people learn to skip, and the point is the two
+			 * that should not be skipped.
+			 */
+			asked := summary
+
+			if level.AtLeast(risk.High) {
+				asked = level.Title() + " risk — " + summary
+			}
+
 			if answer == permits.Ask || ask {
+				summary = asked
+
 				l.doing("waiting", "Waiting for you: "+summary)
 
 				id, err := l.DB.RecordInvocation(conversationID, tool.Name(), string(call.Arguments), summary, string(tools.Mutating))
@@ -845,6 +886,7 @@ func (l *Loop) RunBrief(
 				Summary: summary,
 				Asked:   askedFor(call.Arguments),
 				Millis:  time.Since(started).Milliseconds(),
+				Level:   level,
 			}
 
 			if err != nil {

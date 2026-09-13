@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"pn-scripts-assistant/internal/brain/risk"
 )
 
 /*
@@ -127,6 +129,49 @@ func TestDoingEverythingStillAsksNobody(t *testing.T) {
 
 	if got := b.Decide("", "write_file", true, Everything); got != Allow {
 		t.Errorf("still asking under 'everything': %v", got)
+	}
+}
+
+/*
+ * A grant is about a capability, and a capability is not a size.
+ *
+ * Somebody who said "stop asking me about commands" said it about listing
+ * folders and running tests. Formatting a disk is the same tool and a
+ * different question, so a critical action asks through a standing grant and
+ * through a yes-for-this-run alike — and on never stop it does not, because
+ * that was offered as nothing asking, the risky things included.
+ */
+func TestACriticalActionAsksThroughAGrant(t *testing.T) {
+	b, _ := Load(t.TempDir())
+
+	b.Remember("run_command", Allow, "run the tests")
+	b.ForThisRun("run_command")
+
+	if got := b.DecideAt("", "run_command", true, WhatIveAllowed, risk.High); got != Allow {
+		t.Errorf("a high action was stopped despite the grant: %v", got)
+	}
+
+	if got := b.DecideAt("", "run_command", true, WhatIveAllowed, risk.Critical); got != Ask {
+		t.Errorf("a critical action went through on a grant for the capability: %v", got)
+	}
+
+	if got := b.DecideAt("", "run_command", true, AskEveryTime, risk.Critical); got != Ask {
+		t.Errorf("a critical action went through on a grant for this run: %v", got)
+	}
+
+	if got := b.DecideAt("", "run_command", true, Everything, risk.Critical); got != Allow {
+		t.Errorf("never stop asked about a critical action: %v", got)
+	}
+
+	// Looking stays looking, whatever the level: a read is never the question.
+	if got := b.DecideAt("", "read_file", false, AskEveryTime, risk.Critical); got != Allow {
+		t.Errorf("reading something was asked about because it was critical: %v", got)
+	}
+
+	b.Remember("run_command", Refuse, "never")
+
+	if got := b.DecideAt("", "run_command", true, Everything, risk.Critical); got != Refuse {
+		t.Errorf("a refusal gave way to never stop: %v", got)
 	}
 }
 

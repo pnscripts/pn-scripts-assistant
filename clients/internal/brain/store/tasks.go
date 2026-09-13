@@ -81,7 +81,11 @@ type Task struct {
 	CallsLeft   int `json:"calls_left"`
 	ReplansLeft int `json:"replans_left"`
 
-	Deadline  time.Time `json:"deadline,omitempty"`
+	Deadline time.Time `json:"deadline,omitempty"`
+
+	// Risk is the most serious of its steps. See the risk package.
+	Risk string `json:"risk,omitempty"`
+
 	Report    string    `json:"report,omitempty"`
 	Because   string    `json:"blocked_because,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
@@ -124,6 +128,14 @@ type TaskStep struct {
 	State    string `json:"state"`
 	Attempts int    `json:"attempts"`
 
+	// Risk is how serious this step is, worked out when it was planned and
+	// raised — never lowered — when it is known who is doing it.
+	Risk string `json:"risk,omitempty"`
+
+	// Acted is what ran at high or critical without being asked, one line
+	// each. See migration 10.
+	Acted string `json:"acted,omitempty"`
+
 	Answer    string `json:"answer,omitempty"`
 	Evidence  string `json:"evidence,omitempty"`
 	CheckedBy string `json:"checked_by,omitempty"`
@@ -138,7 +150,7 @@ const taskColumns = `id, name, goal, done_when, state,
 	COALESCE(conversation_id,0), COALESCE(work_conversation_id,0), provider,
 	COALESCE(job_id,0), steps_left, calls_left, replans_left,
 	COALESCE(deadline,''), COALESCE(report,''), COALESCE(blocked_because,''),
-	created_at, updated_at, COALESCE(finished_at,'')`
+	created_at, updated_at, COALESCE(finished_at,''), COALESCE(risk,'')`
 
 func scanTask(row interface{ Scan(...any) error }) (Task, error) {
 	var (
@@ -150,7 +162,7 @@ func scanTask(row interface{ Scan(...any) error }) (Task, error) {
 	err := row.Scan(&t.ID, &t.Name, &t.Goal, &t.DoneWhen, &t.State,
 		&t.ConversationID, &t.WorkConversationID, &t.Provider,
 		&t.JobID, &t.StepsLeft, &t.CallsLeft, &t.ReplansLeft,
-		&deadline, &report, &because, &created, &updated, &ended)
+		&deadline, &report, &because, &created, &updated, &ended, &t.Risk)
 	if err != nil {
 		return t, err
 	}
@@ -382,6 +394,45 @@ func (d *DB) FinishTask(id int64, state, report, because string) error {
 	return err
 }
 
+/*
+ * RaiseRisk makes a task and one of its steps at least this serious.
+ *
+ * Raise only, in SQL rather than by the caller comparing first: the order of
+ * the four words is not alphabetical, and a comparison written in two places
+ * is a comparison that will one day disagree with itself. A step can learn
+ * it is more serious once it is known who is doing it; nothing learns that it
+ * is less.
+ */
+func (d *DB) RaiseRisk(taskID, stepID int64, level string) error {
+	const rank = `CASE %s WHEN 'critical' THEN 3 WHEN 'high' THEN 2 WHEN 'medium' THEN 1 ELSE 0 END`
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	if stepID != 0 {
+		if _, err := d.sql().Exec(fmt.Sprintf(`
+			UPDATE task_steps SET risk = ?, updated_at = ?
+			WHERE id = ? AND `+rank+` < `+rank, "risk", "?"),
+			level, now, stepID, level); err != nil {
+			return err
+		}
+	}
+
+	_, err := d.sql().Exec(fmt.Sprintf(`
+		UPDATE tasks SET risk = ?, updated_at = ?
+		WHERE id = ? AND `+rank+` < `+rank, "COALESCE(risk,'')", "?"),
+		level, now, taskID, level)
+
+	return err
+}
+
+func nullText(s string) any {
+	if s == "" {
+		return nil
+	}
+
+	return s
+}
+
 // SetTaskJob records the background handle, so Stop in the interface reaches
 // the goroutine actually doing the work.
 func (d *DB) SetTaskJob(id, jobID int64) error {
@@ -417,10 +468,10 @@ func (d *DB) AddSteps(taskID int64, steps []TaskStep) error {
 	for i, s := range steps {
 		_, err := tx.Exec(`
 			INSERT INTO task_steps (task_id, position, instruction, done_when, kind,
-				changes, assignee, state, created_at, updated_at)
-			VALUES (?,?,?,?,?,?,?,?,?,?)`,
+				changes, assignee, risk, state, created_at, updated_at)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
 			taskID, highest+i+1, s.Instruction, s.DoneWhen, orElse(s.Kind, StepDo),
-			s.Changes, s.Assignee, StepWaiting, now, now)
+			s.Changes, s.Assignee, orElse(s.Risk, "low"), StepWaiting, now, now)
 		if err != nil {
 			return fmt.Errorf("writing step %d: %w", i+1, err)
 		}
@@ -433,7 +484,7 @@ const stepColumns = `id, task_id, position, instruction, done_when, kind, change
 	assignee, provider, model, state, attempts,
 	COALESCE(answer,''), COALESCE(evidence,''), COALESCE(checked_by,''),
 	COALESCE(verdict,''), COALESCE(why,''),
-	COALESCE(started_at,''), COALESCE(ended_at,'')`
+	COALESCE(started_at,''), COALESCE(ended_at,''), COALESCE(risk,''), COALESCE(acted,'')`
 
 func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	var (
@@ -444,7 +495,7 @@ func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	err := row.Scan(&s.ID, &s.TaskID, &s.Position, &s.Instruction, &s.DoneWhen,
 		&s.Kind, &s.Changes, &s.Assignee, &s.Provider, &s.Model, &s.State,
 		&s.Attempts, &s.Answer, &s.Evidence, &s.CheckedBy, &s.Verdict, &s.Why,
-		&started, &ended)
+		&started, &ended, &s.Risk, &s.Acted)
 	if err != nil {
 		return s, err
 	}
@@ -561,9 +612,10 @@ func (d *DB) FinishStep(s TaskStep) error {
 	_, err := d.sql().Exec(`
 		UPDATE task_steps
 		SET state = ?, answer = ?, evidence = ?, checked_by = ?, verdict = ?,
-		    why = ?, ended_at = ?, updated_at = ?
+		    why = ?, acted = ?, ended_at = ?, updated_at = ?
 		WHERE id = ?`,
-		s.State, s.Answer, s.Evidence, s.CheckedBy, s.Verdict, s.Why, ended, now, s.ID)
+		s.State, s.Answer, s.Evidence, s.CheckedBy, s.Verdict, s.Why, nullText(s.Acted),
+		ended, now, s.ID)
 
 	return err
 }

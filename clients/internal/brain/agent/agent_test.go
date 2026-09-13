@@ -16,6 +16,7 @@ import (
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 )
@@ -900,7 +901,7 @@ func TestNeverStopReadsAProtectedFileWithoutAsking(t *testing.T) {
 
 	loop, db := newLoop(t, tools.ReadFile{})
 	loop.NothingAsks = func() bool { return true }
-	loop.MayI = func(who, tool string, changes bool) permits.Answer { return permits.Allow }
+	loop.MayI = func(who, tool string, changes bool, _ risk.Level) permits.Answer { return permits.Allow }
 
 	model := &scripted{replies: []llm.Response{{
 		ToolCalls: []llm.ToolCall{{

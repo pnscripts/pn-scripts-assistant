@@ -4833,6 +4833,48 @@ select { font-size: 13.5px; }
     color: var(--text-dim);
 }
 
+/*
+ * How serious a task or a step is.
+ *
+ * A word, always, and a colour beside it — never the colour alone, because
+ * the question it answers ("will this move money") is not one to leave to
+ * somebody telling amber from red. Medium is drawn quietly on purpose: most
+ * work that changes anything is medium, and a loud tag on all of it would be
+ * the tag nobody reads by the time a critical one appears.
+ */
+.risk-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.risk-tag.risk-high { border-color: var(--warn); color: var(--warn); }
+
+.risk-tag.risk-critical { border-color: var(--danger); color: var(--danger); font-weight: 600; }
+
+.task-step-what .risk-tag { margin-left: 6px; vertical-align: 1px; }
+
+/*
+ * The account a task gives of itself keeps its lines.
+ *
+ * It is written as sections and bullets, one a line, and a paragraph folds
+ * all of that into one run of text — so "Done without asking" read as the
+ * tail of the sentence before it, which is the one line on the page that has
+ * to stand on its own.
+ */
+#task-detail-report { white-space: pre-line; }
+
+.task-acted {
+    margin: 5px 0 0;
+    padding-left: 14px;
+    font-size: 10.5px;
+    color: var(--warn);
+}
+
 .task-button {
     border: 1px solid var(--line);
     background: var(--bg-raised);

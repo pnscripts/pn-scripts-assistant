@@ -8,6 +8,7 @@ import (
 
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/permits"
+	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/tools"
 )
 
@@ -174,7 +175,7 @@ func TestTheGateIsToldWhoIsAsking(t *testing.T) {
 
 	asked := []string{}
 
-	loop.MayI = func(who, tool string, changes bool) permits.Answer {
+	loop.MayI = func(who, tool string, changes bool, _ risk.Level) permits.Answer {
 		asked = append(asked, who)
 
 		if who == "writer" {

@@ -578,6 +578,27 @@ var migrations = []string{
 	ALTER TABLE occupations ADD COLUMN near TEXT;
 	ALTER TABLE occupations ADD COLUMN sources TEXT;
 	`,
+
+	/*
+	 * 10: how serious each piece of work is.
+	 *
+	 * On the task and on every step, because they are different claims: a
+	 * task is as serious as its most serious step, and the view should be
+	 * able to say which step that was rather than only that there is one.
+	 *
+	 * acted is what ran at high or critical without anybody being asked — one
+	 * summary a line. Only ever written on never stop, never refuse, where
+	 * nothing asks by its owner's choice, and it is the half of that choice
+	 * that makes it reviewable: the task's account names each one.
+	 *
+	 * Nullable, like every added column. A row from before this reads as low,
+	 * which is what it was treated as when it ran.
+	 */
+	`
+	ALTER TABLE tasks ADD COLUMN risk TEXT;
+	ALTER TABLE task_steps ADD COLUMN risk TEXT;
+	ALTER TABLE task_steps ADD COLUMN acted TEXT;
+	`,
 }
 
 /*
