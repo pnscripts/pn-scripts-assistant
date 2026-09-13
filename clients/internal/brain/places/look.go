@@ -43,9 +43,17 @@ type Reads interface {
 		progress func(learning.IngestReport)) (learning.IngestReport, error)
 }
 
-// Seen answers what has already been looked at, so it is not looked at twice.
+/*
+ * Seen answers when each thing was last looked at, so it is not looked at
+ * twice for nothing — and is looked at again when it has changed.
+ *
+ * When, rather than whether. Whether was the first version, and it meant a
+ * document read once was never read again: every source ever recorded counted
+ * as seen, at any status, forever. Memory could grow and could not correct
+ * itself, which is most of why it could not get sharper.
+ */
 type Seen interface {
-	KnownSources(under string) (map[string]bool, error)
+	SourcesSeenAt(under string) (map[string]time.Time, error)
 }
 
 // Pass is what one look at a place did.
@@ -91,18 +99,12 @@ func Look(ctx context.Context, learner Reads, seen Seen, owner string, p Place) 
 		return out, err
 	}
 
-	already, err := seen.KnownSources(p.Path)
+	already, err := seen.SourcesSeenAt(p.Path)
 	if err != nil {
 		return out, err
 	}
 
-	fresh := make(learning.Observations, 0, len(observations))
-
-	for _, o := range observations {
-		if !already[o.Source] {
-			fresh = append(fresh, o)
-		}
-	}
+	fresh := worthReading(observations, already)
 
 	out.New = len(fresh)
 	out.Place.Waiting = len(fresh)
@@ -196,18 +198,41 @@ func Count(seen Seen, owner string, p Place) (int, error) {
 		return 0, err
 	}
 
-	already, err := seen.KnownSources(p.Path)
+	already, err := seen.SourcesSeenAt(p.Path)
 	if err != nil {
 		return 0, err
 	}
 
-	var waiting int
+	// The same rule as the pass itself, so what it says is waiting and what it
+	// then reads are the same set. Two functions deciding this separately is
+	// how a place reports nothing to do and then does something.
+	return len(worthReading(observations, already)), nil
+}
+
+/*
+ * worthReading is everything not seen, plus everything seen that has changed
+ * since.
+ *
+ * The second half is the whole of what lets memory correct itself. An
+ * observation that cannot say when its source changed is treated as unchanged
+ * — the safe way round, because reading one thing twice costs seconds and
+ * reading everything twice costs an evening.
+ */
+func worthReading(observations learning.Observations, seenAt map[string]time.Time) learning.Observations {
+	fresh := make(learning.Observations, 0, len(observations))
 
 	for _, o := range observations {
-		if !already[o.Source] {
-			waiting++
+		seen, known := seenAt[o.Source]
+
+		switch {
+		case !known:
+			fresh = append(fresh, o)
+		case o.Changed.IsZero():
+			// Nothing to compare against, so nothing has visibly changed.
+		case o.Changed.After(seen):
+			fresh = append(fresh, o)
 		}
 	}
 
-	return waiting, nil
+	return fresh
 }

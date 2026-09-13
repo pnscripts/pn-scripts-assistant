@@ -143,11 +143,23 @@ func (d *DB) SetLessonStatus(id int64, status string) error {
 func (d *DB) PromoteLesson(lessonID int64, category, content string, embedding []float32) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	/*
+	 * Where it came from is copied here, not left behind in the lesson.
+	 *
+	 * A fact outlives the lesson it was promoted from — deleting a
+	 * conversation nulls that link deliberately — and a fact that cannot say
+	 * where it came from can never be retired when that place is gone. Which
+	 * is most of how memory stops being wrong.
+	 */
+	var source string
+
+	d.sql().QueryRow(`SELECT COALESCE(source,'') FROM lessons WHERE id = ?`, lessonID).Scan(&source)
+
 	res, err := d.sql().Exec(
 		`INSERT INTO knowledge_facts
-		 (promoted_from_lesson_id, category, content, embedding, dimensions, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		lessonID, category, content, EncodeVector(embedding), len(embedding), now, now,
+		 (promoted_from_lesson_id, category, content, embedding, dimensions, source, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		lessonID, category, content, EncodeVector(embedding), len(embedding), source, now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("promoting lesson %d: %w", lessonID, err)
@@ -202,6 +214,49 @@ func (d *DB) Lesson(id int64) (*Lesson, error) {
  * rejected because the file had gone. All three mean "already seen", and only
  * this table knows about the last two.
  */
+/*
+ * SourcesSeenAt is when each place was last read, rather than merely whether.
+ *
+ * KnownSources answers "have I seen this", and that answer alone meant a
+ * document read in March and rewritten in June was never looked at again:
+ * every source ever recorded counted as seen, at any status, forever. Memory
+ * could grow and could not correct itself.
+ *
+ * The newest lesson from each place, because a place read twice has two and
+ * the question is when it was last done.
+ */
+func (d *DB) SourcesSeenAt(under string) (map[string]time.Time, error) {
+	rows, err := d.sql().Query(
+		`SELECT source, MAX(created_at) FROM lessons
+		 WHERE source IS NOT NULL AND source <> '' GROUP BY source`)
+	if err != nil {
+		return nil, fmt.Errorf("reading when things were last seen: %w", err)
+	}
+
+	defer rows.Close()
+
+	seen := map[string]time.Time{}
+
+	for rows.Next() {
+		var source, at string
+
+		if err := rows.Scan(&source, &at); err != nil {
+			return nil, err
+		}
+
+		// A source is written "document:/path/to/it", so a plain prefix match
+		// against the folder finds nothing. Filtered in Go for the same reason
+		// KnownSources is.
+		if under != "" && !strings.Contains(source, under) {
+			continue
+		}
+
+		seen[source] = atTime(at)
+	}
+
+	return seen, rows.Err()
+}
+
 func (d *DB) KnownSources(under string) (map[string]bool, error) {
 	rows, err := d.sql().Query(
 		`SELECT DISTINCT source FROM lessons WHERE source IS NOT NULL AND source <> ''`)

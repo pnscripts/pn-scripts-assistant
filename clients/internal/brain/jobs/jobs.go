@@ -39,6 +39,15 @@ type Job struct {
 	Result  string    `json:"result,omitempty"`
 	Err     string    `json:"error,omitempty"`
 
+	/*
+	 * Silent is a job that reports itself.
+	 *
+	 * A task writes its own account when it finishes — what it did, what was
+	 * verified and what it only has its own word for — and "Finished going
+	 * through your projects." said afterwards is the same news, worse, twice.
+	 */
+	Silent bool `json:"silent,omitempty"`
+
 	cancel context.CancelFunc
 }
 
@@ -113,6 +122,15 @@ func HowManyAtOnce(tier string) int {
  * produced it.
  */
 func (r *Runner) Start(what string, work func(context.Context) (string, error)) (Job, error) {
+	return r.start(what, false, work)
+}
+
+// StartSilent is Start for work that will say what it did in its own words.
+func (r *Runner) StartSilent(what string, work func(context.Context) (string, error)) (Job, error) {
+	return r.start(what, true, work)
+}
+
+func (r *Runner) start(what string, silent bool, work func(context.Context) (string, error)) (Job, error) {
 	r.mu.Lock()
 
 	if r.jobs == nil {
@@ -149,15 +167,50 @@ func (r *Runner) Start(what string, work func(context.Context) (string, error)) 
 		What:    what,
 		State:   Running,
 		Started: time.Now(),
+		Silent:  silent,
 		cancel:  cancel,
 	}
 
 	r.jobs[job.ID] = job
 
+	/*
+	 * Copied while the lock is still held, and returned instead of the job.
+	 *
+	 * The goroutine below writes to the same struct the moment the work
+	 * finishes, and returning *job read it without the lock — a race the
+	 * detector finds immediately once anything actually looks at what Start
+	 * gave back. Nothing did, until a task started a job and asked for its
+	 * number in the next line.
+	 */
+	snapshot := *job
+
 	r.mu.Unlock()
 
 	go func() {
-		result, err := work(ctx)
+		/*
+		 * A job that panics fails; it does not take the program down.
+		 *
+		 * This runs on a goroutine of its own, and an unrecovered panic there
+		 * is the whole process — no request survives it, nothing is written,
+		 * and what somebody sees is their assistant vanishing while it was
+		 * working on something for them. A nil field in a task conductor did
+		 * exactly that once. Work running unattended is precisely the work
+		 * nobody is watching closely enough to explain a disappearance.
+		 */
+		var (
+			result string
+			err    error
+		)
+
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("this stopped unexpectedly: %v", r)
+				}
+			}()
+
+			result, err = work(ctx)
+		}()
 
 		r.mu.Lock()
 
@@ -181,12 +234,12 @@ func (r *Runner) Start(what string, work func(context.Context) (string, error)) 
 
 		// Outside the lock: announcing means speaking, which takes seconds and
 		// must not hold up anything else finishing.
-		if announce != nil {
+		if announce != nil && !finished.Silent {
 			announce(finished)
 		}
 	}()
 
-	return *job, nil
+	return snapshot, nil
 }
 
 // List reports what is happening and what recently happened, newest first.

@@ -240,12 +240,51 @@ func (c Curator) Promote(ctx context.Context, lesson store.Lesson) (int64, error
 		return 0, nil
 	}
 
+	/*
+	 * What this place used to say, before this reading of it.
+	 *
+	 * Gathered before the new fact is written, because afterwards the new one
+	 * is among them. A document read in March and rewritten in June left both
+	 * readings in memory, equally confident, and the answer depended on which
+	 * happened to be worded more like the question — so the March one is
+	 * retired the moment a June one arrives from the same place.
+	 *
+	 * Only for a place: a file, a project, a website. A lesson from a
+	 * conversation has no source, and two things somebody said in different
+	 * weeks are two things they said rather than a correction — deciding
+	 * otherwise would need a model, and would be it deciding which of their
+	 * own statements they no longer mean.
+	 */
+	var replaced []store.Fact
+
+	if lesson.Source != "" {
+		replaced, _ = c.DB.FactsFromSource(lesson.Source)
+	}
+
 	id, err := c.DB.PromoteLesson(lesson.ID, categoryFor(lesson.Source), lesson.Content, vec)
 	if err != nil {
 		return 0, err
 	}
 
+	for _, old := range replaced {
+		if err := c.DB.Supersede(old.ID, id, "read again from "+plainSource(lesson.Source)); err != nil {
+			return id, err
+		}
+	}
+
 	return id, c.DB.SetLessonStatus(lesson.ID, StatusPromoted)
+}
+
+// plainSource is where something came from, without the prefix the scanner
+// uses to tell one kind of place from another.
+func plainSource(source string) string {
+	for _, prefix := range []string{"project:", "document:", "browser:"} {
+		if rest, found := strings.CutPrefix(source, prefix); found {
+			return rest
+		}
+	}
+
+	return source
 }
 
 func categoryFor(source string) string {

@@ -156,8 +156,12 @@ func (d *DB) LatestConversation() (*Conversation, error) {
 	var title sql.NullString
 	var created string
 
+	// kind IS NULL leaves out the threads tasks work in. They are a full
+	// record of what a task did and belong in the Tasks view, not in the one
+	// place the program looks to reopen what somebody was last saying.
 	err := d.sql().QueryRow(`
 		SELECT id, title, created_at FROM conversations
+		WHERE kind IS NULL
 		ORDER BY updated_at DESC, id DESC LIMIT 1`).Scan(&c.ID, &title, &created)
 
 	if err == sql.ErrNoRows {
@@ -263,6 +267,7 @@ func (d *DB) RecentConversations(limit int) ([]Recent, error) {
 		         ORDER BY id LIMIT 1) AS opening
 		FROM conversations c
 		JOIN messages m ON m.conversation_id = c.id
+		WHERE c.kind IS NULL
 		GROUP BY c.id
 		HAVING opening IS NOT NULL AND TRIM(opening) <> ''
 		ORDER BY last_at DESC

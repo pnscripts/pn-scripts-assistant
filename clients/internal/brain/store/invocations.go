@@ -36,10 +36,14 @@ type Invocation struct {
 func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, risk string) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	// The conversation is stored rather than discarded. It has been a
+	// parameter since this was written and went nowhere, so an approval could
+	// never be traced back to what was being discussed when it was proposed.
 	res, err := d.sql().Exec(
-		`INSERT INTO tool_invocations (tool, arguments, summary, risk, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		tool, arguments, summary, risk, InvocationPending, now, now,
+		`INSERT INTO tool_invocations
+		   (tool, arguments, summary, risk, status, conversation_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		tool, arguments, summary, risk, InvocationPending, conversationID, now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("recording tool call: %w", err)
@@ -129,4 +133,71 @@ func (d *DB) CompleteInvocation(id int64, status, result string) error {
 	)
 
 	return err
+}
+
+/*
+ * Habit is what somebody has actually decided about one tool.
+ *
+ * Every approval and every refusal has been written down since the gate was
+ * built, and nothing has ever read any of it back. That record is the only
+ * honest answer to "what does this person want me to stop asking about" — and
+ * without it the gate cannot get less annoying, so it gets clicked through
+ * instead, at which point it looks like protection and is not.
+ */
+type Habit struct {
+	Tool     string `json:"tool"`
+	Approved int    `json:"approved"`
+	Refused  int    `json:"refused"`
+
+	// Last is the most recent decision, so a habit somebody has since changed
+	// their mind about can be told from one they are still in.
+	Last time.Time `json:"last"`
+}
+
+// Settled reports whether this is a habit rather than a coincidence: enough
+// decisions, all of them the same way.
+func (h Habit) Settled(enough int) bool {
+	if h.Approved+h.Refused < enough {
+		return false
+	}
+
+	return h.Approved == 0 || h.Refused == 0
+}
+
+// Habits is what has been decided about each tool, most-decided first.
+func (d *DB) Habits() ([]Habit, error) {
+	rows, err := d.sql().Query(`
+		SELECT tool,
+		       COUNT(*) FILTER (WHERE status IN (?, ?)) AS approved,
+		       COUNT(*) FILTER (WHERE status = ?)       AS refused,
+		       MAX(COALESCE(decided_at, updated_at))    AS last
+		FROM tool_invocations
+		WHERE status <> ?
+		GROUP BY tool
+		ORDER BY approved + refused DESC, tool`,
+		InvocationApproved, InvocationDone, InvocationDenied, InvocationPending)
+	if err != nil {
+		return nil, fmt.Errorf("reading what has been decided: %w", err)
+	}
+
+	defer rows.Close()
+
+	out := []Habit{}
+
+	for rows.Next() {
+		var (
+			h    Habit
+			last string
+		)
+
+		if err := rows.Scan(&h.Tool, &h.Approved, &h.Refused, &last); err != nil {
+			return nil, err
+		}
+
+		h.Last = atTime(last)
+
+		out = append(out, h)
+	}
+
+	return out, rows.Err()
 }

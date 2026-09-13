@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Project is one codebase found on disk.
@@ -331,10 +332,19 @@ func (p Project) Source() string { return "project:" + p.Path }
 
 // Document is one file worth remembering.
 type Document struct {
-	Path       string
-	Name       string
-	Kind       string
+	Path string
+	Name string
+	Kind string
+
+	// ModifiedAt is the date as it is read back to a person, so it stays a
+	// date rather than a timestamp nobody asked for.
 	ModifiedAt string
+
+	// Modified is the same moment at full precision, which is what decides
+	// whether a document has changed since it was last read. A date alone
+	// would miss anything edited twice in one day — which for the file
+	// somebody is actually working on is most days.
+	Modified time.Time
 }
 
 // documentKinds are the extensions worth recording.
@@ -453,6 +463,7 @@ func ScanDocuments(root string) ([]Document, error) {
 
 		if info, err := d.Info(); err == nil {
 			doc.ModifiedAt = info.ModTime().Format("2006-01-02")
+			doc.Modified = info.ModTime()
 		}
 
 		found = append(found, doc)
@@ -504,6 +515,17 @@ func truncateRunes(s string, n int) string {
 type Observation struct {
 	Content string
 	Source  string
+
+	/*
+	 * Changed is when the thing this came from last changed, or zero when
+	 * there is no such thing to ask.
+	 *
+	 * Without it, a place already seen was skipped forever: every source ever
+	 * recorded counted as seen, at any status, so a document read in March and
+	 * rewritten in June was never looked at again. Memory could grow and could
+	 * not correct itself, which is most of why it could not get sharper.
+	 */
+	Changed time.Time
 }
 
 // Observations turns a scan into the claims the pipeline accepts.
@@ -525,7 +547,11 @@ func FromDocuments(docs []Document, owner string) Observations {
 	out := make(Observations, 0, len(docs))
 
 	for _, d := range docs {
-		out = append(out, Observation{Content: d.Sentence(owner), Source: d.Source()})
+		out = append(out, Observation{
+			Content: d.Sentence(owner),
+			Source:  d.Source(),
+			Changed: d.changed(),
+		})
 	}
 
 	// And a mark against each one whose insides can be read, so the reading is
@@ -648,3 +674,8 @@ func PathIn(sentence string) string {
 
 	return strings.TrimRight(strings.TrimSpace(rest), ".,")
 }
+
+// changed is when this document was last written, or zero when the scan could
+// not tell. Zero means never re-read, which is the safe way round: reading one
+// thing twice costs seconds, and reading everything twice costs an evening.
+func (d Document) changed() time.Time { return d.Modified }

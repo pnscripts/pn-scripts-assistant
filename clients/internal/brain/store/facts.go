@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
 )
@@ -15,12 +16,32 @@ type Fact struct {
 	Dimensions int
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+
+	// Source is where it came from, copied at promotion so a fact can still
+	// say so after the lesson it came from has gone.
+	Source string
+
+	// Used is how many times this has been recalled into an answer, and when
+	// last. What makes recall able to learn: a fact that keeps proving
+	// relevant is more likely to be relevant again.
+	Used     int
+	LastUsed time.Time
 }
 
 // Scored pairs a fact with how well it matched a query.
 type Scored struct {
 	Fact
+
+	// Score is how well it matches, which is what the floor is judged on.
 	Score float64
+
+	// Similarity is the same number kept under its own name, so the two parts
+	// of the ranking stay tellable apart by anything showing its working.
+	Similarity float64
+
+	// Worth is the small bonus a fact has earned by proving useful before.
+	// Never more than five hundredths — see worth.
+	Worth float64
 }
 
 // AddFact stores a fact and returns its id.
@@ -50,7 +71,16 @@ func (d *DB) AddFact(category, content string, embedding []float32) (int64, erro
 // CountFacts reports how many facts exist, embedded or not.
 func (d *DB) CountFacts() (int, error) {
 	var n int
-	err := d.sql().QueryRow(`SELECT COUNT(*) FROM knowledge_facts`).Scan(&n)
+	/*
+	 * What it still believes, which is what every count of memory now means.
+	 *
+	 * This number goes into the system prompt — "you remember N things about
+	 * Petar" — so counting things it has retired would have it telling the
+	 * model, every turn, that it knows more than it does.
+	 */
+	err := d.sql().QueryRow(`
+		SELECT COUNT(*) FROM knowledge_facts
+		WHERE retired_at IS NULL AND superseded_by IS NULL`).Scan(&n)
 
 	return n, err
 }
@@ -59,7 +89,9 @@ func (d *DB) CountFacts() (int, error) {
 func (d *DB) FactsByCategory() (map[string]int, error) {
 	rows, err := d.sql().Query(`
 		SELECT COALESCE(category, 'unknown'), COUNT(*)
-		FROM knowledge_facts GROUP BY 1 ORDER BY 2 DESC`)
+		FROM knowledge_facts
+		WHERE retired_at IS NULL AND superseded_by IS NULL
+		GROUP BY 1 ORDER BY 2 DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -88,10 +120,21 @@ func (d *DB) FactsByCategory() (map[string]int, error) {
 // from this model — the numbers would combine into a similarity that means
 // nothing. Skipping is visible in the count; scoring would be silent nonsense.
 func (d *DB) loadEmbedded(want int) ([]Fact, error) {
+	/*
+	 * Only what it still believes.
+	 *
+	 * A fact that has been replaced, or whose source no longer exists, is kept
+	 * — "what did it used to think" is a real question and a bad replacement
+	 * should be undoable — but it is not recalled. Left in, the June version of
+	 * a document and the March version sat side by side, equally confident,
+	 * and the answer depended on which happened to be worded more like the
+	 * question.
+	 */
 	rows, err := d.sql().Query(`
-		SELECT id, COALESCE(category, 'unknown'), content, embedding, COALESCE(dimensions, 0)
+		SELECT id, COALESCE(category, 'unknown'), content, embedding, COALESCE(dimensions, 0),
+		       COALESCE(source,''), used_count, COALESCE(last_used,'')
 		FROM knowledge_facts
-		WHERE embedding IS NOT NULL
+		WHERE embedding IS NOT NULL AND superseded_by IS NULL AND retired_at IS NULL
 		ORDER BY id DESC`)
 	if err != nil {
 		return nil, err
@@ -101,12 +144,18 @@ func (d *DB) loadEmbedded(want int) ([]Fact, error) {
 	var out []Fact
 
 	for rows.Next() {
-		var f Fact
-		var blob []byte
+		var (
+			f    Fact
+			blob []byte
+			used string
+		)
 
-		if err := rows.Scan(&f.ID, &f.Category, &f.Content, &blob, &f.Dimensions); err != nil {
+		if err := rows.Scan(&f.ID, &f.Category, &f.Content, &blob, &f.Dimensions,
+			&f.Source, &f.Used, &used); err != nil {
 			return nil, err
 		}
+
+		f.LastUsed = atTime(used)
 
 		if want > 0 && f.Dimensions != want {
 			continue
@@ -146,14 +195,19 @@ func (d *DB) Search(query []float32, limit int, minScore float64) ([]Scored, err
 	for _, f := range facts {
 		s := Cosine(query, f.Embedding)
 
+		// The floor is about similarity, and stays about similarity. A fact
+		// that is not relevant does not become relevant by having been useful
+		// before.
 		if s < minScore {
 			continue
 		}
 
-		scored = append(scored, Scored{Fact: f, Score: s})
+		scored = append(scored, Scored{Fact: f, Score: s, Similarity: s, Worth: worth(f)})
 	}
 
-	sort.Slice(scored, func(i, j int) bool { return scored[i].Score > scored[j].Score })
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].Score+scored[i].Worth > scored[j].Score+scored[j].Worth
+	})
 
 	if limit > 0 && len(scored) > limit {
 		scored = scored[:limit]
@@ -314,6 +368,7 @@ func (d *DB) AllFacts() ([]Fact, error) {
 	rows, err := d.sql().Query(`
 		SELECT id, COALESCE(category, 'unknown'), content
 		FROM knowledge_facts
+		WHERE retired_at IS NULL AND superseded_by IS NULL
 		ORDER BY id`)
 	if err != nil {
 		return nil, err
@@ -401,4 +456,206 @@ func (d *DB) ForgetEverythingLearned() (facts, lessons int64, err error) {
 	}
 
 	return facts, lessons, nil
+}
+
+/*
+ * worth is how much a fact has earned by being useful before.
+ *
+ * Deliberately small, and only ever a bonus. Capped at five hundredths on a
+ * scale where similarity runs to one, so it can break a tie between two facts
+ * that both fit and can never lift an irrelevant one over a relevant one —
+ * which is the failure a bigger number would cause, and it would be invisible
+ * because the answer would still read plausibly.
+ *
+ * A bonus and not a penalty, too. Docking facts that have never been used
+ * would bury everything newly learned under everything old, which is the
+ * opposite of getting sharper.
+ */
+func worth(f Fact) float64 {
+	if f.Used <= 0 {
+		return 0
+	}
+
+	bonus := 0.015 * math.Log(1+float64(f.Used))
+
+	if bonus > 0.05 {
+		return 0.05
+	}
+
+	return bonus
+}
+
+/*
+ * Recalled records that these facts were put in front of a model.
+ *
+ * The only feedback available without asking somebody to rate their own
+ * assistant, and it is a real one: a fact that keeps coming up when the
+ * subject comes up is a fact about something that keeps coming up.
+ */
+func (d *DB) Recalled(ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	tx, err := d.sql().Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	for _, id := range ids {
+		if _, err := tx.Exec(
+			`UPDATE knowledge_facts SET used_count = used_count + 1, last_used = ? WHERE id = ?`,
+			now, id); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+/*
+ * Supersede records that one fact has replaced another.
+ *
+ * The old one is kept and stops being recalled. Deleting it would make "what
+ * did it think last month" unanswerable and a mistaken replacement permanent,
+ * and neither is a trade worth making for a row.
+ */
+func (d *DB) Supersede(oldID, newID int64, why string) error {
+	_, err := d.sql().Exec(`
+		UPDATE knowledge_facts
+		SET superseded_by = ?, retired_at = ?, why_retired = ?, updated_at = ?
+		WHERE id = ? AND superseded_by IS NULL`,
+		newID, time.Now().UTC().Format(time.RFC3339), why,
+		time.Now().UTC().Format(time.RFC3339), oldID)
+
+	return err
+}
+
+// Retire stops a fact being recalled without anything replacing it: its source
+// is gone, or somebody said it was wrong.
+func (d *DB) Retire(id int64, why string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	_, err := d.sql().Exec(
+		`UPDATE knowledge_facts SET retired_at = ?, why_retired = ?, updated_at = ? WHERE id = ?`,
+		now, why, now, id)
+
+	return err
+}
+
+// Restore brings a retired fact back, for a replacement that turned out to be
+// the wrong reading.
+func (d *DB) Restore(id int64) error {
+	_, err := d.sql().Exec(`
+		UPDATE knowledge_facts
+		SET retired_at = NULL, why_retired = NULL, superseded_by = NULL, updated_at = ?
+		WHERE id = ?`,
+		time.Now().UTC().Format(time.RFC3339), id)
+
+	return err
+}
+
+// FactsFromSource is everything still believed that came from one place, so a
+// place that has changed can have its old readings retired.
+func (d *DB) FactsFromSource(source string) ([]Fact, error) {
+	rows, err := d.sql().Query(`
+		SELECT id, COALESCE(category,'unknown'), content, COALESCE(source,''), used_count
+		FROM knowledge_facts
+		WHERE source = ? AND superseded_by IS NULL AND retired_at IS NULL`, source)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	out := []Fact{}
+
+	for rows.Next() {
+		var f Fact
+
+		if err := rows.Scan(&f.ID, &f.Category, &f.Content, &f.Source, &f.Used); err != nil {
+			return nil, err
+		}
+
+		out = append(out, f)
+	}
+
+	return out, rows.Err()
+}
+
+// LivingSources is every place still believed in, so the ones that have gone
+// can be found without loading every fact.
+func (d *DB) LivingSources() ([]string, error) {
+	rows, err := d.sql().Query(`
+		SELECT DISTINCT source FROM knowledge_facts
+		WHERE source <> '' AND source IS NOT NULL
+		  AND superseded_by IS NULL AND retired_at IS NULL`)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	out := []string{}
+
+	for rows.Next() {
+		var source string
+
+		if err := rows.Scan(&source); err != nil {
+			return nil, err
+		}
+
+		out = append(out, source)
+	}
+
+	return out, rows.Err()
+}
+
+/*
+ * AddFactFrom stores a fact that knows where it came from.
+ *
+ * Promotion is the usual route and sets the source itself; this is for the
+ * cases that do not go through a lesson. A fact with no source can never be
+ * retired when its place is gone, so anything that has one should say so.
+ */
+func (d *DB) AddFactFrom(category, content, source string, embedding []float32) (int64, error) {
+	id, err := d.AddFact(category, content, embedding)
+	if err != nil {
+		return 0, err
+	}
+
+	if source == "" {
+		return id, nil
+	}
+
+	_, err = d.sql().Exec(`UPDATE knowledge_facts SET source = ? WHERE id = ?`, source, id)
+
+	return id, err
+}
+
+// Believed reports whether a fact is still one the brain acts on: not
+// replaced, not retired.
+func (d *DB) Believed(id int64) (bool, error) {
+	var n int
+
+	err := d.sql().QueryRow(`
+		SELECT COUNT(*) FROM knowledge_facts
+		WHERE id = ? AND retired_at IS NULL AND superseded_by IS NULL`, id).Scan(&n)
+
+	return n == 1, err
+}
+
+// CountRetired is how much it has stopped believing, for the interface.
+func (d *DB) CountRetired() (superseded, retired int, err error) {
+	err = d.sql().QueryRow(`
+		SELECT
+			COUNT(*) FILTER (WHERE superseded_by IS NOT NULL),
+			COUNT(*) FILTER (WHERE retired_at IS NOT NULL AND superseded_by IS NULL)
+		FROM knowledge_facts`).Scan(&superseded, &retired)
+
+	return superseded, retired, err
 }

@@ -41,7 +41,7 @@ func (d *DB) FinishAbandonedTurns() (int, error) {
 			WHERE conversation_id = c.id
 			ORDER BY id DESC LIMIT 1
 		)
-		WHERE m.role = 'user'`)
+		WHERE m.role = 'user' AND c.kind IS NULL`)
 	if err != nil {
 		return 0, fmt.Errorf("looking for unfinished turns: %w", err)
 	}

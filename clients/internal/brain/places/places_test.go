@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"pn-scripts-assistant/internal/brain/learning"
 )
@@ -46,7 +47,23 @@ func (l *learner) Ingest(_ context.Context, obs learning.Observations,
 // remembered stands in for the database's account of what it has been shown.
 type remembered map[string]bool
 
-func (r remembered) KnownSources(string) (map[string]bool, error) { return r, nil }
+/*
+ * Everything it has seen, seen after it was last written.
+ *
+ * Which is the ordinary case: a place is read, and nothing touches it
+ * afterwards. Saying it was seen a year ago would make every file in these
+ * tests count as changed since — correctly, because a file created moments ago
+ * has been written more recently than that.
+ */
+func (r remembered) SourcesSeenAt(string) (map[string]time.Time, error) {
+	out := map[string]time.Time{}
+
+	for source := range r {
+		out[source] = time.Now().Add(time.Hour)
+	}
+
+	return out, nil
+}
 
 /*
  * A place that is not attached is not a fault.
@@ -218,5 +235,54 @@ func TestForgettingAPlaceKeepsWhatItTaught(t *testing.T) {
 
 	if _, err := os.Stat(work); err != nil {
 		t.Errorf("the folder itself was touched: %v", err)
+	}
+}
+
+/*
+ * Something rewritten since it was read is read again.
+ *
+ * The whole of what lets memory correct itself. Before this, every source ever
+ * recorded counted as seen at any status forever — so a document read in March
+ * and rewritten in June was never looked at again, and both readings sat in
+ * memory equally confident.
+ */
+func TestSomethingRewrittenSinceIsReadAgain(t *testing.T) {
+	read := time.Now().Add(-24 * time.Hour)
+
+	observations := learning.Observations{
+		{Source: "document:/notes.md", Content: "the March version", Changed: read.Add(-time.Hour)},
+		{Source: "document:/diary.md", Content: "the June version", Changed: read.Add(time.Hour)},
+		{Source: "document:/new.md", Content: "never seen", Changed: time.Now()},
+		{Source: "project:/thing", Content: "no modification time to compare"},
+	}
+
+	seen := map[string]time.Time{
+		"document:/notes.md": read,
+		"document:/diary.md": read,
+		"project:/thing":     read,
+	}
+
+	got := map[string]bool{}
+
+	for _, o := range worthReading(observations, seen) {
+		got[o.Source] = true
+	}
+
+	if got["document:/notes.md"] {
+		t.Error("something unchanged since it was read was read again")
+	}
+
+	if !got["document:/diary.md"] {
+		t.Error("something rewritten since it was read was skipped, so memory cannot correct itself")
+	}
+
+	if !got["document:/new.md"] {
+		t.Error("something never seen was skipped")
+	}
+
+	// Nothing to compare is treated as unchanged: reading one thing twice
+	// costs seconds, and reading everything twice costs an evening.
+	if got["project:/thing"] {
+		t.Error("something with no modification time was read again anyway")
 	}
 }

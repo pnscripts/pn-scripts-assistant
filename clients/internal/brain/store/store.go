@@ -276,6 +276,308 @@ var migrations = []string{
 		tested_at  TEXT NOT NULL
 	);
 	`,
+
+	/*
+	 * 4: work that outlives the sentence that asked for it.
+	 *
+	 * A conversation records what was said. A task records what is being done,
+	 * and the difference that matters is that a task has to survive the
+	 * program being closed halfway through it. So everything a task needs to
+	 * pick itself up — which step it is on, how much budget is left, what it
+	 * is waiting on — is a column here rather than a field in memory. A budget
+	 * held in memory refills itself on restart, and a task that resumes with a
+	 * full purse has no budget at all.
+	 *
+	 * work_conversation_id is the task's own thread. The agent writes tool
+	 * output into whichever conversation it is handed, and a task with ten
+	 * steps would otherwise put ten steps of it in front of the owner's next
+	 * question — where it is read again on every round, on a machine where
+	 * that reading is most of the wait.
+	 *
+	 * None of the added columns is NOT NULL because ALTER TABLE ADD COLUMN is
+	 * the only form SQLite will do without rewriting the table, and it will not
+	 * do that one with a NULL default.
+	 */
+	`
+	CREATE TABLE tasks (
+		id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+		name                 TEXT NOT NULL,
+		goal                 TEXT NOT NULL,
+		done_when            TEXT NOT NULL DEFAULT '',
+		state                TEXT NOT NULL DEFAULT 'planning',
+		conversation_id      INTEGER REFERENCES conversations(id) ON DELETE SET NULL,
+		work_conversation_id INTEGER REFERENCES conversations(id) ON DELETE SET NULL,
+		provider             TEXT NOT NULL DEFAULT '',
+		job_id               INTEGER,
+		steps_left           INTEGER NOT NULL DEFAULT 0,
+		calls_left           INTEGER NOT NULL DEFAULT 0,
+		replans_left         INTEGER NOT NULL DEFAULT 0,
+		deadline             TEXT,
+		report               TEXT,
+		blocked_because      TEXT,
+		created_at           TEXT NOT NULL,
+		updated_at           TEXT NOT NULL,
+		finished_at          TEXT
+	);
+	CREATE INDEX idx_tasks_state ON tasks(state, id);
+
+	CREATE TABLE task_steps (
+		id            INTEGER PRIMARY KEY AUTOINCREMENT,
+		task_id       INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+		position      INTEGER NOT NULL,
+		instruction   TEXT NOT NULL,
+		done_when     TEXT NOT NULL DEFAULT '',
+		kind          TEXT NOT NULL DEFAULT 'do',
+		changes       INTEGER NOT NULL DEFAULT 0,
+		assignee      TEXT NOT NULL DEFAULT '',
+		provider      TEXT NOT NULL DEFAULT '',
+		model         TEXT NOT NULL DEFAULT '',
+		state         TEXT NOT NULL DEFAULT 'waiting',
+		attempts      INTEGER NOT NULL DEFAULT 0,
+		answer        TEXT,
+		evidence      TEXT,
+		checked_by    TEXT,
+		verdict       TEXT,
+		why           TEXT,
+		started_at    TEXT,
+		ended_at      TEXT,
+		created_at    TEXT NOT NULL,
+		updated_at    TEXT NOT NULL
+	);
+	CREATE INDEX idx_task_steps_task ON task_steps(task_id, position);
+
+	ALTER TABLE tool_invocations ADD COLUMN task_id INTEGER;
+	ALTER TABLE tool_invocations ADD COLUMN step_id INTEGER;
+	ALTER TABLE tool_invocations ADD COLUMN conversation_id INTEGER;
+	CREATE INDEX idx_invocations_task ON tool_invocations(task_id, status);
+
+	ALTER TABLE conversations ADD COLUMN kind TEXT;
+	`,
+
+	/*
+	 * 5: what the work is for.
+	 *
+	 * A task is finite and a goal is not, and the difference is the whole
+	 * reason this is a second table rather than a flag on the first. "Go
+	 * through my projects and tell me what is broken" finishes. "Keep my
+	 * projects building" does not — it comes round again, and the useful
+	 * question about it is not whether it is done but when it was last looked
+	 * at and what happened that time.
+	 *
+	 * every_days is how often it is worth coming back to, and zero means never
+	 * on its own. starts_itself is off by default and deliberately separate:
+	 * a goal that quietly begins work while nobody is at the machine is a
+	 * different thing from one that says it is due, and the second should not
+	 * become the first by accident.
+	 */
+	`
+	CREATE TABLE goals (
+		id            INTEGER PRIMARY KEY AUTOINCREMENT,
+		name          TEXT NOT NULL,
+		why           TEXT NOT NULL DEFAULT '',
+		state         TEXT NOT NULL DEFAULT 'active',
+		every_days    INTEGER NOT NULL DEFAULT 0,
+		starts_itself INTEGER NOT NULL DEFAULT 0,
+		last_worked   TEXT,
+		next_due      TEXT,
+		created_at    TEXT NOT NULL,
+		updated_at    TEXT NOT NULL
+	);
+	CREATE INDEX idx_goals_state ON goals(state, id);
+
+	ALTER TABLE tasks ADD COLUMN goal_id INTEGER;
+	CREATE INDEX idx_tasks_goal ON tasks(goal_id, id);
+	`,
+
+	/*
+	 * 6: a diary, kept here.
+	 *
+	 * A calendar was a deliberate non-goal for a long time, and the reason
+	 * stands: it is the kind of thing that quietly ends up on somebody else's
+	 * server, and then every appointment somebody has is a row in a company's
+	 * database. This one cannot do that. It is a table in the same file as
+	 * everything else the brain knows, it travels on the same drive, and the
+	 * only way anything leaves is somebody exporting it on purpose.
+	 *
+	 * Separate from reminders, which are a different thing wearing a similar
+	 * hat: a reminder speaks at a moment and is then done with. An event
+	 * occupies time, has an end, and is the answer to "am I free on Thursday".
+	 *
+	 * uid is the iCalendar identity, so a file imported twice updates its
+	 * events rather than doubling them.
+	 */
+	`
+	CREATE TABLE events (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		uid        TEXT NOT NULL DEFAULT '',
+		title      TEXT NOT NULL,
+		starts_at  TEXT NOT NULL,
+		ends_at    TEXT NOT NULL,
+		all_day    INTEGER NOT NULL DEFAULT 0,
+		place      TEXT NOT NULL DEFAULT '',
+		notes      TEXT NOT NULL DEFAULT '',
+		came_from  TEXT NOT NULL DEFAULT '',
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	);
+	CREATE INDEX idx_events_when ON events(starts_at, id);
+	CREATE UNIQUE INDEX idx_events_uid ON events(uid) WHERE uid <> '';
+	`,
+
+	/*
+	 * 7: memory that can be wrong, and stop being wrong.
+	 *
+	 * Until now a fact, once promoted, was permanent and equal. Nothing ever
+	 * replaced one, nothing retired one, and recall ranked purely on how
+	 * similar the words were — so a document read in March and rewritten in
+	 * June left both versions in memory, equally confident, and the brain
+	 * would quote whichever happened to be worded more like the question.
+	 * "Gets sharper the more you use it" cannot be true of a store that only
+	 * ever grows.
+	 *
+	 * source is copied here at promotion rather than reached through the
+	 * lesson it came from. A fact outlives its lesson — deleting a
+	 * conversation nulls the link on purpose — and a fact that cannot say
+	 * where it came from cannot be retired when that place is gone.
+	 *
+	 * superseded_by points at what replaced it. Kept rather than deleted,
+	 * because "what did it used to think" is a real question, and because a
+	 * replacement made on a bad reading should be undoable.
+	 *
+	 * used_count and last_used are what makes recall able to learn. A fact
+	 * that keeps proving relevant is more likely to be relevant again, and
+	 * that is the only feedback available without asking somebody to rate
+	 * their own assistant.
+	 */
+	`
+	ALTER TABLE knowledge_facts ADD COLUMN source TEXT;
+	ALTER TABLE knowledge_facts ADD COLUMN superseded_by INTEGER;
+	ALTER TABLE knowledge_facts ADD COLUMN retired_at TEXT;
+	ALTER TABLE knowledge_facts ADD COLUMN why_retired TEXT;
+	ALTER TABLE knowledge_facts ADD COLUMN used_count INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE knowledge_facts ADD COLUMN last_used TEXT;
+
+	UPDATE knowledge_facts SET source = (
+		SELECT source FROM lessons WHERE lessons.id = knowledge_facts.promoted_from_lesson_id
+	) WHERE promoted_from_lesson_id IS NOT NULL;
+
+	CREATE INDEX idx_facts_living ON knowledge_facts(retired_at, superseded_by);
+	CREATE INDEX idx_facts_source ON knowledge_facts(source);
+	`,
+
+	/*
+	 * 8: what jobs there are, as against who does them.
+	 *
+	 * The roster has always been six people in a Go slice, and every one of
+	 * them *was* its job: the developer is the thing that writes code, and
+	 * there is no separate idea of what writing code involves. That holds
+	 * until somebody wants two backend engineers who are not the same person,
+	 * or a specialist this program has never heard of, or an answer to "who
+	 * here knows PostgreSQL" that is a query rather than a guess.
+	 *
+	 * So a job is a definition and an agent is somebody who holds one. The
+	 * definitions live in rows rather than in files because there are
+	 * thousands of them and nobody edits them by hand — which is the split
+	 * this program already makes everywhere else, where what happened is a row
+	 * and what somebody maintains is a file in the brain's own folder.
+	 *
+	 * Capabilities are kept apart from jobs on purpose. "API design" belongs
+	 * to a backend engineer and to a technical product manager both, and
+	 * copying it into each job is how a list of skills becomes a list of
+	 * spellings of skills. They are kept apart from tools for a different
+	 * reason: a tool is something this program can do, a capability is
+	 * something somebody is good at, and most capabilities map to no tool at
+	 * all.
+	 *
+	 * The ids are text and hierarchical — engineering.backend.api_engineer —
+	 * because they are written into agent files that people read and edit, and
+	 * an integer there would make every one of those files meaningless on its
+	 * own. Titles change; ids do not.
+	 *
+	 * came_from says where a row arrived from, so an import can be run twice,
+	 * or a second source imported over the first, without either of them
+	 * quietly overwriting something hand-written.
+	 *
+	 * The last line has nothing to do with jobs and everything to do with them
+	 * being asked about. task_steps.assignee has been written on every step
+	 * since migration 4 and never indexed, because until now it had six
+	 * possible values and the one query that read it read all of them anyway.
+	 */
+	`
+	CREATE TABLE occupations (
+		id          TEXT PRIMARY KEY,
+		title       TEXT NOT NULL,
+		aliases     TEXT NOT NULL DEFAULT '',
+		category    TEXT NOT NULL DEFAULT '',
+		isco        TEXT NOT NULL DEFAULT '',
+		description TEXT NOT NULL DEFAULT '',
+		status      TEXT NOT NULL DEFAULT 'established',
+		risk        TEXT NOT NULL DEFAULT 'low',
+		oversight   INTEGER NOT NULL DEFAULT 0,
+		came_from   TEXT NOT NULL DEFAULT 'seed',
+		created_at  TEXT NOT NULL,
+		updated_at  TEXT NOT NULL
+	);
+	CREATE INDEX idx_occupations_category ON occupations(category, id);
+
+	CREATE TABLE capabilities (
+		id          TEXT PRIMARY KEY,
+		name        TEXT NOT NULL,
+		aliases     TEXT NOT NULL DEFAULT '',
+		kind        TEXT NOT NULL DEFAULT 'skill',
+		description TEXT NOT NULL DEFAULT '',
+		came_from   TEXT NOT NULL DEFAULT 'seed',
+		created_at  TEXT NOT NULL,
+		updated_at  TEXT NOT NULL
+	);
+
+	CREATE TABLE job_capabilities (
+		job_id        TEXT NOT NULL,
+		capability_id TEXT NOT NULL,
+		essential     INTEGER NOT NULL DEFAULT 1,
+		PRIMARY KEY (job_id, capability_id)
+	);
+	CREATE INDEX idx_job_capabilities_capability ON job_capabilities(capability_id);
+
+	CREATE INDEX idx_task_steps_assignee ON task_steps(assignee, id);
+	`,
+
+	/*
+	 * 9: what a job actually involves, as against what it is called.
+	 *
+	 * Eight of these went in as one migration because they are one idea: a job
+	 * definition that is a title and a sentence is a label, and a label is not
+	 * enough to brief somebody with. What separates a backend engineer from a
+	 * frontend one, told to a model, is the responsibilities and the outputs —
+	 * not the name, which it already knew.
+	 *
+	 * ladder is here rather than in one shared list because career ladders are
+	 * not shared. "Intern, junior, mid, senior, staff, principal" is a software
+	 * ladder and nothing else's: a surgeon is a resident and then a consultant,
+	 * an accountant is qualified or is not. A single ladder applied to every
+	 * occupation would be wrong for most of them and would look authoritative
+	 * while being so.
+	 *
+	 * near is other jobs worth considering instead of this one, which is what
+	 * makes "we have nobody for that" answerable with something better than no.
+	 *
+	 * sources records which classification a row came out of — an ISCO unit
+	 * group, an O*NET-SOC code — so an imported row can say where it got its
+	 * authority from and a hand-written one can honestly say it has none.
+	 *
+	 * All nullable, because ALTER TABLE ADD COLUMN is the only form SQLite will
+	 * do without rewriting the table, and it will not do that one with a NULL
+	 * default.
+	 */
+	`
+	ALTER TABLE occupations ADD COLUMN responsibilities TEXT;
+	ALTER TABLE occupations ADD COLUMN knows TEXT;
+	ALTER TABLE occupations ADD COLUMN makes TEXT;
+	ALTER TABLE occupations ADD COLUMN measured_by TEXT;
+	ALTER TABLE occupations ADD COLUMN ladder TEXT;
+	ALTER TABLE occupations ADD COLUMN near TEXT;
+	ALTER TABLE occupations ADD COLUMN sources TEXT;
+	`,
 }
 
 /*

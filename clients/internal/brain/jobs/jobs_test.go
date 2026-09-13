@@ -3,6 +3,8 @@ package jobs
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -174,5 +176,42 @@ func TestHowMuchRunsAtOnceFollowsTheMachine(t *testing.T) {
 	// of "I do not know what this machine is" is the cautious one.
 	if HowManyAtOnce("something else") != modest {
 		t.Error("an unrecognised machine was given more than the cautious limit")
+	}
+}
+
+/*
+ * A job that panics fails; it does not take the program down with it.
+ *
+ * Background work runs on a goroutine of its own, where an unrecovered panic
+ * is the whole process — the window disappears, nothing is written down, and
+ * what somebody sees is their assistant vanishing while it was doing something
+ * for them. A nil field in the task conductor did exactly that on the first
+ * task ever run on a real machine.
+ */
+func TestAJobThatPanicsDoesNotTakeTheProgramWithIt(t *testing.T) {
+	told := make(chan Job, 1)
+
+	r := &Runner{Announce: func(j Job) { told <- j }}
+
+	if _, err := r.Start("reading your documents", func(context.Context) (string, error) {
+		var nothing *struct{ field int }
+
+		return "", fmt.Errorf("unreachable %d", nothing.field)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case finished := <-told:
+		if finished.State != Failed {
+			t.Errorf("the job ended %q, want failed", finished.State)
+		}
+
+		if !strings.Contains(finished.Err, "stopped unexpectedly") {
+			t.Errorf("what it says happened: %q", finished.Err)
+		}
+
+	case <-time.After(5 * time.Second):
+		t.Fatal("the job never finished")
 	}
 }

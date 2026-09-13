@@ -13,9 +13,21 @@ type RecentFact struct {
 
 // RecentFacts returns the newest facts, newest first.
 func (d *DB) RecentFacts(limit int) ([]RecentFact, error) {
+	/*
+	 * What it still believes, not everything it has ever believed.
+	 *
+	 * Retired and superseded facts are kept — what it used to think is a real
+	 * question and a bad replacement should be undoable — but a listing of
+	 * memory that showed them would be showing somebody the March version of a
+	 * document beside the June one, with nothing saying which is which. That
+	 * is worse than not listing it at all: it reads as the brain believing
+	 * both.
+	 */
 	rows, err := d.sql().Query(`
 		SELECT id, COALESCE(category,'unknown'), content, created_at
-		FROM knowledge_facts ORDER BY id DESC LIMIT ?`, limit)
+		FROM knowledge_facts
+		WHERE retired_at IS NULL AND superseded_by IS NULL
+		ORDER BY id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +103,7 @@ func (d *DB) CountPendingLessons() (int, error) {
 func (d *DB) CountConversations() (int, error) {
 	var n int
 
-	err := d.sql().QueryRow(`SELECT COUNT(*) FROM conversations`).Scan(&n)
+	err := d.sql().QueryRow(`SELECT COUNT(*) FROM conversations WHERE kind IS NULL`).Scan(&n)
 
 	return n, err
 }
