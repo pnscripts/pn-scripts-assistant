@@ -248,6 +248,91 @@
             -->
             <span class="nav-count" id="nav-upkeep" hidden>0</span>
         </button>
+        <!--
+            Work that outlives the sentence that asked for it.
+
+            Its own entry rather than a tenth card on the command centre. The
+            grid there names its areas five times over, once per breakpoint,
+            and the last time cards outran those names the extra ones silently
+            vanished at narrow widths. A running task is also the one thing on
+            this page somebody may want to sit and read for ten minutes, which
+            is not what a card in a nine-card grid is for.
+        -->
+        <!--
+            Everything it is doing, and what all of it is for.
+
+            First in the list because it is the question somebody opening this
+            program actually has. The command centre answers "what is happening
+            this second"; this answers "what is it working on, is any of it
+            waiting for me, and has it been any good".
+        -->
+        <button type="button" class="nav-item" data-view="room">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M12 2v2M12 20v2M2 12h2M20 12h2" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>The room</span>
+            <span class="nav-count" id="nav-room" hidden>0</span>
+        </button>
+
+        <!--
+            The two things somebody writes rather than the program works out.
+
+            Together because they are the same act from the owner's side:
+            telling it who they are and telling it how they want things done.
+            The program treats them differently — one goes in the prompt, the
+            other becomes a tool it can call — but that is the program's
+            business, not a reason to make somebody look in two places.
+        -->
+        <button type="button" class="nav-item" data-view="teaching">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M12 5 3 9l9 4 9-4-9-4z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M7 11v4c0 1.7 2.2 3 5 3s5-1.3 5-3v-4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>Teaching</span>
+        </button>
+        <!--
+            Who works here, and what work there is in the world to be done.
+
+            Its own entry because it is a thing to sit and read rather than
+            glance at: a chart, hundreds of job definitions, and the seats
+            nobody is in yet. The team card on the Tasks view stays where it
+            is — the moment somebody wonders about an agent is usually the
+            moment they are looking at work it did.
+        -->
+        <button type="button" class="nav-item" data-view="organisation">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M12 3v4M6 21v-5h12v5M12 7v9M6 16h12" fill="none"
+                    stroke="currentColor" stroke-width="1.6"/>
+                <rect x="9" y="2" width="6" height="5" rx="1" fill="none"
+                    stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>Organisation</span>
+        </button>
+        <button type="button" class="nav-item" data-view="tasks">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>Tasks</span>
+            <span class="nav-count" id="nav-tasks" hidden>0</span>
+        </button>
+        <!--
+            What may reach this, which is a different question from what may
+            leave it.
+
+            Beside Privacy and not inside it. Privacy is about where your words
+            go; this is about who may ask. Tangling them would mean somebody
+            opening their assistant to their own phone having to reason about
+            whether that also sent anything to a company.
+        -->
+        <button type="button" class="nav-item" data-view="reach">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M11 18h2" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span>Reaching it</span>
+        </button>
         <button type="button" class="nav-item" data-view="privacy">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <rect x="5" y="10" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -367,6 +452,16 @@
                         <span class="working-on-text" id="working-on-text"></span>
                         <span class="working-on-clock" id="working-on-clock"></span>
                     </div>
+                    <!--
+                        And what is running without anybody waiting on it.
+
+                        Separate from the line above, which belongs to whoever
+                        asked the question on screen. A task takes minutes and
+                        nobody is sitting through it, so it must be visible
+                        here without taking over the line that answers "is it
+                        working on mine".
+                    -->
+                    <div class="tasks-now" id="tasks-now" hidden></div>
                     <div class="feed" id="feed">
                         <p class="feed-idle" id="feed-idle">Waiting.</p>
                     </div>
@@ -661,6 +756,16 @@
                             <small class="field-note">Picks the best installed voice of that
                                 kind and says a line so you can hear it. Particular voices are
                                 listed under Engine.</small>
+                        </label>
+                        <label class="field field-check">
+                            <input id="set-always-listen" type="checkbox">
+                            <span>Open the microphone when the window opens</span>
+                            <small class="field-note">On, it starts hearing the room as soon
+                                as you open it, and waits for its name. Off, it stays quiet
+                                until you press the button — the microphone is free for
+                                anything else, and the processor is doing only what you asked
+                                for. Listening is not idle: it is voice detection and then
+                                transcription of whatever was said near it.</small>
                         </label>
                         <label class="field field-check">
                             <input id="set-always-speak" type="checkbox">
@@ -1131,6 +1236,34 @@
                     </p>
                     <div id="parts-list"></div>
                 </div>
+
+                <!--
+                    Taking things off again, chosen one at a time.
+
+                    Removing used to be all or nothing and outside the program
+                    entirely: a list of directories to delete by hand. But the
+                    decisions are separate ones — somebody clearing space wants
+                    the four-gigabyte model gone and Ollama kept, and somebody
+                    who has stopped making games wants Godot gone and both.
+                    So everything removable is listed, nothing is ticked, and
+                    what goes is whatever was ticked.
+                -->
+                <div class="card">
+                    <h2>Remove</h2>
+                    <p class="insight-note">
+                        Tick what you want taken off this machine. Nothing here
+                        is ticked to begin with, and the things that came with
+                        your system are not listed — those belong to it, not to
+                        this program.
+                    </p>
+                    <div id="remove-list"></div>
+                    <div class="remove-foot">
+                        <span id="remove-size" class="field-note"></span>
+                        <button id="remove-go" class="model-action" disabled>
+                            Remove what is ticked
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -1166,19 +1299,503 @@
             </div>
         </section>
 
-        <section class="view" data-view="permissions" hidden>
+        <section class="view" data-view="reach" hidden>
             <div class="view-inner">
                 <div class="card">
-                    <h2>What it may do on this machine</h2>
+                    <h2>What may reach this</h2>
+                    <p class="note">
+                        Until you pair something, this assistant answers only on this
+                        computer — not because of a setting, but because it refuses to
+                        listen anywhere else. Everything it knows sits behind that.
+                    </p>
+
+                    <div id="paired-list"><p class="note">Nothing is paired.</p></div>
+
+                    <div class="field">
+                        <span>What a new device may do</span>
+                        <select id="pair-can">
+                            <option value="limited">talk to it and watch it</option>
+                            <option value="full">everything this computer can</option>
+                        </select>
+                    </div>
+                    <button type="button" class="task-button" id="pair-offer">Pair a device</button>
+
+                    <!--
+                        The code, large, because it is being read across a room
+                        and typed into a phone.
+                    -->
+                    <div id="pair-code-box" hidden>
+                        <p class="pair-code" id="pair-code">— — —</p>
+                        <p class="note" id="pair-how"></p>
+                        <button type="button" class="task-button" id="pair-stop">Never mind</button>
+                    </div>
+
+                    <p class="note" id="paired-said"></p>
+                </div>
+
+                <div class="card">
+                    <h2>Answering on your network</h2>
+                    <p class="note">
+                        Off. Turning it on lets paired devices on your own network reach
+                        it, over an encrypted connection, and nothing else. It takes
+                        effect the next time the program starts.
+                    </p>
+                    <p class="note">
+                        This is the one change here that cannot be taken back by changing
+                        it back: anything that reached the machine while it was open
+                        stays reached.
+                    </p>
+
+                    <div class="field">
+                        <span>How far it answers</span>
+                        <select id="reach">
+                            <option value="here">only this computer</option>
+                            <option value="network">paired devices on my network</option>
+                        </select>
+                    </div>
+                    <button type="button" class="task-button" id="reach-save">Save</button>
+                    <p class="note" id="reach-said"></p>
+
+                    <div id="reach-where" hidden>
+                        <p class="note">On the device, open one of these:</p>
+                        <div id="reach-addresses"></div>
+                        <!--
+                            The fingerprint, because nobody has vouched for this
+                            certificate and nobody could: there is no authority
+                            that can sign for 192.168.1.4. The browser will warn
+                            once, and this is what the warning is asking to be
+                            checked against.
+                        -->
+                        <p class="note">
+                            Your browser will warn that nobody has vouched for the
+                            connection. That is true — this computer signed it itself.
+                            Check the fingerprint it shows matches this one, then accept it:
+                        </p>
+                        <pre class="task-evidence" id="reach-fingerprint"></pre>
+                    </div>
+                </div>
+
+                <!--
+                    From outside the house, through a tunnel rather than a door.
+
+                    A tunnel puts the device on the home network; nothing new is
+                    exposed to the internet and every rule above holds unchanged.
+                    The alternative was a machine on the internet forwarding to
+                    here — a public front door in front of somebody's memory,
+                    their mail, and the ability to run commands.
+                -->
+                <div class="card">
+                    <h2>From outside your house</h2>
+                    <p class="note" id="tunnel-state">—</p>
+
+                    <div class="field">
+                        <span>How a device finds your house from outside</span>
+                        <input type="text" id="tunnel-endpoint" autocomplete="off"
+                               placeholder="home.example.net, or your home address">
+                    </div>
+                    <p class="note">
+                        Typed rather than looked up: finding it out means asking a
+                        service on the internet where you live. Most home connections
+                        change address, so a free dynamic DNS name is the usual answer.
+                    </p>
+                    <button type="button" class="task-button" id="tunnel-save">Set it up</button>
+
+                    <div id="tunnel-ready" hidden>
+                        <p class="note" id="tunnel-forward"></p>
+                        <div class="agent-controls">
+                            <button type="button" class="task-button" id="tunnel-up">Turn the tunnel on</button>
+                            <button type="button" class="task-button" id="tunnel-down">Turn it off</button>
+                        </div>
+                        <p class="note" id="tunnel-inside"></p>
+                    </div>
+
+                    <div id="tunnel-devices"></div>
+                    <p class="note" id="tunnel-said"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" data-view="room" hidden>
+            <div class="view-inner">
+                <!--
+                    Waiting for you, first and unmissable.
+
+                    Above the work rather than beside it, because a task parked
+                    on a decision is not making progress and everything below
+                    it is describing a machine that has stopped. The same
+                    queue, the same endpoints and the same two answers as the
+                    command centre — standing permissions still live in
+                    Permissions, which is where they can be taken back.
+                -->
+                <div class="card" id="room-waiting-card" hidden>
+                    <h2>Waiting for you</h2>
+                    <div id="room-waiting"></div>
+                </div>
+
+                <div class="card">
+                    <h2>What it is for</h2>
+                    <p class="note">
+                        A task finishes. A goal comes round again — so what matters about
+                        one is when it was last looked at and what happened that time.
+                    </p>
+                    <div id="goal-list"><p class="note">Nothing set yet.</p></div>
+
+                    <details id="goal-new">
+                        <summary>Set one</summary>
+                        <div class="field">
+                            <span>The goal</span>
+                            <input type="text" id="goal-name" autocomplete="off"
+                                   placeholder="Keep my Godot projects building">
+                        </div>
+                        <div class="field">
+                            <span>What that means, in your words</span>
+                            <textarea id="goal-why" rows="3" spellcheck="false"
+                                      placeholder="Check each project still opens and exports, and tell me what broke."></textarea>
+                        </div>
+                        <div class="field">
+                            <span>Come back to it</span>
+                            <select id="goal-every">
+                                <option value="0">only when I ask</option>
+                                <option value="1">every day</option>
+                                <option value="7">every week</option>
+                                <option value="30">every month</option>
+                            </select>
+                        </div>
+                        <!--
+                            Deliberately its own choice, and off.
+
+                            A goal that says it is due and a goal that begins
+                            work while nobody is at the machine are different
+                            things. Everything it does still waits for you, but
+                            starting unasked is not something to inherit from a
+                            schedule.
+                        -->
+                        <label class="goal-auto">
+                            <input type="checkbox" id="goal-auto">
+                            <span>Let it start this on its own when it is due</span>
+                        </label>
+                        <button type="button" class="task-button" id="goal-save">Set it</button>
+                    </details>
+
+                    <p class="note" id="goal-said"></p>
+                </div>
+
+                <div class="card">
+                    <h2>Going on now</h2>
+                    <div id="room-live"><p class="note">Nothing running.</p></div>
+                </div>
+
+                <!--
+                    The diary, which lives in this database rather than in an
+                    account somewhere. Nothing here talks to a network: a file
+                    goes in when you say so and comes out when you ask.
+                -->
+                <div class="card">
+                    <h2>What is on</h2>
+                    <div id="diary-list"><p class="note">Nothing in the next fortnight.</p></div>
+
+                    <details id="diary-new">
+                        <summary>Put something in</summary>
+                        <div class="field">
+                            <span>What</span>
+                            <input type="text" id="diary-title" autocomplete="off" placeholder="Dentist">
+                        </div>
+                        <div class="field">
+                            <span>When</span>
+                            <input type="datetime-local" id="diary-when">
+                        </div>
+                        <div class="field">
+                            <span>How long</span>
+                            <select id="diary-length">
+                                <option value="30">half an hour</option>
+                                <option value="60" selected>an hour</option>
+                                <option value="120">two hours</option>
+                                <option value="0">all day</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <span>Where</span>
+                            <input type="text" id="diary-place" autocomplete="off" placeholder="optional">
+                        </div>
+                        <button type="button" class="task-button" id="diary-save">Put it in</button>
+                    </details>
+
+                    <details id="diary-move">
+                        <summary>Bring a calendar in, or take one out</summary>
+                        <div class="field">
+                            <span>A .ics file already on this machine</span>
+                            <input type="text" id="diary-path" autocomplete="off"
+                                   placeholder="/home/you/Downloads/calendar.ics">
+                        </div>
+                        <div class="agent-controls">
+                            <button type="button" class="task-button" id="diary-import">Read it in</button>
+                            <button type="button" class="task-button" id="diary-export">Write mine out</button>
+                        </div>
+                        <p class="note">
+                            Nothing here reaches a network. A file goes in when you say so and
+                            comes out when you ask — there is no account and nothing syncing.
+                        </p>
+                    </details>
+
+                    <p class="note" id="diary-said"></p>
+                </div>
+
+                <!--
+                    What the record of decisions actually says.
+
+                    Every approval and refusal has been written down since the
+                    gate was built and nothing ever read any of it back. A
+                    question put repeatedly about something already settled
+                    stops being read and starts being clicked through, and at
+                    that moment the gate looks like protection and is not.
+
+                    A suggestion, never an action: widening what the assistant
+                    may do without being told to is the one change this program
+                    must not make on its own.
+                -->
+                <div class="card" id="habits-card" hidden>
+                    <h2>Things it keeps asking about</h2>
+                    <div id="habits-list"></div>
+                    <p class="note" id="habits-said"></p>
+                </div>
+
+                <div class="card">
+                    <h2>How it has been going</h2>
+                    <p class="note">
+                        Checked against what the tools returned, or taken on its own word.
+                        The two are counted apart on purpose: a task finishes when its plan
+                        runs out of steps, whether or not anything in it was ever confirmed.
+                    </p>
+                    <div id="review-summary"><p class="note">—</p></div>
+                    <div id="review-people"></div>
+
+                    <!--
+                        And what it has stopped believing, which is the other
+                        half of getting sharper. A memory that only ever grows
+                        cannot correct itself.
+                    -->
+                    <p class="note" id="review-forgotten"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" data-view="teaching" hidden>
+            <div class="view-inner">
+                <div class="card">
+                    <h2>About you</h2>
+                    <p class="note">
+                        What it should know about you before every conversation — what you
+                        do, who you work with, how you want things handled. Write it in
+                        your own words; it is not a form.
+                    </p>
+                    <textarea id="profile-text" rows="14" spellcheck="false"
+                              placeholder="I run a small studio in Sofia. Most of my work is Laravel and Godot.&#10;&#10;I bill in advance and I never chase late payments myself — ask me before writing to a client about money."></textarea>
+                    <p class="note" id="profile-count">—</p>
+                    <button type="button" class="task-button" id="profile-save">Save</button>
+                    <p class="note" id="profile-said"></p>
+
+                    <!--
+                        Said plainly, because it is the whole of the decision.
+
+                        Unlike a message somebody types, this would go with
+                        every single turn — including all the ones that have
+                        nothing to do with them.
+                    -->
+                    <p class="note" id="profile-where">—</p>
+                </div>
+
+                <div class="card">
+                    <h2>What it has been taught</h2>
+                    <p class="note">
+                        Ways of working it should follow. Tell it in conversation — "remember
+                        how I do this" — or write one here. Following a skill still uses its
+                        ordinary tools, so anything that changes something still waits for you.
+                    </p>
+                    <div id="skill-list"><p class="note">Nothing yet.</p></div>
+
+                    <details id="skill-new">
+                        <summary>Write one</summary>
+                        <div class="field">
+                            <span>Called</span>
+                            <input type="text" id="skill-name" autocomplete="off" placeholder="invoicing">
+                        </div>
+                        <div class="field">
+                            <span>Used when</span>
+                            <input type="text" id="skill-when" autocomplete="off"
+                                   placeholder="I ask about invoices, billing or what a client owes">
+                        </div>
+                        <div class="field">
+                            <span>How it is done</span>
+                            <textarea id="skill-how" rows="8" spellcheck="false"
+                                      placeholder="1. Open the ledger.&#10;2. Bill in advance.&#10;3. Never chase late payments myself."></textarea>
+                        </div>
+                        <button type="button" class="task-button" id="skill-save">Save it</button>
+                    </details>
+
+                    <p class="note" id="skill-said"></p>
+                    <p class="note" id="skill-folder"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" data-view="organisation" hidden>
+            <div class="view-inner">
+                <div class="card card-wide">
+                    <h2>The organisation</h2>
+                    <p class="note">
+                        A job is a definition, a seat is a responsibility, and an agent is
+                        who actually turns up. Several agents can hold the same seat, and a
+                        seat with nobody in it is not a gap — it is this saying there is a
+                        place for somebody who does that here.
+                    </p>
+                    <p class="note" id="org-counts">—</p>
+                    <div id="org-chart"><p class="note">—</p></div>
+                    <p class="note" id="org-said"></p>
+                    <p class="note" id="org-folders"></p>
+                </div>
+
+                <div class="card">
+                    <h2>Take somebody on</h2>
+                    <p class="note">
+                        Find the job first. What it is expected to know and be good at comes
+                        from the definition, so nothing here has to be typed twice — and a
+                        seat fills in the rest.
+                    </p>
+                    <div class="field">
+                        <span>What work</span>
+                        <input type="text" id="org-job-search" autocomplete="off"
+                            placeholder="postgresql, tax, welding, заварчик…">
+                    </div>
+                    <div id="org-jobs"><p class="note">Search to see what there is.</p></div>
+                </div>
+
+                <div class="card" id="org-hire-card" hidden>
+                    <h2 id="org-hire-title">—</h2>
+                    <p class="note" id="org-hire-what">—</p>
+                    <div class="field">
+                        <span>Called</span>
+                        <input type="text" id="org-hire-name" autocomplete="off"
+                            placeholder="alex">
+                    </div>
+                    <div class="field">
+                        <span>Seat</span>
+                        <select id="org-hire-seat"></select>
+                    </div>
+                    <div class="field">
+                        <span>Model</span>
+                        <select id="org-hire-uses">
+                            <option value="work">the working model</option>
+                            <option value="quick">the quick one</option>
+                            <option value="best">the best one</option>
+                            <option value="reason">the one that thinks</option>
+                        </select>
+                    </div>
+                    <button type="button" class="task-button" id="org-hire">Take them on</button>
+                    <p class="note" id="org-hire-said"></p>
+                </div>
+
+                <div class="card">
+                    <h2>Who is good at</h2>
+                    <p class="note">
+                        Answered from the chart and the definitions rather than by asking
+                        every agent, which would cost minutes and come back with opinions.
+                    </p>
+                    <div class="field">
+                        <span>Good at</span>
+                        <input type="text" id="org-who-can" autocomplete="off"
+                            placeholder="postgresql">
+                    </div>
+                    <div id="org-who"><p class="note">—</p></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" data-view="tasks" hidden>
+            <div class="view-inner">
+                <div class="card">
+                    <h2>Tasks</h2>
+                    <p class="note">
+                        A job it works through on its own — planned first, so you can
+                        read what it intends to do before any of it happens. Anything
+                        that changes something still waits for you.
+                    </p>
+
+                    <div class="field">
+                        <span>Give it a job</span>
+                        <input type="text" id="task-request" autocomplete="off"
+                               placeholder="go through my projects and tell me which have no readme">
+                    </div>
+                    <button type="button" class="task-button" id="task-start">Start it</button>
+                    <p class="note" id="task-said"></p>
+                </div>
+
+                <!--
+                    Who does which part of a job.
+
+                    On this page rather than a page of its own, because the
+                    only moment anybody wonders about the team is the moment
+                    they are looking at work it did.
+                -->
+                <div class="card">
+                    <h2>The team</h2>
+                    <p class="note">
+                        Each part of a job goes to whoever it suits. Every model is good
+                        at something different, so a job of four steps is not four turns
+                        of the same compromise. Anything that changes something still
+                        waits for you, whoever is doing it.
+                    </p>
+                    <div id="team-list"><p class="note">—</p></div>
+                    <p class="note" id="team-said"></p>
+                    <p class="note" id="team-folder"></p>
+                </div>
+
+                <div class="card">
+                    <h2>Going on now</h2>
+                    <div id="task-live"><p class="note">Nothing running.</p></div>
+                </div>
+
+                <div class="card">
+                    <h2>Recently</h2>
+                    <div id="task-recent"><p class="note">Nothing yet.</p></div>
+                </div>
+
+                <div class="card" id="task-detail-card" hidden>
+                    <h2 id="task-detail-name">—</h2>
+                    <p class="note" id="task-detail-state">—</p>
+                    <p class="note" id="task-detail-report" hidden></p>
+                    <div id="task-detail-steps"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" data-view="permissions" hidden>
+            <div class="view-inner">
+                <!--
+                    One switch, and it decides both things.
+
+                    It used to be two: this, and a separate privacy setting for
+                    what may leave the machine. The second was the one that
+                    actually stood in the way — its strictest value is also its
+                    default, and it refuses rather than asks. Somebody who had
+                    said "stop asking me" then found it still refusing, from a
+                    setting they had not touched, on a page they had not opened.
+
+                    The enforcement is unchanged and still at one choke point,
+                    so tightening it again is this same control and not a
+                    rebuild.
+                -->
+                <div class="card card-wide">
+                    <h2>How much it asks</h2>
                     <p class="privacy-summary" id="freedom-summary">—</p>
 
                     <div class="field">
-                        <span>How much it may do without asking</span>
+                        <span>Before it does something, and before anything leaves</span>
                         <select id="freedom">
-                            <option value="ask">Ask me before anything that changes something</option>
-                            <option value="granted">Do what I have allowed, ask about the rest</option>
-                            <option value="everything">Do anything — still recorded, refusals still hold</option>
+                            <option value="ask">Ask me first — and nothing leaves this machine</option>
+                            <option value="granted">Do what I have allowed — the web is open, the model stays here</option>
+                            <option value="everything">Never stop, never refuse — hosted models, the web, memory, all of it</option>
                         </select>
+                        <small class="field-note" id="freedom-means">—</small>
                     </div>
 
                     <!--
@@ -1222,6 +1839,12 @@
                     <p class="privacy-summary" id="privacy-summary">—</p>
                     <p class="privacy-detail" id="privacy-detail"></p>
                     <div id="privacy-facts" class="kv"></div>
+                    <p class="note">
+                        This is not a setting of its own any more. What may leave this
+                        machine follows <button type="button" class="link-button"
+                        data-view="permissions">how much it asks</button> — one switch
+                        rather than two that were meant to agree.
+                    </p>
                 </div>
 
                 <!--
@@ -1241,7 +1864,9 @@
                     <h2>What it asks about first</h2>
                     <p class="note">Nothing here is off limits. These are the
                         files where it stops and asks you before reading, and
-                        it remembers what you answer.</p>
+                        it remembers what you answer. With the switch on never
+                        stop, it reads them without asking and writes down that
+                        it did.</p>
                     <div id="protect-rules" class="rows"></div>
 
                     <div class="copy-add">
@@ -1425,6 +2050,11 @@
      status. See status.js. -->
 <!-- First, so brainBooted exists before anything can report finishing. -->
 <script src="/js/boot.js"></script>
+<!--
+    And before the rest, so a device that has not been let in sees a locked
+    door rather than nine panels of dashes and spinners.
+-->
+<script src="/js/pairing.js"></script>
 <script src="/js/status.js"></script>
 <script src="/js/console.js"></script>
 <script src="/js/dashboard.js"></script>
@@ -1432,6 +2062,13 @@
 <script src="/js/feed.js"></script>
 <script src="/js/models.js"></script>
 <script src="/js/updates.js"></script>
+<script src="/js/organisation.js"></script>
+<script src="/js/tasks.js"></script>
+<script src="/js/teaching.js"></script>
+<script src="/js/team.js"></script>
+<script src="/js/room.js"></script>
+<script src="/js/diary.js"></script>
+<script src="/js/devices.js"></script>
 <script src="/js/settings.js"></script>
 <script src="/js/permissions.js"></script>
 <script src="/js/providers.js"></script>

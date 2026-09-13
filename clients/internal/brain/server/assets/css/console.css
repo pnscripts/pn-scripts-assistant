@@ -20,6 +20,17 @@
  */
 
 :root {
+    /* The half of a select that CSS cannot reach.
+       appearance:none and a background colour dress the closed box; the list
+       that drops out of it is not part of the page at all — WebKit asks GTK
+       for a real menu and GTK draws it in the system theme, so every picker
+       here looked right until it was opened and then a white list appeared
+       over a black page. option{} rules do not touch it either: they style a
+       DOM element that is not what gets drawn. color-scheme is the one thing
+       that does, and it covers the rest of the native furniture — scrollbars,
+       the text cursor, the focus ring — for the same reason. */
+    color-scheme: dark;
+
     --bg: #04080f;
 
     /*
@@ -603,6 +614,64 @@ html, body {
     border: 1px solid var(--line);
     padding: 2px 7px;
 }
+
+/* ---- what it did, openable ----
+   One row per step. The marker is drawn rather than left to the browser: the
+   default triangle sits on a different baseline in every engine, and these
+   rows are 20px tall. */
+.steps { display: flex; flex-direction: column; margin-top: 9px; }
+
+.step { border-left: 1px solid var(--line); padding-left: 9px; }
+.step + .step { margin-top: 1px; }
+.step > summary {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-dim);
+    padding: 2px 0;
+}
+.step > summary::-webkit-details-marker { display: none; }
+.step > summary::before {
+    content: '\203A';
+    color: var(--text-faint);
+    transition: transform 0.12s;
+    display: inline-block;
+}
+.step[open] > summary::before { transform: rotate(90deg); }
+.step > summary:hover { color: var(--text); }
+.step-what { flex: 1 1 auto; min-width: 0; }
+.step-time { flex: 0 0 auto; color: var(--text-faint); }
+.step.failed { border-left-color: var(--danger); }
+.step.failed .step-what { color: var(--danger); }
+
+.step-detail { padding: 4px 0 8px; }
+.step-tool {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-bottom: 4px;
+}
+/* Long output scrolls inside its own box rather than stretching the message:
+   a tool that returns a whole web page must not make the reply above it
+   unreadable. */
+.step-asked, .step-result {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-dim);
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    padding: 6px 8px;
+    margin: 0 0 4px;
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.step-asked { color: var(--text-faint); }
 
 .meta { font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 7px; }
 .thinking-line { color: var(--text-faint); font-size: 13px; font-style: italic; }
@@ -2423,6 +2492,46 @@ select { font-size: 13.5px; }
 
 .model-action:hover:not(:disabled) { background: rgba(77, 208, 225, 0.16); }
 .model-action:disabled { opacity: 0.35; cursor: default; }
+
+/* An armed Remove, waiting for the second press. Red only once it means it:
+   a button that is red before it does anything teaches people to ignore red. */
+.model-action.danger {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: rgba(224, 108, 117, 0.12);
+}
+.model-action.danger:hover:not(:disabled) { background: rgba(224, 108, 117, 0.22); }
+
+/* ---- choosing what to remove ---- */
+.remove-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+}
+.remove-row:last-child { border-bottom: 0; }
+.remove-row input { margin: 3px 0 0; flex: 0 0 auto; }
+.remove-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.remove-name { font-size: 13px; }
+.remove-detail { font-size: 11.5px; color: var(--text-dim); }
+.remove-foot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+}
+.remove-foot .field-note { flex: 1 1 auto; min-width: 0; }
+/* Right-aligned and fixed width so the column of sizes reads as a column. */
+.remove-size {
+    flex: 0 0 70px;
+    width: 70px;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-dim);
+}
 
 /* The cost badge is wider than a letter, so the row icon has to give. */
 #updates-list .row-icon { width: auto; min-width: 34px; padding: 0 7px; font-size: 9.5px; }
@@ -4657,3 +4766,491 @@ select { font-size: 13.5px; }
 .field-inline { display: flex; align-items: flex-start; gap: 9px; margin-top: 12px; }
 .field-inline input { margin-top: 3px; width: auto; flex: none; }
 .field-note { display: block; font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+
+/* ---------- tasks ---------- */
+
+/*
+ * Work that outlives the sentence that asked for it.
+ *
+ * Every class here is defined because it is used. That is not a truism: this
+ * page has no .muted and no .row-button, and the last time a card was written
+ * against classes that did not exist, ten protected places rendered as one
+ * paragraph and looked, convincingly, like a feature that had been removed.
+ */
+
+.tasks-now {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 0 8px;
+}
+
+.tasks-now-row {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 11.5px;
+    padding: 5px 8px;
+    cursor: pointer;
+}
+
+.tasks-now-row:hover { border-left-color: var(--hud); }
+
+.task-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.task-row:last-child { border-bottom: none; }
+
+.task-name {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.task-name:hover { color: var(--accent); }
+
+.task-state {
+    flex: 1;
+    min-width: 140px;
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.task-button {
+    border: 1px solid var(--line);
+    background: var(--bg-raised);
+    color: var(--text);
+    padding: 4px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.task-button:hover { border-color: var(--accent); }
+
+.task-step {
+    display: flex;
+    gap: 9px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.task-step:last-child { border-bottom: none; }
+
+.task-step-mark {
+    flex: 0 0 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.task-step-body { flex: 1; min-width: 0; }
+
+.task-step-what { font-size: 12px; line-height: 1.45; }
+
+.task-step-note {
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+}
+
+.task-step details { margin-top: 5px; }
+
+.task-step summary {
+    font-size: 10.5px;
+    color: var(--text-dim);
+    cursor: pointer;
+}
+
+/*
+ * What came back, scrolling inside its own box.
+ *
+ * A directory listing is wider than the card and longer than the page, and
+ * evidence that pushes the whole layout sideways is evidence nobody reads.
+ */
+.task-evidence {
+    margin: 5px 0 0;
+    max-height: 220px;
+    overflow: auto;
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    padding: 7px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ---------- teaching ---------- */
+
+/*
+ * Who it works for, and what it has been taught.
+ *
+ * The textarea rule here overrides the global one, which was written for the
+ * talk bar: flex: 1 and a 160px ceiling. A profile is a page of prose somebody
+ * is meant to sit and write, and a fourteen-row box that stops at 160 pixels
+ * is a box that says "keep it short" without meaning to.
+ */
+
+.view[data-view="teaching"] textarea {
+    display: block;
+    width: 100%;
+    flex: none;
+    max-height: none;
+    resize: vertical;
+    font-size: 13px;
+    padding: 9px 11px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border-color: rgba(77, 208, 225, 0.18);
+}
+
+.view[data-view="teaching"] .field textarea { margin-bottom: 0; }
+
+.skill-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: var(--mono);
+}
+
+/*
+ * Where a skill came from, said quietly.
+ *
+ * A skill the assistant wrote during a conversation and one somebody typed
+ * out deserve different amounts of trust when something it does turns out to
+ * be wrong, and the only moment that matters is the moment somebody is
+ * looking at the list wondering which one is responsible.
+ */
+.skill-origin {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+}
+
+#skill-new summary {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+#skill-shown { margin-top: 9px; }
+
+/* ---------- the team ---------- */
+
+.agent {
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.agent:last-child { border-bottom: none; }
+
+.agent-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.agent-title {
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.agent-for {
+    flex: 1;
+    min-width: 160px;
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.agent-controls {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.agent-controls select {
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font: inherit;
+    font-size: 11px;
+    padding: 4px 6px;
+}
+
+.agent-controls select:focus { border-color: var(--accent); outline: none; }
+
+/*
+ * What that size of model actually is here, and what they can reach.
+ *
+ * Said in full rather than counted, because "5 tools" is a number and
+ * "web_search, fetch_url, read_document" is the answer to the question
+ * somebody is really asking, which is whether this one could have done the
+ * thing that went wrong.
+ */
+.agent-note {
+    margin-top: 5px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    word-break: break-word;
+}
+
+/* ---------- the room ---------- */
+
+.goal-auto {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 8px 0;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    cursor: pointer;
+}
+
+/*
+ * Checked against what the tools returned, taken on its own word, or neither.
+ *
+ * Three colours rather than a percentage, because the useful reading is the
+ * proportion: a bar that is mostly "claimed" says something about the model on
+ * this machine that no single number does.
+ */
+.review-bar {
+    display: flex;
+    height: 6px;
+    margin: 8px 0 4px;
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    overflow: hidden;
+}
+
+.review-part { display: block; height: 100%; }
+
+.review-verified { background: var(--ok); }
+.review-claimed { background: var(--warn); }
+.review-unmet { background: var(--danger); }
+
+/* ---------- the diary ---------- */
+
+.diary-when {
+    min-width: 132px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+}
+
+.view[data-view="room"] input[type="datetime-local"] {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid rgba(77, 208, 225, 0.18);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+.view[data-view="room"] select {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid rgba(77, 208, 225, 0.18);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+.view[data-view="room"] .agent-controls select { width: auto; }
+
+#diary-new summary,
+#diary-move summary,
+#goal-new summary {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+/* ---------- reaching it ---------- */
+
+/*
+ * The pairing code, large and spaced.
+ *
+ * It is read across a room and typed into a phone. A run of six characters at
+ * body size is read wrongly often enough that people conclude the feature is
+ * broken rather than that they misread a letter.
+ */
+.pair-code {
+    margin: 12px 0 4px;
+    font-family: var(--mono);
+    font-size: 30px;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+}
+
+.view[data-view="reach"] select {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid rgba(77, 208, 225, 0.18);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+#reach-fingerprint { font-size: 10px; letter-spacing: 0.04em; }
+
+/*
+ * The screen a device sees before it has been let in.
+ *
+ * Centred and alone, because a locked door should look like a locked door
+ * rather than like a program that has failed to load.
+ */
+.pairing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.pairing .card { max-width: 420px; width: 100%; }
+
+.pairing input[type="text"] {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid rgba(77, 208, 225, 0.18);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text);
+    font: inherit;
+    font-size: 15px;
+    outline: none;
+}
+
+.pairing #claim-code {
+    font-family: var(--mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+/* ---------- the organisation ----------
+ *
+ * A chart, which is a list with indentation rather than a drawing. Boxes and
+ * connecting lines would be a diagram to maintain at five breakpoints, and the
+ * thing somebody actually reads down is the names — so the nesting is one
+ * indent per level, capped, and the rest is type.
+ *
+ * No named grid areas here: this is a .view-inner, which is the unnamed
+ * auto-fit grid. The command centre is the only place that names areas, and
+ * console.css:4159 records what happened the last time something outgrew them.
+ */
+
+.org-unit {
+    margin: 14px 0 0;
+    padding: 10px 0 2px;
+    border-top: 1px solid var(--line, rgba(120, 180, 210, 0.16));
+}
+
+.org-unit-head,
+.org-seat-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.org-unit-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.org-kind,
+.org-rank,
+.org-risk {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--line, rgba(120, 180, 210, 0.24));
+    opacity: 0.75;
+}
+
+/* Risk is the one thing here that should catch the eye before it is read. */
+.org-risk-high { border-color: rgba(230, 170, 90, 0.55); opacity: 0.95; }
+.org-risk-critical { border-color: rgba(230, 110, 110, 0.7); opacity: 1; }
+
+.org-seat {
+    margin: 8px 0 0 16px;
+    padding-left: 10px;
+    border-left: 2px solid var(--line, rgba(120, 180, 210, 0.18));
+}
+
+.org-seat-title { font-weight: 600; }
+
+/* A seat nobody is in is the point of having seats, so it is stated rather
+ * than dimmed into invisibility. */
+.org-vacant { border-left-style: dashed; opacity: 0.8; }
+
+.org-held { margin: 2px 0; font-size: 12px; opacity: 0.85; }
+
+.org-agent {
+    margin: 2px 0;
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.org-job {
+    margin: 8px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--line, rgba(120, 180, 210, 0.16));
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.org-job:hover { border-color: rgba(120, 180, 210, 0.4); }
+
+/* A word in a sentence that goes somewhere, for pointing at another panel
+ * without a button sitting in the middle of a paragraph looking like a button. */
+.link-button {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    opacity: 0.9;
+}
+
+.link-button:hover { opacity: 1; }

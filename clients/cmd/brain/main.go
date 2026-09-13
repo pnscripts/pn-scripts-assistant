@@ -18,18 +18,22 @@ import (
 
 	"context"
 	"log/slog"
+	"net"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"pn-scripts-assistant/internal/away"
 	"pn-scripts-assistant/internal/brain/brain"
+	"pn-scripts-assistant/internal/brain/browse"
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/copies"
 	"pn-scripts-assistant/internal/brain/desktop"
 	"pn-scripts-assistant/internal/brain/learning"
 	"pn-scripts-assistant/internal/brain/models"
+	"pn-scripts-assistant/internal/brain/pair"
 	"pn-scripts-assistant/internal/brain/paths"
 	"pn-scripts-assistant/internal/brain/places"
 	"pn-scripts-assistant/internal/brain/progress"
@@ -47,8 +51,7 @@ func main() {
 	// and that is the path most people will take.
 	if len(os.Args) < 2 {
 		if err := runApp(nil); err != nil {
-			fmt.Fprintf(os.Stderr, "\n  %v\n\n", err)
-			os.Exit(1)
+			report(err)
 		}
 
 		return
@@ -87,6 +90,17 @@ func main() {
 		err = runMenu(os.Args[2:])
 	case "setup":
 		err = runSetup(os.Args[2:])
+	case "render":
+		/*
+		 * Not for people. This is the child process that opens a page.
+		 *
+		 * A subcommand of the same binary rather than a second program: there
+		 * is nothing to install, nothing to keep in step, and it is still a
+		 * separate process — which is the whole point, because WebKit wants
+		 * the main thread and a page that crashes it should crash something
+		 * disposable rather than somebody's assistant.
+		 */
+		err = runRender(os.Args[2:])
 	case "start-again":
 		err = runStartAgain(os.Args[2:])
 	case "help", "-h", "--help":
@@ -99,9 +113,35 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "\n  %v\n\n", err)
+		report(err)
+	}
+}
+
+/*
+ * report ends the program, saying why in the place somebody is looking.
+ *
+ * The data root being away is the one failure that has to be explained in a
+ * window rather than on a stream: it happens when a drive is not plugged in,
+ * it happens to somebody who started the program by clicking an icon, and the
+ * message that used to explain it went to a terminal that person never opened.
+ * What they saw was a program that did not start.
+ *
+ * Handled here rather than at each caller because every command reaches the
+ * data root through openDB, and ten call sites meant the window appeared for
+ * two of them — including neither of the two somebody double-clicking an icon
+ * would ever reach.
+ */
+func report(err error) {
+	var elsewhere *paths.AwayError
+
+	if errors.As(err, &elsewhere) {
+		// brainAway prints its own explanation and opens the window.
+		_ = brainAway(elsewhere)
 		os.Exit(1)
 	}
+
+	fmt.Fprintf(os.Stderr, "\n  %v\n\n", err)
+	os.Exit(1)
 }
 
 /*
@@ -289,6 +329,22 @@ func runServe(args []string) error {
 		logger.Info("closed conversations that were cut short", "count", cutShort)
 	}
 
+	/*
+	 * A task that was running when this closed is parked, not resumed.
+	 *
+	 * Deliberately not picked up automatically. Something that was halfway
+	 * through changing files should not carry on the moment somebody opens
+	 * their assistant, before they have seen that it exists — and a task
+	 * interrupted by a shutdown is exactly as likely to have been interrupted
+	 * because it was going wrong. It says so in its own view, with a button.
+	 */
+	interrupted, err := db.InterruptWorkingTasks("PN Brain was closed while this was running")
+	if err != nil {
+		logger.Warn("could not park tasks left running", "error", err)
+	} else if interrupted > 0 {
+		logger.Info("parked tasks that were left running", "count", interrupted)
+	}
+
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
 	srv := server.New(b, logger)
 
@@ -315,18 +371,22 @@ func runServe(args []string) error {
 		logger.Info("the menu entry pointed at an older location and was rewritten")
 	}
 
-	ln, err := server.Listen(cfg.Addr)
+	listeners, err := listenAs(cfg, root.Path, logger)
 	if err != nil {
 		return err
 	}
+
+	ln := listeners[0]
 
 	facts, _ := db.CountFacts()
 
 	fmt.Printf("\n  %s\n", cfg.Name)
 	printBanner(facts, b)
-	fmt.Printf("  http://%s\n\n", ln.Addr())
+	// https when it is answering on the network, because it is: saying http
+	// would be telling somebody to type an address that does not work.
+	fmt.Printf("  %s\n\n", whereToOpen(cfg, ln))
 
-	return srv.Serve(ctx, ln)
+	return srv.Serve(ctx, listeners...)
 }
 
 // runRewritePaths repairs memories that record a path which no longer exists.
@@ -639,7 +699,7 @@ func runApp(args []string) error {
 			"files", removed, "megabytes", freed/(1<<20))
 	}
 
-	if !*skipSetup && (missingEssentials() || !cfg.SetupDone) {
+	if !*skipSetup && (missingEssentials(cfg) || !cfg.SetupDone) {
 		finished, err := runFirstRunSetup(config.Path(root.Path), cfg.Name)
 		if err != nil {
 			return err
@@ -686,7 +746,18 @@ func runApp(args []string) error {
 		 * Named rather than counted, and with the way back in the same breath.
 		 * "Requirements not met" is a sentence that helps nobody.
 		 */
-		if still := preflight.Blocking(preflight.Check()); len(still) > 0 {
+		/*
+		 * Judged against how it was told to think.
+		 *
+		 * Ollama and a local model are not missing from somebody who chose a
+		 * paid service — they are irrelevant to them. Checking regardless
+		 * refused to start the program for anybody who took the first choice
+		 * the wizard offers, which is as complete a dead end as this has.
+		 */
+		afterSetup, _ := config.Load(root.Path)
+
+		if still := preflight.BlockingFor(preflight.Check(),
+			afterSetup.HasPaidProvider()); len(still) > 0 {
 			names := make([]string, 0, len(still))
 
 			for _, req := range still {
@@ -717,6 +788,22 @@ func runApp(args []string) error {
 		logger.Warn("could not close off unfinished conversations", "error", err)
 	} else if cutShort > 0 {
 		logger.Info("closed conversations that were cut short", "count", cutShort)
+	}
+
+	/*
+	 * A task that was running when this closed is parked, not resumed.
+	 *
+	 * Deliberately not picked up automatically. Something that was halfway
+	 * through changing files should not carry on the moment somebody opens
+	 * their assistant, before they have seen that it exists — and a task
+	 * interrupted by a shutdown is exactly as likely to have been interrupted
+	 * because it was going wrong. It says so in its own view, with a button.
+	 */
+	interrupted, err := db.InterruptWorkingTasks("PN Brain was closed while this was running")
+	if err != nil {
+		logger.Warn("could not park tasks left running", "error", err)
+	} else if interrupted > 0 {
+		logger.Info("parked tasks that were left running", "count", interrupted)
 	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
@@ -764,10 +851,12 @@ func runApp(args []string) error {
 	b.Start(ctx)
 	defer b.Stop()
 
-	ln, err := server.Listen(cfg.Addr)
+	listeners, err := listenAs(cfg, root.Path, logger)
 	if err != nil {
 		return err
 	}
+
+	ln := listeners[0]
 
 	srv := server.New(b, logger)
 
@@ -806,7 +895,7 @@ func runApp(args []string) error {
 
 	serveErr := make(chan error, 1)
 
-	go func() { serveErr <- srv.Serve(ctx, ln) }()
+	go func() { serveErr <- srv.Serve(ctx, listeners...) }()
 
 	url := "http://" + ln.Addr().String()
 
@@ -1060,8 +1149,11 @@ func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 // brain without a native window still answers questions, and stopping to demand
 // a build dependency from somebody who only wants to ask it something would be
 // the program serving itself.
-func missingEssentials() bool {
-	return preflight.BlockingCount(preflight.Check()) > 0
+func missingEssentials(cfg config.Config) bool {
+	// Against the chosen path, like every other place that asks. Without this
+	// a machine set up with a paid service reopened setup on every launch,
+	// for ever, over pieces it had been told were not wanted.
+	return preflight.BlockingCountFor(preflight.Check(), cfg.HasPaidProvider()) > 0
 }
 
 // runFirstRunSetup shows the setup page and waits for it to finish.
@@ -1166,6 +1258,22 @@ func runFirstRunSetup(settingsPath, name string) (bool, error) {
 
 	if err := window.Open(srv.URL(), name+" — Setup", 900, 700); err != nil {
 		return false, err
+	}
+
+	/*
+	 * Closed rather than finished: put the machine back.
+	 *
+	 * Setup is the one screen that writes gigabytes to somebody's computer
+	 * before they have decided to keep the program, and abandoning it used to
+	 * leave every byte — an Ollama and its service, four gigabytes of model, a
+	 * compiled recogniser, an entry in the applications menu — with nothing
+	 * afterwards offering to remove any of it.
+	 *
+	 * Only what this run installed, and only what was not there before it
+	 * started. See RollBack.
+	 */
+	if !srv.Finished() {
+		srv.RollBack(os.Stderr)
 	}
 
 	return srv.Finished(), stillMissing(srv)
@@ -2158,4 +2266,115 @@ func backupEverything(db *store.DB, root paths.Root) (string, error) {
 	}
 
 	return name, f.Sync()
+}
+
+// runRender is the hidden subcommand that opens one page and prints what it
+// says. See the case above, and internal/brain/browse.
+func runRender(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: render <url> [seconds]")
+	}
+
+	seconds := int(browse.Patience.Seconds())
+
+	if len(args) > 1 {
+		if n, err := strconv.Atoi(args[1]); err == nil && n > 0 && n <= 300 {
+			seconds = n
+		}
+	}
+
+	return browse.RenderHere(args[0], seconds)
+}
+
+/*
+ * listenAs opens the door as far as the settings say, and no further.
+ *
+ * The address is widened here rather than in the settings file, so that
+ * somebody who turns reaching-from-the-network on does not also have to know
+ * what to type in place of 127.0.0.1 — and so that turning it off puts it back
+ * without them having to remember what it was.
+ *
+ * A certificate is made before anything binds. Sending a token in the clear
+ * across a network is sending somebody else the key, and the listener refuses
+ * to open without one anyway; making it here means the refusal never happens
+ * for a reason the person could not have done anything about.
+ */
+func listenAs(cfg config.Config, root string, logger *slog.Logger) ([]net.Listener, error) {
+	/*
+	 * Loopback first, and plain, always.
+	 *
+	 * A request that never leaves this computer cannot be read by anything, so
+	 * there is nothing for TLS to protect — and the window has opened
+	 * http://127.0.0.1 since the program was written. Wrapping this one too
+	 * meant that opening the door to a phone made the assistant go blank at
+	 * its owner's own desk, which is not a trade anybody would make on purpose.
+	 */
+	here, err := server.Listen(cfg.Addr)
+	if err != nil {
+		return nil, err
+	}
+
+	if !cfg.OpenToNetwork() {
+		return []net.Listener{here}, nil
+	}
+
+	_, port, err := net.SplitHostPort(cfg.Addr)
+	if err != nil {
+		here.Close()
+
+		return nil, fmt.Errorf("address %q is not host:port: %w", cfg.Addr, err)
+	}
+
+	certificate, err := pair.Certificate(root)
+	if err != nil {
+		here.Close()
+
+		return nil, fmt.Errorf("making a certificate for this machine: %w", err)
+	}
+
+	/*
+	 * And the network on a port of its own, encrypted.
+	 *
+	 * One above the local one, so nothing has to be configured and the two
+	 * cannot collide. A failure here is not fatal: being unable to answer a
+	 * phone is worth saying and is not worth refusing to start over, because
+	 * the thing somebody is sitting in front of still works.
+	 */
+	network := net.JoinHostPort("", pair.NetworkPort(port))
+
+	out, err := server.ListenFor(network, true, certificate)
+	if err != nil {
+		logger.Warn("could not answer on the network; this computer still can",
+			"where", network, "error", err)
+
+		return []net.Listener{here}, nil
+	}
+
+	logger.Info("answering on the network to paired devices only",
+		"where", pair.Addresses(pair.NetworkPort(port)),
+		"fingerprint", pair.Fingerprint(certificate))
+
+	return []net.Listener{here, out}, nil
+}
+
+// whereToOpen is the address to type, said correctly for how it is listening.
+func whereToOpen(cfg config.Config, ln net.Listener) string {
+	here := "http://" + ln.Addr().String()
+
+	if !cfg.OpenToNetwork() {
+		return here
+	}
+
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		return here
+	}
+
+	// This computer first, because that is where whoever is reading this is
+	// sitting — then the address to type into a phone.
+	if where := pair.Addresses(pair.NetworkPort(port)); len(where) > 0 {
+		return here + "   ·   on your network: " + strings.Join(where, "  ")
+	}
+
+	return here
 }

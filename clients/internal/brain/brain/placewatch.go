@@ -67,6 +67,16 @@ func (b *Brain) keepPlaces(ctx context.Context) {
 	case <-time.After(SettleBeforeLooking):
 	}
 
+	/*
+	 * What is gone is forgotten before anything new is read.
+	 *
+	 * Beside the reading rather than on a timer of its own, because both are
+	 * about the same thing — what the places actually hold now — and because
+	 * it costs one stat per place a memory came from, which is nothing beside
+	 * a round of reading.
+	 */
+	b.forgetWhatIsGone()
+
 	for {
 		did := b.lookAtOnePlace(ctx)
 

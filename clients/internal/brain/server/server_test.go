@@ -285,18 +285,45 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"ask_first", "brain_copies", "change_a_setting", "change_this_conversation",
-		"click", "decide_waiting", "do_in_background", "edit_file",
-		"fetch_url", "films_without_subtitles", "forget_reminder",
+		"ask_first", "brain_copies", "change_a_setting",
+
+		// The diary, which lives in this database rather than in an account
+		// somewhere. Reading it is Safe; writing to it is not.
+		"change_the_diary",
+
+		"change_this_conversation",
+		"click", "decide_waiting", "do_in_background", "edit_document", "edit_file",
+		"fetch_url", "films_without_subtitles",
+
+		/*
+		 * Taught how a job is done here. Alphabetical like everything else in
+		 * this list, because the registry sorts and the point of the list is
+		 * that it matches exactly.
+		 *
+		 * Writing one and deleting one are Mutating and go through the gate.
+		 * Reading one back is not, because what comes back is text: every
+		 * action in a skill is still carried out by the ordinary tools, with
+		 * the risk each of them always had. A skill cannot widen anything.
+		 */
+		"forget_how_to_do_this",
+
+		"forget_reminder",
 		"godot_build", "godot_docs", "godot_status", "how_fast_can_you_answer",
+
+		// Looking after the machine by talking to it, rather than by finding
+		// the right panel. Installing and removing are Mutating and go through
+		// permissions like every other change; asking what is missing is not.
+		"install_a_model", "install_a_part",
+
 		"learn_from_folder", "list_background", "list_directory",
 		"list_drives", "list_models",
 		"list_reminders", "list_waiting", "list_windows", "look_at_screen",
-		"make_subtitles", "open_app", "places_it_learns_from", "put_it_back",
-		"read_document", "read_file", "remind_me", "run_command",
+		"make_a_picture", "make_a_video", "make_subtitles", "open_app", "places_it_learns_from", "put_in_the_diary", "put_it_back",
+		"read_a_page", "read_document", "read_file", "remember_how_to_do_this", "remind_me", "remove_a_part", "run_command",
 		"scroll", "search_files", "set_appearance", "set_wake_word",
 		"stop_background", "stop_hearing_this_machine", "type_text",
-		"web_search", "what_am_i_hearing", "what_can_you_do", "what_you_know",
+		"web_search", "what_am_i_hearing", "what_can_you_do", "what_is_on", "what_ive_been_taught",
+		"what_this_machine_needs", "what_you_know",
 		"write_document",
 		"write_file",
 	}

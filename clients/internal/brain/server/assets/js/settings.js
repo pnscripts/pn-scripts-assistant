@@ -125,6 +125,7 @@ async function load() {
 
         // Defaults to on: an assistant you can talk to should answer out loud
         // unless somebody has said otherwise.
+        el('set-always-listen').checked = status.always_listen !== false;
         el('set-always-speak').checked = status.always_speak !== false;
     }
 
@@ -284,6 +285,7 @@ if (form) {
             privacy: el('set-privacy').value,
             always_name: el('set-always').checked,
             auto_model: el('set-auto-model').checked,
+            always_listen: el('set-always-listen').checked,
             always_speak: el('set-always-speak').checked,
         }, el('set-note'));
     });

@@ -93,7 +93,81 @@ function clearBoot() {
     el('boot')?.remove();
 }
 
-function addMessage(who, text, { cssClass = '', meta = '', actions = [] } = {}) {
+/*
+ * renderSteps draws what the assistant did, one openable line each.
+ *
+ * The chips it replaces said "Search the web" and stopped there, which is a
+ * category of action rather than an action: a tool called with the wrong
+ * argument and a tool that is merely slow produced the same chip. Each line
+ * here opens onto what was actually asked for and what came back, so watching
+ * it work does not mean trusting a summary.
+ *
+ * Closed by default. Somebody reading an answer has not asked for four
+ * screens of tool output, and the whole point of the summary is that it is
+ * usually enough.
+ */
+function renderSteps(steps) {
+    const box = document.createElement('div');
+    box.className = 'steps';
+
+    steps.forEach((s) => {
+        const row = document.createElement('details');
+        row.className = 'step' + (s.failed ? ' failed' : '');
+
+        const head = document.createElement('summary');
+
+        const name = document.createElement('span');
+        name.className = 'step-what';
+        name.textContent = s.summary || s.tool || 'did something';
+        head.appendChild(name);
+
+        // How long it took, beside what it was. The number is the difference
+        // between "it is thinking" and "it is stuck", and it is never visible
+        // anywhere else once the answer has arrived.
+        const time = document.createElement('span');
+        time.className = 'step-time';
+        time.textContent = s.millis >= 1000
+            ? (s.millis / 1000).toFixed(1) + 's'
+            : (s.millis || 0) + 'ms';
+        head.appendChild(time);
+
+        row.appendChild(head);
+
+        const detail = document.createElement('div');
+        detail.className = 'step-detail';
+
+        if (s.tool) {
+            const t = document.createElement('div');
+            t.className = 'step-tool';
+            t.textContent = s.tool;
+            detail.appendChild(t);
+        }
+
+        if (s.asked) {
+            const a = document.createElement('pre');
+            a.className = 'step-asked';
+            // textContent throughout: a tool result can hold a web page it
+            // just fetched, and rendering that as markup would turn something
+            // the model read into script running in this console.
+            a.textContent = s.asked;
+            detail.appendChild(a);
+        }
+
+        if (s.result) {
+            const r = document.createElement('pre');
+            r.className = 'step-result';
+            r.textContent = s.result;
+            detail.appendChild(r);
+        }
+
+        row.appendChild(detail);
+        box.appendChild(row);
+    });
+
+    return box;
+}
+
+function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps = [] } = {}) {
     clearBoot();
 
     const wrap = document.createElement('div');
@@ -112,7 +186,18 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [] } = {}) 
     body.textContent = text;
     wrap.appendChild(body);
 
-    if (actions.length) {
+    /*
+     * Steps when there are any, chips otherwise.
+     *
+     * Not both: they describe the same work, and showing a summary chip above
+     * an openable line saying the same words reads as two things having
+     * happened. The chips stay for the paths that have no step detail —
+     * an answer replayed from history, or one that came back from a place
+     * that only ever recorded the summary.
+     */
+    if (steps.length) {
+        wrap.appendChild(renderSteps(steps));
+    } else if (actions.length) {
         const row = document.createElement('div');
         row.className = 'actions';
         actions.forEach((a) => {
@@ -249,6 +334,7 @@ async function send(text) {
             cssClass: 'brain',
             meta: `${data.provider} · ${data.model}`,
             actions: data.actions_taken || [],
+            steps: data.steps || [],
         });
 
         // A pause for approval is the interesting case, so surface it
@@ -342,13 +428,21 @@ async function refreshStatus() {
              * every time is a small tax on the thing they came for. Started
              * once per session, and only if they have not already stopped it.
              *
+             * But a default is not the same as no choice, and this was the
+             * second for a long time: Stop worked until the page reloaded,
+             * and then the microphone was open again. Listening is not idle —
+             * it is voice detection and then transcription of whatever the
+             * room said, on the same processor the answers come from, and it
+             * holds the microphone so nothing else can have it. So it is a
+             * setting now, and this honours it.
+             *
              * Not while the naming card is up. Opening the microphone there
              * meant a brand new brain sat listening to the room, ready to
              * answer to a name its owner had not chosen yet, behind a dialog
              * covering the screen — and the first thing it would ever learn
              * would have been overheard rather than said to it.
              */
-            if (!talkingStartedOnce && !state.firstRun) {
+            if (!talkingStartedOnce && !state.firstRun && s.always_listen !== false) {
                 talkingStartedOnce = true;
                 talking.on = true;
                 talkLoop();

@@ -35,11 +35,30 @@
         return body.data !== undefined ? body.data : body;
     }
 
+    /*
+     * What each setting means, in both halves.
+     *
+     * Both, because this is one switch now: it decides what the program may do
+     * on this machine and what may leave it. Saying only the first half was
+     * how somebody ended up with a program that had stopped asking and was
+     * still refusing.
+     */
     const MEANS = {
-        ask: 'It asks before anything that changes something on this machine.',
-        granted: 'It does what you have already allowed, and asks about everything else.',
-        everything: 'It does anything it can, without asking. Everything is still '
-            + 'recorded, and anything you have refused stays refused.',
+        ask: 'It asks before anything that changes something, and nothing leaves this '
+            + 'machine — no hosted model, no web.',
+        granted: 'It does what you have already allowed and asks about the rest. The web '
+            + 'is open; the model answering you stays on this machine.',
+        everything: 'It does anything it can, without asking, and nothing is held back: '
+            + 'hosted models, the web, and what it has learned about you may all be sent. '
+            + 'Everything is still recorded.',
+    };
+
+    // The second half again, under the control itself, because the consequence
+    // of the last option is the one worth reading twice.
+    const LEAVES = {
+        ask: 'Nothing leaves this machine.',
+        granted: 'Searches leave. Your conversations and what it knows about you do not.',
+        everything: 'Anything may leave, including what it has learned about you.',
     };
 
     let loaded = false;
@@ -83,6 +102,10 @@
 
         if (summary) summary.textContent = MEANS[data.freedom] || MEANS.ask;
 
+        const leaves = el('freedom-means');
+
+        if (leaves) leaves.textContent = LEAVES[data.freedom] || LEAVES.ask;
+
         /*
          * Privacy named on this page, and only as a pointer.
          *
@@ -98,10 +121,17 @@
         const note = el('permissions-privacy-note');
 
         if (note) {
-            note.textContent = 'Privacy is a different question and is set to “'
-                + (data.privacy || '—') + '” on its own page: that decides where '
-                + 'your words go — whether a conversation reaches somebody else’s '
-                + 'model. Nothing on this page changes that.';
+            /*
+             * It used to say privacy was a different question, set elsewhere,
+             * and that nothing on this page changed it. All three were true
+             * once and none of them is now — this control is the one that
+             * decides, and a panel that says otherwise is worse than a panel
+             * that says nothing.
+             */
+            note.textContent = 'What may leave this machine follows this same switch, '
+                + 'and is currently “' + (data.privacy || '—') + '”. The Privacy page '
+                + 'shows what that means and what it is protecting; this is where it '
+                + 'is changed.';
         }
 
         draw(data.capabilities || []);
@@ -230,6 +260,10 @@
                 const summary = el('freedom-summary');
 
                 if (summary) summary.textContent = answer.means || MEANS[answer.freedom];
+
+                const leaves = el('freedom-means');
+
+                if (leaves) leaves.textContent = LEAVES[answer.freedom] || LEAVES.ask;
             } catch (err) {
                 load();
             }

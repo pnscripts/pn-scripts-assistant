@@ -25,14 +25,19 @@ import (
 	"pn-scripts-assistant/internal/brain/machine"
 	"pn-scripts-assistant/internal/brain/mail"
 	"pn-scripts-assistant/internal/brain/models"
+	"pn-scripts-assistant/internal/brain/occupations"
+	"pn-scripts-assistant/internal/brain/org"
 	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/places"
+	"pn-scripts-assistant/internal/brain/profile"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/brain/smarthome"
 	"pn-scripts-assistant/internal/brain/speech"
 	"pn-scripts-assistant/internal/brain/storage"
 	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/tasks"
+	"pn-scripts-assistant/internal/brain/team"
 	"pn-scripts-assistant/internal/brain/tools"
 )
 
@@ -114,11 +119,34 @@ type Brain struct {
 	// Agent runs tools. It stops rather than acting when a tool would change
 	// something, so approval stays a real gate rather than a notification.
 	Agent *agent.Loop
+
+	/*
+	 * TaskAgent is a second loop, for work nobody is sitting in front of.
+	 *
+	 * Its own instance rather than the conversation's, because that one has
+	 * fields set and unset around a spoken turn and a task running beside a
+	 * conversation would read them mid-change. It is also quiet: the panel
+	 * saying what the brain is doing belongs to whoever is waiting for an
+	 * answer, and a task in the background must not take the line.
+	 */
+	TaskAgent *agent.Loop
+
+	// Tasks is work that outlives the sentence that asked for it.
+	Tasks *tasks.Conductor
+
+	// taught is which skills are currently in the registry, so a reload can
+	// remove the ones whose files have gone.
+	taught taught
 }
 
 // New assembles a brain from settings.
 func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logger) *Brain {
-	mode := llm.ParseMode(cfg.Privacy)
+	/*
+	 * What may leave this machine follows how much it asks, which is one
+	 * setting rather than two. See llm.ModeFor: the second setting was the
+	 * one that actually stood in the way, and it refused rather than asked.
+	 */
+	mode := llm.ModeFor(cfg.Asking())
 
 	// What the interface looks like, so that being asked to change it is
 	// something the brain can do rather than something it agrees to.
@@ -174,6 +202,16 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	 */
 	available = append(available,
 		tools.FetchURL{},
+		/*
+		 * And the same page opened properly, when the plain fetch is not
+		 * enough.
+		 *
+		 * Hidden by the same privacy rule as the other two, because it reaches
+		 * the web exactly as they do — more thoroughly, in fact, since it runs
+		 * whatever the page is made of.
+		 */
+		tools.ReadAPage{},
+
 		tools.WebSearch{BraveKey: cfg.BraveKey},
 	)
 
@@ -230,6 +268,52 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	b.Permits = book
 
 	available = append(available,
+		/*
+		 * Teaching it how a job is done here.
+		 *
+		 * Writing one stops for approval and the summary is the whole skill,
+		 * word for word — because what is written is followed on later turns,
+		 * so it shapes what the assistant does for weeks. Reading one back is
+		 * Safe, because it returns text: every action in a skill is still
+		 * carried out by the ordinary tools with the gates they always had.
+		 */
+		/*
+		 * The diary, which is a table here rather than an account somewhere.
+		 *
+		 * Reading it is Safe. Putting something in and changing something are
+		 * not: an appointment invented at the wrong hour is worse than one
+		 * never made, because its owner acts on it — so the summary shows the
+		 * day, the time and the name, which is a thing they can check.
+		 */
+		/*
+		 * Changing a document rather than rebuilding it.
+		 *
+		 * The program could read eight formats and create four, and could
+		 * change none of them — so "put the new name in that contract" meant
+		 * rebuilding the contract from what could be read out of it, losing
+		 * the letterhead, the table and everything else that made it one.
+		 */
+		tools.EditDocument{Root: root},
+
+		/*
+		 * Pictures, and films made out of them.
+		 *
+		 * Which way a picture is made is decided in one place — see
+		 * studioOf.Painter — because a description of what somebody wants a
+		 * picture of is often the most revealing sentence they will write all
+		 * week, and whether it stays here must not depend on which tool asked.
+		 */
+		tools.MakeAPicture{Studio: studioOf{b}},
+		tools.MakeAVideo{Studio: studioOf{b}},
+
+		tools.WhatIsOn{DB: db},
+		tools.PutInTheDiary{DB: db},
+		tools.ChangeTheDiary{DB: db},
+
+		tools.RememberHowToDoThis{Brain: teachingOf{b}},
+		tools.ForgetHowToDoThis{Brain: teachingOf{b}},
+		tools.WhatIveBeenTaught{Brain: teachingOf{b}},
+
 		tools.InBackground{Jobs: backgroundOf{b}, Registry: func() *tools.Registry {
 			return b.Agent.Registry
 		}},
@@ -239,6 +323,20 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.ListWaiting{Queue: queueOf{b}},
 		tools.DecideWaiting{Queue: queueOf{b}},
 		tools.ListModels{Machine: b},
+
+		/*
+		 * Looking after the machine, by talking to it.
+		 *
+		 * The panels could already do all of this. What they could not do is
+		 * answer "what is missing?" — which is the question somebody actually
+		 * has, and which they had to translate into knowing that a Parts panel
+		 * exists and where. Installing is Mutating and goes through
+		 * permissions like every other change; looking is Safe.
+		 */
+		tools.WhatItNeeds{Parts: machineParts},
+		tools.InstallPart{Parts: machineParts, Start: b.startInstalling},
+		tools.InstallModel{Start: b.startPulling},
+		tools.RemovePart{Parts: machineParts, Remove: b.startRemoving},
 
 		// So "my external drive" can be looked up rather than asked about.
 		tools.ListDrives{Root: b.Root},
@@ -467,7 +565,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 * can grant a permission in the approval they are looking at, and the
 		 * next call in the same turn should already know about it.
 		 */
-		MayI: func(tool string, changesSomething bool) permits.Answer {
+		MayI: func(who, tool string, changesSomething bool) permits.Answer {
 			if b.Permits == nil {
 				if changesSomething {
 					return permits.Ask
@@ -476,12 +574,17 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 				return permits.Allow
 			}
 
-			return b.Permits.Decide(tool, changesSomething, b.Freedom())
+			return b.Permits.Decide(who, tool, changesSomething, b.Freedom())
 		},
+
+		NothingAsks: func() bool { return b.Freedom() == permits.Everything },
 
 		OffLimits: func(tool string) bool {
 			switch tool {
-			case "fetch_url", "web_search":
+			// read_a_page belongs here for a sharper reason than the other
+			// two: it does not merely request a page, it runs whatever the
+			// page is made of.
+			case "fetch_url", "web_search", "read_a_page":
 				return !b.Mode.AllowsWeb()
 			}
 
@@ -514,6 +617,96 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 			return llm.ChooseModel(message, b.modelRoles())
 		},
+	}
+
+	/*
+	 * The same registry, the same gate, the same privacy rule — and quiet.
+	 *
+	 * Sharing MayI and OffLimits is not a convenience: a task must not be a
+	 * way round the approval gate, and the surest way to guarantee that is for
+	 * there to be one gate rather than two that are meant to agree.
+	 */
+	b.TaskAgent = &agent.Loop{
+		DB:          db,
+		Log:         logger,
+		Registry:    b.Agent.Registry,
+		MayI:        b.Agent.MayI,
+		NothingAsks: b.Agent.NothingAsks,
+		OffLimits:   b.Agent.OffLimits,
+		Quietly:     true,
+	}
+
+	/*
+	 * And whatever its owner has taught it, before anything can be asked.
+	 *
+	 * A failure here is reported and not fatal, in the same spirit as the
+	 * permissions book: a folder that cannot be read means no skills, which is
+	 * every brain until somebody writes one. Refusing to start would refuse
+	 * somebody their assistant over a file that only ever adds to it.
+	 */
+	if count, err := b.ReloadSkills(); err != nil {
+		logger.Warn("skills could not be read", "error", err)
+	} else if count > 0 {
+		logger.Info("loaded what it has been taught", "skills", count)
+	}
+
+	/*
+	 * And what work there is in the world, as against who here does it.
+	 *
+	 * Written on every start rather than once. It is a no-op after the first
+	 * — the writer compares before it writes, and reports nothing changed —
+	 * and doing it this way is what makes a job added in a later version of
+	 * the program simply appear rather than needing a migration of its own.
+	 *
+	 * Nothing here can undo an edit: what shipped loses to what somebody
+	 * wrote by hand, decided in the store rather than trusted to the caller.
+	 */
+	if done, err := occupations.Ensure(db); err != nil {
+		logger.Warn("the list of jobs could not be written", "error", err)
+	} else if done.Jobs > 0 || done.Capabilities > 0 {
+		logger.Info("learned what work there is",
+			"jobs", done.Jobs, "capabilities", done.Capabilities, "links", done.Links)
+	}
+
+	/*
+	 * Work that outlives the sentence that asked for it.
+	 *
+	 * Built here rather than beside the Runner, because it holds the quiet
+	 * loop and that does not exist until the conversation's does. Built too
+	 * early it captured a nil, and the first task on a real machine took the
+	 * whole program down with it — in a background goroutine, where a panic is
+	 * not something a request can survive.
+	 *
+	 * Provider is a function rather than a provider, for the same reason
+	 * OffLimits is: privacy can change while a task is running, and a task
+	 * holding a hosted provider it was given twenty minutes ago would keep
+	 * sending to it after somebody switched to private. Asked at every step,
+	 * the task stops at the next one instead.
+	 */
+	b.Tasks = &tasks.Conductor{
+		DB:       db,
+		Log:      logger,
+		Jobs:     b.Jobs,
+		Agent:    b.TaskAgent,
+		Provider: func(name string) (llm.Provider, error) { return b.Router.Provider(name) },
+		Sizes:    b.modelRoles,
+		Roster:   func() []team.Agent { return team.Roster(b.Root) },
+
+		/*
+		 * What the organisation looks like, what the jobs are, and what tools
+		 * exist — read afresh for every step rather than captured once.
+		 *
+		 * All three are things somebody may change while a task is running:
+		 * a unit file edited, a job imported, a skill taught. A task holding
+		 * who somebody was twenty minutes ago is the same mistake as one
+		 * holding a provider from twenty minutes ago.
+		 */
+		Chart:       func() []org.Unit { return org.Chart(b.Root) },
+		Occupations: db,
+		Toolbox:     b.Agent.Registry,
+		Prompt:      func(provider string) string { return b.personaFor(provider, true) },
+		Say:         b.SayInto,
+		Budget:      tasks.Sensible(),
 	}
 
 	/*
@@ -836,6 +1029,10 @@ func (b *Brain) Start(ctx context.Context) {
 
 	// The only thing here that speaks without being spoken to first.
 	go b.watchReminders(ctx)
+
+	// And goals that come round on their own — only the ones told to. See
+	// watchGoals.
+	go b.watchGoals(ctx)
 
 	// Both models loaded and kept loaded, so choosing between them costs
 	// nothing at the moment of choosing.
@@ -1174,6 +1371,52 @@ func (b *Brain) whereThingsAre() string {
 	return "Where things are on this machine, as of now:\n" + strings.Join(lines, "\n")
 }
 
+/*
+ * personaFor is who the assistant is, for this turn and this model.
+ *
+ * Two decisions in one place. How much of the persona — the long one for
+ * something being read, the short one for something being heard, where every
+ * token of prompt is a second of silence before anybody hears a word. And
+ * whether what its owner wrote about themselves goes with it.
+ *
+ * The profile is held back from a paid service by default, and it is a
+ * separate decision from privacy rather than a consequence of it. Opening
+ * privacy says this conversation may be answered elsewhere. It does not say
+ * that a standing description of somebody's business should be attached to
+ * every single turn, including the ones with nothing to do with it. The model
+ * on this machine is given it in every mode, because nothing leaves.
+ */
+func (b *Brain) personaFor(provider string, spoken bool) string {
+	persona := b.SystemPrompt()
+
+	most := 0
+
+	if spoken {
+		persona = b.spokenSystemPrompt()
+		most = profile.SpokenRunes
+	}
+
+	if !b.mayReadProfileTo(provider) {
+		return persona
+	}
+
+	block := profile.Block(b.Root, most)
+	if block == "" {
+		return persona
+	}
+
+	return persona + "\n\n" + block
+}
+
+// mayReadProfileTo says whether this model may be told about its owner.
+func (b *Brain) mayReadProfileTo(provider string) bool {
+	if provider == llm.Local {
+		return true
+	}
+
+	return b.Cfg.ProfileToHosted
+}
+
 // spokenSystemPrompt is who the assistant is, said briefly.
 func (b *Brain) spokenSystemPrompt() string {
 	name := b.Cfg.Name
@@ -1278,9 +1521,17 @@ type ChatReply struct {
 	ActionsTaken     []string        `json:"actions_taken"`
 	PendingApprovals []agent.Pending `json:"pending_approvals"`
 
+	// Steps is the same work with its detail kept, so the interface can let
+	// somebody open one and see what was actually run and what came back.
+	Steps []agent.Step `json:"steps,omitempty"`
+
 	// AlreadySpoken is true when the answer was said aloud as it was written,
 	// so the page must not send it to be spoken a second time.
 	AlreadySpoken bool `json:"already_spoken"`
+
+	// TaskID is set when the turn started a piece of work rather than
+	// answering, so the page can offer to go and watch it.
+	TaskID int64 `json:"task_id,omitempty"`
 }
 
 // Chat answers a message and records the exchange.
@@ -1438,6 +1689,40 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		}, nil
 	}
 
+	/*
+	 * Asked for as a job, so it becomes one and the turn ends here.
+	 *
+	 * The turn ends immediately, which is the whole point: a task takes
+	 * minutes, and somebody who has just asked for one should be able to carry
+	 * on talking rather than watch a spinner. What it is going to do is
+	 * written down before any of it runs, so it can be read — and stopped —
+	 * from the Tasks view first.
+	 */
+	if request, forced, worth := b.worthPlanning(req); worth {
+		task, started, err := b.Tasks.Take(ctx, conversationID, request, provider.Name(), forced)
+
+		switch {
+		case err != nil:
+			b.Log.Warn("could not start a task", "error", err)
+		case started:
+			answer := "Started: " + task.Name +
+				". I'll work through it and tell you when it's done."
+
+			if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", answer); err != nil {
+				return ChatReply{}, err
+			}
+
+			answered = true
+
+			return ChatReply{
+				ConversationID: conversationID,
+				Reply:          answer,
+				Provider:       provider.Name(),
+				TaskID:         task.ID,
+			}, nil
+		}
+	}
+
 	history, err := b.DB.History(conversationID)
 	if err != nil {
 		return ChatReply{}, err
@@ -1459,7 +1744,7 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	// to a third party. What they type is their choice; this is not.
 	var recalled []store.Scored
 
-	if llm.AllowsMemoryFor(provider.Name()) {
+	if llm.AllowsMemoryFor(provider.Name(), b.Router.Mode()) {
 		recalled = b.recall(ctx, req.Message)
 
 		if req.Spoken && len(recalled) > SpokenRecallLimit {
@@ -1467,21 +1752,56 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		}
 	}
 
-	if req.Spoken {
-		// Swap the stored persona for the short one rather than adding to it.
-		// Appending would pay for both.
-		for i := range messages {
-			if messages[i].Role == llm.RoleSystem {
-				messages[i].Content = b.spokenSystemPrompt()
+	/*
+	 * The stored persona row is the record; what is sent is built now.
+	 *
+	 * It used to be written once, when the conversation was created, and never
+	 * looked at again — so the parts of it that are computed went stale the
+	 * moment anything changed. A thread open since the morning told the model
+	 * how many things were remembered that morning, and listed the drives that
+	 * were plugged in then. Anything its owner wrote about themselves since
+	 * would never have been read at all.
+	 *
+	 * Rebuilt per turn it also picks the right length: the short persona for a
+	 * spoken turn, where prompt size is the whole of the wait, and the full one
+	 * for a typed one.
+	 */
+	for i := range messages {
+		if messages[i].Role == llm.RoleSystem {
+			messages[i].Content = b.personaFor(provider.Name(), req.Spoken)
 
-				break
-			}
+			break
 		}
 	}
 
 	factLimit := RecalledFactLimit
 	if req.Spoken {
 		factLimit = SpokenFactLimit
+	}
+
+	/*
+	 * Noted as used, because they are about to be.
+	 *
+	 * The only feedback available without asking somebody to rate their own
+	 * assistant, and a real one: a fact that keeps coming up when the subject
+	 * comes up is a fact about something that keeps coming up. It moves recall
+	 * by a few hundredths — see store.worth — which is enough to break a tie
+	 * between two facts that both fit and not enough to lift one that does not.
+	 *
+	 * Written here rather than in recall(), because the interface searches
+	 * memory through the same function and somebody looking something up is
+	 * not the assistant finding it useful.
+	 */
+	if len(recalled) > 0 {
+		used := make([]int64, 0, len(recalled))
+
+		for _, r := range recalled {
+			used = append(used, r.ID)
+		}
+
+		if err := b.DB.Recalled(used); err != nil {
+			b.Log.Warn("could not note what was recalled", "error", err)
+		}
 	}
 
 	if preamble := formatRecallLimited(recalled, factLimit); preamble != "" {
@@ -1579,6 +1899,7 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		Model:            result.Model,
 		Recalled:         ids,
 		ActionsTaken:     result.ActionsTaken,
+		Steps:            result.Steps,
 		PendingApprovals: result.Pending,
 		AlreadySpoken:    result.AlreadySpoken,
 	}, nil
@@ -1940,18 +2261,26 @@ func (b *Brain) UsePrivacy(mode string) (llm.Mode, error) {
 		return b.Mode, fmt.Errorf("there is no privacy setting called %q", mode)
 	}
 
-	b.Mode = parsed
-	b.Cfg.Privacy = string(parsed)
+	/*
+	 * And it moves the one switch rather than a second one beside it.
+	 *
+	 * There is a single setting now — how much it asks — and what may leave
+	 * this machine is read off it. Anything still setting privacy by name is
+	 * setting that, which is why this maps back rather than storing a value
+	 * of its own: two settings that are meant to agree eventually do not.
+	 */
+	freedom := permits.AskEveryTime
 
-	if b.Router != nil {
-		b.Router.UseMode(parsed)
+	switch parsed {
+	case llm.ModeOpen:
+		freedom = permits.Everything
+	case llm.ModeResearch:
+		freedom = permits.WhatIveAllowed
 	}
 
-	if err := b.Cfg.Save(b.Root); err != nil {
+	if _, err := b.UseFreedom(string(freedom)); err != nil {
 		return b.Mode, err
 	}
-
-	b.Log.Info("privacy changed", "mode", parsed)
 
 	return parsed, nil
 }
@@ -1970,7 +2299,7 @@ func (b *Brain) UsePrivacy(mode string) (llm.Mode, error) {
  */
 func (b *Brain) Freedom() permits.Freedom {
 	b.mu.Lock()
-	f := permits.Freedom(strings.TrimSpace(strings.ToLower(b.Cfg.Freedom)))
+	f := permits.Freedom(strings.TrimSpace(strings.ToLower(b.Cfg.Asking())))
 	b.mu.Unlock()
 
 	if !permits.Known(f) {
@@ -1996,8 +2325,19 @@ func (b *Brain) UseFreedom(level string) (permits.Freedom, error) {
 			"%q is not something I understand. It is ask, granted, or everything", level)
 	}
 
+	/*
+	 * Both written down together, before the file is saved.
+	 *
+	 * They were written in two steps once, and the file ended up saying
+	 * private while the program was open — which is the exact disagreement
+	 * between two settings that having one switch was meant to end.
+	 */
+	mode := llm.ModeFor(string(f))
+
 	b.mu.Lock()
 	b.Cfg.Freedom = string(f)
+	b.Cfg.Privacy = string(mode)
+	b.Mode = mode
 	cfg := b.Cfg
 	b.mu.Unlock()
 
@@ -2005,7 +2345,21 @@ func (b *Brain) UseFreedom(level string) (permits.Freedom, error) {
 		return b.Freedom(), fmt.Errorf("could not write it down: %w", err)
 	}
 
-	b.Log.Info("freedom changed", "level", f)
+	/*
+	 * And what may leave this machine follows it, at once.
+	 *
+	 * The whole point of one switch is that there is nothing else to
+	 * remember: somebody who has just said "allow everything" and then finds
+	 * the program still refusing to reach a model has been given a setting
+	 * that does not do what it says. Applied to the running router rather
+	 * than only written down, because a task in flight asks the router afresh
+	 * at every step.
+	 */
+	if b.Router != nil {
+		b.Router.UseMode(mode)
+	}
+
+	b.Log.Info("freedom changed", "level", f, "leaving this machine", mode)
 
 	return f, nil
 }
@@ -2025,24 +2379,53 @@ func (b *Brain) UseFreedom(level string) (permits.Freedom, error) {
 func providersFor(cfg config.Config, ollama llm.Provider) []llm.Provider {
 	providers := []llm.Provider{ollama}
 
-	if cfg.OpenAIKey != "" {
-		providers = append(providers, llm.NewOpenAI(cfg.OpenAIKey, cfg.OpenAIModel))
-	}
-
 	/*
-	 * OpenRouter is one key reaching models from every major company.
+	 * One pass over the list of companies, rather than a branch each.
 	 *
-	 * Worth having for its own sake, and it is also the honest answer to "why
-	 * only one paid provider": adding two more of them would still be a short
-	 * list, where this is most of them behind a single account.
+	 * This used to name three of them by hand, which is the reason there were
+	 * three: a fourth meant editing here as well as the settings file, the
+	 * setup picker and the key check, and whoever added the third had already
+	 * missed one of those. Now a company exists in llm.Services or it does not
+	 * exist at all.
 	 */
-	if cfg.OpenRouterKey != "" {
-		providers = append(providers,
-			llm.NewOpenRouter(cfg.OpenRouterKey, cfg.OpenRouterModel))
-	}
+	for _, svc := range llm.Services() {
+		key := cfg.ProviderKeys[svc.ID]
 
-	if cfg.AnthropicKey != "" {
-		providers = append(providers, llm.NewAnthropic(cfg.AnthropicKey, cfg.AnthropicModel))
+		// A company with no key is not registered. Registering one anyway
+		// would show it in the interface and fail the moment it was chosen.
+		if svc.NeedsKey && key == "" {
+			continue
+		}
+
+		model := cfg.ProviderModels[svc.ID]
+		if model == "" {
+			model = svc.Model
+		}
+
+		if svc.Native {
+			providers = append(providers, llm.NewAnthropic(key, model))
+
+			continue
+		}
+
+		base := svc.BaseURL
+
+		// The custom entry carries no address of its own — it is whatever
+		// somebody typed, and without one there is nothing to talk to.
+		if given := cfg.ProviderURLs[svc.ID]; given != "" {
+			base = given
+		}
+
+		if base == "" {
+			continue
+		}
+
+		providers = append(providers, &llm.OpenAICompatible{
+			ProviderName: svc.ID,
+			BaseURL:      base,
+			APIKey:       key,
+			Model:        model,
+		})
 	}
 
 	return providers

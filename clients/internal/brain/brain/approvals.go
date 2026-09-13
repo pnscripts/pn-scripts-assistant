@@ -49,6 +49,8 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 	if !approve {
 		invocation.Status = store.InvocationDenied
 
+		b.carryOn(ctx, *invocation)
+
 		return *invocation, nil
 	}
 
@@ -103,5 +105,28 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 
 	b.Log.Info("carried out an approved action", "id", id, "tool", invocation.Tool, "status", status)
 
+	b.carryOn(ctx, *invocation)
+
 	return *invocation, execErr
+}
+
+/*
+ * carryOn lets whatever was waiting on this decision get on with it.
+ *
+ * Both routes into Decide come through here — the button in the interface and
+ * the decide_waiting tool somebody uses out loud — so saying "approve
+ * everything waiting" resumes parked tasks with no extra machinery.
+ *
+ * A conversation needs none of this: it ended, and its owner asks again. A
+ * task has work behind it and nobody to ask, which is the whole difference.
+ */
+func (b *Brain) carryOn(ctx context.Context, invocation store.Invocation) {
+	if b.Tasks == nil {
+		return
+	}
+
+	if err := b.Tasks.Resolved(ctx, invocation); err != nil {
+		b.Log.Warn("could not carry on with what was waiting on this",
+			"invocation", invocation.ID, "error", err)
+	}
 }

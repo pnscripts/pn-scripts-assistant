@@ -10,6 +10,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"pn-scripts-assistant/internal/brain/machine"
 	"pn-scripts-assistant/internal/brain/models"
 	"pn-scripts-assistant/internal/brain/pace"
+	"pn-scripts-assistant/internal/brain/pair"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/speech"
 	"pn-scripts-assistant/internal/brain/storage"
@@ -44,6 +46,14 @@ type Server struct {
 	log    *slog.Logger
 	mux    *http.ServeMux
 	assets http.Handler
+
+	// paired is which devices may reach this from off the machine. Nil until
+	// it is loaded, which means nothing but this computer can.
+	paired *pair.Book
+
+	// through is the guarded handler, kept so the door itself can be tested
+	// without standing up a listener on a network interface.
+	through http.Handler
 
 	// What the microphone has recently made of the room, so that a turn which
 	// went nowhere can be looked at instead of guessed about.
@@ -64,6 +74,21 @@ func (s *Server) OnPresent(show func()) { s.present = show }
 // New builds the server and registers its routes.
 func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s := &Server{brain: b, log: logger, mux: http.NewServeMux(), assets: assetHandler(logger)}
+
+	/*
+	 * Which devices have been let in, read before anything can be served.
+	 *
+	 * A failure here is reported and not fatal, in the same spirit as the
+	 * permissions book: an empty list means nothing off this machine can reach
+	 * it, which is the safe way for this to fail and is also how every brain
+	 * starts.
+	 */
+	paired, err := pair.Load(b.Root)
+	if err != nil {
+		logger.Warn("paired devices could not be read, so none are trusted", "error", err)
+	}
+
+	s.paired = paired
 
 	/*
 	 * And the brain is told where the record of what was overheard lives.
@@ -164,6 +189,77 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/progress", s.handleProgress)
 	s.mux.HandleFunc("GET /api/steps", s.handleSteps)
 	s.mux.HandleFunc("GET /api/background", s.handleBackground)
+
+	// Work that outlives the sentence that asked for it.
+	s.mux.HandleFunc("GET /api/tasks", s.handleTasks)
+	s.mux.HandleFunc("POST /api/tasks", s.handleStartTask)
+	s.mux.HandleFunc("GET /api/tasks/{id}", s.handleTask)
+	s.mux.HandleFunc("POST /api/tasks/{id}/stop", s.handleStopTask)
+	s.mux.HandleFunc("POST /api/tasks/{id}/resume", s.handleResumeTask)
+
+	// Who it works for, and what it has been taught. Both are files somebody
+	// writes, so both can be edited here or in an editor.
+	s.mux.HandleFunc("GET /api/profile", s.handleProfile)
+	s.mux.HandleFunc("POST /api/profile", s.handleSaveProfile)
+	s.mux.HandleFunc("GET /api/skills", s.handleSkills)
+	s.mux.HandleFunc("POST /api/skills", s.handleSaveSkill)
+	s.mux.HandleFunc("POST /api/skills/reload", s.handleReloadSkills)
+	s.mux.HandleFunc("DELETE /api/skills/{name}", s.handleForgetSkill)
+
+	// Who does which part of a job.
+	// The organisation: what parts there are, what seats are in them, who
+	// holds each one, and what work there is in the world to be held.
+	s.mux.HandleFunc("GET /api/organisation", s.handleOrganisation)
+	s.mux.HandleFunc("POST /api/organisation/units", s.handleSaveUnit)
+	s.mux.HandleFunc("POST /api/organisation/units/{name}/reset", s.handleResetUnit)
+	s.mux.HandleFunc("POST /api/organisation/agents", s.handleHire)
+	s.mux.HandleFunc("DELETE /api/organisation/agents/{name}", s.handleRetire)
+	s.mux.HandleFunc("GET /api/organisation/jobs", s.handleJobs)
+	s.mux.HandleFunc("GET /api/organisation/who", s.handleWhoKnows)
+
+	s.mux.HandleFunc("GET /api/team", s.handleTeam)
+	s.mux.HandleFunc("POST /api/team/{name}", s.handleSaveAgent)
+	s.mux.HandleFunc("POST /api/team/{name}/reset", s.handleResetAgent)
+
+	// What the work is for, and how it has actually been going.
+	s.mux.HandleFunc("GET /api/goals", s.handleGoals)
+	s.mux.HandleFunc("POST /api/goals", s.handleSaveGoal)
+	s.mux.HandleFunc("POST /api/goals/{id}/work", s.handleWorkOnGoal)
+	s.mux.HandleFunc("DELETE /api/goals/{id}", s.handleForgetGoal)
+	s.mux.HandleFunc("GET /api/review", s.handleReview)
+
+	// What the record of decisions actually says — read back at last.
+	s.mux.HandleFunc("GET /api/habits", s.handleHabits)
+
+	/*
+	 * Which devices may reach this, and how one becomes one.
+	 *
+	 * Everything here except claiming a code is at-the-desk-only — see
+	 * atTheDeskOnly in the guard. Pairing requires standing in front of this
+	 * computer, and that is the whole of the security story.
+	 */
+	s.mux.HandleFunc("GET /api/paired", s.handlePaired)
+	s.mux.HandleFunc("POST /api/pair/offer", s.handleOfferCode)
+	s.mux.HandleFunc("POST /api/pair/stop", s.handleStopOffering)
+	s.mux.HandleFunc("POST /api/pair/claim", s.handleClaim)
+	s.mux.HandleFunc("DELETE /api/paired/{id}", s.handleUnpair)
+	s.mux.HandleFunc("POST /api/reach", s.handleReach)
+
+	// Reaching it from outside the house, through a tunnel into your own
+	// network rather than a door onto the internet.
+	s.mux.HandleFunc("GET /api/tunnel", s.handleTunnel)
+	s.mux.HandleFunc("POST /api/tunnel", s.handleTunnelSetup)
+	s.mux.HandleFunc("POST /api/tunnel/run", s.handleTunnelRun)
+	s.mux.HandleFunc("POST /api/tunnel/{id}", s.handleTunnelAdd)
+	s.mux.HandleFunc("GET /api/tunnel/{id}/config", s.handleTunnelConfig)
+	s.mux.HandleFunc("DELETE /api/tunnel/{id}", s.handleTunnelRemove)
+
+	// The diary, which lives in this database rather than in an account.
+	s.mux.HandleFunc("GET /api/diary", s.handleDiary)
+	s.mux.HandleFunc("POST /api/diary", s.handleSaveEvent)
+	s.mux.HandleFunc("DELETE /api/diary/{id}", s.handleCancelEvent)
+	s.mux.HandleFunc("POST /api/diary/import", s.handleImportDiary)
+	s.mux.HandleFunc("GET /api/diary/export", s.handleExportDiary)
 	s.mux.HandleFunc("GET /api/models", s.handleModels)
 	/*
 	 * Installing the missing pieces from inside the program.
@@ -182,6 +278,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 
 	s.mux.HandleFunc("GET /api/parts", s.handleParts)
 	s.mux.HandleFunc("POST /api/parts/install", s.handleInstallPart)
+	s.mux.HandleFunc("POST /api/parts/remove", s.handleRemovePart)
 	s.mux.HandleFunc("GET /api/models/available", s.handleCatalogue)
 
 	s.mux.HandleFunc("GET /api/updates", s.handleUpdates)
@@ -192,6 +289,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/models/tests", s.handleModelTests)
 	s.mux.HandleFunc("POST /api/models/use", s.handleModelUse)
 	s.mux.HandleFunc("POST /api/models/pull", s.handleModelPull)
+	s.mux.HandleFunc("POST /api/models/remove", s.handleRemoveModel)
 	s.mux.HandleFunc("POST /api/models/embedding", s.handleEmbeddingUse)
 	s.mux.HandleFunc("POST /api/turn", s.handleTurn)
 	s.mux.HandleFunc("GET /api/greeting", s.handleGreeting)
@@ -206,7 +304,25 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	return s
 }
 
-func (s *Server) Handler() http.Handler { return s.mux }
+/*
+ * Handler is the whole program behind one decision about who is asking.
+ *
+ * Guard wraps everything rather than being added route by route, because a
+ * rule that has to be remembered on each of ninety routes is a rule that will
+ * be missing from the ninety-first — and the ninety-first is the one that
+ * returns somebody's memory.
+ */
+func (s *Server) Handler() http.Handler {
+	if s.through == nil {
+		s.through = s.Guard(s.mux)
+	}
+
+	return s.through
+}
+
+// Devices is which things may reach this brain, so the interface can show them
+// and the guard can ask.
+func (s *Server) Devices() *pair.Book { return s.paired }
 
 // Listen binds the address, refusing anything that is not loopback.
 //
@@ -214,19 +330,56 @@ func (s *Server) Handler() http.Handler { return s.mux }
 // bound to 0.0.0.0 works perfectly for its owner while serving everything it
 // knows to the network around it.
 func Listen(addr string) (net.Listener, error) {
+	return ListenFor(addr, false, nil)
+}
+
+/*
+ * ListenFor opens the door as wide as it has been told to, and no wider.
+ *
+ * Three things must all be true before this binds anywhere but loopback, and
+ * they are checked here rather than at the call site because this is the one
+ * decision in the program that cannot be taken back: anything that reached the
+ * machine while it was open stays reached, however quickly it is closed again.
+ *
+ * Somebody must have said so. There must be a certificate, because a token
+ * sent in the clear across a network is a token somebody else has. And at
+ * least one device must already be paired — opening a door for nobody is all
+ * of the risk and none of the point, and it is what would happen if the
+ * setting were turned on before anything was paired.
+ */
+func ListenFor(addr string, network bool, certificate *tls.Certificate) (net.Listener, error) {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, fmt.Errorf("address %q is not host:port: %w", addr, err)
 	}
 
-	if !isLoopback(host) {
+	if isLoopback(host) {
+		return net.Listen("tcp", addr)
+	}
+
+	if !network {
 		return nil, fmt.Errorf(
-			"refusing to listen on %q: the brain serves everything it knows without "+
-				"authentication, so it must stay on the loopback interface", addr,
+			"refusing to listen on %q: this assistant answers only on the computer it "+
+				"runs on. Turn on reaching it from your network first, in Devices", addr,
 		)
 	}
 
-	return net.Listen("tcp", addr)
+	if certificate == nil {
+		return nil, fmt.Errorf(
+			"refusing to listen on %q without a certificate: a token sent in the clear "+
+				"across a network is a token somebody else has", addr,
+		)
+	}
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	return tls.NewListener(listener, &tls.Config{
+		Certificates: []tls.Certificate{*certificate},
+		MinVersion:   tls.VersionTLS12,
+	}), nil
 }
 
 func isLoopback(host string) bool {
@@ -248,9 +401,32 @@ func isLoopback(host string) bool {
 }
 
 // Serve runs until the context is cancelled.
-func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
+/*
+ * Serve runs until the context is cancelled, on every listener it is given.
+ *
+ * More than one, because loopback and the network want different things. A
+ * request that never leaves this computer cannot be read by anything, so plain
+ * HTTP on loopback is correct and is what the window has always used; a
+ * request crossing a network must be encrypted or the token in it belongs to
+ * whoever is listening. Wrapping one listener in TLS for both meant the local
+ * window stopped working the moment somebody opened the door — which they
+ * would have discovered by their assistant going blank.
+ */
+func (s *Server) Serve(ctx context.Context, listeners ...net.Listener) error {
 	srv := &http.Server{
-		Handler: s.mux,
+		/*
+		 * Handler, not mux. The difference is the whole door.
+		 *
+		 * This said s.mux, which served every route with no check at all —
+		 * correct for as long as the listener could only be loopback, and a
+		 * hole the moment it could not. Nothing else in the program was wrong:
+		 * the guard existed, was tested, and was simply never in the path.
+		 *
+		 * Which is the argument for wrapping once at the top rather than
+		 * checking per route, made against itself: there is exactly one line
+		 * that can be wrong, and it was.
+		 */
+		Handler: s.Handler(),
 		// A reply waits on a language model. On a machine without a GPU a single
 		// answer can take longer than a minute on its own, so a write timeout
 		// tuned for ordinary web traffic would cut off correct answers.
@@ -268,7 +444,27 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		srv.Shutdown(shutdown)
 	}()
 
-	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if len(listeners) == 0 {
+		return fmt.Errorf("nothing to listen on")
+	}
+
+	/*
+	 * The extra ones in the background, the first on this goroutine.
+	 *
+	 * Shutdown closes all of them, so whichever returns first ends the rest.
+	 * An error on a secondary listener is reported and not fatal: losing the
+	 * network is a reason to say so, not a reason to take somebody's assistant
+	 * away from them at their own desk.
+	 */
+	for _, extra := range listeners[1:] {
+		go func(ln net.Listener) {
+			if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				s.log.Warn("stopped answering on one address", "where", ln.Addr(), "error", err)
+			}
+		}(extra)
+	}
+
+	if err := srv.Serve(listeners[0]); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
@@ -333,13 +529,25 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	 * twice to somebody who is listening to it, and being told everything
 	 * twice is worse than not being told at all.
 	 */
-	if s.brain.Cfg.AlwaysSpeak && !req.Spoken && !reply.AlreadySpoken &&
-		strings.TrimSpace(reply.Reply) != "" {
-		go func(text string) {
-			if err := speech.SpeakAndWait(context.Background(), text); err != nil {
-				s.log.Debug("could not read the answer aloud", "error", err)
-			}
-		}(reply.Reply)
+	/*
+	 * And it decides what of the answer is worth hearing, rather than reading
+	 * all of it out.
+	 *
+	 * A written answer has headings, bullet points, file paths and code in
+	 * it. Read aloud, those come out as "hash hash what it found, star, slash
+	 * media slash petar slash" — so nobody listens to the end, so the voice
+	 * gets turned off, so it cannot say the one thing that was worth hearing
+	 * either. An answer that is nothing but code is not spoken at all: it is
+	 * on the screen being read, and saying it aloud is worse than silence.
+	 */
+	if s.brain.Cfg.AlwaysSpeak && !req.Spoken && !reply.AlreadySpoken {
+		if spoken, worth := speech.WorthSaying(reply.Reply); worth {
+			go func(text string) {
+				if err := speech.SpeakAndWait(context.Background(), text); err != nil {
+					s.log.Debug("could not read the answer aloud", "error", err)
+				}
+			}(spoken)
+		}
 	}
 
 	ok(w, reply)
@@ -377,18 +585,19 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		// the interface, because a brain that only answers to a word must say
 		// which word — otherwise somebody whose word is not being transcribed
 		// has no way to find out why nothing is happening.
-		"wake_word":    s.brain.Cfg.WakeWord,
-		"first_run":    s.brain.Cfg.New,
-		"only_me":      s.brain.Cfg.OnlyMe,
-		"voice_match":  s.brain.Cfg.VoiceMatch,
-		"cancel_room":  s.brain.Cfg.CancelRoom,
-		"keep_quiet":   s.brain.Cfg.KeepQuiet,
-		"rerouting":    speech.Rerouting(),
-		"always_name":  s.brain.Cfg.AlwaysName,
-		"auto_model":   s.brain.Cfg.AutoModel,
-		"always_speak": s.brain.Cfg.AlwaysSpeak,
-		"models":       modelRoles(s.brain),
-		"provider":     s.brain.Cfg.DefaultProvider,
+		"wake_word":     s.brain.Cfg.WakeWord,
+		"first_run":     s.brain.Cfg.New,
+		"only_me":       s.brain.Cfg.OnlyMe,
+		"voice_match":   s.brain.Cfg.VoiceMatch,
+		"cancel_room":   s.brain.Cfg.CancelRoom,
+		"keep_quiet":    s.brain.Cfg.KeepQuiet,
+		"rerouting":     speech.Rerouting(),
+		"always_name":   s.brain.Cfg.AlwaysName,
+		"auto_model":    s.brain.Cfg.AutoModel,
+		"always_speak":  s.brain.Cfg.AlwaysSpeak,
+		"always_listen": s.brain.Cfg.AlwaysListen,
+		"models":        modelRoles(s.brain),
+		"provider":      s.brain.Cfg.DefaultProvider,
 		// The model actually in use, not the setting. They differ whenever
 		// nobody has chosen one, which is the ordinary case — and showing the
 		// setting meant the interface named a model the brain was not using.
@@ -531,7 +740,23 @@ func (s *Server) handleKnowledge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, map[string]any{"facts": facts})
+	/*
+	 * And what it has stopped believing, beside what it believes.
+	 *
+	 * The other half of getting sharper, and the half nothing used to report:
+	 * a memory that only ever grows cannot correct itself, so a count of what
+	 * has been replaced or retired is the only visible sign that it can.
+	 */
+	superseded, retired, err := s.brain.DB.CountRetired()
+	if err != nil {
+		s.log.Warn("could not count what has been unlearned", "error", err)
+	}
+
+	ok(w, map[string]any{
+		"facts":      facts,
+		"superseded": superseded,
+		"retired":    retired,
+	})
 }
 
 func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
@@ -1693,8 +1918,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		AlwaysName *bool `json:"always_name"`
 
 		// AutoModel is whether small talk may go to a quicker model.
-		AutoModel   *bool `json:"auto_model"`
-		AlwaysSpeak *bool `json:"always_speak"`
+		AutoModel    *bool `json:"auto_model"`
+		AlwaysSpeak  *bool `json:"always_speak"`
+		AlwaysListen *bool `json:"always_listen"`
 
 		// Whether to answer one voice and ignore the rest of the room, and
 		// how alike a voice has to be to count as that one.
@@ -1775,6 +2001,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		s.brain.Cfg.AlwaysSpeak = *body.AlwaysSpeak
 	}
 
+	if body.AlwaysListen != nil {
+		s.brain.Cfg.AlwaysListen = *body.AlwaysListen
+	}
+
 	/*
 	 * Answering one voice needs a voice to have been taught.
 	 *
@@ -1837,13 +2067,14 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{
-		"name":         s.brain.Cfg.Name,
-		"owner":        s.brain.Cfg.Owner,
-		"wake_word":    s.brain.Cfg.WakeWord,
-		"privacy":      s.brain.Cfg.Privacy,
-		"always_name":  s.brain.Cfg.AlwaysName,
-		"auto_model":   s.brain.Cfg.AutoModel,
-		"always_speak": s.brain.Cfg.AlwaysSpeak,
+		"name":          s.brain.Cfg.Name,
+		"owner":         s.brain.Cfg.Owner,
+		"wake_word":     s.brain.Cfg.WakeWord,
+		"privacy":       s.brain.Cfg.Privacy,
+		"always_name":   s.brain.Cfg.AlwaysName,
+		"auto_model":    s.brain.Cfg.AutoModel,
+		"always_speak":  s.brain.Cfg.AlwaysSpeak,
+		"always_listen": s.brain.Cfg.AlwaysListen,
 	})
 }
 

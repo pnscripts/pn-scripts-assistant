@@ -97,7 +97,30 @@ func (b *Brain) sayWhenFinished(line string) {
 		return
 	}
 
-	if _, err := b.DB.AddMessage(id, "assistant", "", "", line); err != nil {
+	b.SayInto(id, line)
+}
+
+/*
+ * SayInto is sayWhenFinished for something that knows where it belongs.
+ *
+ * A finished background job has to guess, and guesses at the latest
+ * conversation. A task does not have to: it recorded which thread asked for it
+ * when it started, and reporting there is the difference between an answer
+ * appearing under the question and appearing under whatever somebody happened
+ * to be saying twenty minutes later.
+ */
+func (b *Brain) SayInto(conversationID int64, line string) {
+	if line == "" {
+		return
+	}
+
+	if conversationID == 0 {
+		b.sayWhenFinished(line)
+
+		return
+	}
+
+	if _, err := b.DB.AddMessage(conversationID, "assistant", "", "", line); err != nil {
 		b.Log.Warn("could not record something that finished", "error", err)
 	}
 
@@ -112,6 +135,19 @@ func (b *Brain) sayWhenFinished(line string) {
 		return
 	}
 
+	/*
+	 * The line is recorded now and read out in its own time.
+	 *
+	 * Speaking waits for a gap — up to two minutes of it — and everything
+	 * upstream of here is finishing something: a job, or a task about to write
+	 * down that it is done. Holding that up until the room goes quiet meant a
+	 * task could sit marked as working for two minutes after it had finished,
+	 * which is a worse lie than a late sentence.
+	 */
+	go b.speakWhenTheresAGap(line)
+}
+
+func (b *Brain) speakWhenTheresAGap(line string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 

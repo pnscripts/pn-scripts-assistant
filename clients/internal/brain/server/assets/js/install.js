@@ -163,6 +163,52 @@
                 row.appendChild(update);
             }
 
+            /*
+             * Remove, for the pieces this program put there.
+             *
+             * Two presses, not a dialog: the first turns the button into
+             * "Sure?" and the second does it. A confirm box for a reversible
+             * action somebody can simply install again is ceremony; no
+             * confirmation at all for a button sitting beside "Update" is a
+             * mis-click that deletes five gigabytes.
+             */
+            if (p.removable) {
+                const remove = document.createElement('button');
+                remove.className = 'model-action quiet';
+                remove.textContent = 'Remove';
+                remove.title = `Take ${p.name} off this machine`;
+
+                let armed = false;
+
+                remove.onclick = () => {
+                    if (!armed) {
+                        armed = true;
+                        remove.textContent = 'Sure?';
+                        remove.classList.add('danger');
+
+                        // Disarms itself, so a "Sure?" left on screen from a
+                        // stray click is not still waiting minutes later.
+                        setTimeout(() => {
+                            if (!armed) return;
+                            armed = false;
+                            remove.textContent = 'Remove';
+                            remove.classList.remove('danger');
+                        }, 4000);
+
+                        return;
+                    }
+
+                    armed = false;
+                    remove.classList.remove('danger');
+
+                    press(remove, async () => {
+                        await call('/api/parts/remove', { name: p.name });
+                    }, 'removing…');
+                };
+
+                row.appendChild(remove);
+            }
+
             return row;
         }
 
@@ -189,6 +235,224 @@
     }
 
     /* ---------- the models ---------- */
+
+    /*
+     * What can be taken off, and what the user has said should go.
+     *
+     * Held outside the render because the list is redrawn on a timer and the
+     * ticks must survive that: a checkbox that clears itself two seconds after
+     * being ticked cannot be used to choose four things.
+     */
+    const ticked = new Set();
+
+    async function loadRemovable() {
+        const host = el('remove-list');
+
+        if (!host) return;
+
+        let parts;
+        let models;
+
+        try {
+            parts = await call('/api/parts');
+            models = await call('/api/models');
+        } catch (err) {
+            return;
+        }
+
+        // Never redraw under somebody's cursor: the same rule as the parts
+        // list above, and it matters more here because these are checkboxes.
+        if (host.contains(document.activeElement)) return;
+
+        host.textContent = '';
+
+        const rows = [];
+
+        for (const p of parts.parts || []) {
+            // Only what this program installed. The system's own packages are
+            // shared with the rest of the machine — poppler is what printing
+            // uses — so they are not offered, and the note above says why.
+            if (!p.removable || p.state !== 'ok') continue;
+
+            rows.push({
+                key: 'part:' + p.name,
+                name: p.name,
+                detail: p.why,
+                where: p.where || '',
+                // What removing it actually gives back, measured on disk.
+                sizeText: p.on_disk_text || '',
+                bytes: p.on_disk || 0,
+                freeGB: p.free_gb || 0,
+            });
+        }
+
+        for (const m of models.models || models.installed || []) {
+            const name = m.name || m.model || m;
+
+            rows.push({
+                key: 'model:' + name,
+                name: name,
+                detail: 'a language model',
+                sizeText: m.size_text || m.size || '',
+                bytes: m.size_bytes || m.bytes || 0,
+                model: true,
+            });
+        }
+
+        if (!rows.length) {
+            const none = document.createElement('p');
+            none.className = 'field-note';
+            none.textContent = 'There is nothing here that this program installed.';
+            host.appendChild(none);
+            refreshRemoveButton();
+
+            return;
+        }
+
+        weights.clear();
+
+        for (const r of rows) {
+            weights.set(r.key, r.bytes || 0);
+            host.appendChild(removeRow(r));
+        }
+
+        refreshRemoveButton();
+    }
+
+    function removeRow(r) {
+        const row = document.createElement('label');
+        row.className = 'remove-row';
+
+        const tick = document.createElement('input');
+        tick.type = 'checkbox';
+        tick.checked = ticked.has(r.key);
+        tick.onchange = () => {
+            if (tick.checked) ticked.add(r.key);
+            else ticked.delete(r.key);
+
+            refreshRemoveButton();
+        };
+
+        const body = document.createElement('span');
+        body.className = 'remove-body';
+
+        const name = document.createElement('span');
+        name.className = 'remove-name';
+        name.textContent = r.name;
+        body.appendChild(name);
+
+        const detail = document.createElement('span');
+        detail.className = 'remove-detail';
+        detail.textContent = [r.detail, r.where].filter(Boolean).join(' · ');
+        body.appendChild(detail);
+
+        row.append(tick, body);
+
+        /*
+         * What it takes up, on the right where a size belongs.
+         *
+         * The number people are here for: this list is read by somebody who
+         * wants space back, and a list of names with no sizes cannot answer
+         * the question they came with.
+         */
+        const size = document.createElement('span');
+        size.className = 'remove-size';
+        size.textContent = r.sizeText || '';
+        row.appendChild(size);
+
+        return row;
+    }
+
+    // What everything on screen weighs, so the footer can total what is ticked.
+    const weights = new Map();
+
+    function inWords(bytes) {
+        if (!bytes) return '';
+        if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + 'KB';
+        if (bytes < 1024 * 1024 * 1024) return Math.round(bytes / (1024 * 1024)) + 'MB';
+
+        return (bytes / (1024 * 1024 * 1024)).toFixed(1) + 'GB';
+    }
+
+    function refreshRemoveButton() {
+        const go = el('remove-go');
+        const size = el('remove-size');
+
+        if (!go) return;
+
+        go.disabled = ticked.size === 0;
+        go.textContent = ticked.size
+            ? 'Remove ' + ticked.size + (ticked.size === 1 ? ' thing' : ' things')
+            : 'Remove what is ticked';
+
+        if (size) {
+            if (!ticked.size) {
+                size.textContent = '';
+            } else {
+                /*
+                 * The total is the point of ticking several.
+                 *
+                 * Somebody freeing space is adding these up in their head
+                 * otherwise, and getting it wrong — the sizes are in three
+                 * different units.
+                 */
+                let total = 0;
+
+                for (const key of ticked) total += weights.get(key) || 0;
+
+                const freed = inWords(total);
+
+                size.textContent = (freed ? 'Frees about ' + freed + '. ' : '')
+                    + 'Nothing is removed until you press the button.';
+            }
+        }
+    }
+
+    /*
+     * Removing what was ticked, one at a time and in a safe order.
+     *
+     * Models before Ollama: taking away the thing that runs models first
+     * leaves the model removals with no ollama to run, and they would fail
+     * having reported that they were about to succeed.
+     */
+    async function removeTicked() {
+        const go = el('remove-go');
+        const chosen = [...ticked];
+
+        const models = chosen.filter((k) => k.startsWith('model:'));
+        const parts = chosen.filter((k) => k.startsWith('part:'));
+
+        go.disabled = true;
+
+        const failures = [];
+
+        for (const key of [...models, ...parts]) {
+            const name = key.slice(key.indexOf(':') + 1);
+
+            try {
+                if (key.startsWith('model:')) {
+                    await call('/api/models/remove', { name });
+                } else {
+                    await call('/api/parts/remove', { name });
+                }
+
+                ticked.delete(key);
+            } catch (err) {
+                failures.push(name + ': ' + err.message);
+            }
+        }
+
+        const size = el('remove-size');
+
+        if (size) {
+            size.textContent = failures.length
+                ? failures.join(' — ')
+                : 'Started. It appears under Activity while it runs.';
+        }
+
+        refreshRemoveButton();
+        loadRemovable();
+    }
 
     async function loadCatalogue() {
         const host = el('catalogue-list');
@@ -296,11 +560,47 @@
 
     function load() {
         loadParts();
+        loadRemovable();
         loadCatalogue();
     }
 
     for (const item of document.querySelectorAll('[data-view="updates"], [data-view="models"]')) {
         item.addEventListener('click', () => load());
+    }
+
+    /*
+     * One press to arm, a second to do it.
+     *
+     * The same two-step the per-row Remove uses, for the same reason and more
+     * of it: this button can be carrying four things at once, and one of them
+     * may be four gigabytes that took an hour to fetch.
+     */
+    const go = el('remove-go');
+
+    if (go) {
+        let armed = false;
+
+        go.addEventListener('click', () => {
+            if (!armed) {
+                armed = true;
+                go.classList.add('danger');
+                go.textContent = 'Sure? This cannot be undone';
+
+                setTimeout(() => {
+                    if (!armed) return;
+
+                    armed = false;
+                    go.classList.remove('danger');
+                    refreshRemoveButton();
+                }, 5000);
+
+                return;
+            }
+
+            armed = false;
+            go.classList.remove('danger');
+            removeTicked();
+        });
     }
 
     load();
