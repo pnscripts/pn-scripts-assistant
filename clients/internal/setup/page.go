@@ -330,6 +330,17 @@ h3.group{margin:26px 0 2px;font-size:13px}
 
 /* One step at a time, so the page is never longer than the decision on it. */
 .step h2{margin-top:0}
+
+/* ---------- the stage ----------
+   The world the steps stand in; the program's own page explains it at length.
+   Everything hangs off .has-stage, set only once WebGL has started, so without
+   it this page is exactly the flat one it was. */
+.stage{position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:0;pointer-events:none}
+html.has-stage .wrap{position:relative;z-index:1}
+.stage-frame{position:relative}
+.stage-frame.stage-moving{overflow:visible}
+.stage-moving>.stage-shown{position:absolute;left:0;top:0;backface-visibility:hidden;will-change:transform}
+.stage-moving>.stage-shown[hidden]{display:block}
 .step .sub{margin-bottom:10px}
 .status{color:var(--dim);font-size:12.5px}
 .status.bad{color:var(--danger)}
@@ -401,6 +412,12 @@ h3.group{margin:26px 0 2px;font-size:13px}
        and what is optional. Each carries what somebody needs to decide, which
        is the part a list of checkboxes leaves out. -->
   <ol class="steps" id="steps"></ol>
+
+  <!-- The steps stand in the same world the program's panels do, and this
+       is the frame the one in front fills. Only the steps are inside it: the
+       bar above and the buttons below are how somebody moves between them,
+       and they stay where they are while the step turns. -->
+  <div class="step-stage" id="step-stage">
 
   <div class="step" id="step-welcome">
     <h2>A private assistant, on your own computer</h2>
@@ -495,6 +512,8 @@ h3.group{margin:26px 0 2px;font-size:13px}
     <div id="ready-ticks"></div>
     <div id="overview"></div>
     <div id="plan"></div>
+
+  </div>
 
   </div>
 
@@ -2812,6 +2831,27 @@ el("continue").onclick = async () => {
 
 refresh();
 setInterval(refresh, 2000);
+</script>
+<!--
+    The steps, put into the world.
+
+    In the order setup goes through them rather than the order they are
+    written in, so the next step is the one beside this one and going on is a
+    short turn. A module on its own, after everything else: the page works
+    completely without it, and a machine with no WebGL simply never gets past
+    the first line of it.
+-->
+<script type="module">
+import { startStage } from "/stage/stage.js";
+
+const titles = new Map((typeof STEPS === "undefined" ? [] : STEPS)
+  .map(s => [document.getElementById("step-" + s.id), s.title]));
+
+startStage({
+  frame: document.getElementById("step-stage"),
+  panels: [...titles.keys()],
+  title: box => titles.get(box) || "",
+});
 </script>
 </body>
 </html>`

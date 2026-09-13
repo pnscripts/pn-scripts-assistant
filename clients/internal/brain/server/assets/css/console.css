@@ -1431,41 +1431,6 @@ textarea:focus {
     align-items: center;
 }
 
-/* Six tiles rather than three now, so they must be allowed to give way.
-   Fixed-width tiles overflowed the footer at 1280px and it scrolled sideways,
-   which is the one thing a page must never do. */
-.talk-tiles { display: flex; gap: 8px; min-width: 0; flex-wrap: wrap; }
-.talk-tiles .tile { min-width: 0; flex: 0 1 auto; }
-.talk-tiles .tile-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.tile {
-    flex: 1;
-    min-width: 0;
-    padding: 6px 10px;
-    border: 1px solid rgba(77, 208, 225, 0.14);
-    border-radius: 9px;
-    background: rgba(9, 20, 32, 0.6);
-    line-height: 1.25;
-}
-
-.tile-label {
-    display: block;
-    font-family: var(--mono);
-    font-size: 8.5px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-}
-
-.tile-value {
-    display: block;
-    font-size: 11.5px;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 /* The pill glows when there is sound, and only then. */
 .talk-pill {
     display: grid;
@@ -1865,9 +1830,6 @@ select { font-size: 13.5px; }
 .drive { font-size: 12px; }
 .drive-note { font-size: 11px; }
 
-.tile-label { font-size: 9.5px; }
-.tile-value { font-size: 12.5px; }
-
 .command { font-size: 13.5px; }
 .talk-action { font-size: 13.5px; }
 
@@ -1977,31 +1939,6 @@ select { font-size: 13.5px; }
 
 .clock { align-items: center; }
 .clock strong { font-size: 20px; letter-spacing: 0.08em; }
-
-.search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 260px;
-    padding: 6px 12px;
-    border: 1px solid rgba(77, 208, 225, 0.18);
-    border-radius: 999px;
-    background: rgba(9, 20, 32, 0.7);
-    color: var(--text-faint);
-}
-
-.search:focus-within { border-color: rgba(77, 208, 225, 0.55); color: var(--accent); }
-
-.search input {
-    flex: 1;
-    min-width: 0;
-    border: none;
-    background: none;
-    outline: none;
-    color: var(--text);
-    font: inherit;
-    font-size: 13px;
-}
 
 .icon-buttons { display: flex; gap: 7px; }
 
@@ -2231,13 +2168,6 @@ select { font-size: 13.5px; }
    smudge at a glance — which is the only way anyone reads a gauge. */
 .gauge-value { transform: translate(-50%, -86%); }
 .gauge-label { transform: translate(-50%, 22%); }
-
-/* Bottom-bar tiles carry an icon, as the reference's do. */
-.tile { display: flex; align-items: center; gap: 9px; }
-.tile svg { flex: none; color: var(--accent); opacity: 0.8; }
-.tile-text { min-width: 0; }
-
-
 
 /* ============================================================
    The memory map, clicked
@@ -2471,11 +2401,6 @@ select { font-size: 13.5px; }
 
 .talkbar { padding-top: 10px; }
 
-/* The tiles beside it were the same weight as the box itself; they are context,
-   not the thing you are using. */
-.tile { padding: 7px 11px; background: rgba(9, 20, 32, 0.5); }
-.tile-value { color: var(--text-dim); }
-
 /* The model rows carry two actions, so they need room for them. */
 .model-action {
     flex: none;
@@ -2595,63 +2520,6 @@ select { font-size: 13.5px; }
         linear-gradient(to top, rgba(6, 14, 24, 0.96), rgba(9, 20, 32, 0.75));
 }
 
-/* The status strip: small, quiet, and separated by dots rather than boxes.
- *
- * Six tiles now that the fixed facts moved down from the Core panel, so it has
- * to be allowed to give way. flex: none held them all at full width and the
- * footer scrolled sideways to fit — which no page should ever do, and which is
- * invisible on a wide screen and unusable on a narrow one. */
-.talk-tiles {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    flex: 0 1 auto;
-    flex-wrap: wrap;
-    row-gap: 4px;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.talk-tiles .tile { min-width: 0; flex: 0 1 auto; }
-
-.talk-tiles .tile-value {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tile {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 14px 0 0;
-    margin-right: 14px;
-    border: none;
-    border-right: 1px solid rgba(77, 208, 225, 0.14);
-    border-radius: 0;
-    background: none;
-}
-
-.talk-tiles .tile:last-child { border-right: none; margin-right: 0; padding-right: 0; }
-
-.tile svg { opacity: 0.55; }
-/*
- * The label can be clipped now that it is a phrase.
- *
- * Only the value could be, from when every label was one word. "Waiting for
- * you" is three, and a label with nowhere to go widens the whole footer row
- * and pushes the composer off the end of it.
- */
-.tile-label {
-    font-size: 8.5px;
-    letter-spacing: 0.18em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tile-value { font-size: 12px; color: var(--text); }
-
 /* The message box is the thing you use, so it gets the width and the light. */
 .talk-pill {
     flex: 1;
@@ -2717,10 +2585,6 @@ select { font-size: 13.5px; }
     font-size: 10.5px;
     white-space: nowrap;
 }
-
-/* Room for it, and for the traces, by giving the status strip less. */
-.tile { max-width: 190px; }
-.tile-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ============================================================
    The conversation gets the height
@@ -2966,7 +2830,6 @@ select { font-size: 13.5px; }
     align-self: center;
 }
 
-
 /* Only the running step breathes, and only ever one line does. */
 .feed-line[data-running="yes"] .feed-dot {
     animation: feed-pulse 1.5s ease-in-out infinite;
@@ -3050,7 +2913,6 @@ select { font-size: 13.5px; }
 
 .stop-action .row-icon { font-size: 9px; }
 
-
 /*
  * Every status, coloured once, for every part of the interface.
  *
@@ -3104,7 +2966,6 @@ select { font-size: 13.5px; }
 [data-status].status-dot,
 .status-dot[data-status] { background: var(--status); }
 
-
 /*
  * The live line above the conversation list, from the same palette.
  *
@@ -3127,7 +2988,6 @@ select { font-size: 13.5px; }
  * doing — with the disagreement sitting a centimetre apart on one line.
  */
 #working #working-note { color: var(--status, var(--warn)); }
-
 
 /*
  * The chrome, tinted by whatever the brain is doing.
@@ -3194,7 +3054,6 @@ select { font-size: 13.5px; }
 @media (prefers-reduced-motion: reduce) {
     .card h2::before { transition: none; }
 }
-
 
 /*
  * The answer while it is still being written.
@@ -3406,76 +3265,6 @@ select { font-size: 13.5px; }
  */
 .feed-line[data-background="yes"] { opacity: .45; }
 .feed-line[data-background="yes"] .feed-detail { opacity: .8; }
-
-/*
- * The model tile, which is a choice rather than a readout.
- *
- * Styled to look like the value it replaced until it is hovered, because a
- * strip of status tiles that all look like buttons says everything is
- * clickable when almost nothing is.
- */
-.tile-pick {
-    background: none;
-    border: none;
-    padding: 0;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-    text-align: left;
-    border-bottom: 1px dotted transparent;
-}
-
-.tile-pick:hover,
-.tile-pick[aria-expanded="true"] {
-    color: var(--status, var(--accent));
-    border-bottom-color: currentColor;
-}
-
-/* Opens upward: the strip is at the bottom of the window. */
-.tile-menu {
-    position: absolute;
-    bottom: 100%;
-    margin-bottom: 8px;
-    min-width: 210px;
-    max-height: 300px;
-    overflow-y: auto;
-    background: var(--panel, #0d1219);
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    padding: 5px;
-    z-index: 8000;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, .6);
-}
-
-.tile-menu[hidden] { display: none; }
-
-.tile-menu button {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    font: inherit;
-    font-size: 12.5px;
-    padding: 7px 9px;
-    border-radius: 6px;
-    cursor: pointer;
-}
-
-.tile-menu button:hover { background: rgba(255, 255, 255, .06); color: var(--text); }
-.tile-menu button[aria-selected="true"] { color: var(--accent); }
-.tile-menu button[aria-selected="true"]::after { content: " ✓"; }
-
-.tile-menu .menu-note {
-    display: block;
-    font-size: 11px;
-    opacity: .65;
-    margin-top: 1px;
-}
-
-/* The tile has to be the anchor for the menu that opens above it. */
-.tile { position: relative; }
 
 /*
  * Renaming and deleting a conversation, from the row it is on.
@@ -4061,7 +3850,6 @@ select { font-size: 13.5px; }
  */
 .field-check[hidden] { display: none; }
 
-
 /* ============================================================
    Every size of window
    ============================================================
@@ -4269,7 +4057,6 @@ select { font-size: 13.5px; }
 
 @media (max-width: 760px) {
     .clock { display: none; }
-    .topbar .search { min-width: 0; }
 }
 
 /*
@@ -5323,3 +5110,306 @@ select { font-size: 13.5px; }
 }
 
 .link-button:hover { opacity: 1; }
+
+/* ============================================================
+   The name and the voice, out of the column
+   ============================================================
+
+   Both lived in the column of places, which is not shown while the panels
+   stand in the world. The name heads the bar; the voice sits beside the box it
+   is the other way of filling. In the markup rather than moved by a script, so
+   the page has one arrangement whether or not the world is there. */
+
+/* The column starts with the places now that the name is not above them. */
+.nav { padding-top: 14px; }
+
+/* A button kept hidden until it can do something stays hidden: display:grid
+   on every icon button was showing the stage's, dead, on a page with no
+   stage. */
+.icon-button[hidden] { display: none; }
+
+.topbar .brand {
+    flex: none;
+    height: 34px;
+    margin: 0;
+    padding: 0 16px 0 0;
+    border-bottom: none;
+    border-right: 1px solid rgba(77, 208, 225, 0.16);
+    background: none;
+}
+
+.topbar .brand-text h1 { font-size: 15px; line-height: 1.15; }
+.topbar .brand-sub { margin: 0; font-size: 9px; }
+
+@media (max-width: 1100px) {
+    .topbar .brand { padding-right: 12px; }
+    .topbar .brand-text { display: none; }
+}
+
+/* A narrow bar has the search, the turner and five buttons to fit, and the
+   name and the owner's are the two things on it nobody needs to read to use
+   it. */
+@media (max-width: 860px) {
+    .topbar .brand,
+    .topbar .operator-text { display: none; }
+
+    .ring-turner { flex: 0 1 auto; }
+    .ring-here { max-width: 120px; }
+}
+
+.voice-dock {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    min-width: 0;
+}
+
+/* The card becomes the ring, and beside it whose turn it is when there is
+   something to say about that. The trace goes — the bar draws the same level
+   either side of the message box — and so do the heading and the state word:
+   the ring is coloured by the state, and the Listening tile a few inches away
+   says it in words. The bar is full; the message box is what it is for. */
+.voice-dock .voice-card {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas: "talk hint";
+    align-items: center;
+    column-gap: 10px;
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+}
+
+.voice-dock .voice-card h2,
+.voice-dock .voicewave,
+.voice-dock .voice-state,
+.voice-dock .voice-hint:empty,
+.voice-dock #talk-label { display: none; }
+
+.voice-dock #talk {
+    grid-area: talk;
+    width: auto;
+    padding: 0;
+}
+
+.voice-dock .talk-ring { width: 42px; height: 42px; }
+
+.voice-dock .voice-hint {
+    grid-area: hint;
+    max-width: 150px;
+    margin: 0;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The mark alone: the bar is full, and the title says what it does. The
+   words stay in the button for anything reading it aloud. */
+.voice-dock .focus-button {
+    width: 34px;
+    height: 34px;
+    margin: 0;
+    padding: 0;
+    flex: none;
+}
+
+/* The message box keeps a width worth typing into; the tiles beside it wrap
+   to a second line before it is squeezed. */
+.talkbar .talk-pill { min-width: min(480px, 100%); }
+
+/* Once the bar wraps, the voice goes after the message box, beside the other
+   buttons, rather than taking a line of its own above it. */
+@media (max-width: 1200px) {
+    .talkbar .talk-pill { order: 1; }
+    .talkbar .voice-dock { order: 2; }
+    .talkbar .talk-action { order: 3; }
+}
+
+/* Shown only while it is talking or working, as the markup says — which
+   display:flex on every talk action was quietly overruling, so Stop sat over
+   the end of the message box all the time. */
+.talk-action[hidden] { display: none; }
+
+.voice-dock .focus-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* ============================================================
+   The stage
+   ============================================================
+
+   The one three.js scene the interface stands in; see stage.js. Every rule
+   here hangs off .has-stage, which is only set once WebGL has actually
+   started — so a machine without it gets exactly the flat page above, not a
+   page waiting for a world that never arrives. */
+
+.stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Above the world, and letting it through. The shell spans the whole window,
+   so it passes the pointer on and only its parts take it back — otherwise it
+   would sit over the world catching every click meant for a panel out there. */
+html.has-stage .shell {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+}
+
+html.has-stage .shell > * { pointer-events: auto; }
+
+/* No column of places: going somewhere is turning to it, from the bar. The
+   panels have the whole width, which is the point of there being a world
+   for them to stand in. */
+html.has-stage .nav { display: none; }
+
+html.has-stage .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 54px minmax(0, 1fr) auto;
+    grid-template-areas:
+        "top"
+        "main"
+        "bot";
+}
+
+@media (max-width: 860px) {
+    html.has-stage .shell { grid-template-rows: auto minmax(0, 1fr) auto; }
+}
+
+.ring-turner {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+    min-width: 0;
+    height: 34px;
+    padding: 0 3px;
+    border: 1px solid rgba(77, 208, 225, 0.2);
+    border-radius: 999px;
+    background: rgba(9, 20, 32, 0.7);
+}
+
+.ring-turner[hidden] { display: none; }
+
+.ring-turn {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+}
+
+.ring-turn:hover { color: var(--accent); background: rgba(77, 208, 225, 0.1); }
+
+.ring-here {
+    min-width: 0;
+    max-width: 220px;
+    padding: 0 6px;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.ring-here:hover { color: var(--text); }
+
+/* The bars are the glass the world is seen through, so a panel turning past
+   goes behind them rather than across their words. Darker than they are on a
+   flat page for the same reason: what passes behind has to stay behind. */
+html.has-stage .topbar,
+html.has-stage .nav,
+html.has-stage .talkbar {
+    position: relative;
+    z-index: 2;
+}
+
+html.has-stage .main { z-index: 1; }
+
+html.has-stage .nav {
+    background: linear-gradient(to right, rgba(6, 10, 16, 0.94), rgba(6, 10, 16, 0.82));
+}
+
+html.has-stage .topbar {
+    background: linear-gradient(to bottom, rgba(6, 10, 16, 0.95), rgba(6, 10, 16, 0.86));
+}
+
+/* The blue wash the reactor used to sit in is the world's light now. A wash
+   painted on the column as well would be a second light in front of the
+   first, and it would hide the floor the panels stand on. */
+html.has-stage .main { background: transparent; }
+
+.stage-frame { position: relative; }
+
+.stage-frame.stage-moving { overflow: visible; }
+
+/*
+ * A panel out in the world.
+ *
+ * Taken out of the flow at the frame's own size, so what stands in the world
+ * is laid out exactly as it was on the page, and turned by the transform
+ * stage.js writes each frame. A panel being left is already hidden as far as
+ * the rest of the page is concerned — its code has stopped updating it — and
+ * is shown only until it has turned away.
+ */
+.stage-moving > .stage-shown {
+    position: absolute;
+    left: 0;
+    top: 0;
+    backface-visibility: hidden;
+    will-change: transform;
+}
+
+.stage-moving > .view.stage-shown[hidden] { display: flex; }
+.stage-moving > .stage-shown[hidden] { display: block; }
+
+/* Stepped back, the panels are pictures to choose between; the pointer goes
+   to the world, and to nothing inside the panel that is standing in it. */
+html.has-stage.stage-overview .stage { pointer-events: auto; cursor: grab; }
+
+html.has-stage.stage-overview .stage-frame,
+html.has-stage.stage-overview .stage-frame * { pointer-events: none !important; }
+
+#stage-overview[aria-pressed="true"] {
+    color: var(--accent);
+    border-color: rgba(77, 208, 225, 0.45);
+    background: rgba(77, 208, 225, 0.12);
+}
+
+.stage-hint {
+    position: fixed;
+    z-index: 2;
+    margin: 0;
+    padding: 7px 14px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(77, 208, 225, 0.25);
+    border-radius: 999px;
+    background: rgba(4, 8, 15, 0.72);
+    color: var(--text-dim);
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+}

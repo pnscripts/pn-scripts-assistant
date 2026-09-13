@@ -120,6 +120,22 @@
 <div class="shell">
 
     <header class="topbar">
+        <!--
+            Its name, at the head of the bar.
+
+            It stood at the head of the column of places, and the column is
+            gone wherever the panels stand in the world: going somewhere is
+            turning to it now. A name is not a place to go, so it came up here
+            rather than going with them.
+        -->
+        <div class="brand">
+            <div class="orb" id="orb" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div class="brand-text">
+                <h1 id="brain-name">{{ .Name }}</h1>
+                <p class="brand-sub">command centre</p>
+            </div>
+        </div>
+
         <div class="pill pill-status" id="status-pill">
             <span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span>
         </div>
@@ -141,13 +157,29 @@
 
         <div class="topbar-gap"></div>
 
-        <form class="search" id="search-form" autocomplete="off" role="search">
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                <circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="1.7"/>
-                <path d="M15.5 15.5L20 20" fill="none" stroke="currentColor" stroke-width="1.7"/>
-            </svg>
-            <input id="search" type="search" placeholder="Search what it knows…" aria-label="Search memories">
-        </form>
+        <!--
+            Where it is on the ring, and the way to either side.
+
+            The column of places is not shown while the panels stand in the
+            world; this is what took its place. The name is the panel in front,
+            and pressing it steps back to see every panel, as the button beside
+            it does. Hidden with the stage, for the same reason that button is.
+        -->
+        <div class="ring-turner" id="stage-turner" hidden>
+            <button type="button" class="ring-turn" id="stage-prev" aria-label="Turn to the panel before">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                    <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <button type="button" class="ring-here" id="stage-here" title="Step back and see every panel">—</button>
+            <button type="button" class="ring-turn" id="stage-next" aria-label="Turn to the panel after">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                    <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
 
         <div class="icon-buttons">
             <button type="button" class="icon-button" data-view="console" title="Command centre">
@@ -157,6 +189,24 @@
                     <rect x="4" y="13" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.6"/>
                     <rect x="13" y="13" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 </svg>
+            </button>
+            <!--
+                Stepping back to see every panel where it stands.
+
+                Hidden until the stage has started: on a machine with no WebGL
+                the panels stay flat, and a button that stepped back into
+                nothing would be the only thing on this bar that did nothing.
+            -->
+            <button type="button" class="icon-button" id="stage-overview"
+                    title="Step back and see every panel" aria-pressed="false" hidden>
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                    <ellipse cx="12" cy="13" rx="9" ry="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                    <rect x="9.5" y="4" width="5" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="12" cy="13" r="1.6" fill="currentColor"/>
+                </svg>
+                <!-- Everything waiting, in every panel: the counts the column
+                     used to show beside each place, added up. -->
+                <span class="icon-badge" id="stage-waiting" hidden>0</span>
             </button>
             <button type="button" class="icon-button" id="bell" title="Waiting for you">
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
@@ -188,15 +238,17 @@
         </div>
     </header>
 
-    <nav class="nav">
-        <div class="brand">
-            <div class="orb" id="orb" aria-hidden="true"><span></span><span></span><span></span></div>
-            <div class="brand-text">
-                <h1 id="brain-name">{{ .Name }}</h1>
-                <p class="brand-sub">command centre</p>
-            </div>
-        </div>
+    <!--
+        The places, as a column.
 
+        Not shown while the panels stand in the world, where going somewhere is
+        turning to it — but still here, and still what every way of going
+        somewhere presses: a dozen scripts send somebody to a panel by clicking
+        its entry, and learn that a panel was opened the same way. On a machine
+        with no WebGL this column is the only way round, and it shows as it
+        always did.
+    -->
+    <nav class="nav">
         <button type="button" class="nav-item is-active" data-view="console">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M4 5h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -373,50 +425,6 @@
             </svg>
             <span>Permissions</span>
         </button>
-
-        <div class="nav-gap"></div>
-
-        <!--
-            Held is gone: it printed Facts, Conversations and Awaiting review,
-            which are the same three numbers What it knows already shows a few
-            inches away, under the same names and from the same fields. Two
-            readouts of one thing are not twice the information — they are a
-            thing to check against itself, and the first time they disagree
-            both become untrustworthy.
-        -->
-
-        <section class="panel voice-card">
-            <h2>Voice</h2>
-            <canvas id="voicewave" class="voicewave" aria-hidden="true"></canvas>
-            <p class="voice-state" id="voice-state">Idle</p>
-            <!--
-                Whose turn it is, under the microphone rather than over in the
-                engine panel where this used to be. A line telling somebody
-                which name to say is no use on the other side of the screen
-                from the button they are looking at.
-            -->
-            <p class="voice-hint" id="voice-status"></p>
-            <button type="button" id="talk" hidden aria-pressed="false"
-                    aria-label="Talk to the brain"
-                    title="Talk instead of typing. It listens until you stop, answers aloud, and listens again.">
-                <span class="talk-ring" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="20" height="20">
-                        <rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/>
-                        <path d="M5 11a7 7 0 0014 0M12 18v3" fill="none" stroke="currentColor" stroke-width="1.7"/>
-                    </svg>
-                </span>
-                <span class="talk-dot" aria-hidden="true"></span>
-                <span id="talk-label">Talk</span>
-            </button>
-        </section>
-
-        <button type="button" class="focus-button" id="focus-button">
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                <path d="M13 2L5 14h6l-2 8 8-12h-6z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-            </svg>
-            <span>Focus on the conversation</span>
-        </button>
-
     </nav>
 
     <main class="main">
@@ -2005,65 +2013,47 @@
     </main>
 
     <footer class="talkbar">
-        <div class="talk-tiles">
-            <div class="tile">
-                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 2l7 3v6c0 5-3 8-7 11-4-3-7-6-7-11V5z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-                <span class="tile-text">
-                    <span class="tile-label">Privacy</span>
-                    <span class="tile-value" id="tile-privacy">—</span>
-                </span>
-            </div>
-            <div class="tile">
-                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-                <span class="tile-text">
-                    <span class="tile-label">Storage</span>
-                    <span class="tile-value" id="tile-storage">—</span>
-                </span>
-            </div>
-            <div class="tile">
-                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-                <span class="tile-text">
-                    <span class="tile-label">Model</span>
-                    <!--
-                        A button, because it is a choice and not a readout.
+        <!--
+            The voice, beside the box you would otherwise type into.
 
-                        It sat in the strip stating which model was in use with
-                        no way to act on it, so changing model meant knowing
-                        that the Models page existed and going there. The thing
-                        somebody wants to do with that fact is change it.
-                    -->
-                    <button type="button" class="tile-value tile-pick" id="tile-model"
-                            aria-haspopup="listbox" aria-expanded="false">—</button>
-                </span>
-                <div class="tile-menu" id="model-menu" hidden role="listbox"></div>
-            </div>
-            <div class="tile">
-                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-                <span class="tile-text">
-                    <span class="tile-label">Memory</span>
-                    <span class="tile-value" id="tile-memory">—</span>
-                </span>
-            </div>
-            <div class="tile">
-                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9 6a3 3 0 016 0v4a3 3 0 01-6 0z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 11a6 6 0 0012 0M12 17v3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-                <span class="tile-text">
-                    <span class="tile-label">Listening</span>
-                    <span class="tile-value" id="tile-listening">—</span>
-                </span>
-            </div>
-            <div class="tile">
-                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 12l5 5L20 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span class="tile-text">
-                    <!--
-                        One queue, one name. This tile said "review queue", the
-                        panel said "waiting for you" and the figures said
-                        "awaiting review" — three names for one list, which is
-                        how a person ends up believing there are three lists.
-                    -->
-                    <span class="tile-label">Waiting for you</span>
-                    <span class="tile-value" id="tile-review">—</span>
-                </span>
-            </div>
+            It lived at the foot of the column of places. With the column gone
+            this is the place it belongs anyway: talking and typing are two ways
+            of doing the same thing, and the button for one sat on the other
+            side of the screen from the box for the other.
+        -->
+        <div class="voice-dock">
+            <section class="panel voice-card">
+                <h2>Voice</h2>
+                <canvas id="voicewave" class="voicewave" aria-hidden="true"></canvas>
+                <p class="voice-state" id="voice-state">Idle</p>
+                <!--
+                    Whose turn it is, under the microphone rather than over in the
+                    engine panel where this used to be. A line telling somebody
+                    which name to say is no use on the other side of the screen
+                    from the button they are looking at.
+                -->
+                <p class="voice-hint" id="voice-status"></p>
+                <button type="button" id="talk" hidden aria-pressed="false"
+                        aria-label="Talk to the brain"
+                        title="Talk instead of typing. It listens until you stop, answers aloud, and listens again.">
+                    <span class="talk-ring" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                            <path d="M5 11a7 7 0 0014 0M12 18v3" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                        </svg>
+                    </span>
+                    <span class="talk-dot" aria-hidden="true"></span>
+                    <span id="talk-label">Talk</span>
+                </button>
+            </section>
+
+            <button type="button" class="focus-button" id="focus-button"
+                    title="The conversation and nothing else — press again to come back">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                    <path d="M13 2L5 14h6l-2 8 8-12h-6z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                </svg>
+                <span>Focus on the conversation</span>
+            </button>
         </div>
 
         <div class="talk-pill" id="talk-pill">
@@ -2135,12 +2125,13 @@
 <script src="/js/voiceprint.js"></script>
 <!-- The three.js addons import from the bare name "three", so the page has to
      say where that is. An import map rather than a build step: this ships
-     inside one binary, and adding a bundler for two scenes would put npm into
-     the static build. -->
+     inside one binary, and adding a bundler for three scenes would put npm into
+     the static build. It points at the stage's copy, which setup's page shares,
+     so the core, the memory map and the stage all load the one three.js. -->
 <script type="importmap">
 {
     "imports": {
-        "three": "/js/vendor/three.module.js",
+        "three": "/stage/three.module.js",
         "three/addons/": "/js/vendor/addons/"
     }
 }

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"pn-scripts-assistant/internal/brain/config"
+	"pn-scripts-assistant/internal/stage"
 	"strings"
 	"sync"
 	"time"
@@ -52,12 +53,20 @@ func assetHandler(logger *slog.Logger) http.Handler {
 	}
 
 	files := http.FileServer(http.FS(sub))
+	staged := stage.Handler()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			// Handled by the server so the name can be injected; see
 			// Server.renderIndex.
 			http.NotFound(w, r)
+
+			return
+		}
+
+		// The scene the panels stand in, which setup's page shares.
+		if strings.HasPrefix(r.URL.Path, stage.Prefix) {
+			staged.ServeHTTP(w, r)
 
 			return
 		}

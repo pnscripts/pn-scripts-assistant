@@ -22,6 +22,7 @@ import (
 	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/preflight"
+	"pn-scripts-assistant/internal/stage"
 	"pn-scripts-assistant/internal/starter"
 )
 
@@ -125,6 +126,9 @@ func (s *Server) Serve(onReady func()) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, setupPage)
 	})
+
+	// The world the steps stand in, shared with the program's own page.
+	mux.Handle(stage.Prefix, stage.Handler())
 
 	mux.HandleFunc("/state", func(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, s.state())

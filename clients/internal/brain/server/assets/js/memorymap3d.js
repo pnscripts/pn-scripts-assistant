@@ -17,7 +17,7 @@
  * between two memories to take the long way round, so they are straight.
  */
 
-import * as THREE from './vendor/three.module.js';
+import * as THREE from 'three';
 import { onRecall } from './signals.js';
 
 const canvas = document.getElementById('memorymap');

@@ -191,63 +191,6 @@
 
     if (newButton) newButton.addEventListener('click', commands.new);
 
-    /* ---------- search ---------- */
-
-    /*
-     * Searches what the brain knows, by meaning.
-     *
-     * The query goes through the same embedding and comparison a reply uses to
-     * remember things, so asking for "the hosting box" finds a memory that says
-     * "server". A box that matched letters would look identical and be a much
-     * poorer thing.
-     *
-     * Debounced, because every keystroke would otherwise embed a word — and
-     * embedding runs on the same processor as the model.
-     */
-    const searchBox = el('search');
-    const searchForm = el('search-form');
-
-    let searchTimer = null;
-
-    async function runSearch() {
-        const q = (searchBox.value || '').trim();
-
-        if (q.length < 2) {
-            if (window.brainMapRecall) window.brainMapRecall([]);
-
-            return;
-        }
-
-        try {
-            const found = await get('/api/search?q=' + encodeURIComponent(q));
-            const ids = (found.results || []).map((r) => r.id);
-
-            // The answer is shown on the map: the memories that match light up.
-            // That is more use than a list, because it also shows where they
-            // sit in relation to everything else.
-            if (window.brainMapRecall) window.brainMapRecall(ids);
-
-            if (ids.length) show('memory');
-        } catch {
-            /* A failed search is not worth interrupting anything for. */
-        }
-    }
-
-    if (searchBox) {
-        searchBox.addEventListener('input', () => {
-            clearTimeout(searchTimer);
-            searchTimer = setTimeout(runSearch, 400);
-        });
-    }
-
-    if (searchForm) {
-        searchForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            clearTimeout(searchTimer);
-            runSearch();
-        });
-    }
-
     /* ---------- the buttons in the status bar ---------- */
 
     /*
@@ -550,33 +493,15 @@
     }
 
     function renderStatus(status) {
-        const can = (name) => (status.capabilities || []).includes(name);
         const memory = status.memory || {};
         const storage = status.storage || {};
+        const waiting = memory.pending_lessons ?? 0;
 
         const text = (id, value) => {
             const node = el(id);
 
             if (node) node.textContent = value;
         };
-
-        const waiting = memory.pending_lessons ?? 0;
-
-        /*
-         * The fixed facts live in the footer now.
-         *
-         * They change perhaps twice a day — which model, how much is
-         * remembered, whether voice is ready — and they were holding the best
-         * position on the page while the thing that changes every few seconds
-         * had nowhere to appear. The panel they used to fill shows the work as
-         * it happens; see feed.js.
-         */
-        text('tile-memory', `${memory.facts ?? 0} remembered`);
-        text('tile-review', waiting ? `${waiting} waiting` : 'clear');
-        text('tile-listening',
-            !can('listening') ? 'unavailable'
-                : status.wake_word ? `“${status.wake_word}”`
-                    : 'ready');
 
         // Providers, with whether they can actually be reached.
         renderRows(el('provider-rows'), (status.providers || []).map((p) => ({
@@ -614,26 +539,6 @@
 
         text('core-title', status.name || 'PN Brain');
         text('core-sub', status.model ? `${status.provider} · ${status.model}` : 'no model loaded');
-
-        // The bar along the bottom.
-        // The mode's name, not its explanation. The tile is 130px wide and the
-        // summary is a full sentence, so it was being clipped mid-word; the
-        // sentence still appears in full on the Privacy page.
-        text('tile-privacy', status.privacy?.mode || '—');
-        /*
-         * Auto says auto, and names what it picked underneath.
-         *
-         * Showing only the model that happens to be loaded hides the setting
-         * entirely: somebody on auto and somebody who pinned that exact model
-         * saw the same word, so there was no way to tell which you were on or
-         * that there was a choice at all.
-         */
-        text('tile-model', status.auto_model
-            ? 'auto · ' + (status.model || 'choosing')
-            : (status.model || 'none'));
-        text('tile-storage', storage.free_bytes
-            ? `${gigabytes(storage.free_bytes)} free`
-            : 'unknown');
 
         text('owner-name', status.owner || status.name || '—');
 
@@ -1009,168 +914,4 @@
 
     pollMachine();
     pollStatus();
-})();
-
-/*
- * Changing the model from the strip along the bottom.
- *
- * It stated which model was in use and offered no way to act on it, so
- * changing one meant knowing the Models page existed and going to find it. The
- * thing somebody wants to do with "which model is this" is change it.
- *
- * Auto is first and is what most turns should be on: the brain picks per turn,
- * so a greeting is answered by something small and quick while a hard question
- * still reaches the model that can do it. Pinning one by hand makes every turn
- * pay for the hardest.
- */
-(function modelPicker() {
-    const tile = document.getElementById('tile-model');
-    const menu = document.getElementById('model-menu');
-
-    if (!tile || !menu) return;
-
-    function close() {
-        menu.hidden = true;
-        tile.setAttribute('aria-expanded', 'false');
-    }
-
-    async function open() {
-        let status = {};
-        let installed = [];
-
-        const ask = async (path) => {
-            const res = await fetch(path, { headers: { Accept: 'application/json' } });
-
-            if (!res.ok) throw new Error(path + ' -> ' + res.status);
-
-            const body = await res.json();
-
-            // Answers are wrapped in {data:…} by the server's own helper, and
-            // some older ones are not.
-            return body && body.data !== undefined ? body.data : body;
-        };
-
-        let embedding = '';
-
-        try {
-            status = await ask('/api/status');
-
-            const models = await ask('/api/models');
-
-            installed = Array.isArray(models.installed) ? models.installed : [];
-
-            /*
-             * The memory model is never offered.
-             *
-             * Every memory was embedded with it, so choosing a different one
-             * does not change how the brain answers — it makes everything it
-             * has already learned unfindable. It is in this list because the
-             * list is "models on this machine", not "models you may talk to".
-             */
-            embedding = models.embedding || '';
-        } catch {
-            // An empty menu says nothing; a menu that never opens says the
-            // button is broken. Auto is always offered, so there is a choice
-            // even when the list cannot be fetched.
-            installed = [];
-        }
-
-        menu.textContent = '';
-
-        const choices = [{
-            name: 'auto',
-            label: 'Auto',
-            note: 'the brain picks the right model for each question',
-            on: !!status.auto_model,
-        }];
-
-        const sameModel = (a, b) => a === b ||
-            a === b + ':latest' || b === a + ':latest';
-
-        installed.forEach((m) => {
-            const name = typeof m === 'string' ? m : m.name;
-
-            if (!name || (embedding && sameModel(name, embedding))) return;
-
-            choices.push({
-                name,
-                label: name,
-                note: (typeof m === 'object' && m.size) || '',
-                on: !status.auto_model && sameModel(status.model || '', name),
-            });
-        });
-
-        choices.forEach((c) => {
-            const b = document.createElement('button');
-
-            b.type = 'button';
-            b.setAttribute('role', 'option');
-            b.setAttribute('aria-selected', c.on ? 'true' : 'false');
-            b.textContent = c.label;
-
-            if (c.note) {
-                const note = document.createElement('span');
-
-                note.className = 'menu-note';
-                note.textContent = c.note;
-                b.appendChild(note);
-            }
-
-            b.onclick = async () => {
-                close();
-
-                try {
-                    const res = await fetch('/api/models/use', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: c.name }),
-                    });
-
-                    if (!res.ok) throw new Error('the brain refused the change');
-
-                    /*
-                     * Said back straight away.
-                     *
-                     * The tile is filled from a poll a second or so later, so
-                     * until then it went on showing the old choice — the one
-                     * thing on screen somebody is looking at after clicking,
-                     * still disagreeing with what they just did. Corrected by
-                     * the next poll either way; this only removes the gap.
-                     */
-                    tile.textContent = c.name === 'auto'
-                        ? 'auto · ' + (status.model || 'choosing')
-                        : c.name;
-                } catch (err) {
-                    /*
-                     * Said on the tile itself.
-                     *
-                     * A menu that closes and changes nothing is
-                     * indistinguishable from one that worked, and this is the
-                     * only place somebody is looking at that moment.
-                     */
-                    tile.textContent = 'could not change';
-                }
-            };
-
-            menu.appendChild(b);
-        });
-
-        menu.hidden = false;
-        tile.setAttribute('aria-expanded', 'true');
-    }
-
-    tile.onclick = (e) => {
-        e.stopPropagation();
-
-        if (menu.hidden) open();
-        else close();
-    };
-
-    document.addEventListener('click', (e) => {
-        if (!menu.hidden && !menu.contains(e.target)) close();
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') close();
-    });
 })();
