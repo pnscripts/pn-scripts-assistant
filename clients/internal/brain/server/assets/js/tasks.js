@@ -221,6 +221,39 @@
             report.hidden = rest === '';
         }
 
+        /*
+         * Where the work came from and who held it.
+         *
+         * A specialist's task names the job it is a step of, and every task
+         * names the people who did any part of it — the team this job formed,
+         * which is the only team most jobs ever have.
+         */
+        const chain = el('task-detail-chain');
+        if (chain) {
+            chain.textContent = '';
+
+            if (task.parent_task_id) {
+                const up = document.createElement('button');
+                up.type = 'button';
+                up.className = 'task-link';
+                up.textContent = 'a step of task ' + task.parent_task_id;
+                up.addEventListener('click', () => { open = task.parent_task_id; refresh(); });
+                chain.append('This is ', up, '. ');
+            }
+
+            if ((task.team || []).length) {
+                chain.append('Worked on by ' + task.team.join(', ') + '.');
+            }
+
+            chain.hidden = chain.textContent === '';
+        }
+
+        const positionOf = {};
+        for (const s of (task.steps || [])) positionOf[s.id] = s.position;
+
+        const childOf = {};
+        for (const c of (task.children || [])) childOf[c.id] = c;
+
         const steps = el('task-detail-steps');
         steps.textContent = '';
 
@@ -244,6 +277,31 @@
             if (stepTag) what.appendChild(stepTag);
 
             body.appendChild(what);
+
+            // How this step is joined to the others and to other people.
+            if (step.escalated_from || step.review_of) {
+                const link = document.createElement('div');
+                link.className = 'task-step-note';
+                link.textContent = step.escalated_from
+                    ? 'sent up after step ' + (positionOf[step.escalated_from] || '?') + ' could not be done'
+                    : 'a review of step ' + (positionOf[step.review_of] || '?');
+                body.appendChild(link);
+            }
+
+            if (step.handed_to) {
+                const child = childOf[step.handed_to];
+                const link = document.createElement('div');
+                link.className = 'task-step-note';
+
+                const open_ = document.createElement('button');
+                open_.type = 'button';
+                open_.className = 'task-link';
+                open_.textContent = child ? child.name : 'task ' + step.handed_to;
+                open_.addEventListener('click', () => { open = step.handed_to; refresh(); });
+
+                link.append('handed on: ', open_, child ? ' — ' + stateOf(child) : '');
+                body.appendChild(link);
+            }
 
             /*
              * What ran at high or critical without a question.

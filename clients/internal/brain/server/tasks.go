@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 /*
@@ -64,7 +66,46 @@ func (s *Server) handleTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, task)
+	/*
+	 * And who it went to.
+	 *
+	 * The steps it handed on, as tasks of their own, and everybody who held
+	 * any part of the work — which is the team this job formed, whether or
+	 * not anybody set out to form one. Read here rather than stored, because
+	 * it is only ever the sum of what the steps already record.
+	 */
+	children, err := s.brain.DB.Children(id)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	team := []string{}
+	seen := map[string]bool{}
+
+	add := func(steps []store.TaskStep) {
+		for _, step := range steps {
+			if step.Assignee != "" && !seen[step.Assignee] {
+				seen[step.Assignee] = true
+				team = append(team, step.Assignee)
+			}
+		}
+	}
+
+	add(task.Steps)
+
+	for _, child := range children {
+		if steps, err := s.brain.DB.Steps(child.ID); err == nil {
+			add(steps)
+		}
+	}
+
+	ok(w, struct {
+		*store.Task
+		Children []store.Task `json:"children"`
+		Team     []string     `json:"team"`
+	}{task, children, team})
 }
 
 /*

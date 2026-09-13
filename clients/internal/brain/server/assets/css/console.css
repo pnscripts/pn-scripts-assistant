@@ -4868,6 +4868,17 @@ select { font-size: 13.5px; }
  */
 #task-detail-report { white-space: pre-line; }
 
+.task-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 .task-acted {
     margin: 5px 0 0;
     padding-left: 14px;

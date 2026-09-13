@@ -36,6 +36,10 @@ const (
 	StepDone     = "done"
 	StepFailed   = "failed"
 	StepSkipped  = "skipped"
+
+	// StepHandedOn is a step being done by somebody else, as a task of its
+	// own. It is not next and not finished: the parent waits for the child.
+	StepHandedOn = "handed_on"
 )
 
 /*
@@ -85,6 +89,19 @@ type Task struct {
 
 	// Risk is the most serious of its steps. See the risk package.
 	Risk string `json:"risk,omitempty"`
+
+	/*
+	 * Where this came from, when it is somebody else's step handed on.
+	 *
+	 * Within is nil for no limit on tools, and a list — possibly empty, which
+	 * means none — when the agent that handed it on was narrower than the one
+	 * doing it. Never is added to what every step may not do.
+	 */
+	ParentTaskID int64     `json:"parent_task_id,omitempty"`
+	ParentStepID int64     `json:"parent_step_id,omitempty"`
+	Depth        int       `json:"depth,omitempty"`
+	Within       *[]string `json:"within,omitempty"`
+	Never        []string  `json:"never,omitempty"`
 
 	Report    string    `json:"report,omitempty"`
 	Because   string    `json:"blocked_because,omitempty"`
@@ -136,6 +153,12 @@ type TaskStep struct {
 	// each. See migration 10.
 	Acted string `json:"acted,omitempty"`
 
+	// HandedTo, EscalatedFrom and ReviewOf are the chain between agents. See
+	// migration 11.
+	HandedTo      int64 `json:"handed_to,omitempty"`
+	EscalatedFrom int64 `json:"escalated_from,omitempty"`
+	ReviewOf      int64 `json:"review_of,omitempty"`
+
 	Answer    string `json:"answer,omitempty"`
 	Evidence  string `json:"evidence,omitempty"`
 	CheckedBy string `json:"checked_by,omitempty"`
@@ -150,22 +173,33 @@ const taskColumns = `id, name, goal, done_when, state,
 	COALESCE(conversation_id,0), COALESCE(work_conversation_id,0), provider,
 	COALESCE(job_id,0), steps_left, calls_left, replans_left,
 	COALESCE(deadline,''), COALESCE(report,''), COALESCE(blocked_because,''),
-	created_at, updated_at, COALESCE(finished_at,''), COALESCE(risk,'')`
+	created_at, updated_at, COALESCE(finished_at,''), COALESCE(risk,''),
+	COALESCE(parent_task_id,0), COALESCE(parent_step_id,0), COALESCE(depth,0), within,
+	COALESCE(never,'')`
 
 func scanTask(row interface{ Scan(...any) error }) (Task, error) {
 	var (
 		t                                 Task
 		deadline, created, updated, ended string
-		report, because                   string
+		report, because, never            string
+		within                            sql.NullString
 	)
 
 	err := row.Scan(&t.ID, &t.Name, &t.Goal, &t.DoneWhen, &t.State,
 		&t.ConversationID, &t.WorkConversationID, &t.Provider,
 		&t.JobID, &t.StepsLeft, &t.CallsLeft, &t.ReplansLeft,
-		&deadline, &report, &because, &created, &updated, &ended, &t.Risk)
+		&deadline, &report, &because, &created, &updated, &ended, &t.Risk,
+		&t.ParentTaskID, &t.ParentStepID, &t.Depth, &within, &never)
 	if err != nil {
 		return t, err
 	}
+
+	if within.Valid {
+		list := names(within.String)
+		t.Within = &list
+	}
+
+	t.Never = names(never)
 
 	t.Report, t.Because = report, because
 	t.Deadline = atTime(deadline)
@@ -226,11 +260,14 @@ func (d *DB) NewTask(t Task) (int64, error) {
 	res, err := d.sql().Exec(`
 		INSERT INTO tasks (name, goal, done_when, state, conversation_id,
 			work_conversation_id, provider, steps_left, calls_left, replans_left,
-			deadline, created_at, updated_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			deadline, created_at, updated_at, parent_task_id, parent_step_id, depth,
+			within, never, risk)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		t.Name, t.Goal, t.DoneWhen, orElse(t.State, TaskPlanning),
 		nullable(t.ConversationID), nullable(t.WorkConversationID), t.Provider,
-		t.StepsLeft, t.CallsLeft, t.ReplansLeft, asText(t.Deadline), now, now)
+		t.StepsLeft, t.CallsLeft, t.ReplansLeft, asText(t.Deadline), now, now,
+		nullable(t.ParentTaskID), nullable(t.ParentStepID), t.Depth,
+		withinText(t.Within), nullText(strings.Join(t.Never, ",")), nullText(t.Risk))
 	if err != nil {
 		return 0, fmt.Errorf("recording the task: %w", err)
 	}
@@ -468,10 +505,12 @@ func (d *DB) AddSteps(taskID int64, steps []TaskStep) error {
 	for i, s := range steps {
 		_, err := tx.Exec(`
 			INSERT INTO task_steps (task_id, position, instruction, done_when, kind,
-				changes, assignee, risk, state, created_at, updated_at)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+				changes, assignee, risk, state, created_at, updated_at,
+				escalated_from, review_of)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			taskID, highest+i+1, s.Instruction, s.DoneWhen, orElse(s.Kind, StepDo),
-			s.Changes, s.Assignee, orElse(s.Risk, "low"), StepWaiting, now, now)
+			s.Changes, s.Assignee, orElse(s.Risk, "low"), StepWaiting, now, now,
+			nullable(s.EscalatedFrom), nullable(s.ReviewOf))
 		if err != nil {
 			return fmt.Errorf("writing step %d: %w", i+1, err)
 		}
@@ -484,7 +523,8 @@ const stepColumns = `id, task_id, position, instruction, done_when, kind, change
 	assignee, provider, model, state, attempts,
 	COALESCE(answer,''), COALESCE(evidence,''), COALESCE(checked_by,''),
 	COALESCE(verdict,''), COALESCE(why,''),
-	COALESCE(started_at,''), COALESCE(ended_at,''), COALESCE(risk,''), COALESCE(acted,'')`
+	COALESCE(started_at,''), COALESCE(ended_at,''), COALESCE(risk,''), COALESCE(acted,''),
+	COALESCE(handed_to,0), COALESCE(escalated_from,0), COALESCE(review_of,0)`
 
 func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	var (
@@ -495,7 +535,7 @@ func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	err := row.Scan(&s.ID, &s.TaskID, &s.Position, &s.Instruction, &s.DoneWhen,
 		&s.Kind, &s.Changes, &s.Assignee, &s.Provider, &s.Model, &s.State,
 		&s.Attempts, &s.Answer, &s.Evidence, &s.CheckedBy, &s.Verdict, &s.Why,
-		&started, &ended, &s.Risk, &s.Acted)
+		&started, &ended, &s.Risk, &s.Acted, &s.HandedTo, &s.EscalatedFrom, &s.ReviewOf)
 	if err != nil {
 		return s, err
 	}
@@ -534,9 +574,9 @@ func (d *DB) Steps(taskID int64) ([]TaskStep, error) {
 func (d *DB) NextStep(taskID int64) (*TaskStep, error) {
 	s, err := scanStep(d.sql().QueryRow(
 		`SELECT `+stepColumns+` FROM task_steps
-		 WHERE task_id = ? AND state NOT IN (?,?,?)
+		 WHERE task_id = ? AND state NOT IN (?,?,?,?)
 		 ORDER BY position LIMIT 1`,
-		taskID, StepDone, StepSkipped, StepFailed))
+		taskID, StepDone, StepSkipped, StepFailed, StepHandedOn))
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -612,10 +652,11 @@ func (d *DB) FinishStep(s TaskStep) error {
 	_, err := d.sql().Exec(`
 		UPDATE task_steps
 		SET state = ?, answer = ?, evidence = ?, checked_by = ?, verdict = ?,
-		    why = ?, acted = ?, ended_at = ?, updated_at = ?
+		    why = ?, acted = ?, assignee = COALESCE(NULLIF(?, ''), assignee),
+		    ended_at = ?, updated_at = ?
 		WHERE id = ?`,
 		s.State, s.Answer, s.Evidence, s.CheckedBy, s.Verdict, s.Why, nullText(s.Acted),
-		ended, now, s.ID)
+		s.Assignee, ended, now, s.ID)
 
 	return err
 }

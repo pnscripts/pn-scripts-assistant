@@ -31,6 +31,7 @@ import (
 	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/team"
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 /*
@@ -353,6 +354,20 @@ func (c *Conductor) Work(ctx context.Context, taskID int64) error {
 			return c.finish(task, store.TaskDone, "")
 		}
 
+		/*
+		 * The step allowance is for steps still to come, so it is asked only
+		 * once there is one.
+		 *
+		 * Checked with the others, a plan that used exactly the steps it was
+		 * allowed finished its last one, came back round, found the allowance
+		 * at nought and was reported stuck — with nothing left to do. Time and
+		 * thinking stay checked first: those can be overspent inside a step,
+		 * and a task that did is stopped whatever is left.
+		 */
+		if task.StepsLeft <= 0 {
+			return c.finish(task, store.TaskBlocked, "it reached the most steps it was allowed for one job")
+		}
+
 		carryOn, err := c.runStep(ctx, task, step)
 		if err != nil {
 			return err
@@ -372,8 +387,6 @@ func (c *Conductor) outOfBudget(task *store.Task) string {
 		return "it reached the half hour it was given and was not finished"
 	case task.CallsLeft <= 0:
 		return "it used up the thinking it was given for this"
-	case task.StepsLeft <= 0:
-		return "it reached the most steps it was allowed for one job"
 	}
 
 	return ""
@@ -502,13 +515,23 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 	 */
 	fit := team.Settle(member, c.chart(), c.Occupations, c.Toolbox)
 
-	only, withTools := fit.Only()
+	/*
+	 * What it may use: its own tools, cut down to what this task was handed
+	 * with when it is somebody else's step — and, for a review, only the
+	 * tools that look. A reviewer who could change what it is reviewing is
+	 * not reviewing it.
+	 */
+	only, withTools := held(task, fit)
+
+	if step.ReviewOf != 0 {
+		only, withTools = c.lookingOnly(only, withTools)
+	}
 
 	res, err := c.Agent.RunBrief(ctx, task.WorkConversationID, provider,
 		c.brief(task, step, member), agent.Brief{
 			Choice: choice, WithTools: choice.Tools && withTools,
 			Only:  only,
-			Never: append(append([]string{}, fit.Never...), TheOwnersOwn...),
+			Never: mergeLists(mergeLists(fit.Never, task.Never), TheOwnersOwn),
 			As:    member.Name,
 			Risk:  risk.Parse(step.Risk),
 		})
@@ -580,7 +603,14 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 			return false, err
 		}
 
-		return true, nil
+		// A review says what it found about the step it reviewed; anything
+		// else serious enough is looked at by somebody else before the plan
+		// moves on past it.
+		if step.ReviewOf != 0 {
+			return true, c.reviewed(step)
+		}
+
+		return true, c.review(task, step, member)
 	}
 
 	/*
@@ -597,10 +627,34 @@ func (c *Conductor) runStep(ctx context.Context, task *store.Task, step *store.T
 		return true, c.DB.FinishStep(*step)
 	}
 
+	/*
+	 * Before giving up on it: somebody better placed, then somebody above.
+	 *
+	 * In that order because a specialist is an answer and a manager is a
+	 * question. What was done on the way — including anything that ran
+	 * without asking — is written down first, so handing the step on does
+	 * not lose the record of the attempt.
+	 */
+	step.State = store.StepRunning
+
+	if err := c.DB.FinishStep(*step); err != nil {
+		return false, err
+	}
+
+	handed, err := c.handOn(task, step, member, fit, checked.Why)
+	if err != nil || handed {
+		return false, err
+	}
+
 	step.State = store.StepFailed
 
 	if err := c.DB.FinishStep(*step); err != nil {
 		return false, err
+	}
+
+	escalated, err := c.escalate(task, step, member, checked.Why)
+	if err != nil || escalated {
+		return escalated, err
 	}
 
 	/*
@@ -959,7 +1013,12 @@ func (c *Conductor) finish(task *store.Task, state, because string) error {
 	 */
 	c.say(task, report)
 
-	return c.DB.FinishTask(task.ID, state, report, because)
+	if err := c.DB.FinishTask(task.ID, state, report, because); err != nil {
+		return err
+	}
+
+	// A specialist's task finishing is its parent's step finishing.
+	return c.childFinished(task, state)
 }
 
 /*
@@ -987,10 +1046,14 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 		verified, claimed, unfinished int
 	)
 
+	wrong := 0
+
 	for _, s := range steps {
 		switch {
 		case s.State == store.StepDone && s.Verdict == store.Verified:
 			verified++
+		case s.State == store.StepDone && s.Verdict == store.Unmet:
+			wrong++
 		case s.State == store.StepDone:
 			claimed++
 		case s.State != store.StepSkipped:
@@ -1024,6 +1087,10 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 	case claimed > 0:
 		tail = append(tail, fmt.Sprintf("%s checked against what the tools returned, %d taken on its own word.",
 			countOf(verified, "step"), claimed))
+	}
+
+	if wrong > 0 {
+		tail = append(tail, countOf(wrong, "step")+" found wrong when it was reviewed.")
 	}
 
 	if unfinished > 0 {
@@ -1081,7 +1148,57 @@ func (c *Conductor) Stop(taskID int64) error {
 		c.Jobs.Stop(task.JobID)
 	}
 
+	// And whatever it handed on. Stopping a job and leaving its specialists
+	// working on pieces of it would be stopping nothing.
+	if children, err := c.DB.Children(taskID); err == nil {
+		for _, child := range children {
+			if live(child.State) {
+				c.Stop(child.ID)
+			}
+		}
+	}
+
 	return c.DB.SetTaskState(taskID, store.TaskStopped, "you stopped it")
+}
+
+// live is whether a task could still do anything.
+func live(state string) bool {
+	switch state {
+	case store.TaskDone, store.TaskBlocked, store.TaskStopped:
+		return false
+	}
+
+	return true
+}
+
+/*
+ * lookingOnly narrows a turn to the tools that only look.
+ *
+ * From the registry rather than a list kept here, so a tool added later is
+ * sorted by the risk it declares — the same declaration the gate trusts.
+ */
+func (c *Conductor) lookingOnly(only []string, withTools bool) ([]string, bool) {
+	if !withTools || c.Agent == nil || c.Agent.Registry == nil {
+		return nil, false
+	}
+
+	allowed := map[string]bool{}
+
+	for _, name := range only {
+		allowed[name] = true
+	}
+
+	out := []string{}
+
+	for _, t := range c.Agent.Registry.All() {
+		if t.Risk() != tools.Safe || (len(only) > 0 && !allowed[t.Name()]) {
+			continue
+		}
+
+		out = append(out, t.Name())
+	}
+
+	return out, len(out) > 0
 }
 
 // Live is everything still going on.
@@ -1242,6 +1359,16 @@ func (c *Conductor) Resume(taskID int64) error {
 
 	if outstanding > 0 {
 		return fmt.Errorf("it is waiting for your decision on something first")
+	}
+
+	// Picked up while a specialist still has one of its steps would carry on
+	// past that step as if it were done.
+	if children, err := c.DB.Children(taskID); err == nil {
+		for _, child := range children {
+			if live(child.State) && child.State != store.TaskStopped {
+				return fmt.Errorf("it is waiting on work it handed on: %s", child.Name)
+			}
+		}
 	}
 
 	if err := c.DB.SetTaskState(taskID, store.TaskWorking, ""); err != nil {

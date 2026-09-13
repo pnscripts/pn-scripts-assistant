@@ -599,6 +599,36 @@ var migrations = []string{
 	ALTER TABLE task_steps ADD COLUMN risk TEXT;
 	ALTER TABLE task_steps ADD COLUMN acted TEXT;
 	`,
+
+	/*
+	 * 11: work handed from one agent to another, and back.
+	 *
+	 * A task can be a child of another task's step: the specialist's work,
+	 * drawn from the parent's budget and never able to do more than the agent
+	 * that handed it on. depth is how far down a chain of handings-on this
+	 * is, so a chain can be capped in a query rather than by walking it.
+	 *
+	 * within is the tools the child may use at most, as a list — NULL for no
+	 * limit and an empty string for none at all, which are different answers
+	 * and must not collapse into one. never is added to whatever else a step
+	 * may not do.
+	 *
+	 * On a step: handed_to is the child task doing it; escalated_from is the
+	 * step whose failure this one is the manager's answer to; review_of is
+	 * the step this one reviews. Each is how the view draws the chain, and
+	 * how the conductor refuses to escalate an escalation or review a review.
+	 */
+	`
+	ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER;
+	ALTER TABLE tasks ADD COLUMN parent_step_id INTEGER;
+	ALTER TABLE tasks ADD COLUMN depth INTEGER;
+	ALTER TABLE tasks ADD COLUMN within TEXT;
+	ALTER TABLE tasks ADD COLUMN never TEXT;
+	ALTER TABLE task_steps ADD COLUMN handed_to INTEGER;
+	ALTER TABLE task_steps ADD COLUMN escalated_from INTEGER;
+	ALTER TABLE task_steps ADD COLUMN review_of INTEGER;
+	CREATE INDEX idx_tasks_parent ON tasks(parent_task_id);
+	`,
 }
 
 /*
