@@ -163,6 +163,14 @@ type Conductor struct {
 	 */
 	Lanes *lanes.Lanes
 
+	/*
+	 * Hire takes somebody on for a job, or finds who already does it, and
+	 * Dissolve lets a finished job's temporary hires go. Nil for either means
+	 * the organisation is exactly who is on it. See hire.go.
+	 */
+	Hire     func(team.Wish) (team.Hired, error)
+	Dissolve func(task int64) ([]team.Agent, error)
+
 	// Now exists so the deadline can be tested without waiting half an hour.
 	Now func() time.Time
 }
@@ -204,9 +212,6 @@ func (c *Conductor) Take(ctx context.Context, conversationID int64, request, pro
 
 	budget := c.budget()
 
-	// How serious it is, decided before anything is written or started.
-	serious := c.weighPlan(plan.Steps)
-
 	work, err := c.DB.NewTaskThread(plan.Name)
 	if err != nil {
 		return nil, false, err
@@ -225,10 +230,18 @@ func (c *Conductor) Take(ctx context.Context, conversationID int64, request, pro
 		ReplansLeft:        budget.MostReplans,
 		Deadline:           c.now().Add(budget.HowLong),
 	})
-	if err == nil {
-		err = c.DB.RaiseRisk(id, 0, string(serious))
-	}
 	if err != nil {
+		return nil, false, err
+	}
+
+	/*
+	 * Somebody real behind every role the plan names, then how serious each
+	 * step is — in that order, because who does a step is part of how
+	 * serious it is.
+	 */
+	c.hireForPlan(&store.Task{ID: id}, plan.Steps)
+
+	if err := c.DB.RaiseRisk(id, 0, string(c.weighPlan(plan.Steps))); err != nil {
 		return nil, false, err
 	}
 
@@ -967,6 +980,13 @@ func (c *Conductor) replan(ctx context.Context, task *store.Task, failed *store.
 		return false, err
 	}
 
+	fresh, err := c.DB.Task(task.ID)
+	if err != nil || fresh == nil {
+		return false, err
+	}
+
+	c.hireForPlan(fresh, plan.Steps)
+
 	serious := c.weighPlan(plan.Steps)
 
 	if err := c.DB.AddSteps(task.ID, plan.Steps); err != nil {
@@ -1154,6 +1174,16 @@ func (c *Conductor) brief(task *store.Task, step *store.TaskStep, member team.Ag
 		b.WriteString(member.Brief + "\n")
 	}
 
+	// How this one works, which is manner rather than instructions. See
+	// team.Manner.
+	if member.Persona != "" {
+		b.WriteString(strings.TrimSpace(member.Persona) + "\n")
+	}
+
+	if told := member.Manner.Told(); told != "" {
+		b.WriteString(told + "\n")
+	}
+
 	b.WriteString("\n")
 	b.WriteString("The job: " + task.Goal + "\n")
 
@@ -1237,7 +1267,19 @@ func (c *Conductor) finish(task *store.Task, state, because string) error {
 		return err
 	}
 
+	// Read again for who was hired, which is written as it happens and so may
+	// be newer than the task this was handed.
+	if fresh, err := c.DB.Task(task.ID); err == nil && fresh != nil {
+		task.Hired = fresh.Hired
+	}
+
+	gone := c.letGo(task)
+
 	report := c.report(task, steps, state, because)
+
+	if len(gone) > 0 {
+		report += "\n\nLet go now that it is finished: " + strings.Join(gone, ", ") + "."
+	}
 
 	/*
 	 * Said before the row says finished, not after.
@@ -1360,6 +1402,19 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 	if len(acted) > 0 {
 		sections = append(sections, "Done without asking, because it is set never to stop:\n"+
 			strings.Join(acted, "\n"))
+	}
+
+	// Everybody taken on for the job, whether or not they are still here.
+	var hired []string
+
+	for _, line := range strings.Split(task.Hired, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			hired = append(hired, "• "+line)
+		}
+	}
+
+	if len(hired) > 0 {
+		sections = append(sections, "Hired for this job:\n"+strings.Join(hired, "\n"))
 	}
 
 	return strings.Join(sections, "\n\n")

@@ -643,6 +643,18 @@ var migrations = []string{
 	`
 	ALTER TABLE task_steps ADD COLUMN together INTEGER;
 	`,
+
+	/*
+	 * 13: who was hired for a task.
+	 *
+	 * One line each, on the root task, written when the hire happens — not
+	 * worked out at the end from the roster, because by the end a temporary
+	 * hire has been let go and the roster no longer knows they existed. The
+	 * account a task gives of itself names every one.
+	 */
+	`
+	ALTER TABLE tasks ADD COLUMN hired TEXT;
+	`,
 }
 
 /*

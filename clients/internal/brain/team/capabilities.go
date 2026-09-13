@@ -114,6 +114,23 @@ func Settle(agent Agent, chart []org.Unit, known Occupations, box Toolbox) Fit {
 	}
 
 	fit.Can = capabilitiesOf(fit)
+
+	/*
+	 * And what the further jobs it holds know, after its own.
+	 *
+	 * Knowledge only. The tools below are worked out from its own job, its
+	 * seat and what it was given — a second job makes somebody better
+	 * informed, never more able to act.
+	 */
+	if known != nil {
+		for _, other := range agent.Also {
+			if job, err := known.Occupation(other); err == nil && job != nil {
+				for _, need := range job.Needs {
+					fit.Can = mergeNames(fit.Can, []string{need.ID})
+				}
+			}
+		}
+	}
 	fit.Never = mergeNames(fit.Seat.Never, agent.Never)
 	fit.Tools, fit.Narrowed = toolsOf(agent, fit, box)
 

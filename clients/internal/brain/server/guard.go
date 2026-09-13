@@ -109,6 +109,7 @@ var atTheDeskOnly = []string{
 	 */
 	"/api/organisation/units",
 	"/api/organisation/agents",
+	"/api/organisation/hire",
 	"/api/models/",     // changing which model answers
 	"/api/upkeep/self", // updating the program
 }

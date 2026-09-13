@@ -151,6 +151,24 @@ type Agent struct {
 	// State is whether this one works here at the moment.
 	State string `json:"state,omitempty"`
 
+	// Manner is how this one works, in a few words. See manner.go.
+	Manner Manner `json:"manner,omitempty"`
+
+	/*
+	 * Also is further jobs this one holds, beyond the one its seat names.
+	 *
+	 * So fewer agents cover more: a backend engineer who is also the
+	 * architect is one person with two jobs' worth of knowledge, not two
+	 * people the planner has to choose between. What it knows is the union
+	 * of every job; what it may do is not widened by any of them — tools
+	 * stay exactly what they were.
+	 */
+	Also []string `json:"also,omitempty"`
+
+	// HiredFor is the task a temporary agent was hired for, and dissolved
+	// with. Zero for everybody else.
+	HiredFor int64 `json:"hired_for,omitempty"`
+
 	// BuiltIn marks one that shipped with the program rather than being
 	// written by its owner. Shown, so the two can be told apart.
 	BuiltIn bool `json:"built_in,omitempty"`
@@ -532,6 +550,12 @@ func parse(raw, filename string) Agent {
 			agent.Prefers = splitList(value)
 		case "needs":
 			agent.Needs = readNeeds(value)
+		case "also":
+			agent.Also = splitList(strings.ToLower(value))
+		case "hired_for":
+			fmt.Sscan(value, &agent.HiredFor)
+		default:
+			agent.Manner.read(strings.ToLower(strings.TrimSpace(key)), value)
 		}
 	}
 
@@ -601,10 +625,16 @@ func Save(root string, agent Agent) error {
 		{"tools", strings.Join(agent.Tools, ", ")},
 		{"never", strings.Join(agent.Never, ", ")},
 		{"persona", strings.TrimSpace(agent.Persona)},
+		{"also", strings.Join(agent.Also, ", ")},
+		{"hired_for", hiredFor(agent.HiredFor)},
 	} {
 		if line[1] != "" {
 			b.WriteString(line[0] + ": " + line[1] + "\n")
 		}
+	}
+
+	for _, line := range agent.Manner.written() {
+		b.WriteString(line[0] + ": " + flat(line[1]) + "\n")
 	}
 
 	b.WriteString("---\n\n")
@@ -640,6 +670,20 @@ func Reset(root, name string) error {
 	}
 
 	return nil
+}
+
+func hiredFor(task int64) string {
+	if task == 0 {
+		return ""
+	}
+
+	return fmt.Sprint(task)
+}
+
+// flat keeps a value on its own line. The file is a key and a value a line,
+// and a strength typed with a newline in it would otherwise start a new key.
+func flat(value string) string {
+	return strings.NewReplacer("\r", " ", "\n", " ").Replace(value)
 }
 
 func orWork(uses string) string {

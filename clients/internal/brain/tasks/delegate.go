@@ -110,7 +110,15 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 		return false, err
 	}
 
-	specialist, ok := c.specialistFor(step, c.chainOf(task, member))
+	chain := c.chainOf(task, member)
+
+	specialist, ok := c.specialistFor(step, chain)
+
+	// Nobody here, so perhaps somebody who could be. See hire.go.
+	if !ok {
+		specialist, ok = c.hireSpecialist(task, step, fit, chain)
+	}
+
 	if !ok {
 		return false, nil
 	}

@@ -60,8 +60,10 @@ Rules:
 - Do not plan steps that only restate the job or announce what you will do.
 - If the job is really one action, answer with a single step. That is fine.
 - Between two and eight steps for anything that needs more than one.
-- who must be one of the names below. Pick on what the step needs doing to it,
-  not on what the job is about as a whole.
+- who is one of the names below. Pick on what the step needs doing to it,
+  not on what the job is about as a whole. Only if none of them fits a step at
+  all, write the job title of whoever should do it instead, like
+  product_manager, and somebody will be found for that job.
 - Add "with_previous":true to a step only when it needs nothing at all from the
   step before it, so the two can be done at the same time by different people.
   Leave it out whenever one step uses what another found.

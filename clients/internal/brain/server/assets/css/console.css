@@ -4868,6 +4868,12 @@ select { font-size: 13.5px; }
  */
 #task-detail-report { white-space: pre-line; }
 
+.org-life { margin: 2px 0 8px 12px; }
+
+.org-life .note { margin: 0 0 4px; }
+
+.org-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
 .task-lanes { margin-bottom: 8px; }
 
 .task-lane {

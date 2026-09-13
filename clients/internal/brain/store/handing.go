@@ -187,3 +187,34 @@ func (d *DB) Step(id int64) (*TaskStep, error) {
 
 	return &s, nil
 }
+
+// RecordHire adds one hire to a task's account of who was taken on for it.
+func (d *DB) RecordHire(taskID int64, line string) error {
+	_, err := d.sql().Exec(`
+		UPDATE tasks SET hired = CASE WHEN COALESCE(hired,'') = '' THEN ? ELSE hired || char(10) || ? END,
+		       updated_at = ?
+		WHERE id = ?`, line, line, time.Now().UTC().Format(time.RFC3339), taskID)
+
+	return err
+}
+
+// Root is the task at the top of a chain of handings-on, which is the one a
+// hire is recorded on and dissolved with.
+func (d *DB) Root(task *Task) (*Task, error) {
+	at := task
+
+	for i := 0; at != nil && at.ParentTaskID != 0 && i < 10; i++ {
+		parent, err := d.Task(at.ParentTaskID)
+		if err != nil {
+			return nil, err
+		}
+
+		if parent == nil {
+			break
+		}
+
+		at = parent
+	}
+
+	return at, nil
+}

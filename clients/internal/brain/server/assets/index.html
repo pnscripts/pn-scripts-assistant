@@ -1655,6 +1655,22 @@
                 </div>
 
                 <div class="card">
+                    <h2>Hire someone</h2>
+                    <p class="note">
+                        Say who you need. It is matched against the jobs and what they are
+                        good at — somebody already here who does it is the answer when there
+                        is one, and nobody is hired twice for the same thing.
+                    </p>
+                    <div class="field">
+                        <span>I need someone who</span>
+                        <input type="text" id="org-hire-for" autocomplete="off"
+                            placeholder="specialises in Laravel security">
+                    </div>
+                    <button type="button" class="task-button" id="org-hire-for-go">Find or hire</button>
+                    <p class="note" id="org-hire-for-said"></p>
+                </div>
+
+                <div class="card">
                     <h2>Take somebody on</h2>
                     <p class="note">
                         Find the job first. What it is expected to know and be good at comes
@@ -1680,6 +1696,10 @@
                     <div class="field">
                         <span>Seat</span>
                         <select id="org-hire-seat"></select>
+                    </div>
+                    <div class="field">
+                        <span>Start from</span>
+                        <select id="org-hire-template"></select>
                     </div>
                     <div class="field">
                         <span>Model</span>

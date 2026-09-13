@@ -103,6 +103,9 @@ type Task struct {
 	Within       *[]string `json:"within,omitempty"`
 	Never        []string  `json:"never,omitempty"`
 
+	// Hired is everybody hired for this task, a line each. See migration 13.
+	Hired string `json:"hired,omitempty"`
+
 	Report    string    `json:"report,omitempty"`
 	Because   string    `json:"blocked_because,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
@@ -179,7 +182,7 @@ const taskColumns = `id, name, goal, done_when, state,
 	COALESCE(deadline,''), COALESCE(report,''), COALESCE(blocked_because,''),
 	created_at, updated_at, COALESCE(finished_at,''), COALESCE(risk,''),
 	COALESCE(parent_task_id,0), COALESCE(parent_step_id,0), COALESCE(depth,0), within,
-	COALESCE(never,'')`
+	COALESCE(never,''), COALESCE(hired,'')`
 
 func scanTask(row interface{ Scan(...any) error }) (Task, error) {
 	var (
@@ -193,7 +196,7 @@ func scanTask(row interface{ Scan(...any) error }) (Task, error) {
 		&t.ConversationID, &t.WorkConversationID, &t.Provider,
 		&t.JobID, &t.StepsLeft, &t.CallsLeft, &t.ReplansLeft,
 		&deadline, &report, &because, &created, &updated, &ended, &t.Risk,
-		&t.ParentTaskID, &t.ParentStepID, &t.Depth, &within, &never)
+		&t.ParentTaskID, &t.ParentStepID, &t.Depth, &within, &never, &t.Hired)
 	if err != nil {
 		return t, err
 	}

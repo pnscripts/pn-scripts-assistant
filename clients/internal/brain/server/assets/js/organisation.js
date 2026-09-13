@@ -15,6 +15,8 @@
 
     let chosen = null;
     let seats = [];
+    let templates = [];
+    let names = new Set();
 
     function say(text) {
         const node = el('org-said');
@@ -109,9 +111,143 @@
             if (agent.state && agent.state !== 'active') what.push(agent.state);
 
             row.appendChild(line('org-agent', (agent.title || agent.name) + ' — ' + what.join(' · ')));
+            row.appendChild(agentLife(agent));
         }
 
         return row;
+    }
+
+    /*
+     * What somebody is doing, what they have done, and the few things that
+     * can be done to them from here.
+     *
+     * Everything else — tools, capabilities, manner — is a file somebody can
+     * open, and a form for every field would be a second, worse editor.
+     */
+    function agentLife(agent) {
+        const box = document.createElement('div');
+
+        box.className = 'org-life';
+
+        const facts = [];
+
+        if ((agent.doing || []).length) {
+            facts.push('working on: ' + agent.doing.join('; '));
+        } else if (agent.state === 'active' || !agent.state || agent.state === 'temporary') {
+            facts.push('free');
+        }
+
+        if (agent.waiting) facts.push(agent.waiting + ' queued');
+
+        if (agent.hired_for) facts.push('hired for task ' + agent.hired_for + ' only');
+
+        const done = agent.record || {};
+
+        if (done.steps) {
+            facts.push(done.steps + (done.steps === 1 ? ' step' : ' steps') + ' this month, '
+                + done.verified + ' checked, ' + done.claimed + ' on its own word');
+        }
+
+        box.appendChild(line('note', facts.join(' · ')));
+
+        if (agent.built_in && !agent.state) return box;
+
+        const actions = document.createElement('div');
+
+        actions.className = 'org-actions';
+
+        const working = !agent.state || agent.state === 'active' || agent.state === 'temporary';
+
+        actions.appendChild(action(working ? 'Suspend' : 'Activate', () =>
+            setState(agent.name, working ? 'suspended' : 'active')));
+
+        if (agent.state === 'temporary') {
+            actions.appendChild(action('Keep them', () => setState(agent.name, 'active')));
+        }
+
+        actions.appendChild(action('Copy', () => copyOf(agent.name)));
+
+        box.appendChild(actions);
+
+        return box;
+    }
+
+    function action(label, run) {
+        const b = document.createElement('button');
+
+        b.type = 'button';
+        b.className = 'task-button';
+        b.textContent = label;
+        b.addEventListener('click', run);
+
+        return b;
+    }
+
+    async function send(url, body) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        const answer = await res.json().catch(() => ({}));
+
+        if (!res.ok) throw new Error(answer.error || 'that did not work');
+
+        return answer;
+    }
+
+    async function setState(name, state) {
+        try {
+            await send('/api/organisation/agents/' + encodeURIComponent(name) + '/state', { state });
+            say(name + ' is ' + (state === 'active' ? 'working here' : state) + ' now');
+            load();
+        } catch (err) {
+            say(err.message);
+        }
+    }
+
+    // A copy is a new name, the same everything else, and nothing linking the
+    // two: changing one later changes nobody else.
+    async function copyOf(name) {
+        let copy = name + '_2';
+
+        for (let i = 3; names.has(copy); i++) copy = name + '_' + i;
+
+        try {
+            const body = await send('/api/organisation/agents', { name: copy, clone_of: name });
+            say(body.hired + ' is a copy of ' + name);
+            load();
+        } catch (err) {
+            say(err.message);
+        }
+    }
+
+    async function hireFor() {
+        const sentence = el('org-hire-for').value.trim();
+        const said = el('org-hire-for-said');
+
+        if (!sentence) return;
+
+        said.textContent = 'looking…';
+
+        try {
+            const body = await send('/api/organisation/hire', { sentence });
+            const who = body.agent || {};
+
+            const why = body.why || '';
+
+            said.textContent = body.existing
+                ? (who.title || who.name) + ' already does this, so nobody new was hired.'
+                : why.charAt(0).toUpperCase() + why.slice(1)
+                    + (body.seat ? ', in a new ' + (who.title || '').toLowerCase() + ' seat.' : '.');
+
+            if (!body.existing) el('org-hire-for').value = '';
+
+            load();
+        } catch (err) {
+            said.textContent = err.message;
+        }
     }
 
     function unitBlock(unit) {
@@ -170,12 +306,15 @@
 
             list.textContent = '';
             seats = [];
+            names = new Set((body.unseated || []).map((a) => a.name));
 
             for (const unit of body.units || []) {
                 list.appendChild(unitBlock(unit));
 
                 for (const seat of unit.seats || []) {
                     seats.push({ name: seat.name, title: seat.title, unit: unit.title });
+
+                    for (const a of seat.held_by || []) names.add(a.name);
                 }
             }
 
@@ -195,6 +334,7 @@
                 for (const agent of body.unseated) {
                     loose.appendChild(line('org-agent', (agent.title || agent.name)
                         + ' — ' + (agent.for || '')));
+                    loose.appendChild(agentLife(agent));
                 }
 
                 list.appendChild(loose);
@@ -205,7 +345,10 @@
 
             el('org-folders').textContent = 'Chart: ' + body.folder + ' · People: ' + body.agents;
 
+            templates = body.templates || [];
+
             fillSeats();
+            fillTemplates();
         } catch {
             say('could not reach the brain');
         }
@@ -231,6 +374,32 @@
 
             option.value = seat.name;
             option.textContent = seat.title + ' · ' + seat.unit;
+            picker.appendChild(option);
+        }
+
+        picker.value = was;
+    }
+
+    function fillTemplates() {
+        const picker = el('org-hire-template');
+
+        if (!picker) return;
+
+        const was = picker.value;
+
+        picker.textContent = '';
+
+        const none = document.createElement('option');
+
+        none.value = '';
+        none.textContent = 'the job alone';
+        picker.appendChild(none);
+
+        for (const t of templates) {
+            const option = document.createElement('option');
+
+            option.value = t.name;
+            option.textContent = t.title + (t.built_in ? '' : ' (yours)');
             picker.appendChild(option);
         }
 
@@ -348,6 +517,7 @@
                     job: chosen.id,
                     position: el('org-hire-seat').value,
                     uses: el('org-hire-uses').value,
+                    template: el('org-hire-template').value,
                 }),
             });
 
@@ -434,6 +604,10 @@
         if (can) typing(can, whoKnows);
 
         el('org-hire')?.addEventListener('click', hire);
+        el('org-hire-for-go')?.addEventListener('click', hireFor);
+        el('org-hire-for')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); hireFor(); }
+        });
 
         load();
     }

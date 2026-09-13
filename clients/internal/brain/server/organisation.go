@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"pn-scripts-assistant/internal/brain/occupations"
 	"pn-scripts-assistant/internal/brain/org"
@@ -28,6 +29,9 @@ func (s *Server) handleOrganisation(w http.ResponseWriter, r *http.Request) {
 	roster := team.Roster(s.brain.Root)
 	depth := org.DepthOf(chart)
 
+	doing, waiting := s.workload()
+	record := s.record()
+
 	held := map[string][]map[string]any{}
 	seated := map[string]bool{}
 
@@ -46,6 +50,16 @@ func (s *Server) handleOrganisation(w http.ResponseWriter, r *http.Request) {
 			"never":     fit.Never,
 			"model":     agent.ModelOn(agent.Through(""), s.brain.ModelRoles()),
 			"provider":  agent.Provider,
+			"persona":   agent.Persona,
+			"manner":    agent.Manner,
+			"also":      agent.Also,
+			"hired_for": agent.HiredFor,
+
+			// What it is doing now and what is queued for it — the registry's
+			// "who is available" — and what it has actually got done.
+			"doing":   doing[agent.Name],
+			"waiting": waiting[agent.Name],
+			"record":  record[agent.Name],
 		}
 
 		if fit.Job != nil {
@@ -103,7 +117,78 @@ func (s *Server) handleOrganisation(w http.ResponseWriter, r *http.Request) {
 		"jobs":         jobs,
 		"capabilities": capabilities,
 		"categories":   occupations.Categories(),
+		"templates":    templateViews(team.Templates(s.brain.Root)),
 	})
+}
+
+/*
+ * workload is what each agent is doing this minute and how much is queued
+ * behind it, from the rows of the work that is live.
+ *
+ * Read, not tracked. The steps already record who is doing them, and a
+ * second count kept in memory would be a second answer to the same question
+ * that could be wrong in its own way.
+ */
+func (s *Server) workload() (map[string][]string, map[string]int) {
+	doing := map[string][]string{}
+	waiting := map[string]int{}
+
+	live, err := s.brain.DB.LiveTasks()
+	if err != nil {
+		return doing, waiting
+	}
+
+	for _, task := range live {
+		steps, err := s.brain.DB.Steps(task.ID)
+		if err != nil {
+			continue
+		}
+
+		for _, step := range steps {
+			if step.Assignee == "" {
+				continue
+			}
+
+			switch step.State {
+			case store.StepRunning, store.StepHandedOn:
+				doing[step.Assignee] = append(doing[step.Assignee], step.Instruction)
+			case store.StepWaiting, store.StepNeedsYou:
+				waiting[step.Assignee]++
+			}
+		}
+	}
+
+	return doing, waiting
+}
+
+// record is what each agent has got done in the last month, verified and
+// claimed kept apart as everywhere else.
+func (s *Server) record() map[string]store.AgentWork {
+	out := map[string]store.AgentWork{}
+
+	review, err := s.brain.DB.HowItHasBeenGoing(time.Now().AddDate(0, -1, 0))
+	if err != nil {
+		return out
+	}
+
+	for _, person := range review.People {
+		out[person.Name] = person
+	}
+
+	return out
+}
+
+func templateViews(templates []team.Template) []map[string]any {
+	out := make([]map[string]any, 0, len(templates))
+
+	for _, t := range templates {
+		out = append(out, map[string]any{
+			"name": t.Name, "title": t.Title, "job": t.Job, "for": t.For,
+			"tools": t.Tools, "built_in": t.BuiltIn,
+		})
+	}
+
+	return out
 }
 
 // shownTools says "everything" rather than an empty list, because an empty
@@ -228,17 +313,28 @@ func (s *Server) handleWhoKnows(w http.ResponseWriter, r *http.Request) {
  */
 func (s *Server) handleHire(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name      string   `json:"name"`
-		Title     string   `json:"title"`
-		For       string   `json:"for"`
-		Position  string   `json:"position"`
-		Job       string   `json:"job"`
-		Seniority string   `json:"seniority"`
-		Uses      string   `json:"uses"`
-		Provider  string   `json:"provider"`
-		Can       []string `json:"can"`
-		Brief     string   `json:"brief"`
-		State     string   `json:"state"`
+		Name      string       `json:"name"`
+		Title     string       `json:"title"`
+		For       string       `json:"for"`
+		Position  string       `json:"position"`
+		Job       string       `json:"job"`
+		Seniority string       `json:"seniority"`
+		Uses      string       `json:"uses"`
+		Provider  string       `json:"provider"`
+		Can       []string     `json:"can"`
+		Brief     string       `json:"brief"`
+		State     string       `json:"state"`
+		Tools     []string     `json:"tools"`
+		Never     []string     `json:"never"`
+		Also      []string     `json:"also"`
+		Persona   string       `json:"persona"`
+		Manner    *team.Manner `json:"manner"`
+
+		// Template starts a new agent from one, and CloneOf from somebody
+		// already here. Either way it is a copy, and changing the original
+		// later changes nobody made from it.
+		Template string `json:"template"`
+		CloneOf  string `json:"clone_of"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
@@ -249,10 +345,39 @@ func (s *Server) handleHire(w http.ResponseWriter, r *http.Request) {
 
 	name := strings.ToLower(strings.TrimSpace(body.Name))
 
-	agent, existing := team.Find(team.Roster(s.brain.Root), name)
+	roster := team.Roster(s.brain.Root)
+
+	agent, existing := team.Find(roster, name)
+
+	// A copy is always somebody new. Copying onto a name already taken would
+	// quietly rewrite whoever has it.
+	if body.CloneOf != "" && existing {
+		fail(w, http.StatusBadRequest, "there is already somebody called "+name)
+
+		return
+	}
 
 	if !existing {
 		agent = team.Agent{Name: name, Uses: team.UsesWork, State: team.Active}
+
+		if body.Template != "" {
+			for _, t := range team.Templates(s.brain.Root) {
+				if t.Name == body.Template {
+					agent = team.FromTemplate(t, name)
+				}
+			}
+		}
+
+		if body.CloneOf != "" {
+			original, ok := team.Find(roster, body.CloneOf)
+			if !ok {
+				fail(w, http.StatusBadRequest, "there is nobody called "+body.CloneOf+" to copy")
+
+				return
+			}
+
+			agent = team.FromTemplate(original, name)
+		}
 	}
 
 	for _, field := range []struct {
@@ -277,8 +402,28 @@ func (s *Server) handleHire(w http.ResponseWriter, r *http.Request) {
 	// unpins should actually be unpinned.
 	agent.Provider = strings.TrimSpace(body.Provider)
 
-	if body.Can != nil {
-		agent.Can = body.Can
+	// A list sent is the whole list — adding a tool or a capability is
+	// sending the list with it in, taking one away is sending it without.
+	for _, list := range []struct {
+		into  *[]string
+		given []string
+	}{
+		{&agent.Can, body.Can},
+		{&agent.Tools, body.Tools},
+		{&agent.Never, body.Never},
+		{&agent.Also, body.Also},
+	} {
+		if list.given != nil {
+			*list.into = list.given
+		}
+	}
+
+	if body.Persona != "" {
+		agent.Persona = body.Persona
+	}
+
+	if body.Manner != nil {
+		agent.Manner = *body.Manner
 	}
 
 	/*
@@ -322,6 +467,90 @@ func describeJob(db *store.DB, id string) string {
 	}
 
 	return job.Description
+}
+
+/*
+ * handleHireFor answers "I need someone who specialises in Laravel security".
+ *
+ * With somebody already here when there is, and a new hire when there is not
+ * — permanent, seated, and a file like everybody else. See team.Hire.
+ */
+func (s *Server) handleHireFor(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Sentence string `json:"sentence"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "unreadable request")
+
+		return
+	}
+
+	hired, err := team.Hire(s.brain.Root, team.Roster(s.brain.Root), org.Chart(s.brain.Root),
+		s.brain.DB, s.brain.Agent.Registry, team.Templates(s.brain.Root),
+		team.Wish{Sentence: body.Sentence})
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ok(w, hired)
+}
+
+/*
+ * handleAgentState activates, suspends or retires somebody.
+ *
+ * Kept rather than deleted, so what they did is still recorded against a name
+ * somebody can find. Removing the file is still what "remove" does.
+ */
+func (s *Server) handleAgentState(w http.ResponseWriter, r *http.Request) {
+	name := strings.ToLower(strings.TrimSpace(r.PathValue("name")))
+
+	var body struct {
+		State string `json:"state"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, "unreadable request")
+
+		return
+	}
+
+	state := strings.ToLower(strings.TrimSpace(body.State))
+
+	switch state {
+	case team.Active, team.Suspended, team.Retired:
+	default:
+		fail(w, http.StatusBadRequest, "that is active, suspended or retired")
+
+		return
+	}
+
+	agent, found := team.Find(team.Roster(s.brain.Root), name)
+	if !found {
+		fail(w, http.StatusNotFound, "there is nobody called "+name)
+
+		return
+	}
+
+	agent.State = state
+
+	// A hire for one task made permanent by being activated is no longer
+	// that task's to let go.
+	if state == team.Active {
+		agent.HiredFor = 0
+	}
+
+	if err := team.Save(s.brain.Root, agent); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	team.Forget()
+
+	ok(w, map[string]any{"name": name, "state": state})
 }
 
 // handleRetire removes an agent. Built-in ones go back to what they shipped

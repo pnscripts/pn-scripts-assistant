@@ -718,6 +718,16 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Say:         b.SayInto,
 		Budget:      tasks.Sensible(),
 		Lanes:       b.Lanes,
+
+		// Hiring freely and saying so afterwards, which is what its owner
+		// asked for. See tasks/hire.go.
+		Hire: func(w team.Wish) (team.Hired, error) {
+			return team.Hire(b.Root, team.Roster(b.Root), org.Chart(b.Root), db,
+				b.Agent.Registry, team.Templates(b.Root), w)
+		},
+		Dissolve: func(task int64) ([]team.Agent, error) {
+			return team.Dissolve(b.Root, team.Roster(b.Root), task)
+		},
 	}
 
 	/*
