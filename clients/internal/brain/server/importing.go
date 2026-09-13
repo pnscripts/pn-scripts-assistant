@@ -1,15 +1,9 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
-	"sync"
-
-	"pn-scripts-assistant/internal/brain/occupations"
-	"pn-scripts-assistant/internal/brain/store"
 )
 
 /*
@@ -21,11 +15,6 @@ import (
  * it did and what it could not settle. Pressing it again after stopping picks
  * up where it was, because every row already written is found and left.
  */
-
-// importJobs is which background job is doing which import, so Stop reaches
-// the one that is running. A run from before a restart has no job, and its
-// row already says it was cut off.
-var importJobs sync.Map
 
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -39,69 +28,24 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run := map[string]func(context.Context, *store.DB, *occupations.Source, func(occupations.Progress)) (occupations.Progress, error){
-		occupations.ESCO: occupations.ImportESCO,
-		occupations.ONET: occupations.ImportONET,
-	}[strings.ToLower(strings.TrimSpace(body.Source))]
-
-	if run == nil {
-		fail(w, http.StatusBadRequest, "that is esco or onet")
-
-		return
-	}
-
-	// Opened here as well as in the work, so a wrong path is said at once
-	// rather than as a failed import a minute later.
-	src, err := occupations.OpenSource(body.From)
+	id, err := s.brain.Import(body.Source, body.From)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	id, err := s.brain.DB.StartImport(body.Source, body.From)
-	if err != nil {
-		src.Close()
-		fail(w, http.StatusInternalServerError, err.Error())
-
-		return
-	}
-
-	job, err := s.brain.Jobs.StartSilent("importing "+body.Source, func(ctx context.Context) (string, error) {
-		defer src.Close()
-		defer importJobs.Delete(id)
-
-		p, err := run(ctx, s.brain.DB, src, func(p occupations.Progress) {
-			s.brain.DB.ImportProgress(id, p.Stage, p.Done, p.Of, p.So, p.Notes)
-		})
-
-		s.brain.DB.ImportProgress(id, p.Stage, p.Done, p.Of, p.So, p.Notes)
-
-		switch {
-		case ctx.Err() != nil:
-			s.brain.DB.FinishImport(id, store.ImportStopped, "you stopped it")
-		case err != nil:
-			s.brain.DB.FinishImport(id, store.ImportFailed, err.Error())
-		default:
-			s.brain.DB.FinishImport(id, store.ImportDone, "")
-		}
-
-		return "", err
-	})
-	if err != nil {
-		src.Close()
-		s.brain.DB.FinishImport(id, store.ImportFailed, err.Error())
-		fail(w, http.StatusConflict, err.Error())
-
-		return
-	}
-
-	importJobs.Store(id, job.ID)
-
 	ok(w, map[string]any{"id": id})
 }
 
+/*
+ * handleImports lists the recent runs — and first reads in anything setup
+ * downloaded that this brain has not read yet, since opening Organisation
+ * after setup is exactly when somebody expects to see it arriving.
+ */
 func (s *Server) handleImports(w http.ResponseWriter, r *http.Request) {
+	s.brain.ImportDownloaded()
+
 	runs, err := s.brain.DB.Imports(5)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
@@ -120,15 +64,8 @@ func (s *Server) handleStopImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, running := importJobs.Load(id)
-	if !running {
-		fail(w, http.StatusNotFound, "that import is not running")
-
-		return
-	}
-
-	if err := s.brain.Jobs.Stop(job.(int64)); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
+	if err := s.brain.StopImport(id); err != nil {
+		fail(w, http.StatusNotFound, err.Error())
 
 		return
 	}

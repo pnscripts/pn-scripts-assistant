@@ -102,11 +102,7 @@ func ImportESCO(ctx context.Context, db *store.DB, src *Source, report func(Prog
 
 			aliases := lines(get("altLabels"))
 
-			id, clash := capabilityIndex.match(append([]string{name}, aliases...)...)
-
-			if clash != "" {
-				p.note(fmt.Sprintf("the skill %q matched more than one already here, so it was added on its own", clash))
-			}
+			id := capabilityIndex.named(name)
 
 			if id == "" {
 				id = MakeID(name)
@@ -177,7 +173,9 @@ func ImportESCO(ctx context.Context, db *store.DB, src *Source, report func(Prog
 			Sources:     sourcesOf("ESCO "+get("code"), "ISCO-08 "+isco),
 		}
 
-		id, clash := jobIndex.match(append([]string{title}, aliases...)...)
+		source := "ESCO " + get("code")
+
+		id, clash := jobIndex.match(source, title, aliases)
 
 		if clash != "" {
 			p.note(fmt.Sprintf("%q matched more than one job already here, so it was added on its own", clash))
@@ -189,6 +187,7 @@ func ImportESCO(ctx context.Context, db *store.DB, src *Source, report func(Prog
 
 		job.ID = id
 		taken[id] = true
+		jobIndex.remember(source, id)
 
 		jobs = append(jobs, job)
 		byURI[uri] = job
@@ -221,6 +220,42 @@ func ImportESCO(ctx context.Context, db *store.DB, src *Source, report func(Prog
 
 			return nil
 		})
+		if err != nil {
+			p.note("could not read " + other + ": " + err.Error())
+		}
+	}
+
+	// And every other language's names for the skills, so "Who is good at"
+	// can be asked in Bulgarian too.
+	for _, other := range src.All(func(base string) bool {
+		return strings.HasPrefix(base, "skills_") && strings.HasSuffix(base, ".csv") &&
+			base != "skills_en.csv"
+	}) {
+		var more []store.Capability
+
+		err := src.table(ctx, other, ',', []string{"conceptUri", "preferredLabel"}, func(get func(string) string) error {
+			if id, known := skillID[get("conceptUri")]; known {
+				more = append(more, store.Capability{ID: id,
+					Aliases:  append([]string{get("preferredLabel")}, lines(get("altLabels"))...),
+					CameFrom: store.FromESCO})
+			}
+
+			if len(more) >= batch*4 {
+				done, err := db.Import(nil, more)
+				p.add(done)
+				more = more[:0]
+
+				return err
+			}
+
+			return nil
+		})
+		if err == nil && len(more) > 0 {
+			done, importErr := db.Import(nil, more)
+			p.add(done)
+			err = importErr
+		}
+
 		if err != nil {
 			p.note("could not read " + other + ": " + err.Error())
 		}
@@ -401,7 +436,7 @@ func categoryOfISCO(code string) string {
 		{"0", Safety},
 		{"11", Leadership}, {"12", Leadership}, {"13", Operations}, {"14", Hospitality},
 		{"22", Health}, {"23", Education}, {"25", Software},
-		{"31", Engineering}, {"32", Health}, {"35", Software},
+		{"315", Transport}, {"31", Engineering}, {"32", Health}, {"35", Software},
 		{"4", Operations},
 		{"51", Hospitality}, {"52", Sales}, {"53", Health}, {"54", Safety},
 		{"6", Land}, {"7", Trades}, {"81", Trades}, {"82", Trades}, {"83", Transport},

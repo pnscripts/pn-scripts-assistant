@@ -2,6 +2,7 @@ package setup
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"pn-scripts-assistant/internal/brain/config"
@@ -13,6 +14,7 @@ import (
 	"pn-scripts-assistant/internal/brain/pictures"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/team"
+	"pn-scripts-assistant/internal/preflight"
 )
 
 /*
@@ -68,8 +70,25 @@ func (s *Server) organisationTicks(cfg config.Config) []tick {
 	roster := team.Roster(root)
 	jobs := jobsThatShip()
 
+	together := holdsTogether(chart, roster, jobs)
+
+	// And the classifications this machine has downloaded, which the brain
+	// reads in itself — said here so the count above is not taken as all
+	// there will be.
+	var fetched []string
+
+	for _, c := range []struct{ source, name string }{{"esco", "ESCO"}, {"onet", "O*NET"}} {
+		if found, _ := filepath.Glob(filepath.Join(preflight.CatalogueFolder(c.source), "*.zip")); len(found) > 0 {
+			fetched = append(fetched, c.name)
+		}
+	}
+
+	if together.State == "yes" && len(fetched) > 0 {
+		together.Note += " · " + strings.Join(fetched, " and ") + " downloaded, read in when it opens"
+	}
+
 	return []tick{
-		holdsTogether(chart, roster, jobs),
+		together,
 		canWorkHere(chart, roster, jobs, here{
 			freedom:  permits.Freedom(cfg.Asking()),
 			godot:    godotHere,

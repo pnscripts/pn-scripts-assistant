@@ -350,6 +350,11 @@ func runServe(args []string) error {
 	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
+
+	// Whatever job classification setup downloaded that this brain has not
+	// read yet, in the background. Only here, where the program actually runs,
+	// and not in the one-off commands that also open a brain.
+	b.ImportDownloaded()
 	srv := server.New(b, logger)
 
 	// The same two things the windowed start records: what the last run left
@@ -815,6 +820,11 @@ func runApp(args []string) error {
 	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
+
+	// Whatever job classification setup downloaded that this brain has not
+	// read yet, in the background. Only here, where the program actually runs,
+	// and not in the one-off commands that also open a brain.
+	b.ImportDownloaded()
 
 	// So the greeting can say the last run stopped in the middle of something,
 	// which is the first thing worth knowing on opening it again.

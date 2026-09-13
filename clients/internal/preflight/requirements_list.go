@@ -500,7 +500,8 @@ func Requirements() []Requirement {
 		)
 	}
 
-	return list
+	// And the job catalogues, which are the same on every platform.
+	return append(list, catalogueRequirements()...)
 }
 
 /*

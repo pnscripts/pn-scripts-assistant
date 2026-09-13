@@ -102,7 +102,9 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 			Sources:     []string{"O*NET-SOC " + soc},
 		}
 
-		id, clash := jobIndex.match(title)
+		source := "O*NET-SOC " + soc
+
+		id, clash := jobIndex.match(source, title, nil)
 
 		if clash != "" {
 			p.note(fmt.Sprintf("%q matched more than one job already here, so it was added on its own", clash))
@@ -115,6 +117,7 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 
 		job.ID = id
 		taken[id] = true
+		jobIndex.remember(source, id)
 
 		jobs = append(jobs, job)
 		byCode[soc] = job
@@ -129,16 +132,33 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 
 	// Other titles — and a job the first pass added as new may turn out to be
 	// one the catalogue has under one of them.
-	if file, ok := src.Find("alternate titles.txt"); ok {
-		err := src.table(ctx, file, '\t', []string{code, "Alternate Title"}, func(get func(string) string) error {
+	/*
+	 * Which file and which column changed name between releases — "Alternate
+	 * Titles" became "Job Titles" in 31.0 — so each is tried in turn, the
+	 * reported titles first, because those are what people in the job
+	 * actually call it.
+	 */
+	for _, titles := range []struct{ file, column string }{
+		{"sample of reported titles.txt", "Reported Job Title"},
+		{"job titles.txt", "Job Title"},
+		{"alternate titles.txt", "Alternate Title"},
+	} {
+		file, ok := src.Find(titles.file)
+		if !ok {
+			continue
+		}
+
+		column := titles.column
+
+		err := src.table(ctx, file, '\t', []string{code, column}, func(get func(string) string) error {
 			job := byCode[get(code)]
 
 			if job == nil || len(job.Aliases) >= mostAliases {
 				return nil
 			}
 
-			for _, alias := range []string{get("Alternate Title"), get("Short Title")} {
-				if alias != "" {
+			for _, alias := range []string{get(column), get("Short Title")} {
+				if alias != "" && alias != "n/a" {
 					job.Aliases = append(job.Aliases, alias)
 				}
 			}
@@ -146,12 +166,13 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 			return nil
 		})
 		if err != nil {
-			p.note("could not read the alternate titles: " + err.Error())
+			p.note("could not read " + titles.file + ": " + err.Error())
 		}
 	}
 
+	// Other titles are tried against the catalogue's titles only; see index.
 	for job := range fresh {
-		if id, clash := jobIndex.match(job.Aliases...); id != "" && clash == "" {
+		if id, _ := jobIndex.match("", "", job.Aliases); id != "" {
 			delete(taken, job.ID)
 			job.ID = id
 		}
@@ -218,18 +239,28 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 	 */
 	var capabilities []store.Capability
 
-	if file, ok := src.Find("technology skills.txt"); ok {
+	// "Technology Skills" became "Software Skills" in 31.0, and its columns
+	// were renamed with it.
+	file, example, kind := "", "Example", "Commodity Title"
+
+	if found, ok := src.Find("software skills.txt"); ok {
+		file, example, kind = found, "Workplace Example", "Element Name"
+	} else if found, ok := src.Find("technology skills.txt"); ok {
+		file = found
+	}
+
+	if file != "" {
 		added := map[string]bool{}
 
-		err := src.table(ctx, file, '\t', []string{code, "Example", "Hot Technology"}, func(get func(string) string) error {
+		err := src.table(ctx, file, '\t', []string{code, example, "Hot Technology"}, func(get func(string) string) error {
 			job := byCode[get(code)]
-			name := get("Example")
+			name := get(example)
 
 			if job == nil || name == "" || !strings.EqualFold(get("Hot Technology"), "Y") {
 				return nil
 			}
 
-			id, _ := capabilityIndex.match(name)
+			id := capabilityIndex.named(name)
 
 			if id == "" {
 				id = MakeID(name)
@@ -238,7 +269,7 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 					added[id] = true
 					capabilities = append(capabilities, store.Capability{
 						ID: id, Name: name, Kind: store.CapabilityKnowledge, CameFrom: store.FromONET,
-						Description: get("Commodity Title"),
+						Description: get(kind),
 					})
 				}
 			}

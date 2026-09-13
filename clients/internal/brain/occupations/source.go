@@ -26,14 +26,21 @@ import (
  * is a step for no reason.
  */
 
-// Source is a folder or a zip, read by file name.
+/*
+ * Source is a folder, a zip, or a folder of zips, read by file name.
+ *
+ * A folder of zips because that is how ESCO actually arrives: one zip per
+ * language, the English one and the Bulgarian one side by side, and the
+ * Bulgarian names are what make a job findable here.
+ */
 type Source struct {
 	path  string
-	zip   *zip.ReadCloser
+	zips  []*zip.ReadCloser
+	files map[string]func() (io.ReadCloser, error)
 	names []string
 }
 
-// OpenSource opens a folder or a .zip.
+// OpenSource opens a folder, a .zip, or a folder holding zips.
 func OpenSource(path string) (*Source, error) {
 	path = strings.TrimSpace(path)
 
@@ -42,27 +49,33 @@ func OpenSource(path string) (*Source, error) {
 		return nil, fmt.Errorf("there is nothing at %s", path)
 	}
 
-	src := &Source{path: path}
+	src := &Source{path: path, files: map[string]func() (io.ReadCloser, error){}}
 
 	if !info.IsDir() {
-		if src.zip, err = zip.OpenReader(path); err != nil {
+		if err := src.addZip(path, ""); err != nil {
 			return nil, fmt.Errorf("%s is neither a folder nor a zip that can be read", filepath.Base(path))
-		}
-
-		for _, f := range src.zip.File {
-			if !f.FileInfo().IsDir() {
-				src.names = append(src.names, f.Name)
-			}
 		}
 
 		return src, nil
 	}
 
 	err = filepath.WalkDir(path, func(p string, d os.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
-			rel, _ := filepath.Rel(path, p)
-			src.names = append(src.names, rel)
+		if err != nil || d.IsDir() {
+			return nil
 		}
+
+		rel, _ := filepath.Rel(path, p)
+
+		if strings.EqualFold(filepath.Ext(p), ".zip") {
+			// A zip that will not open is skipped, and the files beside it
+			// are still read.
+			src.addZip(p, rel+"/")
+
+			return nil
+		}
+
+		full := p
+		src.add(rel, func() (io.ReadCloser, error) { return os.Open(full) })
 
 		return nil
 	})
@@ -72,10 +85,35 @@ func OpenSource(path string) (*Source, error) {
 	return src, err
 }
 
-// Close lets the zip go, when there is one.
+func (s *Source) add(name string, open func() (io.ReadCloser, error)) {
+	s.files[name] = open
+	s.names = append(s.names, name)
+}
+
+func (s *Source) addZip(path, prefix string) error {
+	z, err := zip.OpenReader(path)
+	if err != nil {
+		return err
+	}
+
+	s.zips = append(s.zips, z)
+
+	for _, f := range z.File {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+
+		f := f
+		s.add(prefix+f.Name, f.Open)
+	}
+
+	return nil
+}
+
+// Close lets the zips go.
 func (s *Source) Close() error {
-	if s.zip != nil {
-		return s.zip.Close()
+	for _, z := range s.zips {
+		z.Close()
 	}
 
 	return nil
@@ -116,11 +154,12 @@ func (s *Source) All(match func(base string) bool) []string {
 
 // Open reads one file.
 func (s *Source) Open(name string) (io.ReadCloser, error) {
-	if s.zip != nil {
-		return s.zip.Open(filepath.ToSlash(name))
+	open, ok := s.files[name]
+	if !ok {
+		return nil, fmt.Errorf("there is no %s", name)
 	}
 
-	return os.Open(filepath.Join(s.path, name))
+	return open()
 }
 
 /*
@@ -200,30 +239,52 @@ func (s *Source) table(ctx context.Context, name string, comma rune, needs []str
  * index is what the catalogue already calls things, so an import enriches a
  * job it has under another source's spelling instead of adding a second one.
  *
+ * Three ways to recognise a row, strictest first. By the source's own code,
+ * which is what makes running an import twice find every row it wrote rather
+ * than reasoning about names again. By the arriving title, against every name
+ * a row answers to. And by the arriving other names, against titles only —
+ * never other name against other name, because that is a chain: a
+ * machine-tool programmer is also called a programmer, so is a software
+ * engineer, and the first version of this merged the two.
+ *
  * A name that two different rows already answer to is ambiguous, and nothing
  * is merged into either on the strength of it: the import makes its own row
- * and says so in its notes, because guessing which of two jobs somebody meant
- * is how two careers end up sharing one description.
+ * and says so in its notes.
  */
 type index struct {
 	byName    map[string]string
+	byTitle   map[string]string
+	bySource  map[string]string
 	ambiguous map[string]bool
 }
 
 func newIndex(rows []store.Occupation) *index {
-	ix := &index{byName: map[string]string{}, ambiguous: map[string]bool{}}
+	ix := &index{byName: map[string]string{}, byTitle: map[string]string{},
+		bySource: map[string]string{}, ambiguous: map[string]bool{}}
 
 	for _, row := range rows {
 		for _, name := range append([]string{row.Title}, row.Aliases...) {
 			ix.add(name, row.ID)
+		}
+
+		if key := fold(row.Title); key != "" {
+			if _, taken := ix.byTitle[key]; !taken {
+				ix.byTitle[key] = row.ID
+			}
+		}
+
+		for _, source := range row.Sources {
+			ix.bySource[source] = row.ID
 		}
 	}
 
 	return ix
 }
 
+func fold(name string) string { return strings.ToLower(strings.TrimSpace(name)) }
+
 func (ix *index) add(name, id string) {
-	key := strings.ToLower(strings.TrimSpace(name))
+	key := fold(name)
 
 	if key == "" {
 		return
@@ -238,21 +299,49 @@ func (ix *index) add(name, id string) {
 	ix.byName[key] = id
 }
 
-// match is the one row these names all agree on, or nothing.
-func (ix *index) match(names ...string) (id string, clash string) {
-	for _, name := range names {
-		key := strings.ToLower(strings.TrimSpace(name))
+// match is the row an arriving job is, or nothing — and the name that was
+// ambiguous, when that is why.
+func (ix *index) match(source, title string, aliases []string) (id string, clash string) {
+	if found, ok := ix.bySource[source]; ok && source != "" {
+		return found, ""
+	}
 
-		if ix.ambiguous[key] {
-			return "", name
-		}
+	key := fold(title)
 
-		if found, ok := ix.byName[key]; ok {
+	if ix.ambiguous[key] {
+		return "", title
+	}
+
+	if found, ok := ix.byName[key]; ok {
+		return found, ""
+	}
+
+	for _, alias := range aliases {
+		if found, ok := ix.byTitle[fold(alias)]; ok {
 			return found, ""
 		}
 	}
 
 	return "", ""
+}
+
+/*
+ * named is the row whose own name this is, and only that.
+ *
+ * For capabilities, which carry no source code to be recognised by: matching
+ * a skill's name against other skills' other names moved thirty links to a
+ * different capability every time the same release was imported again.
+ */
+func (ix *index) named(name string) string {
+	return ix.byTitle[fold(name)]
+}
+
+// remember makes a row just decided on findable by the rest of the same run,
+// so two arriving rows naming one job land on it together.
+func (ix *index) remember(source, id string) {
+	if source != "" {
+		ix.bySource[source] = id
+	}
 }
 
 // Progress is how far an import has got, for whoever is watching.

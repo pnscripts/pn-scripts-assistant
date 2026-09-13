@@ -39,6 +39,10 @@ var allowedHosts = map[string]bool{
 	"ollama.com":     true,
 	"github.com":     true,
 	"huggingface.co": true,
+
+	// The job classifications' own servers. See install_catalogues.go.
+	"ec.europa.eu":       true,
+	"www.onetcenter.org": true,
 }
 
 /*

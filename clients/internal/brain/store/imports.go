@@ -146,26 +146,27 @@ func (d *DB) Labels() (jobs, capabilities []Occupation, err error) {
 
 		for rows.Next() {
 			var (
-				o       Occupation
-				aliases string
+				o                Occupation
+				aliases, sources string
 			)
 
-			if err := rows.Scan(&o.ID, &o.Title, &aliases); err != nil {
+			if err := rows.Scan(&o.ID, &o.Title, &aliases, &sources); err != nil {
 				return nil, err
 			}
 
 			o.Aliases = splitList(aliases)
+			o.Sources = splitList(sources)
 			out = append(out, o)
 		}
 
 		return out, rows.Err()
 	}
 
-	if jobs, err = read(`SELECT id, title, aliases FROM occupations`); err != nil {
+	if jobs, err = read(`SELECT id, title, aliases, COALESCE(sources,'') FROM occupations`); err != nil {
 		return nil, nil, err
 	}
 
-	capabilities, err = read(`SELECT id, name, aliases FROM capabilities`)
+	capabilities, err = read(`SELECT id, name, aliases, '' FROM capabilities`)
 
 	return jobs, capabilities, err
 }
