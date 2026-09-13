@@ -582,6 +582,103 @@
         }
     }
 
+    /*
+     * Imports: what is running and how far it has got, and what the last few
+     * did. Asked every two seconds only while one is running — an import is
+     * minutes, and a view that polls forever over nothing is the kind of cost
+     * this program has gone out of its way not to have.
+     */
+    let importPoll = null;
+
+    function counted(n, one, many) {
+        n = n || 0;
+
+        return n + ' ' + (n === 1 ? one : (many || one + 's'));
+    }
+
+    async function imports() {
+        const list = el('org-imports');
+
+        if (!list) return;
+
+        let body;
+
+        try {
+            const res = await fetch('/api/organisation/imports');
+            body = await res.json();
+        } catch {
+            return;
+        }
+
+        list.textContent = '';
+
+        const runs = body.imports || [];
+
+        if (!runs.length) {
+            list.appendChild(line('note', 'Nothing imported yet.'));
+        }
+
+        let running = false;
+
+        for (const run of runs) {
+            const so = run.so_far || {};
+            const what = run.source === 'onet' ? 'O*NET' : 'ESCO';
+
+            let said = what + ' — ' + run.state;
+
+            if (run.state === 'running') {
+                running = true;
+                said += ': ' + (run.stage || 'starting') + (run.of ? ' ' + run.done + ' of ' + run.of
+                    : run.done ? ' ' + run.done : '');
+            }
+
+            said += ' · ' + [
+                counted(so.jobs, 'new job'), counted(so.capabilities, 'new capability', 'new capabilities'),
+                counted(so.links, 'link'), (so.filled || 0) + ' filled in',
+            ].join(', ');
+
+            if (run.error) said += ' · ' + run.error;
+
+            const row = line('org-agent', said);
+            list.appendChild(row);
+
+            if (run.state === 'running') {
+                list.appendChild(action('Stop', async () => {
+                    try {
+                        await send('/api/organisation/imports/' + run.id + '/stop', {});
+                    } catch (err) {
+                        say(err.message);
+                    }
+                    imports();
+                }));
+            }
+
+            for (const note of run.notes || []) list.appendChild(line('note', note));
+        }
+
+        clearTimeout(importPoll);
+
+        if (running) {
+            importPoll = setTimeout(imports, 2000);
+        } else if (runs.length && runs[0].state === 'done') {
+            load();
+        }
+    }
+
+    async function startImport() {
+        const from = el('org-import-from').value.trim();
+
+        if (!from) return;
+
+        try {
+            await send('/api/organisation/import', { source: el('org-import-source').value, from });
+            imports();
+        } catch (err) {
+            el('org-imports').textContent = '';
+            el('org-imports').appendChild(line('note', err.message));
+        }
+    }
+
     function typing(node, run) {
         let waiting = null;
 
@@ -593,7 +690,9 @@
 
     function wire() {
         document.querySelector('.nav-item[data-view="organisation"]')
-            ?.addEventListener('click', load);
+            ?.addEventListener('click', () => { load(); imports(); });
+
+        el('org-import-go')?.addEventListener('click', startImport);
 
         const search = el('org-job-search');
 

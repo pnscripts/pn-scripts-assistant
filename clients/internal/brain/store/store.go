@@ -655,6 +655,39 @@ var migrations = []string{
 	`
 	ALTER TABLE tasks ADD COLUMN hired TEXT;
 	`,
+
+	/*
+	 * 14: importing a job classification.
+	 *
+	 * A row per run, because an import of three thousand jobs is minutes and
+	 * the program may be closed in the middle: what was running, how far it
+	 * got and why it stopped all have to be readable afterwards, and "it was
+	 * importing" is not something memory can answer after a restart.
+	 *
+	 * notes is what it could not settle on its own — a label that matched two
+	 * different jobs already here — listed rather than silently decided.
+	 */
+	`
+	CREATE TABLE imports (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		source TEXT NOT NULL,
+		from_path TEXT NOT NULL,
+		state TEXT NOT NULL,
+		stage TEXT NOT NULL DEFAULT '',
+		done INTEGER NOT NULL DEFAULT 0,
+		of INTEGER NOT NULL DEFAULT 0,
+		jobs INTEGER NOT NULL DEFAULT 0,
+		capabilities INTEGER NOT NULL DEFAULT 0,
+		links INTEGER NOT NULL DEFAULT 0,
+		filled INTEGER NOT NULL DEFAULT 0,
+		notes TEXT NOT NULL DEFAULT '',
+		error TEXT NOT NULL DEFAULT '',
+		started_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL,
+		finished_at TEXT
+	);
+	CREATE INDEX idx_imports_started ON imports(id DESC);
+	`,
 }
 
 /*

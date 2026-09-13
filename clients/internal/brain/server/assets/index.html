@@ -1715,6 +1715,33 @@
                 </div>
 
                 <div class="card">
+                    <h2>Bring in a classification</h2>
+                    <p class="note">
+                        The jobs that ship are a few hundred written by hand. The thousands
+                        come from a real classification: ESCO (the European one, with
+                        Bulgarian names — from esco.ec.europa.eu, as CSV) or O*NET (the
+                        American one, with what each job does day to day — from
+                        onetcenter.org, the text files). Point this at the folder or the zip
+                        you downloaded. Nothing is fetched, and anything written by hand or
+                        shipped keeps what it says.
+                    </p>
+                    <div class="field">
+                        <span>Which</span>
+                        <select id="org-import-source">
+                            <option value="esco">ESCO</option>
+                            <option value="onet">O*NET</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <span>Folder or zip</span>
+                        <input type="text" id="org-import-from" autocomplete="off"
+                            placeholder="/home/you/Downloads/ESCO dataset - v1.2.0.zip">
+                    </div>
+                    <button type="button" class="task-button" id="org-import-go">Import</button>
+                    <div id="org-imports"><p class="note">—</p></div>
+                </div>
+
+                <div class="card">
                     <h2>Who is good at</h2>
                     <p class="note">
                         Answered from the chart and the definitions rather than by asking

@@ -338,6 +338,10 @@ func runServe(args []string) error {
 	 * interrupted by a shutdown is exactly as likely to have been interrupted
 	 * because it was going wrong. It says so in its own view, with a button.
 	 */
+	if err := db.InterruptRunningImports(); err != nil {
+		logger.Warn("could not close off imports that were cut short", "error", err)
+	}
+
 	interrupted, err := db.InterruptWorkingTasks("PN Brain was closed while this was running")
 	if err != nil {
 		logger.Warn("could not park tasks left running", "error", err)
@@ -799,6 +803,10 @@ func runApp(args []string) error {
 	 * interrupted by a shutdown is exactly as likely to have been interrupted
 	 * because it was going wrong. It says so in its own view, with a button.
 	 */
+	if err := db.InterruptRunningImports(); err != nil {
+		logger.Warn("could not close off imports that were cut short", "error", err)
+	}
+
 	interrupted, err := db.InterruptWorkingTasks("PN Brain was closed while this was running")
 	if err != nil {
 		logger.Warn("could not park tasks left running", "error", err)
