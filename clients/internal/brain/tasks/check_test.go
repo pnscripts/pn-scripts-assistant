@@ -11,6 +11,7 @@ import (
 
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/team"
 	"pn-scripts-assistant/internal/brain/tools"
 )
 
@@ -46,6 +47,12 @@ func TestACheckCannotAgreeWithoutQuotingSomethingReal(t *testing.T) {
 
 	c, db, _ := newConductor(t, model, tools.ListDirectory{})
 	c.Budget = Budget{MostSteps: 12, MostAttempts: 1, MostReplans: 0, MostCalls: 40, HowLong: time.Minute}
+
+	// Nobody to hand the step to. This is about the check, and a specialist
+	// taking the failed step over would race the test for the reason on it.
+	c.Roster = func() []team.Agent {
+		return []team.Agent{{Name: "assistant", Title: "Assistant", For: "anything"}}
+	}
 
 	conv, _ := db.NewConversation("t")
 

@@ -77,10 +77,6 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 	jobs := []*store.Occupation{}
 	byCode := map[string]*store.Occupation{}
 
-	// Which jobs were given a new id rather than matched, so their other
-	// titles can be tried against the catalogue once they are known.
-	fresh := map[*store.Occupation]bool{}
-
 	err = src.table(ctx, occupationsFile, '\t', []string{code, "Title"}, func(get func(string) string) error {
 		soc, title := get(code), get("Title")
 
@@ -92,7 +88,9 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 		risk, oversight := riskOfSOC(soc)
 
 		job := &store.Occupation{
-			Title:       title,
+			// One person, like every other title here, with the capitals
+			// O*NET gave it — "HR Specialist", not "Hr specialist".
+			Title:       oneOf(title),
 			Category:    category,
 			Description: get("Description"),
 			Status:      store.Established,
@@ -111,8 +109,7 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 		}
 
 		if id == "" {
-			id = freeID(taken, category+"."+MakeID(title), soc)
-			fresh[job] = true
+			id = freeID(taken, category+"."+MakeID(oneOf(title)), soc)
 		}
 
 		job.ID = id
@@ -130,8 +127,8 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 
 	say("occupations", len(jobs), len(jobs))
 
-	// Other titles — and a job the first pass added as new may turn out to be
-	// one the catalogue has under one of them.
+	// Other titles, as more ways to find a job — never as a way to decide
+	// which job it is. See index.
 	/*
 	 * Which file and which column changed name between releases — "Alternate
 	 * Titles" became "Job Titles" in 31.0 — so each is tried in turn, the
@@ -167,14 +164,6 @@ func ImportONET(ctx context.Context, db *store.DB, src *Source, report func(Prog
 		})
 		if err != nil {
 			p.note("could not read " + titles.file + ": " + err.Error())
-		}
-	}
-
-	// Other titles are tried against the catalogue's titles only; see index.
-	for job := range fresh {
-		if id, _ := jobIndex.match("", "", job.Aliases); id != "" {
-			delete(taken, job.ID)
-			job.ID = id
 		}
 	}
 
@@ -340,4 +329,25 @@ func riskOfSOC(soc string) (string, bool) {
 	}
 
 	return store.RiskLow, false
+}
+
+// oneOf is a plural title made singular, keeping its capitals.
+func oneOf(title string) string {
+	words := strings.Fields(title)
+
+	if len(words) == 0 {
+		return title
+	}
+
+	last := words[len(words)-1]
+	one := singular(strings.ToLower(last))
+
+	if len(one) < len(last) && strings.EqualFold(last[:len(one)], one) {
+		words[len(words)-1] = last[:len(one)]
+	} else if one != strings.ToLower(last) {
+		// "Secretaries" to "secretary": the ending changed as well as shortened.
+		words[len(words)-1] = last[:1] + one[1:]
+	}
+
+	return strings.Join(words, " ")
 }

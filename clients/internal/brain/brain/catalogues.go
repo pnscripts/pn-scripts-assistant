@@ -27,6 +27,17 @@ import (
 // importing is which job is doing which import, so Stop reaches it.
 var importing sync.Map
 
+/*
+ * oneAtATime keeps imports from writing over each other.
+ *
+ * Both classifications downloaded by setup are found at the same moment and
+ * started together, and two long write transactions on one SQLite file do not
+ * queue — the second is refused as locked. That is exactly what the first run
+ * against the real releases did: ESCO read in, and O*NET failed on its first
+ * capability. So each run waits its turn, and says so while it waits.
+ */
+var oneAtATime sync.Mutex
+
 // Import starts reading a classification in, and says which run it is.
 func (b *Brain) Import(source, from string) (int64, error) {
 	run := map[string]func(context.Context, *store.DB, *occupations.Source, func(occupations.Progress)) (occupations.Progress, error){
@@ -52,9 +63,26 @@ func (b *Brain) Import(source, from string) (int64, error) {
 		return 0, err
 	}
 
-	job, err := b.Jobs.StartSilent("importing "+source, func(ctx context.Context) (string, error) {
+	/*
+	 * Queued rather than counted against the machine's limit on background
+	 * work: they wait for each other below, and on a machine allowed one job
+	 * the second classification would otherwise be refused, recorded as
+	 * failed, and never tried again.
+	 */
+	job, err := b.Jobs.StartQueued("importing "+source, func(ctx context.Context) (string, error) {
 		defer src.Close()
 		defer importing.Delete(id)
+
+		b.DB.ImportProgress(id, "waiting for the other import to finish", 0, 0, store.Imported{}, nil)
+
+		oneAtATime.Lock()
+		defer oneAtATime.Unlock()
+
+		if ctx.Err() != nil {
+			b.DB.FinishImport(id, store.ImportStopped, "you stopped it")
+
+			return "", nil
+		}
 
 		p, err := run(ctx, b.DB, src, func(p occupations.Progress) {
 			b.DB.ImportProgress(id, p.Stage, p.Done, p.Of, p.So, p.Notes)

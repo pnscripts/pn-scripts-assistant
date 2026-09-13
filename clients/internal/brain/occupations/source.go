@@ -239,13 +239,18 @@ func (s *Source) table(ctx context.Context, name string, comma rune, needs []str
  * index is what the catalogue already calls things, so an import enriches a
  * job it has under another source's spelling instead of adding a second one.
  *
- * Three ways to recognise a row, strictest first. By the source's own code,
+ * Two ways to recognise a row, strictest first. By the source's own code,
  * which is what makes running an import twice find every row it wrote rather
- * than reasoning about names again. By the arriving title, against every name
- * a row answers to. And by the arriving other names, against titles only —
- * never other name against other name, because that is a chain: a
- * machine-tool programmer is also called a programmer, so is a software
- * engineer, and the first version of this merged the two.
+ * than reasoning about names again. And by the arriving title, against every
+ * name a row answers to — ESCO's "software developer" is the software engineer
+ * that ships, which already answers to that name.
+ *
+ * Never by the arriving job's other names. Those are what somebody might also
+ * call it, not what it is: ESCO's business economics researcher is also called
+ * a business analyst, and matching on that folded economists into the business
+ * analyst that ships — 201 skills and a dozen titles that were not its own.
+ * Before that, other name against other name chained a machine-tool programmer
+ * into software engineer.
  *
  * A name that two different rows already answer to is ambiguous, and nothing
  * is merged into either on the strength of it: the import makes its own row
@@ -306,18 +311,20 @@ func (ix *index) match(source, title string, aliases []string) (id string, clash
 		return found, ""
 	}
 
-	key := fold(title)
+	/*
+	 * The title as written, and then as one of them.
+	 *
+	 * O*NET names every occupation in the plural — "Software Developers",
+	 * "Chief Executives" — where everything else names one person. Without
+	 * this, every O*NET job missed the job already here and arrived as a
+	 * near-duplicate of it: nine hundred of them.
+	 */
+	for _, key := range []string{fold(title), singular(fold(title))} {
+		if ix.ambiguous[key] {
+			return "", title
+		}
 
-	if ix.ambiguous[key] {
-		return "", title
-	}
-
-	if found, ok := ix.byName[key]; ok {
-		return found, ""
-	}
-
-	for _, alias := range aliases {
-		if found, ok := ix.byTitle[fold(alias)]; ok {
+		if found, ok := ix.byName[key]; ok {
 			return found, ""
 		}
 	}
@@ -334,6 +341,32 @@ func (ix *index) match(source, title string, aliases []string) (id string, clash
  */
 func (ix *index) named(name string) string {
 	return ix.byTitle[fold(name)]
+}
+
+// singular is a plural job title as one person: the last word only, since
+// "Sales Representatives" is a sales representative and not a sale one.
+func singular(title string) string {
+	words := strings.Fields(title)
+
+	if len(words) == 0 {
+		return title
+	}
+
+	last := words[len(words)-1]
+
+	switch {
+	case strings.HasSuffix(last, "ies") && len(last) > 4:
+		last = strings.TrimSuffix(last, "ies") + "y"
+	case strings.HasSuffix(last, "ches"), strings.HasSuffix(last, "shes"),
+		strings.HasSuffix(last, "sses"), strings.HasSuffix(last, "xes"):
+		last = strings.TrimSuffix(last, "es")
+	case strings.HasSuffix(last, "s") && !strings.HasSuffix(last, "ss") && len(last) > 3:
+		last = strings.TrimSuffix(last, "s")
+	}
+
+	words[len(words)-1] = last
+
+	return strings.Join(words, " ")
 }
 
 // remember makes a row just decided on findable by the rest of the same run,

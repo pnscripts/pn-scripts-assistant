@@ -148,7 +148,15 @@ func downloadVia(client *http.Client, from, to string, w io.Writer) error {
 		os.Remove(part)
 	}()
 
-	fmt.Fprintf(w, "Downloading %s\n", filepath.Base(from))
+	// Unescaped, so a file name with spaces reads as one rather than as
+	// "ESCO%20dataset%20-%20v1.2.1".
+	name := filepath.Base(from)
+
+	if plain, err := url.PathUnescape(name); err == nil {
+		name = plain
+	}
+
+	fmt.Fprintf(w, "Downloading %s\n", name)
 
 	counted := &progress{out: w, total: res.ContentLength, every: 4 * time.Second}
 

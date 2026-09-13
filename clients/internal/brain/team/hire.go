@@ -2,6 +2,7 @@ package team
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,6 +93,29 @@ var asking = map[string]bool{
 	"в": true, "на": true, "с": true, "и": true, "търся": true,
 }
 
+/*
+ * stem is a word without the ending that says how it is being used.
+ *
+ * "Beekeeping" and "beekeeper" are one trade, and a catalogue that knows the
+ * beekeeper answered "someone who knows beekeeping" with nobody. Crude on
+ * purpose — a handful of English endings, and only when enough of the word is
+ * left to mean something — because a wrong stem costs a weaker match, and a
+ * clever one would be a dependency this program has always refused.
+ */
+func stem(word string) string {
+	r := []rune(word)
+
+	for _, ending := range []string{"ings", "ing", "ers", "er", "ists", "ist", "ments", "ment", "ions", "ion", "ies", "s"} {
+		e := []rune(ending)
+
+		if len(r)-len(e) >= 4 && strings.HasSuffix(word, ending) {
+			return string(r[:len(r)-len(e)])
+		}
+	}
+
+	return word
+}
+
 // subjectOf is the words of a wish that say what the work is.
 func subjectOf(sentence string) []string {
 	var words []string
@@ -130,7 +154,16 @@ func capabilitiesIn(cat Catalogue, words []string) []string {
 		for _, c := range list {
 			name := strings.ToLower(c.Name)
 
-			if c.ID == id || name == term || strings.HasPrefix(name, term) {
+			/*
+			 * The whole name, or the start of a name that is one word.
+			 *
+			 * "postgres" is PostgreSQL. But with the classifications read in
+			 * there are fourteen thousand skills, and the start of any name
+			 * at all made "nurse" the skill of nursing plants and "translate"
+			 * the translating of artistic concepts into technical designs.
+			 */
+			if c.ID == id || name == term || stem(name) == term ||
+				(!strings.Contains(name, " ") && strings.HasPrefix(name, term)) {
 				return c.ID, true
 			}
 
@@ -168,6 +201,10 @@ func capabilitiesIn(cat Catalogue, words []string) []string {
 
 		if id, ok := try(w); ok {
 			add(id)
+		} else if s := stem(w); s != w {
+			if id, ok := try(s); ok {
+				add(id)
+			}
 		}
 	}
 
@@ -177,19 +214,22 @@ func capabilitiesIn(cat Catalogue, words []string) []string {
 /*
  * jobFor is the job a wish is best answered by.
  *
- * Scored word by word against what each job is, in order of how much a match
- * says. Three points when the job calls for a capability the word names —
- * "security" in application security, network security, security auditing —
- * because what a job needs is what it is. Two when the word is in its title,
- * one when it is in what else it is called.
+ * Scored word by word against what each job is. A job calling for a
+ * capability the word names counts most — what a job needs is what it is —
+ * then the word in its title, then in what else it is called.
  *
- * And a job that runs something rather than doing it loses three, unless the
- * wish asked for one. Asked for somebody in Laravel security, the chief
- * security officer matched as well as any engineer — the word is in the title
- * and the job audits security — and the first version of this hired one; the
- * second hired the security manager, who looks after a building. Somebody
- * asking for a specialist wants a specialist; somebody asking for a head of
- * security says "head".
+ * And each word counts for less the more jobs it matches. With the real
+ * classifications read in, "security" is in a hundred jobs and "Laravel" in
+ * one, and counting them equally hired a security alarm investigator for
+ * Laravel security and a business analyst for PostgreSQL performance: the
+ * common word matched something everywhere and the telling one was outvoted.
+ * Weighted by rarity, the word that says what the work is decides it.
+ *
+ * A job that runs something rather than doing it counts for half, unless the
+ * wish asked for one — asked for somebody in Laravel security, the chief
+ * security officer matched as well as any engineer. Among equals, a job this
+ * program ships or somebody wrote by hand goes before an imported one, since
+ * those were written for exactly this.
  *
  * A job that matched nothing is not a weak answer; it is no answer, and
  * nobody is hired on the strength of it.
@@ -206,13 +246,18 @@ func jobFor(cat Catalogue, words, capabilities []string) (*store.Occupation, err
 	}
 
 	for _, capability := range capabilities {
-		if err := note(cat.OccupationsNeeding(capability, 40)); err != nil {
+		if err := note(cat.OccupationsNeeding(capability, 60)); err != nil {
 			return nil, err
 		}
 	}
 
+	stems := make([]string, 0, len(words))
+
 	for _, w := range words {
-		if err := note(cat.FindOccupations(w, 20)); err != nil {
+		w = stem(w)
+		stems = append(stems, w)
+
+		if err := note(cat.FindOccupations(w, 40)); err != nil {
 			return nil, err
 		}
 
@@ -223,45 +268,146 @@ func jobFor(cat Catalogue, words, capabilities []string) (*store.Occupation, err
 
 		for _, c := range related {
 			if strings.Contains(c.ID, w) || strings.Contains(strings.ToLower(c.Name), w) {
-				if err := note(cat.OccupationsNeeding(c.ID, 20)); err != nil {
+				if err := note(cat.OccupationsNeeding(c.ID, 40)); err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
 
-	leading := false
+	leading := leadingWish(words)
 
-	for _, w := range words {
-		switch w {
-		case "chief", "head", "director", "manager", "lead", "officer", "executive", "vp":
-			leading = true
+	jobs := make([]store.Occupation, 0, len(candidates))
+
+	for id := range candidates {
+		if job, err := cat.Occupation(id); err == nil && job != nil {
+			jobs = append(jobs, *job)
+		}
+	}
+
+	// How many candidates each word matches at all, for its weight.
+	matching := make([]int, len(stems))
+
+	for _, job := range jobs {
+		for i, w := range stems {
+			if pointsFor(job, w) > 0 {
+				matching[i]++
+			}
 		}
 	}
 
 	var best *store.Occupation
 
-	bestScore := 0
+	bestScore := 0.0
 
-	for id := range candidates {
-		job, err := cat.Occupation(id)
-		if err != nil || job == nil {
+	for i := range jobs {
+		job := jobs[i]
+		score := 0.0
+
+		for k, w := range stems {
+			if points := pointsFor(job, w); points > 0 {
+				score += float64(points) / math.Log2(2+float64(matching[k]))
+			}
+		}
+
+		if score == 0 {
 			continue
 		}
 
-		score := scoreJob(*job, words)
+		/*
+		 * A wish that is exactly a job's name is that job.
+		 *
+		 * Word by word, "product manager" scored the chief product officer
+		 * higher than the product manager — both words are in what a CPO
+		 * needs — and a planner naming product_manager got a CPO. The whole
+		 * phrase being the name settles it before any word is weighed.
+		 */
+		if named := strings.Join(words, " "); strings.EqualFold(job.Title, named) {
+			score += 100
+		} else {
+			for _, alias := range job.Aliases {
+				if strings.EqualFold(alias, named) {
+					score += 50
 
-		if !leading && leads(*job) {
-			score -= 3
+					break
+				}
+			}
 		}
 
-		if score > bestScore || (score == bestScore && score > 0 && best != nil && job.ID < best.ID) {
-			one := *job
-			best, bestScore = &one, score
+		if !leading && leads(job) {
+			score /= 2
+		}
+
+		if job.CameFrom == store.FromSeed || job.CameFrom == store.FromHand {
+			score *= 1.1
+		}
+
+		if best == nil || score > bestScore || (score == bestScore && job.ID < best.ID) {
+			best, bestScore = &jobs[i], score
 		}
 	}
 
 	return best, nil
+}
+
+/*
+ * pointsFor is how much one word says a job is the one.
+ *
+ * Added up rather than the best of them: a job that needs security and is
+ * called chief security officer says "security" twice, and one that only
+ * needs it says it once. And a word that is the whole of a name counts for
+ * more than one found inside it — "заварчик" is exactly one of the welder's
+ * names and merely somewhere in the maintenance technician's.
+ */
+func pointsFor(job store.Occupation, w string) int {
+	points := 0
+
+	for _, need := range job.Needs {
+		if strings.Contains(need.ID, w) {
+			points += 3
+
+			break
+		}
+	}
+
+	title := strings.ToLower(job.Title)
+
+	switch {
+	case title == w || stem(title) == w:
+		points += 4
+	case strings.Contains(title, w):
+		points += 2
+	}
+
+	for _, alias := range job.Aliases {
+		alias = strings.ToLower(alias)
+
+		if alias == w || stem(alias) == w {
+			points += 3
+
+			break
+		}
+
+		if strings.Contains(alias, w) {
+			points++
+
+			break
+		}
+	}
+
+	return points
+}
+
+// leadingWish is whether the wish asks for somebody to run something.
+func leadingWish(words []string) bool {
+	for _, w := range words {
+		switch w {
+		case "chief", "head", "director", "manager", "lead", "officer", "executive", "vp":
+			return true
+		}
+	}
+
+	return false
 }
 
 // leads is whether a job is running something rather than doing it: filed as
@@ -280,32 +426,6 @@ func leads(job store.Occupation) bool {
 	}
 
 	return false
-}
-
-func scoreJob(job store.Occupation, words []string) int {
-	title := strings.ToLower(job.Title)
-	aliases := strings.ToLower(strings.Join(job.Aliases, " "))
-
-	score := 0
-
-	for _, w := range words {
-		for _, need := range job.Needs {
-			if strings.Contains(need.ID, w) {
-				score += 3
-
-				break
-			}
-		}
-
-		switch {
-		case strings.Contains(title, w):
-			score += 2
-		case strings.Contains(aliases, w):
-			score++
-		}
-	}
-
-	return score
 }
 
 // Hire answers a wish with somebody already here, or somebody new.
@@ -331,7 +451,10 @@ func Hire(root string, roster []Agent, chart []org.Unit, cat Catalogue, box Tool
 	// Somebody here already, who knows everything that was named and holds the
 	// job — or, when no capability was named, simply holds the job.
 	for _, a := range roster {
-		if !a.Working() {
+		// Never the generalist: it does anything and so, with a classification
+		// read in, it matches everything — which answered "a tax accountant"
+		// with "the assistant already does this".
+		if !a.Working() || a.Name == "assistant" {
 			continue
 		}
 
@@ -339,7 +462,11 @@ func Hire(root string, roster []Agent, chart []org.Unit, cat Catalogue, box Tool
 
 		holds := fit.Job != nil && fit.Job.ID == job.ID
 
-		if (len(capabilities) > 0 && knowsAll(fit.Can, capabilities)) || (len(capabilities) == 0 && holds) {
+		// A wish for somebody to lead is answered only by somebody in that job:
+		// knowing security does not make an engineer the head of it.
+		knows := len(capabilities) > 0 && knowsAll(fit.Can, capabilities) && !leadingWish(words)
+
+		if knows || holds {
 			return Hired{
 				Agent: a, Existing: true, Job: job.ID, Seat: a.Position,
 				Why: fmt.Sprintf("the %s already does this, so nobody new was hired",
@@ -364,13 +491,19 @@ func Hire(root string, roster []Agent, chart []org.Unit, cat Catalogue, box Tool
 		already[need.ID] = true
 	}
 
+	/*
+	 * Every capability the wish named that the job does not already list, by
+	 * exactly its id — even one the job covers under another name. Written
+	 * down as asked, so asking again finds this hire by the same exact test
+	 * rather than by guessing at what "covers" means.
+	 */
 	for _, capability := range capabilities {
-		if !already[capability] && !coveredBy(capability, job.Needs) {
+		if !already[capability] {
 			agent.Can = append(agent.Can, capability)
 		}
 	}
 
-	agent.Title = titleFor(words, capabilities, job)
+	agent.Title = titleFor(words, job)
 	agent.Name = unusedName(roster, nameFor(words, job))
 	agent.For = strings.TrimSpace(job.Description)
 
@@ -378,9 +511,13 @@ func Hire(root string, roster []Agent, chart []org.Unit, cat Catalogue, box Tool
 		agent.For = strings.ToLower(job.Title)
 	}
 
-	if len(capabilities) > 0 {
+	// What was asked for beyond the job, in the words that asked — which is
+	// also what the shortlist scores this agent's description on.
+	if extra := uncovered(words, job); len(extra) > 0 || len(agent.Can) > 0 {
+		especially := append(append([]string{}, extra...), agent.Can...)
+
 		agent.For = strings.TrimSuffix(agent.For, ".") + ". Especially: " +
-			strings.ReplaceAll(strings.Join(capabilities, ", "), "_", " ") + "."
+			strings.ReplaceAll(strings.Join(especially, ", "), "_", " ") + "."
 	}
 
 	/*
@@ -436,51 +573,17 @@ func Hire(root string, roster []Agent, chart []org.Unit, cat Catalogue, box Tool
 	return hired, nil
 }
 
-/*
- * coveredBy is whether a job already knows the thing a capability was matched
- * for, under another name.
- *
- * "Security" is matched to security auditing by its first word; hired as an
- * application security engineer, the person already knows security, and a
- * second capability saying so is noise in every shortlist they are scored in.
- */
-func coveredBy(capability string, needs []store.Need) bool {
-	parts := strings.Split(capability, "_")
-
-	for _, need := range needs {
-		for _, part := range strings.Split(need.ID, "_") {
-			for _, mine := range parts {
-				if len(mine) > 3 && part == mine {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
-}
-
-/*
- * knowsAll is whether somebody already covers everything a wish named, by the
- * same rule a hire is given capabilities by.
- *
- * The same rule, or it asks twice and hires twice: the first version wanted
- * every named capability outright, while hiring had skipped "security
- * auditing" as covered by an application security engineer's own — so asking
- * for Laravel security a second time found nobody who knew security auditing
- * and hired the same specialist again.
- */
+// knowsAll is whether somebody knows every capability a wish named, by
+// exactly its id. See where a hire's capabilities are written down.
 func knowsAll(can, wanted []string) bool {
 	have := map[string]bool{}
-	needs := make([]store.Need, 0, len(can))
 
 	for _, one := range can {
 		have[one] = true
-		needs = append(needs, store.Need{ID: one})
 	}
 
 	for _, one := range wanted {
-		if !have[one] && !coveredBy(one, needs) {
+		if !have[one] {
 			return false
 		}
 	}
@@ -507,17 +610,36 @@ func overlapOf(a, b []string) []string {
 }
 
 /*
- * titleFor is what a person reads: the job's own title when nothing more was
- * asked for, and "Laravel security specialist" when something was.
+ * titleFor is what a person reads.
+ *
+ * The job's own title when the job already covers everything asked for — not
+ * "Nurse specialist" for a nurse. The words that asked, when some of them are
+ * more than the job: "Laravel security specialist" is a PHP developer whose
+ * security is the point of hiring them, and calling them a PHP developer
+ * loses the one thing that was asked for.
  */
-func titleFor(words, capabilities []string, job *store.Occupation) string {
-	if len(capabilities) == 0 {
+func titleFor(words []string, job *store.Occupation) string {
+	if len(uncovered(words, job)) == 0 {
 		return job.Title
 	}
 
 	named := strings.Join(words, " ")
 
 	return strings.ToUpper(named[:1]) + named[1:] + " specialist"
+}
+
+// uncovered is the words of a wish the job does not already answer to, in its
+// title, its other names or what it needs.
+func uncovered(words []string, job *store.Occupation) []string {
+	out := []string{}
+
+	for _, w := range words {
+		if pointsFor(*job, stem(w)) == 0 {
+			out = append(out, w)
+		}
+	}
+
+	return out
 }
 
 /*

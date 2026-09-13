@@ -335,3 +335,35 @@ func TestAnONETReleaseEnrichesJobs(t *testing.T) {
 		t.Errorf("the shipped job was taken over by the import: %s", job.CameFrom)
 	}
 }
+
+// O*NET's plural titles meet the one-person titles already here.
+func TestAPluralTitleIsOnePerson(t *testing.T) {
+	cases := map[string]string{
+		"software developers":   "software developer",
+		"chief executives":      "chief executive",
+		"secretaries":           "secretary",
+		"coaches":               "coach",
+		"business analyst":      "business analyst",
+		"sales representatives": "sales representative",
+		"glass":                 "glass",
+	}
+
+	for plural, want := range cases {
+		if got := singular(plural); got != want {
+			t.Errorf("%q is %q, want %q", plural, got, want)
+		}
+	}
+}
+
+func TestAnONETTitleBecomesOnePersonAndKeepsItsCapitals(t *testing.T) {
+	for plural, want := range map[string]string{
+		"Business Intelligence Analysts": "Business Intelligence Analyst",
+		"HR Specialists":                 "HR Specialist",
+		"Legal Secretaries":              "Legal Secretary",
+		"Chief Executives":               "Chief Executive",
+	} {
+		if got := oneOf(plural); got != want {
+			t.Errorf("%q became %q, want %q", plural, got, want)
+		}
+	}
+}

@@ -17,6 +17,7 @@ import (
 	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/team"
 	"pn-scripts-assistant/internal/brain/tools"
 )
 
@@ -339,6 +340,12 @@ func TestWordsWhereAToolShouldHaveRunAreNotAnAnswer(t *testing.T) {
 
 	c, db, _ := newConductor(t, model)
 	c.Budget = Budget{MostSteps: 12, MostAttempts: 1, MostReplans: 0, MostCalls: 40, HowLong: time.Minute}
+
+	// Nobody to hand the failed step to, so it stops here rather than going
+	// to a specialist — which is a different test. See delegate_test.go.
+	c.Roster = func() []team.Agent {
+		return []team.Agent{{Name: "assistant", Title: "Assistant", For: "anything"}}
+	}
 
 	conv, _ := db.NewConversation("t")
 
