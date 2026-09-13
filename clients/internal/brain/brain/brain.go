@@ -1093,9 +1093,15 @@ func (b *Brain) Start(ctx context.Context) {
 		speech.SetLoudness(b.Cfg.VoiceLoudness)
 	}
 
-	// And anything a previous run left turned down goes back up. The note only
-	// exists if that run was killed between lowering a level and restoring it.
-	go speech.PutBackAnythingLeftDown()
+	// And anything left turned down goes back up: a stream a run that crashed
+	// mid-sentence never restored, or a level the old way of turning the room
+	// down left saved against a program. Logged, because a volume that changes
+	// by itself at startup should say why.
+	go func() {
+		for _, what := range speech.PutBackAnythingLeftDown() {
+			b.Log.Info("turned back up", "what", what)
+		}
+	}()
 
 	if b.Cfg.CancelRoom {
 		go func() {

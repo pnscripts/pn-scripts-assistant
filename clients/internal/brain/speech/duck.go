@@ -3,6 +3,8 @@ package speech
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -20,21 +22,39 @@ import (
  * problem as the canceller — the canceller is about what the *microphone*
  * hears, and this is about what a person in the room hears.
  *
- * Both are needed and they fix opposite halves. With the canceller on, music
- * no longer confuses the recogniser but is still just as loud over the answer.
- * With this on, the answer is audible but the microphone still hears the
- * music. Neither substitutes for the other.
- *
- * Lowered rather than paused. Pausing is another program's business — it means
- * finding a media key to press and hoping the right window has focus — and
+ * Lowered rather than paused. Pausing is another program's business, and
  * something that quietly pauses somebody's film every time it says a word is
  * worse than something that talks over it.
+ *
+ * How it is lowered is the whole of this file, and it was wrong for a long
+ * time. It used to set each program's volume with wpctl and set it back
+ * afterwards. That volume is not the stream's to lose: WirePlumber saves it
+ * against the program, and the next stream that program opens — tomorrow,
+ * after a reboot — comes up at whatever was saved. So every way of not getting
+ * to "afterwards" left a program quiet for good:
+ *
+ *   - the stream ended before the level went back, which is every sentence of
+ *     the brain's own voice and every browser that stopped a video;
+ *   - the brain turned down its own voice, because espeak's stream is called
+ *     "eSpeak" and that was not on the list of names it knew as its own — and
+ *     from then on every answer was spoken at a hundredth of the level;
+ *   - the note meant to finish the job next time was overwritten by the next
+ *     sentence, or shared by two brains on one machine;
+ *   - "a fifth" was a fifth on wpctl's cubic scale, which is 0.8% of the sound.
+ *
+ * Each was fixed, and the next one arrived. So it is not done that way any
+ * more. What is lowered now is the stream's software gain — PipeWire's
+ * softVolumes — which the stream applies and nobody saves. The volume its
+ * owner chose, channelVolumes, is never touched, so WirePlumber has nothing to
+ * remember, and the worst a crash in the middle of a sentence can do is leave
+ * one stream quiet until it ends. Nothing here can outlive the stream it
+ * touched, whatever goes wrong. See savedlevels.go for the one place a saved
+ * level is set, which is putting right what the old way left behind.
  */
 const (
-	// DuckedTo is what the rest is lowered to while it speaks.
-	//
-	// A fifth: quiet enough that a voice sits clearly on top, loud enough that
-	// somebody can tell the music is still playing and has not been stopped.
+	// DuckedTo is the share of its own level everything else keeps while the
+	// brain speaks: a real fifth now, on a linear gain, so a voice sits clearly
+	// on top and the music is still plainly playing.
 	DuckedTo = 0.2
 
 	/*
@@ -49,22 +69,35 @@ const (
 )
 
 /*
- * Remembered by application name rather than by node id.
+ * stream is one thing playing, as far as turning it down goes.
  *
- * The id is the obvious key and it is wrong. A browser destroys and recreates
- * its stream whenever playback stops and starts, so the id we lowered may not
- * exist by the time we come to put it back — and WirePlumber persists a
- * stream's volume against the application, so the *next* stream it makes comes
- * up at the level we left. Restoring a stale id therefore fails silently and
- * leaves somebody's browser at a fifth for good, across restarts, with nothing
- * to suggest why.
- *
- * Observed exactly that way here: node 128 ducked, node 135 a minute later,
- * both at 0.2, neither restored.
+ * Known by serial rather than by id. An id is reused as soon as its stream
+ * ends; a serial is never reused while PipeWire runs, so putting a level back
+ * on a serial cannot land on some other program's stream that happened to
+ * inherit the number.
  */
+type stream struct {
+	ID     int
+	Serial string
+	Name   string
+
+	// Volumes is the level the stream's owner chose, one per channel. Read,
+	// never written.
+	Volumes []float64
+
+	// Gain is what the stream is actually applying, one per channel.
+	Gain []float64
+
+	// Running is whether it is making a noise rather than paused.
+	Running bool
+
+	// Process is the process that opened it.
+	Process int
+}
+
 var (
 	duckMu   sync.Mutex
-	duckedAt map[string]float64
+	lowered  map[string]stream // by serial: exactly the streams this turned down
 	speaking int
 	restorer *time.Timer
 )
@@ -75,11 +108,11 @@ var (
  *
  * Counted rather than a plain on and off, because sentences overlap: the next
  * one is being generated while the last is still being heard, and an
- * unbalanced pair would leave somebody's music at a fifth for the rest of the
- * evening.
+ * unbalanced pair would leave somebody's music down for the rest of the
+ * answer.
  */
 func duckOthers(ctx context.Context) func() {
-	if !haveVolumeControl() {
+	if !haveGainControl() {
 		return func() {}
 	}
 
@@ -92,7 +125,7 @@ func duckOthers(ctx context.Context) func() {
 		restorer = nil
 	}
 
-	first := speaking == 1 && duckedAt == nil
+	first := speaking == 1 && lowered == nil
 
 	duckMu.Unlock()
 
@@ -118,81 +151,62 @@ func duckOthers(ctx context.Context) func() {
 	}
 }
 
-// lower takes down everything this machine is playing that is not us.
+// lower takes down everything this machine is playing that is not the brain.
 func lower(ctx context.Context) {
-	found := map[string]float64{}
+	found := map[string]stream{}
 
-	for name, id := range streamsNow(ctx) {
-		was, ok := volumeOf(ctx, id)
-		if !ok {
+	for _, s := range streamsNow(ctx) {
+		if !s.Running || len(s.Volumes) == 0 {
 			continue
 		}
 
-		// Already at or below where this would put it: left alone, and not
-		// remembered, so it cannot be turned *up* when the answer ends.
-		if was <= DuckedTo {
-			continue
-		}
-
-		if putLevel(ctx, id, was*DuckedTo) {
-			found[name] = was
+		if putGain(ctx, s, scaled(s.Volumes, DuckedTo)) {
+			found[s.Serial] = s
 		}
 	}
 
 	duckMu.Lock()
 
-	if duckedAt == nil {
-		duckedAt = found
+	if lowered == nil {
+		lowered = found
 	} else {
-		for name, was := range found {
-			duckedAt[name] = was
+		for serial, s := range found {
+			lowered[serial] = s
 		}
 	}
 
 	/*
 	 * It may have stopped talking while this was working.
 	 *
-	 * Lowering is not instant — it reads the whole graph and then sets a level
+	 * Lowering is not instant — it reads the whole graph and then sets a gain
 	 * per stream, which on a busy machine takes longer than the hold before
 	 * the restore. When that happened the restore ran first, found nothing
-	 * recorded yet, and did nothing; then this finished and wrote the levels
-	 * down. The film stayed quiet, with a note on the disk and no timer left
-	 * to put it back — for as long as the brain went on thinking, which is
-	 * minutes.
-	 *
-	 * So the check is made here, after the work, and against the same lock the
-	 * release uses.
+	 * recorded yet and did nothing, and the music stayed down for as long as
+	 * the brain went on thinking. So the check is made here, after the work,
+	 * against the same lock the release uses.
 	 */
 	stopped := speaking == 0
-
-	note := duckedAt
 
 	duckMu.Unlock()
 
 	if stopped {
 		restore()
-
-		return
 	}
-
-	// And written down, because the failure that matters here survives the
-	// program. See rememberDucked.
-	rememberDucked(note)
 }
 
 /*
- * restore puts every level back where it was found.
+ * restore puts every stream this lowered back to its own level.
  *
  * Its own context, not the turn's: by the time this runs the turn is over and
- * its context is cancelled, and leaving somebody's music at a fifth because
- * the answer was interrupted is exactly the kind of parting gift that gets a
- * program uninstalled.
+ * its context is cancelled. And nothing is kept for later: a stream that has
+ * ended took its gain with it, and a stream still playing is set back now.
+ * There is no unfinished job to write down, which is the point.
  */
 func restore() {
 	duckMu.Lock()
 
-	was := duckedAt
-	duckedAt = nil
+	was := lowered
+	lowered = nil
 	restorer = nil
 
 	duckMu.Unlock()
@@ -204,86 +218,30 @@ func restore() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	left := putBack(ctx, was)
+	for _, s := range streamsNow(ctx) {
+		if _, touched := was[s.Serial]; !touched || len(s.Volumes) == 0 {
+			continue
+		}
 
-	/*
-	 * Anything that could not be put back is kept for next time.
-	 *
-	 * The note is not a record of what happened; it is a job that is not
-	 * finished. Clearing it because the attempt was made is how a browser
-	 * stays at a fifth: the stream had gone, nothing was set, and the only
-	 * thing that knew about it was deleted.
-	 */
-	if len(left) == 0 {
-		forgetDucked()
-
-		return
+		// Back to the level its owner has now, not the one it had when it was
+		// lowered: somebody may have changed it in the meantime.
+		putGain(ctx, s, s.Volumes)
 	}
-
-	duckMu.Lock()
-	duckedAt = left
-	duckMu.Unlock()
-
-	rememberDucked(left)
 }
 
 /*
  * The room, as two functions, so a test can supply one.
  *
- * The tests around this were reading the real machine: whether "nothing was
- * left turned down" came out true depended on whether a browser happened to be
- * playing something while the suite ran. They passed on the machine they were
- * written on, with a film open in Brave, and failed on the same machine an
- * hour later — which is worse than failing, because it is a green suite that
- * has checked nothing.
+ * The tests around this used to read the real machine, and whether "nothing
+ * was left turned down" came out true depended on whether a browser happened
+ * to be playing while the suite ran.
  */
 var (
 	streamsNow = otherStreams
-	putLevel   = setVolume
+	putGain    = setGain
 )
 
-/*
- * putBack sets each remembered application back to the level it was found at.
- *
- * The ids are looked up again rather than remembered, because between lowering
- * and restoring a stream can have been destroyed and remade with a new one —
- * and setting a level on an id that no longer exists succeeds at nothing while
- * reporting nothing.
- */
-func putBack(ctx context.Context, was map[string]float64) map[string]float64 {
-	now := streamsNow(ctx)
-
-	// What could not be put back, because it is not playing at the moment.
-	left := map[string]float64{}
-
-	for name, level := range was {
-		id, playing := now[name]
-
-		if !playing {
-			/*
-			 * Kept rather than dropped.
-			 *
-			 * WirePlumber remembers a stream's level against the application,
-			 * so a browser that has closed its stream will open the next one
-			 * at whatever it was left at — and setting a level on a stream
-			 * that no longer exists does nothing at all. Dropping it here is
-			 * how somebody ends up with a browser at a fifth tomorrow, having
-			 * changed nothing.
-			 */
-			left[name] = level
-
-			continue
-		}
-
-		if !putLevel(ctx, id, level) {
-			left[name] = level
-		}
-	}
-
-	return left
-}
-
-// PutTheVolumeBack restores anything left turned down. Called when speech is
+// PutTheVolumeBack restores anything turned down. Called when speech is
 // stopped or the program is shutting down.
 func PutTheVolumeBack() {
 	duckMu.Lock()
@@ -300,23 +258,25 @@ func PutTheVolumeBack() {
 	restore()
 }
 
-// haveVolumeControl reports whether this machine has the tool for it. Without
-// it everything here does nothing, quietly, which is right: a machine with no
-// wireplumber still has to be able to talk.
-func haveVolumeControl() bool {
-	_, err := exec.LookPath("wpctl")
+// haveGainControl reports whether this machine has the tools for it. Without
+// them everything here does nothing, quietly, which is right: a machine with
+// no PipeWire still has to be able to talk.
+var haveGainControl = func() bool {
+	for _, tool := range []string{"pw-dump", "pw-cli"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			return false
+		}
+	}
 
-	return err == nil
+	return true
 }
 
 /*
- * otherStreams lists what is playing that is not the brain itself.
- *
- * Its own voice is excluded for the obvious reason and its echo-cancel
- * playback for a less obvious one: that node carries the brain's voice into
- * the canceller, so turning it down would turn down the answer.
+ * otherStreams lists the output streams on this machine that are not the
+ * brain's own, paused ones included — a paused stream still exists, and a
+ * gain left down on it is heard the moment it plays again.
  */
-func otherStreams(ctx context.Context) map[string]int {
+func otherStreams(ctx context.Context) []stream {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -325,62 +285,144 @@ func otherStreams(ctx context.Context) map[string]int {
 		return nil
 	}
 
-	found, err := dumpObjects(raw)
-	if err != nil {
-		return nil
-	}
+	var out []stream
 
-	out := map[string]int{}
-
-	for _, one := range found {
-		var object struct {
-			ID   int `json:"id"`
-			Info struct {
-				State string `json:"state"`
-				Props struct {
-					Class       string `json:"media.class"`
-					Application string `json:"application.name"`
-					Node        string `json:"node.name"`
-				} `json:"props"`
-			} `json:"info"`
+	for _, s := range readStreams(raw) {
+		if !s.mine {
+			out = append(out, s.stream)
 		}
-
-		if err := json.Unmarshal(one, &object); err != nil {
-			continue
-		}
-
-		if object.Info.Props.Class != "Stream/Output/Audio" {
-			continue
-		}
-
-		// Only what is actually making a noise. A paused video does not need
-		// turning down, and turning it down would mean turning it up again
-		// afterwards, which is somebody's film changing volume by itself.
-		if object.Info.State != "running" {
-			continue
-		}
-
-		name := object.Info.Props.Application
-		if name == "" {
-			name = object.Info.Props.Node
-		}
-
-		if ours(name) {
-			continue
-		}
-
-		out[name] = object.ID
 	}
 
 	return out
 }
 
-// ours reports whether a stream is the brain's own voice.
-func ours(name string) bool {
-	lowered := strings.ToLower(name)
+// seenStream is a stream as read, with whether it turned out to be ours.
+type seenStream struct {
+	stream
+	mine bool
+}
 
-	for _, mine := range []string{"pn-brain", "pn_brain", "pw-play", "piper", "speech-dispatcher"} {
-		if strings.Contains(lowered, mine) {
+/*
+ * readStreams reads the output streams out of pw-dump.
+ *
+ * Which process opened a stream is not on the stream. It is on the client the
+ * stream belongs to, which the stream names by client.id — so the clients are
+ * read first and the streams joined to them. Reading it off the stream found
+ * nothing, silently, and every stream looked as though nobody had started it.
+ */
+func readStreams(raw []byte) []seenStream {
+	found, err := dumpObjects(raw)
+	if err != nil {
+		return nil
+	}
+
+	type object struct {
+		ID   int    `json:"id"`
+		Type string `json:"type"`
+		Info struct {
+			State  string         `json:"state"`
+			Props  map[string]any `json:"props"`
+			Params struct {
+				Props []struct {
+					ChannelVolumes []float64 `json:"channelVolumes"`
+					SoftVolumes    []float64 `json:"softVolumes"`
+				} `json:"Props"`
+			} `json:"params"`
+		} `json:"info"`
+	}
+
+	objects := make([]object, 0, len(found))
+	processOf := map[string]int{}
+
+	for _, one := range found {
+		var o object
+
+		if err := json.Unmarshal(one, &o); err != nil {
+			continue
+		}
+
+		objects = append(objects, o)
+
+		if o.Type == "PipeWire:Interface:Client" {
+			pid, _ := strconv.Atoi(text(o.Info.Props["application.process.id"]))
+			processOf[strconv.Itoa(o.ID)] = pid
+		}
+	}
+
+	var out []seenStream
+
+	for _, object := range objects {
+		props := object.Info.Props
+
+		if text(props["media.class"]) != "Stream/Output/Audio" {
+			continue
+		}
+
+		s := stream{
+			ID:      object.ID,
+			Serial:  text(props["object.serial"]),
+			Name:    text(props["application.name"]),
+			Running: object.Info.State == "running",
+		}
+
+		if s.Name == "" {
+			s.Name = text(props["node.name"])
+		}
+
+		// The first Props object that carries the volumes; a node lists more
+		// than one, and only one of them has these.
+		for _, p := range object.Info.Params.Props {
+			if len(p.ChannelVolumes) > 0 {
+				s.Volumes = p.ChannelVolumes
+				s.Gain = p.SoftVolumes
+
+				break
+			}
+		}
+
+		if s.Serial == "" {
+			s.Serial = strconv.Itoa(s.ID)
+		}
+
+		s.Process = processOf[text(props["client.id"])]
+
+		if s.Process == 0 {
+			s.Process, _ = strconv.Atoi(text(props["application.process.id"]))
+		}
+
+		out = append(out, seenStream{stream: s, mine: ours(s.Name) || startedByMe(s.Process)})
+	}
+
+	return out
+}
+
+// text reads a property that pw-dump may print as a string or a number.
+func text(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case nil:
+		return ""
+	default:
+		return fmt.Sprint(t)
+	}
+}
+
+/*
+ * ours reports whether a stream is the brain's own voice, by name.
+ *
+ * The second of two checks, and the weaker: see startedByMe. A name list is
+ * how the brain came to turn its own voice down — espeak calls its stream
+ * "eSpeak", which was not on it — so it stays only for the voices that are
+ * not the brain's children, like speech-dispatcher's.
+ */
+func ours(name string) bool {
+	folded := strings.ToLower(name)
+
+	for _, mine := range []string{"pn-brain", "pn_brain", "pw-play", "piper", "speech-dispatcher", "espeak"} {
+		if strings.Contains(folded, mine) {
 			return true
 		}
 	}
@@ -388,62 +430,101 @@ func ours(name string) bool {
 	return false
 }
 
-// volumeOf reads one stream's level, 1.0 being where it was left.
-func volumeOf(ctx context.Context, id int) (float64, bool) {
-	out, err := exec.CommandContext(ctx, "wpctl", "get-volume", strconv.Itoa(id)).Output()
-	if err != nil {
-		return 0, false
+/*
+ * startedByMe reports whether a process is this program or one it started.
+ *
+ * Every sound the brain makes comes from a process it runs — espeak, piper's
+ * player, aplay — and PipeWire records which process opened each stream. So
+ * "is this our voice" is a question about the process tree, which has one
+ * right answer, rather than about what an engine chose to call its stream.
+ */
+func startedByMe(pid int) bool {
+	me := os.Getpid()
+
+	for depth := 0; pid > 1 && depth < 12; depth++ {
+		if pid == me {
+			return true
+		}
+
+		pid = parentOf(pid)
 	}
 
-	return readVolumeLine(string(out))
+	return false
 }
 
-// readVolumeLine reads what wpctl prints: "Volume: 0.85", or on a muted stream
-// "Volume: 0.85 [MUTED]".
-func readVolumeLine(line string) (float64, bool) {
-	fields := strings.Fields(line)
-
-	/*
-	 * The first word has to be the label.
-	 *
-	 * Without that check, "Node 51 not found" — which is what wpctl says about
-	 * a stream that ended between being listed and being asked about — reads
-	 * as a volume of 51. That is not a wrong number, it is a dangerous one:
-	 * the level is restored by multiplying, so a stream would come back at
-	 * five thousand per cent into somebody's speakers.
-	 */
-	if len(fields) < 2 || fields[0] != "Volume:" {
-		return 0, false
-	}
-
-	level, err := strconv.ParseFloat(fields[1], 64)
+// parentOf is a process's parent, from /proc; 0 where that cannot be read.
+var parentOf = func(pid int) int {
+	raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
 	if err != nil {
-		return 0, false
+		return 0
 	}
 
-	// And a level outside what a volume can be is a misread, whatever it
-	// says. PipeWire allows some headroom above unity, not five thousand.
-	if level < 0 || level > 1.5 {
-		return 0, false
+	// The command name is in brackets and may itself contain spaces and
+	// brackets, so the fields are counted from after the last one.
+	line := string(raw)
+	end := strings.LastIndexByte(line, ')')
+
+	if end < 0 {
+		return 0
 	}
 
-	return level, true
+	fields := strings.Fields(line[end+1:])
+
+	if len(fields) < 2 {
+		return 0
+	}
+
+	parent, _ := strconv.Atoi(fields[1])
+
+	return parent
 }
 
-func setVolume(ctx context.Context, id int, to float64) bool {
-	// Clamped at both ends. Everything here is arithmetic on a number read out
-	// of another program's output, and the failure at the top end is somebody
-	// being deafened.
-	if to < 0 {
-		to = 0
+func scaled(levels []float64, by float64) []float64 {
+	out := make([]float64, len(levels))
+
+	for i, v := range levels {
+		out[i] = v * by
 	}
 
-	if to > 1.5 {
-		to = 1.5
+	return out
+}
+
+/*
+ * gainArgument is the Props object pw-cli is handed: softVolumes and nothing
+ * else.
+ *
+ * Nothing else is the rule. channelVolumes, volume and mute are what
+ * WirePlumber saves against the program; softVolumes is not, which is the
+ * difference between a level that ends with the stream and one that is still
+ * there next week.
+ */
+func gainArgument(levels []float64) string {
+	parts := make([]string, len(levels))
+
+	for i, v := range levels {
+		// Clamped: this is arithmetic on numbers read from another program,
+		// and the failure at the top end is somebody being deafened.
+		if v < 0 {
+			v = 0
+		}
+
+		if v > 1.5 {
+			v = 1.5
+		}
+
+		parts[i] = strconv.FormatFloat(v, 'f', 4, 64)
 	}
 
-	return exec.CommandContext(ctx, "wpctl", "set-volume", strconv.Itoa(id),
-		strconv.FormatFloat(to, 'f', 3, 64)).Run() == nil
+	return "{ softVolumes: [ " + strings.Join(parts, ", ") + " ] }"
+}
+
+func setGain(ctx context.Context, s stream, levels []float64) bool {
+	if len(levels) == 0 {
+		return false
+	}
+
+	return exec.CommandContext(ctx, "pw-cli", "set-param", strconv.Itoa(s.ID), "Props",
+		gainArgument(levels)).Run() == nil
 }
 
 /*
@@ -451,9 +532,7 @@ func setVolume(ctx context.Context, id int, to float64) bool {
  *
  * A package-level switch rather than a parameter threaded through every
  * caller: speaking happens from a dozen places — the greeting, a reminder, an
- * answer, a test — and every one of them would have to be told, which is a
- * dozen chances for one of them to be forgotten and for the setting to be true
- * except in the case somebody actually complained about.
+ * answer, a test — and every one of them would have to be told.
  */
 var ducking atomic.Bool
 

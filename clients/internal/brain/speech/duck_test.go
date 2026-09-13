@@ -2,20 +2,25 @@ package speech
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
 /*
  * Turning the music down while it talks.
  *
- * The whole risk in this is asymmetric and worth stating: failing to turn the
- * music down means an answer is hard to hear once, and failing to put it back
- * means somebody's music is at a fifth for the rest of the evening and they
- * have no idea why. So most of what is tested here is the putting back.
+ * The whole risk in this is asymmetric: failing to turn the music down means
+ * an answer is hard to hear once, and leaving it down means somebody's
+ * speakers are quiet for good with no idea why. That second one happened here
+ * over and over, each time by a different road, so most of what is tested here
+ * is that no road leads there any more.
  */
 
 func TestSpeakingIsCountedSoOverlappingSentencesDoNotUnbalance(t *testing.T) {
+	inRoom(t)
 	reset()
 
 	first := duckOthers(nothing())
@@ -43,13 +48,12 @@ func TestSpeakingIsCountedSoOverlappingSentencesDoNotUnbalance(t *testing.T) {
 }
 
 /*
- * The level is held down between the sentences of one answer.
- *
- * An answer is spoken a sentence at a time and each is its own go at the
- * synthesiser, so restoring the instant one finishes makes the music surge
- * back between every sentence. That pumping is worse than not ducking at all.
+ * The level is held down between the sentences of one answer, and a sentence
+ * starting during the hold cancels the restore rather than letting it fire
+ * mid-answer.
  */
 func TestTheLevelIsHeldBetweenSentences(t *testing.T) {
+	inRoom(t)
 	reset()
 
 	duckOthers(nothing())()
@@ -62,8 +66,6 @@ func TestTheLevelIsHeldBetweenSentences(t *testing.T) {
 		t.Fatal("the level was restored immediately rather than held")
 	}
 
-	// And a sentence starting during the hold cancels the restore rather than
-	// letting it fire mid-answer.
 	release := duckOthers(nothing())
 
 	duckMu.Lock()
@@ -77,77 +79,149 @@ func TestTheLevelIsHeldBetweenSentences(t *testing.T) {
 	release()
 }
 
-// Turning the feature off puts back anything currently down, at once. A
-// setting about sound in the room has to take effect in the room.
-func TestSwitchingItOffPutsTheLevelBackAtOnce(t *testing.T) {
-	set := inRoom(t, map[string]int{"Brave": 51})
-
+// What goes down is a fifth of the stream's own level, and what comes back up
+// is its own level: the same stream, found by serial.
+func TestTheRoomGoesDownToAFifthAndBackToItsOwnLevel(t *testing.T) {
+	room := inRoom(t, playing("Brave", 51, "900", 0.8, 0.8))
 	reset()
 
-	duckMu.Lock()
-	duckedAt = map[string]float64{"Brave": 0.8}
-	speaking = 1
-	duckMu.Unlock()
+	release := duckOthers(nothing())
 
-	DuckOthersWhileTalking(false)
-
-	duckMu.Lock()
-	left := len(duckedAt)
-	count := speaking
-	duckMu.Unlock()
-
-	if left != 0 || count != 0 {
-		t.Fatalf("%d levels left down and %d sentences still counted", left, count)
+	if got := room.gain["900"]; len(got) != 2 || !near(got[0], 0.16) || !near(got[1], 0.16) {
+		t.Fatalf("Brave was taken to %v, want a fifth of 0.8", got)
 	}
 
-	// And in the room, not only in the map.
-	if set[51] != 0.8 {
-		t.Errorf("Brave was left at %v, want 0.8", set[51])
-	}
+	release()
+	PutTheVolumeBack()
 
-	DuckOthersWhileTalking(true)
+	if got := room.gain["900"]; len(got) != 2 || !near(got[0], 0.8) {
+		t.Fatalf("Brave came back at %v, want its own 0.8", got)
+	}
 }
 
 /*
- * An interrupted answer must not leave the music down.
+ * Back to the level its owner has now.
  *
- * Interrupting is the commonest way for speaking to end, and the release runs
- * from a defer, so this is really a test that the release is not skipped when
- * the context is already cancelled.
+ * Somebody who turns their film up while the brain is talking has chosen a
+ * new level; putting back the one from before they touched it would undo that.
  */
-func TestAnInterruptedAnswerStillPutsTheLevelBack(t *testing.T) {
+func TestItComesBackToTheLevelChosenMeanwhile(t *testing.T) {
+	room := inRoom(t, playing("Brave", 51, "900", 0.5, 0.5))
 	reset()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	release := duckOthers(ctx)
+	release := duckOthers(nothing())
 
-	cancel()
+	room.streams[0].Volumes = []float64{0.9, 0.9}
+
 	release()
+	PutTheVolumeBack()
 
-	duckMu.Lock()
-	pending := restorer != nil
-	duckMu.Unlock()
-
-	if !pending {
-		t.Fatal("nothing was scheduled to put the level back")
+	if got := room.gain["900"]; !near(got[0], 0.9) {
+		t.Fatalf("came back at %v, want the 0.9 chosen while it was down", got)
 	}
+}
 
+// A paused stream is not turned down: it is making no noise, and turning it
+// down would mean it changing level by itself when it plays again.
+func TestAPausedStreamIsLeftAlone(t *testing.T) {
+	paused := playing("mpv", 60, "901", 1, 1)
+	paused[0].Running = false
+
+	room := inRoom(t, paused)
+	reset()
+
+	duckOthers(nothing())()
+	PutTheVolumeBack()
+
+	if len(room.gain) != 0 {
+		t.Fatalf("a paused stream was touched: %v", room.gain)
+	}
+}
+
+// A stream that ended while it was down needs nothing, and nothing is kept
+// about it: its gain went with it.
+func TestAStreamThatEndedLeavesNothingBehind(t *testing.T) {
+	room := inRoom(t, playing("Brave", 51, "900", 1, 1))
+	reset()
+
+	release := duckOthers(nothing())
+
+	room.streams = nil
+	room.gain = map[string][]float64{}
+
+	release()
 	PutTheVolumeBack()
 
 	duckMu.Lock()
 	defer duckMu.Unlock()
 
-	if duckedAt != nil || restorer != nil {
-		t.Fatal("something was left turned down")
+	if lowered != nil || len(room.gain) != 0 {
+		t.Fatalf("something was kept or set for a stream that is gone: %v %v", lowered, room.gain)
 	}
 }
 
-// Our own voice is never turned down, which would be an assistant quietly
-// muting itself and reporting nothing wrong.
+// Turning the feature off puts back anything currently down, at once.
+func TestSwitchingItOffPutsTheLevelBackAtOnce(t *testing.T) {
+	room := inRoom(t, playing("Brave", 51, "900", 1, 1))
+	reset()
+
+	duckOthers(nothing())
+
+	DuckOthersWhileTalking(false)
+	defer DuckOthersWhileTalking(true)
+
+	duckMu.Lock()
+	left, count := len(lowered), speaking
+	duckMu.Unlock()
+
+	if left != 0 || count != 0 {
+		t.Fatalf("%d streams left down and %d sentences still counted", left, count)
+	}
+
+	if got := room.gain["900"]; !near(got[0], 1) {
+		t.Errorf("Brave was left at %v, want 1", got)
+	}
+}
+
+/*
+ * Lowering can take longer than the hold before putting it back.
+ *
+ * When it did, the restore ran first and found nothing, then the lowering
+ * finished — and the music stayed down for as long as the brain went on
+ * thinking. So lowering that finishes after the last sentence puts it back
+ * itself.
+ */
+func TestLoweringThatFinishesAfterTheReleaseStillPutsItBack(t *testing.T) {
+	room := inRoom(t, playing("Brave", 51, "900", 1, 1))
+	reset()
+
+	// Nothing is speaking by the time the lowering gets to the end.
+	lower(nothing())
+
+	duckMu.Lock()
+	defer duckMu.Unlock()
+
+	if lowered != nil {
+		t.Fatal("the lowering was recorded with nothing left speaking")
+	}
+
+	if got := room.gain["900"]; !near(got[0], 1) {
+		t.Errorf("Brave was left at %v, want 1", got)
+	}
+}
+
+/*
+ * Its own voice is never turned down.
+ *
+ * It was, for weeks: espeak calls its stream "eSpeak", which was not on the
+ * list of names the brain knew as its own, so it lowered its own voice with
+ * every sentence and the setting was saved. Now the question is asked of the
+ * process tree first, which does not depend on what an engine calls itself.
+ */
 func TestItNeverTurnsItsOwnVoiceDown(t *testing.T) {
 	for _, name := range []string{
 		"pn-brain.echo-cancel.playback", "pw-play", "piper",
-		"speech-dispatcher-espeak-ng", "PN-Brain",
+		"speech-dispatcher-espeak-ng", "PN-Brain", "eSpeak",
 	} {
 		if !ours(name) {
 			t.Errorf("%s would have been turned down", name)
@@ -161,45 +235,146 @@ func TestItNeverTurnsItsOwnVoiceDown(t *testing.T) {
 	}
 }
 
-// A level already low is left alone, and not remembered — otherwise finishing
-// an answer would turn somebody's quiet music *up*.
-func TestSomethingAlreadyQuietIsLeftAlone(t *testing.T) {
-	if DuckedTo >= 1 {
-		t.Fatal("the ducked level must be a reduction")
+func TestAnythingThisProgramStartedIsItsOwn(t *testing.T) {
+	me := os.Getpid()
+	tree := map[int]int{5001: me, 5002: 5001, 6001: 1}
+
+	was := parentOf
+	parentOf = func(pid int) int { return tree[pid] }
+
+	t.Cleanup(func() { parentOf = was })
+
+	if !startedByMe(5001) || !startedByMe(5002) {
+		t.Error("a child or grandchild of this program was not recognised as its own")
 	}
 
-	// The rule the code applies, stated here so it cannot drift: a stream at
-	// or below the target is skipped.
-	for _, was := range []float64{0.0, 0.1, DuckedTo} {
-		if was > DuckedTo {
-			t.Fatalf("%v would have been touched", was)
+	if startedByMe(6001) || startedByMe(0) {
+		t.Error("somebody else's process was taken for this program's")
+	}
+}
+
+/*
+ * The one thing that must never come back.
+ *
+ * WirePlumber saves channelVolumes, volume and mute against the program. The
+ * gain handed to a stream carries softVolumes and nothing else, so turning
+ * the room down cannot be saved.
+ */
+func TestTurningDownSetsNothingThatIsSaved(t *testing.T) {
+	arg := gainArgument([]float64{0.2, 0.2})
+
+	if arg != "{ softVolumes: [ 0.2000, 0.2000 ] }" {
+		t.Fatalf("the gain was written as %q", arg)
+	}
+
+	for _, saved := range []string{"channelVolumes", "volume:", "mute"} {
+		if strings.Contains(arg, saved) {
+			t.Fatalf("the gain carries %s, which WirePlumber saves", saved)
 		}
 	}
 }
 
-// wpctl prints "Volume: 0.85", and "Volume: 0.85 [MUTED]" on a muted stream.
-func TestTheVolumeLineIsReadTheWayWireplumberPrintsIt(t *testing.T) {
-	for _, c := range []struct {
-		line string
-		want float64
-		ok   bool
-	}{
-		{"Volume: 0.85\n", 0.85, true},
-		{"Volume: 1.00 [MUTED]\n", 1.00, true},
-		{"Volume: 0.00\n", 0, true},
-		{"", 0, false},
-		{"Volume:\n", 0, false},
-		{"Node 51 not found\n", 0, false},
-	} {
-		got, ok := readVolumeLine(c.line)
+/*
+ * And nothing in this package sets a saved level, except the repair.
+ *
+ * The old way was one line: wpctl set-volume. A test that reads the source is
+ * blunt, and it is the only kind that stops that line being written again in
+ * some new file by somebody who has not read this one.
+ */
+func TestOnlyTheRepairSetsASavedLevel(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		if ok != c.ok || (ok && got != c.want) {
-			t.Errorf("%q read as %v/%v, want %v/%v", c.line, got, ok, c.want, c.ok)
+	for _, name := range files {
+		if strings.HasSuffix(name, "_test.go") || name == "savedlevels.go" {
+			continue
 		}
+
+		raw, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		source := string(raw)
+
+		for _, forbidden := range []string{`"set-volume"`, "channelVolumes:", `"set-mute"`} {
+			if strings.Contains(source, forbidden) {
+				t.Errorf("%s uses %s, which sets a level WirePlumber saves against another program", name, forbidden)
+			}
+		}
+	}
+}
+
+/*
+ * pw-dump's streams are read with their serial, their process and both
+ * levels.
+ *
+ * The process is on the client, not the stream — the shape below is what
+ * pw-dump printed for an aplay stream on this machine — and reading it off the
+ * stream found nothing for any stream at all.
+ */
+func TestStreamsAreReadWithTheirLevelsAndProcess(t *testing.T) {
+	raw := []byte(`[
+	  {"id": 116, "type": "PipeWire:Interface:Client",
+	   "info": {"props": {"application.name": "Brave", "application.process.id": 3711}}},
+	  {"id": 93, "type": "PipeWire:Interface:Node",
+	   "info": {"state": "running",
+	    "props": {"media.class": "Stream/Output/Audio", "application.name": "Brave",
+	              "object.serial": 4117, "client.id": 116},
+	    "params": {"Props": [
+	      {"volume": 1.0, "mute": false, "channelVolumes": [0.8, 0.8], "softVolumes": [0.16, 0.16]},
+	      {"params": []}
+	    ]}}},
+	  {"id": 94, "type": "PipeWire:Interface:Node",
+	   "info": {"state": "running",
+	    "props": {"media.class": "Audio/Sink", "node.name": "speakers"}}}
+	]`)
+
+	got := readStreams(raw)
+
+	if len(got) != 1 {
+		t.Fatalf("read %d streams, want only the output stream", len(got))
+	}
+
+	s := got[0]
+
+	if s.ID != 93 || s.Serial != "4117" || s.Process != 3711 || s.Name != "Brave" || !s.Running {
+		t.Errorf("read as %+v", s.stream)
+	}
+
+	if len(s.Volumes) != 2 || s.Volumes[0] != 0.8 || s.Gain[0] != 0.16 {
+		t.Errorf("levels read as %v and %v", s.Volumes, s.Gain)
+	}
+
+	if !leftAtAFifth(s.stream) {
+		t.Error("a stream at a fifth of its own level was not recognised as left down")
+	}
+}
+
+// And a stream whose process is this program is the brain's own, whatever it
+// is called.
+func TestAStreamThisProgramOpenedIsItsOwn(t *testing.T) {
+	raw := []byte(fmt.Sprintf(`[
+	  {"id": 7, "type": "PipeWire:Interface:Client",
+	   "info": {"props": {"application.process.id": %d}}},
+	  {"id": 8, "type": "PipeWire:Interface:Node",
+	   "info": {"state": "running",
+	    "props": {"media.class": "Stream/Output/Audio", "application.name": "Some Engine",
+	              "object.serial": 12, "client.id": 7}}}
+	]`, os.Getpid()))
+
+	got := readStreams(raw)
+
+	if len(got) != 1 || !got[0].mine {
+		t.Fatalf("a stream this program opened was not taken for its own: %+v", got)
 	}
 }
 
 func nothing() context.Context { return context.Background() }
+
+func near(a, b float64) bool { return a-b < 1e-9 && b-a < 1e-9 }
 
 func reset() {
 	PutTheVolumeBack()
@@ -207,211 +382,49 @@ func reset() {
 	duckMu.Lock()
 	defer duckMu.Unlock()
 
-	duckedAt = nil
+	lowered = nil
 	speaking = 0
+}
+
+// fakeRoom is what a test says this machine is playing, and what was set.
+type fakeRoom struct {
+	streams []stream
+	gain    map[string][]float64 // by serial
+}
+
+func playing(name string, id int, serial string, levels ...float64) []stream {
+	return []stream{{ID: id, Serial: serial, Name: name, Volumes: levels, Gain: levels, Running: true}}
 }
 
 /*
  * inRoom says what this machine is playing, for the length of one test.
  *
- * Without it these tests read the real audio graph, and "was anything left
- * turned down" then depends on whether a browser happens to be playing
- * something while the suite runs. Two of them passed for exactly as long as
- * there was a film open in Brave and failed on the same machine an hour later.
- * A test that answers a question about the room has to be given a room.
- *
- * Returns the levels that were set, keyed by node, so a test can check what it
- * actually did rather than only that it claimed success.
+ * Without it these tests read — and set — the real audio graph, and whether
+ * "was anything left turned down" held depended on whether a browser happened
+ * to be playing while the suite ran.
  */
-func inRoom(t *testing.T, playing map[string]int) map[int]float64 {
+func inRoom(t *testing.T, streams ...[]stream) *fakeRoom {
 	t.Helper()
 
-	set := map[int]float64{}
-	wasStreams, wasPut := streamsNow, putLevel
+	room := &fakeRoom{gain: map[string][]float64{}}
 
-	streamsNow = func(context.Context) map[string]int { return playing }
-	putLevel = func(_ context.Context, id int, to float64) bool {
-		set[id] = to
+	for _, s := range streams {
+		room.streams = append(room.streams, s...)
+	}
+
+	wasStreams, wasPut, wasControl := streamsNow, putGain, haveGainControl
+
+	// A room supplied by the test has the tools to turn it down, whatever
+	// machine the suite runs on.
+	haveGainControl = func() bool { return true }
+	streamsNow = func(context.Context) []stream { return room.streams }
+	putGain = func(_ context.Context, s stream, levels []float64) bool {
+		room.gain[s.Serial] = append([]float64(nil), levels...)
 
 		return true
 	}
 
-	t.Cleanup(func() { streamsNow, putLevel = wasStreams, wasPut })
+	t.Cleanup(func() { streamsNow, putGain, haveGainControl = wasStreams, wasPut, wasControl })
 
-	return set
-}
-
-/*
- * What was turned down is remembered by application, not by node.
- *
- * A browser destroys and recreates its stream whenever playback stops and
- * starts, and WirePlumber persists the level against the application — so
- * restoring a stale node id fails silently and leaves the browser at a fifth
- * for good. That happened here: node 128 ducked, node 135 a minute later, both
- * at 0.2, neither restored, and it survives a reboot.
- */
-func TestWhatWasTurnedDownIsRememberedByApplication(t *testing.T) {
-	reset()
-
-	duckMu.Lock()
-	duckedAt = map[string]float64{"Brave": 0.85}
-	duckMu.Unlock()
-
-	// The key has to be something that outlives one stream. A number would be
-	// a node id, which does not.
-	duckMu.Lock()
-	defer duckMu.Unlock()
-
-	for name := range duckedAt {
-		if name == "" {
-			t.Fatal("something was remembered under no name at all")
-		}
-	}
-}
-
-// The note on disk is written when a level goes down and removed when it comes
-// back, so a program that was killed can put things right next time it runs.
-func TestTheNoteIsWrittenAndRemoved(t *testing.T) {
-	path := duckedNotePath()
-
-	if path == "" {
-		t.Skip("no home directory")
-	}
-
-	existing, hadOne := os.ReadFile(path)
-
-	t.Cleanup(func() {
-		if hadOne == nil {
-			os.WriteFile(path, existing, 0o600)
-
-			return
-		}
-
-		os.Remove(path)
-	})
-
-	rememberDucked(map[string]float64{"Brave": 0.9})
-
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("nothing was written down: %v", err)
-	}
-
-	forgetDucked()
-
-	if _, err := os.Stat(path); err == nil {
-		t.Fatal("the note outlived the thing it described")
-	}
-}
-
-// Nothing to write down means no note, so a startup does not go looking for
-// streams to restore that were never touched.
-func TestNothingTurnedDownWritesNoNote(t *testing.T) {
-	path := duckedNotePath()
-
-	if path == "" {
-		t.Skip("no home directory")
-	}
-
-	forgetDucked()
-	rememberDucked(map[string]float64{})
-
-	if _, err := os.Stat(path); err == nil {
-		os.Remove(path)
-
-		t.Fatal("wrote a note about nothing")
-	}
-}
-
-/*
- * Lowering can take longer than the hold before putting it back.
- *
- * It reads the whole audio graph and then sets a level per stream, and on a
- * busy machine that is slower than the 900ms hold. When it was, the restore
- * ran first, found nothing recorded yet and did nothing; then the lowering
- * finished and wrote the levels down — leaving the music at a fifth with a
- * note on the disk and no timer left to undo it, for as long as the brain went
- * on thinking. Which is minutes.
- */
-func TestLoweringThatFinishesAfterTheReleaseStillPutsItBack(t *testing.T) {
-	set := inRoom(t, map[string]int{"Brave": 51})
-
-	reset()
-
-	// A sentence starts and finishes while the lowering is still in flight.
-	release := duckOthers(context.Background())
-	release()
-
-	duckMu.Lock()
-	speakingNow := speaking
-	duckMu.Unlock()
-
-	if speakingNow != 0 {
-		t.Fatalf("the sentence is still counted as speaking: %d", speakingNow)
-	}
-
-	// This is the state lower() would be about to write into: nothing is
-	// speaking any more, so what it records has to be put straight back.
-	duckMu.Lock()
-	duckedAt = map[string]float64{"Brave": 0.9}
-	duckMu.Unlock()
-
-	PutTheVolumeBack()
-
-	duckMu.Lock()
-	defer duckMu.Unlock()
-
-	if duckedAt != nil {
-		t.Fatal("something was left turned down after the sentence ended")
-	}
-
-	if set[51] != 0.9 {
-		t.Errorf("Brave was left at %v, want 0.9", set[51])
-	}
-}
-
-/*
- * A level that could not be put back is not forgotten.
- *
- * WirePlumber remembers a stream's volume against the application, so a
- * browser that has closed its stream opens the next one at whatever it was
- * left at — and setting a level on a stream that no longer exists does
- * nothing. Clearing the note because the attempt was made is how somebody ends
- * up with a browser at a fifth tomorrow, having changed nothing themselves.
- *
- * It happened exactly that way here: the film came back with the sound almost
- * gone, and Brave's new stream was sitting at 0.16.
- */
-func TestALevelThatCouldNotBePutBackIsKept(t *testing.T) {
-	// An empty room: nothing at all is playing.
-	inRoom(t, map[string]int{})
-	reset()
-
-	// Nothing by this name is playing, so nothing can be set.
-	left := putBack(context.Background(), map[string]float64{
-		"SomethingNotPlaying": 0.85,
-	})
-
-	if len(left) != 1 || left["SomethingNotPlaying"] != 0.85 {
-		t.Fatalf("the unfinished job was dropped: %v", left)
-	}
-}
-
-// And one that was put back is finished with.
-func TestALevelThatWentBackIsNotKept(t *testing.T) {
-	set := inRoom(t, map[string]int{"Brave": 51})
-	reset()
-
-	left := putBack(context.Background(), map[string]float64{"Brave": 0.85})
-
-	if len(left) != 0 {
-		t.Fatalf("kept a job that was done: %v", left)
-	}
-
-	if set[51] != 0.85 {
-		t.Errorf("Brave was left at %v, want 0.85", set[51])
-	}
-
-	if left := putBack(context.Background(), map[string]float64{}); len(left) != 0 {
-		t.Fatalf("invented work out of an empty list: %v", left)
-	}
+	return room
 }
