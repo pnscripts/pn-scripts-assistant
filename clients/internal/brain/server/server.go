@@ -223,6 +223,26 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/organisation/jobs", s.handleJobs)
 	s.mux.HandleFunc("GET /api/organisation/who", s.handleWhoKnows)
 
+	// Proposals, packages, what the machine has, projects and integrations.
+	// See equip.go; everything that decides is at the desk only.
+	s.mux.HandleFunc("GET /api/proposals", s.handleProposals)
+	s.mux.HandleFunc("POST /api/organisation/hire/{id}/confirm", s.handleConfirmHire)
+	s.mux.HandleFunc("POST /api/organisation/hire/{id}/decline", s.handleDecline)
+	s.mux.HandleFunc("GET /api/packages", s.handlePackages)
+	s.mux.HandleFunc("GET /api/provision", s.handleProvision)
+	s.mux.HandleFunc("POST /api/provision/install", s.handleInstall)
+	s.mux.HandleFunc("GET /api/inspect", s.handleInspect)
+	s.mux.HandleFunc("POST /api/projects/propose", s.handleProposeProject)
+	s.mux.HandleFunc("POST /api/projects/{id}/start", s.handleStartProject)
+	s.mux.HandleFunc("POST /api/projects/{id}/decline", s.handleDecline)
+	s.mux.HandleFunc("GET /api/tasks/{id}/evidence", s.handleEvidence)
+	s.mux.HandleFunc("GET /api/integrations", s.handleIntegrations)
+	s.mux.HandleFunc("GET /api/resources", s.handleResources)
+	s.mux.HandleFunc("POST /api/resources/policy", s.handlePolicy)
+	s.mux.HandleFunc("POST /api/resources/refresh", s.handleRefresh)
+	s.mux.HandleFunc("POST /api/integrations/own", s.handleOwnIntegration)
+	s.mux.HandleFunc("POST /api/integrations/{id}/{action}", s.handleIntegration)
+
 	s.mux.HandleFunc("GET /api/team", s.handleTeam)
 	s.mux.HandleFunc("POST /api/team/{name}", s.handleSaveAgent)
 	s.mux.HandleFunc("POST /api/team/{name}/reset", s.handleResetAgent)

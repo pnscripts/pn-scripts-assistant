@@ -1,0 +1,38 @@
+{
+  "id": "software.game.unity",
+  "version": "1.0.0",
+  "title": "Unity game development",
+  "summary": "Works on Unity projects: C# scripts, batch-mode checks and builds with an editor its owner installed and licensed.",
+  "work": "project",
+  "jobs": ["software.game_developer"],
+  "cues": ["unity", "unity3d", "c#", "csharp", "monobehaviour"],
+  "engine": "unity",
+  "role": {
+    "title": "Unity developer",
+    "for": "Unity projects: C# scripts, scenes, and batch-mode builds",
+    "uses": "work",
+    "needs": ["tools"],
+    "brief": "Write C# against the editor version the project names in ProjectSettings/ProjectVersion.txt, and look APIs up in that version's scripting reference. Build in batch mode; never open the editor's window.",
+    "tools": ["game_engines", "game_docs", "game_check", "game_build", "inspect_project", "read_file", "write_file", "edit_file", "search_files", "list_directory"],
+    "never": ["send_email", "set_device"]
+  },
+  "skills": [
+    "Scripts live under Assets/, one MonoBehaviour per file with the class named as the file.",
+    "Batch builds go through a static method in an Editor script, called with -executeMethod."
+  ],
+  "knowledge": [
+    {"title": "Unity scripting reference for the project's version", "url": "https://docs.unity3d.com/{version}/Documentation/ScriptReference/index.html", "versioned": true}
+  ],
+  "requires": [
+    {"id": "unity", "versions": ">=2021.3", "why": "compiles, checks and builds the project"}
+  ],
+  "workspace": {
+    "template": "unity",
+    "outputs": ["Builds"],
+    "conventions": ["Library/ and Temp/ are never edited or committed", "One class per file"]
+  },
+  "evidence": ["files", "check", "build", "versions"],
+  "risk": "medium",
+  "licensed_software": true,
+  "limits": ["Sign in to Unity, accept Unity's terms or choose a licence on its owner's behalf"]
+}

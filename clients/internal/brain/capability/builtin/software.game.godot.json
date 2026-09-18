@@ -1,0 +1,39 @@
+{
+  "id": "software.game.godot",
+  "version": "1.0.0",
+  "title": "Godot game development",
+  "summary": "Makes games in Godot 4: scenes, GDScript, a headless check, a run, and an export.",
+  "work": "project",
+  "jobs": ["software.game_developer"],
+  "cues": ["godot", "gdscript", "godot4", "tscn"],
+  "engine": "godot",
+  "role": {
+    "title": "Godot game developer",
+    "for": "Godot projects: scenes, GDScript, checking a build runs, and exporting it",
+    "uses": "work",
+    "needs": ["tools"],
+    "brief": "Look a class up in the reference for the installed version rather than remembering it. Godot's API changes between versions, and a method that does not exist fails at run time, not at build time. Check the project headless after every change that could break loading.",
+    "tools": ["game_engines", "game_docs", "game_check", "game_build", "godot_status", "godot_docs", "godot_build", "inspect_project", "read_file", "write_file", "edit_file", "search_files", "list_directory"],
+    "never": ["send_email", "set_device"]
+  },
+  "skills": [
+    "Godot 4 uses GDScript 2: typed variables (var speed: float = 200.0), @export and @onready annotations, and signals connected with signal_name.connect(callable).",
+    "Input goes through actions defined in project.godot's [input] section, read with Input.is_action_pressed.",
+    "A scene is a .tscn text file; write it only when you are sure of the format, and prefer building nodes in _ready() from code for small games."
+  ],
+  "knowledge": [
+    {"title": "Godot class reference for the installed version", "url": "https://docs.godotengine.org/en/{version}/classes/index.html", "versioned": true},
+    {"title": "GDScript reference", "url": "https://docs.godotengine.org/en/{version}/tutorials/scripting/gdscript/gdscript_basics.html", "versioned": true}
+  ],
+  "requires": [
+    {"id": "godot", "versions": ">=4.2 <5", "why": "runs, checks and exports the project"},
+    {"id": "godot-templates", "why": "exporting a finished game for somebody else to run", "optional": true}
+  ],
+  "workspace": {
+    "template": "godot",
+    "outputs": ["build"],
+    "conventions": ["Scripts beside the scenes that use them", "Typed GDScript", "Input through named actions, never raw key codes"]
+  },
+  "evidence": ["files", "check", "smoke", "versions"],
+  "risk": "medium"
+}

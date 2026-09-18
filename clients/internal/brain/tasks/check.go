@@ -3,6 +3,9 @@ package tasks
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -77,6 +80,21 @@ Rules:
  */
 func (c *Conductor) check(ctx context.Context, task *store.Task, step *store.TaskStep, res agent.Result) Checked {
 	evidence := evidenceFrom(res)
+
+	// This program's own action: the engine's answer is the verdict, and no
+	// model is asked what it thinks of it.
+	if step.Action != "" {
+		return actionVerdict(step, res, evidence)
+	}
+
+	// A project's writing, by a coding agent or a model the orchestrator
+	// chose: what it wrote is what counts, never what it said it wrote — and
+	// whether it works is for the checks that follow. A model that only
+	// looked at the folder and said "the files are written" had its look
+	// taken as the proof, until this.
+	if strings.HasPrefix(res.Provider, "agent:") || c.orchestrated(task, step) {
+		return agentVerdict(step, res, evidence)
+	}
 
 	for _, s := range res.Steps {
 		if s.Failed {
@@ -298,4 +316,46 @@ func firstSentence(text, fallback string) string {
 	}
 
 	return trimTo(text, 200)
+}
+
+func actionVerdict(step *store.TaskStep, res agent.Result, evidence string) Checked {
+	var last *agent.Step
+
+	for i := range res.Steps {
+		if res.Steps[i].Tool == "game_check" || res.Steps[i].Tool == "game_build" {
+			last = &res.Steps[i]
+		}
+	}
+
+	switch {
+	case last == nil:
+		return Checked{Verdict: store.Unmet, Why: "the engine was not run"}
+	case last.Failed:
+		return Checked{Verdict: store.Unmet, Evidence: evidence,
+			Why: "it still does not pass: " + trimTo(last.Result, 300)}
+	}
+
+	return Checked{Verdict: store.Verified, Evidence: evidence, CheckedBy: "this program, with the engine"}
+}
+
+func agentVerdict(step *store.TaskStep, res agent.Result, evidence string) Checked {
+	var wrote []string
+
+	for _, s := range res.Steps {
+		for _, e := range s.Evidence {
+			if e.Kind == store.EvidenceFile && e.OK {
+				if _, err := os.Stat(e.Subject); err == nil {
+					wrote = append(wrote, filepath.Base(e.Subject))
+				}
+			}
+		}
+	}
+
+	if len(wrote) == 0 && step.Changes {
+		return Checked{Verdict: store.Unmet, Evidence: evidence, Why: "it changed no files in the project"}
+	}
+
+	return Checked{Verdict: store.Verified, Evidence: evidence, CheckedBy: "this program, reading the files",
+		Why: fmt.Sprintf("%d files are there (%s); whether they work is what the checks that follow decide",
+			len(wrote), trimTo(strings.Join(wrote, ", "), 200))}
 }

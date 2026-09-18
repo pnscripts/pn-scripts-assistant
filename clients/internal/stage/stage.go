@@ -68,3 +68,19 @@ func Handler() http.Handler {
 		server.ServeHTTP(w, r)
 	}))
 }
+
+// ThreeRevision is the three.js release compiled into this program.
+const ThreeRevision = "169"
+
+/*
+ * Three is the three.js module itself, for a web game started from here.
+ *
+ * The same copy the interface stands in, so a game made by this program runs
+ * offline on exactly the release it was written against — the one whose
+ * documentation it was checked with.
+ */
+func Three() []byte {
+	raw, _ := files.ReadFile("three.module.js")
+
+	return raw
+}

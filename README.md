@@ -20,6 +20,30 @@ remembers what it learns about you, and what it learns stays here.
   from real embedding similarity — not decoration.
 - **Listens and speaks.** Conversation mode hears you until you stop talking,
   answers, reads the answer aloud, and listens again. Both halves are local.
+- **Hires and equips experts.** "Hire a game-development expert", "hire an
+  electrician to help me plan this installation": it proposes who, what they
+  may and may not touch, what the machine needs (with size, source, licence and
+  cost), and who else is needed — and hires nobody until you say so. Advisory
+  and regulated work never touches anything, and says which licensed person
+  takes over.
+- **Starts and builds projects.** "Make me a Tetris game" asks where, chooses
+  the engine from what you asked and what this machine can really do, and shows
+  the whole plan. Once you approve, the work is confined to that folder — by the
+  kernel, not only by checking arguments — its settings live in `.pn-assistant/`
+  beside the code, and it is finished only on fresh evidence: the latest check
+  passed after the last change, a run that did not fail, a picture that shows
+  something.
+- **Chooses how work is done.** Who writes the code — Claude Code or Codex on
+  your subscription, or a model on this machine — is decided per piece of work,
+  subscriptions first, switching before a limit is hit and falling back when a
+  service is signed out or out of allowance, with every decision and switch
+  recorded. How much of a subscription is left is shown only when its service
+  says. Checking, running and building are this program's own work with the
+  engine, never a model's word. See
+  [ADR 0005](docs/decisions/0005-choose-how-work-is-done.md).
+- **Integrations, gated.** MCP servers, approved one by one, granted per agent
+  and per project, confined to their own folders, with every call recorded. See
+  [ADR 0004](docs/decisions/0004-hire-equip-and-confine.md).
 
 ## Privacy
 

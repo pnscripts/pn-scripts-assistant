@@ -1,0 +1,38 @@
+{
+  "id": "software.game.unreal",
+  "version": "1.0.0",
+  "title": "Unreal Engine development",
+  "summary": "Works on Unreal projects: C++ and Blueprint-backed classes, command-line builds and packaging with an engine its owner installed.",
+  "work": "project",
+  "jobs": ["software.game_developer"],
+  "cues": ["unreal", "ue5", "ue4", "uproject", "blueprint"],
+  "engine": "unreal",
+  "role": {
+    "title": "Unreal developer",
+    "for": "Unreal Engine projects: C++ gameplay code, building and packaging from the command line",
+    "uses": "work",
+    "needs": ["tools"],
+    "brief": "Match the engine version the .uproject names. Build and package with the engine's own command-line tools, and read their log rather than their exit code alone.",
+    "tools": ["game_engines", "game_docs", "game_check", "game_build", "inspect_project", "read_file", "write_file", "edit_file", "search_files", "list_directory"],
+    "never": ["send_email", "set_device"]
+  },
+  "skills": [
+    "Gameplay classes derive from AActor or ACharacter with UCLASS/UPROPERTY/UFUNCTION macros; the header and source live in Source/<Project>/.",
+    "Binaries/, Intermediate/, Saved/ and DerivedDataCache/ are generated and never edited."
+  ],
+  "knowledge": [
+    {"title": "Unreal Engine API for the project's version", "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/API?application_version={version}", "versioned": true}
+  ],
+  "requires": [
+    {"id": "unreal", "versions": ">=5.0", "why": "compiles, checks and packages the project"}
+  ],
+  "workspace": {
+    "template": "unreal",
+    "outputs": ["Packaged"],
+    "conventions": ["Generated folders are never edited or committed"]
+  },
+  "evidence": ["files", "check", "build", "versions"],
+  "risk": "medium",
+  "licensed_software": true,
+  "limits": ["Sign in to Epic Games or accept the Unreal Engine EULA on its owner's behalf"]
+}

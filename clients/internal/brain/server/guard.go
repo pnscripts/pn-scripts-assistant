@@ -111,8 +111,19 @@ var atTheDeskOnly = []string{
 	"/api/organisation/agents",
 	"/api/organisation/hire",
 	"/api/organisation/import", // bringing in a classification, and stopping one
-	"/api/models/",             // changing which model answers
-	"/api/upkeep/self",         // updating the program
+
+	/*
+	 * Installing software, starting a project in somebody's folders, and
+	 * switching an integration on or giving it a credential. Each is the
+	 * owner's own approval, given by pressing the button — which is exactly
+	 * why a device away from the computer may not press it.
+	 */
+	"/api/provision/",
+	"/api/projects/",
+	"/api/integrations/",
+	"/api/resources/",  // how work is done: the policy, what may be installed and spent
+	"/api/models/",     // changing which model answers
+	"/api/upkeep/self", // updating the program
 }
 
 func decisionRoute(path string) bool {

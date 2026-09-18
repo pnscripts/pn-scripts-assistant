@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"pn-scripts-assistant/internal/brain/orchestrator"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
 
 	"pn-scripts-assistant/internal/brain/agent"
+	"pn-scripts-assistant/internal/brain/capability"
 	"pn-scripts-assistant/internal/brain/jobs"
 	"pn-scripts-assistant/internal/brain/lanes"
 	"pn-scripts-assistant/internal/brain/llm"
@@ -171,11 +173,27 @@ type Conductor struct {
 	Hire     func(team.Wish) (team.Hired, error)
 	Dissolve func(task int64) ([]team.Agent, error)
 
+	// Packages is the capability packages in use, for the know-how and limits
+	// a project task's steps are told. See projects.go.
+	Packages func() *capability.Set
+
+	// Orchestrator decides who writes a project's code, and what takes over
+	// when that fails; nil leaves every step to its member's model.
+	Orchestrator *orchestrator.Orchestrator
+
 	// records is the team's record, remembered for a minute. See memory.go.
 	records records
 
 	// Now exists so the deadline can be tested without waiting half an hour.
 	Now func() time.Time
+}
+
+func orName(name, request string) string {
+	if strings.TrimSpace(name) != "" {
+		return name
+	}
+
+	return nameFor(request)
 }
 
 func (c *Conductor) now() time.Time {
@@ -208,12 +226,84 @@ func (c *Conductor) say(task *store.Task, line string) {
  * argued with.
  */
 func (c *Conductor) Take(ctx context.Context, conversationID int64, request, provider string, forced bool) (*store.Task, bool, error) {
-	plan, ok, err := c.plan(ctx, request, provider, forced)
+	return c.TakeWith(ctx, conversationID, request, provider, forced, Taking{})
+}
+
+/*
+ * Taking is what a task can be started with beyond its words.
+ *
+ * All of it comes from something its owner already agreed to — a hire made
+ * for this job, a project proposal with its folder and its plan — which is
+ * why none of it is decided here.
+ */
+type Taking struct {
+	// Lead does every step nobody better was named for: somebody hired for
+	// exactly this job.
+	Lead string
+
+	// Project is the folder the work is confined to, and Packages what it
+	// works under. See the workspace package.
+	Project  string
+	Packages []string
+
+	// Steps is a plan already agreed, used as it stands rather than asking
+	// the planner for a different one. Name and DoneWhen go with it.
+	Steps    []store.TaskStep
+	Name     string
+	DoneWhen string
+
+	// Evidence is what was done before the task — files laid out, the
+	// owner's approval — kept before its first step runs, so that anything
+	// the steps prove comes after it, as it happened.
+	Evidence []store.Evidence
+
+	// Resources is the task's own word on how its work may be done — the
+	// orchestrator's override, as JSON.
+	Resources string
+
+	// Hired is who was hired for it and why, a line each, kept with the task
+	// from the start so that nothing reads the task without its hire.
+	Hired string
+
+	// HowLong is the time its owner approved for it, in place of the usual.
+	HowLong time.Duration
+}
+
+// TakeWith is Take, started with what its owner has already agreed to.
+func (c *Conductor) TakeWith(ctx context.Context, conversationID int64, request, provider string, forced bool, how Taking) (*store.Task, bool, error) {
+	var (
+		plan Plan
+		ok   bool
+		err  error
+	)
+
+	if len(how.Steps) > 0 {
+		plan, ok = Plan{Name: orName(how.Name, request), DoneWhen: how.DoneWhen, Steps: how.Steps}, true
+	} else {
+		plan, ok, err = c.plan(ctx, request, provider, forced)
+	}
+
 	if err != nil || !ok {
 		return nil, false, err
 	}
 
+	if how.Lead != "" {
+		roster := c.roster()
+
+		for i := range plan.Steps {
+			named := plan.Steps[i].Assignee
+
+			if _, real := team.Find(roster, named); !real || named == "" || named == "assistant" {
+				plan.Steps[i].Assignee = how.Lead
+			}
+		}
+	}
+
 	budget := c.budget()
+
+	if how.HowLong > 0 {
+		budget.HowLong = how.HowLong
+	}
 
 	work, err := c.DB.NewTaskThread(plan.Name)
 	if err != nil {
@@ -232,9 +322,21 @@ func (c *Conductor) Take(ctx context.Context, conversationID int64, request, pro
 		CallsLeft:          budget.MostCalls,
 		ReplansLeft:        budget.MostReplans,
 		Deadline:           c.now().Add(budget.HowLong),
+		Project:            how.Project,
+		Packages:           strings.Join(how.Packages, ","),
+		Resources:          how.Resources,
+		Hired:              how.Hired,
 	})
 	if err != nil {
 		return nil, false, err
+	}
+
+	for _, e := range how.Evidence {
+		e.TaskID = id
+
+		if err := c.DB.Record(e); err != nil {
+			return nil, false, err
+		}
 	}
 
 	/*
@@ -666,7 +768,23 @@ func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, erro
 
 	choice := c.choose(step, member, using)
 
-	provider, err := c.Provider(using)
+	/*
+	 * A project's engine work is this program's own, and its writing is
+	 * whoever the orchestrator chooses — neither needs this member's model,
+	 * and a model that cannot be reached must not stop them.
+	 */
+	ours := (step.Action != "" && task.Project != "") || c.orchestrated(task, step)
+
+	var (
+		provider llm.Provider
+		err      error
+	)
+
+	if ours {
+		provider, _ = c.Provider(llm.Local)
+	} else {
+		provider, err = c.Provider(using)
+	}
 
 	/*
 	 * A service that cannot be reached falls back to this machine, once.
@@ -703,7 +821,18 @@ func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, erro
 		return nil, c.finish(task, store.TaskBlocked, plainly(err))
 	}
 
-	if err := c.DB.StartStep(step.ID, member.Name, provider.Name(), choice.Model); err != nil {
+	through := ""
+
+	switch {
+	case ours && step.Action != "":
+		through, choice.Model = "this program", step.Action
+	case ours:
+		through = "orchestrated"
+	default:
+		through = provider.Name()
+	}
+
+	if err := c.DB.StartStep(step.ID, member.Name, through, choice.Model); err != nil {
 		return nil, err
 	}
 
@@ -764,11 +893,15 @@ func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, erro
 		only, withTools = c.lookingOnly(only, withTools)
 	}
 
-	return &turn{
+	if provider != nil {
+		provider = c.inLane(provider, member, step)
+	}
+
+	t := &turn{
 		step:     step,
 		member:   member,
 		fit:      fit,
-		provider: c.inLane(provider, member, step),
+		provider: provider,
 		brief: agent.Brief{
 			Choice: choice, WithTools: choice.Tools && withTools,
 			Only:  only,
@@ -776,13 +909,30 @@ func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, erro
 			As:    member.Name,
 			Risk:  risk.Parse(step.Risk),
 		},
-	}, nil
+	}
+
+	// Held to its project's folders and integrations, read afresh now.
+	if err := c.confine(task, &t.brief); err != nil {
+		return nil, c.finish(task, store.TaskBlocked, err.Error())
+	}
+
+	return t, nil
 }
 
 // think is the model call, which is the part worth running side by side.
 func (c *Conductor) think(ctx context.Context, task *store.Task, t *turn) {
-	t.res, t.err = c.Agent.RunBrief(ctx, task.WorkConversationID, t.provider,
-		c.brief(task, t.step, t.member), t.brief)
+	switch {
+	case t.step.Action != "" && task.Project != "":
+		t.res, t.err = c.act(ctx, task, t)
+	case c.orchestrated(task, t.step):
+		t.res, t.err = c.carryOut(ctx, task, t, "")
+	default:
+		t.res, t.err = c.Agent.RunBrief(ctx, task.WorkConversationID, t.provider,
+			c.brief(task, t.step, t.member), t.brief)
+	}
+
+	// What the calls can prove they did, kept whatever the step comes to.
+	c.recordEvidence(task, t.step, t.res)
 
 	// Whatever ran at high or critical without a question, kept on the row
 	// whether or not the step goes on to succeed. It happened either way.
@@ -797,6 +947,14 @@ func (c *Conductor) think(ctx context.Context, task *store.Task, t *turn) {
 // settle is everything that follows from what came back.
 func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool, error) {
 	step, member, fit, res, err := t.step, t.member, t.fit, t.res, t.err
+
+	// Stopped from the interface, or the program closing: what the step was
+	// doing did not fail, it was ended, and the row is Stop's — or the
+	// startup sweep's — to write. Settling it here recorded a stopped task
+	// as blocked by "every way to write it failed".
+	if ctx.Err() != nil {
+		return false, nil
+	}
 
 	if err != nil {
 		step.State = store.StepFailed
@@ -1205,6 +1363,10 @@ func (c *Conductor) brief(task *store.Task, step *store.TaskStep, member team.Ag
 		b.WriteString("\n" + remembered)
 	}
 
+	if project := c.aboutTheProject(task); project != "" {
+		b.WriteString("\n" + project + "\n")
+	}
+
 	b.WriteString("\n")
 	b.WriteString("The job: " + task.Goal + "\n")
 
@@ -1294,9 +1456,18 @@ func (c *Conductor) finish(task *store.Task, state, because string) error {
 		task.Hired = fresh.Hired
 	}
 
+	// A project is finished on its evidence, not on its steps' word.
+	state, because = c.judged(task, state, because)
+
 	gone := c.letGo(task)
 
 	report := c.report(task, steps, state, because)
+
+	if proof := c.evidenceReport(task); proof != "" {
+		report += "\n\n" + proof
+	}
+
+	c.rememberProject(task, state, because)
 
 	if len(gone) > 0 {
 		report += "\n\nLet go now that it is finished: " + strings.Join(gone, ", ") + "."

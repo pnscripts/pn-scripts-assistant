@@ -7,7 +7,10 @@
 package brain
 
 import (
+	"pn-scripts-assistant/internal/brain/redact"
+
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -19,12 +22,14 @@ import (
 	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/appearance"
 	"pn-scripts-assistant/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/engines"
 	"pn-scripts-assistant/internal/brain/jobs"
 	"pn-scripts-assistant/internal/brain/lanes"
 	"pn-scripts-assistant/internal/brain/learning"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/machine"
 	"pn-scripts-assistant/internal/brain/mail"
+	"pn-scripts-assistant/internal/brain/mcp"
 	"pn-scripts-assistant/internal/brain/models"
 	"pn-scripts-assistant/internal/brain/occupations"
 	"pn-scripts-assistant/internal/brain/org"
@@ -33,6 +38,7 @@ import (
 	"pn-scripts-assistant/internal/brain/profile"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/provision"
 	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/smarthome"
 	"pn-scripts-assistant/internal/brain/speech"
@@ -91,6 +97,10 @@ type Brain struct {
 	mu             sync.Mutex
 	modelsResident bool
 
+	// tier is what this machine can run — modest, capable, generous — once
+	// it has been worked out; see models.WhatItCanRun.
+	tier string
+
 	// When the last turn was held out loud, which decides whether finished
 	// background work is announced or only written down.
 	lastSpokenAt time.Time
@@ -143,10 +153,35 @@ type Brain struct {
 	// taught is which skills are currently in the registry, so a reload can
 	// remove the ones whose files have gone.
 	taught taught
+
+	// What this program knows how to install, and the capability packages in
+	// use, read when first asked for. See organise.go.
+	recipes     *provision.Book
+	recipesOnce sync.Once
+	packages    packageCache
+
+	/*
+	 * Integrations is the approved MCP servers and what each may do, and
+	 * Engines the game engines this program can drive. Nil in a build or a
+	 * test that has neither, which proposals and packages treat as "none".
+	 */
+	Integrations *mcp.Gateway
+	Engines      *engines.Registry
+
+	// orch is the one decider for how work is done. See orchestrate.go.
+	orch orchestration
 }
 
 // New assembles a brain from settings.
 func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logger) *Brain {
+	// Every credential this brain holds is taken out of anything it keeps as
+	// evidence, wherever it turns up — a command line, a program's output.
+	redact.Add(cfg.AnthropicKey, cfg.OpenAIKey, cfg.OpenRouterKey, cfg.MailPassword, cfg.BraveKey)
+
+	for _, key := range cfg.ProviderKeys {
+		redact.Add(key)
+	}
+
 	/*
 	 * What may leave this machine follows how much it asks, which is one
 	 * setting rather than two. See llm.ModeFor: the second setting was the
@@ -555,6 +590,13 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		}},
 	)
 
+	/*
+	 * The organisation's own: hiring with a proposal, projects, the engines
+	 * and the integrations. See organise.go — built before the registry so
+	 * the gateway can be handed it the moment it exists.
+	 */
+	available = append(available, b.organisationTools()...)
+
 	b.Agent = &agent.Loop{
 		DB:       db,
 		Log:      logger,
@@ -598,6 +640,19 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 				return !b.Mode.AllowsWeb()
 			}
 
+			/*
+			 * And an integration that sends what it is given elsewhere is the
+			 * web by another name: hidden while privacy keeps this machine to
+			 * itself, whatever it was approved for.
+			 */
+			if b.Agent != nil {
+				if t, ok := b.Agent.Registry.Get(tool); ok {
+					if leaves, ok := t.(interface{ LeavesTheMachine() bool }); ok && leaves.LeavesTheMachine() {
+						return !b.Mode.AllowsWeb()
+					}
+				}
+			}
+
 			return false
 		},
 
@@ -636,6 +691,12 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	 * way round the approval gate, and the surest way to guarantee that is for
 	 * there to be one gate rather than two that are meant to agree.
 	 */
+	// The integrations offer their tools into the same registry, through the
+	// same gate — see the mcp package.
+	if b.Integrations != nil {
+		b.Integrations.Registry = b.Agent.Registry
+	}
+
 	b.TaskAgent = &agent.Loop{
 		DB:          db,
 		Log:         logger,
@@ -722,12 +783,28 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// Hiring freely and saying so afterwards, which is what its owner
 		// asked for. See tasks/hire.go.
 		Hire: func(w team.Wish) (team.Hired, error) {
-			return team.Hire(b.Root, team.Roster(b.Root), org.Chart(b.Root), db,
-				b.Agent.Registry, team.Templates(b.Root), w)
+			hired, err := team.HireWith(b.hiringInputs(), w)
+
+			// A hire that would reach further than the task may go by itself
+			// is kept as a proposal for its owner, not made.
+			var needs *team.NeedsApproval
+			if errors.As(err, &needs) {
+				if offer, perr := b.keepHireProposal(b.CurrentConversation(), w.Sentence, needs.Proposal); perr == nil {
+					return hired, fmt.Errorf("%w — proposal %d waits for its owner", err, offer.ID)
+				}
+			}
+
+			return hired, err
 		},
 		Dissolve: func(task int64) ([]team.Agent, error) {
 			return team.Dissolve(b.Root, team.Roster(b.Root), task)
 		},
+
+		// The know-how and limits a project's steps are told, read afresh.
+		Packages: b.Packages,
+
+		// Who writes a project's code, and what takes over when that fails.
+		Orchestrator: b.Orchestrator(),
 	}
 
 	/*
@@ -841,6 +918,10 @@ func (b *Brain) modelRoles() llm.Sizes {
 		 */
 		power := models.WhatItCanRun(ctx, client)
 		workOrder, talkOrder, reasonOrder := llm.ForMachine(string(power.Tier()))
+
+		b.mu.Lock()
+		b.tier = string(power.Tier())
+		b.mu.Unlock()
 
 		b.roles.Talk = llm.PickFor(talkOrder, names)
 		b.roles.Reason = llm.PickFor(reasonOrder, names)
@@ -1049,6 +1130,16 @@ func (b *Brain) Start(ctx context.Context) {
 	}
 
 	/*
+	 * The integrations that were running when the program last closed, and
+	 * only those: approved and switched on by its owner. In the background,
+	 * because npx fetching a server for the first time is most of a minute,
+	 * and none of that should stand between opening the window and using it.
+	 */
+	if b.Integrations != nil {
+		go b.Integrations.Resume(ctx)
+	}
+
+	/*
 	 * Recordings a previous run could not clear up.
 	 *
 	 * Each turn removes its own, which works for every turn that finishes and
@@ -1158,6 +1249,12 @@ func (b *Brain) Start(ctx context.Context) {
 func (b *Brain) Stop() {
 	if b.Learner != nil {
 		b.Learner.Stop()
+	}
+
+	// The integrations' programs stop with this one: a server left running
+	// after its client closed is a process nobody remembers starting.
+	if b.Integrations != nil {
+		b.Integrations.Close()
 	}
 
 	// Anything turned down while it was talking goes back up, including after
@@ -1724,6 +1821,26 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 			ConversationID: conversationID,
 			Reply:          answer,
 			Provider:       provider.Name(),
+		}, nil
+	}
+
+	/*
+	 * Hiring and projects, asked for in so many words: a proposal, or the one
+	 * question it needs answered first. See organiseintent.go — whatever
+	 * would change anything comes back as an approval, never as done.
+	 */
+	if answer, pending, handled := b.handleOrganising(conversationID, req.Message); handled {
+		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", answer); err != nil {
+			return ChatReply{}, err
+		}
+
+		answered = true
+
+		return ChatReply{
+			ConversationID:   conversationID,
+			Reply:            answer,
+			Provider:         provider.Name(),
+			PendingApprovals: pending,
 		}, nil
 	}
 

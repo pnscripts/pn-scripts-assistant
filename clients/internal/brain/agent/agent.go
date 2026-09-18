@@ -27,8 +27,10 @@ import (
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/brain/risk"
+	"pn-scripts-assistant/internal/brain/sandbox"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/workspace"
 )
 
 // MaxSteps caps model-to-tool-to-model round trips in a single turn.
@@ -188,6 +190,10 @@ type Step struct {
 	// Level is how serious the call was, weighed on what it was handed. See
 	// the risk package.
 	Level risk.Level `json:"level,omitempty"`
+
+	// Evidence is what the call can prove it did, from its own arguments and
+	// output. See tools.Perform.
+	Evidence []store.Evidence `json:"evidence,omitempty"`
 }
 
 type Result struct {
@@ -353,6 +359,21 @@ type Brief struct {
 	As string
 
 	/*
+	 * Within is the project this turn's work is confined to, or nil for none.
+	 *
+	 * Every call that can say where it would write, or where it would run a
+	 * program, is held to it: outside the project's folders it is refused,
+	 * and a build that would write anywhere but the project's outputs is
+	 * refused too. Refused before the gate, like Never, so no approval can be
+	 * asked for — and so be given — for work outside the project.
+	 */
+	Within Confine
+
+	// Integrations is the integrations the work may use — a project's —
+	// or nil when it is not confined to one. See tools.MayUse.
+	Integrations *[]string
+
+	/*
 	 * Risk is how serious the work this turn belongs to is.
 	 *
 	 * A floor under every call that changes something, never under a look:
@@ -361,6 +382,91 @@ type Brief struct {
 	 * conversation, where each call is weighed on its own.
 	 */
 	Risk risk.Level
+}
+
+// Confine is where a project's work may write. See workspace.Scope.
+type Confine interface {
+	Allows(path string) bool
+	Output(path string) bool
+
+	// Writable is the folders themselves, for the kernel to hold what runs
+	// to them.
+	Writable() []string
+}
+
+// Confined is ctx for a call made on a project: whatever the call starts may
+// write only in the project and the caches its tools keep.
+func Confined(ctx context.Context, within Confine) context.Context {
+	if within == nil {
+		return ctx
+	}
+
+	return sandbox.WithWritable(ctx, sandbox.ForWork(within.Writable()...))
+}
+
+/*
+ * outside is why a call would act outside the project, or empty.
+ *
+ * A command with no folder of its own is refused rather than assumed to be in
+ * the project: where this program happens to be running is not a place, and
+ * "go build" run there is a build of whatever that is.
+ */
+// Outside is outside, for the one other place a call is carried out: an
+// action approved after the turn that asked for it had ended.
+func Outside(within Confine, tool tools.Tool, args json.RawMessage) string {
+	return outside(within, tool, args)
+}
+
+func outside(within Confine, tool tools.Tool, args json.RawMessage) string {
+	if within == nil {
+		return ""
+	}
+
+	writes, runs, said := tools.TouchesOf(tool, args)
+	if !said {
+		/*
+		 * Failing closed. A tool that changes something and cannot say where
+		 * was, until an audit tried it, let through on every project — a
+		 * subtitle file written to any folder, "put it back" anywhere. Only
+		 * what writes no files at all (an integration, governed by its own
+		 * grants) goes on without saying.
+		 */
+		if _, free := tool.(tools.FileFree); free || tool.Risk() != tools.Mutating {
+			return ""
+		}
+
+		return tool.Name() + " cannot say where it would write, so it is not used on a project"
+	}
+
+	for _, dir := range runs {
+		if strings.TrimSpace(dir) == "" {
+			return "it does not say which folder to run in — give the project's folder as dir"
+		}
+
+		if !within.Allows(dir) {
+			return dir + " is outside the project"
+		}
+	}
+
+	for _, path := range writes {
+		if strings.TrimSpace(path) == "" {
+			continue
+		}
+
+		if !within.Allows(path) {
+			if workspace.Protected(path) {
+				return path + " is the project's own settings, which its owner changes, not the work"
+			}
+
+			return path + " is outside the project"
+		}
+	}
+
+	if why := tools.Unconfinable(tool, args); why != "" && !sandbox.Enabled() {
+		return why
+	}
+
+	return ""
 }
 
 // RunBrief is one turn, with everything about it decided by the caller.
@@ -432,7 +538,7 @@ func (l *Loop) RunBrief(
 		 * seven minutes reading a desktop that could not have held the
 		 * answer.
 		 */
-		specs = relevant(without(onlyThese(l.specs(), brief.Only), brief.Never),
+		specs = relevant(l.granted(without(onlyThese(l.specs(), brief.Only), brief.Never), brief),
 			lastUserMessage(messages), l.cuesFor)
 	}
 
@@ -689,6 +795,16 @@ func (l *Loop) RunBrief(
 				continue
 			}
 
+			// Granted, and allowed on this project, or refused — for the same
+			// reason as everything above: hidden is not enough.
+			if known, found := l.Registry.Get(call.Name); found {
+				if ok, why := tools.MayUse(known, brief.As, brief.Integrations); !ok {
+					messages = append(messages, toolResult(call, "Refused: "+why+"."))
+
+					continue
+				}
+			}
+
 			/*
 			 * And refused as well as hidden, for the same reason.
 			 *
@@ -717,6 +833,24 @@ func (l *Loop) RunBrief(
 				messages = append(messages, toolResult(call,
 					"That is the owner's own decision to make, not this job's. "+
 						"Say what needs deciding and leave it to them."))
+
+				continue
+			}
+
+			/*
+			 * And nothing outside the project it belongs to, when it belongs
+			 * to one. Refused rather than put to its owner: a turn working on
+			 * a game has no business asking to write in their home folder.
+			 */
+			if why := outside(brief.Within, tool, call.Arguments); why != "" {
+				refused := "Refused: " + why + ". Work on this project stays in its own folders."
+
+				messages = append(messages, toolResult(call, refused))
+
+				l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+tool.Summarize(call.Arguments)+"]\n"+refused)
+
+				steps = append(steps, Step{Tool: tool.Name(), Summary: tool.Summarize(call.Arguments),
+					Asked: askedFor(call.Arguments), Failed: true, Result: refused})
 
 				continue
 			}
@@ -837,6 +971,19 @@ func (l *Loop) RunBrief(
 			}
 
 			/*
+			 * And the few things that are always its owner's, whatever the
+			 * setting: installing, switching an integration on, connecting an
+			 * account, spending, hiring somebody for good. See tools.Consenting.
+			 *
+			 * After the setting rather than before, so that nothing above can
+			 * clear it — and after refusals, so a refused tool stays refused.
+			 */
+			if why := tools.ConsentFor(tool, call.Arguments); why != "" {
+				ask = true
+				summary = "Always asked — " + why + ": " + summary
+			}
+
+			/*
 			 * The level said in the question, when it is worth saying.
 			 *
 			 * High and critical only. Prefixing every approval with "medium"
@@ -879,14 +1026,15 @@ func (l *Loop) RunBrief(
 
 			started := time.Now()
 
-			output, err := tool.Execute(ctx, call.Arguments)
+			output, evidence, err := tools.Perform(Confined(ctx, brief.Within), tool, call.Arguments)
 
 			step := Step{
-				Tool:    tool.Name(),
-				Summary: summary,
-				Asked:   askedFor(call.Arguments),
-				Millis:  time.Since(started).Milliseconds(),
-				Level:   level,
+				Tool:     tool.Name(),
+				Summary:  summary,
+				Asked:    askedFor(call.Arguments),
+				Millis:   time.Since(started).Milliseconds(),
+				Level:    level,
+				Evidence: evidence,
 			}
 
 			if err != nil {
@@ -1919,6 +2067,24 @@ func (l *Loop) cuesFor(name string) []string {
 	}
 
 	return nil
+}
+
+// granted drops the tools this agent has not been granted, or that the work's
+// project does not allow. See tools.MayUse.
+func (l *Loop) granted(specs []llm.ToolSpec, brief Brief) []llm.ToolSpec {
+	out := make([]llm.ToolSpec, 0, len(specs))
+
+	for _, spec := range specs {
+		if t, ok := l.Registry.Get(spec.Name); ok {
+			if allowed, _ := tools.MayUse(t, brief.As, brief.Integrations); !allowed {
+				continue
+			}
+		}
+
+		out = append(out, spec)
+	}
+
+	return out
 }
 
 // onlyThese narrows a list of schemas to the ones a turn may use. An empty

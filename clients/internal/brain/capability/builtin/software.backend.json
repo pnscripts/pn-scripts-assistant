@@ -1,0 +1,35 @@
+{
+  "id": "software.backend",
+  "version": "1.0.0",
+  "title": "Backend development",
+  "summary": "Builds and changes server-side code — APIs, data and background work — in the project's own language, with its tests run.",
+  "work": "project",
+  "jobs": ["software.backend_engineer", "software.api_engineer", "software.go_developer", "software.php_developer", "software.full_stack_engineer"],
+  "cues": ["api", "backend", "server", "endpoint", "endpoints", "rest", "graphql", "database", "microservice", "service"],
+  "role": {
+    "title": "Backend engineer",
+    "for": "servers, APIs, databases and the code behind them, with tests that prove it works",
+    "uses": "work",
+    "needs": ["tools"],
+    "brief": "Read the project before changing it and follow its conventions. Change the least that will do. Run the project's own tests after a change and report exactly what they said. Never run a command that touches anything outside the project.",
+    "tools": ["inspect_project", "read_file", "write_file", "edit_file", "search_files", "list_directory", "run_command", "read_document"],
+    "never": ["send_email", "set_device"]
+  },
+  "skills": [
+    "Validate input at the edge and return errors that say what was wrong.",
+    "Keep secrets out of the code and out of the repository: they come from the environment.",
+    "A change to the shape of stored data is a migration, written so it can run against yesterday's database."
+  ],
+  "knowledge": [
+    {"title": "OWASP API Security Top 10", "url": "https://owasp.org/API-Security/"}
+  ],
+  "requires": [
+    {"id": "git", "why": "keeps the project's history so every change can be seen and undone", "optional": true}
+  ],
+  "workspace": {
+    "outputs": ["build", "dist", "bin"],
+    "conventions": ["Tests beside the code", "Configuration from the environment"]
+  },
+  "evidence": ["files", "test"],
+  "risk": "medium"
+}

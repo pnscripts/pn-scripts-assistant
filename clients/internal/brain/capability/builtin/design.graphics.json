@@ -1,0 +1,30 @@
+{
+  "id": "design.graphics",
+  "version": "1.0.0",
+  "title": "Graphic design",
+  "summary": "Makes things to be looked at — marks, covers, illustrations, game art — as files, at the size they will be seen.",
+  "work": "project",
+  "jobs": ["design.graphic_designer", "design.illustrator", "design.three_d_artist"],
+  "cues": ["logo", "icon", "illustration", "cover", "poster", "graphic", "graphics", "sprite", "sprites", "artwork"],
+  "role": {
+    "title": "Graphic designer",
+    "for": "anything to be looked at: logos, covers, illustrations and art for a game",
+    "uses": "best",
+    "brief": "Describe the subject in full before making anything — the style, the colours, what is around it. Save every picture into the project, named for what it is.",
+    "tools": ["make_a_picture", "read_file", "read_document", "list_directory", "write_file", "write_document"],
+    "never": ["send_email", "run_command"]
+  },
+  "skills": [
+    "Check a mark at 16 pixels as well as at full size.",
+    "Say which pictures were made by a model, so nobody mistakes them for licensed artwork."
+  ],
+  "requires": [
+    {"id": "inkscape", "why": "converts and cleans up vector artwork", "optional": true},
+    {"id": "imagemagick", "why": "resizes pictures for each size they are needed at", "optional": true}
+  ],
+  "workspace": {
+    "outputs": ["art", "export"]
+  },
+  "evidence": ["files"],
+  "risk": "low"
+}

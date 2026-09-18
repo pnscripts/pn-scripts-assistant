@@ -123,6 +123,139 @@ static int pnassistant_render(const char *url, int seconds) {
 
     return 0;
 }
+
+// ---------------------------------------------------------------------------
+// Snapshot: a page run for a while, what it complained about, and a picture.
+//
+// For checking something that was built — a web game — rather than reading
+// something that was written. Errors are collected from inside the page from
+// its first line, because a page that throws while loading has thrown before
+// anybody outside could have started listening.
+
+extern void pnassistantShotSaid(char *json);
+extern void pnassistantShotFailed(char *why);
+
+static const char *pnassistant_listen =
+    "window.__pnErrors=[];"
+    "window.addEventListener('error',function(e){window.__pnErrors.push((e.message||'error')+"
+    "(e.filename?' ('+e.filename.split('/').pop()+':'+e.lineno+')':''));});"
+    "window.addEventListener('unhandledrejection',function(e){window.__pnErrors.push('unhandled: '+"
+    "((e.reason&&e.reason.message)||e.reason));});"
+    "(function(){var ce=console.error;console.error=function(){try{window.__pnErrors.push("
+    "Array.prototype.map.call(arguments,String).join(' '));}catch(x){}return ce.apply(console,arguments);};})();";
+
+static const char *pnassistant_report =
+    "JSON.stringify({title:document.title,errors:(window.__pnErrors||[]).slice(0,40),"
+    "canvas:document.querySelectorAll('canvas').length,"
+    "text:(document.body?document.body.innerText:'').slice(0,400)})";
+
+static char *pnassistant_png = NULL;
+
+static void pnassistant_shot_taken(GObject *view, GAsyncResult *result, gpointer data) {
+    GError *error = NULL;
+    cairo_surface_t *surface = webkit_web_view_get_snapshot_finish(WEBKIT_WEB_VIEW(view), result, &error);
+
+    if (error != NULL) {
+        pnassistantShotFailed(g_strdup(error->message));
+        g_error_free(error);
+    } else if (surface != NULL) {
+        if (cairo_surface_write_to_png(surface, pnassistant_png) != CAIRO_STATUS_SUCCESS) {
+            pnassistantShotFailed(g_strdup("the picture could not be written"));
+        }
+        cairo_surface_destroy(surface);
+    }
+
+    gtk_main_quit();
+}
+
+static void pnassistant_shot_report(GObject *view, GAsyncResult *result, gpointer data) {
+    GError *error = NULL;
+    JSCValue *value = webkit_web_view_evaluate_javascript_finish(WEBKIT_WEB_VIEW(view), result, &error);
+
+    if (error != NULL) {
+        pnassistantShotFailed(g_strdup(error->message));
+        g_error_free(error);
+        gtk_main_quit();
+        return;
+    }
+
+    pnassistantShotSaid(jsc_value_to_string(value));
+
+    webkit_web_view_get_snapshot(WEBKIT_WEB_VIEW(view), WEBKIT_SNAPSHOT_REGION_VISIBLE,
+        WEBKIT_SNAPSHOT_OPTIONS_NONE, NULL, pnassistant_shot_taken, NULL);
+}
+
+static gboolean pnassistant_shot_now(gpointer data) {
+    webkit_web_view_evaluate_javascript(WEBKIT_WEB_VIEW(data), pnassistant_report, -1, NULL, NULL,
+        NULL, pnassistant_shot_report, NULL);
+    return G_SOURCE_REMOVE;
+}
+
+static int pnassistant_shot_seconds = 3;
+
+static void pnassistant_shot_loaded(WebKitWebView *view, WebKitLoadEvent event, gpointer data) {
+    if (event != WEBKIT_LOAD_FINISHED) {
+        return;
+    }
+
+    // Let it run: a game that draws its first frame and then throws on the
+    // second is the one worth catching.
+    g_timeout_add_seconds(pnassistant_shot_seconds, pnassistant_shot_now, view);
+}
+
+static gboolean pnassistant_shot_failed(WebKitWebView *view, WebKitLoadEvent event,
+                                        gchar *uri, GError *error, gpointer data) {
+    pnassistantShotFailed(g_strdup(error ? error->message : "the page would not load"));
+    gtk_main_quit();
+    return TRUE;
+}
+
+static gboolean pnassistant_shot_gave_up(gpointer data) {
+    pnassistantShotFailed(g_strdup("the page did not finish loading in time"));
+    gtk_main_quit();
+    return G_SOURCE_REMOVE;
+}
+
+static int pnassistant_snapshot(const char *url, int seconds, const char *png, int width, int height) {
+    if (!gtk_init_check(NULL, NULL)) {
+        pnassistantShotFailed(g_strdup("there is no display to run a page on"));
+        return 1;
+    }
+
+    pnassistant_png = g_strdup(png);
+    pnassistant_shot_seconds = seconds;
+
+    GtkWidget *offscreen = gtk_offscreen_window_new();
+    gtk_window_set_default_size(GTK_WINDOW(offscreen), width, height);
+
+    WebKitUserContentManager *content = webkit_user_content_manager_new();
+    WebKitUserScript *listen = webkit_user_script_new(pnassistant_listen,
+        WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, NULL, NULL);
+    webkit_user_content_manager_add_script(content, listen);
+
+    WebKitWebView *view = WEBKIT_WEB_VIEW(webkit_web_view_new_with_user_content_manager(content));
+
+    WebKitSettings *settings = webkit_web_view_get_settings(view);
+    webkit_settings_set_enable_javascript(settings, TRUE);
+    webkit_settings_set_enable_webgl(settings, TRUE);
+    webkit_settings_set_enable_html5_database(settings, FALSE);
+    webkit_settings_set_enable_html5_local_storage(settings, FALSE);
+    webkit_settings_set_enable_page_cache(settings, FALSE);
+
+    gtk_container_add(GTK_CONTAINER(offscreen), GTK_WIDGET(view));
+    gtk_widget_show_all(offscreen);
+
+    g_signal_connect(view, "load-changed", G_CALLBACK(pnassistant_shot_loaded), NULL);
+    g_signal_connect(view, "load-failed", G_CALLBACK(pnassistant_shot_failed), NULL);
+
+    g_timeout_add_seconds(seconds + 45, pnassistant_shot_gave_up, view);
+
+    webkit_web_view_load_uri(view, url);
+
+    gtk_main();
+
+    return 0;
+}
 */
 import "C"
 
@@ -190,3 +323,61 @@ func RenderHere(url string, seconds int) error {
 
 // Possible reports whether this build can render a page at all.
 func Possible() bool { return true }
+
+// What the snapshot child found, filled by the callbacks below.
+var (
+	shotSaid string
+	shotWhy  string
+)
+
+//export pnassistantShotSaid
+func pnassistantShotSaid(json *C.char) {
+	shotSaid = C.GoString(json)
+
+	C.free(unsafe.Pointer(json))
+}
+
+//export pnassistantShotFailed
+func pnassistantShotFailed(why *C.char) {
+	if shotWhy == "" {
+		shotWhy = C.GoString(why)
+	}
+
+	C.free(unsafe.Pointer(why))
+}
+
+/*
+ * SnapshotHere runs a page for a few seconds, then prints what it said about
+ * itself and saves a picture of it.
+ *
+ * Only ever called in the child process, by the hidden snapshot subcommand.
+ */
+func SnapshotHere(url string, seconds int, png string, width, height int) error {
+	target := C.CString(url)
+	defer C.free(unsafe.Pointer(target))
+
+	file := C.CString(png)
+	defer C.free(unsafe.Pointer(file))
+
+	C.pnassistant_snapshot(target, C.int(seconds), file, C.int(width), C.int(height))
+
+	if shotSaid == "" {
+		why := shotWhy
+		if why == "" {
+			why = "the page said nothing"
+		}
+
+		fmt.Fprintln(os.Stderr, Marker+why)
+
+		return fmt.Errorf("%s", why)
+	}
+
+	if shotWhy != "" {
+		fmt.Fprintln(os.Stderr, Marker+shotWhy)
+	}
+
+	fmt.Fprintln(os.Stdout, Opening)
+	fmt.Fprint(os.Stdout, shotSaid)
+
+	return nil
+}

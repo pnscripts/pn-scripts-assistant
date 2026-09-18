@@ -90,6 +90,27 @@ var housekeeping = map[string][]string{
 	"open_app":       {"open", "launch", "start ", "run "},
 	"decide_waiting": {"waiting", "approve", "decision"},
 	"list_waiting":   {"waiting", "approve", "decision"},
+
+	/*
+	 * The organisation's own: hiring, projects, engines, integrations.
+	 *
+	 * Each named by its own name as well, because a task's step is written
+	 * as "check it with game_check" and that has to be enough to offer it.
+	 */
+	"hire_agent":           {"hire", "expert", "specialist", "someone who", "somebody who", "наеми", "hire_agent"},
+	"confirm_hire":         {"hire", "permanent", "one task", "task only", "постоянно", "confirm_hire"},
+	"plan_project":         {"make me", "build me", "create a", "make a", "build a", "game", "project", "novel", "book", " api", "website", "plan the", "plan_project"},
+	"start_project":        {"start", "go ahead", "project", "start_project"},
+	"inspect_project":      {"folder", "project", "directory", "inspect", "inspect_project"},
+	"check_requirements":   {"need", "install", "requirement", "installed", "version", "engine", "check_requirements"},
+	"install_requirement":  {"install", "инсталирай", "install_requirement"},
+	"game_engines":         {"game", "engine", "godot", "unity", "unreal", "three", "game_engines"},
+	"game_docs":            {"game", "godot", "three", "unity", "unreal", "documentation", "docs", "game_docs"},
+	"game_check":           {"game", "godot", "three", "unity", "unreal", "game_check"},
+	"game_build":           {"game", "export", "smoke", "game_build"},
+	"list_integrations":    {"integration", "mcp", "list_integrations"},
+	"activate_integration": {"integration", "mcp", "activate_integration"},
+	"read_integration":     {"integration", "mcp", "read_integration"},
 }
 
 /*

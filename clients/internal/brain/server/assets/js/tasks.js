@@ -202,6 +202,9 @@
         card.hidden = false;
         el('task-detail-name').textContent = task.name;
 
+        // What it can prove it did: commands, files, checks, pictures.
+        if (window.pnTaskEvidence) window.pnTaskEvidence(task.id);
+
         const stateLine = el('task-detail-state');
         stateLine.textContent = stateOf(task) + ' ';
         stateLine.appendChild(riskTag(task.risk, 'low'));

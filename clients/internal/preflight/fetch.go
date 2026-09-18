@@ -37,6 +37,7 @@ import (
 // asked to install.
 var allowedHosts = map[string]bool{
 	"ollama.com":     true,
+	"nodejs.org":     true,
 	"github.com":     true,
 	"huggingface.co": true,
 

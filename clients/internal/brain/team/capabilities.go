@@ -182,6 +182,11 @@ func capabilitiesOf(fit Fit) []string {
  * said exactly what they mean, that is what is used.
  */
 func toolsOf(agent Agent, fit Fit, box Toolbox) ([]string, bool) {
+	// "none", said outright: judgement, and no tools at all.
+	if len(agent.Tools) == 1 && agent.Tools[0] == NoTools {
+		return []string{}, true
+	}
+
 	if len(agent.Tools) > 0 {
 		return agent.Tools, true
 	}

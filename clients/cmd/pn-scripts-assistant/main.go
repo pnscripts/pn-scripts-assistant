@@ -37,6 +37,7 @@ import (
 	"pn-scripts-assistant/internal/brain/paths"
 	"pn-scripts-assistant/internal/brain/places"
 	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/sandbox"
 	"pn-scripts-assistant/internal/brain/server"
 	"pn-scripts-assistant/internal/brain/speech"
 	"pn-scripts-assistant/internal/brain/storage"
@@ -47,6 +48,14 @@ import (
 )
 
 func main() {
+	// A copy of this program started to confine a command: it restricts
+	// itself and becomes that command, before anything else happens.
+	if sandbox.Main() {
+		return
+	}
+
+	sandbox.Enable()
+
 	// No arguments means "run the app". Double-clicking an icon passes none,
 	// and that is the path most people will take.
 	if len(os.Args) < 2 {
@@ -101,6 +110,10 @@ func main() {
 		 * disposable rather than somebody's assistant.
 		 */
 		err = runRender(os.Args[2:])
+	case "snapshot":
+		// Not for people either: the child that runs a built web game for a
+		// few seconds and photographs it. See browse.Snapshot.
+		err = runSnapshot(os.Args[2:])
 	case "start-again":
 		err = runStartAgain(os.Args[2:])
 	case "help", "-h", "--help":
@@ -893,9 +906,10 @@ func runApp(args []string) error {
 	go func() {
 		client := models.New(cfg.OllamaURL)
 
-		chosen, err := models.Ensure(ctx, client, cfg.OllamaModel, cfg.EmbedModel, func(note string) {
-			progress.Set("model", note)
-		})
+		// Fetched only within its owner's policy for installing models: see
+		// orchestrator.Policy and ADR 0005.
+		chosen, err := models.EnsureAllowed(ctx, client, cfg.OllamaModel, cfg.EmbedModel,
+			b.MayInstallModel(ctx), func(note string) { progress.Set("model", note) })
 
 		progress.Done()
 
@@ -2302,6 +2316,20 @@ func runRender(args []string) error {
 	}
 
 	return browse.RenderHere(args[0], seconds)
+}
+
+func runSnapshot(args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("usage: snapshot <url> <seconds> <png>")
+	}
+
+	seconds := 3
+
+	if n, err := strconv.Atoi(args[1]); err == nil && n > 0 && n <= 60 {
+		seconds = n
+	}
+
+	return browse.SnapshotHere(args[0], seconds, args[2], 960, 720)
 }
 
 /*

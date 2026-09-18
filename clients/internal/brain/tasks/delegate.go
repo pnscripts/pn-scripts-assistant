@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"pn-scripts-assistant/internal/brain/org"
@@ -56,10 +57,15 @@ const (
  * never somebody already in this chain, or two agents could hand one step
  * back and forth until the budget ran out.
  */
-func (c *Conductor) specialistFor(step *store.TaskStep, exclude map[string]bool) (team.Agent, bool) {
+func (c *Conductor) specialistFor(task *store.Task, step *store.TaskStep, exclude map[string]bool) (team.Agent, bool) {
+	root := task.ID
+	if top, err := c.DB.Root(task); err == nil && top != nil {
+		root = top.ID
+	}
+
 	for _, candidate := range team.Who(c.roster(), c.chart(), c.Occupations, c.Toolbox,
 		team.Wanted{Doing: step.Instruction, Kind: step.Kind, Record: c.record()}) {
-		if candidate.Name == "assistant" || exclude[candidate.Name] {
+		if candidate.Name == "assistant" || exclude[candidate.Name] || !availableFor(candidate, task, root) {
 			continue
 		}
 
@@ -67,6 +73,32 @@ func (c *Conductor) specialistFor(step *store.TaskStep, exclude map[string]bool)
 	}
 
 	return team.Agent{}, false
+}
+
+/*
+ * availableFor is whether an agent may be given a piece of this task.
+ *
+ * Not one hired for another task only: it was hired for that, and is let go
+ * with it. And for a project, not one who works under other packages than
+ * the project's: a Godot game's step went to the three.js developer hired the
+ * hour before, on the strength of the word "game".
+ */
+func availableFor(a team.Agent, task *store.Task, root int64) bool {
+	if a.HiredFor != 0 && a.HiredFor != root && a.HiredFor != task.ID {
+		return false
+	}
+
+	if task.Packages == "" || len(a.Packages) == 0 {
+		return true
+	}
+
+	for _, p := range a.Packages {
+		if slices.Contains(strings.Split(task.Packages, ","), p) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // chainOf is everybody who has held this piece of work, up through the
@@ -105,6 +137,17 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 		return false, nil
 	}
 
+	/*
+	 * This program's own check, run or build is nobody's to be better at: it
+	 * is the engine's answer, and the fixing between runs is already done by
+	 * whoever the orchestrator chose. Handed on, it became a specialist asked
+	 * to "check with game_check", who said it had — and the step counted as
+	 * done on that word, twice in one Godot game.
+	 */
+	if step.Action != "" {
+		return false, nil
+	}
+
 	children, err := c.DB.Children(task.ID)
 	if err != nil || len(children) >= MostHandedOn {
 		return false, err
@@ -112,7 +155,7 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 
 	chain := c.chainOf(task, member)
 
-	specialist, ok := c.specialistFor(step, chain)
+	specialist, ok := c.specialistFor(task, step, chain)
 
 	// Nobody here, so perhaps somebody who could be. See hire.go.
 	if !ok {
@@ -177,6 +220,14 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 		Within:             narrowerOf(task.Within, fit),
 		Never:              mergeLists(task.Never, fit.Never),
 		Risk:               step.Risk,
+
+		// A step of a project stays a step of that project: confined to its
+		// folder, written by whoever the orchestrator chooses, judged on the
+		// files. Without these a Godot game's step, handed on, was done with
+		// none of that.
+		Project:   task.Project,
+		Packages:  task.Packages,
+		Resources: task.Resources,
 	})
 	if err != nil {
 		return false, err
@@ -537,7 +588,7 @@ func (c *Conductor) review(task *store.Task, step *store.TaskStep, member team.A
 	reviewer, ok := c.managerOf(member)
 
 	if !ok {
-		reviewer, ok = c.specialistFor(step, map[string]bool{member.Name: true})
+		reviewer, ok = c.specialistFor(task, step, map[string]bool{member.Name: true})
 	}
 
 	if !ok {

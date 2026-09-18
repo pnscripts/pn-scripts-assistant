@@ -8,7 +8,6 @@ import (
 	"strings"
 	"unicode"
 
-	"pn-scripts-assistant/internal/brain/org"
 	"pn-scripts-assistant/internal/brain/store"
 )
 
@@ -58,11 +57,27 @@ type Wish struct {
 	// Within is the most the hire may use, when whoever asked was held to
 	// less than everything. Nil is no limit.
 	Within *[]string
+
+	// Package is a capability package the hire is for, already chosen — a
+	// project proposal's — so the role is the package's, named as it names it.
+	Package string
+
+	// Job is the job, named outright by its id — its owner picked it from
+	// the catalogue — so nothing is matched from words.
+	Job string
+
+	// New asks for somebody new even when somebody here already does this:
+	// its owner pressed "take them on", not "who does this".
+	New bool
 }
 
 // Hired is what came of a wish.
 type Hired struct {
 	Agent Agent `json:"agent"`
+
+	// Proposal is the hire that was worked out and not made, when it needed
+	// its owner's approval.
+	Proposal *Proposal `json:"proposal,omitempty"`
 
 	// Existing is true when somebody already here was the answer.
 	Existing bool `json:"existing"`
@@ -162,8 +177,10 @@ func capabilitiesIn(cat Catalogue, words []string) []string {
 			 * at all made "nurse" the skill of nursing plants and "translate"
 			 * the translating of artistic concepts into technical designs.
 			 */
+			// The start of a name only when the word is long enough to mean
+			// it: "postgres" is PostgreSQL, and "book" is not bookkeeping.
 			if c.ID == id || name == term || stem(name) == term ||
-				(!strings.Contains(name, " ") && strings.HasPrefix(name, term)) {
+				(!strings.Contains(name, " ") && len([]rune(term)) >= 5 && strings.HasPrefix(name, term)) {
 				return c.ID, true
 			}
 
@@ -285,6 +302,32 @@ func jobFor(cat Catalogue, words, capabilities []string) (*store.Occupation, err
 		}
 	}
 
+	/*
+	 * The word that names the kind of worker decides the kind of worker.
+	 *
+	 * Word by word, "a security guard" found the application security
+	 * engineer — "security" is most of his job — and "a financial advisor"
+	 * the academic one. The last word of "security guard" is what somebody
+	 * is; the first is what about. Only jobs called that are considered, and
+	 * when the catalogue has none, nobody is hired and the answer says so,
+	 * rather than somebody else being hired under the name.
+	 */
+	if head := roleNoun(words); head != "" {
+		kept := jobs[:0]
+
+		for _, job := range jobs {
+			if calledA(job, head) {
+				kept = append(kept, job)
+			}
+		}
+
+		if len(kept) == 0 {
+			return nil, nil
+		}
+
+		jobs = kept
+	}
+
 	// How many candidates each word matches at all, for its weight.
 	matching := make([]int, len(stems))
 
@@ -332,6 +375,8 @@ func jobFor(cat Catalogue, words, capabilities []string) (*store.Occupation, err
 					break
 				}
 			}
+
+			score += phraseIn(words, job)
 		}
 
 		if !leading && leads(job) {
@@ -351,6 +396,36 @@ func jobFor(cat Catalogue, words, capabilities []string) (*store.Occupation, err
 }
 
 /*
+ * phraseIn is a job's name of two words or more, said whole inside the wish.
+ *
+ * "A three.js game developer" is a game developer who works in three.js, and
+ * word by word "three" found the 3D artist first. A title of several words
+ * said in order is as good as the whole wish being the title, nearly: it
+ * counts for a little less, so a wish that is exactly a job still wins.
+ */
+func phraseIn(words []string, job store.Occupation) float64 {
+	said := " " + strings.Join(words, " ") + " "
+
+	for i, name := range append([]string{job.Title}, job.Aliases...) {
+		name = strings.ToLower(strings.TrimSpace(name))
+
+		if !strings.Contains(name, " ") {
+			continue
+		}
+
+		if strings.Contains(said, " "+name+" ") {
+			if i == 0 {
+				return 60
+			}
+
+			return 40
+		}
+	}
+
+	return 0
+}
+
+/*
  * pointsFor is how much one word says a job is the one.
  *
  * Added up rather than the best of them: a job that needs security and is
@@ -363,7 +438,7 @@ func pointsFor(job store.Occupation, w string) int {
 	points := 0
 
 	for _, need := range job.Needs {
-		if strings.Contains(need.ID, w) {
+		if wordIn(strings.ReplaceAll(need.ID, "_", " "), w) {
 			points += 3
 
 			break
@@ -375,7 +450,7 @@ func pointsFor(job store.Occupation, w string) int {
 	switch {
 	case title == w || stem(title) == w:
 		points += 4
-	case strings.Contains(title, w):
+	case wordIn(title, w):
 		points += 2
 	}
 
@@ -388,7 +463,7 @@ func pointsFor(job store.Occupation, w string) int {
 			break
 		}
 
-		if strings.Contains(alias, w) {
+		if wordIn(alias, w) {
 			points++
 
 			break
@@ -396,6 +471,30 @@ func pointsFor(job store.Occupation, w string) int {
 	}
 
 	return points
+}
+
+/*
+ * wordIn is whether a word is one of the words of a name — or the start of
+ * one, when it is long enough to mean it: "postgres" is PostgreSQL.
+ *
+ * Words, not letters. Matched anywhere in the name, "book" was in bookkeeper
+ * and "a book writer" hired somebody to keep the accounts; the part of a word
+ * is a different word, and only a long enough start of one is the same.
+ */
+func wordIn(text, w string) bool {
+	for _, word := range strings.FieldsFunc(text, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '+' && r != '#'
+	}) {
+		if word == w || stem(word) == w || stem(word) == stem(w) {
+			return true
+		}
+
+		if len([]rune(w)) >= 5 && strings.HasPrefix(word, w) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // leadingWish is whether the wish asks for somebody to run something.
@@ -426,151 +525,6 @@ func leads(job store.Occupation) bool {
 	}
 
 	return false
-}
-
-// Hire answers a wish with somebody already here, or somebody new.
-func Hire(root string, roster []Agent, chart []org.Unit, cat Catalogue, box Toolbox, templates []Template, wish Wish) (Hired, error) {
-	words := subjectOf(wish.Sentence)
-
-	if len(words) == 0 {
-		return Hired{}, fmt.Errorf("say what the person should be good at")
-	}
-
-	capabilities := capabilitiesIn(cat, words)
-
-	job, err := jobFor(cat, words, capabilities)
-	if err != nil {
-		return Hired{}, err
-	}
-
-	if job == nil {
-		return Hired{}, fmt.Errorf("nothing in the catalogue of jobs matches %q, so nobody was hired",
-			strings.Join(words, " "))
-	}
-
-	// Somebody here already, who knows everything that was named and holds the
-	// job — or, when no capability was named, simply holds the job.
-	for _, a := range roster {
-		// Never the generalist: it does anything and so, with a classification
-		// read in, it matches everything — which answered "a tax accountant"
-		// with "the assistant already does this".
-		if !a.Working() || a.Name == "assistant" {
-			continue
-		}
-
-		fit := Settle(a, chart, cat, box)
-
-		holds := fit.Job != nil && fit.Job.ID == job.ID
-
-		// A wish for somebody to lead is answered only by somebody in that job:
-		// knowing security does not make an engineer the head of it.
-		knows := len(capabilities) > 0 && knowsAll(fit.Can, capabilities) && !leadingWish(words)
-
-		if knows || holds {
-			return Hired{
-				Agent: a, Existing: true, Job: job.ID, Seat: a.Position,
-				Why: fmt.Sprintf("the %s already does this, so nobody new was hired",
-					strings.ToLower(a.Title)),
-			}, nil
-		}
-	}
-
-	agent := Agent{Uses: UsesWork}
-
-	if t, ok := TemplateFor(templates, job.ID); ok {
-		agent = FromTemplate(t, "")
-	}
-
-	agent.Job = job.ID
-	agent.State = Active
-
-	// What the sentence named beyond what the job already knows.
-	already := map[string]bool{}
-
-	for _, need := range job.Needs {
-		already[need.ID] = true
-	}
-
-	/*
-	 * Every capability the wish named that the job does not already list, by
-	 * exactly its id — even one the job covers under another name. Written
-	 * down as asked, so asking again finds this hire by the same exact test
-	 * rather than by guessing at what "covers" means.
-	 */
-	for _, capability := range capabilities {
-		if !already[capability] {
-			agent.Can = append(agent.Can, capability)
-		}
-	}
-
-	agent.Title = titleFor(words, job)
-	agent.Name = unusedName(roster, nameFor(words, job))
-	agent.For = strings.TrimSpace(job.Description)
-
-	if agent.For == "" {
-		agent.For = strings.ToLower(job.Title)
-	}
-
-	// What was asked for beyond the job, in the words that asked — which is
-	// also what the shortlist scores this agent's description on.
-	if extra := uncovered(words, job); len(extra) > 0 || len(agent.Can) > 0 {
-		especially := append(append([]string{}, extra...), agent.Can...)
-
-		agent.For = strings.TrimSuffix(agent.For, ".") + ". Especially: " +
-			strings.ReplaceAll(strings.Join(especially, ", "), "_", " ") + "."
-	}
-
-	/*
-	 * Never more than whoever asked could use.
-	 *
-	 * Worked out to a written list — the template's, or what its capabilities
-	 * resolve to — and then cut down, so the file says what this one may touch
-	 * rather than depending only on a limit held somewhere else.
-	 *
-	 * Except when that leaves nothing. A file cannot say "no tools" — an empty
-	 * list means all of them there, as it does everywhere agents are written
-	 * — so the limit that says none is the one on the work it was hired for,
-	 * which is enforced where that work runs. A temporary hire does no other.
-	 */
-	if wish.Within != nil {
-		fit := Settle(agent, chart, cat, box)
-		mine := append([]string{}, (*wish.Within)...)
-
-		if fit.Narrowed {
-			mine = overlapOf(fit.Tools, *wish.Within)
-		}
-
-		agent.Tools = mine
-	}
-
-	hired := Hired{Job: job.ID, Can: agent.Can}
-
-	if wish.ForTask != 0 {
-		agent.State = Temporary
-		agent.HiredFor = wish.ForTask
-		hired.Why = fmt.Sprintf("hired as a %s for this job only, from the job %s",
-			strings.ToLower(agent.Title), strings.ToLower(job.Title))
-	} else {
-		seat, err := seatFor(root, chart, roster, agent, job)
-		if err != nil {
-			return Hired{}, err
-		}
-
-		agent.Position = seat
-		hired.Seat = seat
-		hired.Why = fmt.Sprintf("hired a %s from the job %s", strings.ToLower(agent.Title),
-			strings.ToLower(job.Title))
-	}
-
-	if err := Save(root, agent); err != nil {
-		return Hired{}, err
-	}
-
-	Forget()
-
-	hired.Agent = agent
-
-	return hired, nil
 }
 
 // knowsAll is whether somebody knows every capability a wish named, by
@@ -686,90 +640,6 @@ func unusedName(roster []Agent, name string) string {
 }
 
 /*
- * seatFor is where a permanent hire sits.
- *
- * A vacant seat for the same job first — that is a place the organisation
- * already said it wanted somebody. Otherwise a new seat, in the unit whose
- * seats are the nearest kind of work, reporting to its most senior seat.
- * Otherwise at the top of the chart. And with no chart at all, no seat, which
- * is a perfectly good answer: an agent with no seat works exactly as every
- * agent did before there was an organisation.
- */
-func seatFor(root string, chart []org.Unit, roster []Agent, agent Agent, job *store.Occupation) (string, error) {
-	filled := map[string]bool{}
-
-	for _, a := range roster {
-		if a.Working() && a.Position != "" {
-			filled[a.Position] = true
-		}
-	}
-
-	for _, seat := range org.Seats(chart) {
-		if seat.Job == job.ID && !filled[seat.Name] {
-			return seat.Name, nil
-		}
-	}
-
-	category, _, _ := strings.Cut(job.ID, ".")
-
-	for _, unit := range chart {
-		near := false
-
-		for _, seat := range unit.Seats {
-			if c, _, _ := strings.Cut(seat.Job, "."); c == category {
-				near = true
-
-				break
-			}
-		}
-
-		if !near {
-			continue
-		}
-
-		seat := org.Position{Name: agent.Name, Title: agent.Title, Job: job.ID, Seniority: org.Senior}
-
-		for _, other := range unit.Seats {
-			if other.ReportsTo == "" && other.Name != seat.Name {
-				seat.ReportsTo = other.Name
-
-				break
-			}
-		}
-
-		unit.Seats = append(append([]org.Position{}, unit.Seats...), seat)
-
-		if err := org.Save(root, unit); err != nil {
-			return "", err
-		}
-
-		return seat.Name, nil
-	}
-
-	/*
-	 * Nowhere nearer, so at the top: a seat in the unit nothing sits under,
-	 * answering to nobody on the chart — which on a personal organisation
-	 * means answering to its owner.
-	 */
-	for _, unit := range org.Shape(chart) {
-		if unit.Parent != "" {
-			continue
-		}
-
-		unit.Seats = append(append([]org.Position{}, unit.Seats...),
-			org.Position{Name: agent.Name, Title: agent.Title, Job: job.ID, Seniority: org.Senior})
-
-		if err := org.Save(root, unit); err != nil {
-			return "", err
-		}
-
-		return agent.Name, nil
-	}
-
-	return "", nil
-}
-
-/*
  * Dissolve lets go of everybody hired for one task, and says who.
  *
  * Their files go; their work does not — every step they did is still recorded
@@ -799,4 +669,57 @@ func Dissolve(root string, roster []Agent, task int64) ([]Agent, error) {
 	}
 
 	return gone, nil
+}
+
+// roleWords name a kind of worker without the usual endings.
+var roleWords = map[string]bool{
+	"guard": true, "nurse": true, "doctor": true, "chef": true, "cook": true, "pilot": true, "clerk": true,
+	"judge": true, "coach": true, "guide": true, "agent": true, "executive": true, "representative": true,
+	"detective": true, "surgeon": true, "medic": true, "vet": true, "tutor": true, "artist": true,
+	"architect": true, "analyst": true, "specialist": true, "consultant": true, "assistant": true,
+}
+
+/*
+ * roleNoun is the last word of a wish of two words or more, when it names a
+ * kind of worker — "tester" in "pen tester", "guard" in "security guard" —
+ * and empty when it does not: "game development", "fix my roof".
+ */
+func roleNoun(words []string) string {
+	if len(words) < 2 {
+		return ""
+	}
+
+	w := strings.ToLower(words[len(words)-1])
+
+	if roleWords[w] {
+		return w
+	}
+
+	if len([]rune(w)) < 5 || strings.HasSuffix(w, "ment") || strings.HasSuffix(w, "ing") {
+		return ""
+	}
+
+	for _, ending := range []string{"er", "or", "ist", "ian", "ant", "eer"} {
+		if strings.HasSuffix(w, ending) {
+			return w
+		}
+	}
+
+	return ""
+}
+
+// calledA is whether a job is called by a word, in its title or any of its
+// other names.
+func calledA(job store.Occupation, head string) bool {
+	if wordIn(strings.ToLower(job.Title), head) {
+		return true
+	}
+
+	for _, alias := range job.Aliases {
+		if wordIn(strings.ToLower(alias), head) {
+			return true
+		}
+	}
+
+	return false
 }

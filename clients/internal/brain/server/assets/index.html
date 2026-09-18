@@ -1674,8 +1674,145 @@
                         <input type="text" id="org-hire-for" autocomplete="off"
                             placeholder="specialises in Laravel security">
                     </div>
-                    <button type="button" class="task-button" id="org-hire-for-go">Find or hire</button>
+                    <button type="button" class="task-button" id="org-hire-for-go">Propose somebody</button>
                     <p class="note" id="org-hire-for-said"></p>
+
+                    <!--
+                        The proposal, before anything is written: who, what
+                        they may touch, what the machine needs, and what needs
+                        a professional. Nothing is hired until one of these
+                        buttons is pressed.
+                    -->
+                    <div id="org-proposal" hidden>
+                        <pre class="proposal-text" id="org-proposal-text"></pre>
+                        <div class="field" id="org-proposal-goal-field" hidden>
+                            <span>The one task</span>
+                            <input type="text" id="org-proposal-goal" autocomplete="off"
+                                placeholder="help me plan the kitchen wiring">
+                        </div>
+                        <div class="org-actions">
+                            <button type="button" class="task-button" id="org-proposal-permanent">Hire permanently</button>
+                            <button type="button" class="task-button" id="org-proposal-task">For one task</button>
+                            <button type="button" class="task-button" id="org-proposal-decline">Not now</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Start a project</h2>
+                    <p class="note">
+                        Say what to make and where. Nothing is guessed: with no folder you are
+                        asked for one, with no engine you are asked which. The folder is looked
+                        at first, the plan is shown in full, and nothing is written, installed
+                        or hired until you start it.
+                    </p>
+                    <div class="field">
+                        <span>What</span>
+                        <input type="text" id="proj-request" autocomplete="off"
+                            placeholder="a Tetris game">
+                    </div>
+                    <div class="field">
+                        <span>Where</span>
+                        <input type="text" id="proj-folder" autocomplete="off"
+                            placeholder="/home/you/Projects/tetris">
+                    </div>
+                    <button type="button" class="task-button" id="proj-go">Work it out</button>
+                    <p class="note" id="proj-said"></p>
+                    <div id="proj-proposal" hidden>
+                        <pre class="proposal-text" id="proj-proposal-text"></pre>
+                        <div class="org-actions" id="proj-options"></div>
+                        <div class="org-actions">
+                            <button type="button" class="task-button" id="proj-start" hidden>Start it</button>
+                            <button type="button" class="task-button" id="proj-decline" hidden>Not now</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Capability packages</h2>
+                    <p class="note">
+                        What a kind of work needs to be done well and safely: the role, what it
+                        may and may not touch, what the machine needs, and what finished means.
+                        Advisory work touches nothing; work that needs a licensed professional
+                        says who.
+                    </p>
+                    <div id="pkg-list"><p class="note">—</p></div>
+                </div>
+
+                <div class="card" id="res-card">
+                    <h2>How work is done</h2>
+                    <p class="note">
+                        You say what you want; this decides who writes it, with which model, and
+                        what takes over if that fails — subscriptions you already pay for first,
+                        then this machine. How much of a subscription is left is shown only when
+                        its service says; otherwise it is "unknown", never a guess.
+                    </p>
+                    <p class="note tiny" id="res-machine">—</p>
+                    <pre class="proposal-text" id="res-coding">—</pre>
+                    <div id="res-list"><p class="note">—</p></div>
+                    <details class="res-policy">
+                        <summary>Your policy</summary>
+                        <div class="field">
+                            <span>Where work may be done</span>
+                            <select id="res-privacy">
+                                <option value="cloud_preferred">services first</option>
+                                <option value="balanced">balanced — best suited, subscriptions first</option>
+                                <option value="local_preferred">this machine first</option>
+                                <option value="local_only">this machine only</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <span>When it switches</span>
+                            <select id="res-notify">
+                                <option value="verbose">tell me everything</option>
+                                <option value="normal">tell me briefly</option>
+                                <option value="minimal">only record it</option>
+                            </select>
+                        </div>
+                        <label class="field"><input type="checkbox" id="res-auto-models">
+                            <span>Install local models without asking, within the sizes below</span></label>
+                        <label class="field"><input type="checkbox" id="res-auto-tools">
+                            <span>Install pinned tools without asking, within the sizes below</span></label>
+                        <div class="field"><span>Largest download without asking (GB)</span>
+                            <input type="number" id="res-max-download" min="0" step="0.5"></div>
+                        <div class="field"><span>Keep free on the disk (GB)</span>
+                            <input type="number" id="res-min-free" min="0" step="1"></div>
+                        <div class="field"><span>Paid per use, a month (USD) — 0 means never; spending is not counted yet, so it is used only when a task names it</span>
+                            <input type="number" id="res-budget" min="0" step="1"></div>
+                        <div class="field"><span>Capacity lines: warn, low, stop (% left)</span>
+                            <span><input type="number" id="res-warn" min="0" max="100" class="res-pct">
+                            <input type="number" id="res-low" min="0" max="100" class="res-pct">
+                            <input type="number" id="res-critical" min="0" max="100" class="res-pct"></span></div>
+                        <button type="button" class="task-button" id="res-save">Save the policy</button>
+                    </details>
+                    <div id="res-runs"></div>
+                    <button type="button" class="task-button" id="res-refresh">Look again</button>
+                    <p class="note" id="res-said"></p>
+                </div>
+
+                <div class="card">
+                    <h2>On this machine</h2>
+                    <p class="note">
+                        Engines, runtimes and tools the packages ask for, and whether each is
+                        here in a version that will do. Only what this program ships a recipe
+                        for can be installed from here, pinned to a version and checked;
+                        licensed software is yours to install.
+                    </p>
+                    <div id="prov-list"><p class="note">—</p></div>
+                    <p class="note" id="prov-said"></p>
+                </div>
+
+                <div class="card">
+                    <h2>Integrations</h2>
+                    <p class="note">
+                        MCP servers: somebody else's programs offering tools. None runs until
+                        you approve it; its tools reach only the agents you grant them to, ask
+                        before they change anything, and what they send back is treated as
+                        information, never as instructions. What leaves this machine waits
+                        for your privacy setting.
+                    </p>
+                    <div id="int-list"><p class="note">—</p></div>
+                    <p class="note" id="int-said"></p>
                 </div>
 
                 <div class="card">
@@ -1718,7 +1855,7 @@
                             <option value="reason">the one that thinks</option>
                         </select>
                     </div>
-                    <button type="button" class="task-button" id="org-hire">Take them on</button>
+                    <button type="button" class="task-button" id="org-hire">Propose them</button>
                     <p class="note" id="org-hire-said"></p>
                 </div>
 
@@ -1823,6 +1960,7 @@
                     <p class="note" id="task-detail-chain" hidden></p>
                     <p class="note" id="task-detail-report" hidden></p>
                     <div id="task-detail-steps"></div>
+                    <div id="task-detail-evidence" hidden></div>
                 </div>
             </div>
         </section>
@@ -2104,6 +2242,7 @@
 <script src="/js/models.js"></script>
 <script src="/js/updates.js"></script>
 <script src="/js/organisation.js"></script>
+<script src="/js/equip.js"></script>
 <script src="/js/tasks.js"></script>
 <script src="/js/teaching.js"></script>
 <script src="/js/team.js"></script>

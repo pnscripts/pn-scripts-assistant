@@ -169,6 +169,17 @@ type Agent struct {
 	// with. Zero for everybody else.
 	HiredFor int64 `json:"hired_for,omitempty"`
 
+	/*
+	 * Packages are the capability packages this one works under, by id.
+	 *
+	 * What they allow was copied into Tools and Never when this one was
+	 * hired, the way a template is copied: a package changed next month does
+	 * not change what somebody already hired may touch. What is read from
+	 * them afresh is know-how and limits — see capability.Package.Standing —
+	 * which should be the current ones.
+	 */
+	Packages []string `json:"packages,omitempty"`
+
 	// BuiltIn marks one that shipped with the program rather than being
 	// written by its owner. Shown, so the two can be told apart.
 	BuiltIn bool `json:"built_in,omitempty"`
@@ -256,6 +267,10 @@ func BuiltIn() []Agent {
 		{
 			Name: "game_developer", Title: "Game developer", BuiltIn: true,
 			Position: "game_developer",
+			// Its tools are Godot's, so Godot is the package it works under:
+			// somebody asking for a Unity or three.js developer is asking for
+			// somebody this one is not, and should be offered a hire.
+			Packages: []string{"software.game.godot"},
 			For:      "Godot projects: scenes, GDScript, exporting, and checking a build runs",
 			Uses:     UsesWork,
 			Tools: []string{
@@ -554,6 +569,8 @@ func parse(raw, filename string) Agent {
 			agent.Also = splitList(strings.ToLower(value))
 		case "hired_for":
 			fmt.Sscan(value, &agent.HiredFor)
+		case "packages":
+			agent.Packages = splitList(strings.ToLower(value))
 		default:
 			agent.Manner.read(strings.ToLower(strings.TrimSpace(key)), value)
 		}
@@ -627,6 +644,7 @@ func Save(root string, agent Agent) error {
 		{"persona", strings.TrimSpace(agent.Persona)},
 		{"also", strings.Join(agent.Also, ", ")},
 		{"hired_for", hiredFor(agent.HiredFor)},
+		{"packages", strings.Join(agent.Packages, ", ")},
 	} {
 		if line[1] != "" {
 			b.WriteString(line[0] + ": " + line[1] + "\n")

@@ -1,0 +1,35 @@
+{
+  "id": "software.frontend",
+  "version": "1.0.0",
+  "title": "Frontend development",
+  "summary": "Builds what runs in the browser — pages, components, styles — and builds it with the project's own tooling.",
+  "work": "project",
+  "jobs": ["software.frontend_engineer", "software.full_stack_engineer", "design.ui_designer"],
+  "cues": ["frontend", "front-end", "website", "web page", "react", "vue", "svelte", "css", "html", "landing page"],
+  "role": {
+    "title": "Frontend engineer",
+    "for": "what runs in the browser: pages, components, styles and scripts",
+    "uses": "work",
+    "needs": ["tools"],
+    "brief": "Make it work before making it pretty, and check it at phone width. Use the project's own package scripts to build and test, and report what they printed.",
+    "tools": ["inspect_project", "read_file", "write_file", "edit_file", "search_files", "list_directory", "run_command", "read_document"],
+    "never": ["send_email", "set_device"]
+  },
+  "skills": [
+    "Semantic HTML first; a button is a <button>.",
+    "No layout that scrolls sideways at 360px wide."
+  ],
+  "knowledge": [
+    {"title": "MDN Web Docs", "url": "https://developer.mozilla.org/en-US/docs/Web"}
+  ],
+  "requires": [
+    {"id": "node", "versions": ">=18", "why": "runs the project's build and test scripts"},
+    {"id": "npm", "why": "installs the project's dependencies", "optional": true}
+  ],
+  "workspace": {
+    "outputs": ["dist", "build"],
+    "conventions": ["Dependencies declared in package.json, never copied in by hand"]
+  },
+  "evidence": ["files", "build"],
+  "risk": "medium"
+}

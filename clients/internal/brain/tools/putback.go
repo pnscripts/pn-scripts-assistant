@@ -167,3 +167,19 @@ func howLongSince(at time.Time) string {
 
 	return fmt.Sprintf("%d days ago", int(since.Hours()/24))
 }
+
+// Touches is the file it would put back. With none named it is the last
+// change anywhere, which is not something work on a project may reach for.
+func (PutBack) Touches(raw json.RawMessage) ([]string, []string) {
+	var a struct {
+		Path string `json:"path"`
+	}
+
+	json.Unmarshal(raw, &a)
+
+	if a.Path == "" {
+		return []string{"/"}, nil
+	}
+
+	return []string{a.Path}, nil
+}

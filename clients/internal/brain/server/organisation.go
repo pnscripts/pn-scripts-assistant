@@ -445,6 +445,31 @@ func (s *Server) handleHire(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	/*
+	 * Somebody new is a proposal, whichever button asked for them — the same
+	 * one the chat makes, confirmed through the same door. Only a change to
+	 * somebody already here is written straight away, and even then never a
+	 * tool list emptied to mean "everything".
+	 */
+	if !existing {
+		offer, err := s.brain.ProposeNewAgent(name, agent)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err.Error())
+
+			return
+		}
+
+		s.proposalView(w, offer.ID)
+
+		return
+	}
+
+	if body.Tools != nil && len(body.Tools) == 0 {
+		fail(w, http.StatusBadRequest, "an empty tool list would mean every tool — name the tools, or say none")
+
+		return
+	}
+
 	if err := team.Save(s.brain.Root, agent); err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 
@@ -469,35 +494,6 @@ func describeJob(db *store.DB, id string) string {
 	}
 
 	return job.Description
-}
-
-/*
- * handleHireFor answers "I need someone who specialises in Laravel security".
- *
- * With somebody already here when there is, and a new hire when there is not
- * — permanent, seated, and a file like everybody else. See team.Hire.
- */
-func (s *Server) handleHireFor(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Sentence string `json:"sentence"`
-	}
-
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
-		fail(w, http.StatusBadRequest, "unreadable request")
-
-		return
-	}
-
-	hired, err := team.Hire(s.brain.Root, team.Roster(s.brain.Root), org.Chart(s.brain.Root),
-		s.brain.DB, s.brain.Agent.Registry, team.Templates(s.brain.Root),
-		team.Wish{Sentence: body.Sentence})
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
-	ok(w, hired)
 }
 
 /*

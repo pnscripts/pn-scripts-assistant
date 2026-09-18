@@ -1,6 +1,9 @@
 package tools
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 /*
  * Which tools somebody good at something actually needs.
@@ -227,6 +230,17 @@ func Allowed(only []string, name string) bool {
 func Listed(names []string, name string) bool {
 	for _, one := range names {
 		if one == name {
+			return true
+		}
+
+		/*
+		 * mcp_files_* is every tool the integration called files has, which
+		 * cannot be named in advance: they are whatever its server lists.
+		 * Only for integrations — a star anywhere else is a tool named with a
+		 * star, which there are none of.
+		 */
+		if strings.HasPrefix(one, "mcp_") && strings.HasSuffix(one, "_*") &&
+			strings.HasPrefix(name, strings.TrimSuffix(one, "*")) {
 			return true
 		}
 	}

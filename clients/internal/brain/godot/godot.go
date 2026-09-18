@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -35,7 +36,7 @@ var names = []string{"godot4", "godot-4", "godot", "Godot", "godot3"}
 // a single executable people put wherever they keep such things.
 var places = []string{
 	"/usr/local/bin", "/opt/godot", "/opt",
-	"~/.local/bin", "~/Applications", "~/bin", "~/Downloads",
+	"~/.local/bin", "~/Applications", "~/bin", "~/Downloads", "~/Desktop", "~/Games",
 }
 
 // Engine is an installed Godot.
@@ -53,16 +54,54 @@ type Engine struct {
  * put it — the same trap the speech recogniser fell into.
  */
 func Find() (Engine, bool) {
+	all := FindAll()
+	if len(all) == 0 {
+		return Engine{}, false
+	}
+
+	return all[0], true
+}
+
+/*
+ * FindAll is every Godot on this machine, newest first.
+ *
+ * Somebody who downloaded 4.7.1 to the desktop and later let this program
+ * install 4.7.2 has two, and which one a project gets should be a choice made
+ * knowing both — not whichever happened to be looked at first.
+ */
+func FindAll() []Engine {
+	var found []Engine
+
+	seen := map[string]bool{}
+
+	add := func(path string) {
+		real, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			real = path
+		}
+
+		if seen[real] {
+			return
+		}
+
+		seen[real] = true
+		found = append(found, described(path))
+	}
+
 	for _, name := range names {
 		if path, err := exec.LookPath(name); err == nil {
-			return described(path), true
+			add(path)
 		}
 	}
 
 	home, _ := os.UserHomeDir()
 
 	for _, dir := range places {
-		if strings.HasPrefix(dir, "~/") && home != "" {
+		if strings.HasPrefix(dir, "~/") {
+			if home == "" {
+				continue
+			}
+
 			dir = filepath.Join(home, dir[2:])
 		}
 
@@ -76,17 +115,26 @@ func Find() (Engine, bool) {
 				continue
 			}
 
-			path := filepath.Join(dir, e.Name())
-
 			if info, err := e.Info(); err != nil || info.Mode()&0o111 == 0 {
 				continue
 			}
 
-			return described(path), true
+			add(filepath.Join(dir, e.Name()))
 		}
 	}
 
-	return Engine{}, false
+	// A binary that would not say its version is not one to build with.
+	usable := found[:0]
+
+	for _, e := range found {
+		if e.Version != "" {
+			usable = append(usable, e)
+		}
+	}
+
+	sort.SliceStable(usable, func(i, j int) bool { return Newer(usable[j].Version, usable[i].Version) })
+
+	return usable
 }
 
 // looksLikeGodot recognises the released filenames, which carry the version

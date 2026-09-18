@@ -110,6 +110,11 @@ func (EditFile) Execute(_ context.Context, raw json.RawMessage) (string, error) 
 	switch n := strings.Count(string(body), a.Old); n {
 	case 1:
 	case 0:
+		if line, n := nearest(string(body), a.Old); n > 0 {
+			return "", fmt.Errorf("that text is not in %s exactly; line %d is nearly it, and reads, "+
+				"exactly: %s — copy that, quotes and spaces as they are", a.Path, n, line)
+		}
+
 		return "", fmt.Errorf("that text is not in %s; read the file and copy the "+
 			"exact text, including indentation", a.Path)
 	default:
@@ -297,4 +302,33 @@ func truncateLine(line string) string {
 	}
 
 	return string(r[:most]) + "…"
+}
+
+/*
+ * nearest is the line of body that old's first line nearly is — the same but
+ * for its quotes and spacing — and its number, or 0. Never used to make the
+ * change, which must match exactly: only to show a model that retyped a line
+ * from memory with the wrong quotes what the line really says. A 7B model
+ * failed the same one-line fix three times on this machine for want of it.
+ */
+func nearest(body, old string) (string, int) {
+	want := loosely(strings.SplitN(strings.TrimSpace(old), "\n", 2)[0])
+	if len(want) < 8 {
+		return "", 0
+	}
+
+	for i, line := range strings.Split(body, "\n") {
+		if strings.Contains(loosely(line), want) {
+			return strings.TrimSpace(line), i + 1
+		}
+	}
+
+	return "", 0
+}
+
+// loosely is text with its quotes made one kind and its spacing removed.
+func loosely(s string) string {
+	s = strings.NewReplacer(`"`, "'", "`", "'").Replace(s)
+
+	return strings.Join(strings.Fields(s), "")
 }

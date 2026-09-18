@@ -284,6 +284,28 @@ const Recommended = "llama3.2:3b"
 // Returns the model to use for replies, which is the configured one unless
 // nothing at all is installed.
 func Ensure(ctx context.Context, c *Client, chat, embed string, note func(string)) (string, error) {
+	return EnsureAllowed(ctx, c, chat, embed, nil, note)
+}
+
+/*
+ * EnsureAllowed is Ensure under its owner's rules: allow says whether one
+ * model may be fetched without asking — its size, the room left on the disk,
+ * whether installing models without asking is allowed at all — and a model it
+ * refuses is not fetched, and the reason is said. Nil allows everything, as
+ * before there were rules.
+ */
+func EnsureAllowed(ctx context.Context, c *Client, chat, embed string, allow func(name string) (bool, string),
+	note func(string)) (string, error) {
+	pull := func(name string) error {
+		if allow != nil {
+			if ok, why := allow(name); !ok {
+				return fmt.Errorf("%s was not fetched: %s", name, why)
+			}
+		}
+
+		return c.Pull(ctx, name, note)
+	}
+
 	installed, err := c.List(ctx)
 	if err != nil {
 		// Ollama not answering is not something to fix by downloading: it is
@@ -299,7 +321,7 @@ func Ensure(ctx context.Context, c *Client, chat, embed string, note func(string
 			note("Fetching the memory model — the brain cannot recall anything without it")
 		}
 
-		if err := c.Pull(ctx, embed, note); err != nil {
+		if err := pull(embed); err != nil {
 			return chat, err
 		}
 	}
@@ -314,8 +336,10 @@ func Ensure(ctx context.Context, c *Client, chat, embed string, note func(string
 			note("Fetching " + chat)
 		}
 
-		if err := c.Pull(ctx, chat, note); err == nil {
+		if err := pull(chat); err == nil {
 			return chat, nil
+		} else if note != nil {
+			note(err.Error())
 		}
 	}
 
@@ -332,7 +356,7 @@ func Ensure(ctx context.Context, c *Client, chat, embed string, note func(string
 		note("No model installed — fetching " + Recommended)
 	}
 
-	if err := c.Pull(ctx, Recommended, note); err != nil {
+	if err := pull(Recommended); err != nil {
 		return chat, err
 	}
 

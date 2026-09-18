@@ -77,6 +77,30 @@ func TestAnEditThatMatchesNothingSaysSo(t *testing.T) {
 	}
 }
 
+// A line retyped with the wrong quotes is not changed — an edit matches
+// exactly or not at all — but the answer shows the line as it really is.
+func TestAnEditThatNearlyMatchesShowsTheLine(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "main.js")
+	text := "// main.js\nimport * as THREE from './vendor/three.module.js';\nnew THREE.Scene();\n"
+
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args, _ := json.Marshal(editArgs{Path: path, Old: `from "./vendor/three.module.js"`, New: "from 'three'"})
+
+	_, err := (EditFile{}).Execute(context.Background(), args)
+	if err == nil || !strings.Contains(err.Error(), "line 2") ||
+		!strings.Contains(err.Error(), "import * as THREE from './vendor/three.module.js';") {
+		t.Errorf("the nearly matching line was not shown: %v", err)
+	}
+
+	if body, _ := os.ReadFile(path); string(body) != text {
+		t.Error("a near match was edited")
+	}
+}
+
 // An edit keeps the file's permissions.
 //
 // Writing a script back as plain 0644 makes it stop being executable, and the

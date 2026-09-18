@@ -2,11 +2,8 @@ package preflight
 
 import (
 	"archive/zip"
-	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -413,22 +410,19 @@ const (
  * here — everything else optional on this list either needs apt or needs
  * building, and this needs neither.
  *
- * The release is asked for rather than pinned. A version written into this
- * file is a version that is wrong a month after it is written, and the thing
- * it would be wrong about is the engine somebody is going to build a game on.
+ * The release is pinned, and checked against the hash the project published
+ * with it. It used to ask which release was current and fetch whatever came
+ * back, which meant trusting an answer from the network and a file from the
+ * network at once. A newer release is still reported — see godot.Latest — but
+ * moving to it is an edit to pinned.go, not something a download decides.
  */
 func installGodot(w io.Writer) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
-	defer cancel()
-
-	fmt.Fprintln(w, "Asking which version of Godot is current…")
-
-	url, name, err := latestGodot(ctx)
+	release, err := GodotEngine()
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(w, "Downloading %s\n", name)
+	fmt.Fprintf(w, "Fetching %s\n", release.Name)
 
 	temp, err := os.MkdirTemp("", "pn-scripts-assistant-godot-*")
 	if err != nil {
@@ -439,7 +433,7 @@ func installGodot(w io.Writer) error {
 
 	archive := filepath.Join(temp, "godot.zip")
 
-	if err := download(url, archive, w); err != nil {
+	if err := Fetch(release, archive, w); err != nil {
 		return err
 	}
 
@@ -448,81 +442,77 @@ func installGodot(w io.Writer) error {
 		return err
 	}
 
-	into := filepath.Join(localBin(), "godot4")
+	/*
+	 * Beside what is there, never over it.
+	 *
+	 * Each release goes into a folder of its own, and godot4 on the PATH is
+	 * a link to the one in use — so a newer release does not destroy the one
+	 * projects were made with, and going back is pointing the link back. A
+	 * godot4 this program did not put there is somebody's own and is left
+	 * exactly as it is; the new release is still installed beside it and
+	 * said so.
+	 */
+	folder := GodotFolder(release.Version)
 
-	if err := os.MkdirAll(filepath.Dir(into), 0o755); err != nil {
+	if err := os.MkdirAll(folder, 0o755); err != nil {
 		return err
 	}
+
+	into := filepath.Join(folder, "godot")
 
 	if err := copyExecutable(engine, into); err != nil {
 		return err
 	}
 
-	fmt.Fprintf(w, "Godot is installed at %s\n", into)
+	link := filepath.Join(localBin(), "godot4")
+
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		return err
+	}
+
+	previous, err := os.Readlink(link)
+
+	switch {
+	case err == nil && !strings.HasPrefix(previous, GodotFolders()):
+		fmt.Fprintf(w, "%s is a link somebody else made, and is left alone; Godot %s is at %s\n", link, release.Version, into)
+
+		return nil
+	case err != nil && !os.IsNotExist(err):
+		if _, statErr := os.Lstat(link); statErr == nil {
+			fmt.Fprintf(w, "%s is a Godot this program did not install, and is left alone; Godot %s is at %s\n",
+				link, release.Version, into)
+
+			return nil
+		}
+	}
+
+	staged := link + ".new"
+	os.Remove(staged)
+
+	if err := os.Symlink(into, staged); err != nil {
+		return err
+	}
+
+	if err := os.Rename(staged, link); err != nil {
+		return err
+	}
+
+	if previous != "" && previous != into {
+		fmt.Fprintf(w, "Godot %s is in use; the one before it is kept at %s, and godot4 can be pointed back at it\n",
+			release.Version, previous)
+	} else {
+		fmt.Fprintf(w, "Godot %s is installed at %s\n", release.Version, into)
+	}
 
 	return nil
 }
 
-// latestGodot asks the project which build is current, for this machine.
-func latestGodot(ctx context.Context) (url, name string, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		"https://api.github.com/repos/godotengine/godot/releases/latest", nil)
-	if err != nil {
-		return "", "", err
-	}
+// GodotFolders is where this program keeps the Godot releases it installed.
+func GodotFolders() string { return filepath.Join(localShare("pn-scripts-assistant"), "engines") }
 
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("could not ask which version is current: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("the release list answered %d", resp.StatusCode)
-	}
-
-	var body struct {
-		Assets []struct {
-			Name string `json:"name"`
-			URL  string `json:"browser_download_url"`
-		} `json:"assets"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", "", err
-	}
-
-	/*
-	 * The build for this machine, by architecture.
-	 *
-	 * The releases carry arm32, arm64, x86_32 and x86_64, and the wrong one
-	 * downloads perfectly and then will not run — a failure that arrives
-	 * minutes later and says "cannot execute binary file".
-	 */
-	want := map[string]string{
-		"amd64": "linux.x86_64",
-		"386":   "linux.x86_32",
-		"arm64": "linux.arm64",
-		"arm":   "linux.arm32",
-	}[runtime.GOARCH]
-
-	if want == "" {
-		return "", "", fmt.Errorf("there is no Godot build for %s", runtime.GOARCH)
-	}
-
-	for _, a := range body.Assets {
-		// Not the .NET build: it needs a whole runtime this program does not
-		// install and most people do not want.
-		if strings.Contains(a.Name, want) && strings.HasSuffix(a.Name, ".zip") &&
-			!strings.Contains(strings.ToLower(a.Name), "mono") {
-			return a.URL, a.Name, nil
-		}
-	}
-
-	return "", "", fmt.Errorf("the current release has no build for %s", want)
+// GodotFolder is one release's folder.
+func GodotFolder(version string) string {
+	return filepath.Join(GodotFolders(), "godot-"+strings.TrimSuffix(version, "-stable"))
 }
 
 // unzipGodot takes the engine out of the archive and returns where it landed.

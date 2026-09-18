@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/workspace"
 	"strings"
 	"testing"
 
@@ -342,5 +343,75 @@ func TestASeriousStepIsReviewedAndWrongMeansNotEstablished(t *testing.T) {
 
 	if !strings.Contains(done.Report, "found wrong when it was reviewed") {
 		t.Errorf("the account does not say the review found it wrong:\n%s", done.Report)
+	}
+}
+
+// A step is handed on only to somebody free to take it: not a hire for a
+// different task, and for a project, somebody who works under its packages.
+func TestAStepGoesOnlyToSomebodyFreeToTakeIt(t *testing.T) {
+	godotGame := &store.Task{ID: 8, Packages: "software.game.godot"}
+
+	webDev := team.Agent{Name: "web", HiredFor: 5, Packages: []string{"software.game.threejs"}}
+	if availableFor(webDev, godotGame, 8) {
+		t.Error("another task's three.js hire was given a Godot game's step")
+	}
+
+	webDev.HiredFor = 0
+	if availableFor(webDev, godotGame, 8) {
+		t.Error("a three.js developer was given a Godot game's step")
+	}
+
+	godotDev := team.Agent{Name: "godot", Packages: []string{"software.game.godot"}}
+	anybody := team.Agent{Name: "writer"}
+	ownHire := team.Agent{Name: "hired", HiredFor: 8, Packages: []string{"software.game.godot"}}
+
+	for _, a := range []team.Agent{godotDev, anybody, ownHire} {
+		if !availableFor(a, godotGame, 8) {
+			t.Errorf("%s could not be given a step they are free to take", a.Name)
+		}
+	}
+}
+
+// A step of a project handed on stays a step of that project: the specialist's
+// task carries the project and its packages, so it is confined to the folder
+// and its files count in the project's record.
+func TestAProjectStepHandedOnStaysInTheProject(t *testing.T) {
+	dir := t.TempDir()
+	if err := workspace.Save(dir, workspace.Config{Name: "Tetris", Kind: "game", Engine: "threejs"}); err != nil {
+		t.Fatal(err)
+	}
+
+	model := &scripted{replies: []llm.Response{{Content: "Probably fine."}, {Content: "Still probably fine."}}}
+
+	c, db, _ := newConductor(t, model)
+
+	c.Roster = func() []team.Agent {
+		return []team.Agent{
+			{Name: "assistant", Title: "Assistant", For: "anything"},
+			{Name: "games", Title: "Game developer", For: "writing tetris games in a project",
+				Tools: []string{"list_directory"}},
+		}
+	}
+
+	conv, _ := db.NewConversation("t")
+
+	task, _, err := c.TakeWith(context.Background(), conv, "Make me a Tetris game", "scripted", true, Taking{
+		Project: dir, Packages: []string{"software.game.threejs"}, Name: "Tetris",
+		Steps: []store.TaskStep{{Instruction: "Write the tetris game in the project", Kind: store.StepDo, Changes: true,
+			Assignee: "assistant"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	finished(t, db, task.ID)
+
+	children, _ := db.Children(task.ID)
+	if len(children) == 0 {
+		t.Fatal("the step was not handed on, so this proves nothing")
+	}
+
+	if children[0].Project != dir || children[0].Packages != "software.game.threejs" {
+		t.Errorf("the specialist's task left the project behind: project %q, packages %q",
+			children[0].Project, children[0].Packages)
 	}
 }

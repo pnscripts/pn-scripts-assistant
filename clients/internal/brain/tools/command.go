@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/sandbox"
 )
 
 // RunCommand runs a program on the machine.
@@ -109,8 +111,21 @@ func (c RunCommand) Execute(ctx context.Context, raw json.RawMessage) (string, e
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, a.Argv[0], a.Argv[1:]...)
-	cmd.Dir = a.Dir
+	/*
+	 * Started with nothing of this program's: no keys in its environment, in
+	 * a process group of its own so stopping it stops what it started, and —
+	 * on a project — held by the kernel to writing in the project.
+	 */
+	spec := sandbox.Spec{Dir: a.Dir, Inherit: true}
+
+	if writable, confined := sandbox.WritableFrom(ctx); confined {
+		spec = sandbox.Spec{Dir: a.Dir, Writable: writable}
+	}
+
+	cmd, err := sandbox.Command(ctx, spec, a.Argv...)
+	if err != nil {
+		return "", err
+	}
 
 	// A command that reads stdin would block forever waiting for a person who
 	// is not there. Closing it makes such a command fail immediately instead.
@@ -120,7 +135,7 @@ func (c RunCommand) Execute(ctx context.Context, raw json.RawMessage) (string, e
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 
-	err := cmd.Run()
+	err = cmd.Run()
 	text := strings.TrimSpace(out.String())
 
 	if ctx.Err() == context.DeadlineExceeded {

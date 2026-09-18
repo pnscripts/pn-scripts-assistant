@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"strings"
 	"time"
 	"unicode"
@@ -112,10 +113,43 @@ func (d *DB) HowMuchRemembered() (map[string]int, error) {
  * more than the step it was meant to help.
  */
 func (d *DB) Recall(agent, work string, most int) ([]Memory, error) {
+	return d.RecallIn(agent, work, "", most)
+}
+
+/*
+ * RecallIn is Recall held to one project: what an agent learned working on a
+ * project is recalled only on that project, and what it learned elsewhere is
+ * not carried into one. An agent that built a client's game should not be
+ * reminded of that client's codename while it builds somebody else's —
+ * and a step on a project may well be sent to a service off this machine.
+ */
+func (d *DB) RecallIn(agent, work, project string, most int) ([]Memory, error) {
 	all, err := d.Memories(agent, 200)
 	if err != nil {
 		return nil, err
 	}
+
+	projects := map[int64]string{}
+
+	within := all[:0]
+
+	for _, m := range all {
+		where, known := projects[m.TaskID]
+
+		if !known && m.TaskID != 0 {
+			var p sql.NullString
+
+			d.sql().QueryRow(`SELECT project FROM tasks WHERE id = ?`, m.TaskID).Scan(&p)
+			where = p.String
+			projects[m.TaskID] = where
+		}
+
+		if where == project {
+			within = append(within, m)
+		}
+	}
+
+	all = within
 
 	wanted := significant(work)
 

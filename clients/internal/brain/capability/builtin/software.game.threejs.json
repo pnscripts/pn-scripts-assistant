@@ -1,0 +1,38 @@
+{
+  "id": "software.game.threejs",
+  "version": "1.0.0",
+  "title": "three.js web games",
+  "summary": "Makes games that run in a browser with three.js: no build step, checked and photographed in a real browser engine.",
+  "work": "project",
+  "jobs": ["software.game_developer", "software.frontend_engineer"],
+  "cues": ["three.js", "threejs", "three", "webgl", "browser game", "web game"],
+  "engine": "threejs",
+  "role": {
+    "title": "Web game developer",
+    "for": "games that run in a browser with three.js: scenes, controls, and a page that loads without errors",
+    "uses": "work",
+    "needs": ["tools"],
+    "brief": "Import three from the copy vendored in the project, never from a CDN: the game must run offline and on the version it was written against. Check the page in the browser engine after every change, and read what the console said.",
+    "tools": ["game_engines", "game_docs", "game_check", "game_build", "inspect_project", "read_file", "write_file", "edit_file", "search_files", "list_directory"],
+    "never": ["send_email", "set_device"]
+  },
+  "skills": [
+    "An ES module page: <script type=\"importmap\"> maps \"three\" to ./vendor/three.module.js, and the game is src/main.js loaded with type=\"module\".",
+    "Drive the loop with renderer.setAnimationLoop, and size the renderer from the window on resize.",
+    "Keep game rules (a grid, a score) apart from drawing, so they can be checked without a screen."
+  ],
+  "knowledge": [
+    {"title": "three.js documentation for the vendored release", "url": "https://github.com/mrdoob/three.js/tree/r{version}/docs", "versioned": true},
+    {"title": "MDN: JavaScript modules", "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules"}
+  ],
+  "requires": [
+    {"id": "node", "versions": ">=18", "why": "checks the scripts' syntax before the page is opened", "optional": true}
+  ],
+  "workspace": {
+    "template": "threejs",
+    "outputs": ["dist"],
+    "conventions": ["No build step", "three.js vendored, never fetched: import it as `import * as THREE from 'three'`, which index.html maps to vendor/three.module.js — never by a path", "Game rules in their own module, src/game.js, imported from src/main.js as './game.js'"]
+  },
+  "evidence": ["files", "check", "smoke", "screenshot", "versions"],
+  "risk": "medium"
+}

@@ -5413,3 +5413,78 @@ html.has-stage.stage-overview .stage-frame * { pointer-events: none !important; 
     white-space: nowrap;
     pointer-events: none;
 }
+
+
+/* ---------- equipping the organisation ----------
+ *
+ * Proposals, packages, the machine and integrations. A proposal is read in
+ * full before anything is approved, so it is set as the text it is — lines
+ * kept, nothing collapsed — rather than dressed as a form.
+ */
+
+.proposal-text {
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 10px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    background: var(--bg-raised);
+    max-height: 420px;
+    overflow: auto;
+}
+
+.equip-item {
+    margin: 10px 0 0;
+    padding: 8px 0 6px;
+    border-top: 1px solid var(--line);
+}
+
+.equip-item .note { margin: 3px 0; }
+
+.equip-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    cursor: default;
+}
+
+summary.equip-head { cursor: pointer; }
+
+.equip-title { font-weight: 600; font-size: 13px; }
+
+.equip-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 6px 0 2px;
+    border-top: 1px solid var(--line);
+}
+
+.equip-row .task-button { margin-left: auto; }
+
+.equip-under { margin: 0 0 4px; }
+
+.equip-limit { color: var(--warn); }
+
+.equip-subhead {
+    margin: 14px 0 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+
+#org-proposal .org-actions,
+#proj-proposal .org-actions { margin-top: 6px; }
+
+[hidden].task-button { display: none; }
+
+/* How work is done: the policy's three capacity lines sit on one row. */
+.res-pct { width: 4.5em; }
+.res-policy { margin: 0.6rem 0; }
+.res-policy summary { cursor: pointer; }

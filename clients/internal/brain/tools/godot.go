@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"pn-scripts-assistant/internal/brain/engines"
 	"pn-scripts-assistant/internal/brain/godot"
 	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 /*
@@ -270,13 +269,6 @@ func names(c godot.Class) string {
 	return strings.Join(out, ", ")
 }
 
-// HowLongAGodotJobMayTake bounds running or exporting a game.
-//
-// Exporting a large project is minutes; a game left running is forever, and
-// this has to end on its own or it holds a background slot until the program
-// stops.
-const HowLongAGodotJobMayTake = 20 * time.Minute
-
 // GodotBuild runs or exports a project.
 type GodotBuild struct{}
 
@@ -334,7 +326,18 @@ func (GodotBuild) Summarize(args json.RawMessage) string {
 	return "Run " + filepath.Base(a.Project) + " to see whether it starts"
 }
 
-func (GodotBuild) Execute(ctx context.Context, args json.RawMessage) (string, error) {
+/*
+ * Execute runs the Godot adapter, which is where running and exporting Godot
+ * projects now lives — this tool is the name it has always had, kept for
+ * everything that already knows it.
+ */
+func (t GodotBuild) Execute(ctx context.Context, args json.RawMessage) (string, error) {
+	out, _, err := t.ExecuteShowing(ctx, args)
+
+	return out, err
+}
+
+func (GodotBuild) ExecuteShowing(ctx context.Context, args json.RawMessage) (string, []store.Evidence, error) {
 	var a struct {
 		Project string `json:"project"`
 		What    string `json:"what"`
@@ -343,110 +346,42 @@ func (GodotBuild) Execute(ctx context.Context, args json.RawMessage) (string, er
 	}
 
 	if err := json.Unmarshal(args, &a); err != nil {
-		return "", fmt.Errorf("could not read the arguments: %w", err)
+		return "", nil, fmt.Errorf("could not read the arguments: %w", err)
 	}
 
-	engine, ok := godot.Find()
+	adapter := engines.Godot{Preset: a.Preset}
+
+	p, ok := adapter.Detect(a.Project)
 	if !ok {
-		return "", fmt.Errorf("Godot is not installed on this machine")
+		return "", nil, fmt.Errorf("%s is not a Godot project — there is no project.godot in it", a.Project)
 	}
 
-	if _, err := os.Stat(filepath.Join(a.Project, "project.godot")); err != nil {
-		return "", fmt.Errorf("%s is not a Godot project — there is no project.godot in it", a.Project)
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, HowLongAGodotJobMayTake)
-	defer cancel()
-
-	/*
-	 * Headless, always.
-	 *
-	 * There is a screen on this machine and putting a game window on it
-	 * uninvited is not what "check whether it starts" means. Headless answers
-	 * the question — the project loads, the scripts parse, the scene opens —
-	 * without taking over what somebody is looking at.
-	 */
-	var cmd *exec.Cmd
-
-	switch a.What {
-	case "export":
-		if strings.TrimSpace(a.Into) == "" {
-			return "", fmt.Errorf("where should the build go?")
-		}
-
-		preset := a.Preset
-		if preset == "" {
-			preset = "Linux/X11"
-		}
-
-		cmd = exec.CommandContext(ctx, engine.Path, "--headless",
-			"--path", a.Project, "--export-release", preset, a.Into)
-
-		progress.Detail("exporting " + filepath.Base(a.Project))
-
-	default:
-		cmd = exec.CommandContext(ctx, engine.Path, "--headless",
-			"--path", a.Project, "--quit")
-
-		progress.Detail("running " + filepath.Base(a.Project))
-	}
-
-	out, err := cmd.CombinedOutput()
-	said := strings.TrimSpace(string(out))
-
-	if err != nil {
-		/*
-		 * The engine's own words, not "it failed".
-		 *
-		 * Godot prints the script, the line and the reason. Replacing that
-		 * with a status code throws away the entire answer.
-		 */
-		return "", fmt.Errorf("%s did not work: %v\n%s", a.What, err, lastLines(said, 20))
-	}
-
-	// Godot exits zero with errors printed, so the output has to be read
-	// rather than the status trusted.
-	if problems := errorsIn(said); problems != "" {
-		return fmt.Sprintf("It ran, and the engine reported problems:\n%s", problems), nil
+	if _, installed := adapter.Engine(); !installed {
+		return "", nil, fmt.Errorf("Godot is not installed on this machine")
 	}
 
 	if a.What == "export" {
-		return fmt.Sprintf("Exported to %s.", a.Into), nil
-	}
-
-	return "It opens and the scripts parse, with nothing reported.", nil
-}
-
-// errorsIn picks the engine's complaints out of its ordinary chatter.
-func errorsIn(out string) string {
-	var kept []string
-
-	for _, line := range strings.Split(out, "\n") {
-		trimmed := strings.TrimSpace(line)
-
-		for _, mark := range []string{"ERROR", "SCRIPT ERROR", "WARNING", "Parse Error"} {
-			if strings.HasPrefix(trimmed, mark) {
-				kept = append(kept, trimmed)
-
-				break
-			}
+		if strings.TrimSpace(a.Into) == "" {
+			return "", nil, fmt.Errorf("where should the build go?")
 		}
+
+		folder := a.Into
+
+		// A file named, as this tool always took: the folder is where it goes.
+		if filepath.Ext(a.Into) != "" {
+			folder, adapter.File = filepath.Dir(a.Into), a.Into
+		}
+
+		progress.Detail("exporting " + filepath.Base(a.Project))
+
+		run := adapter.Build(ctx, p, folder)
+
+		return run.Summary(), RunEvidence(run, store.EvidenceExport), nil
 	}
 
-	if len(kept) > 12 {
-		kept = append(kept[:12], fmt.Sprintf("… and %d more", len(kept)-12))
-	}
+	progress.Detail("running " + filepath.Base(a.Project))
 
-	return strings.Join(kept, "\n")
-}
+	run := adapter.Check(ctx, p)
 
-// lastLines is the end of a program's output, where it says what went wrong.
-func lastLines(out string, n int) string {
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-
-	if len(lines) > n {
-		lines = lines[len(lines)-n:]
-	}
-
-	return strings.Join(lines, "\n")
+	return run.Summary(), RunEvidence(run, store.EvidenceCheck), nil
 }

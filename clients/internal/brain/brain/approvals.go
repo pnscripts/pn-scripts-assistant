@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/workspace"
 )
 
 // PendingApprovals lists actions waiting for a decision.
@@ -86,7 +89,24 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 	// Otherwise the thing approved and the thing performed could differ, and the
 	// summary the owner read would be a description of something that did not
 	// happen.
-	output, execErr := tool.Execute(ctx, json.RawMessage(invocation.Arguments))
+	/*
+	 * An action a project's task was waiting on is carried out on that
+	 * project's terms, whenever the answer comes: checked against its folders
+	 * again, since the settings may have changed while it waited, and run
+	 * under the same confinement as if it had needed no approval at all.
+	 */
+	if within := b.projectOf(invocation.ID); within != nil {
+		if why := agent.Outside(within, tool, json.RawMessage(invocation.Arguments)); why != "" {
+			b.DB.CompleteInvocation(id, store.InvocationFailed, "refused: "+why)
+			invocation.Status = store.InvocationFailed
+
+			return *invocation, fmt.Errorf("refused: %s", why)
+		}
+
+		ctx = agent.Confined(ctx, within)
+	}
+
+	output, evidence, execErr := tools.Perform(ctx, tool, json.RawMessage(invocation.Arguments))
 
 	status := store.InvocationDone
 	result := output
@@ -104,6 +124,12 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 	invocation.Result = result
 
 	b.Log.Info("carried out an approved action", "id", id, "tool", invocation.Tool, "status", status)
+
+	// What it can prove it did, kept against the task step that waited for
+	// it — an approved command leaves the same record as any other.
+	if b.Tasks != nil {
+		b.Tasks.Proved(*invocation, evidence)
+	}
 
 	b.carryOn(ctx, *invocation)
 
@@ -129,4 +155,26 @@ func (b *Brain) carryOn(ctx context.Context, invocation store.Invocation) {
 		b.Log.Warn("could not carry on with what was waiting on this",
 			"invocation", invocation.ID, "error", err)
 	}
+}
+
+// projectOf is the project a waiting action belongs to, through the task
+// step that asked for it, or nil.
+func (b *Brain) projectOf(invocationID int64) agent.Confine {
+	step, err := b.DB.StepWaitingOn(invocationID)
+	if err != nil || step == nil {
+		return nil
+	}
+
+	task, err := b.DB.Task(step.TaskID)
+	if err != nil || task == nil || task.Project == "" {
+		return nil
+	}
+
+	cfg, err := workspace.Load(task.Project)
+	if err != nil {
+		// Settings that cannot be read confine to the folder alone.
+		cfg = workspace.Config{}
+	}
+
+	return workspace.ScopeOf(task.Project, cfg)
 }

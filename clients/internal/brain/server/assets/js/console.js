@@ -1246,7 +1246,17 @@ async function refreshApprovals() {
             decide(item.id, 'approve');
         };
 
-        actions.append(approve, always, reject);
+        /*
+         * An action that is always asked — installing, starting a project,
+         * sending something off this machine, deleting for good — cannot be
+         * allowed for good, whatever is chosen here; offering to would be a
+         * button that quietly does nothing. Its summary says it is one.
+         */
+        if ((item.summary || '').startsWith('Always asked')) {
+            actions.append(approve, reject);
+        } else {
+            actions.append(approve, always, reject);
+        }
         card.append(summary, actions);
         list.appendChild(card);
     });

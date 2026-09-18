@@ -1,0 +1,36 @@
+{
+  "id": "writing.book",
+  "version": "1.0.0",
+  "title": "Writing a book",
+  "summary": "Plans and drafts a book — outline, characters, chapters — as files its owner keeps, and exports it when asked.",
+  "work": "advisory",
+  "jobs": ["media.writer", "media.editor"],
+  "cues": ["book", "novel", "novella", "manuscript", "chapter", "chapters", "story", "memoir", "роман", "книга"],
+  "role": {
+    "title": "Book writer",
+    "for": "planning and drafting a book: the outline, the people in it, and the chapters themselves",
+    "uses": "best",
+    "brief": "Write the thing itself, not a description of it. Keep the outline and the list of characters current as the draft changes, so chapter twelve does not contradict chapter two. Mark anything you invented about real people or places.",
+    "tools": ["write_document", "write_file", "edit_file", "read_document", "read_file", "search_files", "list_directory", "what_you_know", "web_search", "fetch_url"],
+    "never": ["send_email", "run_command"]
+  },
+  "skills": [
+    "An outline first: what happens, to whom, and why it matters, chapter by chapter.",
+    "One chapter per file, named so they sort in order.",
+    "The owner's voice and choices win over any convention."
+  ],
+  "requires": [
+    {"id": "pandoc", "why": "turns the manuscript into EPUB or Word when it is ready", "optional": true}
+  ],
+  "workspace": {
+    "template": "book",
+    "outputs": ["export"],
+    "conventions": ["manuscript/ holds the chapters", "notes/ holds the outline and the characters"]
+  },
+  "evidence": ["document", "files"],
+  "risk": "low",
+  "limits": [
+    "Submit, publish or send the manuscript anywhere",
+    "Present text copied from another author's work as the owner's"
+  ]
+}

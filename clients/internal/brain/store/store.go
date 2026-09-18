@@ -718,6 +718,118 @@ var migrations = []string{
 	CREATE INDEX idx_agent_memories_agent ON agent_memories(agent, id DESC);
 	ALTER TABLE task_steps ADD COLUMN handed_by TEXT;
 	`,
+
+	/*
+	 * 16: proposals, evidence, what integrations did, and a task's project.
+	 *
+	 * A proposal is what somebody is asked to agree to before anything
+	 * material happens — a hire, a project — kept whole, so what was approved
+	 * is exactly what was shown and can be read back afterwards. Decided once:
+	 * its state moves from open, and never back.
+	 *
+	 * Evidence is what a task can prove it did, a row per thing: a command and
+	 * its exit status, a file and whether it was new, a build and where it
+	 * went. Kept apart from the steps' prose, because "the tests passed" in a
+	 * sentence and a row saying which command exited zero are different kinds
+	 * of claim, and only one of them decides whether a job is finished.
+	 *
+	 * integration_events is every time an outside server was switched on, read
+	 * from or called, and by whom. What went in is kept as its size and a
+	 * digest rather than its text, so the record of a call cannot become a
+	 * second copy of whatever was private in it.
+	 *
+	 * project is the folder a task works in, and packages what it works
+	 * under; both empty for everything before.
+	 */
+	`
+	CREATE TABLE proposals (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		kind TEXT NOT NULL,
+		conversation_id INTEGER,
+		request TEXT NOT NULL,
+		body TEXT NOT NULL,
+		state TEXT NOT NULL,
+		outcome TEXT,
+		created_at TEXT NOT NULL,
+		decided_at TEXT
+	);
+	CREATE INDEX idx_proposals_conversation ON proposals(conversation_id, id DESC);
+
+	CREATE TABLE evidence (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		task_id INTEGER NOT NULL,
+		step_id INTEGER,
+		kind TEXT NOT NULL,
+		subject TEXT NOT NULL,
+		detail TEXT NOT NULL DEFAULT '',
+		ok INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL
+	);
+	CREATE INDEX idx_evidence_task ON evidence(task_id, id);
+
+	CREATE TABLE integration_events (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		server TEXT NOT NULL,
+		event TEXT NOT NULL,
+		tool TEXT,
+		agent TEXT,
+		task_id INTEGER,
+		detail TEXT NOT NULL DEFAULT '',
+		created_at TEXT NOT NULL
+	);
+	CREATE INDEX idx_integration_events_server ON integration_events(server, id DESC);
+
+	ALTER TABLE tasks ADD COLUMN project TEXT;
+	ALTER TABLE tasks ADD COLUMN packages TEXT;
+	`,
+
+	/*
+	 * 17: choosing how work is done, and remembering how it went.
+	 *
+	 * resource_runs is every time a resource — a coding agent, a model, an
+	 * engine — was given work, and what came of it: the history the
+	 * orchestrator breaks ties with and the record of every switch.
+	 * resource_usage is the last reading of how much of a subscription is
+	 * left, when its service says; a row with no remaining is a service that
+	 * would not say, and nothing is invented in its place.
+	 *
+	 * A step's action is work done by this program rather than asked of a
+	 * model — checking, running and building a project — and a task's
+	 * resources is what it was told about how it may be done.
+	 */
+	`
+	CREATE TABLE resource_runs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		resource TEXT NOT NULL,
+		kind TEXT NOT NULL,
+		work TEXT NOT NULL DEFAULT '',
+		model TEXT NOT NULL DEFAULT '',
+		task_id INTEGER,
+		step_id INTEGER,
+		result TEXT NOT NULL,
+		failure TEXT NOT NULL DEFAULT '',
+		detail TEXT NOT NULL DEFAULT '',
+		millis INTEGER NOT NULL DEFAULT 0,
+		verified INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL
+	);
+	CREATE INDEX idx_resource_runs_resource ON resource_runs(resource, id DESC);
+
+	CREATE TABLE resource_usage (
+		resource TEXT PRIMARY KEY,
+		state TEXT NOT NULL,
+		remaining REAL,
+		window TEXT NOT NULL DEFAULT '',
+		resets_at TEXT,
+		plan TEXT NOT NULL DEFAULT '',
+		source TEXT NOT NULL DEFAULT '',
+		detail TEXT NOT NULL DEFAULT '',
+		observed_at TEXT NOT NULL
+	);
+
+	ALTER TABLE task_steps ADD COLUMN action TEXT;
+	ALTER TABLE tasks ADD COLUMN resources TEXT;
+	`,
 }
 
 /*

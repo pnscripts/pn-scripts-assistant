@@ -62,3 +62,10 @@ func TestTheStageImportsTheThreeBesideIt(t *testing.T) {
 		t.Error("stage.js no longer imports ./three.module.js")
 	}
 }
+
+// The revision written down is the one compiled in.
+func TestTheRevisionIsTheOneCompiledIn(t *testing.T) {
+	if !strings.Contains(string(Three()[:400]), `const t="`+ThreeRevision+`"`) {
+		t.Errorf("three.js is not r%s", ThreeRevision)
+	}
+}

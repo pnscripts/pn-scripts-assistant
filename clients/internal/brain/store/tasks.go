@@ -106,6 +106,19 @@ type Task struct {
 	// Hired is everybody hired for this task, a line each. See migration 13.
 	Hired string `json:"hired,omitempty"`
 
+	/*
+	 * Project is the folder this task works in, and Packages what it works
+	 * under, comma separated. See migration 16. Empty for a task that is not
+	 * about a project, which is every task before there were projects.
+	 */
+	Project  string `json:"project,omitempty"`
+	Packages string `json:"packages,omitempty"`
+
+	// Resources is what the task was told about how it may be done — local
+	// only, a provider it must use, the most it may cost — as the
+	// orchestrator's policy in JSON. Empty is the owner's own policy.
+	Resources string `json:"resources,omitempty"`
+
 	Report    string    `json:"report,omitempty"`
 	Because   string    `json:"blocked_because,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
@@ -166,6 +179,14 @@ type TaskStep struct {
 	// before it. See migration 12.
 	Together bool `json:"together,omitempty"`
 
+	/*
+	 * Action is work this program does itself rather than asks a model to:
+	 * "engine:check", "engine:smoke" and "engine:build" on a project. Checking
+	 * a game is a command with a known answer, and a model asked to call the
+	 * tool that does it adds a guess where there was none.
+	 */
+	Action string `json:"action,omitempty"`
+
 	Answer    string `json:"answer,omitempty"`
 	Evidence  string `json:"evidence,omitempty"`
 	CheckedBy string `json:"checked_by,omitempty"`
@@ -182,7 +203,8 @@ const taskColumns = `id, name, goal, done_when, state,
 	COALESCE(deadline,''), COALESCE(report,''), COALESCE(blocked_because,''),
 	created_at, updated_at, COALESCE(finished_at,''), COALESCE(risk,''),
 	COALESCE(parent_task_id,0), COALESCE(parent_step_id,0), COALESCE(depth,0), within,
-	COALESCE(never,''), COALESCE(hired,'')`
+	COALESCE(never,''), COALESCE(hired,''), COALESCE(project,''), COALESCE(packages,''),
+	COALESCE(resources,'')`
 
 func scanTask(row interface{ Scan(...any) error }) (Task, error) {
 	var (
@@ -196,7 +218,8 @@ func scanTask(row interface{ Scan(...any) error }) (Task, error) {
 		&t.ConversationID, &t.WorkConversationID, &t.Provider,
 		&t.JobID, &t.StepsLeft, &t.CallsLeft, &t.ReplansLeft,
 		&deadline, &report, &because, &created, &updated, &ended, &t.Risk,
-		&t.ParentTaskID, &t.ParentStepID, &t.Depth, &within, &never, &t.Hired)
+		&t.ParentTaskID, &t.ParentStepID, &t.Depth, &within, &never, &t.Hired,
+		&t.Project, &t.Packages, &t.Resources)
 	if err != nil {
 		return t, err
 	}
@@ -268,13 +291,14 @@ func (d *DB) NewTask(t Task) (int64, error) {
 		INSERT INTO tasks (name, goal, done_when, state, conversation_id,
 			work_conversation_id, provider, steps_left, calls_left, replans_left,
 			deadline, created_at, updated_at, parent_task_id, parent_step_id, depth,
-			within, never, risk)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			within, never, risk, project, packages, resources, hired)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		t.Name, t.Goal, t.DoneWhen, orElse(t.State, TaskPlanning),
 		nullable(t.ConversationID), nullable(t.WorkConversationID), t.Provider,
 		t.StepsLeft, t.CallsLeft, t.ReplansLeft, asText(t.Deadline), now, now,
 		nullable(t.ParentTaskID), nullable(t.ParentStepID), t.Depth,
-		withinText(t.Within), nullText(strings.Join(t.Never, ",")), nullText(t.Risk))
+		withinText(t.Within), nullText(strings.Join(t.Never, ",")), nullText(t.Risk),
+		nullText(t.Project), nullText(t.Packages), nullText(t.Resources), nullText(t.Hired))
 	if err != nil {
 		return 0, fmt.Errorf("recording the task: %w", err)
 	}
@@ -513,11 +537,11 @@ func (d *DB) AddSteps(taskID int64, steps []TaskStep) error {
 		_, err := tx.Exec(`
 			INSERT INTO task_steps (task_id, position, instruction, done_when, kind,
 				changes, assignee, risk, state, created_at, updated_at,
-				escalated_from, review_of, together)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+				escalated_from, review_of, together, action)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			taskID, highest+i+1, s.Instruction, s.DoneWhen, orElse(s.Kind, StepDo),
 			s.Changes, s.Assignee, orElse(s.Risk, "low"), StepWaiting, now, now,
-			nullable(s.EscalatedFrom), nullable(s.ReviewOf), s.Together && i > 0)
+			nullable(s.EscalatedFrom), nullable(s.ReviewOf), s.Together && i > 0, nullText(s.Action))
 		if err != nil {
 			return fmt.Errorf("writing step %d: %w", i+1, err)
 		}
@@ -532,7 +556,7 @@ const stepColumns = `id, task_id, position, instruction, done_when, kind, change
 	COALESCE(verdict,''), COALESCE(why,''),
 	COALESCE(started_at,''), COALESCE(ended_at,''), COALESCE(risk,''), COALESCE(acted,''),
 	COALESCE(handed_to,0), COALESCE(escalated_from,0), COALESCE(review_of,0),
-	COALESCE(together,0)`
+	COALESCE(together,0), COALESCE(action,'')`
 
 func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	var (
@@ -543,7 +567,7 @@ func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	err := row.Scan(&s.ID, &s.TaskID, &s.Position, &s.Instruction, &s.DoneWhen,
 		&s.Kind, &s.Changes, &s.Assignee, &s.Provider, &s.Model, &s.State,
 		&s.Attempts, &s.Answer, &s.Evidence, &s.CheckedBy, &s.Verdict, &s.Why,
-		&started, &ended, &s.Risk, &s.Acted, &s.HandedTo, &s.EscalatedFrom, &s.ReviewOf, &s.Together)
+		&started, &ended, &s.Risk, &s.Acted, &s.HandedTo, &s.EscalatedFrom, &s.ReviewOf, &s.Together, &s.Action)
 	if err != nil {
 		return s, err
 	}
@@ -665,6 +689,16 @@ func (d *DB) FinishStep(s TaskStep) error {
 		WHERE id = ?`,
 		s.State, s.Answer, s.Evidence, s.CheckedBy, s.Verdict, s.Why, nullText(s.Acted),
 		s.Assignee, ended, now, s.ID)
+
+	return err
+}
+
+// SetStepWriter records who is actually doing a step once that is decided —
+// the orchestrator's choice, rather than the usual model of whoever it was
+// given to, which is what the step said until then.
+func (d *DB) SetStepWriter(id int64, provider, model string) error {
+	_, err := d.sql().Exec(`UPDATE task_steps SET provider = ?, model = ?, updated_at = ? WHERE id = ?`,
+		provider, model, time.Now().UTC().Format(time.RFC3339), id)
 
 	return err
 }

@@ -87,7 +87,13 @@ func knowledgeFor(fit team.Fit) string {
 
 // recalled is what a brief says the agent remembers that bears on this step.
 func (c *Conductor) recalled(member team.Agent, step *store.TaskStep) string {
-	memories, err := c.DB.Recall(member.Name, step.Instruction, MostRecalled)
+	project := ""
+
+	if task, err := c.DB.Task(step.TaskID); err == nil && task != nil {
+		project = task.Project
+	}
+
+	memories, err := c.DB.RecallIn(member.Name, step.Instruction, project, MostRecalled)
 	if err != nil || len(memories) == 0 {
 		return ""
 	}

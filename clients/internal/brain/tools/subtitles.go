@@ -234,3 +234,18 @@ func (t FilmsWithoutSubtitles) Execute(ctx context.Context, args json.RawMessage
 
 	return b.String(), nil
 }
+
+// Touches is the folder the subtitles are written to.
+func (MakeSubtitles) Touches(raw json.RawMessage) ([]string, []string) {
+	var a struct {
+		Folder string `json:"folder"`
+	}
+
+	json.Unmarshal(raw, &a)
+
+	if a.Folder == "" {
+		return []string{"/"}, nil
+	}
+
+	return []string{a.Folder}, nil
+}

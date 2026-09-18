@@ -191,7 +191,8 @@ func TestDecisionsStayAtTheDesk(t *testing.T) {
 	carry := func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+token) }
 
 	// It can do the things it is for.
-	for _, path := range []string{"/api/chat", "/api/tasks", "/api/knowledge", "/api/status"} {
+	for _, path := range []string{"/api/chat", "/api/tasks", "/api/knowledge", "/api/status",
+		"/api/integrations", "/api/packages", "/api/proposals", "/api/inspect"} {
 		*got = false
 
 		if w := ask(s, "GET", path, "192.168.1.9:4000", carry); w.Code != 200 {
@@ -204,6 +205,9 @@ func TestDecisionsStayAtTheDesk(t *testing.T) {
 		"/api/approvals/3/approve", "/api/permissions/decide", "/api/settings",
 		"/api/protection", "/api/privacy", "/api/reach", "/api/pair/offer",
 		"/api/paired/abc", "/api/places", "/api/parts/install", "/api/models/use",
+		"/api/organisation/hire/4/confirm", "/api/provision/install", "/api/projects/propose",
+		"/api/projects/7/start", "/api/integrations/memory/activate", "/api/integrations/own",
+		"/api/integrations/memory/secret",
 	} {
 		*got = false
 

@@ -258,11 +258,58 @@
 
         try {
             const body = await send('/api/organisation/agents', { name: copy, clone_of: name });
-            say(body.hired + ' is a copy of ' + name);
-            load();
+            if (body.id) {
+                proposed(body, { set textContent(text) { say(text); } });
+            } else {
+                say(body.hired + ' is a copy of ' + name);
+                load();
+            }
         } catch (err) {
             say(err.message);
         }
+    }
+
+    /*
+     * Proposing, then hiring.
+     *
+     * "Propose somebody" writes nothing: it shows who would be hired, what
+     * they could touch, what the machine would need and who else would be
+     * needed. The hire is made by the button its owner presses under that —
+     * permanently, or for one task, which then starts.
+     */
+    let proposal = null;
+
+    function showProposal(p) {
+        proposal = p;
+
+        const box = el('org-proposal');
+        const existing = !!(p.proposal && p.proposal.existing);
+
+        box.hidden = false;
+        el('org-proposal-text').textContent = p.text || '';
+
+        const open = p.state === 'open' && !existing;
+
+        // Taken on from the catalogue or copied: already a permanent hire,
+        // so the only choices are to confirm it or not.
+        const permanent = !!(p.proposal && p.proposal.permanence === 'permanent');
+
+        el('org-proposal-permanent').hidden = !open;
+        el('org-proposal-task').hidden = !open || permanent;
+        el('org-proposal-decline').hidden = !open;
+
+        const goal = (p.proposal && p.proposal.goal) || '';
+
+        el('org-proposal-goal').value = goal;
+        el('org-proposal-goal-field').hidden = !open || permanent;
+    }
+
+    // A proposal for somebody new, from any button: shown where hiring is
+    // decided, and nothing written until it is confirmed there.
+    function proposed(p, said) {
+        said.textContent = 'Proposal ' + p.id + ' — nothing is hired until you confirm it under “Hire someone”.';
+        showProposal(p);
+        el('org-proposal').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     async function hireFor() {
@@ -271,24 +318,55 @@
 
         if (!sentence) return;
 
-        said.textContent = 'looking…';
+        said.textContent = 'working out who…';
 
         try {
-            const body = await send('/api/organisation/hire', { sentence });
-            const who = body.agent || {};
+            const p = await send('/api/organisation/hire', { sentence });
 
-            const why = body.why || '';
+            said.textContent = (p.proposal && p.proposal.existing)
+                ? 'Somebody here already does this.'
+                : 'Proposal ' + p.id + '. Nothing is hired until you say so below.';
 
-            said.textContent = body.existing
-                ? (who.title || who.name) + ' already does this, so nobody new was hired.'
-                : why.charAt(0).toUpperCase() + why.slice(1)
-                    + (body.seat ? ', in a new ' + (who.title || '').toLowerCase() + ' seat.' : '.');
+            showProposal(p);
+        } catch (err) {
+            said.textContent = err.message;
+        }
+    }
 
-            if (!body.existing) el('org-hire-for').value = '';
+    async function confirmHire(permanence) {
+        if (!proposal) return;
 
+        const said = el('org-hire-for-said');
+        const goal = el('org-proposal-goal').value.trim();
+
+        if (permanence === 'task' && !goal) {
+            said.textContent = 'Say what the one task is, above the buttons.';
+            el('org-proposal-goal').focus();
+
+            return;
+        }
+
+        try {
+            const body = await send('/api/organisation/hire/' + proposal.id + '/confirm', { permanence, goal });
+
+            said.textContent = body.said;
+            el('org-proposal').hidden = true;
+            el('org-hire-for').value = '';
             load();
         } catch (err) {
             said.textContent = err.message;
+        }
+    }
+
+    async function declineHire() {
+        if (!proposal) return;
+
+        try {
+            await send('/api/organisation/hire/' + proposal.id + '/decline', {});
+            el('org-hire-for-said').textContent = 'Nobody was hired.';
+            el('org-proposal').hidden = true;
+        } catch (err) {
+            el('org-hire-for-said').textContent = err.message;
         }
     }
 
@@ -548,7 +626,7 @@
 
         const said = el('org-hire-said');
 
-        said.textContent = 'taking them on…';
+        said.textContent = 'working out the proposal…';
 
         try {
             const res = await fetch('/api/organisation/agents', {
@@ -567,6 +645,12 @@
 
             if (!res.ok) {
                 said.textContent = body.error || 'could not take them on';
+
+                return;
+            }
+
+            if (body.id) {
+                proposed(body, said);
 
                 return;
             }
@@ -746,6 +830,9 @@
 
         el('org-hire')?.addEventListener('click', hire);
         el('org-hire-for-go')?.addEventListener('click', hireFor);
+        el('org-proposal-permanent')?.addEventListener('click', () => confirmHire('permanent'));
+        el('org-proposal-task')?.addEventListener('click', () => confirmHire('task'));
+        el('org-proposal-decline')?.addEventListener('click', declineHire);
         el('org-hire-for')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); hireFor(); }
         });
