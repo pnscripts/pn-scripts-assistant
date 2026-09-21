@@ -19,6 +19,7 @@ import (
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 	"pn-scripts-assistant/internal/brain/workspace"
+	"pn-scripts-assistant/internal/protocol"
 )
 
 /*
@@ -123,6 +124,18 @@ func (c *Conductor) decided(task *store.Task, step *store.TaskStep, d orchestrat
 
 	c.DB.Record(store.Evidence{TaskID: task.ID, StepID: step.ID, Kind: store.EvidenceDecision,
 		Subject: subject, Detail: d.Explain(), OK: true})
+
+	// Said as well as recorded: a decision is the thing somebody watching
+	// most wants to see, and it is made long before the step finishes.
+	kind := protocol.ModelSelected
+	if d.Primary.Kind == orchestrator.Agent {
+		kind = protocol.AgentSelected
+	}
+
+	c.happened(kind, task, step, subject, map[string]any{
+		"resource": d.Primary.ID, "title": d.Primary.Title, "model": d.Primary.Model,
+		"local": d.Primary.Local, "why": d.Reasons,
+	})
 }
 
 // switched records one resource giving way to the next, and says so as
@@ -143,13 +156,19 @@ func (c *Conductor) switched(task *store.Task, step *store.TaskStep, from orches
 	c.DB.RecordRun(store.ResourceRun{Resource: from.ID, Kind: string(from.Kind), Work: "code",
 		TaskID: task.ID, StepID: step.ID, Result: store.RunSwitched, Detail: why})
 
+	c.happened(protocol.ModelSelected, task, step, "switched to "+next,
+		map[string]any{"from": from.ID, "to": next, "why": why})
+
 	switch c.Orchestrator.Policy().Notify {
 	case "minimal":
 	case "verbose":
 		c.say(task, "Resource changed. From: "+from.Title+". To: "+next+". Reason: "+why+
 			". Task state preserved; no action needed.")
 	default:
-		c.say(task, "Switched from "+from.Title+" to "+next+" ("+why+"). Nothing is lost; no action needed.")
+		c.say(task, c.inOwnWords(task.Provider, "one line telling somebody the work has moved to something else, mid-job",
+			map[string]any{"was being done by": from.Title, "now being done by": next, "why it moved": why,
+				"nothing already done is lost": true, "nothing is needed from them": true},
+			"Switched from "+from.Title+" to "+next+" ("+why+"). Nothing is lost; no action needed."))
 	}
 }
 
@@ -550,11 +569,15 @@ func fixInstruction(task *store.Task, step *store.TaskStep) string {
 		"The game that was asked for: %s", task.Project, what, task.Goal)
 }
 
-// writerTools are what a model writing a project is given: its files, and
-// nothing that runs, checks or builds them — that is this program's own work.
+// writerTools are what a model writing a project is given: its files and the
+// engine's documentation, and nothing that runs, checks or builds them — that
+// is this program's own work.
 // With game_build in its hands a 1.5B model built the untouched template,
 // twice, instead of writing the game.
-var writerTools = []string{"inspect_project", "list_directory", "search_files", "read_file", "write_file", "edit_file"}
+var writerTools = []string{"inspect_project", "list_directory", "search_files", "read_file", "write_file", "edit_file",
+	// Looking the engine's API up is writing, not running: the brief tells
+	// a Godot writer to use the reference rather than its memory.
+	"godot_docs", "game_docs"}
 
 // writing is a step's tools cut down to writerTools. Never empty: an empty
 // list means every tool.

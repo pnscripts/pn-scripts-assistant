@@ -101,6 +101,10 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 
 	s.mux.HandleFunc("POST /api/chat", s.handleChat)
 	s.mux.HandleFunc("GET /api/status", s.handleStatus)
+
+	// The versioned API, for programs rather than for this page. See v1.go.
+	s.mux.HandleFunc("GET /api/v1/version", s.handleV1Version)
+	s.mux.HandleFunc("GET /api/v1/activity", s.handleV1Activity)
 	s.mux.HandleFunc("GET /api/heard", s.handleHeard)
 	s.mux.HandleFunc("GET /api/pace", s.handlePace)
 	s.mux.HandleFunc("POST /api/present", s.handlePresent)
@@ -1452,6 +1456,10 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 // echo canceller are both up before anything is said into the room.
 const greetingSettle = 3 * time.Second
 
+// greetingPatience is how long a client waits for the assistant to put its
+// greeting into words before being given the plain one.
+const greetingPatience = 8 * time.Second
+
 func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
 	/*
 	 * Not a word until somebody has said what to call it.
@@ -1474,7 +1482,16 @@ func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	greeting := s.brain.Greet()
+	/*
+	 * A few seconds for the assistant's own words, and then what it knows
+	 * plainly. The phrasing is started when the program does — see
+	 * WarmGreeting — so by the time a window opens it is usually already
+	 * said; this is only how long the first one waits.
+	 */
+	said, stop := context.WithTimeout(r.Context(), greetingPatience)
+	defer stop()
+
+	greeting := s.brain.GreetInWords(said)
 
 	s.greeted.Do(func() {
 		go func() {

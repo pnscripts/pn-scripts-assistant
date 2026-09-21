@@ -1,6 +1,7 @@
 package brain
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -51,21 +52,21 @@ var affirmative = regexp.MustCompile(`(?i)^\s*(?:(?:yes|yeah|yep|ok|okay|sure|go
 	`approved|please|sounds good|да|добре|давай|започни)[\s,.!]*)+$`)
 
 // handleOrganising answers what it recognises, and says whether it did.
-func (b *Brain) handleOrganising(conversationID int64, message string) (string, []agent.Pending, bool) {
+func (b *Brain) handleOrganising(ctx context.Context, conversationID int64, message string) (string, []agent.Pending, bool) {
 	if b.Tasks == nil || b.Engines == nil {
 		return "", nil, false
 	}
 
-	if reply, pending, ok := b.answeringAProject(conversationID, message); ok {
+	if reply, pending, ok := b.answeringAProject(ctx, conversationID, message); ok {
 		return reply, pending, true
 	}
 
-	if reply, pending, ok := b.answeringAHire(conversationID, message); ok {
+	if reply, pending, ok := b.answeringAHire(ctx, conversationID, message); ok {
 		return reply, pending, true
 	}
 
 	if m := hireAsk.FindStringSubmatch(message); m != nil {
-		return b.proposeAHire(conversationID, strings.TrimSpace(m[1]))
+		return b.proposeAHire(ctx, conversationID, strings.TrimSpace(m[1]))
 	}
 
 	if m := projectAsk.FindStringSubmatch(message); m != nil {
@@ -77,7 +78,7 @@ func (b *Brain) handleOrganising(conversationID int64, message string) (string, 
 				return "", nil, false
 			}
 
-			return b.aboutAProject(conversationID, offer)
+			return b.aboutAProject(ctx, conversationID, offer)
 		}
 	}
 
@@ -99,25 +100,30 @@ func kindWords(message string) (bool, string) {
 	return false, ""
 }
 
-func (b *Brain) proposeAHire(conversationID int64, request string) (string, []agent.Pending, bool) {
+func (b *Brain) proposeAHire(ctx context.Context, conversationID int64, request string) (string, []agent.Pending, bool) {
 	offer, err := b.proposeHireIn(conversationID, request, "", "")
 	if err != nil {
 		return "I could not work out who that would be: " + err.Error(), nil, true
 	}
 
-	return b.aboutAHire(conversationID, offer)
+	return b.aboutAHire(ctx, conversationID, offer)
 }
 
 // aboutAHire is what to say about a proposal: it, and the question it needs,
 // or the approval it is waiting for.
-func (b *Brain) aboutAHire(conversationID int64, offer tools.HireOffer) (string, []agent.Pending, bool) {
+func (b *Brain) aboutAHire(ctx context.Context, conversationID int64, offer tools.HireOffer) (string, []agent.Pending, bool) {
 	switch {
 	case offer.Existing:
 		return offer.Text, nil, true
 	case offer.Permanence == "":
-		return offer.Text + "\n\nShould this hire be permanent, or only for one task?", nil, true
+		return offer.Text + "\n\n" + b.inOwnWords(ctx, "the one question under a proposed hire",
+			map[string]any{"what you need to know": "whether the hire is permanent or for one task only"},
+			"Should this hire be permanent, or only for one task?", 160), nil, true
+
 	case offer.Permanence == team.TaskOnly && offer.Goal == "":
-		return offer.Text + "\n\nWhat is the one task?", nil, true
+		return offer.Text + "\n\n" + b.inOwnWords(ctx, "the one question under a proposed hire for a single task",
+			map[string]any{"what you need to know": "which task the hire is for"},
+			"What is the one task?", 160), nil, true
 	}
 
 	pending, err := b.askToConfirmHire(conversationID, offer.ID, offer.Permanence, offer.Goal)
@@ -125,7 +131,10 @@ func (b *Brain) aboutAHire(conversationID int64, offer tools.HireOffer) (string,
 		return offer.Text + "\n\n" + err.Error(), nil, true
 	}
 
-	return offer.Text + "\n\nApprove it below and it will be done exactly as written here.", pending, true
+	return offer.Text + "\n\n" + b.inOwnWords(ctx,
+		"one closing line under a proposed hire that is waiting to be approved",
+		map[string]any{"it will be done exactly as written above": true},
+		"Approve it below and it will be done exactly as written here.", 160), pending, true
 }
 
 // askToConfirmHire puts the hire to its owner, as an approval.
@@ -161,7 +170,7 @@ func (b *Brain) askToApprove(conversationID int64, name string, args json.RawMes
  * answeringAHire reads a reply to a hire proposal's question: permanent or
  * one task, and for one task, which.
  */
-func (b *Brain) answeringAHire(conversationID int64, message string) (string, []agent.Pending, bool) {
+func (b *Brain) answeringAHire(ctx context.Context, conversationID int64, message string) (string, []agent.Pending, bool) {
 	row, err := b.DB.OpenProposal(conversationID, store.ProposeHire, HowLongAQuestionStaysOpen)
 	if err != nil || row == nil {
 		return "", nil, false
@@ -215,15 +224,18 @@ func (b *Brain) answeringAHire(conversationID int64, message string) (string, []
 		how = "for this task only: " + p.Goal
 	}
 
-	return fmt.Sprintf("%s (%s), %s. Approve it below and it will be done exactly as proposed.",
-		p.Agent.Title, p.Agent.Name, how), pending, true
+	return b.inOwnWords(ctx, "one line saying who is being hired and on what terms, waiting to be approved",
+		map[string]any{"who": p.Agent.Title, "their name here": p.Agent.Name, "terms": how,
+			"it will be done exactly as proposed": true},
+		fmt.Sprintf("%s (%s), %s. Approve it below and it will be done exactly as proposed.",
+			p.Agent.Title, p.Agent.Name, how), 200), pending, true
 }
 
 /*
  * answeringAProject reads a reply to a project proposal: the folder it asked
  * for, the engine it offered, or a yes to a proposal that is ready.
  */
-func (b *Brain) answeringAProject(conversationID int64, message string) (string, []agent.Pending, bool) {
+func (b *Brain) answeringAProject(ctx context.Context, conversationID int64, message string) (string, []agent.Pending, bool) {
 	row, err := b.DB.OpenProposal(conversationID, store.ProposeProject, HowLongAQuestionStaysOpen)
 	if err != nil || row == nil {
 		return "", nil, false
@@ -255,10 +267,21 @@ func (b *Brain) answeringAProject(conversationID int64, message string) (string,
 		request.Dir = folder
 
 	case p.Question == "" && !p.Ready() && affirmative.MatchString(message):
-		// Said here rather than left to a model, which on this machine has
-		// been seen to answer a blocked "yes" with the wrong tool twice.
-		return "It cannot start until:\n  - " + strings.Join(p.Blockers, "\n  - ") +
-			"\n\nNothing has been started. Once that is dealt with, ask again and it will be proposed afresh.", nil, true
+		/*
+		 * Answered from the facts rather than left to the model to work out:
+		 * asked to make sense of a blocked "yes" on this machine, a 7B model
+		 * called the wrong tool twice and said nothing useful. What it may do
+		 * is put these words; what it may not do is decide them.
+		 */
+		return b.inOwnWords(ctx, "an answer to somebody who said yes to a proposal that cannot be started",
+			map[string]any{
+				"what stops it":            p.Blockers,
+				"nothing has been started": true,
+				"what they can do":         "deal with that, then ask again and it will be proposed afresh",
+			},
+			"It cannot start until:\n  - "+strings.Join(p.Blockers, "\n  - ")+
+				"\n\nNothing has been started. Once that is dealt with, ask again and it will be proposed afresh.",
+			320), nil, true
 
 	case p.Ready() && affirmative.MatchString(message):
 		args, _ := json.Marshal(map[string]any{"proposal": row.ID})
@@ -268,7 +291,10 @@ func (b *Brain) answeringAProject(conversationID int64, message string) (string,
 			return err.Error(), nil, true
 		}
 
-		return "Approve it below and I will start " + p.Name + " exactly as proposed.", pending, true
+		return b.inOwnWords(ctx, "one line telling somebody their yes is now waiting for them to approve it",
+			map[string]any{"what it will start": p.Name, "where": p.Dir,
+				"it will be done exactly as proposed": true},
+			"Approve it below and I will start "+p.Name+" exactly as proposed.", 200), pending, true
 
 	default:
 		return "", nil, false
@@ -282,20 +308,35 @@ func (b *Brain) answeringAProject(conversationID int64, message string) (string,
 		return err.Error(), nil, true
 	}
 
-	return b.aboutAProject(conversationID, offer)
+	return b.aboutAProject(ctx, conversationID, offer)
 }
 
 // aboutAProject is a project proposal said: its question, or it and the
 // question of whether to start.
-func (b *Brain) aboutAProject(conversationID int64, offer tools.ProjectOffer) (string, []agent.Pending, bool) {
+func (b *Brain) aboutAProject(ctx context.Context, conversationID int64, offer tools.ProjectOffer) (string, []agent.Pending, bool) {
 	switch {
 	case offer.Question != "":
-		return offer.Text, nil, true
+		// Nothing but talking: no proposal to show yet, only the one thing it
+		// needs answered.
+		return b.inOwnWords(ctx, "the one question you need answered before you can propose a project",
+			map[string]any{"what you need to know": offer.Question}, offer.Text, 200), nil, true
+
 	case !offer.Ready:
-		return offer.Text + "\n\nIt cannot start until those are dealt with.", nil, true
+		_, p, _ := b.projectProposal(offer.ID)
+
+		return offer.Text + "\n\n" + b.inOwnWords(ctx,
+			"one closing line under a proposal that cannot be started yet",
+			map[string]any{"what stops it": p.Blockers, "nothing has been started": true},
+			"It cannot start until those are dealt with.", 200), nil, true
 	}
 
-	return offer.Text + "\n\nShall I start it? Say yes and it will be put to you to approve.", nil, true
+	_, p, _ := b.projectProposal(offer.ID)
+
+	return offer.Text + "\n\n" + b.inOwnWords(ctx,
+		"one closing line under a proposal, asking whether to start it",
+		map[string]any{"what it would make": p.Name, "where": p.Dir,
+			"saying yes puts it to you as an approval first": true},
+		"Shall I start it? Say yes and it will be put to you to approve.", 200), nil, true
 }
 
 // chosenOption is which offered package a reply names, by its title or the

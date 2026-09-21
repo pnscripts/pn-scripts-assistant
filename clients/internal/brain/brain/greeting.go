@@ -1,11 +1,18 @@
 package brain
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strings"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/wording"
 )
+
+// GreetingHolds is how long one phrasing of the greeting is reused for the
+// clients that ask right after each other.
+const GreetingHolds = 30 * time.Second
 
 // Greeting is what the brain says when it opens, before being asked anything.
 //
@@ -49,6 +56,16 @@ type Greeting struct {
 	// Last is the conversation before this one, whether it is being carried on
 	// or left where it is, so the interface can name it either way.
 	Last *LastTalk `json:"last,omitempty"`
+
+	/*
+	 * Facts is what the greeting is made of, one true statement each.
+	 *
+	 * Kept apart from the text because the text is only one way of saying
+	 * them. The model is given these and asked to greet its owner; what it
+	 * writes replaces Text, and if there is no model to ask, the plainly
+	 * joined version is what Text already holds. See the wording package.
+	 */
+	Facts []string `json:"-"`
 }
 
 // LastTalk is enough of the previous conversation to say which one it was.
@@ -195,10 +212,125 @@ func (b *Brain) Greet() Greeting {
 
 	return Greeting{
 		Text:    strings.Join(parts, " "),
+		Facts:   parts,
 		Shown:   shown,
 		CarryOn: b.carryingOn(last),
 		Last:    last,
 	}
+}
+
+/*
+ * WarmGreeting phrases the greeting before anybody asks for it.
+ *
+ * The window asks for the greeting a second after the program starts, and on
+ * this machine the model takes twenty to forty seconds to put a sentence
+ * together. Asked then, it would be a blank panel for that long; asked now,
+ * in the background, it is usually ready by the time anybody looks — and
+ * whoever does ask waits only a few seconds for it before being given the
+ * plain one.
+ */
+func (b *Brain) WarmGreeting() {
+	if wording.Quiet() {
+		return
+	}
+
+	go func() {
+		ctx, stop := context.WithTimeout(context.Background(), wording.HowLong)
+		defer stop()
+
+		b.GreetInWords(ctx)
+	}()
+}
+
+/*
+ * inOwnWords is the assistant saying something itself, given the facts.
+ *
+ * Everywhere this is used, the program worked out what is true and used to
+ * write the sentence as well. The sentence it would have written is kept and
+ * handed over as the fallback, so a machine with no model, or one too slow to
+ * answer, says exactly what it said before. See the wording package.
+ */
+func (b *Brain) inOwnWords(ctx context.Context, brief string, facts any, plain string, most int) string {
+	// Somebody typed and is watching for the answer: a short budget, and the
+	// plain sentence the moment it looks like being slower than that.
+	if b.Router == nil || wording.Quiet() {
+		return plain
+	}
+
+	provider, err := b.Router.Provider(b.Cfg.DefaultProvider)
+	if err != nil {
+		return plain
+	}
+
+	return wording.Say(ctx, provider, b.modelRoles().Talk, wording.Want{
+		Brief: brief, Facts: facts, Plain: plain, Most: most, Within: wording.Typing,
+	})
+}
+
+/*
+ * GreetInWords is the greeting as the assistant would say it.
+ *
+ * Greet works out what is true; this asks the model to say it. The facts are
+ * handed over as they are and nothing else is offered, so the worst a model
+ * can do is phrase them badly — and if it cannot answer at all, in time or
+ * because there is none, what Greet composed is what gets said.
+ *
+ * Remembered for as long as the facts do not change, because the window, the
+ * voice and a second client all ask for the same greeting within a few
+ * seconds of each other, and on this machine that would be three of the same
+ * answer at half a minute each.
+ */
+func (b *Brain) GreetInWords(ctx context.Context) Greeting {
+	g := b.Greet()
+
+	if len(g.Facts) == 0 || strings.TrimSpace(g.Text) == "" {
+		return g
+	}
+
+	/*
+	 * Said once, briefly.
+	 *
+	 * The window, the voice and a second client all ask within seconds of
+	 * each other, and each phrasing is half a minute of a processor. Held by
+	 * the clock rather than by the facts because the plain greeting varies on
+	 * purpose — it picks between "Evening." and "Good evening." — so there is
+	 * no stable text to compare. Short enough that a task finishing in the
+	 * meantime is not greeted over.
+	 */
+	b.mu.Lock()
+	said, when := b.greetingSaid, b.greetingWhen
+	b.mu.Unlock()
+
+	if said != "" && time.Since(when) < GreetingHolds {
+		g.Text = said
+
+		return g
+	}
+
+	provider, err := b.Router.Provider(b.Cfg.DefaultProvider)
+	if err != nil {
+		return g
+	}
+
+	g.Text = wording.Say(ctx, provider, b.modelRoles().Talk, wording.Want{
+		Brief: "a greeting, to somebody who has just opened the program",
+		Facts: map[string]any{
+			"who you are talking to": b.Cfg.Owner,
+
+			// Each of these is already a true sentence. The model's work is
+			// to say them as one greeting in its own words — not to read
+			// anything further into them.
+			"true sentences, to be put in your own words": g.Facts,
+		},
+		Plain: g.Text,
+		Most:  320,
+	})
+
+	b.mu.Lock()
+	b.greetingSaid, b.greetingWhen = g.Text, time.Now()
+	b.mu.Unlock()
+
+	return g
 }
 
 // lastConversation is what was being talked about before this run, or nothing

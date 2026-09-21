@@ -13,6 +13,7 @@ import (
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/orchestrator"
 	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/team"
 	"pn-scripts-assistant/internal/brain/tools"
 	"pn-scripts-assistant/internal/brain/workspace"
 )
@@ -446,5 +447,31 @@ func TestStoppingAWriterIsNotItFailing(t *testing.T) {
 
 	if runs, _ := db.Runs("claude-code", 10); len(runs) != 0 {
 		t.Errorf("being stopped went on the writer's record: %+v", runs)
+	}
+}
+
+// A step that writes is told to write, with the tools, now; a step that looks
+// is told to say what it found. The first used to be told the second, and a
+// small model duly said what it would do and stopped.
+func TestAWritingStepIsToldToWrite(t *testing.T) {
+	c, db, _ := newConductor(t, &scripted{})
+
+	conv, _ := db.NewConversation("t")
+	task := &store.Task{Goal: "Make me a Tetris game", ConversationID: conv}
+
+	last := func(step store.TaskStep) string {
+		msgs := c.brief(task, &step, team.Agent{Name: "developer", Title: "Developer", For: "code"})
+
+		return msgs[len(msgs)-1].Content
+	}
+
+	write := last(store.TaskStep{Instruction: "Write the game", Kind: store.StepDo, Changes: true})
+	if !strings.Contains(write, "write_file") || strings.Contains(write, "say what you found") {
+		t.Errorf("a writing step was not told to write:\n%s", write)
+	}
+
+	look := last(store.TaskStep{Instruction: "Find the slow query", Kind: store.StepLook})
+	if !strings.Contains(look, "say what you found") || strings.Contains(look, "write_file") {
+		t.Errorf("a looking step was told to write:\n%s", look)
 	}
 }

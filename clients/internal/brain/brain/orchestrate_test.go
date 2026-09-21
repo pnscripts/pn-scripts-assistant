@@ -58,3 +58,19 @@ func TestAnInstallFirstStackSaysWhoWillWrite(t *testing.T) {
 		t.Errorf("the stack does not say plainly who will write it:\n%s", said)
 	}
 }
+
+// Work in the background is not a spoken turn: never told to stop after a
+// sentence or two, and still short.
+func TestATaskIsNotSpokenTo(t *testing.T) {
+	b := quietBrain(t)
+
+	said := b.taskPersonaFor("ollama")
+	if strings.Contains(said, "speaking aloud") || strings.Contains(said, "One or two") ||
+		!strings.Contains(said, "Only what a tool did counts") {
+		t.Errorf("a task was given the wrong persona:\n%s", said)
+	}
+
+	if len(said) > 700 {
+		t.Errorf("the task persona is %d characters; every one is waited for on a processor", len(said))
+	}
+}

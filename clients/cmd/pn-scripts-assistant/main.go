@@ -362,12 +362,29 @@ func runServe(args []string) error {
 		logger.Info("parked tasks that were left running", "count", interrupted)
 	}
 
+	/*
+	 * And the record of what happened is kept to a size.
+	 *
+	 * It exists so a client that was away can be told what it missed, which
+	 * is a question about the last while rather than about last year. Trimmed
+	 * on the way up rather than on a timer: it is the moment nothing is
+	 * reading it, and a machine that is never restarted is not this one.
+	 */
+	if dropped, err := db.TrimHappenings(store.KeepHappenings); err != nil {
+		logger.Warn("could not trim the record of what happened", "error", err)
+	} else if dropped > 0 {
+		logger.Info("trimmed the record of what happened", "dropped", dropped)
+	}
+
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
 
 	// Whatever job classification setup downloaded that this brain has not
 	// read yet, in the background. Only here, where the program actually runs,
 	// and not in the one-off commands that also open a brain.
 	b.ImportDownloaded()
+
+	// And its greeting put into its own words, before anybody asks for it.
+	b.WarmGreeting()
 	srv := server.New(b, logger)
 
 	// The same two things the windowed start records: what the last run left
@@ -832,12 +849,21 @@ func runApp(args []string) error {
 		logger.Info("parked tasks that were left running", "count", interrupted)
 	}
 
+	if dropped, err := db.TrimHappenings(store.KeepHappenings); err != nil {
+		logger.Warn("could not trim the record of what happened", "error", err)
+	} else if dropped > 0 {
+		logger.Info("trimmed the record of what happened", "dropped", dropped)
+	}
+
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
 
 	// Whatever job classification setup downloaded that this brain has not
 	// read yet, in the background. Only here, where the program actually runs,
 	// and not in the one-off commands that also open a brain.
 	b.ImportDownloaded()
+
+	// And its greeting put into its own words, before anybody asks for it.
+	b.WarmGreeting()
 
 	// So the greeting can say the last run stopped in the middle of something,
 	// which is the first thing worth knowing on opening it again.

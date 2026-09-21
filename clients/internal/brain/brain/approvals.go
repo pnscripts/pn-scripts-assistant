@@ -10,6 +10,7 @@ import (
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 	"pn-scripts-assistant/internal/brain/workspace"
+	"pn-scripts-assistant/internal/protocol"
 )
 
 // PendingApprovals lists actions waiting for a decision.
@@ -48,6 +49,11 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 		return *invocation, fmt.Errorf(
 			"that action was already %s and cannot be decided again", invocation.Status)
 	}
+
+	// Said as it is decided, so a window that is not the one that decided —
+	// or a phone that asked from a train — stops showing it as waiting.
+	b.Happens.Say(protocol.New(protocol.ApprovalReceived, invocation.Summary).
+		With(map[string]any{"invocation": id, "tool": invocation.Tool, "approved": approve}))
 
 	if !approve {
 		invocation.Status = store.InvocationDenied

@@ -1,8 +1,8 @@
 name: Release
 
-# Builds every distributable artifact. Runs in CI rather than locally because a
-# static PHP build needs ~10GB of scratch space, and because release binaries
-# should come from a clean, reproducible machine rather than someone's laptop.
+# Builds every distributable artifact. Runs in CI rather than locally so that
+# release binaries come from a clean machine rather than somebody's laptop, and
+# so that the Windows and macOS builds happen on Windows and macOS.
 
 on:
   push:
@@ -14,23 +14,28 @@ permissions:
 
 jobs:
   # Nothing ships if the safety properties are broken.
+  #
+  # The Laravel core this job used to run went when the program became one Go
+  # binary; the job outlived it and could only fail. These are the tests there
+  # are now — the gates, the confinement and the evidence rules among them.
   tests:
     name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/setup-go@v5
         with:
-          php-version: '8.4'
-          extensions: pdo_sqlite, sqlite3, mbstring, zip
-          coverage: none
+          go-version: '1.26'
+          cache-dependency-path: clients/go.sum
 
-      - run: composer install --no-interaction --prefer-dist
+      # CGO for the window layer; the tests themselves need no display.
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
-      # Runs on in-memory SQLite, so this also proves the migrations stay
-      # portable enough for a desktop build.
-      - run: php artisan test
+      - run: go test ./...
+        working-directory: clients
+        env:
+          CGO_ENABLED: '1'
 
   # The CLI is pure standard library, so every target still cross-compiles from
   # one Linux runner.

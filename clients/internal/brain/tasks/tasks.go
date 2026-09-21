@@ -26,6 +26,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"pn-scripts-assistant/internal/brain/activity"
 	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/capability"
 	"pn-scripts-assistant/internal/brain/jobs"
@@ -36,6 +37,8 @@ import (
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/team"
 	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/wording"
+	"pn-scripts-assistant/internal/protocol"
 )
 
 /*
@@ -155,6 +158,17 @@ type Conductor struct {
 	 */
 	Say func(conversationID int64, line string)
 
+	/*
+	 * Happens is where everything that happens is said once, for whoever is
+	 * listening — a window, a phone, later an execution node. Nil is allowed
+	 * and says nothing, which is what the tests want.
+	 *
+	 * Beside Say rather than instead of it: Say is a sentence to its owner in
+	 * a conversation, and this is a fact about the work, with a number on it
+	 * so that a client which was away can ask for what it missed.
+	 */
+	Happens *activity.Bus
+
 	Budget Budget
 
 	/*
@@ -202,6 +216,57 @@ func (c *Conductor) now() time.Time {
 	}
 
 	return time.Now()
+}
+
+/*
+ * happened says one thing that happened, and returns it numbered.
+ *
+ * Every event goes through here so that recording it can never be the reason
+ * a piece of work fails: a bus that is nil, or a database that will not take
+ * the row, costs the record and nothing else.
+ */
+func (c *Conductor) happened(kind protocol.Kind, task *store.Task, step *store.TaskStep, said string, data any) {
+	if c.Happens == nil || task == nil {
+		return
+	}
+
+	e := protocol.New(kind, said).About(task.ID, 0)
+	if step != nil {
+		e.Step = step.ID
+	}
+
+	if data != nil {
+		e = e.With(data)
+	}
+
+	c.Happens.Say(e)
+}
+
+/*
+ * inOwnWords is the assistant saying something itself, from the facts.
+ *
+ * What this program would have said is handed over as the fallback, so a
+ * machine with no model — or one too slow to answer — says exactly what it
+ * said before. See the wording package.
+ */
+func (c *Conductor) inOwnWords(providerName, brief string, facts any, plain string) string {
+	if c.Provider == nil || wording.Quiet() {
+		return plain
+	}
+
+	provider, err := c.Provider(providerName)
+	if err != nil {
+		return plain
+	}
+
+	model := ""
+	if c.Sizes != nil {
+		model = c.Sizes().Talk
+	}
+
+	return wording.Say(context.Background(), provider, model, wording.Want{
+		Brief: brief, Facts: facts, Plain: plain, Most: 240,
+	})
 }
 
 func (c *Conductor) say(task *store.Task, line string) {
@@ -374,6 +439,9 @@ func (c *Conductor) TakeWith(ctx context.Context, conversationID int64, request,
 	if err != nil {
 		return nil, true, err
 	}
+
+	c.happened(protocol.TaskStarted, task, nil, plan.Name,
+		map[string]any{"goal": request, "steps": len(plan.Steps), "project": how.Project})
 
 	job, err := c.Jobs.StartQueued(plan.Name, func(ctx context.Context) (string, error) {
 		return "", c.Work(ctx, id)
@@ -836,6 +904,9 @@ func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, erro
 		return nil, err
 	}
 
+	c.happened(protocol.StepStarted, task, step, trimTo(step.Instruction, 120),
+		map[string]any{"position": step.Position, "assignee": member.Name, "through": through, "model": choice.Model})
+
 	step.Assignee = member.Name
 
 	/*
@@ -1006,6 +1077,9 @@ func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool
 	step.CheckedBy = checked.CheckedBy
 	step.Verdict = checked.Verdict
 	step.Why = checked.Why
+
+	c.happened(protocol.StepFinished, task, step, orElse(checked.Why, trimTo(res.Reply, 120)),
+		map[string]any{"position": step.Position, "verdict": checked.Verdict, "checked_by": checked.CheckedBy})
 
 	if checked.Verdict != store.Unmet {
 		step.State = store.StepDone
@@ -1196,6 +1270,11 @@ func (c *Conductor) park(task *store.Task, step *store.TaskStep, res agent.Resul
 
 	step.State = store.StepNeedsYou
 	step.Answer = res.Reply
+
+	for _, p := range res.Pending {
+		c.happened(protocol.ApprovalRequired, task, step, p.Summary,
+			map[string]any{"invocation": p.ID, "tool": p.Tool})
+	}
 
 	if err := c.DB.FinishStep(*step); err != nil {
 		return err
@@ -1396,8 +1475,20 @@ func (c *Conductor) brief(task *store.Task, step *store.TaskStep, member team.Ag
 		b.WriteString("\nThis step is done when: " + step.DoneWhen + "\n")
 	}
 
-	b.WriteString("\nUse a tool rather than guessing. When you have what the step " +
-		"asked for, say what you found in a sentence or two and stop.")
+	/*
+	 * How it ends depends on what the step is for. A step that changes files
+	 * is done by the tools and by nothing else: told to "say what you found"
+	 * and stop, a 7B model said "First, I'll create a new scene for the
+	 * ball." — and stopped, having written nothing, every time.
+	 */
+	if step.Changes && (step.Kind == store.StepDo || step.Kind == store.StepWrite) {
+		b.WriteString("\nDo the work with the tools now: write each file whole with write_file, or change " +
+			"exactly the part that needs it with edit_file. Saying what you are going to do does nothing — " +
+			"only what the tools did counts. When the files are written, say in a sentence which ones.")
+	} else {
+		b.WriteString("\nUse a tool rather than guessing. When you have what the step " +
+			"asked for, say what you found in a sentence or two and stop.")
+	}
 
 	out = append(out, llm.Message{Role: llm.RoleUser, Content: b.String()})
 
@@ -1484,6 +1575,8 @@ func (c *Conductor) finish(task *store.Task, state, because string) error {
 	 */
 	c.say(task, report)
 
+	c.happened(endOf(state), task, nil, orElse(because, report), map[string]any{"state": state})
+
 	if err := c.DB.FinishTask(task.ID, state, report, because); err != nil {
 		return err
 	}
@@ -1503,14 +1596,24 @@ func (c *Conductor) finish(task *store.Task, state, because string) error {
 func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, because string) string {
 	var sections []string
 
+	/*
+	 * How it ended, said by the assistant rather than formatted here.
+	 *
+	 * Only this line. What follows it is the account — which steps were
+	 * verified, which were only claimed, what evidence there is — and that is
+	 * not prose to be improved, it is the record. See the wording package.
+	 */
+	plain := task.Name + " ended: " + because + "."
+
 	switch state {
 	case store.TaskDone:
-		sections = append(sections, "Finished: "+task.Name+".")
+		plain = "Finished: " + task.Name + "."
 	case store.TaskBlocked:
-		sections = append(sections, "Stopped on "+task.Name+" — "+because+".")
-	default:
-		sections = append(sections, task.Name+" ended: "+because+".")
+		plain = "Stopped on " + task.Name + " — " + because + "."
 	}
+
+	sections = append(sections, c.inOwnWords(task.Provider, "the one opening line of a report on a job that has ended",
+		map[string]any{"the job": task.Name, "how it ended": state, "why": because}, plain))
 
 	var (
 		bullets                       []string
@@ -1869,4 +1972,16 @@ func (c *Conductor) Resume(taskID int64) error {
 	}
 
 	return c.DB.SetTaskJob(taskID, job.ID)
+}
+
+// endOf is the kind of event a task's ending is.
+func endOf(state string) protocol.Kind {
+	switch state {
+	case store.TaskDone:
+		return protocol.TaskCompleted
+	case store.TaskStopped:
+		return protocol.TaskCancelled
+	default:
+		return protocol.TaskFailed
+	}
 }

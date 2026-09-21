@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/activity"
 	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/jobs"
 	"pn-scripts-assistant/internal/brain/llm"
@@ -19,6 +20,7 @@ import (
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/team"
 	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/protocol"
 )
 
 // scripted answers with queued replies, so a whole task can be driven without
@@ -555,4 +557,60 @@ func asJSON(s string) string {
 	raw, _ := json.Marshal(s)
 
 	return string(raw)
+}
+
+/*
+ * A task says what it is doing as it does it, in order and with numbers.
+ *
+ * This is what a phone that was asleep, or a window opened halfway through,
+ * catches up from. The test is written against the record rather than the
+ * live feed, because the record is the part that has to survive the program
+ * being closed.
+ */
+func TestATaskSaysWhatIsHappening(t *testing.T) {
+	model := &scripted{replies: []llm.Response{{Content: "There are three files."}}}
+
+	c, db, _ := newConductor(t, model)
+	c.Happens = activity.New(db)
+
+	conv, _ := db.NewConversation("t")
+
+	task, _, err := c.Take(context.Background(), conv, "count the files", "scripted", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	settled(t, db, task.ID)
+
+	said, err := db.HappeningsFor(task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var order []string
+
+	for _, h := range said {
+		order = append(order, string(h.Type))
+
+		if h.Seq == 0 || h.At.IsZero() {
+			t.Errorf("an event has no place in the order: %+v", h)
+		}
+	}
+
+	line := strings.Join(order, " ")
+
+	for _, want := range []string{string(protocol.TaskStarted), string(protocol.StepStarted),
+		string(protocol.StepFinished)} {
+		if !strings.Contains(line, want) {
+			t.Errorf("nothing said %s:\n%s", want, line)
+		}
+	}
+
+	if !strings.Contains(line, string(protocol.TaskCompleted)) && !strings.Contains(line, string(protocol.TaskFailed)) {
+		t.Errorf("the task ended without saying so:\n%s", line)
+	}
+
+	if !strings.HasPrefix(line, string(protocol.TaskStarted)) {
+		t.Errorf("it did not start by saying it started:\n%s", line)
+	}
 }

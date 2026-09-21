@@ -830,6 +830,35 @@ var migrations = []string{
 	ALTER TABLE task_steps ADD COLUMN action TEXT;
 	ALTER TABLE tasks ADD COLUMN resources TEXT;
 	`,
+
+	/*
+	 * 18: activity, which is everything that happened, in the order it
+	 * happened.
+	 *
+	 * Not the diary — that is `events`, and it is about the owner's day. This
+	 * is the program's own account of itself: a task started, a tool ran, an
+	 * approval was asked for. It exists because a phone that was asleep for an
+	 * hour has to be able to ask "what happened after number 1042" and be told
+	 * exactly, and because a task nobody watched should still be answerable
+	 * afterwards.
+	 *
+	 * seq is the primary key and nothing else orders it. Timestamps are for
+	 * reading; two events can share a second, and a clock can go backwards.
+	 */
+	`
+	CREATE TABLE activity (
+		seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+		id         TEXT NOT NULL,
+		type       TEXT NOT NULL,
+		task_id    INTEGER,
+		step_id    INTEGER,
+		device     TEXT NOT NULL DEFAULT '',
+		said       TEXT NOT NULL DEFAULT '',
+		data       TEXT NOT NULL DEFAULT '',
+		created_at TEXT NOT NULL
+	);
+	CREATE INDEX idx_activity_task ON activity(task_id, seq);
+	`,
 }
 
 /*

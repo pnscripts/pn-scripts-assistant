@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/activity"
 	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/appearance"
 	"pn-scripts-assistant/internal/brain/config"
@@ -101,6 +102,12 @@ type Brain struct {
 	// it has been worked out; see models.WhatItCanRun.
 	tier string
 
+	// The greeting as the model last said it, and the facts it was saying.
+	// Kept so that the window, the voice and a second client asking within
+	// seconds of each other are not three separate answers. See GreetInWords.
+	greetingSaid string
+	greetingWhen time.Time
+
 	// When the last turn was held out loud, which decides whether finished
 	// background work is announced or only written down.
 	lastSpokenAt time.Time
@@ -149,6 +156,14 @@ type Brain struct {
 	// Lanes is how many model calls the work may make at once, and who is
 	// waiting for one. See the lanes package.
 	Lanes *lanes.Lanes
+
+	/*
+	 * Happens is everything this program does, said once with a number on it:
+	 * what a window draws, what a phone catches up on after being away, and
+	 * what the record of a finished task is read from. See the activity
+	 * package.
+	 */
+	Happens *activity.Bus
 
 	// taught is which skills are currently in the registry, so a reload can
 	// remove the ones whose files have gone.
@@ -754,10 +769,13 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	 * sending to it after somebody switched to private. Asked at every step,
 	 * the task stops at the next one instead.
 	 */
+	b.Happens = activity.New(db)
+
 	b.Tasks = &tasks.Conductor{
 		DB:       db,
 		Log:      logger,
 		Jobs:     b.Jobs,
+		Happens:  b.Happens,
 		Agent:    b.TaskAgent,
 		Provider: func(name string) (llm.Provider, error) { return b.Router.Provider(name) },
 		Sizes:    b.modelRoles,
@@ -775,7 +793,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Chart:       func() []org.Unit { return org.Chart(b.Root) },
 		Occupations: db,
 		Toolbox:     b.Agent.Registry,
-		Prompt:      func(provider string) string { return b.personaFor(provider, true) },
+		Prompt:      b.taskPersonaFor,
 		Say:         b.SayInto,
 		Budget:      tasks.Sensible(),
 		Lanes:       b.Lanes,
@@ -1543,6 +1561,48 @@ func (b *Brain) personaFor(provider string, spoken bool) string {
 	return persona + "\n\n" + block
 }
 
+/*
+ * taskPersonaFor is who it is while it works through a job in the background.
+ *
+ * Short, for the same reason the spoken one is: on a processor the prompt is
+ * the wait. But not the spoken one, which tasks used to borrow for its length
+ * — "one or two sentences, then stop" is exactly what a 7B model did with a
+ * step that asked it to write a game: "First, I'll create a new scene for the
+ * ball.", nineteen tokens, nothing written.
+ */
+func (b *Brain) taskPersonaFor(provider string) string {
+	name, owner := b.Cfg.Name, b.Cfg.Owner
+	if name == "" {
+		name = config.DefaultName
+	}
+
+	if owner == "" {
+		owner = "your owner"
+	}
+
+	persona := fmt.Sprintf(taskPersona, name, owner)
+
+	if !b.mayReadProfileTo(provider) {
+		return persona
+	}
+
+	if block := profile.Block(b.Root, profile.SpokenRunes); block != "" {
+		return persona + "\n\n" + block
+	}
+
+	return persona
+}
+
+const taskPersona = `You are %s, %s's assistant, doing a job in the background. Nobody is
+listening to each word: the work is what matters.
+
+Do each step with your tools. Only what a tool did counts — saying you will do
+something does nothing. Finish the step first, then say in a sentence or two
+what you did.
+
+Never invent what is on this machine, what a file says, or that something
+worked. If the step cannot be done, say so plainly and why.`
+
 // mayReadProfileTo says whether this model may be told about its owner.
 func (b *Brain) mayReadProfileTo(provider string) bool {
 	if provider == llm.Local {
@@ -1829,7 +1889,7 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	 * question it needs answered first. See organiseintent.go — whatever
 	 * would change anything comes back as an approval, never as done.
 	 */
-	if answer, pending, handled := b.handleOrganising(conversationID, req.Message); handled {
+	if answer, pending, handled := b.handleOrganising(ctx, conversationID, req.Message); handled {
 		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant, "", "", answer); err != nil {
 			return ChatReply{}, err
 		}

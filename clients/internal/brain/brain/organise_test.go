@@ -55,7 +55,7 @@ func TestHiringInConversation(t *testing.T) {
 
 	conv, _ := b.DB.NewConversation("hiring")
 
-	reply, pending, handled := b.handleOrganising(conv, "Hire an electrician to help me plan this installation")
+	reply, pending, handled := b.handleOrganising(context.Background(), conv, "Hire an electrician to help me plan this installation")
 	if !handled || len(pending) != 0 {
 		t.Fatalf("not handled, or approval asked before the question: %v %v", handled, pending)
 	}
@@ -70,7 +70,7 @@ func TestHiringInConversation(t *testing.T) {
 		t.Fatal("somebody was hired before anybody said so")
 	}
 
-	reply, pending, handled = b.handleOrganising(conv, "just for this task")
+	reply, pending, handled = b.handleOrganising(context.Background(), conv, "just for this task")
 	if !handled || len(pending) != 1 || pending[0].Tool != "confirm_hire" {
 		t.Fatalf("the answer did not become an approval: %q %+v", reply, pending)
 	}
@@ -132,7 +132,7 @@ func TestAProjectInConversation(t *testing.T) {
 	last := ""
 
 	for _, step := range steps {
-		reply, pending, handled := b.handleOrganising(conv, step.say)
+		reply, pending, handled := b.handleOrganising(context.Background(), conv, step.say)
 
 		if !handled || len(pending) != 0 || !strings.Contains(reply, step.want) {
 			t.Fatalf("after %q: handled %v, pending %v, reply:\n%s", step.say, handled, pending, reply)
@@ -152,7 +152,7 @@ func TestAProjectInConversation(t *testing.T) {
 		}
 	}
 
-	_, pending, handled := b.handleOrganising(conv, "yes, start it")
+	_, pending, handled := b.handleOrganising(context.Background(), conv, "yes, start it")
 	if !handled || len(pending) != 1 || pending[0].Tool != "start_project" {
 		t.Fatalf("yes did not become an approval: %+v", pending)
 	}
@@ -233,7 +233,7 @@ func TestAYesToABlockedProjectSaysWhy(t *testing.T) {
 
 	b.DB.Propose(store.Proposal{Kind: store.ProposeProject, ConversationID: conv, Body: string(body)})
 
-	reply, pending, handled := b.handleOrganising(conv, "yes, start it")
+	reply, pending, handled := b.handleOrganising(context.Background(), conv, "yes, start it")
 	if !handled || len(pending) != 0 || !strings.Contains(reply, "not licensed") ||
 		!strings.Contains(reply, "Nothing has been started") {
 		t.Errorf("handled %v, pending %v, reply:\n%s", handled, pending, reply)
