@@ -31,6 +31,24 @@ OUT="$ROOT/build/packages"
 # install an older build over a newer one.
 #
 # The date sorts, and the hash after it says exactly which build it was.
+# Which version this is, from the one place that says so.
+#
+# The VERSION file at the top of the repository. It used to be three places
+# that disagreed: a number hard-coded here, a commit hash the program reported
+# about itself, and nothing at all in the desktop entry.
+#
+# A build that is not exactly a release says so in the version rather than
+# pretending: 0.1.0 at the tag, 0.1.0~git20260923.e9b80e0 anywhere else. The
+# tilde sorts *before* the plain number in dpkg's ordering, which is the right
+# way round — a build from the middle of the work is older than the release it
+# is working towards.
+released_version() {
+    local declared
+    declared="$(tr -d " \t\n\r" < "$ROOT/VERSION" 2>/dev/null)"
+
+    printf '%s' "${declared:-0.0.0}"
+}
+
 derive_version() {
     if [ -n "${VERSION:-}" ]; then
         printf '%s' "${VERSION#v}"
@@ -38,11 +56,12 @@ derive_version() {
         return
     fi
 
-    local tag
+    local declared tag
+    declared="$(released_version)"
     tag="$(git -C "$ROOT" describe --tags --exact-match 2>/dev/null || true)"
 
-    if [ -n "$tag" ]; then
-        printf '%s' "${tag#v}"
+    if [ "${tag#v}" = "$declared" ] && [ -n "$tag" ]; then
+        printf '%s' "$declared"
 
         return
     fi
@@ -51,7 +70,20 @@ derive_version() {
     when="$(git -C "$ROOT" log -1 --format=%cd --date=format:%Y%m%d 2>/dev/null || date +%Y%m%d)"
     hash="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
-    printf '0.1.0~git%s.%s' "$when" "$hash"
+    printf '%s~git%s.%s' "$declared" "$when" "$hash"
+}
+
+# What the program says when it is asked which copy it is. Empty parts are
+# left empty rather than guessed at; see internal/brain/release.
+version_stamp() {
+    local pkg="pn-scripts-assistant/internal/brain/release"
+    local hash when
+
+    hash="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
+    when="$(git -C "$ROOT" log -1 --format=%cd --date=format:%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)"
+
+    printf -- "-X %s.Version=%s -X %s.Commit=%s -X %s.Built=%s" \
+        "$pkg" "$VERSION" "$pkg" "$hash" "$pkg" "$when"
 }
 
 VERSION="$(derive_version)"
@@ -61,6 +93,15 @@ warn() { printf '\033[33m!\033[0m %s\n' "$1"; }
 die()  { printf '\033[31m✗\033[0m %s\n' "$1" >&2; exit 1; }
 
 want="${1:-all}"
+
+# Asked what it would call this build, without building it. The Makefile and
+# CI both need the answer, and working it out twice is how two names for one
+# build happen.
+if [ "$want" = "--print-version" ]; then
+    printf '%s\n' "$VERSION"
+
+    exit 0
+fi
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -161,7 +202,7 @@ build_deb() {
     # -buildmode=pie so the program is laid out somewhere different on every
     # run, which is what every other program Ubuntu ships does and the one
     # hardening measure that costs nothing to turn on.
-    CGO_ENABLED=1 go build -C "$ROOT/clients" -trimpath -buildmode=pie -ldflags="-s -w" \
+    CGO_ENABLED=1 go build -C "$ROOT/clients" -trimpath -buildmode=pie -ldflags="-s -w $(version_stamp)" \
         -o "$stage/usr/bin/pn-scripts-assistant" ./cmd/pn-scripts-assistant || die "build failed"
 
     chmod 755 "$stage/usr/bin/pn-scripts-assistant"
@@ -384,7 +425,7 @@ build_macos() {
         # and opens the system browser. Cross-compiling cgo would need an Apple
         # SDK on this machine and would still not add a window.
         GOOS=darwin GOARCH="$arch" CGO_ENABLED=0 \
-            go build -C "$ROOT/clients" -trimpath -ldflags="-s -w" \
+            go build -C "$ROOT/clients" -trimpath -ldflags="-s -w $(version_stamp)" \
             -o "$app/Contents/MacOS/pn-scripts-assistant" ./cmd/pn-scripts-assistant || die "darwin/$arch build failed"
 
         chmod 755 "$app/Contents/MacOS/pn-scripts-assistant"
@@ -444,7 +485,7 @@ build_windows() {
     # The cost is that stderr goes nowhere, which is why the one message that
     # must not be lost — setup could not be opened — is a message box instead.
     GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
-        go build -C "$ROOT/clients" -trimpath -ldflags="-s -w -H windowsgui" \
+        go build -C "$ROOT/clients" -trimpath -ldflags="-s -w -H windowsgui $(version_stamp)" \
         -o "$dir/pn-scripts-assistant.exe" ./cmd/pn-scripts-assistant || die "windows build failed"
 
     cp "$ROOT/build/windows/README.txt" "$dir/" 2>/dev/null || true

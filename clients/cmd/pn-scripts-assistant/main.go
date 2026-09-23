@@ -38,6 +38,7 @@ import (
 	"pn-scripts-assistant/internal/brain/paths"
 	"pn-scripts-assistant/internal/brain/places"
 	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/release"
 	"pn-scripts-assistant/internal/brain/sandbox"
 	"pn-scripts-assistant/internal/brain/server"
 	"pn-scripts-assistant/internal/brain/speech"
@@ -117,6 +118,13 @@ func main() {
 		err = runSnapshot(os.Args[2:])
 	case "start-again":
 		err = runStartAgain(os.Args[2:])
+	// Which copy is this. The first question anybody is asked when they
+	// report something, and until now there was no way to answer it.
+	case "version", "-v", "--version":
+		fmt.Println(release.Full(config.Product))
+
+		return
+
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -235,6 +243,7 @@ func usage() {
   pn-scripts-assistant menu               put the brain in the applications menu
   pn-scripts-assistant menu --remove      take it out again
   pn-scripts-assistant rewrite-paths      repair stored paths after a move, then re-embed
+  pn-scripts-assistant version            which copy of the program this is
 
 `)
 }

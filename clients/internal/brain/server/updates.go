@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os/exec"
 	"pn-scripts-assistant/internal/brain/config"
-	"runtime/debug"
+	"pn-scripts-assistant/internal/brain/release"
 	"strings"
 	"time"
 
@@ -49,19 +49,9 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
 // The version comes from the build rather than a constant somebody has to
 // remember to bump, which is the version that is actually running.
 func brainPart() Part {
-	version := "built from source"
-
-	if info, readable := debug.ReadBuildInfo(); readable {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" && len(setting.Value) >= 7 {
-				version = setting.Value[:7]
-			}
-		}
-	}
-
 	return Part{
 		Name:    config.Product,
-		Version: version,
+		Version: release.Is(),
 		Status:  "running",
 		Cost:    "free",
 		Note:    "Yours. One file, no account, nothing to renew.",
