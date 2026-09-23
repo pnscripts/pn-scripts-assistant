@@ -148,6 +148,43 @@ func (s *Server) Guard(next http.Handler) http.Handler {
 		who := s.whoIsAsking(r)
 
 		if who.Here {
+			/*
+			 * On this computer is not the same as from this program.
+			 *
+			 * Every web page the owner opens can send a request to
+			 * 127.0.0.1, and the browser sends it from this machine, so it
+			 * arrives here looking exactly like the assistant's own page.
+			 * This was allowed through: a page on any site could post to
+			 * /api/desktop, /api/settings or an approval and the brain would
+			 * do it. Demonstrated, not imagined — a POST from
+			 * "Origin: http://evil.test" with a form's content type took the
+			 * program out of the applications menu.
+			 *
+			 * Two locks, because each covers what the other cannot.
+			 *
+			 * The name it was asked by, first. A page can have its own name
+			 * resolve to 127.0.0.1 — it is its own domain and it may point it
+			 * anywhere — and then the browser calls this same origin and the
+			 * page may read every answer. What it cannot forge is the name in
+			 * the request: a browser sends the one it was given. From this
+			 * machine, that name has to be this machine.
+			 */
+			if !askedByThisMachinesName(r.Host) {
+				fail(w, http.StatusForbidden,
+					"this assistant answers to localhost, not to "+hostOnly(r.Host))
+
+				return
+			}
+
+			// And then where the page came from, for anything that changes
+			// something. A request that says nothing came from a program
+			// rather than a browser, and is allowed; see fromHere.
+			if changesSomething(r) && !fromHere(r) {
+				fail(w, http.StatusForbidden, "that request came from somewhere else")
+
+				return
+			}
+
 			next.ServeHTTP(w, r)
 
 			return
@@ -262,6 +299,42 @@ func fromAddress(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
+	}
+
+	return host
+}
+
+/*
+ * askedByThisMachinesName says whether the Host header names this computer.
+ *
+ * Only for callers that are already on it. A device across the room reaches
+ * this by the machine's own name or address and has its own rules — pairing,
+ * a token, a cookie. This is the one case where the caller is trusted for
+ * being local, and so the name has to be local too.
+ */
+func askedByThisMachinesName(host string) bool {
+	name := hostOnly(host)
+
+	switch strings.ToLower(name) {
+	case "localhost", "":
+		// Empty is HTTP/1.0 or a program that sent no Host at all, which is
+		// not a browser and cannot be a page.
+		return true
+	}
+
+	if ip := net.ParseIP(strings.Trim(name, "[]")); ip != nil {
+		return ip.IsLoopback()
+	}
+
+	// A name that is not an address and not localhost: somebody's domain
+	// pointed here.
+	return false
+}
+
+// hostOnly is the Host header without its port.
+func hostOnly(host string) string {
+	if name, _, err := net.SplitHostPort(host); err == nil {
+		return name
 	}
 
 	return host

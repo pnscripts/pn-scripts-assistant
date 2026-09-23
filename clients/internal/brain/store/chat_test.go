@@ -1,6 +1,9 @@
 package store
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 /*
  * A conversation can be named and removed.
@@ -145,5 +148,46 @@ func TestForgettingTheLastExchangeTakesThePair(t *testing.T) {
 	// Nothing left to forget is not an error; it is an answer.
 	if n, err := db.ForgetLastExchange(conv); err != nil || n != 0 {
 		t.Errorf("forgetting an empty conversation returned %d, %v", n, err)
+	}
+}
+
+/*
+ * A secret printed by a tool does not stay in the conversation.
+ *
+ * The conversation is the dangerous place for one: it is read back into the
+ * next turn and may be given to a service somewhere else, so a token that a
+ * command printed once would be kept and sent onward forever after.
+ */
+func TestASecretInAMessageIsNotKept(t *testing.T) {
+	db := open(t)
+
+	id, err := db.NewConversation("checking")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := db.AddMessage(id, "tool", "", "",
+		"[ran env]\nANTHROPIC_API_KEY=sk-ant-api03-QQQQPPPPOOOONNNNMMMM\nHOME=/home/somebody"); err != nil {
+		t.Fatal(err)
+	}
+
+	history, err := db.History(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(history) != 1 {
+		t.Fatalf("expected one message, got %d", len(history))
+	}
+
+	if strings.Contains(history[0].Content, "sk-ant-api03-QQQQPPPPOOOONNNNMMMM") {
+		t.Errorf("the key is in the conversation: %q", history[0].Content)
+	}
+
+	// Still a record of what happened, not an empty line.
+	for _, want := range []string{"ran env", "HOME=/home/somebody"} {
+		if !strings.Contains(history[0].Content, want) {
+			t.Errorf("the message lost %q: %q", want, history[0].Content)
+		}
 	}
 }

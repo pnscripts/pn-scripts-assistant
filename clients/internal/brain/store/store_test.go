@@ -339,3 +339,44 @@ func TestKnownSourcesFindsWhatWasReadFromAFolder(t *testing.T) {
 		t.Error("a file from another folder was counted as read from this one")
 	}
 }
+
+/*
+ * The database is nobody else's business on a shared machine.
+ *
+ * It holds every conversation, everything the assistant has been told to
+ * remember, and the exact output of every command it has run. SQLite creates
+ * it with whatever the umask allows — 0644 on Ubuntu, which any other account
+ * on the machine can read. The settings file beside it has been 0600 since
+ * the first week and is the less revealing of the two.
+ */
+func TestTheDatabaseIsOwnerOnly(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sub", "brain.sqlite")
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	// Something written, so the journal exists: in WAL mode the newest
+	// writes live there and nowhere else.
+	if _, err := db.NewConversation("something"); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, at := range []string{path, path + "-wal", path + "-shm"} {
+		info, err := os.Stat(at)
+		if err != nil {
+			continue // -shm and -wal come and go with the connection
+		}
+
+		if info.Mode().Perm()&0o077 != 0 {
+			t.Errorf("%s is %v — readable by other accounts", filepath.Base(at), info.Mode().Perm())
+		}
+	}
+
+	if info, err := os.Stat(filepath.Dir(path)); err == nil && info.Mode().Perm()&0o077 != 0 {
+		t.Errorf("the folder it made is %v", info.Mode().Perm())
+	}
+}

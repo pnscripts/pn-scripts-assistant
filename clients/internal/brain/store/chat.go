@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/redact"
 )
 
 // Conversation is one thread.
@@ -104,9 +106,25 @@ func (d *DB) ConversationExists(id int64) (bool, error) {
 	return n > 0, err
 }
 
-// AddMessage appends a turn.
+/*
+ * AddMessage appends a turn, with the secrets taken out of it.
+ *
+ * Here rather than at the call sites, because there are a dozen of them and
+ * the one that forgets is the one that matters. Evidence has been scrubbed
+ * since it was written; the conversation was not, and the conversation is the
+ * more dangerous of the two: it is read back into the next turn and may be
+ * handed to a service somewhere else, so a token printed by an approved
+ * command was kept forever and sent onward. A tool's output is where this
+ * happens — `env`, a config file read out, a curl that echoes its header —
+ * and none of it is text anybody chose to keep.
+ *
+ * What it costs: a person who types a real key into the conversation and asks
+ * "is this my key?" gets [a secret] back. That is the right side to err on.
+ */
 func (d *DB) AddMessage(conversationID int64, role, provider, model, content string) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
+
+	content = redact.Text(content)
 
 	res, err := d.sql().Exec(
 		`INSERT INTO messages (conversation_id, role, provider, model, content, created_at, updated_at)

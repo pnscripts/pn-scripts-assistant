@@ -56,7 +56,9 @@ func (d *DB) sql() *sql.DB { return d.pool.Load() }
 // multi-goroutine SQLite program fails in production.
 func Open(path string) (*DB, error) {
 	if dir := filepath.Dir(path); dir != "" {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		// 0700: the folder holds the database, and the database is the whole
+		// of what this program knows about somebody.
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("creating %s: %w", dir, err)
 		}
 	}
@@ -79,7 +81,34 @@ func Open(path string) (*DB, error) {
 		return nil, err
 	}
 
+	ours(path)
+
 	return db, nil
+}
+
+/*
+ * ours makes the database readable by its owner and nobody else.
+ *
+ * SQLite creates it with whatever the umask allows, which on Ubuntu is 0644 —
+ * so on a shared machine every other account could read every conversation,
+ * every memory and every piece of evidence. The settings beside it have been
+ * 0600 since the first week, and the settings are the less revealing file of
+ * the two.
+ *
+ * The journal and shared-memory files as well: in WAL mode the most recent
+ * writes are in the -wal file and nowhere else, so leaving that one open
+ * would leave the newest conversation open.
+ *
+ * Quietly, and not as an error: a database on a drive that cannot hold
+ * permissions — a FAT stick, somebody's NAS — still works, and refusing to
+ * start over it would be the wrong trade.
+ */
+func ours(path string) {
+	for _, at := range []string{path, path + "-wal", path + "-shm"} {
+		if info, err := os.Stat(at); err == nil && info.Mode().Perm()&0o077 != 0 {
+			os.Chmod(at, 0o600)
+		}
+	}
 }
 
 /*

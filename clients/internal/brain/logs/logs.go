@@ -51,6 +51,9 @@ func Folder() string {
 	return filepath.Join(home, ".local", "state", paths.Name, "logs")
 }
 
+// Scrub wraps a handler so that nothing secret reaches it. See scrub.go.
+func Scrub(next slog.Handler) slog.Handler { return scrubbed{next: next} }
+
 // File is the log this run writes to.
 func File() string { return filepath.Join(Folder(), paths.Name+".log") }
 
@@ -70,15 +73,32 @@ func Open(level slog.Level) (*slog.Logger, string) {
 
 	file, err := open(where)
 	if err != nil {
-		logger := slog.New(slog.NewTextHandler(to, &slog.HandlerOptions{Level: level}))
+		logger := slog.New(Scrub(slog.NewTextHandler(to, &slog.HandlerOptions{Level: level})))
+		everywhere(logger)
 		logger.Warn("could not open the log file; this run is only in the terminal",
 			"file", where, "error", err)
 
 		return logger, ""
 	}
 
-	return slog.New(slog.NewTextHandler(io.MultiWriter(to, file), &slog.HandlerOptions{Level: level})), where
+	logger := slog.New(Scrub(slog.NewTextHandler(io.MultiWriter(to, file),
+		&slog.HandlerOptions{Level: level})))
+
+	everywhere(logger)
+
+	return logger, where
 }
+
+/*
+ * everywhere makes this the logger anything else reaches for.
+ *
+ * Passing it down covers the code that takes a logger; it does not cover the
+ * standard library's own, and one line in the speech server used it — so that
+ * line went to the terminal only and was never scrubbed. Setting the default
+ * sends both through the same handler, to the same file, past the same
+ * scrubbing, which is the point of having one.
+ */
+func everywhere(logger *slog.Logger) { slog.SetDefault(logger) }
 
 func open(where string) (*os.File, error) {
 	if err := os.MkdirAll(filepath.Dir(where), 0o700); err != nil {

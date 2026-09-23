@@ -57,6 +57,11 @@ func ask(s *Server, method, path, from string, set func(*http.Request)) *httptes
 	r := httptest.NewRequest(method, path, nil)
 	r.RemoteAddr = from
 
+	// What a browser on this machine actually sends. httptest's default is
+	// example.com, which is a name pointed at this computer — refused on
+	// purpose, and not what these tests are about.
+	r.Host = "127.0.0.1:8896"
+
 	if set != nil {
 		set(r)
 	}
@@ -378,6 +383,7 @@ func TestUnpairingTakesTheTunnelKeyToo(t *testing.T) {
 
 	r := httptest.NewRequest("DELETE", "/api/paired/"+device.ID, nil)
 	r.RemoteAddr = "127.0.0.1:5555"
+	r.Host = "127.0.0.1:8896" // what a browser here sends; see ask
 	r.SetPathValue("id", device.ID)
 
 	w := httptest.NewRecorder()
@@ -391,5 +397,84 @@ func TestUnpairingTakesTheTunnelKeyToo(t *testing.T) {
 
 	if _, still := after.Peer(device.ID); still {
 		t.Error("the lost phone still has a way into the home network")
+	}
+}
+
+/*
+ * A page on another site cannot drive this, even though the browser running
+ * it is on this machine.
+ *
+ * Demonstrated against the real program before this rule existed: a POST to
+ * /api/desktop carrying "Origin: http://evil.test" and a form's content type
+ * — the kind of request any page may send across origins without asking the
+ * browser's permission first — took the program out of the applications menu.
+ * Being on the computer is not the same as being the assistant's own page.
+ */
+func TestAPageOnAnotherSiteCannotChangeAnything(t *testing.T) {
+	s, got := guarded(t, config.ReachHere)
+
+	*got = false
+
+	w := ask(s, "POST", "/api/settings", "127.0.0.1:5555", func(r *http.Request) {
+		r.Header.Set("Origin", "http://evil.test")
+		r.Header.Set("Content-Type", "text/plain;charset=UTF-8")
+	})
+
+	if w.Code != http.StatusForbidden || *got {
+		t.Errorf("a request from another site was allowed (%d, reached the handler: %v)", w.Code, *got)
+	}
+
+	// The assistant's own page, which says the same host it asked, is fine.
+	*got = false
+
+	w = ask(s, "POST", "/api/settings", "127.0.0.1:5555", func(r *http.Request) {
+		r.Header.Set("Origin", "http://127.0.0.1:8896")
+	})
+
+	if w.Code != 200 || !*got {
+		t.Errorf("the assistant's own page was refused (%d)", w.Code)
+	}
+
+	// And a program, which sends no Origin at all, is not a browser.
+	*got = false
+
+	if w := ask(s, "POST", "/api/settings", "127.0.0.1:5555", nil); w.Code != 200 || !*got {
+		t.Errorf("a command-line request was refused (%d)", w.Code)
+	}
+}
+
+/*
+ * A name that somebody pointed at this computer is not this computer.
+ *
+ * Anyone may make their own domain resolve to 127.0.0.1. The browser then
+ * treats the assistant as that site's own origin — every answer readable by
+ * the page, no Origin header to catch it, nothing between a web page and the
+ * whole memory. The name in the request is the part a page cannot choose: a
+ * browser sends the name it was given.
+ */
+func TestANamePointedAtThisComputerIsRefused(t *testing.T) {
+	s, got := guarded(t, config.ReachHere)
+
+	for _, host := range []string{"evil.test:8896", "assistant.example.com", "brain.local:8896"} {
+		*got = false
+
+		// A read, not a change: reading everything is the point of the attack.
+		w := ask(s, "GET", "/api/status", "127.0.0.1:5555", func(r *http.Request) {
+			r.Host = host
+		})
+
+		if w.Code != http.StatusForbidden || *got {
+			t.Errorf("%s was answered (%d, reached the handler: %v)", host, w.Code, *got)
+		}
+	}
+
+	for _, host := range []string{"127.0.0.1:8896", "localhost:8896", "[::1]:8896", "127.0.0.1"} {
+		*got = false
+
+		if w := ask(s, "GET", "/api/status", "127.0.0.1:5555", func(r *http.Request) {
+			r.Host = host
+		}); w.Code != 200 || !*got {
+			t.Errorf("%s was refused (%d)", host, w.Code)
+		}
 	}
 }
