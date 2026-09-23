@@ -1,0 +1,123 @@
+.TH PN-SCRIPTS-ASSISTANT 1 "September 2026" "pn-scripts-assistant" "User Commands"
+.SH NAME
+pn\-scripts\-assistant \- private assistant that runs entirely on this machine
+.SH SYNOPSIS
+.B pn\-scripts\-assistant
+.RI [ command ]
+.RI [ options ]
+.SH DESCRIPTION
+.B pn\-scripts\-assistant
+is a personal assistant that keeps what it learns in one folder on this
+computer, runs its language model locally through Ollama, and by default sends
+nothing anywhere.
+.PP
+Run with no command it serves its interface and opens a window on it. Everything
+the program can do is available from that window; the commands below are for
+people who would rather type, and for the first run on a machine with no
+applications menu entry yet.
+.PP
+Anything that changes something \(em writing a file, running a command, sending
+a message \(em stops and asks before it happens, and says exactly what it is
+about to do.
+.SH COMMANDS
+.TP
+.B (no command)
+Serve the interface and open the window on it.
+.TP
+.B serve
+Serve only, without a window. The address is printed when it starts.
+.TP
+.B status
+Where the data lives, how large it is, how much has been learned, and where the
+log file is.
+.TP
+.BI ingest " DIRECTORY..."
+Read the projects and documents in a folder and remember what is in them.
+.TP
+.B ingest \-\-browser
+Learn which websites are used. Domains only, never addresses.
+.TP
+.B setup
+Choose the drive, the model and the keys again. Opens the same wizard as the
+first run; nothing changes until the end.
+.TP
+.B menu
+Put the assistant in the applications menu. With
+.B \-\-remove
+take it out again. Installed from a package it is there already, and this says
+so and writes nothing.
+.TP
+.B drives
+Where the brain could live, and how much room is left on each.
+.TP
+.BI move " DIRECTORY"
+Move the brain to another drive, verifying every byte.
+.TP
+.B copies
+Where copies of the brain are kept. With
+.B \-\-now
+make one.
+.TP
+.B places
+The drives and folders it learns from. With
+.B \-\-read
+read some of them now.
+.TP
+.B mic\-test
+Listen once and report what the microphone heard.
+.TP
+.B promote
+Turn validated lessons into durable knowledge.
+.TP
+.B start\-over
+Empty the review queue and let those files be read again. With
+.B \-\-facts
+forget memories of files in folders it no longer reads; with
+.B \-\-all
+forget everything learned and read every folder again.
+.TP
+.B start\-again
+Stop waiting for a drive that is gone for good.
+.TP
+.B tidy
+Clear self\-descriptions out of the review queue.
+.TP
+.B rewrite\-paths
+Repair stored paths after a move, then embed them again.
+.SH FILES
+.TP
+.I ~/.local/share/pn-scripts-assistant/data
+The brain: the database, the settings and everything learned. It can be moved
+to another drive with
+.BR "pn-scripts-assistant move" .
+.TP
+.I ~/.config/pn-scripts-assistant/last-root.json
+Which brain was opened last.
+.TP
+.I ~/.local/state/pn-scripts-assistant/logs/pn-scripts-assistant.log
+What happened, including why it did not start. Rotated at five megabytes,
+three kept.
+.SH ENVIRONMENT
+.TP
+.B PN_SCRIPTS_ASSISTANT_DATA_ROOT
+Use this folder as the brain instead of the remembered one.
+.TP
+.B BRAIN_ADDR
+The address to serve on, for example
+.IR 127.0.0.1:8896 .
+.TP
+.B OLLAMA_BASE_URL
+Where Ollama is answering. The default is
+.IR http://127.0.0.1:11434 .
+.SH SECURITY
+The interface answers on the loopback interface only, unless another device has
+been paired with it deliberately. A request from a web page open in a browser on
+this machine is refused: it must name this computer and come from the
+assistant's own page.
+.SH EXIT STATUS
+.B 0
+on success. Anything else is a failure, and the reason is printed.
+.SH SEE ALSO
+The documentation in the repository:
+.UR https://github.com/pnscripts/pn-scripts-assistant
+.UE

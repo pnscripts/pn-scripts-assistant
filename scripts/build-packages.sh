@@ -73,6 +73,64 @@ mkdir -p "$OUT"
 # the window exists, and a .deb can declare the libraries it needs rather than
 # discovering them missing at runtime — which is the entire advantage of using
 # the system's own package manager, so it is worth using properly.
+# The two files Debian policy asks every package to carry.
+#
+# Neither is decoration. copyright is required — §12.5 — and a package without
+# one cannot go anywhere that checks; the changelog is what somebody reads to
+# find out what they just installed, and apt shows it. Both belong in
+# /usr/share/doc/<package>, and the changelog is gzipped because policy says so
+# and because lintian says so twice.
+deb_documents() {
+    local stage="$1" doc="$1/usr/share/doc/pn-scripts-assistant"
+
+    mkdir -p "$doc"
+
+    cat > "$doc/copyright" <<'COPYRIGHT'
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: pn-scripts-assistant
+Source: https://github.com/pnscripts/pn-scripts-assistant
+
+Files: *
+Copyright: 2026 Petar Nikolov
+License: MIT
+
+License: MIT
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
+COPYRIGHT
+
+    cat > "$doc/changelog" <<CHANGELOG
+pn-scripts-assistant ($VERSION) unstable; urgency=medium
+
+  * Built from $( git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "an unknown revision" ).
+  * The release notes for this build are in the repository, under docs/.
+
+ -- Petar Nikolov <petar.v.nikolov@gmail.com>  $(date -R)
+CHANGELOG
+
+    # -n so the name and timestamp are not written into the gzip header, which
+    # is one of the things that would otherwise make two builds of the same
+    # source differ. See the release script.
+    gzip -9n -f "$doc/changelog"
+
+    chmod 644 "$doc/copyright" "$doc/changelog.gz"
+}
+
 build_deb() {
     command -v dpkg-deb >/dev/null || { warn "dpkg-deb missing; skipping the .deb"; return; }
 
@@ -100,10 +158,40 @@ build_deb() {
             "$stage/usr/share/icons/hicolor/${size}x${size}/apps/pn-scripts-assistant.png"
     done
 
-    CGO_ENABLED=1 go build -C "$ROOT/clients" -trimpath -ldflags="-s -w" \
+    # -buildmode=pie so the program is laid out somewhere different on every
+    # run, which is what every other program Ubuntu ships does and the one
+    # hardening measure that costs nothing to turn on.
+    CGO_ENABLED=1 go build -C "$ROOT/clients" -trimpath -buildmode=pie -ldflags="-s -w" \
         -o "$stage/usr/bin/pn-scripts-assistant" ./cmd/pn-scripts-assistant || die "build failed"
 
     chmod 755 "$stage/usr/bin/pn-scripts-assistant"
+
+    # What it actually links against, asked of the system rather than
+    # remembered by hand.
+    #
+    # The list was written out once and would have been wrong the first time
+    # anything changed — a program that links about sixty libraries
+    # transitively cannot have its dependencies maintained by memory.
+    # dpkg-shlibdeps reads the binary and names the packages that own the
+    # libraries it needs; the hand-written pair stays as the fallback for a
+    # machine without it, and both are recorded so the difference is visible.
+    local depends="libwebkit2gtk-4.1-0, libgtk-3-0t64 | libgtk-3-0"
+
+    if command -v dpkg-shlibdeps >/dev/null; then
+        local computed
+        computed="$(cd "$stage" && mkdir -p debian && : > debian/control &&
+            dpkg-shlibdeps -O --ignore-missing-info "usr/bin/pn-scripts-assistant" 2>/dev/null |
+            sed 's/^shlibs:Depends=//')"
+
+        rm -rf "$stage/debian"
+
+        if [ -n "$computed" ]; then
+            depends="$computed"
+            log "  dependencies computed from the binary"
+        else
+            warn "dpkg-shlibdeps said nothing; keeping the written-out dependencies"
+        fi
+    fi
 
     # Depends rather than Recommends for the window libraries: without them the
     # program runs but cannot open its own window, and somebody who installed a
@@ -114,13 +202,15 @@ Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: amd64
-Depends: libwebkit2gtk-4.1-0, libgtk-3-0t64 | libgtk-3-0
+Depends: $depends
 Recommends: xdotool, espeak-ng
-Maintainer: PN Scripts Assistant <noreply@localhost>
-Description: A private assistant that runs entirely on this machine
- PN Scripts Assistant is a personal, self-learning assistant. It keeps everything it
- learns in one folder on your own computer, runs its language model locally,
- and by default sends nothing anywhere.
+Maintainer: Petar Nikolov <petar.v.nikolov@gmail.com>
+Homepage: https://github.com/pnscripts/pn-scripts-assistant
+Installed-Size: $(du -sk "$stage" | cut -f1)
+Description: Private assistant that runs entirely on this machine
+ PN Scripts Assistant is a personal, self-learning assistant. It keeps
+ everything it learns in one folder on your own computer, runs its language
+ model locally, and by default sends nothing anywhere.
  .
  Ollama and a language model are not included: setup checks for them on first
  run and installs them for you.
@@ -147,10 +237,45 @@ Name=Set up again
 Exec=pn-scripts-assistant setup
 DESKTOP
 
+    # 0644, not whatever the umask left: a desktop entry is read by the
+    # desktop for every user on the machine, and group-writable is a finding
+    # in every checker there is.
+    chmod 644 "$stage/usr/share/applications/pn-scripts-assistant.desktop"
+
+    if command -v desktop-file-validate >/dev/null; then
+        desktop-file-validate "$stage/usr/share/applications/pn-scripts-assistant.desktop" \
+            || die "the desktop entry is not valid"
+    fi
+
+    deb_documents "$stage"
+
+    mkdir -p "$stage/usr/share/man/man1"
+    gzip -9nc "$ROOT/packaging/pn-scripts-assistant.1" \
+        > "$stage/usr/share/man/man1/pn-scripts-assistant.1.gz"
+    chmod 644 "$stage/usr/share/man/man1/pn-scripts-assistant.1.gz"
+
+    # The umask on this machine leaves directories group-writable, and what
+    # the archive carries is what lands on somebody else's machine.
+    find "$stage/usr" -type d -exec chmod 755 {} +
+
+    # md5sums, so dpkg can say afterwards which installed file has been
+    # changed. Every package built by the usual tools has one; this was built
+    # by hand and did not.
+    ( cd "$stage" && find usr -type f -print0 | sort -z |
+        xargs -0 md5sum > DEBIAN/md5sums ) 2>/dev/null || true
+
     fakeroot dpkg-deb --build "$stage" "$OUT/pn-scripts-assistant_${VERSION}_amd64.deb" >/dev/null \
         || die "dpkg-deb failed"
 
     log "  $OUT/pn-scripts-assistant_${VERSION}_amd64.deb"
+
+    if command -v lintian >/dev/null; then
+        log "  lintian:"
+        lintian --tag-display-limit 0 "$OUT/pn-scripts-assistant_${VERSION}_amd64.deb" 2>&1 |
+            sed 's/^/    /' || true
+    else
+        warn "  lintian is not installed; the package was not checked"
+    fi
 }
 
 # ---------------------------------------------------------------------------
