@@ -71,9 +71,10 @@ of a typo is the strict one.
 - For listening: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) with
   `whisper-cli` on your PATH and a model of 50MB or more
 
-Run `pn-scripts-assistant-doctor` to see what is missing and install it. Nothing here is
-required — the brain reports what it cannot do rather than refusing to start,
-and controls for absent capabilities are not shown at all.
+None of it is required. The assistant reports what it cannot do rather than
+refusing to start, and controls for capabilities that are missing are not shown
+at all. The first run checks for all of this and offers to install what it can
+— the package does not carry a separate checker, because the program is one.
 
 ### Two Ollama settings worth checking
 
@@ -95,31 +96,94 @@ otherwise, but it sends every conversation and every recalled memory to Ollama.
 An Ollama on `0.0.0.0` is unauthenticated and reachable by anything on your
 network, which undoes the careful part.
 
+## Installing it
+
+Ubuntu 24.04 or newer, on a 64-bit machine. Download
+`pn-scripts-assistant_<version>_amd64.deb` from the
+[releases](https://github.com/pnscripts/pn-scripts-assistant/releases) and:
+
+```bash
+sudo apt install ./pn-scripts-assistant_*.deb
+```
+
+`apt` pulls in the libraries the window needs — the package says which ones,
+having been asked of the binary rather than remembered — and puts **PN Scripts
+Assistant** in the applications menu with its icon.
+
+To check what you downloaded is what was built:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+### Building the package yourself
+
+```bash
+make release
+```
+
+That formats, vets, runs every test, builds the `.deb`, checks it from the
+outside with `lintian`, and writes `SHA256SUMS` beside it in `build/packages`.
+It needs `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `dpkg-dev`, `fakeroot` and
+(for the check) `lintian`.
+
+Or just the binary, without a package:
+
+```bash
+CGO_ENABLED=1 go build -C clients -trimpath -o ../build/pn-scripts-assistant ./cmd/pn-scripts-assistant
+```
+
+`CGO_ENABLED=0` builds too — you get the assistant without a native window,
+reachable in any browser at `127.0.0.1:8790`.
+
 ## Running it
 
-One command, from anywhere (rebuilds if this tree is newer, then opens the window):
+Press the Ubuntu key, type the first few letters of its name, and press Return.
+The first run opens setup: it finds Ollama, offers to install a model, and asks
+where the brain should live.
+
+From a terminal, the same thing:
 
 ```bash
 pn-scripts-assistant
 ```
 
-The app menu entry is **PN Scripts Assistant**. If it is already running, that opens `http://127.0.0.1:8790` instead of starting a second copy.
+If it is already running, that brings the existing window forward rather than
+starting a second copy — one assistant per brain, and the second says where the
+first is answering. `pn-scripts-assistant serve` runs it without a window, for a
+machine with no desktop; the address is printed when it starts.
 
-Download the AppImage, make it executable, run it:
+A few things worth knowing:
+
+| | |
+|---|---|
+| Which copy is this | `pn-scripts-assistant version` |
+| Everything it can do from a terminal | `man pn-scripts-assistant` |
+| Where the data is, and how much | `pn-scripts-assistant status` |
+| Why it did not start | `~/.local/state/pn-scripts-assistant/logs/pn-scripts-assistant.log` |
+| Somewhere else | `BRAIN_ADDR=127.0.0.1:9000 pn-scripts-assistant` |
+
+Everything else is in the window. The terminal is for people who prefer one.
+
+## Updating and removing it
+
+A newer package installs over the old one and keeps everything learned:
 
 ```bash
-chmod +x PN-Scripts-Assistant-x86_64.AppImage
-./PN-Scripts-Assistant-x86_64.AppImage
+sudo apt install ./pn-scripts-assistant_<newer>_amd64.deb
 ```
 
-Or build from source:
+Removing the program leaves the brain alone, deliberately — years of somebody's
+memory should not go with an `apt remove`:
 
 ```bash
-CGO_ENABLED=1 go build -C clients -o ../dist/pn-scripts-assistant ./cmd/pn-scripts-assistant
+sudo apt remove pn-scripts-assistant          # the program
+rm -rf ~/.local/share/pn-scripts-assistant    # and the memory, if you mean it
+rm -rf ~/.config/pn-scripts-assistant ~/.local/state/pn-scripts-assistant
 ```
 
-`CGO_ENABLED=0` builds fine too — you get the brain without a native window,
-reachable in any browser at `127.0.0.1:8790`.
+If the brain was moved to another drive, `pn-scripts-assistant status` says
+where it is before you remove anything.
 
 ## Where the data lives
 
@@ -189,7 +253,13 @@ pn-scripts-assistant move <dir>         move the brain to another drive, verifyi
 pn-scripts-assistant rewrite-paths      repair stored paths after a move, then re-embed
 pn-scripts-assistant copies             where copies of the brain are kept, and copy now
 pn-scripts-assistant places             the drives and folders it learns from  (--read)
+pn-scripts-assistant menu               put it in the applications menu  (--remove to take it out)
+pn-scripts-assistant setup              choose the drive, the model and the keys again
+pn-scripts-assistant version            which copy of the program this is
 ```
+
+`man pn-scripts-assistant` has all of them, with the files and the environment
+variables.
 
 ## How it is built
 
@@ -201,6 +271,19 @@ Nothing else has to be running for it to start: no database server, no
 container runtime, no background stack. The program, one file of memory, and
 whichever model you point it at. How it came to be built this way is in
 [docs/ROADMAP.md](docs/ROADMAP.md).
+
+## The rest of it
+
+| | |
+|---|---|
+| [Installing, updating, removing](docs/guide/installing.md) | the package and what it puts where |
+| [Setting it up](docs/guide/configuring.md) | the first run, privacy, environment |
+| [Models](docs/guide/how-it-thinks.md) | which one answers, and why the second question is faster |
+| [When something is wrong](docs/guide/troubleshooting.md) | the log first |
+| [Working on it](docs/guide/developing.md) | building, tests, expectations |
+| [Making a release](docs/guide/releasing.md) | `make release` |
+| [Decisions](docs/decisions/) | why things are the way they are |
+| [Audits](docs/audit/) | what was measured, and when |
 
 ## Licence
 

@@ -391,3 +391,73 @@ func TestAPackagedEntryForAnotherCopyIsNotMine(t *testing.T) {
 		t.Error("it wrote the entry and then said it was not installed")
 	}
 }
+
+/*
+ * A packaged entry says "Exec=pn-scripts-assistant", not a path.
+ *
+ * This is the shape a .deb installs, and the first version of this check did
+ * not recognise it: it compared the full path of the running binary against
+ * the Exec line, passed its own tests — which wrote entries the way this
+ * program writes them — and then wrote a second entry over the packaged one
+ * the first time it met a real package. Found by running the real .deb's
+ * files, which is why this test uses them rather than a made-up entry.
+ */
+func TestAPackagedEntryNamesTheProgramWithoutAPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", home)
+
+	// A program on the PATH, as a package puts it there.
+	bin := t.TempDir()
+	me := filepath.Join(bin, EntryName)
+
+	if err := os.WriteFile(me, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PATH", bin)
+	t.Setenv("APPIMAGE", me) // stands in for "where this program is"
+
+	system := t.TempDir()
+	t.Setenv("XDG_DATA_DIRS", system)
+
+	packaged := filepath.Join(system, "applications", EntryName+".desktop")
+
+	if err := os.MkdirAll(filepath.Dir(packaged), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Exactly what scripts/build-packages.sh writes.
+	if err := os.WriteFile(packaged, []byte(
+		"[Desktop Entry]\nType=Application\nName=PN Scripts Assistant\n"+
+			"Exec="+EntryName+"\nIcon="+EntryName+"\nTerminal=false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if at := SystemWide(); at != packaged {
+		t.Fatalf("the packaged entry was not recognised: %q", at)
+	}
+
+	if _, err := Install("PN Scripts Assistant"); err != nil {
+		t.Fatal(err)
+	}
+
+	mine, _ := Where()
+
+	if _, err := os.Stat(mine); !os.IsNotExist(err) {
+		t.Errorf("it wrote a second entry at %s", mine)
+	}
+
+	// A bare name on the PATH that is a different copy of the program is not
+	// this one.
+	elsewhere := filepath.Join(t.TempDir(), EntryName)
+
+	if err := os.WriteFile(elsewhere, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("APPIMAGE", elsewhere)
+
+	if at := SystemWide(); at != "" {
+		t.Errorf("another copy's packaged entry was taken for mine: %s", at)
+	}
+}

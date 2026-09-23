@@ -88,7 +88,65 @@ func pointsAtMe(entry string) bool {
 		return false
 	}
 
-	return strings.Contains(string(body), "Exec="+me+"\n")
+	return runsMe(string(body), me)
+}
+
+/*
+ * runsMe says whether a desktop entry starts this very program.
+ *
+ * Two shapes, because two things write these. This program writes the full
+ * path of the file it is running from, which is the only thing that can be
+ * right for a copy somebody downloaded into their home directory. The package
+ * writes "Exec=pn-scripts-assistant" — a bare name, found on the PATH — which
+ * is what a packaged program should say and which nothing but the PATH can
+ * resolve.
+ *
+ * Comparing only the first shape is how the packaged case was missed: the
+ * check passed its own tests, because its own tests wrote entries the way
+ * this program writes them, and then wrote a second entry over the packaged
+ * one the first time it met a real .deb.
+ *
+ * A bare name that resolves to some other copy of the program is not this
+ * one: a package in /usr/bin and a download in ~/Downloads are two programs,
+ * and the one running is the one that belongs in the menu.
+ */
+func runsMe(body, me string) bool {
+	for _, line := range strings.Split(body, "\n") {
+		value, found := strings.CutPrefix(strings.TrimSpace(line), "Exec=")
+		if !found {
+			continue
+		}
+
+		// The command is the first word; the rest is arguments, and the
+		// field codes a desktop entry may carry (%U, %f).
+		command := strings.Fields(value)
+		if len(command) == 0 {
+			continue
+		}
+
+		if command[0] == me {
+			return true
+		}
+
+		if strings.Contains(command[0], "/") {
+			continue
+		}
+
+		at, err := exec.LookPath(command[0])
+		if err != nil {
+			continue
+		}
+
+		if resolved, err := filepath.EvalSymlinks(at); err == nil {
+			at = resolved
+		}
+
+		if at == me {
+			return true
+		}
+	}
+
+	return false
 }
 
 /*
@@ -119,7 +177,7 @@ func SystemWide() string {
 			continue
 		}
 
-		if strings.Contains(string(body), "Exec="+me+"\n") {
+		if runsMe(string(body), me) {
 			return entry
 		}
 	}
