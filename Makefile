@@ -42,6 +42,7 @@ check:
 		{ echo "not formatted:"; gofmt -l clients/cmd clients/internal; exit 1; }
 	@echo "→ go vet"
 	@cd clients && $(GO) vet ./...
+	@bash scripts/version-order-test.sh
 
 test:
 	@echo "→ go test"

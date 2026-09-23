@@ -66,8 +66,16 @@ derive_version() {
         return
     fi
 
+    # The time, not only the day, and the hash last.
+    #
+    # dpkg compares a version in runs of digits and letters: 20260923.983e04f
+    # against 20260923.91b8207 comes down to 983 against 91, and the newer
+    # build loses. Found by installing one over the other — apt refused it as
+    # a downgrade. A commit hash cannot order anything; the second it was
+    # committed can, so that is what carries the ordering and the hash is left
+    # as the label it always was.
     local when hash
-    when="$(git -C "$ROOT" log -1 --format=%cd --date=format:%Y%m%d 2>/dev/null || date +%Y%m%d)"
+    when="$(git -C "$ROOT" log -1 --format=%cd --date=format:%Y%m%d%H%M%S 2>/dev/null || date -u +%Y%m%d%H%M%S)"
     hash="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
     printf '%s~git%s.%s' "$declared" "$when" "$hash"
