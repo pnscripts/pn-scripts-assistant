@@ -117,18 +117,21 @@ func (a *Anthropic) Chat(ctx context.Context, req Request) (Response, error) {
 		return Response{}, err
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, a.BaseURL+"/v1/messages", bytes.NewReader(raw))
-	if err != nil {
-		return Response{}, err
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", a.APIKey)
-	httpReq.Header.Set("anthropic-version", "2023-06-01")
-
 	started := time.Now()
 
-	resp, err := a.HTTPClient.Do(httpReq)
+	resp, err := sendWithOneMoreTry(ctx, a.HTTPClient, func() (*http.Request, error) {
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			a.BaseURL+"/v1/messages", bytes.NewReader(raw))
+		if err != nil {
+			return nil, err
+		}
+
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("x-api-key", a.APIKey)
+		httpReq.Header.Set("anthropic-version", "2023-06-01")
+
+		return httpReq, nil
+	})
 	if err != nil {
 		return Response{}, fmt.Errorf("reaching Anthropic: %w", err)
 	}

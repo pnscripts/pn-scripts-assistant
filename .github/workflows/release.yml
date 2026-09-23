@@ -37,6 +37,16 @@ jobs:
         env:
           CGO_ENABLED: '1'
 
+      # Known vulnerabilities, in what is imported and in the toolchain
+      # itself. The first run of this found twenty-eight in the standard
+      # library; none was in this code, and all were fixed by raising the
+      # toolchain in go.mod.
+      - name: Known vulnerabilities
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
+        working-directory: clients
+
   # The package people actually install, built and checked where nobody's
   # laptop can help it along.
   #

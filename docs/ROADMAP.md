@@ -1,7 +1,17 @@
 # Roadmap
 
-Full plan: see the approved plan this repo was built from (Phase 0 + Phase 1 are done;
-everything below is what comes next, in order).
+**Where this actually is, as of 23 September 2026.** The program is released as
+an Ubuntu package: `0.1.0`, installable with `apt`, in the applications menu,
+with a manual page and an audit behind it. What that release contains and what
+it does not is in [the release notes](RELEASE-NOTES-0.1.0.md); what was
+measured to get there is in [docs/audit/](audit/); how to install, configure
+and build it is in [docs/guide/](guide/).
+
+The rest of this file is the reasoning: which tools were chosen and why, which
+choices were reversed, and what measurement changed. It is kept because the
+arguments are still the arguments — not as a statement of what is done. The
+"what comes next" below predates the release and is read as a list of
+intentions rather than a plan with dates.
 
 ## Choosing tools
 

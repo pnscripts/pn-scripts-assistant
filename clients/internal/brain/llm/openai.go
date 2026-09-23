@@ -192,27 +192,29 @@ func (o *OpenAICompatible) Chat(ctx context.Context, req Request) (Response, err
 		return Response{}, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		strings.TrimSuffix(o.BaseURL, "/")+"/chat/completions", bytes.NewReader(raw))
-	if err != nil {
-		return Response{}, err
-	}
-
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Authorization", "Bearer "+o.APIKey)
-
-	// OpenRouter's attribution headers. Absent for everyone else.
-	if o.Referer != "" {
-		request.Header.Set("HTTP-Referer", o.Referer)
-		request.Header.Set("X-Title", o.Title)
-	}
-
 	client := o.HTTPClient
 	if client == nil {
 		client = &http.Client{Timeout: 120 * time.Second}
 	}
 
-	resp, err := client.Do(request)
+	resp, err := sendWithOneMoreTry(ctx, client, func() (*http.Request, error) {
+		request, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			strings.TrimSuffix(o.BaseURL, "/")+"/chat/completions", bytes.NewReader(raw))
+		if err != nil {
+			return nil, err
+		}
+
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Authorization", "Bearer "+o.APIKey)
+
+		// OpenRouter's attribution headers. Absent for everyone else.
+		if o.Referer != "" {
+			request.Header.Set("HTTP-Referer", o.Referer)
+			request.Header.Set("X-Title", o.Title)
+		}
+
+		return request, nil
+	})
 	if err != nil {
 		return Response{}, fmt.Errorf("could not reach %s: %w", o.Name(), err)
 	}

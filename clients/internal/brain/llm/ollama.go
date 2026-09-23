@@ -621,14 +621,18 @@ func (o *Ollama) post(ctx context.Context, path string, body, into any) error {
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.BaseURL+path, bytes.NewReader(raw))
-	if err != nil {
-		return err
-	}
+	// Built per attempt: a request body is read as it is sent, so the same
+	// request cannot be sent twice. See again.go.
+	resp, err := sendWithOneMoreTry(ctx, o.HTTPClient, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.BaseURL+path, bytes.NewReader(raw))
+		if err != nil {
+			return nil, err
+		}
 
-	req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", "application/json")
 
-	resp, err := o.HTTPClient.Do(req)
+		return req, nil
+	})
 	if err != nil {
 		return notAnswering(o.BaseURL, err)
 	}

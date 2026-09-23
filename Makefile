@@ -14,12 +14,13 @@ VERSION := $(shell tr -d ' \t\n\r' < VERSION)
 PACKAGES := $(ROOT)/build/packages
 GO := CGO_ENABLED=1 go
 
-.PHONY: help clean check test build package validate checksums release version install-deps
+.PHONY: help clean check test vulns build package validate checksums release version install-deps
 
 help:
 	@echo "  make release   everything below, in order, ending in files to publish"
 	@echo "  make check     formatting and vet"
 	@echo "  make test      every test"
+	@echo "  make vulns     known vulnerabilities, including the toolchain's"
 	@echo "  make build     the binary, into build/"
 	@echo "  make package   the .deb"
 	@echo "  make validate  lintian and the desktop entry"
@@ -47,6 +48,22 @@ check:
 test:
 	@echo "→ go test"
 	@cd clients && $(GO) test ./... -p 2
+
+# Known vulnerabilities, in what is imported and in the toolchain itself.
+#
+# Not part of `check`, because it needs the network and a check that fails on
+# a train is a check people learn to skip. Part of `release`, where the
+# network is already needed, and part of CI.
+#
+# The first run of this found twenty-eight vulnerabilities in the Go standard
+# library — crypto/x509, crypto/tls and net/http, all three of which this
+# program serves with. None of them was in this code; all of them were fixed
+# by raising the toolchain in go.mod.
+vulns:
+	@echo "→ govulncheck"
+	@command -v govulncheck >/dev/null || \
+		{ echo "   installing govulncheck"; go install golang.org/x/vuln/cmd/govulncheck@latest; }
+	@cd clients && PATH="$$PATH:$$(go env GOPATH)/bin" govulncheck ./...
 
 # The ordinary build, for looking at. The one that ships is built inside the
 # packaging script, with -trimpath and the version stamped in.
@@ -90,7 +107,7 @@ validate:
 checksums:
 	@cd $(PACKAGES) && sha256sum *.deb > SHA256SUMS && cat SHA256SUMS
 
-release: clean check test package validate checksums
+release: clean check test vulns package validate checksums
 	@echo
 	@echo "  Released $(VERSION)"
 	@echo "  Files:   $(PACKAGES)"

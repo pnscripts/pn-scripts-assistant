@@ -6,6 +6,20 @@ module pn-scripts-assistant
 
 go 1.25.0
 
+// The toolchain this is built with, pinned rather than left to whatever the
+// machine happens to have.
+//
+// govulncheck against go1.26.0 reported twenty-eight vulnerabilities in the
+// standard library alone — crypto/x509, crypto/tls and net/http among them,
+// all three of which this program serves with. Raising this is how they are
+// fixed: there is nothing to change in this code. The go command fetches the
+// toolchain when it is not already here, so a build on a clean machine and a
+// build on this one are the same build.
+//
+// Worth re-running govulncheck when this is raised again, and worth raising
+// it when a scan says so.
+toolchain go1.26.6
+
 require (
 	github.com/yalue/onnxruntime_go v1.36.0
 	golang.org/x/sys v0.47.0

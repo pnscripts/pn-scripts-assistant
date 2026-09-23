@@ -36,6 +36,7 @@ without measuring a conversation turn.
 | `go test -race` on store, activity, desktop, logs, provision, preflight, llm | **no data races** |
 | `go test -race` on server | **no data races** (802 s) |
 | `go mod tidy -diff` | clean |
+| `govulncheck ./...` | **No vulnerabilities found** — after the toolchain was raised; see S7 |
 | Dependencies | three direct (`modernc.org/sqlite`, `onnxruntime_go`, `golang.org/x/sys`); none added this month |
 
 The server package under `-race` exceeded Go's ten-minute default test timeout
@@ -94,6 +95,16 @@ web traffic. Severity: **HIGH** on hardware like this one. Status: **FIXED**,
 with a test that runs a real server with a real deadline and a handler that
 outlasts it.
 
+**S7 — the toolchain had twenty-eight known vulnerabilities.** The first
+`govulncheck` run, against go1.26.0, reported 28 in the Go standard library
+alone — `crypto/x509`, `crypto/tls` and `net/http` among them, all three of
+which this program serves with, and all reachable from `Server.Serve`. None
+was in this code. `go.mod` now pins `toolchain go1.26.6`, the go command
+fetches it when a machine does not have it, and the scan is clean: **No
+vulnerabilities found**. It runs as part of `make release` and in CI, so the
+next one is found by a machine rather than by somebody remembering.
+Severity: **HIGH**. Status: **FIXED and VERIFIED**.
+
 ## Security, re-run against the installed binary
 
 Not against a build in the source tree — against `/usr/bin/pn-scripts-assistant`
@@ -135,9 +146,13 @@ the code.
 
 Carried forward deliberately, each with its severity.
 
-- **M2 — no retries on model calls** (MEDIUM). One transient network failure
-  ends a chat turn; tasks survive it because the orchestrator fails over,
-  conversations do not. NOT IMPLEMENTED.
+- **M2 — no retries on model calls.** **FIXED.** One more attempt, for the
+  failures that could succeed if asked again: a connection that never arrived,
+  or a 429/500/502/503/504. Never for a refusal — asking the same wrong
+  question twice gets the same answer twice, and on a paid service costs twice
+  — never after cancellation, and never for anything already streaming, where
+  half an answer has been delivered. `Retry-After` is honoured and bounded at
+  five seconds.
 - **The prompt is mostly tool descriptions** (MEDIUM, performance). Of 6,338
   tokens, 1,224 are the persona and about 5,100 are 39 tool schemas — a
   greeting pays for every tool the assistant has. `agent.relevant` drops the
@@ -147,9 +162,9 @@ Carried forward deliberately, each with its severity.
   the conversation; Ollama's prompt cache restores it, which is what makes the
   second turn ten times faster. On a machine where that cache does not fit, the
   turn is paid for again.
-- **L6 — no static analysis beyond `go vet`** (LOW). No `staticcheck`, no
-  `govulncheck`. Dead code has therefore **not been assessed**, stated plainly
-  rather than guessed at.
+- **L6 — no `staticcheck`** (LOW). `govulncheck` is now part of `make release`
+  and of CI; `staticcheck` is not, so **dead code has still not been
+  assessed** — stated plainly rather than guessed at.
 - **L7 — `docs/ROADMAP.md` is stale** (LOW).
 - **Reproducible builds** (MEDIUM). `-trimpath` and a timestamp-free gzip are
   in; the build has **not** been run twice and compared. NOT VERIFIED.
