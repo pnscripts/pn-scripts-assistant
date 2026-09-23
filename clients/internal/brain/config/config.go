@@ -499,13 +499,17 @@ func Default() Config {
 		// On by default, unlike the canceller above. This one is gentle and
 		// undoes itself; that one moves where every program on the machine
 		// sends its sound.
-		KeepQuiet:       true,
-		VoiceMatch:      0.5,
-		OllamaModel:     "qwen2.5-coder:7b",
-		ModelChosen:     false,
-		AutoModel:       true,
-		AlwaysSpeak:     true,
-		AlwaysListen:    true,
+		KeepQuiet:   true,
+		VoiceMatch:  0.5,
+		OllamaModel: "qwen2.5-coder:7b",
+		ModelChosen: false,
+		AutoModel:   true,
+		AlwaysSpeak: true,
+		// Off until somebody turns it on. A program that opens the
+		// microphone the first time it is started, on a machine it was
+		// installed on minutes ago, has helped itself to something nobody
+		// offered it. Setup asks, and the switch is in the panel.
+		AlwaysListen:    false,
 		EmbedModel:      "nomic-embed-text",
 		AnthropicModel:  "",
 		OpenAIKey:       "",

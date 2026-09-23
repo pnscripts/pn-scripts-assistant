@@ -266,7 +266,7 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 
 	res, err := o.HTTPClient.Do(request)
 	if err != nil {
-		return Response{}, fmt.Errorf("reaching ollama at %s: %w", o.BaseURL, err)
+		return Response{}, notAnswering(o.BaseURL, err)
 	}
 
 	defer res.Body.Close()
@@ -463,7 +463,7 @@ func (o *Ollama) post(ctx context.Context, path string, body, into any) error {
 
 	resp, err := o.HTTPClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("reaching ollama at %s: %w", o.BaseURL, err)
+		return notAnswering(o.BaseURL, err)
 	}
 	defer resp.Body.Close()
 
@@ -535,7 +535,7 @@ func (o *Ollama) Resident(ctx context.Context) ([]Loaded, error) {
 
 	res, err := o.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("reaching ollama at %s: %w", o.BaseURL, err)
+		return nil, notAnswering(o.BaseURL, err)
 	}
 
 	defer res.Body.Close()
@@ -558,4 +558,21 @@ func (o *Ollama) Resident(ctx context.Context) ([]Loaded, error) {
 	}
 
 	return loaded, nil
+}
+
+/*
+ * notAnswering is what to do about Ollama not being there.
+ *
+ * It is the one dependency this program cannot work without on a machine with
+ * no keys, and "connection refused" tells somebody nothing they can act on.
+ * The address is in the message because it is configurable, and half of these
+ * are a brain pointed at the wrong one.
+ */
+func notAnswering(baseURL string, err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("the model at %s did not answer in time: %w", baseURL, err)
+	}
+
+	return fmt.Errorf("Ollama is not answering at %s — start it (ollama serve), or point this at "+
+		"another one with OLLAMA_BASE_URL: %w", baseURL, err)
 }

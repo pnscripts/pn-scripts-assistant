@@ -32,6 +32,7 @@ import (
 	"pn-scripts-assistant/internal/brain/copies"
 	"pn-scripts-assistant/internal/brain/desktop"
 	"pn-scripts-assistant/internal/brain/learning"
+	"pn-scripts-assistant/internal/brain/logs"
 	"pn-scripts-assistant/internal/brain/models"
 	"pn-scripts-assistant/internal/brain/pair"
 	"pn-scripts-assistant/internal/brain/paths"
@@ -318,7 +319,45 @@ func runServe(args []string) error {
 		cfg.Addr = *addr
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	/*
+	 * One brain, one copy — whichever way it was started.
+	 *
+	 * The window has claimed this since it existed; serving did not, so two
+	 * `serve` processes on different ports opened the same data root: two sets
+	 * of tasks, two learning workers, two of everything writing one database.
+	 * There is no window to bring to the front here, so this says where the
+	 * other one is and stops.
+	 */
+	lock, err := server.Claim(root.Path)
+	if err != nil {
+		if !errors.Is(err, server.ErrAlreadyRunning) {
+			return err
+		}
+
+		where := "but it did not say where"
+
+		if addr := server.AnsweringOn(root.Path); addr != "" {
+			where = "but it is not answering on " + addr
+
+			if server.InUse(addr) {
+				where = "and answering on http://" + addr
+			}
+		}
+
+		return fmt.Errorf("%s is already running on this brain (%s) %s.\n"+
+			"  Stop it first, or serve another brain with PN_SCRIPTS_ASSISTANT_DATA_ROOT=<folder>",
+			cfg.Name, root.Path, where)
+	}
+
+	defer lock.Release()
+
+	// So a second copy can say where this one is, rather than guess.
+	lock.Answering(cfg.Addr)
+
+	logger, logFile := logs.Open(slog.LevelInfo)
+	if logFile != "" {
+		logger.Info("writing what happens to a file as well", "log", logFile)
+	}
 
 	// Ctrl-C and a service stop both arrive as signals; either should close the
 	// listener and let in-flight replies and learning finish rather than
@@ -683,9 +722,14 @@ func runApp(args []string) error {
 
 	if lock != nil {
 		defer lock.Release()
+
+		lock.Answering(cfg.Addr)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger, logFile := logs.Open(slog.LevelInfo)
+	if logFile != "" {
+		logger.Info("writing what happens to a file as well", "log", logFile)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -2371,6 +2415,29 @@ func runSnapshot(args []string) error {
  * to open without one anyway; making it here means the refusal never happens
  * for a reason the person could not have done anything about.
  */
+/*
+ * bindProblem says what to do about a port that is taken.
+ *
+ * "bind: address already in use" is accurate and useless: it does not say what
+ * has the port, whether it is this program, or what to type instead. Almost
+ * always it is either another copy — in which case the answer is to open it —
+ * or something unrelated, in which case the answer is a different port.
+ */
+func bindProblem(cfg config.Config, err error) error {
+	if !errors.Is(err, syscall.EADDRINUSE) {
+		return err
+	}
+
+	if server.InUse(cfg.Addr) {
+		return fmt.Errorf("something is already answering on %s — if it is %s, open http://%s; "+
+			"otherwise start this one elsewhere with BRAIN_ADDR=127.0.0.1:<port>",
+			cfg.Addr, cfg.Name, cfg.Addr)
+	}
+
+	return fmt.Errorf("%s is taken by another program. Start this one elsewhere with "+
+		"BRAIN_ADDR=127.0.0.1:<port>, or free that port", cfg.Addr)
+}
+
 func listenAs(cfg config.Config, root string, logger *slog.Logger) ([]net.Listener, error) {
 	/*
 	 * Loopback first, and plain, always.
@@ -2383,7 +2450,7 @@ func listenAs(cfg config.Config, root string, logger *slog.Logger) ([]net.Listen
 	 */
 	here, err := server.Listen(cfg.Addr)
 	if err != nil {
-		return nil, err
+		return nil, bindProblem(cfg, err)
 	}
 
 	if !cfg.OpenToNetwork() {

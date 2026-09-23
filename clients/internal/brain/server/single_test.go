@@ -124,3 +124,51 @@ func TestItGivesUpOnACopyThatIsStaying(t *testing.T) {
 		t.Fatalf("it took a root that another copy is still holding: %v", err)
 	}
 }
+
+/*
+ * A copy that holds a brain says where it can be reached, so the next one can
+ * tell its owner something true.
+ *
+ * Without this the second copy could only talk about the address it was given
+ * itself, and said "it is not answering on 127.0.0.1:8895" about a copy
+ * answering perfectly well on another port.
+ */
+func TestTheCopyHoldingABrainSaysWhereItIs(t *testing.T) {
+	root := t.TempDir()
+
+	held, err := Claim(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer held.Release()
+
+	if where := AnsweringOn(root); where != "" {
+		t.Errorf("it claimed an address before saying one: %q", where)
+	}
+
+	held.Answering("127.0.0.1:8790")
+
+	if where := AnsweringOn(root); where != "127.0.0.1:8790" {
+		t.Errorf("it says it is on %q", where)
+	}
+
+	// And a second copy is still refused, whatever it was told to listen on.
+	if _, err := Claim(root); !errors.Is(err, ErrAlreadyRunning) {
+		t.Errorf("a second copy took a held brain: %v", err)
+	}
+
+	// Moved, and it says the new one rather than both.
+	held.Answering("127.0.0.1:9001")
+
+	if where := AnsweringOn(root); where != "127.0.0.1:9001" {
+		t.Errorf("after moving it says %q", where)
+	}
+}
+
+// Nothing is holding it, so there is nothing to say.
+func TestAnEmptyBrainSaysNothing(t *testing.T) {
+	if where := AnsweringOn(t.TempDir()); where != "" {
+		t.Errorf("an unheld brain claims %q", where)
+	}
+}

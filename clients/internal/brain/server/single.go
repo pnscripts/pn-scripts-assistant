@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -65,6 +66,40 @@ func Claim(root string) (*Lock, error) {
 	}
 
 	return &Lock{file: f}, nil
+}
+
+/*
+ * Answering writes where this copy can be reached into the lock file.
+ *
+ * So that the next one can say something true. Without it, a second copy knows
+ * only that somebody holds the brain and has to guess at the address it was
+ * given itself — which is how "it is not answering on 127.0.0.1:8895" came to
+ * be printed about a copy answering perfectly well on another port.
+ */
+func (l *Lock) Answering(addr string) {
+	if l == nil || l.file == nil {
+		return
+	}
+
+	if err := l.file.Truncate(0); err == nil {
+		l.file.WriteAt([]byte(addr), 0)
+	}
+}
+
+/*
+ * AnsweringOn is where the copy holding this data root says it can be reached,
+ * or empty when it has not said.
+ *
+ * Reading a file somebody else has locked is allowed: the lock is advisory and
+ * this is the one thing outside it that needs to know.
+ */
+func AnsweringOn(root string) string {
+	raw, err := os.ReadFile(filepath.Join(root, LockName))
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(raw))
 }
 
 /*
