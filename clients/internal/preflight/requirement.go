@@ -247,19 +247,25 @@ func pkgConfigExists(pkg string) bool {
 	return exec.Command("pkg-config", "--exists", pkg).Run() == nil
 }
 
-// ollamaHasModel asks the local Ollama daemon rather than shelling out, so it
-// also proves the daemon is actually reachable and not merely installed.
+/*
+ * ollamaHasModel asks the daemon, which is what the assistant talks to.
+ *
+ * The comment here used to say it asked the daemon "rather than shelling
+ * out", and it shelled out — so it answered about a machine's installed files
+ * rather than about a running service, and said no whenever the command was
+ * somewhere this program could not see.
+ */
 func ollamaHasModel(model string) bool {
-	out, err := exec.Command("ollama", "list").CombinedOutput()
-	if err != nil {
-		return false
-	}
-
-	// `ollama list` prints "name:tag" in the first column; a bare name in the
-	// requirement should match the ":latest" form too.
+	// A bare name in the requirement should match the ":latest" form too.
 	base := strings.SplitN(model, ":", 2)[0]
 
-	return strings.Contains(string(out), base)
+	for _, name := range installedModels() {
+		if strings.Contains(name, base) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func aptInstall(packages ...string) []string {

@@ -24,12 +24,19 @@ func Requirements() []Requirement {
 			Consequence:       "only the paid API provider will work",
 			Size:              "1.5GB",
 			Check: func() (State, string) {
-				if !commandExists("ollama") {
-					return Missing, ""
+				if commandExists("ollama") {
+					return OK, withUpdateNote(versionOf("ollama", "--version"),
+						"https://github.com/ollama/ollama/releases/latest")
 				}
 
-				return OK, withUpdateNote(versionOf("ollama", "--version"),
-					"https://github.com/ollama/ollama/releases/latest")
+				// No command, but something is answering: installed as a
+				// service, or on another machine entirely. That is the whole
+				// of what this program needs from it.
+				if ollamaAnswering() {
+					return OK, "answering at " + OllamaURL()
+				}
+
+				return Missing, ""
 			},
 			/*
 			 * Fetched as an archive, not as a script piped into a shell.
@@ -73,7 +80,7 @@ func Requirements() []Requirement {
 			 * these lets it.
 			 */
 			Check: func() (State, string) {
-				if !commandExists("ollama") {
+				if !ollamaHere() {
 					return Unknown, "needs Ollama first"
 				}
 
@@ -117,7 +124,7 @@ func Requirements() []Requirement {
 			Consequence:       "the brain cannot learn or recall anything",
 			Size:              "274MB",
 			Check: func() (State, string) {
-				if !commandExists("ollama") {
+				if !ollamaHere() {
 					return Unknown, "needs Ollama first"
 				}
 
@@ -561,17 +568,9 @@ func speechModelHere() string {
  * to talk when it is not.
  */
 func aChatModelHere() string {
-	out, err := exec.Command("ollama", "list").CombinedOutput()
-	if err != nil {
-		return ""
-	}
-
-	for _, line := range strings.Split(string(out), "\n")[1:] {
-		name, _, found := strings.Cut(strings.TrimSpace(line), " ")
-		if !found || name == "" {
-			continue
-		}
-
+	for _, name := range installedModels() {
+		// An embedding model cannot hold a conversation, and counting one
+		// would report a machine as ready to talk when it is not.
 		if strings.Contains(name, "embed") {
 			continue
 		}
@@ -580,6 +579,37 @@ func aChatModelHere() string {
 	}
 
 	return ""
+}
+
+/*
+ * installedModels is what Ollama has, asked of the service first.
+ *
+ * The command is the fallback rather than the other way round: the service is
+ * what the assistant talks to, so what it answers is the truth about whether
+ * a model can be used. A command that lists a model on a daemon that is not
+ * running describes a machine that cannot think.
+ */
+func installedModels() []string {
+	if names, answered := ollamaModels(); answered {
+		return names
+	}
+
+	out, err := exec.Command("ollama", "list").CombinedOutput()
+	if err != nil {
+		return nil
+	}
+
+	lines := strings.Split(string(out), "\n")
+	names := make([]string, 0, len(lines))
+
+	for _, line := range lines[1:] {
+		name, _, found := strings.Cut(strings.TrimSpace(line), " ")
+		if found && name != "" {
+			names = append(names, name)
+		}
+	}
+
+	return names
 }
 
 // defaultChatModelSize is what the model chosen for this machine costs, said
