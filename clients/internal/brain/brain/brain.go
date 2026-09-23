@@ -979,9 +979,21 @@ func (b *Brain) modelRoles() llm.Sizes {
 			b.Lanes.SetHosted(jobs.HowManyAtOnce(string(power.Tier())))
 		}
 
+		/*
+		 * And how much the local model may be given to read at once.
+		 *
+		 * The same measurement, used for the one thing that decides whether a
+		 * turn arrives whole: a window is memory, and asking for more of it
+		 * than this machine has is how a model stops rather than slows.
+		 */
+		if b.ollama != nil {
+			b.ollama.MostRoom = llm.RoomFor(power.RAMBytes)
+		}
+
 		b.Log.Info("what this machine can run",
 			"tier", power.Tier(), "hardware", power.Describe(),
-			"best installed for work", b.roles.Best)
+			"best installed for work", b.roles.Best,
+			"most the model may read", b.ollama.MostRoom)
 
 		/*
 		 * The effective working model, not the configured one.

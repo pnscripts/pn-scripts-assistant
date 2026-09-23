@@ -907,6 +907,8 @@ func needsYou(p Proposal, packages []capability.Package) []string {
 		switch {
 		case s.Present && !s.Compatible:
 			out = append(out, fmt.Sprintf("Update %s: %s", s.Title, s.Problem))
+		case s.Blocked:
+			out = append(out, s.Title+": "+s.Problem)
 		case s.Installable:
 			line := "Approve installing " + s.Title
 
@@ -1256,6 +1258,8 @@ func neededLine(n Needed) string {
 		line += fmt.Sprintf(" — here (%s)", orElse(s.Version, "version not said"))
 	case s.Present:
 		line += " — here, but " + s.Problem
+	case s.Blocked:
+		line += " — " + s.Problem
 	default:
 		line += " — missing"
 	}

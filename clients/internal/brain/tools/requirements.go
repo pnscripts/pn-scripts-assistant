@@ -126,6 +126,8 @@ func StatusLine(s provision.Status, optional bool, why string) string {
 		}
 	case s.Present:
 		line += ": here, but " + s.Problem
+	case s.Blocked:
+		line += ": " + s.Problem
 	default:
 		line += ": missing"
 	}
@@ -138,7 +140,7 @@ func StatusLine(s provision.Status, optional bool, why string) string {
 		line += " (optional)"
 	}
 
-	if !s.Ready() {
+	if !s.Ready() && !s.Blocked {
 		if s.Installable {
 			line += fmt.Sprintf("; can be installed from here (%s, %s, %s)", orSize(s.Size), s.Source, s.Licence)
 		} else if s.Manual != "" {

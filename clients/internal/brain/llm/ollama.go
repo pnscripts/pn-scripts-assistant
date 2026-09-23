@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"pn-scripts-assistant/internal/brain/pace"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -30,6 +31,13 @@ type Ollama struct {
 	// Empty means Ollama's own default.
 	KeepAlive string
 
+	// MostRoom caps the window asked for. See room.
+	MostRoom int
+
+	// asked is the largest window asked for so far, per model. See withRoom.
+	roomMu sync.Mutex
+	asked  map[string]int
+
 	HTTPClient *http.Client
 }
 
@@ -46,6 +54,7 @@ func NewOllama(baseURL, chatModel, embedModel string) *Ollama {
 		// Long enough to survive reading an answer and typing the next
 		// question, which is the gap that actually hurts.
 		KeepAlive: "30m",
+		MostRoom:  MostRoom,
 		// No Timeout on the client itself: the deadline belongs to the context,
 		// so a caller can allow a long first load and a short health check with
 		// the same client.
@@ -251,6 +260,9 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 		})
 	}
 
+	// Last, because it is sized against the finished request.
+	o.withRoom(&body)
+
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return Response{}, err
@@ -341,6 +353,158 @@ func (o *Ollama) ChatStream(ctx context.Context, req Request, onText func(string
 	}, nil
 }
 
+/*
+ * How much the model is given to read, and why this is set at all.
+ *
+ * Ollama's window is 4,096 tokens unless a request says otherwise, and a turn
+ * here is bigger than that. Measured on this machine: the persona and the
+ * thirty-nine tool descriptions came to 6,338 tokens, of which the model was
+ * given the last 2,050 — everything it had been told about who it is, when to
+ * use a tool and when to answer in words was thrown away before it read a
+ * word. What came back was a model calling the same tool eight times and then
+ * giving up, which read like a bad model and was a truncated prompt.
+ *
+ * Nothing says so. Ollama truncates silently, the request succeeds, and the
+ * answer is merely wrong — the worst shape a fault can have.
+ *
+ * Sizes are quantised because changing the window makes Ollama load the model
+ * again, and a window that followed the prompt token by token would reload it
+ * on nearly every turn. Bytes per token is deliberately pessimistic: asking
+ * for more room than the turn needs costs some memory, and asking for less
+ * costs the instructions.
+ */
+const (
+	// LeastRoom is Ollama's own default, and the floor.
+	LeastRoom = 4096
+
+	// MostRoom is as much as this asks for. A window is memory that has to be
+	// found before the first token is read, and a machine with no graphics
+	// card is the machine this runs on.
+	MostRoom = 16384
+
+	// RoomStep is what the estimate is rounded up to.
+	RoomStep = 4096
+
+	// BytesPerToken is the conversion, on the low side on purpose: JSON tool
+	// schemas tokenise worse than prose, and under-estimating truncates.
+	BytesPerToken = 3.5
+
+	// RoomForAnAnswer is what is left for the reply when the caller did not
+	// say. A window that fits the question exactly leaves nowhere to answer.
+	RoomForAnAnswer = 1024
+)
+
+/*
+ * RoomFor is the largest window worth asking for on a machine this size.
+ *
+ * A window is memory, taken before the first token is read: a seven-billion
+ * model keeps roughly 56 KB per token of it, so sixteen thousand tokens is
+ * near a gigabyte that the model itself does not get. On a machine with
+ * plenty that is nothing; on a small one it is the difference between running
+ * and swapping, and swapping a model is not slow, it is stopped.
+ */
+func RoomFor(ram uint64) int {
+	switch {
+	case ram == 0:
+		// Nothing measured. The middle size rather than the largest: a guess
+		// that costs memory is worse than a guess that costs a little room.
+		return 8192
+	case ram >= 16<<30:
+		return MostRoom
+	case ram >= 8<<30:
+		return 8192
+	default:
+		return LeastRoom
+	}
+}
+
+// room is the window this turn needs, in tokens.
+func room(body ollamaChatRequest, most int) int {
+	if most <= 0 {
+		most = MostRoom
+	}
+
+	bytes := 0
+
+	for _, m := range body.Messages {
+		// The overhead of the template around each message: the role, the
+		// markers, the newlines. Small and not nothing across a long turn.
+		bytes += len(m.Content) + 8
+
+		for _, c := range m.ToolCalls {
+			bytes += len(c.Function.Name) + len(c.Function.Arguments) + 16
+		}
+	}
+
+	if len(body.Tools) > 0 {
+		if described, err := json.Marshal(body.Tools); err == nil {
+			bytes += len(described)
+		}
+	}
+
+	answer := RoomForAnAnswer
+
+	if n, ok := body.Options["num_predict"].(int); ok && n > 0 {
+		answer = n
+	}
+
+	want := int(float64(bytes)/BytesPerToken) + answer
+
+	// Round up to the next step, then hold it between the floor and the cap.
+	want = (want + RoomStep - 1) / RoomStep * RoomStep
+
+	switch {
+	case want < LeastRoom:
+		return LeastRoom
+	case want > most:
+		// Bigger than anything that will be asked for. The model will see the
+		// end of the turn and not its beginning; that is Ollama's doing, and
+		// the caller is told through the usual channel rather than silently.
+		return most
+	default:
+		return want
+	}
+}
+
+/*
+ * withRoom sets the window on a request that is otherwise finished.
+ *
+ * The window only ever grows while this program is running, and that is the
+ * whole point of keeping it here. Ollama loads the model again whenever the
+ * window changes, and it keeps what it has already read only for as long as
+ * the window stays the same — so a conversation turn asking for twelve
+ * thousand tokens, followed by a two-hundred-token housekeeping call asking
+ * for four, makes it reload twice and read the next turn from the beginning.
+ * Measured here: the turn after a small call in between started again from
+ * nothing, 6,343 tokens at eight a second.
+ *
+ * Asking for the larger window on the small call costs memory and no time:
+ * what is processed is what the request contains.
+ */
+func (o *Ollama) withRoom(body *ollamaChatRequest) {
+	want := room(*body, o.MostRoom)
+
+	o.roomMu.Lock()
+
+	if o.asked == nil {
+		o.asked = map[string]int{}
+	}
+
+	if was := o.asked[body.Model]; was > want {
+		want = was
+	}
+
+	o.asked[body.Model] = want
+
+	o.roomMu.Unlock()
+
+	if body.Options == nil {
+		body.Options = map[string]any{}
+	}
+
+	body.Options["num_ctx"] = want
+}
+
 func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
 	model := req.Model
 	if model == "" {
@@ -368,6 +532,9 @@ func (o *Ollama) Chat(ctx context.Context, req Request) (Response, error) {
 			},
 		})
 	}
+
+	// Last, because it is sized against the finished request.
+	o.withRoom(&body)
 
 	started := time.Now()
 

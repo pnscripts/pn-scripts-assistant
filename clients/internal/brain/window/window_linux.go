@@ -297,6 +297,27 @@ static gboolean pnassistant_show_once(gpointer data) {
     return G_SOURCE_REMOVE;
 }
 
+// pnassistant_name_this_program is what the desktop matches the window against.
+//
+// The desktop entry says StartupWMClass=pn-scripts-assistant. Without this the
+// window's WM_CLASS is whatever the binary happens to be called at the moment
+// — a downloaded AppImage, a build in a source tree — so GNOME does not
+// connect the window to the launcher: the dock shows the launcher and a
+// second, unnamed item with a blank icon beside it, and pressing the launcher
+// again opens nothing while the window sits there already.
+//
+// Called before gtk_init: prgname is read when the display is opened, and on
+// Wayland it becomes the application id GNOME matches to the .desktop file.
+// The program class covers X11's other half of WM_CLASS.
+void pnassistant_name_this_program(const char *name) {
+    if (name == NULL || name[0] == 0) {
+        return;
+    }
+
+    g_set_prgname(name);
+    gdk_set_program_class(name);
+}
+
 static void pnassistant_open_window(const char *url, const char *title, int width, int height, const char *icon_path) {
     if (!gtk_init_check(NULL, NULL)) {
         return;
@@ -483,6 +504,13 @@ func OpenWithNavigation(url, title string, width, height int, navigate <-chan st
 }
 
 func Open(url, title string, width, height int) error {
+	// Before anything opens a display: this is what the desktop matches the
+	// window against, and it has to agree with the StartupWMClass in the
+	// menu entry.
+	cClass := C.CString(paths.Name)
+	C.pnassistant_name_this_program(cClass)
+	C.free(unsafe.Pointer(cClass))
+
 	cURL := C.CString(url)
 	defer C.free(unsafe.Pointer(cURL))
 

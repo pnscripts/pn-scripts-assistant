@@ -264,3 +264,100 @@ func TestUnityFoldersAreReadForTheirVersion(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Here and unusable is not the same answer as absent.
+ *
+ * Told apart because the remedy differs: one is an install, the other is a
+ * chmod on a file the person already has. Written against real files with
+ * real permissions rather than a stub, because the thing being tested is what
+ * the filesystem says.
+ */
+func TestAProgramThatIsHereButNotExecutableIsNotCalledMissing(t *testing.T) {
+	dir := t.TempDir()
+
+	at := filepath.Join(dir, "godot")
+	if err := os.WriteFile(at, []byte("#!/bin/sh\necho 4.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	r := Recipe{
+		ID: "godot", Title: "Godot", Kind: Engine,
+		Commands: []string{"godot"},
+		Places:   []string{dir},
+	}
+
+	s := r.Check("")
+
+	if s.Present {
+		t.Fatal("it says a file with no executable bit can be run")
+	}
+
+	if !s.Blocked {
+		t.Fatalf("here and unusable was reported as absent: %q", s.Problem)
+	}
+
+	if s.Path != at {
+		t.Errorf("it did not say where the file is: %q", s.Path)
+	}
+
+	// The sentence has to be actionable: the path, and what to do about it.
+	if !strings.Contains(s.Problem, at) || !strings.Contains(s.Problem, "chmod") {
+		t.Errorf("the problem does not say what to do: %q", s.Problem)
+	}
+
+	// And with the bit set, the same recipe finds it as usual.
+	if err := os.Chmod(at, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if s := r.Check(""); !s.Present || s.Blocked {
+		t.Errorf("an executable file was not found: %+v", s)
+	}
+}
+
+// A folder this user may not read is its own answer, and names the folder.
+func TestAFolderThatCannotBeReadIsSaidSo(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can read every folder, so there is nothing to test")
+	}
+
+	shut := filepath.Join(t.TempDir(), "opt")
+	if err := os.Mkdir(shut, 0o000); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { os.Chmod(shut, 0o700) })
+
+	r := Recipe{
+		ID: "godot", Title: "Godot", Kind: Engine,
+		Commands: []string{"godot"},
+		Places:   []string{shut},
+	}
+
+	s := r.Check("")
+
+	if s.Present || !s.Blocked {
+		t.Fatalf("a folder that cannot be read was reported as absence: %+v", s)
+	}
+
+	if !strings.Contains(s.Problem, shut) {
+		t.Errorf("the problem does not name the folder: %q", s.Problem)
+	}
+}
+
+// Nothing anywhere is still nothing anywhere: the new state does not swallow
+// the ordinary one.
+func TestAbsenceIsStillAbsence(t *testing.T) {
+	r := Recipe{
+		ID: "godot", Title: "Godot", Kind: Engine,
+		Commands: []string{"a-program-nobody-has-installed"},
+		Places:   []string{filepath.Join(t.TempDir(), "nowhere")},
+	}
+
+	s := r.Check("")
+
+	if s.Present || s.Blocked || s.Problem != "not on this machine" {
+		t.Errorf("absence was reported as something else: %+v", s)
+	}
+}

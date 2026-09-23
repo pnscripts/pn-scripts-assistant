@@ -1253,9 +1253,19 @@ func (s *Server) decide(text string, claimed, interrupting bool) (wake.Heard, bo
 func (s *Server) handleDesktopStatus(w http.ResponseWriter, r *http.Request) {
 	entry, _ := desktop.Where()
 
+	// Installed by the package is a different situation from installed by
+	// this program: the page must not offer to take away a file that belongs
+	// to apt, and it would fail if it tried.
+	packaged := desktop.SystemWide()
+
+	if packaged != "" {
+		entry = packaged
+	}
+
 	ok(w, map[string]any{
 		"installed": desktop.Installed(),
 		"entry":     entry,
+		"packaged":  packaged != "",
 	})
 }
 
@@ -1318,6 +1328,13 @@ func (s *Server) handleDesktop(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&body)
 
 	if body.Remove {
+		if entry := desktop.SystemWide(); entry != "" {
+			fail(w, http.StatusConflict, "this entry was installed with the package ("+entry+
+				"); remove it with: sudo apt remove pn-scripts-assistant")
+
+			return
+		}
+
 		if err := desktop.Remove(); err != nil {
 			fail(w, http.StatusInternalServerError, err.Error())
 

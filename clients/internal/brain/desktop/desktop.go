@@ -68,8 +68,16 @@ func whereFor(name string) (entry string, iconDir string) {
 // since been moved or deleted is worse than no entry, because it is in the menu
 // and does nothing when pressed.
 func Installed() bool {
+	if SystemWide() != "" {
+		return true
+	}
+
 	entry, _ := Where()
 
+	return pointsAtMe(entry)
+}
+
+func pointsAtMe(entry string) bool {
 	body, err := os.ReadFile(entry)
 	if err != nil {
 		return false
@@ -84,12 +92,73 @@ func Installed() bool {
 }
 
 /*
+ * SystemWide is the menu entry a package installed for this same program, or
+ * empty when there is none.
+ *
+ * Installed from the .deb, the entry is already in /usr/share/applications and
+ * the program is already in the menu. Writing a second copy into the user's own
+ * folder would not add anything: the user's copy shadows the packaged one, it
+ * is not updated when the package is, and it keeps pointing at a path that an
+ * uninstall takes away — an entry in the menu that does nothing when pressed.
+ *
+ * "For this same program" is the whole check. A packaged copy at /usr/bin and a
+ * downloaded copy in ~/Downloads are two different programs, and the one that
+ * is running should be the one in the menu.
+ */
+func SystemWide() string {
+	me, err := self()
+	if err != nil {
+		return ""
+	}
+
+	for _, dir := range systemDataDirs() {
+		entry := filepath.Join(dir, "applications", EntryName+".desktop")
+
+		body, err := os.ReadFile(entry)
+		if err != nil {
+			continue
+		}
+
+		if strings.Contains(string(body), "Exec="+me+"\n") {
+			return entry
+		}
+	}
+
+	return ""
+}
+
+// systemDataDirs is XDG_DATA_DIRS, or what the specification says when it is
+// not set.
+func systemDataDirs() []string {
+	dirs := os.Getenv("XDG_DATA_DIRS")
+	if strings.TrimSpace(dirs) == "" {
+		dirs = "/usr/local/share:/usr/share"
+	}
+
+	var out []string
+
+	for _, dir := range strings.Split(dirs, ":") {
+		if dir = strings.TrimSpace(dir); dir != "" {
+			out = append(out, dir)
+		}
+	}
+
+	return out
+}
+
+/*
  * Install writes the menu entry and the icons, and returns where the entry went.
  *
  * name is what the brain is called, so the menu says what its owner named it
  * rather than what this program is called.
  */
 func Install(name string) (string, error) {
+	// Already in the menu, put there by the package. Nothing to write, and
+	// writing anyway is how the menu ends up with a stale entry in it.
+	if entry := SystemWide(); entry != "" {
+		return entry, nil
+	}
+
 	self, err := self()
 	if err != nil {
 		return "", err

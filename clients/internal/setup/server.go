@@ -1319,6 +1319,10 @@ func readableStep(name string) string {
 // runOne does a single step and reports whether it worked.
 // menuPath is where the menu entry goes, for the overview to name.
 func menuPath() string {
+	if entry := desktop.SystemWide(); entry != "" {
+		return entry
+	}
+
 	entry, _ := desktop.Where()
 
 	return entry

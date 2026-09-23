@@ -129,6 +129,14 @@ None found.
 
 **M8 — local models run at Ollama's default 4,096-token context**
 - Known and documented in ADR 0005; long steps can lose their instruction.
+- **Corrected in Phase 4 — this was not MEDIUM.** Measured afterwards: a
+  conversation turn is 6,338 tokens, of which the model was given 2,050. The
+  whole persona was discarded on every turn, and the visible symptom was a
+  model that called tools in a loop and never answered. Severity was
+  **CRITICAL**; fixed and verified in `docs/audit/phase-4-core.md`. The
+  finding was graded from the steps ADR 0005 had measured (1.8–2.4 k tokens)
+  without measuring a conversation turn — the reason this audit's own rule is
+  to measure rather than infer.
 
 **M9 — `menu` can duplicate the packaged desktop entry**
 - Location: `desktop.Install` writes `~/.local/share/applications/…`; the package installs `/usr/share/applications/…`.
@@ -168,9 +176,10 @@ Nothing here is claimed on the strength of a name appearing in the code.
 | **PHP, Python** | **NOT IMPLEMENTED** | no integration |
 
 Tool detection reports path, version, version-compatibility, licence state and
-installability, with a sentence for each problem. It has no distinct
+installability, with a sentence for each problem. It had no distinct
 **permission-error** state (your list asks for one): an unreadable executable
-is reported as absent.
+was reported as absent. **Fixed in Phase 4** — `Status.Blocked`, with the path
+and the remedy.
 
 ## Testing gaps
 

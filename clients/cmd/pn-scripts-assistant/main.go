@@ -171,6 +171,11 @@ func runMenu(args []string) error {
 	fs.Parse(args)
 
 	if *remove {
+		if entry := desktop.SystemWide(); entry != "" {
+			return fmt.Errorf("this entry was installed with the package (%s)\n"+
+				"  remove it with: sudo apt remove %s", entry, paths.Name)
+		}
+
 		if err := desktop.Remove(); err != nil {
 			return err
 		}
@@ -188,9 +193,18 @@ func runMenu(args []string) error {
 		}
 	}
 
+	packaged := desktop.SystemWide() != ""
+
 	entry, err := desktop.Install(cfg.Name)
 	if err != nil {
 		return err
+	}
+
+	if packaged {
+		fmt.Printf("\n  %s is already in the applications menu, installed with the package.\n"+
+			"  %s\n  Nothing was written.\n\n", cfg.Name, entry)
+
+		return nil
 	}
 
 	fmt.Printf("\n  %s is in the applications menu.\n  %s\n\n", cfg.Name, entry)
@@ -252,6 +266,11 @@ func runStatus(args []string) error {
 
 	fmt.Printf("\n  data root : %s\n", root.Path)
 	fmt.Printf("  database  : %s\n", root.DatabasePath())
+
+	// Where to look when it did not start. Printed whether or not the file
+	// exists yet: somebody reading this needs the path either way, and "there
+	// is nothing there" is itself an answer.
+	fmt.Printf("  log       : %s\n", logs.File())
 
 	if info, err := os.Stat(root.DatabasePath()); err == nil {
 		fmt.Printf("  size      : %.1f MB\n", float64(info.Size())/(1<<20))

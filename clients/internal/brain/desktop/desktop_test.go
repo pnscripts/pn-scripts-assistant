@@ -297,3 +297,97 @@ func TestAnEntryFromBeforeTheRenameIsReplaced(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Installed with the package, this program writes nothing.
+ *
+ * The .deb puts an entry in /usr/share/applications and the program in the
+ * menu. A second copy in the user's own folder shadows the packaged one, is
+ * not updated when the package is, and keeps pointing at a path that an
+ * uninstall takes away — a launcher that does nothing when pressed.
+ */
+func TestAPackagedEntryIsLeftAlone(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", home)
+
+	me := "/usr/bin/" + EntryName
+	t.Setenv("APPIMAGE", me) // stands in for "where this program is"
+
+	system := t.TempDir()
+	t.Setenv("XDG_DATA_DIRS", system)
+
+	packaged := filepath.Join(system, "applications", EntryName+".desktop")
+
+	if err := os.MkdirAll(filepath.Dir(packaged), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(packaged, []byte(entryText("PN Scripts Assistant", me)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if SystemWide() != packaged {
+		t.Fatalf("the packaged entry was not found: %q", SystemWide())
+	}
+
+	if !Installed() {
+		t.Error("it says the program is not in the menu when the package put it there")
+	}
+
+	entry, err := Install("PN Scripts Assistant")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if entry != packaged {
+		t.Errorf("it pointed at %s instead of the packaged entry", entry)
+	}
+
+	mine, _ := Where()
+
+	if _, err := os.Stat(mine); !os.IsNotExist(err) {
+		t.Errorf("it wrote a second entry at %s", mine)
+	}
+}
+
+// A packaged entry for a different copy of the program is not this one.
+//
+// A .deb in /usr/bin and a downloaded file in ~/Downloads are two programs,
+// and the one running is the one that belongs in the menu.
+func TestAPackagedEntryForAnotherCopyIsNotMine(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", home)
+	t.Setenv("APPIMAGE", "/home/somebody/Downloads/PN-Scripts-Assistant.AppImage")
+
+	system := t.TempDir()
+	t.Setenv("XDG_DATA_DIRS", system)
+
+	packaged := filepath.Join(system, "applications", EntryName+".desktop")
+
+	if err := os.MkdirAll(filepath.Dir(packaged), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(packaged, []byte(entryText("PN Scripts Assistant", "/usr/bin/"+EntryName)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if at := SystemWide(); at != "" {
+		t.Fatalf("somebody else's entry was taken for mine: %s", at)
+	}
+
+	entry, err := Install("PN Scripts Assistant")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mine, _ := Where()
+
+	if entry != mine {
+		t.Errorf("it wrote to %s rather than this user's own folder", entry)
+	}
+
+	if !Installed() {
+		t.Error("it wrote the entry and then said it was not installed")
+	}
+}

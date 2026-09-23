@@ -387,13 +387,20 @@ async function loadMenu() {
         return;
     }
 
-    note.textContent = status.installed
-        ? `In the menu. Press the Ubuntu key and type its name. \u00b7 ${status.entry}`
-        : 'Not in the menu yet. Adding it writes one file and a set of icons '
-            + 'into your own home directory — nothing else on the machine changes.';
+    if (status.packaged) {
+        // Installed with the package: it is in the menu already, and that
+        // entry belongs to apt rather than to this program.
+        note.textContent = 'In the menu, installed with the package. Press the Ubuntu key '
+            + `and type its name. \u00b7 ${status.entry}`;
+    } else {
+        note.textContent = status.installed
+            ? `In the menu. Press the Ubuntu key and type its name. \u00b7 ${status.entry}`
+            : 'Not in the menu yet. Adding it writes one file and a set of icons '
+                + 'into your own home directory — nothing else on the machine changes.';
+    }
 
     add.hidden = status.installed;
-    remove.hidden = !status.installed;
+    remove.hidden = !status.installed || status.packaged;
 }
 
 function wireMenu() {

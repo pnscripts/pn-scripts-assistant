@@ -21,8 +21,10 @@ package provision
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -112,6 +114,15 @@ type Status struct {
 
 	Present bool   `json:"present"`
 	Path    string `json:"path,omitempty"`
+
+	/*
+	 * Blocked is here and unusable: no executable bit, or a folder this user
+	 * may not read. Present stays false — it cannot be run — but the remedy
+	 * is not the one absence calls for, and a reinstall over somebody else's
+	 * file is the wrong answer. Problem says what to do instead.
+	 */
+	Blocked bool `json:"blocked,omitempty"`
+
 	Version string `json:"version,omitempty"`
 
 	// Wanted is the version rule it was checked against, and Compatible the
@@ -173,6 +184,21 @@ func (r Recipe) Check(want string) Status {
 	s.Path, s.Version, s.Present = r.find()
 
 	if !s.Present {
+		/*
+		 * Absent and unusable are different answers.
+		 *
+		 * A program sitting in a folder without its executable bit, or in a
+		 * folder this user may not read, was reported as "not on this
+		 * machine" — so somebody was told to install what they already had.
+		 * The difference is knowable, and the action is different: one is an
+		 * install, the other is a chmod or a folder somebody else owns.
+		 */
+		if at, why := r.blocked(); why != "" {
+			s.Path, s.Problem, s.Blocked = at, why, true
+
+			return s
+		}
+
 		s.Problem = "not on this machine"
 
 		return s
@@ -225,6 +251,37 @@ func (r Recipe) find() (path, version string, ok bool) {
 	return path, r.versionOf(path), true
 }
 
+/*
+ * blocked is a program that is here and cannot be used, and why.
+ *
+ * Looked for only after the ordinary search has failed, so it costs nothing in
+ * the usual case. Two reasons are worth telling apart because the remedy
+ * differs: no executable bit, and a folder that cannot be read at all.
+ */
+func (r Recipe) blocked() (path, why string) {
+	for _, dir := range r.folders() {
+		for _, name := range r.Commands {
+			at := filepath.Join(dir, name)
+
+			info, err := os.Stat(at)
+
+			switch {
+			case err == nil && !info.IsDir() && info.Mode()&0o111 == 0:
+				return at, "found at " + at + ", but it is not executable — chmod +x " + at
+
+			case errors.Is(err, fs.ErrPermission):
+				return at, "found at " + at + ", but this user may not read it"
+			}
+		}
+
+		if _, err := os.ReadDir(dir); errors.Is(err, fs.ErrPermission) {
+			return dir, "it may be in " + dir + ", which this user may not read"
+		}
+	}
+
+	return "", ""
+}
+
 func (r Recipe) locate() string {
 	for _, name := range r.Commands {
 		if at, err := exec.LookPath(name); err == nil {
@@ -232,17 +289,7 @@ func (r Recipe) locate() string {
 		}
 	}
 
-	home, _ := os.UserHomeDir()
-
-	for _, dir := range r.Places {
-		if strings.HasPrefix(dir, "~/") {
-			if home == "" {
-				continue
-			}
-
-			dir = filepath.Join(home, dir[2:])
-		}
-
+	for _, dir := range r.folders() {
 		for _, name := range r.Commands {
 			at := filepath.Join(dir, name)
 
@@ -253,6 +300,27 @@ func (r Recipe) locate() string {
 	}
 
 	return ""
+}
+
+// folders are the Places with ~ meaning this user's home.
+func (r Recipe) folders() []string {
+	home, _ := os.UserHomeDir()
+
+	dirs := make([]string, 0, len(r.Places))
+
+	for _, dir := range r.Places {
+		if strings.HasPrefix(dir, "~/") {
+			if home == "" {
+				continue
+			}
+
+			dir = filepath.Join(home, dir[2:])
+		}
+
+		dirs = append(dirs, dir)
+	}
+
+	return dirs
 }
 
 // HowLongAVersionTakes bounds asking a program which version it is. Long

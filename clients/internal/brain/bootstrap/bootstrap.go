@@ -403,6 +403,8 @@ func readiness(in Inputs, p capability.Package) string {
 				"its owner signs in to "+hubFor(s.ID))
 		case s.Present && s.Compatible && s.LicenceState != "":
 			missing = append(missing, s.Title+" is installed; whether its licence lets it work unattended could not be told")
+		case s.Blocked:
+			missing = append(missing, s.Title+" is "+s.Problem)
 		case s.Installable:
 			missing = append(missing, fmt.Sprintf("%s would be installed (%s, %s)", s.Title, orSize(s.Size), s.Licence))
 		default:
@@ -468,6 +470,10 @@ func (p *Proposal) requirements(in Inputs, pkg capability.Package) {
 			p.Blockers = append(p.Blockers, fmt.Sprintf("%s is %s", s.Title, s.Problem))
 		case s.Present:
 			p.Blockers = append(p.Blockers, fmt.Sprintf("%s is here but %s — update it first", s.Title, s.Problem))
+		case s.Blocked:
+			// Here and unusable. Installing a second copy over it would not
+			// fix the permission and might not be allowed either.
+			p.Blockers = append(p.Blockers, fmt.Sprintf("%s: %s", s.Title, s.Problem))
 		case s.Installable:
 			p.Installs = append(p.Installs, r.ID)
 		default:

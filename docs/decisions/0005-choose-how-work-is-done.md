@@ -229,12 +229,26 @@ The runs after it found more, each seen on this machine before it was fixed:
 - **Claude Code's remaining capacity** is known only from the rate-limit
   events it sends while working; signed out, it sends none, so it is shown as
   *unknown* rather than as a number.
-- **Local models run with Ollama's default context here (4 096 tokens)**,
-  though qwen2.5-coder is trained for 32 768. Ollama drops the oldest messages
-  to fit — which can include a step's instruction on a long step. The steps
-  run here fitted (1.8–2.4 k tokens). Raising it is a speed and memory
-  trade-off on this processor, and changing it on a shared Ollama makes every
-  other program using the same model reload it, so it is left as it was.
+- **The window is now asked for, not left to Ollama** (changed 2026-09-23).
+  This used to read: *local models run with Ollama's default context here
+  (4 096 tokens) … the steps run here fitted (1.8–2.4 k tokens), so it is left
+  as it was.* That was true of task steps and was never measured on a
+  conversation turn. A typed turn carries the persona and the tool
+  descriptions: **6 338 tokens** for "say hello" with 39 tools offered. Ollama
+  admitted the last **2 050** of them and dropped the rest silently, so the
+  model was given a fragment of the tool list and none of its instructions —
+  and answered as you would expect something to answer that had never been
+  told what it was: it called `what_can_you_do` three times, `list_heard` five
+  times, and gave up after eight steps without answering. It read like a poor
+  model and was a truncated prompt.
+
+  Each request now asks for a window sized to itself (`llm.room`), quantised
+  to 4 096-token steps so that a turn one word longer does not make Ollama
+  reload the model, and capped by how much memory the machine has
+  (`llm.RoomFor`: 16 384 tokens with 16 GB or more, 8 192 with 8, otherwise
+  Ollama's 4 096). The cost the earlier note worried about is real and
+  accepted: a shared Ollama reloads the model when the window changes, and a
+  larger window is memory taken before the first token is read.
 - **No graphics card**: a step written by the local model takes minutes (the
   first three.js step, 9 min 47 s), which is why a subscription is preferred
   whenever one is signed in and has capacity.

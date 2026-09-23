@@ -108,6 +108,8 @@ func (p Proposal) Text() string {
 			line += " " + s.Version + " — here"
 		case s.Present && s.Compatible && s.LicenceState != "":
 			line += " " + s.Version + " — " + s.Problem
+		case s.Blocked:
+			line += " — " + s.Problem
 		case s.Installable && !n.Optional:
 			line += fmt.Sprintf(" — will be installed first: %s, %s, licence %s, cost %s", orSize(s.Size), s.Source, s.Licence, s.Cost)
 		case n.Optional:
