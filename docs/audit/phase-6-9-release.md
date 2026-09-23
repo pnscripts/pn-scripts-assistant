@@ -48,11 +48,26 @@ What the package carries, and nothing else:
 
 ## Phase 8 — the install lifecycle
 
-**Status: BLOCKED — awaiting the password for `sudo`.** `apt install` was
-started in a terminal on this machine and is sitting at the password prompt;
-nothing about a system-wide install is claimed here until it has run.
+**Status: mostly done.** The package was installed on this machine and
+launched from its menu entry. The upgrade and removal steps are waiting for a
+password `sudo` and `pkexec` both require and that this program must not
+handle itself; `/tmp/claude-1000/lifecycle.sh` performs them in one go and a
+terminal is sitting at the prompt. Nothing about them is claimed until it has
+run. Both of the faults recorded in the final audit as S5 and S6 were found by
+doing this rather than by reading about it.
 
-What was verified without root, using the real package's own extracted files:
+What was verified:
+
+| Step | Result |
+|---|---|
+| `apt install ./…deb` | clean; dpkg triggers ran for man-db, desktop-file-utils, hicolor-icon-theme and gnome-menus |
+| Launch from the applications menu (`gtk-launch`) | the window opens and its `WM_CLASS` matches `StartupWMClass` |
+| The installed binary serves and answers | `/api/v1/version` reports the package's own version |
+| `man`, `dpkg -L`, `desktop-file-validate` | all as the package intended |
+| Upgrade over an installed copy | refused as a *downgrade* — fixed, see S5 |
+| `apt remove` | **NOT VERIFIED** |
+
+And, without root, using the real package's own extracted files:
 
 | Check | Result |
 |---|---|

@@ -196,4 +196,20 @@ Everything else the brief asked for is done and was run: it builds, installs,
 launches from the menu, configures itself, serves, answers, logs, refuses what
 it should refuse, and uninstalls cleanly in dpkg's own account of what it owns.
 
-**PHASE 11 COMPLETE**
+## Phase 12 — the artifacts
+
+In `build/packages`, built by `make release` on this machine:
+
+| File | |
+|---|---|
+| `pn-scripts-assistant_0.1.0~git20260923172822.d8c47a3_amd64.deb` | 7.3 MB, lintian clean, PIE, no reference to the development tree |
+| `SHA256SUMS` | `f924bced15b0a93613c5e347c8b059a233086994d7543dfd3a73b16e756b8a7a` |
+| `RELEASE-NOTES.md` | what is in the release, and what is knowingly not |
+
+The packaged binary's own account of itself:
+
+```
+PN Scripts Assistant 0.1.0~git20260923172822.d8c47a3 (d8c47a3), built 2026-09-23
+```
+
+**PHASE 11 COMPLETE · PHASE 12 COMPLETE**
