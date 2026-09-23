@@ -504,6 +504,10 @@ func (s *Server) Serve(ctx context.Context, listeners ...net.Listener) error {
 /* ---------- handlers ---------- */
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
+	// This one waits on a model, and the server's own deadline is about
+	// connections. See thinking.go.
+	letItThink(w)
+
 	var req brain.ChatRequest
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
@@ -940,6 +944,10 @@ func (s *Server) handleDrives(w http.ResponseWriter, r *http.Request) {
 // Safe and ungated: it plays sound on the machine the request came from, which
 // is the same machine that made it. Nothing leaves, and nothing changes.
 func (s *Server) handleSpeak(w http.ResponseWriter, r *http.Request) {
+	// Speaking a long answer aloud, with Wait set, outlasts an ordinary
+	// deadline too. See thinking.go.
+	letItThink(w)
+
 	var body struct {
 		Text string `json:"text"`
 
@@ -1478,6 +1486,9 @@ const greetingSettle = 3 * time.Second
 const greetingPatience = 8 * time.Second
 
 func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
+	// The greeting is phrased by the model when it is not already warm.
+	letItThink(w)
+
 	/*
 	 * Not a word until somebody has said what to call it.
 	 *

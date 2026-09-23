@@ -34,15 +34,14 @@ without measuring a conversation turn.
 | `go vet ./...` | **clean** |
 | `go test ./... -p 2` | **exit 0 · 62 packages ok** (was 60 at the baseline) |
 | `go test -race` on store, activity, desktop, logs, provision, preflight, llm | **no data races** |
-| `go test -race` on server | see below |
+| `go test -race` on server | **no data races** (802 s) |
 | `go mod tidy -diff` | clean |
 | Dependencies | three direct (`modernc.org/sqlite`, `onnxruntime_go`, `golang.org/x/sys`); none added this month |
 
-The server package under `-race` **exceeded Go's ten-minute default test
-timeout** — it takes 32 s without the race detector, and the detector costs
-about twenty times that. Re-run with a longer deadline; **no data race was
-reported** in either run. Status: PARTIALLY VERIFIED — the run that completed
-found none, and the long run is recorded beside this document.
+The server package under `-race` exceeded Go's ten-minute default test timeout
+on the first attempt — it takes 32 s without the detector, and the detector
+costs about twenty-five times that. Re-run with a longer deadline: **exit 0,
+802 s, no data race**. Status: VERIFIED.
 
 ## The package
 
@@ -61,6 +60,7 @@ found none, and the long run is recorded beside this document.
 | Step | Status | Evidence |
 |---|---|---|
 | `apt install ./pn-scripts-assistant_*.deb` | **VERIFIED** | installed clean; triggers ran for man-db, desktop-file-utils, hicolor-icon-theme and gnome-menus — which is why the package needs no maintainer scripts |
+| A newer package sorts newer | **VERIFIED — after a fix** | the first upgrade attempt was refused as a *downgrade*; see S5 below |
 | Files land where Ubuntu looks | **VERIFIED** | `dpkg -L`: `/usr/bin`, `/usr/share/{applications,icons/hicolor,man/man1,doc}` |
 | `man pn-scripts-assistant` | **VERIFIED** | renders |
 | `pn-scripts-assistant version` | **VERIFIED** | `PN Scripts Assistant 0.1.0~git20260923.983e04f (983e04f), built 2026-09-23` |
@@ -69,6 +69,30 @@ found none, and the long run is recorded beside this document.
 | The installed program serves a brain | **VERIFIED** | `/api/v1/version` reports the package's own version |
 | Upgrade over an installed copy | **NOT VERIFIED** | waiting on authentication; see below |
 | `apt remove` | **NOT VERIFIED** | same |
+
+## Two more faults, found by doing the install rather than reading about it
+
+**S5 — a newer build looked older to apt.** Installing the new package over
+the installed one was refused: `1 downgraded … E: Packages were downgraded`.
+The version ended in a commit hash, and dpkg compares a version in runs of
+digits and letters — `20260923.983e04f` against `20260923.91b8207` came down
+to 983 against 91. Every build on the same day was ordered by a hash, which is
+ordered by nothing. The timestamp carries the ordering now, to the second, and
+`scripts/version-order-test.sh` asserts it with dpkg itself as part of
+`make check`. Severity: **HIGH** — it makes upgrades fail. Status: **FIXED and
+VERIFIED** for ordering; the upgrade itself is below.
+
+**S6 — a slow answer was thrown away by the server, not by the model.** A
+first conversation turn that reached for a tool took **28 minutes** on this
+machine; the server's write deadline is fifteen, so the connection was cut and
+the caller received an empty reply — while the assistant had finished the
+work, written the answer into the conversation and stopped for approval
+exactly as designed. Everything worked and nobody was told. The three requests
+that wait on a model now set their own deadline
+(`server.letItThink`, one hour) instead of inheriting one meant for ordinary
+web traffic. Severity: **HIGH** on hardware like this one. Status: **FIXED**,
+with a test that runs a real server with a real deadline and a handler that
+outlasts it.
 
 ## Security, re-run against the installed binary
 
