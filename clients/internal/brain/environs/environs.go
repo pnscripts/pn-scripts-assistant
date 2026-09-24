@@ -228,6 +228,20 @@ func (w *World) Again(ctx context.Context) []Thing {
 	return append([]Thing(nil), w.list...)
 }
 
+/*
+ * Ready reports whether the machine has been read at least once.
+ *
+ * For a caller that would rather say nothing than wait: the first reading
+ * takes a second or two, and a turn that stalls in front of somebody to
+ * describe their own machine has made a poor trade.
+ */
+func (w *World) Ready() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return w.list != nil
+}
+
 // Find is one thing by its id, and whether it is known at all.
 func (w *World) Find(ctx context.Context, id string) (Thing, bool) {
 	for _, thing := range w.All(ctx) {

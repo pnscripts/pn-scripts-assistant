@@ -24,6 +24,7 @@ import (
 	"pn-scripts-assistant/internal/brain/appearance"
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/engines"
+	"pn-scripts-assistant/internal/brain/environs"
 	"pn-scripts-assistant/internal/brain/jobs"
 	"pn-scripts-assistant/internal/brain/lanes"
 	"pn-scripts-assistant/internal/brain/learning"
@@ -108,6 +109,12 @@ type Brain struct {
 	greetingSaid string
 	greetingWhen time.Time
 
+	// introSaid is the written introduction, and introAbout the facts it was
+	// written from — so installing something changes it and nothing else
+	// does. See IntroduceInWords.
+	introSaid  string
+	introAbout string
+
 	// When the last turn was held out loud, which decides whether finished
 	// background work is announced or only written down.
 	lastSpokenAt time.Time
@@ -185,6 +192,9 @@ type Brain struct {
 
 	// orch is the one decider for how work is done. See orchestrate.go.
 	orch orchestration
+
+	// world is what is on this machine. See environment.go.
+	world world
 }
 
 // New assembles a brain from settings.
@@ -464,7 +474,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 * than from the model's idea of what an assistant is, so it cannot
 		 * promise something that was never built.
 		 */
-		tools.Introduce{Loaded: b.loadedTools, Owner: b.Cfg.Owner},
+		tools.Introduce{
+			Loaded: b.loadedTools, Describes: b.describesTool,
+			Here: b.machineInWords, Owner: b.Cfg.Owner,
+		},
 
 		// And the one setting that fixes the commonest cause of the confusion.
 		tools.Quieten{
@@ -647,6 +660,27 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		NothingAsks: func() bool { return b.Freedom() == permits.Everything },
 
 		OffLimits: func(tool string) bool {
+			/*
+			 * What this brain's owner has switched off, which is the only
+			 * capability rule in the program that a person writes.
+			 *
+			 * Everything is available; this is how one thing is taken away
+			 * again. Checked by tool name and by what the tool needs, so
+			 * switching off "docker" takes away the tools that cannot work
+			 * without docker rather than only a tool called docker.
+			 */
+			if b.turnedOff("tool:"+tool) || b.turnedOff(tool) {
+				return true
+			}
+
+			if b.Agent != nil && b.Agent.Registry != nil {
+				for _, needed := range b.Agent.Registry.Needing(tool) {
+					if b.turnedOff(needed) {
+						return true
+					}
+				}
+			}
+
 			switch tool {
 			// read_a_page belongs here for a sharper reason than the other
 			// two: it does not merely request a page, it runs whatever the
@@ -1426,7 +1460,7 @@ nobody has. If you do not know where something is, list one of the places
 above and look. Asking which folder is fair when looking has not settled
 it; inventing the folder is not.`,
 		name, owner, owner, owner, owner, owner, owner, owner,
-		b.whereThingsAre(), b.whatIsRemembered())
+		b.whereThingsAre()+b.whatIsHere(), b.whatIsRemembered())
 }
 
 /*
@@ -1497,6 +1531,49 @@ func (b *Brain) whatIsRemembered() string {
 	return line + " Never say you have no memory: you have this. Call what_you_know " +
 		"for the detail, and never say you are about to call it — call it."
 }
+
+/*
+ * whatIsHere is the machine itself, from the one reading of it.
+ *
+ * The persona used to end with the folders and the drives, which told the
+ * model where things are and nothing about what is there. So it answered
+ * "can you make a Godot game" from its tool descriptions, and offered to
+ * install what was already installed, and could not say that Claude Code was
+ * sitting there signed out — the assistant was blind to its own machine and
+ * nothing in the prompt admitted it.
+ *
+ * Short on purpose: about a hundred and fifty tokens against a turn that is
+ * already six thousand, in a fixed order so the prefix can still be reused.
+ * The reading behind it is ten minutes old at worst and taken again the
+ * moment something is installed.
+ *
+ * Empty while it is still being read for the first time, which is a few
+ * seconds at start-up: a prompt with nothing about the machine is what every
+ * turn had before this, and is better than a turn that waits.
+ */
+func (b *Brain) whatIsHere() string {
+	if !b.worldRead() {
+		return ""
+	}
+
+	ctx, stop := context.WithTimeout(context.Background(), aMomentForTheWorld)
+	defer stop()
+
+	block := environs.Words(b.World().All(ctx), 0)
+	if strings.TrimSpace(block) == "" {
+		return ""
+	}
+
+	return "\n\n" + block
+}
+
+// aMomentForTheWorld bounds waiting for the machine to be read while
+// somebody is waiting for an answer.
+const aMomentForTheWorld = 2 * time.Second
+
+// worldRead reports whether the machine has been read at least once, so a
+// turn during start-up does not wait for it.
+func (b *Brain) worldRead() bool { return b.World().Ready() }
 
 func (b *Brain) whereThingsAre() string {
 	var lines []string

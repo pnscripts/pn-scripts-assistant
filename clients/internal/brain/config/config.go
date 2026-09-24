@@ -77,6 +77,18 @@ type Config struct {
 	LookOnline bool
 
 	/*
+	 * TurnedOff is what this machine has and its owner would rather it did
+	 * not use.
+	 *
+	 * Empty, and empty is the whole design. What exists is available; this is
+	 * how somebody takes one thing away again, by id — "docker", "unity",
+	 * "service:openai" — rather than by having to switch on each of the
+	 * eighty things they already have. A list of exceptions is short and
+	 * readable; a list of permissions is neither.
+	 */
+	TurnedOff []string
+
+	/*
 	 * ProfileToHosted is whether what you have written about yourself may go
 	 * to a paid service.
 	 *

@@ -25,10 +25,22 @@ func TestTheGreetingCarriesTheIntroductionUntilItIsDelivered(t *testing.T) {
 		t.Fatal("the greeting carried no introduction on a brain that has never given one")
 	}
 
-	for _, want := range []string{"learn everything", "answer only me", "privacy panel"} {
+	/*
+	 * What it carries is read off the registry now, not out of a list of
+	 * eighteen sentences written in Go — so this asserts that it describes
+	 * the tools this brain actually has, and still says the two things
+	 * somebody should know before asking for any of them.
+	 */
+	for _, want := range []string{"read_file", "run_command", "stops and asks first", "privacy panel"} {
 		if !strings.Contains(first.Shown, want) {
-			t.Errorf("the introduction is missing %q", want)
+			t.Errorf("the introduction is missing %q:\n%s", want, first.Shown)
 		}
+	}
+
+	// And nothing from the list it replaced, which described eighteen tools
+	// of seventy-odd and never mentioned the machine.
+	if strings.Contains(first.Shown, "learn everything") {
+		t.Error("the hardcoded capability list is still being shown")
 	}
 
 	// Building it twice must not spend it: only delivery does.

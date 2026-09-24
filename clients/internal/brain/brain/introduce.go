@@ -1,7 +1,6 @@
 package brain
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -182,6 +181,29 @@ func (b *Brain) loadedTools() []string {
 	return out
 }
 
+// describesTool is what one tool says about itself, for an answer that
+// describes the program rather than listing its function names.
+func (b *Brain) describesTool(name string) string {
+	if b.Agent == nil || b.Agent.Registry == nil {
+		return ""
+	}
+
+	if tool, ok := b.Agent.Registry.Get(name); ok {
+		return tool.Description()
+	}
+
+	return ""
+}
+
+/*
+ * machineInWords is what is on this machine, for the introduction.
+ *
+ * The same block the prompt carries, from the same reading — so that asking
+ * "what can you do" and being told at the start of a conversation cannot
+ * disagree about whether Godot is installed.
+ */
+func (b *Brain) machineInWords() string { return strings.TrimSpace(b.whatIsHere()) }
+
 /*
  * WhatItCanDo is the introduction in full, for the conversation.
  *
@@ -191,9 +213,32 @@ func (b *Brain) loadedTools() []string {
  */
 func (b *Brain) WhatItCanDo() string {
 	said, err := tools.Introduce{
+		Loaded:    b.loadedTools,
+		Describes: b.describesTool,
+		Here:      b.machineInWords,
+		Owner:     b.Cfg.Owner,
+	}.Facts()
+	if err != nil {
+		return ""
+	}
+
+	return said
+}
+
+/*
+ * WhatItCanDoInShort is the same thing in a few lines, for writing an
+ * introduction from.
+ *
+ * The full list is four thousand characters, and a model on this machine
+ * reads that at about eight tokens a second before it writes anything. The
+ * introduction needs the shape; somebody who actually asks gets the list.
+ */
+func (b *Brain) WhatItCanDoInShort() string {
+	said, err := tools.Introduce{
 		Loaded: b.loadedTools,
+		Here:   b.machineInWords,
 		Owner:  b.Cfg.Owner,
-	}.Execute(context.Background(), nil)
+	}.Shape()
 	if err != nil {
 		return ""
 	}

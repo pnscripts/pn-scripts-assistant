@@ -451,7 +451,9 @@ func runServe(args []string) error {
 	b.ImportDownloaded()
 
 	// And its greeting put into its own words, before anybody asks for it.
+	b.WarmWorld()
 	b.WarmGreeting()
+	b.WarmIntroduction()
 	srv := server.New(b, logger)
 
 	// The same two things the windowed start records: what the last run left
@@ -935,7 +937,9 @@ func runApp(args []string) error {
 	b.ImportDownloaded()
 
 	// And its greeting put into its own words, before anybody asks for it.
+	b.WarmWorld()
 	b.WarmGreeting()
+	b.WarmIntroduction()
 
 	// So the greeting can say the last run stopped in the middle of something,
 	// which is the first thing worth knowing on opening it again.

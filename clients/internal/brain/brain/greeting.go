@@ -326,11 +326,147 @@ func (b *Brain) GreetInWords(ctx context.Context) Greeting {
 		Most:  320,
 	})
 
+	// And the introduction beside it, when this is somebody's first sight of
+	// the program. See IntroduceInWords.
+	if strings.TrimSpace(g.Shown) != "" {
+		if written := b.writtenIntroduction(); written != "" {
+			g.Shown = written
+		}
+	}
+
 	b.mu.Lock()
 	b.greetingSaid, b.greetingWhen = g.Text, time.Now()
 	b.mu.Unlock()
 
 	return g
+}
+
+/*
+ * IntroduceInWords is the introduction as the assistant would give it.
+ *
+ * The facts are what it has and what is on the machine; the words are the
+ * model's. What was here before was eighteen lines written in Go — "read a
+ * drive or folder and remember what is in it — say \"learn everything\"" —
+ * the same paragraph for every person on every machine, whether or not they
+ * had Godot, whether or not they had ever used it before.
+ *
+ * An introduction is the one piece of text where that is least defensible: it
+ * is the program explaining itself, to somebody who does not know it yet,
+ * about a machine the program can see and the paragraph cannot.
+ *
+ * Longer than the greeting, and still bounded. If there is no model, or it is
+ * slower than somebody will wait, the facts are shown as they are — which is
+ * what the program did for its whole life and is not a failure.
+ */
+func (b *Brain) IntroduceInWords(ctx context.Context, facts string) string {
+	if b.Router == nil || wording.Quiet() {
+		return facts
+	}
+
+	/*
+	 * Written once per run.
+	 *
+	 * It takes about a minute on a machine without a graphics card, the facts
+	 * behind it change only when something is installed, and the window, the
+	 * voice and a second client all ask within seconds of each other. Held
+	 * against the facts rather than against the clock, so that installing
+	 * Godot and opening the program again gives a different introduction.
+	 */
+	b.mu.Lock()
+	already, about := b.introSaid, b.introAbout
+	b.mu.Unlock()
+
+	if already != "" && about == facts {
+		return already
+	}
+
+	/*
+	 * Written once per run.
+	 *
+	 * It takes about a minute on a machine without a graphics card, the
+	 * facts behind it change only when something is installed, and the
+	 * window, the voice and a second client all ask within seconds of each
+	 * other. Held against the facts rather than against the clock, so that
+	 * installing Godot and opening the program again gives a different
+	 * introduction.
+	 */
+	b.mu.Lock()
+	said, about := b.introSaid, b.introAbout
+	b.mu.Unlock()
+
+	if said != "" && about == facts {
+		return said
+	}
+
+	provider, err := b.Router.Provider(b.Cfg.DefaultProvider)
+	if err != nil {
+		return facts
+	}
+
+	owner := b.Cfg.Owner
+	if owner == "" {
+		owner = "whoever is reading it"
+	}
+
+	written := wording.Say(ctx, provider, b.modelRoles().Talk, wording.Want{
+		Brief: "an introduction: who you are, then what you can do here — naming " +
+			"two or three things that are actually on this machine — and one thing " +
+			"worth trying first, which must be something in the facts rather than " +
+			"something you thought of",
+		Facts: map[string]any{
+			"who you are talking to":                    owner,
+			"what you have and what is on this machine": facts,
+		},
+		Plain:  facts,
+		Most:   700,
+		Within: wording.AtLeisure,
+	})
+
+	// Only a real answer is kept: the fallback is the facts themselves, and
+	// keeping those would mean never asking again.
+	if written != "" && written != facts {
+		b.mu.Lock()
+		b.introSaid, b.introAbout = written, facts
+		b.mu.Unlock()
+	}
+
+	return written
+}
+
+// writtenIntroduction is the introduction if the model has already written
+// one, and nothing if it has not: a greeting must not wait a minute for a
+// paragraph, and the facts behind it are shown meanwhile.
+func (b *Brain) writtenIntroduction() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.introSaid
+}
+
+/*
+ * WarmIntroduction writes the introduction at start-up.
+ *
+ * The same reason as the greeting, and more so: it is a paragraph rather than
+ * a sentence, which on this machine is a minute. Somebody opening the program
+ * for the first time is exactly the person who should not be kept waiting to
+ * be told what it is.
+ */
+func (b *Brain) WarmIntroduction() {
+	if wording.Quiet() {
+		return
+	}
+
+	go func() {
+		ctx, stop := context.WithTimeout(context.Background(), wording.AtLeisure)
+		defer stop()
+
+		facts := b.WhatItCanDoInShort()
+		if strings.TrimSpace(facts) == "" {
+			return
+		}
+
+		b.IntroduceInWords(ctx, facts)
+	}()
 }
 
 // lastConversation is what was being talked about before this run, or nothing

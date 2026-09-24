@@ -82,6 +82,13 @@ func Words(things []Thing, most int) string {
 
 	sort.Slice(kinds, func(i, j int) bool { return kindOrder(kinds[i]) < kindOrder(kinds[j]) })
 
+	if len(kinds) == 0 && missingLine(things) == "" {
+		// Nothing known yet, or nothing left after somebody's exclusions. A
+		// heading with nothing under it is worse than silence: it tells the
+		// model the machine is empty.
+		return ""
+	}
+
 	var b strings.Builder
 
 	b.WriteString("On this machine, now:\n")

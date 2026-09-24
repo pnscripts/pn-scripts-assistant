@@ -50,6 +50,17 @@ const (
 	// HowLong is the budget for everything else: a greeting, a report on a
 	// finished job, a line said while work carries on.
 	HowLong = 90 * time.Second
+
+	/*
+	 * AtLeisure is for writing nobody is waiting on.
+	 *
+	 * The introduction is written at start-up, in the background, and read
+	 * whenever somebody first opens the program. On a machine with no
+	 * graphics card a paragraph is minutes, and the alternative to waiting
+	 * for it is not a faster paragraph — it is a list of facts where an
+	 * introduction should be.
+	 */
+	AtLeisure = 5 * time.Minute
 )
 
 /*
@@ -156,7 +167,7 @@ func brief(what string, most int) string {
 	return "You are an assistant. Say " + what + ", in " + length(most) + ".\n" +
 		"Use only the facts you are given: every name, number and path must appear in them.\n" +
 		"Do not say anything is finished, working or ready unless a fact says so — a subject is not a result.\n" +
-		"Plain words. No flattery, no offer of more help, no lists, no headings. Reply with the sentence only."
+		"Plain words. No flattery, no offer of more help, no lists, no headings. Reply with the answer only."
 }
 
 func length(most int) string {
