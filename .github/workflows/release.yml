@@ -37,7 +37,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       # CGO for the window layer; the tests themselves need no display.
@@ -81,7 +81,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       - name: Install what the window and the packaging need
@@ -128,7 +128,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
 
       # The parts this job is actually about: the setup flow, the starter and
       # what they check, which are the first thing a new user meets.
@@ -183,7 +183,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       - name: Build the bundles and the disk images
@@ -222,7 +222,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       # Present on the runner image already, most of the time. Installed when
@@ -272,7 +272,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
 
       # WebKitGTK 4.1 — Ubuntu 24.04 dropped 4.0 entirely, which is also why
       # the maintained Go webview bindings cannot build here.

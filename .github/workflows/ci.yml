@@ -39,9 +39,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # The toolchain go.mod asks for, not the newest of that line.
+      #
+      # `go-version: 1.26` installed whatever 1.26.x was newest, which was
+      # 1.26.8 on the runner against 1.26.6 here — and that one difference was
+      # the whole reason a package built in CI and a package built on the
+      # maintainer's desktop, from the same commit, were not the same file.
+      # Every other build setting matched, and so did the control file.
+      #
+      # go.mod already says which toolchain this is built with and why. This
+      # makes CI read it rather than have an opinion of its own, which is the
+      # same rule the version number follows: one place says so.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       # vet reaches the window, which is cgo against GTK and WebKit.
@@ -61,7 +72,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       - name: Install what the window needs
@@ -101,7 +112,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       - name: Build every command
@@ -138,7 +149,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       # The same headers the other jobs install.
@@ -173,7 +184,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: clients/go.mod
           cache-dependency-path: clients/go.sum
 
       - name: Install what the window and the packaging need
