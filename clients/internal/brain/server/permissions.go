@@ -50,11 +50,19 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 		Why      string `json:"why,omitempty"`
 		ThisRun  bool   `json:"only_this_run,omitempty"`
 
-		// Hidden is a capability the privacy setting is keeping out of reach,
-		// shown greyed rather than omitted — "why can it not do that" is a
-		// question with two different answers and a person deserves to know
-		// which one they are looking at.
-		Hidden bool `json:"hidden_by_privacy,omitempty"`
+		/*
+		 * Hidden is a capability that is out of reach, and why.
+		 *
+		 * Shown greyed rather than omitted, because "why can it not do that"
+		 * has several different answers and somebody deserves to know which
+		 * one they are looking at. It used to have one — privacy — and the
+		 * field said so in its name; now it can also be something its owner
+		 * switched off, or something whose engine is not installed, so the
+		 * reason travels with it rather than being assumed by whoever reads
+		 * the field.
+		 */
+		Hidden bool   `json:"hidden,omitempty"`
+		Why2   string `json:"hidden_why,omitempty"`
 	}
 
 	out := []capability{}
@@ -78,7 +86,7 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if s.brain.Agent.OffLimits != nil && s.brain.Agent.OffLimits(t.Name()) {
-			c.Hidden = true
+			c.Hidden, c.Why2 = true, s.whyHidden(t.Name())
 		}
 
 		out = append(out, c)
@@ -220,4 +228,33 @@ func (s *Server) handleFreedom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"freedom": string(level), "means": permits.Means(level)})
+}
+
+/*
+ * whyHidden is the reason a capability is out of reach, in words.
+ *
+ * Three reasons and they are not alike: a privacy setting that its owner can
+ * change in a moment, a decision they made about this machine, and something
+ * that is not installed. Telling somebody the wrong one sends them to the
+ * wrong panel.
+ */
+func (s *Server) whyHidden(tool string) string {
+	for _, id := range s.brain.Cfg.TurnedOff {
+		if strings.EqualFold(strings.TrimSpace(id), tool) ||
+			strings.EqualFold(strings.TrimSpace(id), "tool:"+tool) {
+			return "switched off in What is on this machine"
+		}
+	}
+
+	if s.brain.Agent != nil && s.brain.Agent.Registry != nil {
+		for _, needed := range s.brain.Agent.Registry.Needing(tool) {
+			for _, id := range s.brain.Cfg.TurnedOff {
+				if strings.EqualFold(strings.TrimSpace(id), needed) {
+					return needed + " is switched off in What is on this machine"
+				}
+			}
+		}
+	}
+
+	return "out of reach at this privacy setting"
 }

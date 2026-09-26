@@ -111,6 +111,11 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/mail", s.handleMailStatus)
 	s.mux.HandleFunc("POST /api/mail", s.handleMail)
 	s.mux.HandleFunc("POST /api/setup", s.handleSetup)
+	// What is on this machine, and the one list that takes something away.
+	// Not /api/machine, which is the processor and the drives.
+	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
+	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
+
 	s.mux.HandleFunc("GET /api/desktop", s.handleDesktopStatus)
 	s.mux.HandleFunc("POST /api/desktop", s.handleDesktop)
 	s.mux.HandleFunc("GET /api/memory-map", s.handleMemoryMap)

@@ -209,15 +209,36 @@ func versionOf(ctx context.Context, path string, args []string) string {
 
 	out, _ := exec.CommandContext(ctx, path, args...).CombinedOutput()
 
+	/*
+	 * The number, from wherever in the output it appears.
+	 *
+	 * Not the first line: Codex prints a warning before its version, and
+	 * taking the first line gave "WARNING: proceeding, even though we coul"
+	 * as a version number — which is worse than saying nothing, because it
+	 * reads like one.
+	 */
+	if found := versionNumber.FindString(string(out)); found != "" {
+		return found
+	}
+
+	/*
+	 * No number anywhere. The first line will do, unless it is a complaint:
+	 * a program that warns instead of answering has not told us its version,
+	 * and repeating the warning as one is a lie with a plausible shape.
+	 */
 	line := strings.TrimSpace(string(out))
 	if line == "" {
 		return ""
 	}
 
-	line = strings.SplitN(line, "\n", 2)[0]
+	line = strings.TrimSpace(strings.SplitN(line, "\n", 2)[0])
 
-	if found := versionNumber.FindString(line); found != "" {
-		return found
+	switch {
+	case line == "",
+		strings.Contains(strings.ToLower(line), "warning"),
+		strings.Contains(strings.ToLower(line), "error"),
+		strings.Contains(strings.ToLower(line), "usage"):
+		return ""
 	}
 
 	if len(line) > 40 {

@@ -66,3 +66,53 @@ func TestASettingsFileAloneIsNotSetup(t *testing.T) {
 		t.Error("a settings file was taken as proof somebody saw setup")
 	}
 }
+
+/*
+ * What somebody switched off survives a restart.
+ *
+ * It was declared and never written to the file — so switching Docker off
+ * lasted until the program closed, which is the kind of setting that makes
+ * people stop trusting settings. Empty by default, and empty is the point:
+ * what exists is available, and this is how one thing is taken away.
+ */
+func TestWhatIsSwitchedOffIsRemembered(t *testing.T) {
+	root := t.TempDir()
+
+	cfg := Default()
+
+	if len(cfg.TurnedOff) != 0 {
+		t.Errorf("a fresh brain has %v switched off", cfg.TurnedOff)
+	}
+
+	cfg.TurnedOff = []string{"docker", "service:openai"}
+
+	if err := cfg.Save(root); err != nil {
+		t.Fatal(err)
+	}
+
+	back, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(back.TurnedOff) != 2 || back.TurnedOff[0] != "docker" || back.TurnedOff[1] != "service:openai" {
+		t.Errorf("it came back as %v", back.TurnedOff)
+	}
+
+	// And switching everything back on empties it rather than keeping a
+	// ghost of the old list.
+	back.TurnedOff = nil
+
+	if err := back.Save(root); err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(again.TurnedOff) != 0 {
+		t.Errorf("switching everything back on left %v", again.TurnedOff)
+	}
+}

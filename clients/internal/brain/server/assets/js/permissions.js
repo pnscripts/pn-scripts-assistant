@@ -187,12 +187,14 @@
 
         text.append(name, what);
 
-        if (c.hidden_by_privacy) {
+        if (c.hidden) {
             const why = document.createElement('span');
             why.className = 'permit-note';
-            // "Why can it not do that" has two different answers and somebody
-            // deserves to know which one they are looking at.
-            why.textContent = 'out of reach at this privacy setting';
+            // "Why can it not do that" has several different answers — a
+            // privacy setting, a decision about this machine, something not
+            // installed — and somebody deserves to know which one they are
+            // looking at. The reason comes with the answer now.
+            why.textContent = c.hidden_why || 'out of reach';
             text.appendChild(why);
         }
 

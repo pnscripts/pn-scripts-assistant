@@ -627,6 +627,23 @@ func LoadFrom(path string) (Config, error) {
 		cfg.AlwaysSpeak = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
+	/*
+	 * What its owner has switched off, as one line.
+	 *
+	 * Commas because this is a file people open and read: a list of two or
+	 * three ids belongs on one line, and a format that needs explaining
+	 * belongs in a format nobody has to open.
+	 */
+	if v := get("BRAIN_TURNED_OFF"); v != "" {
+		cfg.TurnedOff = nil
+
+		for _, id := range strings.Split(v, ",") {
+			if id = strings.TrimSpace(id); id != "" {
+				cfg.TurnedOff = append(cfg.TurnedOff, id)
+			}
+		}
+	}
+
 	if v := get("BRAIN_ALWAYS_LISTEN"); v != "" {
 		cfg.AlwaysListen = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
@@ -785,6 +802,7 @@ func (c Config) Save(root string) error {
 	b.WriteString("BRAIN_AUTO_MODEL=" + boolText(c.AutoModel) + "\n")
 	b.WriteString("BRAIN_ALWAYS_SPEAK=" + boolText(c.AlwaysSpeak) + "\n")
 	b.WriteString("BRAIN_ALWAYS_LISTEN=" + boolText(c.AlwaysListen) + "\n")
+	b.WriteString("BRAIN_TURNED_OFF=" + strings.Join(c.TurnedOff, ",") + "\n")
 	b.WriteString("OLLAMA_FAST_MODEL=" + c.FastModel + "\n\n")
 
 	b.WriteString("MAIL_HOST=" + c.MailHost + "\n")

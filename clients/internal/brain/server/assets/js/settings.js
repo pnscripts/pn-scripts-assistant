@@ -624,9 +624,146 @@ setInterval(() => {
     loadMenu();
 }, 3000);
 
+// The machine changes on the timescale of installing something, not of a
+// panel refresh: read from what is kept, every half minute.
+setInterval(() => {
+    const view = document.querySelector('.view[data-view="system"]');
+
+    if (!view || view.hidden) return;
+
+    loadEnvironment();
+}, 30000);
+
+/*
+ * What is on this machine, and the one list that takes something away.
+ *
+ * The same reading the assistant is given when it answers, so the page and
+ * the model cannot disagree about whether Godot is installed. Everything
+ * found is available; a switch here adds it to a short list of exceptions,
+ * which is empty on every brain until somebody writes in it.
+ */
+const environmentStates = {
+    available: 'here',
+    needs_configuration: 'needs setting up',
+    needs_sign_in: 'not signed in',
+    needs_licence: 'not licensed',
+    not_installed: 'not installed',
+    blocked: 'here, unusable',
+    no_capacity: 'nothing left',
+    unknown: 'not known',
+};
+
+async function loadEnvironment(again) {
+    const holder = el('environment-list');
+
+    if (!holder) return;
+
+    let state;
+
+    try {
+        state = await api.get('/api/environment' + (again ? '?again=1' : ''));
+    } catch {
+        return;
+    }
+
+    const things = state.things || [];
+
+    if (things.length === 0) {
+        holder.textContent = 'Still looking.';
+
+        return;
+    }
+
+    holder.textContent = '';
+
+    /*
+     * A way to ask again, for the minute after installing something.
+     *
+     * The list is a reading kept for ten minutes, because taking it costs a
+     * second of the machine and the panel is opened often. Somebody who has
+     * just installed Godot should not have to wait out the ten.
+     */
+    const lookAgain = document.createElement('button');
+    lookAgain.type = 'button';
+    lookAgain.className = 'model-action environment-again';
+    lookAgain.textContent = 'Look again';
+
+    lookAgain.addEventListener('click', async () => {
+        lookAgain.disabled = true;
+        lookAgain.textContent = 'Looking\u2026';
+
+        try {
+            await loadEnvironment(true);
+        } finally {
+            lookAgain.disabled = false;
+        }
+    });
+
+    holder.appendChild(lookAgain);
+
+    // Grouped by kind, in the order the brain reports them, so this page and
+    // the sentence the model is given put things in the same order.
+    let kind = null;
+
+    for (const thing of things) {
+        if (thing.kind !== kind) {
+            kind = thing.kind;
+
+            const heading = document.createElement('div');
+            heading.className = 'environment-kind';
+            heading.textContent = kind.replace(/_/g, ' ');
+            holder.appendChild(heading);
+        }
+
+        const row = document.createElement('div');
+        row.className = 'environment-row' + (thing.off ? ' is-off' : '');
+
+        const name = document.createElement('span');
+        name.className = 'environment-name';
+        name.textContent = thing.title + (thing.version ? ' ' + thing.version : '');
+        row.appendChild(name);
+
+        const said = document.createElement('span');
+        said.className = 'environment-state';
+        said.textContent = thing.off
+            ? 'switched off'
+            : (environmentStates[thing.state] || thing.state);
+        row.appendChild(said);
+
+        // Always the same four columns, even when there is nothing to say
+        // here: an empty cell keeps the button where the eye expects it.
+        const needs = document.createElement('span');
+        needs.className = 'environment-needs';
+        needs.textContent = thing.state === 'available' ? '' : (thing.needs || thing.why || '');
+        row.appendChild(needs);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'model-action environment-switch';
+        button.textContent = thing.off ? 'Use it again' : 'Do not use';
+
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+
+            try {
+                await api.post('/api/environment/off', { id: thing.id, off: !thing.off });
+                await loadEnvironment();
+            } catch (err) {
+                said.textContent = String(err.message || err);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        row.appendChild(button);
+        holder.appendChild(row);
+    }
+}
+
 load();
 loadHeard();
 loadMenu();
 loadMail();
+loadEnvironment();
 
 })();

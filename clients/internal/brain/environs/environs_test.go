@@ -328,3 +328,40 @@ func write(t *testing.T, at, body string, mode os.FileMode) {
 		t.Fatal(err)
 	}
 }
+
+/*
+ * A warning is not a version.
+ *
+ * Codex prints one before saying what it is, and taking the first line gave
+ * "WARNING: proceeding, even though we coul" as a version — worse than saying
+ * nothing, because it reads like one.
+ */
+func TestAWarningIsNotTakenForAVersion(t *testing.T) {
+	bin := t.TempDir()
+
+	write(t, filepath.Join(bin, "noisy"),
+		"#!/bin/sh\necho 'WARNING: proceeding, even though we could not check'\necho 'codex-cli 0.155.0'\n", 0o755)
+	write(t, filepath.Join(bin, "grumpy"),
+		"#!/bin/sh\necho 'WARNING: this program will not say'\n", 0o755)
+
+	t.Setenv("PATH", bin)
+
+	things := Look(context.Background(), []Program{
+		{ID: "noisy", Title: "Noisy", Kind: Tool, Names: []string{"noisy"}, Version: []string{"--version"}},
+		{ID: "grumpy", Title: "Grumpy", Kind: Tool, Names: []string{"grumpy"}, Version: []string{"--version"}},
+	})
+
+	if things[0].Version != "0.155.0" {
+		t.Errorf("the version behind the warning is %q", things[0].Version)
+	}
+
+	if things[1].Version != "" {
+		t.Errorf("a program that only warned was given the version %q", things[1].Version)
+	}
+
+	// And it is still installed, which is the point: a program that will not
+	// say its version is installed all the same.
+	if things[1].State != Here {
+		t.Errorf("a program that only warned is %q", things[1].State)
+	}
+}

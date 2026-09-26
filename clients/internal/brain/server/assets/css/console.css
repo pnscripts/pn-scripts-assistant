@@ -5488,3 +5488,40 @@ summary.equip-head { cursor: pointer; }
 .res-pct { width: 4.5em; }
 .res-policy { margin: 0.6rem 0; }
 .res-policy summary { cursor: pointer; }
+
+/*
+ * What is on this machine: one row each, grouped by kind.
+ *
+ * A grid rather than a table because the last column is a button and the
+ * third is a sentence that wraps; three of the four have no width worth
+ * fixing, and the one that does is the button.
+ */
+.environment-kind {
+    margin: 0.9rem 0 0.3rem;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint, var(--text-dim));
+}
+
+.environment-row {
+    display: grid;
+    grid-template-columns: minmax(8em, 14em) minmax(6em, 10em) 1fr auto;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.28rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 12.5px;
+}
+
+.environment-row.is-off { opacity: 0.55; }
+
+.environment-state { color: var(--text-dim); }
+.environment-needs { color: var(--text-dim); font-size: 11.5px; }
+
+.environment-switch { padding: 0.15rem 0.6rem; font-size: 11px; }
+
+@media (max-width: 720px) {
+    .environment-row { grid-template-columns: 1fr auto; }
+    .environment-needs { grid-column: 1 / -1; }
+}
