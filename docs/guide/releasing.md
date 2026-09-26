@@ -48,6 +48,10 @@ A binary built by hand, outside the release script, says `built from source
 2. `make release`, and read what `validate` printed.
 3. Tag it `v<version>` and push the tag.
 
+Anybody can check a published release rather than trusting its checksum: check
+out the commit it was built from, run `make package`, and compare with the
+`SHA256SUMS` published beside the download.
+
 CI then builds every download on the system it belongs to — the `.deb` and its
 `lintian` check on Ubuntu, the disk images with `hdiutil` on a Mac, the
 installer with Inno Setup on Windows — and attaches them all to the release
@@ -65,15 +69,25 @@ Linux, wrong for the job whose whole purpose is that file.
 
 ## What is not automated yet
 
-- **Reproducible builds across machines.** The `.deb` is now byte-for-byte
-  reproducible *on one machine*: two builds of one commit produce the same
-  SHA-256, verified, and CI builds it twice on every push and fails if they
-  differ. What made that possible was pinning every timestamp the build writes
-  to the commit's own date (`SOURCE_DATE_EPOCH`) — before that the changelog
-  carried the moment the script ran and dpkg wrote the staging directory's
-  mtimes, so one commit had as many checksums as it had builds. What is still
-  open is the harder half: the same commit built on a *different* machine, with
-  a different toolchain path and a different filesystem, has not been compared.
+- ~~**Reproducible builds.**~~ Done, and checked between two machines: a
+  GitHub Ubuntu runner and the maintainer's desktop build the same commit into
+  a byte-identical `.deb`. Three things had to be fixed to get there, and each
+  was found by comparing rather than by reasoning:
+
+  | What leaked in | What it did |
+  |---|---|
+  | the clock | the changelog carried the moment the script ran, and `dpkg-deb` wrote the staging directory's mtimes — one commit, a different package every build |
+  | the toolchain | `go-version: 1.26` installed the newest patch, so the runner used go1.26.8 and the desktop go1.26.6; every other build setting matched |
+  | the umask | `mkdir` obeys it, `dpkg-deb` records it, so the package carried `drwxrwxr-x` or `drwxr-xr-x` depending on whose shell built it |
+
+  All three are closed: `SOURCE_DATE_EPOCH` from the commit date, the
+  toolchain read out of `go.mod`, and `umask 022` at the top of the script.
+  CI builds it twice on every push and fails if they differ, which is what
+  will catch the fourth one.
+
+  What it still depends on, stated rather than left to be discovered: the
+  Debian libraries on the build machine decide the `Depends` line, so a
+  different Ubuntu release will legitimately produce a different package.
 - **Signing.** Nothing is signed anywhere: no Debian key, no Apple Developer
   certificate, no Windows code-signing certificate. Each download is trusted
   because you built it or because its checksum matches, not because of a key.

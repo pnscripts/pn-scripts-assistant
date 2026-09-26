@@ -67,10 +67,21 @@ Every timestamp the build writes now comes from the commit's own date
 (`SOURCE_DATE_EPOCH`). Two builds of one commit produce an identical file,
 verified, and CI builds it twice and fails if they ever differ.
 
-Still open, and said in the documents rather than glossed: the same commit
-built on a *different* machine has not been compared with ours. That is the
-version of this claim that would let a stranger reproduce a release
-independently, which is the point of the exercise.
+And then the harder half, which is the one that matters: the same commit built
+on a *different* machine. It was compared, it differed, and the difference was
+chased down twice more. The toolchain — `go-version: 1.26` installs the newest
+patch, so the runner had go1.26.8 and the desktop go1.26.6 — now comes out of
+`go.mod`, which already says which toolchain this is built with. Then the
+umask, which `mkdir` obeys and `dpkg-deb` records, so the package carried a
+permission bit belonging to whoever ran the script.
+
+With those closed, a GitHub runner and the maintainer's desktop build the same
+commit into a byte-identical package. A stranger can reproduce a release
+rather than trust its checksum, which was the point of the exercise.
+
+Still depends on the build machine's Debian libraries, which decide the
+`Depends` line — a different Ubuntu release legitimately differs. Said in the
+documents rather than glossed.
 
 ### 4. Where it connects is a list, and the list is enforced
 

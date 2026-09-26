@@ -72,8 +72,11 @@ work that made it something to keep using.
 - **CI on every push and pull request** — formatting, vet, the suite under the
   race detector, a build for each system, `govulncheck`, and the package put
   through `lintian`.
-- **The package is byte-for-byte reproducible.** Two builds of one commit
-  produce the same file, and CI fails if they ever stop doing so.
+- **The package is byte-for-byte reproducible**, checked between two machines:
+  a GitHub runner and the maintainer's desktop build one commit into the same
+  file. Three things had leaked into it — the clock, the Go patch version and
+  the builder's umask. CI builds it twice on every push and fails if they ever
+  stop matching.
 - **Every released file carries a signed provenance attestation**, so a
   download can be checked against the workflow and commit that built it.
 - **`SECURITY.md`, `CONTRIBUTING.md`, a code of conduct** and issue templates,

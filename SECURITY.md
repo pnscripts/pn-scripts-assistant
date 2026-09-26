@@ -110,11 +110,18 @@ Written here rather than discovered by somebody who assumed otherwise:
   ```
 
   Alongside it, `SHA256SUMS` is published with every release.
-- **Builds are reproducible on one machine, not yet across two.** Two builds of
-  one commit produce an identical `.deb`, and CI proves it on every push. The
-  same commit built on somebody else's machine has not been compared with ours,
-  which is the version of this claim that would actually let a stranger check
-  our work.
+- **Builds are reproducible, and that has been checked across two machines.**
+  The same commit built on a GitHub Ubuntu runner and on the maintainer's
+  desktop produces a byte-identical `.deb` — same SHA-256, not merely the same
+  contents. CI also builds it twice on every push and fails if those two ever
+  differ, which is what catches a regression before anybody notices.
+
+  So you do not have to take a published checksum on trust: check out the
+  commit a release was built from, run `make package`, and compare with the
+  `SHA256SUMS` beside the download. Two things it does depend on — the
+  toolchain (read from `go.mod`, so it is the same everywhere) and the Debian
+  libraries installed on the build machine, which decide the `Depends` line. A
+  different Ubuntu release will legitimately produce a different package.
 - **No third party has audited this.** The audits in `docs/audit/` are the
   maintainer's own, written to a fixed vocabulary that distinguishes what was
   measured from what was merely implemented. They are honest, and they are not

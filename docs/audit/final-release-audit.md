@@ -209,8 +209,8 @@ Carried forward deliberately, each with its severity.
 - **Closed:** packaging is now checked at build time and in CI; an install on
   this machine has been done by hand; the desktop entry and icons are asserted
   to land where Ubuntu expects.
-- **Closed since:** the `.deb` is byte-for-byte reproducible (two builds of one
-  commit, identical SHA-256, gated in CI); the install lifecycle has been run
+- **Closed since:** the `.deb` is byte-for-byte reproducible, verified between
+  a GitHub runner and this desktop from one commit and gated in CI; the install lifecycle has been run
   end to end; CI now runs on every push and pull request rather than only on a
   tag; every released file carries a signed provenance attestation.
 - **Open:** no automated test installs the package; hosted AI providers are

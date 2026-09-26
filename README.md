@@ -353,6 +353,10 @@ gets to say.
 - **Every released file** is built by a workflow on the system it is for, is
   published with its SHA-256, and carries a signed provenance attestation
   anybody can check.
+- **The package is reproducible.** The same commit built on a GitHub runner and
+  on the maintainer's desktop produces a byte-identical `.deb`, so you can
+  check out that commit, run `make package`, and compare — rather than trusting
+  a published number.
 - **Every action in CI is pinned to a commit**, not to a tag somebody could
   move, and only the job that publishes a release can write anything.
 - **The audits in [docs/audit/](docs/audit/)** use a fixed vocabulary —
