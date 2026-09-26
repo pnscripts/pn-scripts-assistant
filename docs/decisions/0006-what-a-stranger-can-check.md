@@ -120,9 +120,18 @@ about the last.
 
 The provenance chain trusts GitHub. If the workflow file itself is changed by
 somebody who should not have changed it, the attestation faithfully records
-that a compromised workflow built the file. Branch protection on `main` and
-review on the workflow files is what would close that, and neither is in place
-yet — this is written here so it is not mistaken for solved.
+that a compromised workflow built the file. Branch protection on `main` is what
+would close most of that, and it is **not in place** — not from neglect:
+GitHub refuses it on a private repository without a paid plan.
+
+    Upgrade to GitHub Pro or make this repository public to enable this
+    feature. (HTTP 403)
+
+So it costs nothing the day this repository becomes public, and until then it
+cannot be had at all. The settings to apply then, already decided: the CI
+checks required on `main`, force-pushes and deletion refused. Written down
+here so it is a step somebody takes rather than a thing everyone assumes was
+done.
 
 The connection list checks the source, not the binary. A host assembled at
 runtime from pieces would not appear in it. That is a real limit, it is stated

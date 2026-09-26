@@ -17,12 +17,28 @@ set -uo pipefail
 APPLY=false
 [ "${1:-}" = "--apply" ] && APPLY=true
 
-# Where clones live. Add paths here rather than scanning the whole disk, which
-# on a machine with a media drive takes minutes and finds other people's code.
-SEARCH_ROOTS=(
-    "/media/petar/c8fc2986-4b79-4d7b-9a8c-e6db653915ac/DEV/Projects"
-    "$HOME/Projects"
-)
+# Where clones live. Named roots rather than scanning the whole disk, which on
+# a machine with a media drive takes minutes and finds other people's code.
+#
+# From the environment, so this works for whoever is running it: it used to
+# carry one person's drive, spelled out with its filesystem UUID, which was
+# fine while this was one person's script and is not something a public
+# repository should be handing to everybody who clones it.
+#
+#   PN_CLONE_ROOTS=/data/code:/srv/work scripts/sync-git-remotes.sh
+#
+# Unset, it looks where this checkout already is — whatever directory holds
+# it — and in ~/Projects.
+if [ -n "${PN_CLONE_ROOTS:-}" ]; then
+    IFS=':' read -r -a SEARCH_ROOTS <<< "$PN_CLONE_ROOTS"
+else
+    here="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+    SEARCH_ROOTS=(
+        "$here"
+        "$HOME/Projects"
+    )
+fi
 
 changed=0
 already=0
