@@ -18,6 +18,23 @@
 # immediately, so setup checks for them on first run and says what is missing.
 set -euo pipefail
 
+# The permissions everything this script creates gets.
+#
+# Not a tidiness rule — a reproducibility one, and it was found the hard way.
+# A package built in CI and a package built on the maintainer's desktop, from
+# one commit and with the same toolchain, still differed. Every file inside
+# them was byte-identical and so was the control archive. The whole difference
+# was one line of the file listing:
+#
+#     drwxrwxr-x  ./     built here, with a umask of 002
+#     drwxr-xr-x  ./     built on the runner, with a umask of 022
+#
+# The staging root is created by mkdir, mkdir obeys the umask, and dpkg-deb
+# records what it finds. So the package carried the personal shell setting of
+# whoever built it. Fixed here rather than by chmod-ing the one directory,
+# because the next thing this script creates would have the same problem.
+umask 022
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/build/packages"
 # ---------------------------------------------------------------------------
