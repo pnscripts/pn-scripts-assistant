@@ -659,6 +659,26 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		NothingAsks: func() bool { return b.Freedom() == permits.Everything },
 
+		/*
+		 * What is on this machine, for deciding which tools are worth
+		 * offering this turn.
+		 *
+		 * Only asked about things a tool says it needs, and only against a
+		 * reading that is already taken — a turn must not wait on the machine
+		 * being read, and until it has been every tool is offered, which is
+		 * what happened before any of this existed.
+		 */
+		Have: func(id string) bool {
+			if !b.World().Ready() {
+				return true
+			}
+
+			ctx, stop := context.WithTimeout(context.Background(), aMomentForTheWorld)
+			defer stop()
+
+			return b.World().Usable(ctx, id)
+		},
+
 		OffLimits: func(tool string) bool {
 			/*
 			 * What this brain's owner has switched off, which is the only

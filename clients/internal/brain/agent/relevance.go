@@ -3,8 +3,6 @@ package agent
 import (
 	"regexp"
 	"strings"
-
-	"pn-scripts-assistant/internal/brain/llm"
 )
 
 /*
@@ -111,71 +109,6 @@ var housekeeping = map[string][]string{
 	"list_integrations":    {"integration", "mcp", "list_integrations"},
 	"activate_integration": {"integration", "mcp", "activate_integration"},
 	"read_integration":     {"integration", "mcp", "read_integration"},
-}
-
-/*
- * relevant narrows the tools offered for one message.
- *
- * Everything not named here is always offered: reading, writing, searching,
- * remembering. Those are the ordinary business of the assistant and guessing
- * about them would cost more than it saves.
- */
-func relevant(specs []llm.ToolSpec, message string, cued func(string) []string) []llm.ToolSpec {
-	text := strings.ToLower(message)
-
-	// A website in the question means the answer is out there, so the tools
-	// that can reach it are wanted whatever else is dropped.
-	aboutSomewhere := mentionsSomewhere.MatchString(message)
-
-	out := make([]llm.ToolSpec, 0, len(specs))
-
-	for _, spec := range specs {
-		/*
-		 * A tool that named its own cues is offered only when they appear.
-		 *
-		 * This is how a skill gets into the list without crowding it. Nothing
-		 * built in does this — the ordinary business of the assistant is
-		 * always offered — but skills are added by their owner and there is no
-		 * limit on how many, and a model already choosing badly among
-		 * thirty-one options does not get better with fifty.
-		 */
-		if own := cued(spec.Name); len(own) > 0 {
-			if mentions(text, own) {
-				out = append(out, spec)
-			}
-
-			continue
-		}
-
-		cues, isHousekeeping := housekeeping[spec.Name]
-
-		if !isHousekeeping {
-			out = append(out, spec)
-
-			continue
-		}
-
-		/*
-		 * A housekeeping tool has to be asked for.
-		 *
-		 * Except when the question names a website, in which case looking at
-		 * the screen is not merely unhelpful but actively wrong — it is what
-		 * the model reached for last time, and it spent seven minutes on it.
-		 */
-		if aboutSomewhere {
-			continue
-		}
-
-		for _, cue := range cues {
-			if strings.Contains(text, cue) {
-				out = append(out, spec)
-
-				break
-			}
-		}
-	}
-
-	return out
 }
 
 // mentions reports whether any of the cues appears in the message.

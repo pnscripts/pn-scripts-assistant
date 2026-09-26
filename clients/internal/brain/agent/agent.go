@@ -152,7 +152,21 @@ type Loop struct {
 	 * model was never told about it — the tool would exist, be callable, and
 	 * be invisible, which is the most confusing of the three possibilities.
 	 */
-	specsMu     sync.Mutex
+	specsMu sync.Mutex
+
+	// offered is what each conversation has already been shown, so the list
+	// only ever grows within one. See choosing.go.
+	offered remembered
+
+	/*
+	 * Have reports whether something a tool needs is on this machine.
+	 *
+	 * Wired to the one reading of the machine — see internal/brain/environs.
+	 * Nil means offer everything, which is right for a caller that knows
+	 * nothing about the machine: a tool withheld because nobody asked is
+	 * worse than one that tries and explains itself.
+	 */
+	Have        func(id string) bool
 	cachedSpecs []llm.ToolSpec
 	specsFor    int64
 }
@@ -529,17 +543,27 @@ func (l *Loop) RunBrief(
 
 	if offerTools {
 		/*
-		 * Narrowed to what this request could plausibly need.
+		 * Chosen: what every turn needs, what this conversation has already
+		 * been shown, and what this message plausibly needs — up to a budget.
 		 *
-		 * How well a model chooses among tools falls off sharply with its
-		 * size, and thirty-one is a lot to choose between. Asked what it
-		 * thought of a website, the small model here called list_models —
-		 * not a near miss — and before that, look_at_screen, which spent
-		 * seven minutes reading a desktop that could not have held the
-		 * answer.
+		 * Everything the assistant has is still available; this is what fits
+		 * in one question. See choosing.go for the two measurements that
+		 * decide it: what a tool list costs to read on this machine, and how
+		 * badly a small model chooses when given too many.
 		 */
-		specs = relevant(l.granted(without(onlyThese(l.specs(), brief.Only), brief.Never), brief),
-			lastUserMessage(messages), l.cuesFor)
+		specs = Choosing{
+			Have:  l.Have,
+			Needs: l.needsFor,
+			Cued:  l.cuesFor,
+		}.choose(
+			l.granted(without(onlyThese(l.specs(), brief.Only), brief.Never), brief),
+			lastUserMessage(messages),
+			l.offered.already(conversationID),
+		)
+
+		// Remembered, so the next turn in this conversation begins the same
+		// way and the model keeps what it has already read.
+		l.offered.keep(conversationID, namesOf(specs))
 	}
 
 	// Whether the model has already been asked to keep a promise this turn.
@@ -2056,6 +2080,36 @@ func (l *Loop) detailOn(mark int64, line string) {
 
 // cuesFor is the words a tool said mean it is worth offering, or none. Only
 // skills say anything here; see tools.Cued.
+/*
+ * Have reports whether something a tool needs is on this machine.
+ *
+ * Wired to the one reading of the machine. Nil means offer everything, which
+ * is what a caller that knows nothing about the machine should do: a tool
+ * withheld because nobody asked is worse than one that tries and explains
+ * itself.
+ */
+// (field on Loop; see the struct.)
+
+// needsFor is what a tool cannot work without, from the registry.
+func (l *Loop) needsFor(name string) []string {
+	if l.Registry == nil {
+		return nil
+	}
+
+	return l.Registry.Needing(name)
+}
+
+// namesOf is the names of these tools, for remembering what was offered.
+func namesOf(specs []llm.ToolSpec) []string {
+	out := make([]string, 0, len(specs))
+
+	for _, spec := range specs {
+		out = append(out, spec.Name)
+	}
+
+	return out
+}
+
 func (l *Loop) cuesFor(name string) []string {
 	tool, ok := l.Registry.Get(name)
 	if !ok {
