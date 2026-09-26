@@ -323,8 +323,17 @@ type Config struct {
 	OpenRouterKey   string
 	OpenRouterModel string
 
-	// Voice is which installed voice reads answers aloud, by id. Empty means
-	// whichever the machine offers first.
+	/*
+	 * Voice is which installed voice reads answers aloud, by id.
+	 *
+	 * "robot" is not a voice file: it is the clearest neural voice on the
+	 * machine, spoken with its expression turned down and its pace held even
+	 * — see speech/machinevoice.go. A machine that is understood first time
+	 * is the whole of what this setting is for, and the flat delivery is what
+	 * makes it a machine rather than anything done to the audio afterwards.
+	 *
+	 * Empty means whichever the machine offers first.
+	 */
 	Voice string
 
 	// Language is the spoken language, as an ISO code such as bg or en.
@@ -431,11 +440,24 @@ func intText(n int) string {
  * agreement. It never tightens: an old privacy setting cannot take away
  * something the switch already allows.
  */
-// Asking is how much this configuration says the program should ask, with an
-// old privacy setting carried onto it. The one place that question is
-// answered, so that a Config built in a test and one read from a file behave
-// the same way.
-func (c Config) Asking() string { return reconcile(c.Freedom, c.Privacy) }
+/*
+ * Asking is how much this configuration says the program should ask.
+ *
+ * Freedom, and nothing else. It used to be reconciled with privacy — the two
+ * were one switch, so opening privacy raised what the program might do, and
+ * allowing more let more leave the machine.
+ *
+ * That is the trade the permits package was written to end, and it came back
+ * in the wiring: asked for permissions to be allowed by default, this program
+ * would have started sending conversations to hosted services, because
+ * "everything" meant open. Its owner asked for one of those things and would
+ * have got both.
+ *
+ * They are two questions with two answers now. What may be done here is
+ * Freedom; what may leave is Privacy; neither moves the other. See
+ * UseFreedom and UsePrivacy.
+ */
+func (c Config) Asking() string { return c.Freedom }
 
 func reconcile(freedom, privacy string) string {
 	openness := map[string]int{"private": 0, "research": 1, "open": 2}
@@ -483,10 +505,29 @@ func Default() Config {
 		Owner:   "",
 		Privacy: "private",
 
-		// Asks about everything that changes something, which is where this
-		// program has always started. A permission is something somebody
-		// gives, not something they find already given.
-		Freedom: "ask",
+		/*
+		 * Everything it can do, it may do — and everything it does is
+		 * written down.
+		 *
+		 * This started as "ask about everything that changes something", on
+		 * the reasoning that a permission is something somebody gives rather
+		 * than something they find already given. Its owner asked for the
+		 * other default, twice and plainly, and it is his machine and his
+		 * assistant: an assistant that stops at every file it writes is one
+		 * that gets used for nothing but questions.
+		 *
+		 * What is not given up is the record. Every action is stored with
+		 * what it did and when, whatever the setting — a permission to act
+		 * was never a permission to act unaccountably, and the record is what
+		 * makes any of it reversible. Nor is the undo, nor the confinement:
+		 * work on a project still cannot reach outside it, credential files
+		 * are still refused, and nothing leaves this machine that privacy
+		 * does not allow.
+		 *
+		 * Somebody who wants to be asked sets this back to "ask" in the
+		 * System tab, and one grant at a time is still the middle setting.
+		 */
+		Freedom: "everything",
 
 		// Looking up its own updates and the list of models sends nothing
 		// about anybody, so it is on. See LookOnline.
@@ -511,8 +552,26 @@ func Default() Config {
 		// On by default, unlike the canceller above. This one is gentle and
 		// undoes itself; that one moves where every program on the machine
 		// sends its sound.
-		KeepQuiet:   true,
-		VoiceMatch:  0.5,
+		KeepQuiet:  true,
+		VoiceMatch: 0.5,
+
+		/*
+		 * The machine voice, by its own name rather than by a file.
+		 *
+		 * A machine that is understood the first time is what this is for,
+		 * and the robot here is the clearest neural voice installed with its
+		 * expression turned down and its pace held even — nothing is done to
+		 * the audio, so nothing is lost from it. Chosen as the default
+		 * because that is what its owner asked for, and because an assistant
+		 * that reads a file path aloud should sound like something reading a
+		 * file path aloud.
+		 *
+		 * A name, not a path: which voice file the robot is built from is
+		 * decided by what is installed, on the machine, at the time. See
+		 * speech.RobotID.
+		 */
+		Voice: "robot",
+
 		OllamaModel: "qwen2.5-coder:7b",
 		ModelChosen: false,
 		AutoModel:   true,

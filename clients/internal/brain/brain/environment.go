@@ -2,6 +2,8 @@ package brain
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -148,6 +150,29 @@ func (b *Brain) abilitiesWaiting(ctx context.Context) []environs.Thing {
 	}
 
 	/*
+	 * Which robot is doing the speaking, because there are two and they are
+	 * not alike.
+	 *
+	 * The voice is a machine by delivery rather than by treatment: the
+	 * clearest neural voice on this machine, spoken flat. Where no neural
+	 * voice is installed it falls back to espeak, which is formant synthesis
+	 * and sounds like 1985 — a worse robot, not a different kind of thing.
+	 *
+	 * Said, because nothing said it. Speaking counts as working the moment
+	 * espeak is there, so setup never offers the better one and somebody
+	 * concludes the voice is simply poor.
+	 */
+	if !neuralVoiceHere() {
+		out = append(out, environs.Thing{
+			ID: "ability:clear-voice", Kind: environs.Ability,
+			Title: "Speaking in the clear machine voice",
+			State: environs.WantsSetting, Local: true,
+			Why:   "it is speaking through espeak, which is formant synthesis from the 1980s",
+			Needs: "the neural voice (63MB) from Setup — the robot is built from it and is far clearer",
+		})
+	}
+
+	/*
 	 * The web, which is a decision rather than a missing part.
 	 *
 	 * The tools exist and are hidden while privacy keeps this machine to
@@ -177,6 +202,31 @@ func (b *Brain) abilitiesWaiting(ctx context.Context) []environs.Thing {
 func (b *Brain) turnedOff(id string) bool {
 	for _, off := range b.Cfg.TurnedOff {
 		if strings.EqualFold(strings.TrimSpace(off), id) {
+			return true
+		}
+	}
+
+	return false
+}
+
+/*
+ * neuralVoiceHere reports whether a neural voice is installed for the robot
+ * to be built from.
+ *
+ * The same two folders preflight looks in, asked the same way: a voice is a
+ * model file beside piper, and anything else is espeak.
+ */
+func neuralVoiceHere() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+
+	for _, dir := range []string{
+		filepath.Join(home, ".local", "src", "piper"),
+		filepath.Join(home, ".local", "share", "piper"),
+	} {
+		if voices, _ := filepath.Glob(filepath.Join(dir, "voices", "*.onnx")); len(voices) > 0 {
 			return true
 		}
 	}

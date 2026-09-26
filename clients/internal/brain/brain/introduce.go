@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/tools"
 	"sort"
 	"strings"
@@ -217,6 +218,7 @@ func (b *Brain) WhatItCanDo() string {
 		Describes: b.describesTool,
 		Here:      b.machineInWords,
 		Owner:     b.Cfg.Owner,
+		Asks:      b.howItAsks(),
 	}.Facts()
 	if err != nil {
 		return ""
@@ -238,6 +240,7 @@ func (b *Brain) WhatItCanDoInShort() string {
 		Loaded: b.loadedTools,
 		Here:   b.machineInWords,
 		Owner:  b.Cfg.Owner,
+		Asks:   b.howItAsks(),
 	}.Shape()
 	if err != nil {
 		return ""
@@ -264,4 +267,30 @@ func (b *Brain) Delivered(g Greeting) {
 	}
 
 	MarkIntroduced(b.Root, b.loadedTools())
+}
+
+/*
+ * howItAsks is what happens when this assistant changes something, in the
+ * words somebody would be told.
+ *
+ * The same question the persona answers for the model, answered for a person.
+ * One setting, two readers, and neither of them a sentence written when the
+ * setting had a different value.
+ */
+func (b *Brain) howItAsks() string {
+	switch b.Freedom() {
+	case permits.Everything:
+		return "anything that changes something — a file, a setting, a whole drive — " +
+			"is done when you ask for it, without stopping to confirm, because that " +
+			"is how this one is set; everything it does is written down, and a file " +
+			"it changed can be put back"
+
+	case permits.WhatIveAllowed:
+		return "anything that changes something is done straight away where you have " +
+			"already allowed it, and stops to ask where you have not"
+
+	default:
+		return "anything that changes something — a file, a setting, a whole drive — " +
+			"stops and asks first, and says exactly what it is about to do"
+	}
 }

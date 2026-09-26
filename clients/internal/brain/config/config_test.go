@@ -116,3 +116,62 @@ func TestWhatIsSwitchedOffIsRemembered(t *testing.T) {
 		t.Errorf("switching everything back on left %v", again.TurnedOff)
 	}
 }
+
+/*
+ * What a brain starts as, which its owner chose.
+ *
+ * Two settings that used to be one, and the whole reason they are two: he
+ * asked for permissions to be allowed by default, and with one switch that
+ * would also have opened privacy — the assistant would have begun sending
+ * conversations to other people's computers because it had been allowed to
+ * write a file.
+ */
+func TestWhatAFreshBrainStartsAs(t *testing.T) {
+	cfg := Default()
+
+	if cfg.Freedom != "everything" {
+		t.Errorf("permissions start at %q, want everything", cfg.Freedom)
+	}
+
+	if cfg.Privacy != "private" {
+		t.Errorf("privacy starts at %q — allowing it to act must not let anything leave",
+			cfg.Privacy)
+	}
+
+	if cfg.Asking() != "everything" {
+		t.Errorf("what it asks is %q, and privacy must not decide it", cfg.Asking())
+	}
+
+	// The machine voice: the clearest neural voice on the machine, spoken
+	// flat. Not a file path — which voice it is built from is decided by what
+	// is installed at the time.
+	if cfg.Voice != "robot" {
+		t.Errorf("the voice starts as %q, want robot", cfg.Voice)
+	}
+
+	if !cfg.AlwaysSpeak {
+		t.Error("it starts silent, and a voice nobody hears is not a voice")
+	}
+}
+
+/*
+ * The two settings do not move each other.
+ *
+ * Privacy that is open does not decide how much may be done here, and
+ * permission to act here does not decide what leaves.
+ */
+func TestPrivacyAndPermissionAreSeparate(t *testing.T) {
+	for _, c := range []struct{ freedom, privacy string }{
+		{"ask", "open"},
+		{"everything", "private"},
+		{"granted", "private"},
+		{"ask", "private"},
+	} {
+		cfg := Default()
+		cfg.Freedom, cfg.Privacy = c.freedom, c.privacy
+
+		if got := cfg.Asking(); got != c.freedom {
+			t.Errorf("freedom %q with privacy %q asks as %q", c.freedom, c.privacy, got)
+		}
+	}
+}

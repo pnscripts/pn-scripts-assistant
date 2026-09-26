@@ -31,7 +31,10 @@ func TestTheGreetingCarriesTheIntroductionUntilItIsDelivered(t *testing.T) {
 	 * the tools this brain actually has, and still says the two things
 	 * somebody should know before asking for any of them.
 	 */
-	for _, want := range []string{"read_file", "run_command", "stops and asks first", "privacy panel"} {
+	// "without stopping to confirm" on a brain set to act freely, which is
+	// the default its owner chose; the sentence follows the setting rather
+	// than being written here. See Brain.howItAsks.
+	for _, want := range []string{"read_file", "run_command", "written down", "privacy panel"} {
 		if !strings.Contains(first.Shown, want) {
 			t.Errorf("the introduction is missing %q:\n%s", want, first.Shown)
 		}

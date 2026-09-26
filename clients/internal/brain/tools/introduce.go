@@ -45,6 +45,17 @@ type Introduce struct {
 
 	// Owner is who is being spoken to.
 	Owner string
+
+	/*
+	 * Asks is what happens when this assistant changes something, as it
+	 * stands now.
+	 *
+	 * A sentence rather than a setting, because it is read out to somebody.
+	 * Passed in rather than written here: it is a setting its owner controls,
+	 * and a description of it that cannot change is a description that will
+	 * one day be wrong.
+	 */
+	Asks string
 }
 
 func (Introduce) Name() string { return "what_can_you_do" }
@@ -150,11 +161,15 @@ func (t Introduce) Facts() (string, error) {
 	 * Both are the kind of thing somebody finds out by being surprised, and
 	 * being surprised by an assistant is how people stop trusting one.
 	 */
-	b.WriteString("\nHOW IT BEHAVES: anything that changes something — a file, a " +
-		"setting, a whole drive — stops and asks first, and says exactly what it is " +
-		"about to do. Privacy is the one thing it will not change from a " +
-		"conversation: that is set in the privacy panel, so that nothing said to it " +
-		"can talk it into sharing more.")
+	behaves := t.Asks
+	if strings.TrimSpace(behaves) == "" {
+		behaves = "anything that changes something — a file, a setting, a whole drive — " +
+			"stops and asks first, and says exactly what it is about to do"
+	}
+
+	b.WriteString("\nHOW IT BEHAVES: " + behaves + ". Privacy is the one thing it will " +
+		"not change from a conversation: that is set in the privacy panel, so that " +
+		"nothing said to it can talk it into sharing more.")
 
 	return b.String(), nil
 }
@@ -211,7 +226,12 @@ func (t Introduce) Shape() (string, error) {
 		}
 	}
 
-	b.WriteString("\nAnything that changes something stops and asks first.")
+	behaves := t.Asks
+	if strings.TrimSpace(behaves) == "" {
+		behaves = "anything that changes something stops and asks first"
+	}
+
+	b.WriteString("\n" + strings.ToUpper(behaves[:1]) + behaves[1:] + ".")
 
 	return b.String(), nil
 }

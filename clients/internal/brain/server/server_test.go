@@ -1606,8 +1606,22 @@ func TestPermissionsAreSeparateFromPrivacy(t *testing.T) {
 
 	getJSON(t, ts.URL+"/api/permissions", &page)
 
-	if page.Freedom != "ask" {
-		t.Errorf("a new brain starts at %q, want ask", page.Freedom)
+	/*
+	 * A new brain does what it is asked without stopping, and privacy is
+	 * still private.
+	 *
+	 * Its owner chose this default. The two are separate settings and this
+	 * test is the one that would have noticed if they were not: raising what
+	 * the program may do used to raise what may leave the machine with it,
+	 * so a brain allowed to write a file was also allowed to send the
+	 * conversation to somebody else's computer.
+	 */
+	if page.Freedom != "everything" {
+		t.Errorf("a new brain starts at %q, want everything", page.Freedom)
+	}
+
+	if page.Privacy != "private" {
+		t.Errorf("a new brain's privacy is %q — allowing more must not send more", page.Privacy)
 	}
 
 	// Every capability, not only the ones with a decision on them: the
@@ -1622,8 +1636,15 @@ func TestPermissionsAreSeparateFromPrivacy(t *testing.T) {
 		if c.Changes {
 			changes++
 
+			/*
+			 * The standing decision on each capability is still "ask",
+			 * because nobody has decided anything about them one by one.
+			 * What runs without stopping is the freedom above; this column
+			 * is the record of decisions made, and an empty record should
+			 * not pretend otherwise.
+			 */
 			if c.Decision != "ask" {
-				t.Errorf("%s starts at %q, want ask", c.Name, c.Decision)
+				t.Errorf("%s has a standing decision of %q before anybody made one", c.Name, c.Decision)
 			}
 
 			continue

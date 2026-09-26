@@ -13,9 +13,12 @@ remembers what it learns about you, and what it learns stays here.
 - **Learns on its own.** It scans your code and documents, and proposes things
   worth remembering after conversations. Anything it inferred waits for you to
   approve; anything it can verify against the disk promotes itself.
-- **Acts, with permission.** It can read files, list directories, search and
-  read the web, and control a smart home. Anything that *changes* something
-  stops and asks first, showing exactly what will happen.
+- **Acts.** It can read files, list directories, run commands, search and read
+  the web, and control a smart home. Out of the box it does what you ask
+  without stopping to confirm each step — and everything it does is written
+  down, and a file it changed can be put back. If you would rather be asked,
+  the Permissions panel has three settings: ask every time, ask about what you
+  have not already allowed, or act freely.
 - **Draws what it knows.** The interface renders a live map of memory, built
   from real embedding similarity — not decoration.
 - **Listens and speaks.** Conversation mode hears you until you stop talking,

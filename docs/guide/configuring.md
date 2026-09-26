@@ -28,6 +28,14 @@ the window, which has the same settings one at a time, plus:
 - **Privacy** — `private` (nothing leaves), `research` (search queries only),
   `open` (what you type may go to a hosted model). What the assistant has
   learned about you never leaves in any mode.
+- **Permissions** — *act freely* by default: it does what you ask without
+  stopping to confirm, and writes down everything it does. *Ask about what I
+  have not allowed* and *ask every time* are the other two.
+
+  These are two separate settings and neither moves the other. Allowing the
+  assistant to act on this machine does not let anything leave it, and opening
+  privacy does not give it a free hand here. They were one switch until
+  September 2026, which meant exactly those two surprises.
 - **The microphone**, which is off until you turn it on, and the voice, which
   is on.
 - **The applications menu**, if you built the program yourself rather than

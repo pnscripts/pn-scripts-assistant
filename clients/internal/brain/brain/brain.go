@@ -216,7 +216,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	 * setting rather than two. See llm.ModeFor: the second setting was the
 	 * one that actually stood in the way, and it refused rather than asked.
 	 */
-	mode := llm.ModeFor(cfg.Asking())
+	// What may leave the machine is its own setting, read as itself. It used
+	// to be derived from how much the program was allowed to do, which meant
+	// allowing more also let more leave. See Config.Asking.
+	mode := llm.ParseMode(cfg.Privacy)
 
 	// What the interface looks like, so that being asked to change it is
 	// something the brain can do rather than something it agrees to.
@@ -480,7 +483,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		 */
 		tools.Introduce{
 			Loaded: b.loadedTools, Describes: b.describesTool,
-			Here: b.machineInWords, Owner: b.Cfg.Owner,
+			Here: b.machineInWords, Owner: b.Cfg.Owner, Asks: b.howItAsks(),
 		},
 
 		// And the one setting that fixes the commonest cause of the confusion.
@@ -1400,11 +1403,7 @@ greeting, a thank-you, a question about what you think — answer those in
 words. Reach for a tool when the answer depends on something you would
 otherwise have to guess at, not to demonstrate that you have tools.
 
-Anything that changes something — writing a file, running a command —
-pauses for %s's approval before it happens. That is normal, not an
-error. Say plainly what you intend to do and why; don't pretend an action
-already succeeded, and don't ask for permission in prose when calling the
-tool will ask properly.
+%s
 
 Some things are asked about before they are done, not after. Sending a
 message to anybody, deleting or overwriting anything, spending money,
@@ -1483,7 +1482,7 @@ passing one to a tool produces a confident failure about a directory
 nobody has. If you do not know where something is, list one of the places
 above and look. Asking which folder is fair when looking has not settled
 it; inventing the folder is not.`,
-		name, owner, owner, owner, owner, owner, owner, owner,
+		name, owner, b.howItActs(owner), owner, owner, owner, owner, owner,
 		b.whereThingsAre()+b.whatIsHere(), b.whatIsRemembered())
 }
 
@@ -1554,6 +1553,41 @@ func (b *Brain) whatIsRemembered() string {
 
 	return line + " Never say you have no memory: you have this. Call what_you_know " +
 		"for the detail, and never say you are about to call it — call it."
+}
+
+/*
+ * howItActs is what happens when the assistant changes something, as it
+ * actually stands.
+ *
+ * The persona used to say every change pauses for approval, as a fact. It is
+ * a setting, and its owner set it the other way: a model told it will be
+ * stopped, which then is not, narrates approvals nobody is being asked for
+ * and waits for answers nobody owes it. Read fresh each turn, because the
+ * setting can change between one and the next.
+ */
+func (b *Brain) howItActs(owner string) string {
+	switch b.Freedom() {
+	case permits.Everything:
+		return "Anything that changes something — writing a file, running a command —\n" +
+			"happens when you do it. " + owner + " has said you may act without being\n" +
+			"asked each time, so do the thing rather than describing what you would do.\n" +
+			"Everything you do is written down and a file you changed can be put back.\n" +
+			"Never say you did something you did not do."
+
+	case permits.WhatIveAllowed:
+		return "Anything that changes something — writing a file, running a command —\n" +
+			"happens straight away where " + owner + " has already allowed it, and pauses\n" +
+			"for their approval where they have not. Both are normal. Say plainly what\n" +
+			"you intend to do and why; don't pretend an action already succeeded, and\n" +
+			"don't ask for permission in prose when calling the tool will ask properly."
+
+	default:
+		return "Anything that changes something — writing a file, running a command —\n" +
+			"pauses for " + owner + "'s approval before it happens. That is normal, not an\n" +
+			"error. Say plainly what you intend to do and why; don't pretend an action\n" +
+			"already succeeded, and don't ask for permission in prose when calling the\n" +
+			"tool will ask properly."
+	}
 }
 
 /*
@@ -2590,25 +2624,33 @@ func (b *Brain) UsePrivacy(mode string) (llm.Mode, error) {
 	}
 
 	/*
-	 * And it moves the one switch rather than a second one beside it.
+	 * Its own setting, and it moves nothing else.
 	 *
-	 * There is a single setting now — how much it asks — and what may leave
-	 * this machine is read off it. Anything still setting privacy by name is
-	 * setting that, which is why this maps back rather than storing a value
-	 * of its own: two settings that are meant to agree eventually do not.
+	 * This used to map privacy onto the permission switch — one switch for
+	 * both — so choosing "research" also decided how much the assistant might
+	 * do without asking, and allowing it to act decided what left the
+	 * machine. Two questions, one answer, and whichever you set you got the
+	 * other as well.
+	 *
+	 * Both places that hold the mode are set here, and they are the only
+	 * two: the brain answers questions about it and the router enforces it.
 	 */
-	freedom := permits.AskEveryTime
+	b.mu.Lock()
+	b.Cfg.Privacy = string(parsed)
+	b.Mode = parsed
+	cfg := b.Cfg
+	b.mu.Unlock()
 
-	switch parsed {
-	case llm.ModeOpen:
-		freedom = permits.Everything
-	case llm.ModeResearch:
-		freedom = permits.WhatIveAllowed
+	if b.Router != nil {
+		b.Router.UseMode(parsed)
 	}
 
-	if _, err := b.UseFreedom(string(freedom)); err != nil {
-		return b.Mode, err
+	if err := cfg.Save(b.Root); err != nil {
+		return parsed, fmt.Errorf("privacy changed but could not be saved: %w", err)
 	}
+
+	b.Log.Info("privacy changed", "what may leave this machine", parsed,
+		"what it may do here", b.Freedom())
 
 	return parsed, nil
 }
@@ -2654,18 +2696,16 @@ func (b *Brain) UseFreedom(level string) (permits.Freedom, error) {
 	}
 
 	/*
-	 * Both written down together, before the file is saved.
+	 * How much it may do, and nothing about what leaves.
 	 *
-	 * They were written in two steps once, and the file ended up saying
-	 * private while the program was open — which is the exact disagreement
-	 * between two settings that having one switch was meant to end.
+	 * This used to write privacy as well, from the same value: saying "do
+	 * what you like on this machine" also said "and send what you like off
+	 * it", which is the one trade the permission model exists to refuse.
+	 * Privacy is changed in the privacy panel, by somebody who meant to
+	 * change privacy.
 	 */
-	mode := llm.ModeFor(string(f))
-
 	b.mu.Lock()
 	b.Cfg.Freedom = string(f)
-	b.Cfg.Privacy = string(mode)
-	b.Mode = mode
 	cfg := b.Cfg
 	b.mu.Unlock()
 
@@ -2676,18 +2716,11 @@ func (b *Brain) UseFreedom(level string) (permits.Freedom, error) {
 	/*
 	 * And what may leave this machine follows it, at once.
 	 *
-	 * The whole point of one switch is that there is nothing else to
-	 * remember: somebody who has just said "allow everything" and then finds
-	 * the program still refusing to reach a model has been given a setting
-	 * that does not do what it says. Applied to the running router rather
-	 * than only written down, because a task in flight asks the router afresh
-	 * at every step.
+	 * The router is left alone: which models may be used is privacy's
+	 * question, and this one did not ask it.
 	 */
-	if b.Router != nil {
-		b.Router.UseMode(mode)
-	}
-
-	b.Log.Info("freedom changed", "level", f, "leaving this machine", mode)
+	b.Log.Info("freedom changed", "level", f,
+		"what may leave this machine", b.Cfg.Privacy, "unchanged by this", true)
 
 	return f, nil
 }
