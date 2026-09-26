@@ -322,7 +322,7 @@ func RenderHere(url string, seconds int) error {
 }
 
 // Possible reports whether this build can render a page at all.
-func Possible() bool { return true }
+func webKitHere() bool { return true }
 
 // What the snapshot child found, filled by the callbacks below.
 var (

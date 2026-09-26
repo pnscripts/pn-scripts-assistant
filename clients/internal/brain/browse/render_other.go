@@ -13,8 +13,8 @@ func RenderHere(string, int) error {
 			"plain fetch is available")
 }
 
-// Possible reports whether this build can render a page at all.
-func Possible() bool { return false }
+// webKitHere reports whether this build has WebKit in it.
+func webKitHere() bool { return false }
 
 // SnapshotHere is not available in this build either.
 func SnapshotHere(string, int, string, int, int) error {

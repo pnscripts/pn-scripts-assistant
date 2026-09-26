@@ -33,10 +33,23 @@ type Shot struct {
 	Trouble string `json:"trouble,omitempty"`
 }
 
+/*
+ * Possible reports whether this program can run a page and photograph it.
+ *
+ * Either way of doing it counts. WebKit is in the build or it is not; a
+ * browser is on the machine or it is not; and the answer to "can you show me
+ * what you built" is yes if either is true. It used to be the first alone,
+ * which made a build without cgo quietly choose a different game engine
+ * rather than a different way of taking a picture.
+ */
+func Possible() bool { return webKitHere() || browserHere() != "" }
+
 // Snapshot runs a page for some seconds and writes a PNG of it to png.
 func Snapshot(ctx context.Context, url string, seconds int, png string) (Shot, error) {
-	if !Possible() {
-		return Shot{}, fmt.Errorf("this build cannot run pages: it was built without WebKit")
+	if !webKitHere() {
+		// No WebKit in this build. A browser on the machine will do it, with
+		// one thing missing that it says so about. See withabrowser.go.
+		return shotWithABrowser(ctx, url, seconds, png)
 	}
 
 	self, err := Program()
