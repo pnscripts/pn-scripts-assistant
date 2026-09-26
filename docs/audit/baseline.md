@@ -91,6 +91,12 @@ and nothing else.
 `scripts/build-packages.sh` builds a genuine Debian package (also a macOS
 bundle and a Windows zip, neither buildable here). The .deb:
 
+*Since this baseline was written:* the macOS side gained a `.dmg` — built with
+`hdiutil` on a Mac and with `xorriso` anywhere else — and Windows gained an
+Inno Setup installer, which can only be compiled on Windows and so is built by
+CI. Both are in the release workflow. The sentence above describes what this
+machine could produce on the day it was written.
+
 ```
 pn-scripts-assistant_0.1.0~git20260921.8d9c69f_amd64.deb   7.0 MB
   /usr/bin/pn-scripts-assistant                            21.6 MB binary

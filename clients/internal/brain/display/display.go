@@ -24,9 +24,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/sandbox"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 )
 
@@ -121,7 +121,8 @@ func Start(ctx context.Context, width, height int) (*Virtual, error) {
 
 	bus := exec.Command("dbus-daemon", "--config-file="+config, "--nofork", "--print-address=1")
 	bus.Env = base(runtime)
-	bus.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Its own process group, however this system makes one. See sandbox.
+	sandbox.OwnGroup(bus)
 
 	out, err := bus.StdoutPipe()
 	if err != nil {
@@ -156,7 +157,7 @@ func Start(ctx context.Context, width, height int) (*Virtual, error) {
 	compositor := exec.Command("mutter", "--headless", "--wayland", "--no-x11",
 		"--virtual-monitor", fmt.Sprintf("%dx%d", width, height), "--wayland-display", name)
 	compositor.Env = env
-	compositor.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	sandbox.OwnGroup(compositor)
 
 	var said strings.Builder
 
@@ -196,7 +197,8 @@ func (v *Virtual) Stop() {
 
 	for _, c := range v.stops {
 		if c.Process != nil {
-			syscall.Kill(-c.Process.Pid, syscall.SIGTERM)
+			// Ask it to stop, the way this system asks. See sandbox.
+			sandbox.StopGroup(c.Process.Pid)
 
 			done := make(chan struct{})
 
@@ -205,7 +207,7 @@ func (v *Virtual) Stop() {
 			select {
 			case <-done:
 			case <-time.After(3 * time.Second):
-				syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
+				sandbox.KillGroup(c.Process.Pid)
 				<-done
 			}
 		}

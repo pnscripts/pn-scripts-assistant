@@ -30,11 +30,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
-	"unsafe"
-
-	"golang.org/x/sys/unix"
 )
 
 // helperArg marks the copy of this program that confines itself and execs.
@@ -112,13 +108,23 @@ func Command(ctx context.Context, spec Spec, argv ...string) (*exec.Cmd, error) 
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = spec.Dir
 	cmd.Env = env
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	/*
+	 * Its own process group, so that stopping it stops what it started.
+	 *
+	 * A build tool starts compilers, a game engine starts a renderer, and
+	 * killing only the program that was launched leaves those behind holding
+	 * the project open. How a group is made and how it is killed differ
+	 * between systems — see ownGroup and killGroup — and writing the Unix
+	 * form here is what kept this program from compiling for Windows.
+	 */
+	OwnGroup(cmd)
+
 	cmd.Cancel = func() error {
 		if cmd.Process == nil {
 			return nil
 		}
 
-		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		return KillGroup(cmd.Process.Pid)
 	}
 	cmd.WaitDelay = 3 * time.Second
 
@@ -290,133 +296,4 @@ func WritableFrom(ctx context.Context) ([]string, bool) {
 	dirs, ok := ctx.Value(writableKey{}).([]string)
 
 	return dirs, ok && len(dirs) > 0
-}
-
-// ABI is the Landlock version this kernel offers.
-func ABI() (int, error) {
-	abi, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET, 0, 0, unix.LANDLOCK_CREATE_RULESET_VERSION)
-	if errno != 0 {
-		return 0, fmt.Errorf("this kernel has no Landlock: %w", errno)
-	}
-
-	return int(abi), nil
-}
-
-// writeRights is every kind of change a Landlock ABI can refuse. Reading and
-// running are left alone: confinement here is about what is changed.
-func writeRights(abi int) uint64 {
-	rights := uint64(unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_REMOVE_DIR |
-		unix.LANDLOCK_ACCESS_FS_REMOVE_FILE | unix.LANDLOCK_ACCESS_FS_MAKE_CHAR |
-		unix.LANDLOCK_ACCESS_FS_MAKE_DIR | unix.LANDLOCK_ACCESS_FS_MAKE_REG |
-		unix.LANDLOCK_ACCESS_FS_MAKE_SOCK | unix.LANDLOCK_ACCESS_FS_MAKE_FIFO |
-		unix.LANDLOCK_ACCESS_FS_MAKE_BLOCK | unix.LANDLOCK_ACCESS_FS_MAKE_SYM)
-
-	if abi >= 2 {
-		rights |= unix.LANDLOCK_ACCESS_FS_REFER
-	}
-
-	if abi >= 3 {
-		rights |= unix.LANDLOCK_ACCESS_FS_TRUNCATE
-	}
-
-	if abi >= 5 {
-		rights |= unix.LANDLOCK_ACCESS_FS_IOCTL_DEV
-	}
-
-	return rights
-}
-
-// Restrict confines this process, and whatever it becomes, to writing only
-// beneath dirs.
-func Restrict(dirs []string) error {
-	abi, err := ABI()
-	if err != nil {
-		return err
-	}
-
-	rights := writeRights(abi)
-
-	attr := unix.LandlockRulesetAttr{Access_fs: rights}
-
-	fd, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
-		uintptr(unsafe.Pointer(&attr)), unsafe.Sizeof(attr), 0)
-	if errno != 0 {
-		return fmt.Errorf("could not make a Landlock ruleset: %w", errno)
-	}
-
-	defer unix.Close(int(fd))
-
-	for _, dir := range dirs {
-		f, err := unix.Open(dir, unix.O_PATH|unix.O_CLOEXEC, 0)
-		if err != nil {
-			continue
-		}
-
-		allowed := rights
-
-		var st unix.Stat_t
-		if unix.Fstat(f, &st) == nil && st.Mode&unix.S_IFMT != unix.S_IFDIR {
-			// A file can only be written, never made things in.
-			allowed = rights & (unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_TRUNCATE |
-				unix.LANDLOCK_ACCESS_FS_IOCTL_DEV)
-		}
-
-		rule := unix.LandlockPathBeneathAttr{Allowed_access: allowed, Parent_fd: int32(f)}
-
-		_, _, errno := unix.Syscall6(unix.SYS_LANDLOCK_ADD_RULE, fd, unix.LANDLOCK_RULE_PATH_BENEATH,
-			uintptr(unsafe.Pointer(&rule)), 0, 0, 0)
-
-		unix.Close(f)
-
-		if errno != 0 {
-			return fmt.Errorf("could not allow %s: %w", dir, errno)
-		}
-	}
-
-	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
-		return fmt.Errorf("could not drop new privileges: %w", err)
-	}
-
-	if _, _, errno := unix.Syscall(unix.SYS_LANDLOCK_RESTRICT_SELF, fd, 0, 0); errno != 0 {
-		return fmt.Errorf("could not confine: %w", errno)
-	}
-
-	return nil
-}
-
-/*
- * Main is the confining copy of this program, when that is what it was
- * started as. Called first thing in main: it returns false for every other
- * start, and on its own start it never returns.
- */
-func Main() bool {
-	if len(os.Args) < 3 || os.Args[1] != helperArg {
-		return false
-	}
-
-	n, err := strconv.Atoi(os.Args[2])
-	if err != nil || len(os.Args) < 3+n+2 || os.Args[3+n] != "--" {
-		fmt.Fprintln(os.Stderr, "sandbox: malformed confinement")
-		os.Exit(126)
-	}
-
-	dirs := os.Args[3 : 3+n]
-	argv := os.Args[3+n+1:]
-
-	program, err := exec.LookPath(argv[0])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "sandbox: %v\n", err)
-		os.Exit(127)
-	}
-
-	if err := Restrict(dirs); err != nil {
-		fmt.Fprintf(os.Stderr, "sandbox: %v\n", err)
-		os.Exit(126)
-	}
-
-	err = syscall.Exec(program, argv, os.Environ())
-	fmt.Fprintf(os.Stderr, "sandbox: could not start %s: %v\n", argv[0], err)
-	os.Exit(126)
-
-	return true
 }

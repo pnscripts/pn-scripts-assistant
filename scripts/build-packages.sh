@@ -96,6 +96,22 @@ version_stamp() {
 
 VERSION="$(derive_version)"
 
+# When this build says it happened: the commit's own date, never now.
+#
+# Reproducibility is the point. A package built twice from one commit should be
+# the same package, and it was not: the changelog carried `date -R` — the
+# moment the script ran — and dpkg-deb wrote each file's mtime, which is
+# whenever the staging directory happened to be created. Two builds of one
+# commit therefore had two different checksums, which makes "check what you
+# downloaded is what was built" a much weaker statement than it sounds.
+#
+# SOURCE_DATE_EPOCH is the convention for this and dpkg-deb honours it: it
+# clamps every timestamp it writes to that second. Everything else that records
+# a time reads it too. Falling back to now when there is no git, because a
+# build from a tarball still has to work — it is simply not reproducible, which
+# is true of anything built outside the repository.
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$ROOT" log -1 --format=%ct 2>/dev/null || date -u +%s)}"
+
 log()  { printf '\033[36m→\033[0m %s\n' "$1"; }
 warn() { printf '\033[33m!\033[0m %s\n' "$1"; }
 die()  { printf '\033[31m✗\033[0m %s\n' "$1" >&2; exit 1; }
@@ -111,8 +127,26 @@ if [ "$want" = "--print-version" ]; then
     exit 0
 fi
 
-rm -rf "$OUT"
 mkdir -p "$OUT"
+
+# Each target clears its own files, and nothing clears the folder.
+#
+# It used to be `rm -rf "$OUT"` at the top, which is right for a machine that
+# builds everything at once and wrong for the one that does not: asking for
+# just the Windows download deleted the .deb that had been built, checked with
+# lintian and summed ten minutes earlier. Silently, with an empty folder as
+# the only evidence — and it is exactly the sequence somebody follows on the
+# evening of a release.
+clear_old() {
+    local pattern
+
+    for pattern in "$@"; do
+        # Unquoted on purpose so the glob expands; rm -f says nothing when a
+        # pattern matches nothing, which is the usual case on a clean machine.
+        # shellcheck disable=SC2086
+        rm -f "$OUT"/$pattern
+    done
+}
 
 # ---------------------------------------------------------------------------
 # Ubuntu and Debian
@@ -169,7 +203,7 @@ pn-scripts-assistant ($VERSION) unstable; urgency=medium
   * Built from $( git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "an unknown revision" ).
   * The release notes for this build are in the repository, under docs/.
 
- -- Petar Nikolov <petar.v.nikolov@gmail.com>  $(date -R)
+ -- Petar Nikolov <petar.v.nikolov@gmail.com>  $(date -R -u -d "@$SOURCE_DATE_EPOCH" 2>/dev/null || date -R)
 CHANGELOG
 
     # -n so the name and timestamp are not written into the gzip header, which
@@ -181,6 +215,10 @@ CHANGELOG
 }
 
 build_deb() {
+    # The old package and the checksums that describe it, which would otherwise
+    # go on describing a file that is no longer here.
+    clear_old 'pn-scripts-assistant_*.deb' 'SHA256SUMS'
+
     command -v dpkg-deb >/dev/null || { warn "dpkg-deb missing; skipping the .deb"; return; }
 
     local stage="$ROOT/build/deb/pn-scripts-assistant_${VERSION}_amd64"
@@ -343,7 +381,11 @@ prepare_notes() {
 PN Scripts Assistant for macOS
 ==================
 
-Drag "PN Scripts Assistant.app" to your Applications folder, then open it.
+Open the .dmg and drag "PN Scripts Assistant.app" onto the Applications
+shortcut beside it, then open it from Applications.
+
+The .tar.gz beside it holds the same app for anybody who would rather not
+mount a disk image: unpack it and move the app into Applications yourself.
 
 The first time, macOS will refuse
 ---------------------------------
@@ -376,7 +418,16 @@ MACNOTE
 PN Scripts Assistant for Windows
 ====================
 
-Put this folder anywhere you like and run pn-scripts-assistant.exe.
+There are two downloads and they hold the same program.
+
+  ...-windows-setup.exe   the installer. It puts the program in your own
+                          account, adds it to the Start menu, asks for no
+                          administrator password, and can remove itself
+                          again from Settings.
+
+  ...-windows-amd64.zip   this folder. Put it anywhere you like and run
+                          pn-scripts-assistant.exe. Nothing is installed and
+                          nothing is written outside the brain's own folder.
 
 The first time, Windows will refuse
 -----------------------------------
@@ -420,13 +471,24 @@ WINNOTE
 # right-click → Open. Said plainly in the README beside it rather than left to
 # be discovered as a scary dialog.
 build_macos() {
+    clear_old '*-macos-*'
+
     local arch
     for arch in amd64 arm64; do
         local app="$ROOT/build/macos/$arch/PN Scripts Assistant.app"
 
         log "macOS bundle ($arch)"
 
-        rm -rf "$app"
+        # The whole staging folder, not just the bundle inside it.
+        #
+        # The disk image drops an Applications shortcut in here — that is what
+        # makes it an install rather than a download — and clearing only the
+        # .app left the shortcut behind for the next build to find. The tarball
+        # is made from this folder before the image is, so a second build of
+        # the same commit produced a .tar.gz with an absolute symlink to
+        # /Applications in it that the first one did not. A build that differs
+        # from itself is exactly what a reproducible release is checked for.
+        rm -rf "$ROOT/build/macos/$arch"
         mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 
         # CGO off: the window layer is Linux-only, so this serves its interface
@@ -469,18 +531,121 @@ PLIST
             -C "$ROOT/build/macos/$arch" . || die "packaging darwin/$arch failed"
 
         log "  $OUT/pn-scripts-assistant-${VERSION}-macos-${arch}.tar.gz"
+
+        disk_image "$arch"
     done
+}
+
+# ---------------------------------------------------------------------------
+# The disk image, which is how a program arrives on a Mac
+# ---------------------------------------------------------------------------
+#
+# A .tar.gz is a developer's answer. What somebody expects is a window with
+# the application on one side and a shortcut to Applications on the other, and
+# dragging one onto the other. So: a .dmg containing the bundle and that
+# shortcut.
+#
+# Built with hdiutil on a Mac and with xorriso anywhere else. The second is
+# not a lesser image — a .dmg is a disk image and macOS mounts a plain ISO9660
+# one perfectly well — but it is worth saying which made it, because if a Mac
+# ever refuses one of these that is the first thing to know.
+#
+# Nothing here is signed or notarised. macOS will say so: Gatekeeper refuses
+# an unsigned application on first open and it takes a right-click and Open to
+# pass. That is the honest state of things — notarisation needs a paid Apple
+# developer account — and the documentation says the same rather than leaving
+# somebody to meet it alone.
+disk_image() {
+    local arch="$1"
+    local staged="$ROOT/build/macos/$arch"
+    local dmg="$OUT/pn-scripts-assistant-${VERSION}-macos-${arch}.dmg"
+
+    # The shortcut that makes it an install rather than a download.
+    ln -sfn /Applications "$staged/Applications" 2>/dev/null || true
+
+    if command -v hdiutil >/dev/null; then
+        rm -f "$dmg"
+
+        hdiutil create -volname "PN Scripts Assistant" -srcfolder "$staged" \
+            -ov -format UDZO "$dmg" >/dev/null || die "hdiutil failed"
+
+        log "  $dmg (hdiutil)"
+
+        return
+    fi
+
+    if command -v xorriso >/dev/null; then
+        rm -f "$dmg"
+
+        xorriso -as mkisofs -quiet -V "PN Scripts Assistant" -r -J \
+            -o "$dmg" "$staged" || die "xorriso failed"
+
+        log "  $dmg (xorriso; built off a Mac)"
+
+        return
+    fi
+
+    warn "  no hdiutil and no xorriso: the macOS disk image was not built"
+}
+
+# archive_zip puts a folder into a zip, with whatever this machine has.
+#
+# Three ways of doing it because the Windows runner is the one place this has
+# to work and is the one place `zip` may not exist: Git Bash does not ship it,
+# and the build that produces the Windows download failing for want of a
+# Unix archiver would be a silly way to lose a release. 7-Zip is on every
+# Windows image, and PowerShell's own Compress-Archive is on every Windows.
+archive_zip() {
+    local parent="$1" folder="$2" into="$3"
+
+    if command -v zip >/dev/null; then
+        ( cd "$parent" && zip -qr "$into" "$folder" )
+
+        return
+    fi
+
+    if command -v 7z >/dev/null; then
+        ( cd "$parent" && 7z a -tzip -bso0 -bsp0 "$into" "$folder" >/dev/null )
+
+        return
+    fi
+
+    if command -v powershell >/dev/null; then
+        local from="$parent/$folder" to="$into"
+
+        if command -v cygpath >/dev/null; then
+            from="$(cygpath -w "$from")"
+            to="$(cygpath -w "$to")"
+        fi
+
+        powershell -NoProfile -Command \
+            "Compress-Archive -Path '$from' -DestinationPath '$to' -Force"
+
+        return
+    fi
+
+    warn "  nothing here can make a zip (zip, 7z, powershell)"
+
+    return 1
 }
 
 # ---------------------------------------------------------------------------
 # Windows
 # ---------------------------------------------------------------------------
 #
-# A folder with the .exe in it, zipped. Not an installer: a real one wants NSIS
-# or WiX and a code-signing certificate, and without the certificate an
-# installer is more alarming than a plain executable, not less — it asks for
-# more trust while offering the same unsigned binary.
+# A folder with the .exe in it, zipped, and then an installer built from that
+# same folder — see windows_installer below.
+#
+# The zip came first and this used to say an installer was deliberately not
+# built, on the reasoning that an unsigned installer asks for more trust than
+# an unsigned executable while offering the same binary. That is true and it is
+# not a reason to ship no installer: "unzip this and find the exe" is not how a
+# program arrives on Windows, and somebody who wants the plain executable still
+# has the zip. The lack of a signature is said plainly in the installer and in
+# the documentation instead of being worked around by leaving the installer out.
 build_windows() {
+    clear_old '*-windows-*'
+
     local dir="$ROOT/build/windows/PN-Scripts-Assistant"
 
     log "Windows package"
@@ -498,10 +663,76 @@ build_windows() {
 
     cp "$ROOT/build/windows/README.txt" "$dir/" 2>/dev/null || true
 
-    ( cd "$ROOT/build/windows" && zip -qr "$OUT/pn-scripts-assistant-${VERSION}-windows-amd64.zip" "PN-Scripts-Assistant" ) \
-        || die "zip failed"
+    # Removed first: zip adds to an archive that already exists rather than
+    # replacing it, so building the same version twice would otherwise produce
+    # an archive holding both builds.
+    rm -f "$OUT/pn-scripts-assistant-${VERSION}-windows-amd64.zip"
+
+    archive_zip "$ROOT/build/windows" "PN-Scripts-Assistant" \
+        "$OUT/pn-scripts-assistant-${VERSION}-windows-amd64.zip" || die "zip failed"
 
     log "  $OUT/pn-scripts-assistant-${VERSION}-windows-amd64.zip"
+
+    windows_installer "$dir"
+}
+
+# ---------------------------------------------------------------------------
+# The Windows installer
+# ---------------------------------------------------------------------------
+#
+# The zip above is still built and still useful — somebody who wants one file
+# and no installation gets exactly that. But "unzip this and find the exe" is
+# not how a program arrives on Windows, and the thing most people want is a
+# setup that puts it in the Start menu and can uninstall itself.
+#
+# Inno Setup compiles it, which means this only runs where iscc exists: a
+# Windows machine, or the Windows runner in CI. Everywhere else it says so
+# and carries on, because a Linux machine not producing a Windows installer is
+# not a failed build.
+#
+# Unsigned, like everything else here, and the script says so where somebody
+# will read it.
+windows_installer() {
+    local from="$1"
+    local script="$ROOT/packaging/windows/pn-scripts-assistant.iss"
+
+    local iscc=""
+
+    for candidate in iscc ISCC.exe "/c/Program Files (x86)/Inno Setup 6/ISCC.exe"; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            iscc="$candidate"
+
+            break
+        fi
+    done
+
+    if [ -z "$iscc" ]; then
+        warn "  Inno Setup (iscc) is not here, so no Windows installer was built"
+        warn "  the zip above is the whole program; CI builds the installer"
+
+        return
+    fi
+
+    # Real Windows paths, and Git Bash told to leave the arguments alone.
+    #
+    # It rewrites anything that looks like a Unix path on its way to a native
+    # program, which is right for `go build -C` and wrong here: "/DVersion=..."
+    # looks like a path to it and arrives at the compiler mangled. cygpath
+    # gives the paths in the form ISCC wants; MSYS2_ARG_CONV_EXCL stops the
+    # switches being touched at all.
+    local from_win="$from" out_win="$OUT" script_win="$script"
+
+    if command -v cygpath >/dev/null; then
+        from_win="$(cygpath -w "$from")"
+        out_win="$(cygpath -w "$OUT")"
+        script_win="$(cygpath -w "$script")"
+    fi
+
+    MSYS2_ARG_CONV_EXCL='*' "$iscc" \
+        "/DVersion=$VERSION" "/DSourceDir=$from_win" "/O$out_win" "$script_win" >/dev/null ||
+        die "the Windows installer would not compile"
+
+    log "  $OUT/pn-scripts-assistant-${VERSION}-windows-setup.exe"
 }
 
 case "$want" in

@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"pn-scripts-assistant/internal/brain/display"
 	"pn-scripts-assistant/internal/brain/sandbox"
@@ -55,10 +54,8 @@ func ReadMachine(brainRoot string) Machine {
 
 	m.OS = osName()
 
-	var u syscall.Utsname
-	if syscall.Uname(&u) == nil {
-		m.Kernel = utsString(u.Release)
-	}
+	// Which kernel, where the system has a way of saying. See kernel_linux.go.
+	m.Kernel = kernelName()
 
 	m.CPU = cpuModel()
 	m.RAM, m.RAMFree = memory()
@@ -109,20 +106,6 @@ func (m Machine) FreeFor(what string) int64 {
 	}
 
 	return -1
-}
-
-func utsString(chars [65]int8) string {
-	var b strings.Builder
-
-	for _, c := range chars {
-		if c == 0 {
-			break
-		}
-
-		b.WriteByte(byte(c))
-	}
-
-	return b.String()
 }
 
 func osName() string {
@@ -204,23 +187,6 @@ func gpus() []string {
 	}
 
 	return found
-}
-
-func freeAt(path string) (int64, bool) {
-	for p := path; p != "" && p != "/"; p = filepath.Dir(p) {
-		var st syscall.Statfs_t
-
-		if syscall.Statfs(p, &st) == nil {
-			return int64(st.Bavail) * int64(st.Bsize), true
-		}
-	}
-
-	var st syscall.Statfs_t
-	if syscall.Statfs("/", &st) == nil {
-		return int64(st.Bavail) * int64(st.Bsize), true
-	}
-
-	return 0, false
 }
 
 // network is whether there is a default route: a way out, without asking

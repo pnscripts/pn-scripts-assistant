@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/sandbox"
@@ -220,7 +219,8 @@ func (s *Stdio) Close() error {
 	select {
 	case <-s.done:
 	case <-time.After(3 * time.Second):
-		syscall.Kill(-s.cmd.Process.Pid, syscall.SIGKILL)
+		// However this system ends a process and the ones it started.
+		sandbox.KillGroup(s.cmd.Process.Pid)
 		<-s.done
 	}
 

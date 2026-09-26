@@ -182,11 +182,25 @@ func newConductor(t *testing.T, model llm.Provider, ts ...tools.Tool) (*Conducto
 func settled(t *testing.T, db *store.DB, id int64) *store.Task {
 	t.Helper()
 
-	for i := 0; i < 200; i++ {
+	/*
+	 * Twenty seconds, not two.
+	 *
+	 * It returns the moment the task settles, so the number costs nothing on
+	 * an idle machine — and two seconds was not enough on a busy one. This
+	 * failed once in a full run and passed three times on its own
+	 * immediately after, which is the signature of a deadline rather than a
+	 * fault, and a test that fails for being run alongside others teaches
+	 * people to rerun failures instead of reading them.
+	 */
+	var last *store.Task
+
+	for i := 0; i < 2000; i++ {
 		task, err := db.Task(id)
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		last = task
 
 		switch task.State {
 		case store.TaskDone, store.TaskBlocked, store.TaskWaiting, store.TaskStopped:
@@ -196,7 +210,9 @@ func settled(t *testing.T, db *store.DB, id int64) *store.Task {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	t.Fatal("the task never settled")
+	// Which state it was stuck in, because "never settled" says nothing
+	// about whether it was running, planning or waiting for a model.
+	t.Fatalf("the task never settled: it is still %q after twenty seconds", last.State)
 
 	return nil
 }
