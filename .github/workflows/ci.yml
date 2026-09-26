@@ -37,9 +37,9 @@ jobs:
     name: Formatting and vet
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.26'
           cache-dependency-path: clients/go.sum
@@ -57,9 +57,9 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.26'
           cache-dependency-path: clients/go.sum
@@ -97,9 +97,9 @@ jobs:
           - { goos: darwin,  goarch: arm64 }
           - { goos: windows, goarch: amd64 }
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.26'
           cache-dependency-path: clients/go.sum
@@ -134,12 +134,24 @@ jobs:
     name: Known vulnerabilities
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.26'
           cache-dependency-path: clients/go.sum
+
+      # The same headers the other jobs install.
+      #
+      # govulncheck loads every package to see which code is actually
+      # reachable — that is what makes it report fewer, truer findings than a
+      # scanner reading go.sum. Loading a package means compiling it, and some
+      # of these are cgo against GTK and WebKit, so without this the scan does
+      # not come back clean: it does not run at all.
+      - name: Install what the window needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
       - name: govulncheck
         run: |
@@ -153,13 +165,13 @@ jobs:
     name: The package, checked from the outside
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The version is worked out from the tag and the commit, and a
           # shallow checkout has neither.
           fetch-depth: 0
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.26'
           cache-dependency-path: clients/go.sum
@@ -190,6 +202,9 @@ jobs:
       # keeps them pinned — a change that puts a clock back into the build
       # fails here, rather than in six months when somebody compares two
       # downloads and finds they disagree.
+      # Kept, so the package this run built can be downloaded and compared
+      # with one built anywhere else. A reproducibility claim nobody outside
+      # can test is a reproducibility claim on trust.
       - name: It builds the same twice
         env:
           CGO_ENABLED: '1'
@@ -201,6 +216,18 @@ jobs:
           echo "second: $second"
           test "$first" = "$second"
 
+          # What the package says about itself, printed so that a build here
+          # and a build on somebody's own machine can be compared line by line
+          # when their checksums disagree. The Depends line is computed from
+          # the libraries installed on the build machine, so it is the first
+          # thing to look at.
+          dpkg-deb --info build/packages/*.deb | sed -n "2,20p"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-from-ci
+          path: build/packages/*.deb
+
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting
   # preferences is a gate people start ignoring.
@@ -208,7 +235,7 @@ jobs:
     name: Shell scripts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: shellcheck
         run: |
