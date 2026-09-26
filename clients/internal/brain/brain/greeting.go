@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -66,6 +67,16 @@ type Greeting struct {
 	 * joined version is what Text already holds. See the wording package.
 	 */
 	Facts []string `json:"-"`
+
+	/*
+	 * About is the same state as data rather than as sentences.
+	 *
+	 * Facts above are finished English, composed here, and a model handed a
+	 * finished sentence and asked for its own words gives that sentence back
+	 * with the words moved about — which is why the greeting said nearly the
+	 * same thing every single time. This is what it decides from.
+	 */
+	About About `json:"-"`
 }
 
 // LastTalk is enough of the previous conversation to say which one it was.
@@ -211,8 +222,12 @@ func (b *Brain) Greet() Greeting {
 	}
 
 	return Greeting{
-		Text:    strings.Join(parts, " "),
-		Facts:   parts,
+		Text:  strings.Join(parts, " "),
+		Facts: parts,
+
+		// The same truth as data, for the model to make a greeting out of
+		// rather than paraphrase. See greetingfacts.go.
+		About:   b.about(last, backAlready, introduction != ""),
 		Shown:   shown,
 		CarryOn: b.carryingOn(last),
 		Last:    last,
@@ -297,11 +312,24 @@ func (b *Brain) GreetInWords(ctx context.Context) Greeting {
 	 * no stable text to compare. Short enough that a task finishing in the
 	 * meantime is not greeted over.
 	 */
+	/*
+	 * Held against the facts rather than against a clock.
+	 *
+	 * Thirty seconds was the old rule, from when this was a rewording of a
+	 * fixed sentence and one was as good as another. Writing one takes longer
+	 * than thirty seconds on this machine, so the clock expired before the
+	 * answer arrived, every time — which is why its owner heard the same
+	 * composed sentence at every launch however often the model was asked.
+	 *
+	 * The same state gives the same greeting; a changed state asks again.
+	 */
+	now := fingerprint(g.About)
+
 	b.mu.Lock()
-	said, when := b.greetingSaid, b.greetingWhen
+	said, about := b.greetingSaid, b.greetingAbout
 	b.mu.Unlock()
 
-	if said != "" && time.Since(when) < GreetingHolds {
+	if said != "" && about == now {
 		g.Text = said
 
 		return g
@@ -312,18 +340,39 @@ func (b *Brain) GreetInWords(ctx context.Context) Greeting {
 		return g
 	}
 
-	g.Text = wording.Say(ctx, provider, b.modelRoles().Talk, wording.Want{
-		Brief: "a greeting, to somebody who has just opened the program",
-		Facts: map[string]any{
-			"who you are talking to": b.Cfg.Owner,
+	// What the program composed, so a fallback can be told from an answer.
+	composed := g.Text
 
-			// Each of these is already a true sentence. The model's work is
-			// to say them as one greeting in its own words — not to read
-			// anything further into them.
-			"true sentences, to be put in your own words": g.Facts,
-		},
+	/*
+	 * The state, and the decision about what to do with it, both the model's.
+	 *
+	 * It used to be handed the finished sentences and asked to reword them,
+	 * so it said the same thing at every launch — the fault its owner
+	 * noticed. Now it is told what is true and asked to choose: greet, and
+	 * say the one thing worth saying, or nothing beyond the greeting when
+	 * nothing has happened.
+	 */
+	g.Text = wording.Say(ctx, provider, b.modelRoles().Talk, wording.Want{
+		Brief: "a greeting to somebody who has just opened the program. Decide what " +
+			"is worth saying from the facts: at most one thing besides the greeting " +
+			"itself, the one that matters most to them right now, and nothing at all " +
+			"besides it when nothing has changed. Do not list what you can do unless " +
+			"a fact says you have never met",
+		Facts: g.About,
 		Plain: g.Text,
 		Most:  320,
+
+		/*
+		 * Long, because nothing waits on it.
+		 *
+		 * The window, the voice and the page each ask with their own short
+		 * patience and show what was composed if this has not arrived — and
+		 * the moment it does, every one of them gets it. The budget was
+		 * twenty-five seconds and a greeting on this machine takes a minute
+		 * or two, so the model's answer was thrown away every time and the
+		 * composed sentence was all anybody ever heard.
+		 */
+		Within: wording.AtLeisure,
 	})
 
 	// And the introduction beside it, when this is somebody's first sight of
@@ -334,9 +383,23 @@ func (b *Brain) GreetInWords(ctx context.Context) Greeting {
 		}
 	}
 
-	b.mu.Lock()
-	b.greetingSaid, b.greetingWhen = g.Text, time.Now()
-	b.mu.Unlock()
+	/*
+	 * A greeting is one line, whatever shape the model gave it.
+	 *
+	 * It is read out loud as often as it is read, and a model handed a list
+	 * of facts sometimes answers with a list: "Hello Petar,\n\nThree actions
+	 * waiting for approval." Spoken, the break is a silence in the middle of
+	 * a sentence; on the page it is a paragraph where a line belongs.
+	 */
+	g.Text = oneLine(g.Text)
+
+	// Only a real answer is kept: the fallback is the composed sentence, and
+	// keeping that would mean never asking again.
+	if strings.TrimSpace(g.Text) != "" && g.Text != composed {
+		b.mu.Lock()
+		b.greetingSaid, b.greetingAbout, b.greetingWhen = g.Text, now, time.Now()
+		b.mu.Unlock()
+	}
 
 	return g
 }
@@ -697,4 +760,33 @@ func count(n int, singular, plural string) string {
 	}
 
 	return fmt.Sprintf("%d %s", n, plural)
+}
+
+/*
+ * fingerprint is what a greeting was written about, as one comparable string.
+ *
+ * Not a hash: this is compared with a string comparison and read in a
+ * debugger, and a dozen short values sorted by key is both.
+ */
+func fingerprint(about About) string {
+	keys := make([]string, 0, len(about))
+
+	for key := range about {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	var b strings.Builder
+
+	for _, key := range keys {
+		fmt.Fprintf(&b, "%s=%v;", key, about[key])
+	}
+
+	return b.String()
+}
+
+// oneLine is the same words with the breaks closed up.
+func oneLine(said string) string {
+	return strings.Join(strings.Fields(said), " ")
 }

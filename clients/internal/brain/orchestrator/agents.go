@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/environs"
 	"regexp"
 	"sort"
 	"strconv"
@@ -223,23 +224,34 @@ func CursorAgent() Resource {
 	return r
 }
 
-// Editors are the editors installed here. They are where the owner looks,
-// never who does the work.
+/*
+ * Editors are the editors installed here, from the one reading of the machine.
+ *
+ * This was its own list of three — Code, Cursor, IntelliJ, each with its own
+ * way of being found — beside another list in environs that already looked
+ * for those three and for Zed and Neovim as well. Two lists of the same thing
+ * is how a program comes to disagree with itself about what is installed, and
+ * the one being read by the assistant was the longer one.
+ *
+ * They are where the owner looks, never who does the work.
+ */
 func Editors() []Resource {
+	ctx, stop := context.WithTimeout(context.Background(), environs.HowLongToAsk*2)
+	defer stop()
+
 	var out []Resource
 
-	for _, e := range []struct{ id, title, path, version string }{
-		{"vscode", "Visual Studio Code", firstFound("code", "/snap/bin/code", "/usr/bin/code"), ""},
-		{"cursor", "Cursor", firstFound("cursor", "/usr/bin/cursor"), readJSONVersion("/usr/share/cursor/resources/app/package.json")},
-		{"intellij", "IntelliJ IDEA", firstFound("intellij-idea-community", "idea", "/snap/bin/intellij-idea-community"), ""},
-	} {
-		if e.path == "" {
+	for _, thing := range environs.New(environs.Sources{}).OfKind(ctx, environs.Editor) {
+		if thing.State != environs.Here {
 			continue
 		}
 
-		out = append(out, Resource{ID: e.id, Kind: IDE, Title: e.title, Path: e.path, Version: e.version,
-			State: Available, Evidence: Reported, Local: true, Observed: time.Now(),
-			Why: "an editor to open a project in; it does not do the work"})
+		out = append(out, Resource{
+			ID: thing.ID, Kind: IDE, Title: thing.Title, Path: thing.Path,
+			Version: thing.Version, State: Available, Evidence: Reported,
+			Local: true, Observed: thing.Observed,
+			Why: "an editor to open a project in; it does not do the work",
+		})
 	}
 
 	return out

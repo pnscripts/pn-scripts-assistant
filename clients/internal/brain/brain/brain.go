@@ -109,6 +109,10 @@ type Brain struct {
 	greetingSaid string
 	greetingWhen time.Time
 
+	// greetingAbout is the state the kept greeting was written about, so the
+	// same state gives the same greeting and a changed one asks again.
+	greetingAbout string
+
 	// introSaid is the written introduction, and introAbout the facts it was
 	// written from — so installing something changes it and nothing else
 	// does. See IntroduceInWords.
