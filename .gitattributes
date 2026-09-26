@@ -1,11 +1,25 @@
+# Line endings normalised to LF everywhere, including on Windows checkouts.
+#
+# This is the one that matters: the shell scripts here are run by CI and by the
+# Windows packaging job under Git Bash, and a script with CRLF line endings
+# fails with an error about `\r` that says nothing about its cause.
 * text=auto eol=lf
 
-*.blade.php diff=html
-*.css diff=css
-*.html diff=html
-*.md diff=markdown
-*.php diff=php
+# Binary, so git does not try to normalise or diff them.
+*.png binary
+*.onnx binary
+*.deb binary
+*.dmg binary
+*.zip binary
 
+# Better diffs for the text that is not Go.
+*.md  diff=markdown
+*.html diff=html
+*.css diff=css
+
+# Not part of a source archive: they are how the project is developed, not
+# what it is.
 /.github export-ignore
-CHANGELOG.md export-ignore
-.styleci.yml export-ignore
+/docs/audit export-ignore
+.editorconfig export-ignore
+.gitattributes export-ignore

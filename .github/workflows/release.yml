@@ -9,8 +9,19 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# Read, everywhere except the one job that publishes.
+#
+# A token that can write to the repository is a token that anything running in
+# any job can write to the repository with — every action, every dependency,
+# every test. Ten of the eleven jobs here only need to read the code, so that
+# is all they are given, and the eleventh says what it needs and why.
+#
+# Every action is pinned to a commit rather than to a tag. A tag is a name its
+# owner can move, so `@v4` is a promise to run whatever that account publishes
+# next, in a job holding this repository's token. The comment beside each pin
+# says which release it is, and dependabot proposes the updates.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   # Nothing ships if the safety properties are broken.
@@ -22,9 +33,9 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.26'
           cache-dependency-path: clients/go.sum
@@ -62,13 +73,13 @@ jobs:
     name: Ubuntu package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # The version is worked out from the tag and the commit, and a
           # shallow checkout has neither.
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.26'
           cache-dependency-path: clients/go.sum
@@ -90,7 +101,7 @@ jobs:
       - name: Checksums
         run: make checksums
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ubuntu-deb
           path: |
@@ -113,9 +124,9 @@ jobs:
           - { goos: darwin,  goarch: arm64, ext: '' }
           - { goos: windows, goarch: amd64, ext: '.exe' }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.26'
 
@@ -149,10 +160,99 @@ jobs:
           CGO_ENABLED: '0'
         run: go build -trimpath -ldflags="-s -w" -o "../dist/pn-scripts-assistant-cli-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" ./cmd/cli
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
           path: clients/dist/*
+
+  # The macOS download: the bundle, the tarball and the disk image.
+  #
+  # On a Mac rather than cross-compiled, because hdiutil is what makes a real
+  # .dmg — an image built with xorriso on Linux does mount, and is what this
+  # script falls back to, but the one people download should be the proper
+  # article. Nothing here is signed or notarised; the README inside says so.
+  macos:
+    needs: tests
+    name: macOS packages
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The version is worked out from the tag and the commit.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache-dependency-path: clients/go.sum
+
+      - name: Build the bundles and the disk images
+        run: bash scripts/build-packages.sh macos
+
+      # Built by hdiutil here, so it says so. A job that quietly produced the
+      # fallback image on a Mac would mean hdiutil had gone missing and nobody
+      # would find out until somebody could not open the download.
+      - name: It is a real disk image
+        run: |
+          ls -l build/packages
+          for dmg in build/packages/*.dmg; do
+            hdiutil imageinfo "$dmg" >/dev/null || exit 1
+          done
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: macos-packages
+          path: |
+            build/packages/*.dmg
+            build/packages/*.tar.gz
+
+  # The Windows download: the zip and the installer.
+  #
+  # On Windows because Inno Setup only runs there. The zip could be built
+  # anywhere and is built here anyway, so that what is released is what this
+  # job produced rather than two halves from two machines.
+  windows:
+    needs: tests
+    name: Windows packages
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache-dependency-path: clients/go.sum
+
+      # Present on the runner image already, most of the time. Installed when
+      # it is not, rather than letting the build quietly skip the installer
+      # and publish a release with only the zip in it.
+      - name: Make sure Inno Setup is here
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
+
+      - name: Build the folder and the installer
+        shell: bash
+        run: bash scripts/build-packages.sh windows
+
+      # The installer is the point of the job, so its absence fails the job
+      # rather than being a warning in a log nobody reads.
+      - name: There is an installer
+        shell: bash
+        run: |
+          ls -l build/packages
+          ls build/packages/*-windows-setup.exe >/dev/null
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-packages
+          path: |
+            build/packages/*.exe
+            build/packages/*.zip
 
   # The desktop app draws a real native window, which means cgo against the
   # platform's own web engine — and cgo cannot be cross-compiled without a full
@@ -168,9 +268,9 @@ jobs:
         include:
           - { os: ubuntu-latest, target: linux-amd64, ext: '' }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.26'
 
@@ -188,24 +288,69 @@ jobs:
           CGO_ENABLED: '1'
         run: go build -trimpath -ldflags="-s -w" -o "../dist/pn-scripts-assistant-${{ matrix.target }}${{ matrix.ext }}" ./cmd/pn-scripts-assistant
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: desktop-${{ matrix.target }}
           path: clients/dist/*
 
   release:
     name: Publish release
-    # Including the .deb: a release that publishes everything except the
-    # thing the documentation tells people to install is not a release.
-    needs: [tests, deb, cli, desktop]
+    # contents: to create the release and attach the files.
+    # id-token + attestations: to sign a provenance statement for each one —
+    # see the attestation step below.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    # Including every installer: a release that publishes everything except
+    # the thing the documentation tells people to install is not a release.
+    # One per system — the .deb, the .dmg, the Windows setup — and the plain
+    # archives beside them for anybody who would rather not install anything.
+    needs: [tests, deb, macos, windows, cli, desktop]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
 
-      - uses: softprops/action-gh-release@v2
+      # One list of checksums over everything published, written here because
+      # here is the only place that has everything: the .deb comes from the
+      # Ubuntu runner, the disk images from the Mac and the installer from
+      # Windows, and a sums file from any one of them covers a third of the
+      # release. Somebody checking a download should not have to work out
+      # which machine made it.
+      - name: Gather the files and sum them
+        run: |
+          mkdir -p release
+          find artifacts -type f ! -name SHA256SUMS -exec cp -n {} release/ \;
+          cd release
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      # Where each file came from, in a form somebody else can check.
+      #
+      # Nothing here is signed with a certificate — an Apple one and a Windows
+      # one cost money every year and identify a company, and this program has
+      # neither. That is said plainly in the documentation, and it leaves a
+      # real question unanswered: a checksum proves a download matches a
+      # published number, and nothing proves the published number came from
+      # this source rather than from somebody who got at the release page.
+      #
+      # A provenance attestation answers it. GitHub signs a statement binding
+      # each file to this repository, this workflow file and this commit, using
+      # a short-lived key it holds rather than one kept here. Anybody can check
+      # it, with no account and nothing installed but the GitHub CLI:
+      #
+      #     gh attestation verify <file> --repo pnscripts/pn-scripts-assistant
+      #
+      # It is free, it needs no secret, and it is the one form of "this is
+      # genuinely ours" this project can honestly offer.
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
-          files: artifacts/**/*
+          subject-path: 'release/*'
+
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: release/*
           generate_release_notes: true

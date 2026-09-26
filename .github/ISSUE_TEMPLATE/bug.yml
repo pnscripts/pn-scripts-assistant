@@ -1,0 +1,55 @@
+name: Something is wrong
+description: It did something it should not, or did not do something it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before attaching a log or a screenshot: this program reads your files
+        and remembers what it learns, so both can contain things you did not
+        mean to publish. Worth a glance first.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to make it happen again
+      description: Step by step, if you can. "Every time I open it" is also useful.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What `pn-scripts-assistant version` prints, or the file you installed.
+      placeholder: 0.1.0~git20260926220407.3c22b89
+    validations:
+      required: true
+
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - Ubuntu / Debian
+        - macOS (Apple silicon)
+        - macOS (Intel)
+        - Windows
+        - Another Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: The log, if it says anything
+      description: |
+        `~/.local/state/pn-scripts-assistant/logs/pn-scripts-assistant.log`, or
+        `%LOCALAPPDATA%` on Windows. The last few lines are usually enough.
+      render: text

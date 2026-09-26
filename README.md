@@ -1,5 +1,9 @@
 # PN Scripts Assistant
 
+[![CI](https://github.com/pnscripts/pn-scripts-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/pnscripts/pn-scripts-assistant/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/go-1.26-00ADD8.svg)](clients/go.mod)
+
 A personal, self-learning AI assistant that runs entirely on your own machine.
 
 One binary. No database server, no container runtime, no cloud account. It
@@ -66,6 +70,13 @@ There is no configuration that changes this.
 An unrecognised privacy value is treated as `private`, because the safe reading
 of a typo is the strict one.
 
+**Everywhere it can connect to is written down**, with a reason beside each
+entry, in [`clients/internal/outside/outside.go`](clients/internal/outside/outside.go)
+— and a test reads the whole program and fails if an address turns up that is
+not on the list. There is no telemetry and nothing reporting to this project.
+Every host on it is something you asked it to install, a documentation site, a
+web search, or a model provider you gave your own key to.
+
 ## Requirements
 
 - [Ollama](https://ollama.com) with a chat model and `nomic-embed-text`
@@ -101,6 +112,24 @@ network, which undoes the careful part.
 
 ## Installing it
 
+On Ubuntu it installs as a package and draws its own window. On macOS and
+Windows it installs the way those systems expect and shows its interface in
+your browser — the native window is Linux-only so far, and that is the only
+difference between them.
+
+| System | Download | |
+|---|---|---|
+| Ubuntu / Debian | `pn-scripts-assistant_<version>_amd64.deb` | `sudo apt install ./…deb` |
+| macOS 11+ | `…-macos-arm64.dmg` (or `amd64` for Intel) | drag it to Applications |
+| Windows 10+ | `…-windows-setup.exe` | run it; no administrator password |
+
+Nothing is signed — there is no Apple developer account and no Windows
+certificate behind this — so macOS and Windows both refuse the first open and
+both take one extra click to pass. [installing.md](docs/guide/installing.md)
+says exactly which click, for each.
+
+### On Ubuntu
+
 Ubuntu 24.04 or newer, on a 64-bit machine. Download
 `pn-scripts-assistant_<version>_amd64.deb` from the
 [releases](https://github.com/pnscripts/pn-scripts-assistant/releases) and:
@@ -119,7 +148,27 @@ To check what you downloaded is what was built:
 sha256sum -c SHA256SUMS
 ```
 
-### Building the package yourself
+### Checking that a download is genuinely ours
+
+A checksum proves a file matches a published number. It does not prove the
+number came from here — so every released file also carries a **provenance
+attestation**: a statement, signed by GitHub with a key nobody here holds,
+binding that file to this repository, the workflow that built it and the commit
+it was built from. Check any download with nothing installed but the GitHub
+CLI:
+
+```bash
+gh attestation verify pn-scripts-assistant_0.1.0_amd64.deb --repo pnscripts/pn-scripts-assistant
+```
+
+Nothing is signed with a code-signing certificate — an Apple one and a Windows
+one cost money every year and identify a company, and this project has neither.
+That is why the attestation is here: it is free, it needs no secret, and it is
+the one form of "this really is the file that workflow built" that can honestly
+be offered. [SECURITY.md](SECURITY.md) says the same and what else is not there
+yet.
+
+### Building the packages yourself
 
 ```bash
 make release
@@ -285,9 +334,35 @@ whichever model you point it at. How it came to be built this way is in
 | [When something is wrong](docs/guide/troubleshooting.md) | the log first |
 | [Working on it](docs/guide/developing.md) | building, tests, expectations |
 | [Making a release](docs/guide/releasing.md) | `make release` |
+| [What changed](CHANGELOG.md) | between versions, in the terms you would notice |
 | [Decisions](docs/decisions/) | why things are the way they are |
 | [Audits](docs/audit/) | what was measured, and when |
+| [Security](SECURITY.md) | the trust model, how to report a fault, and what is honestly not there yet |
+| [Contributing](CONTRIBUTING.md) | what a change is expected to carry |
+| [Code of conduct](CODE_OF_CONDUCT.md) | short, because a long one would not be read |
+
+## How this project checks itself
+
+Stated here because "trust me" is not a thing a program that reads your files
+gets to say.
+
+- **Every push and every pull request** runs formatting, `go vet`, the whole
+  test suite under the race detector, a build for each system it claims to
+  build for, `govulncheck`, and the `.deb` put through `lintian` —
+  [ci.yml](.github/workflows/ci.yml).
+- **Every released file** is built by a workflow on the system it is for, is
+  published with its SHA-256, and carries a signed provenance attestation
+  anybody can check.
+- **Every action in CI is pinned to a commit**, not to a tag somebody could
+  move, and only the job that publishes a release can write anything.
+- **The audits in [docs/audit/](docs/audit/)** use a fixed vocabulary —
+  VERIFIED, IMPLEMENTED — NOT VERIFIED, BROKEN — so what was measured is
+  distinguishable from what was merely written. They are the maintainer's own;
+  nobody independent has audited this, and that is said rather than left to be
+  assumed.
+- **Three dependencies**, each with a reason written down, and no new one
+  without another.
 
 ## Licence
 
-See [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Yours to read, run, fork and sell.

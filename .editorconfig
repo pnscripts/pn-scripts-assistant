@@ -8,8 +8,21 @@ indent_style = space
 insert_final_newline = true
 trim_trailing_whitespace = true
 
+# Go is tabs, and gofmt is not negotiable about it. Without this an editor
+# obeying the rule above inserts spaces, gofmt turns them back, and the diff
+# is noise in every pull request.
+[*.go]
+indent_style = tab
+
+# make requires tabs; a space-indented recipe is a syntax error.
+[Makefile]
+indent_style = tab
+
 [*.md]
 trim_trailing_whitespace = false
 
 [*.{yml,yaml}]
 indent_size = 2
+
+[*.{js,css,html}]
+indent_size = 4

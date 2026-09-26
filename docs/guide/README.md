@@ -7,5 +7,8 @@
 - [Working on it](developing.md) — building, tests, what a change is expected to carry
 - [Making a release](releasing.md) — `make release`, the version, what is not automated yet
 
+Outside the guide: [what changed](../../CHANGELOG.md), [how to report a security
+fault](../../SECURITY.md) and [what a change is expected to carry](../../CONTRIBUTING.md).
+
 Beside this: [why things are the way they are](../decisions/) and [what was
 measured, and when](../audit/).

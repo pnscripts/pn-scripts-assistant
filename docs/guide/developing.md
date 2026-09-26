@@ -40,8 +40,33 @@ Sixty-one packages have them. They are written against the real thing wherever
 that is possible: real files with real permissions, a real database, a real
 HTTP server. A test that asserts against a simulation tests the simulation.
 
-`make check` is `gofmt -l` and `go vet`, which is the cheapest check there is
-and the one most worth failing on.
+`make check` is `gofmt -l`, `go vet` and a check that two versions sort the way
+dpkg thinks they do. It is the cheapest check there is and the one most worth
+failing on.
+
+## What CI will run
+
+On every push and every pull request, in
+[.github/workflows/ci.yml](../../.github/workflows/ci.yml):
+
+| Job | What it does |
+|---|---|
+| Formatting and vet | `make check` |
+| Tests | the whole suite **with `-race`** |
+| Builds for … | a build for each of the five systems, and the no-window packages tested with cgo off |
+| Known vulnerabilities | `govulncheck` |
+| The package | the `.deb` built, put through `lintian`, then **built again and compared** |
+| Shell scripts | `shellcheck --severity=error` |
+
+`make ci` runs the same things here, in the same order. It is slow — several
+minutes against `make check`'s few seconds — and it is the difference between
+finding out now and finding out in a pull request.
+
+The reproducibility step is worth knowing about before it fails on you:
+everything the build writes takes its timestamp from the commit
+(`SOURCE_DATE_EPOCH`), never from the clock. Putting a `date` back into the
+packaging will make one commit produce two different packages, and that job
+will say so.
 
 ## What is expected of a change
 

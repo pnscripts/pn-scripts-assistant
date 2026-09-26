@@ -1,0 +1,25 @@
+# Dependency updates, proposed rather than applied.
+#
+# Two ecosystems and they matter for different reasons. The Go modules are
+# three direct dependencies and their own dependencies, which is what
+# govulncheck scans; the actions are code that runs in CI holding this
+# repository's token, pinned to commit hashes in the workflow files — which is
+# right for security and means nothing updates them unless something proposes
+# it. That is this file.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /clients
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci

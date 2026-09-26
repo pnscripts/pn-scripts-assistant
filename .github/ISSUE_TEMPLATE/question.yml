@@ -1,0 +1,23 @@
+name: A question
+description: How do I, why does it, is it meant to.
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What you are trying to work out
+      description: |
+        Questions are welcome here and a question that turns out to be a fault
+        gets relabelled, so there is no need to decide which it is first.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you have tried or read
+      description: |
+        [The guide](https://github.com/pnscripts/pn-scripts-assistant/tree/main/docs/guide)
+        covers installing, setting up, which model answers, and what to do when
+        something is wrong. Saying what you already read stops an answer that
+        repeats it.

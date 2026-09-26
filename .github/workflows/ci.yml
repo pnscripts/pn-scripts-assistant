@@ -1,0 +1,217 @@
+name: CI
+
+# Every push and every pull request, which is the gap this file closes.
+#
+# Until this existed the only workflow ran on tags and on a button. So the
+# tests ran when somebody made a release — after the work, not during it — and
+# a pull request from anybody arrived with nothing at all having checked it.
+# For a program that reads somebody's files and runs commands on their machine,
+# "the tests passed on my laptop" is not an answer a stranger can verify.
+#
+# Tags are left to release.yml, which runs the same checks before it builds
+# anything, so a tag does not run both.
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+# Read, and nothing else. A workflow that can write to the repository is a
+# workflow that a compromised dependency can write to the repository with, and
+# nothing here needs to write. The release workflow asks for more, in the one
+# job that publishes.
+permissions:
+  contents: read
+
+# A second push to the same branch stops the first. Nothing here has side
+# effects, so there is nothing to half-finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Formatting, vet, and that two versions sort the way dpkg thinks they do.
+  # Cheapest of the lot and the one most worth failing on.
+  check:
+    name: Formatting and vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache-dependency-path: clients/go.sum
+
+      # vet reaches the window, which is cgo against GTK and WebKit.
+      - name: Install what the window needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - run: make check
+
+  # Every test in the module, with the window compiled in.
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache-dependency-path: clients/go.sum
+
+      - name: Install what the window needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      # -race, which the release workflow does not run: this program answers
+      # on HTTP while a learning worker writes to the same database, and a data
+      # race there is a corrupted brain rather than a crash somebody notices.
+      - name: Tests, with the race detector
+        working-directory: clients
+        env:
+          CGO_ENABLED: '1'
+        run: go test -race ./... -p 2
+
+  # It builds for every system it claims to build for.
+  #
+  # Cross-compiled rather than run, which is the honest limit of what one
+  # Linux runner can say: that the code compiles for a Mac and for Windows.
+  # Whether it *runs* there is what the release workflow's own macOS and
+  # Windows jobs are for.
+  portable:
+    name: Builds for ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: darwin,  goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache-dependency-path: clients/go.sum
+
+      - name: Build every command
+        working-directory: clients
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          go build -o /dev/null ./cmd/pn-scripts-assistant
+          go build -o /dev/null ./cmd/cli
+          go build -o /dev/null ./cmd/doctor
+
+      # The packages that have to work without cgo, tested rather than built:
+      # setup and the starter are the first thing a new person meets, and they
+      # are what runs on the systems with no window.
+      - name: Test what runs without a window
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        working-directory: clients
+        env:
+          CGO_ENABLED: '0'
+        run: go test ./internal/setup/... ./internal/preflight/... ./internal/starter/... ./internal/stage/... ./internal/protocol/...
+
+  # Known vulnerabilities, in what is imported and in the toolchain itself.
+  #
+  # Its own job because it needs the network, and on a schedule as well as on
+  # a push: a vulnerability is published against code that has not changed,
+  # and a check that only runs when somebody commits will not find it.
+  vulns:
+    name: Known vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache-dependency-path: clients/go.sum
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
+        working-directory: clients
+
+  # The package somebody actually installs, built and checked from the outside
+  # on every change rather than on release day.
+  package:
+    name: The package, checked from the outside
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The version is worked out from the tag and the commit, and a
+          # shallow checkout has neither.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.26'
+          cache-dependency-path: clients/go.sum
+
+      - name: Install what the window and the packaging need
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
+            dpkg-dev fakeroot lintian desktop-file-utils
+
+      - name: Build it
+        run: make package
+        env:
+          CGO_ENABLED: '1'
+
+      # lintian with --fail-on error,warning. The package is clean today and
+      # the only thing that keeps it clean is a job that refuses when it is not.
+      - name: Check it
+        run: make validate
+
+      # Built twice from one commit, and the two compared.
+      #
+      # "Check what you downloaded is what was built" is only as strong as the
+      # build being the same build, and it was not: the changelog carried the
+      # moment the script ran and dpkg wrote whatever mtime the staging
+      # directory happened to have, so one commit produced two checksums. The
+      # timestamps are pinned to the commit's own date now, and this is what
+      # keeps them pinned — a change that puts a clock back into the build
+      # fails here, rather than in six months when somebody compares two
+      # downloads and finds they disagree.
+      - name: It builds the same twice
+        env:
+          CGO_ENABLED: '1'
+        run: |
+          first="$(sha256sum build/packages/*.deb | cut -d' ' -f1)"
+          make package
+          second="$(sha256sum build/packages/*.deb | cut -d' ' -f1)"
+          echo "first:  $first"
+          echo "second: $second"
+          test "$first" = "$second"
+
+  # The shell scripts, at the level that catches real mistakes rather than
+  # style. Errors only: this is a gate, and a gate that argues about quoting
+  # preferences is a gate people start ignoring.
+  scripts:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          shellcheck --severity=error scripts/*.sh

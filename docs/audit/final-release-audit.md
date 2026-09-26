@@ -68,8 +68,36 @@ costs about twenty-five times that. Re-run with a longer deadline: **exit 0,
 | Launch from the applications menu | **VERIFIED** | started through the desktop entry with `gtk-launch`; the window's `WM_CLASS` is `pn-scripts-assistant`, matching the entry's `StartupWMClass` |
 | First run opens setup | **VERIFIED** | and it was this that exposed the Ollama-detection fault |
 | The installed program serves a brain | **VERIFIED** | `/api/v1/version` reports the package's own version |
-| Upgrade over an installed copy | **NOT VERIFIED** | waiting on authentication; see below |
-| `apt remove` | **NOT VERIFIED** | same |
+| Upgrade over an installed copy | **PARTIALLY VERIFIED** | run with dpkg against a separate root rather than with `apt` on this system; see below |
+| `apt remove` | **PARTIALLY VERIFIED** | same run, third step |
+
+### The lifecycle, run where it did not need a password
+
+`apt` on this machine needs a password the program cannot supply, and that is
+why two rows above sat at NOT VERIFIED for a fortnight. dpkg will do the same
+work into a directory of its own, as an ordinary user, which is enough to
+exercise everything this package actually contains:
+
+```bash
+dpkg --force-not-root --force-script-chrootless --force-depends \
+     --instdir=$T/root --admindir=$T/admin -i pn-scripts-assistant_<version>.deb
+```
+
+Three steps, against the real package and a copy of it with the version bumped:
+
+| Step | What happened |
+|---|---|
+| install | 10 files placed under `/usr/{bin,share}`, package `ii` (installed, configured) |
+| upgrade | version moved to the bumped one, still `ii`, still exactly 10 files — nothing from the old copy left behind |
+| remove | 0 files left in the root, the package gone from dpkg's database |
+
+What this does **not** cover, and the reason the status is PARTIALLY rather
+than fully verified: `apt`'s own dependency resolution (forced off here, since
+the fake root has no libraries in it) and the triggers other packages run —
+man-db, desktop-file-utils, hicolor-icon-theme. Those ran on the real install,
+which is verified above. And nothing removes anything from a home directory,
+which is not a matter of testing at all: the package carries no maintainer
+scripts, so there is nothing that could.
 
 ## Two more faults, found by doing the install rather than reading about it
 
@@ -181,16 +209,20 @@ Carried forward deliberately, each with its severity.
 - **Closed:** packaging is now checked at build time and in CI; an install on
   this machine has been done by hand; the desktop entry and icons are asserted
   to land where Ubuntu expects.
+- **Closed since:** the `.deb` is byte-for-byte reproducible (two builds of one
+  commit, identical SHA-256, gated in CI); the install lifecycle has been run
+  end to end; CI now runs on every push and pull request rather than only on a
+  tag; every released file carries a signed provenance attestation.
 - **Open:** no automated test installs the package; hosted AI providers are
   tested against fakes only; the tunnel and paired devices have never been
   exercised across the internet.
 
 ## Release readiness
 
-**Ready, with two conditions stated rather than hidden:** the upgrade and
-removal steps of the install lifecycle have not been run (they need a password
-this program cannot supply), and nothing here has been checked on a machine
-other than this one.
+**Ready, with one condition stated rather than hidden:** nothing here has been
+checked on a machine other than this one. The upgrade and removal steps have
+now been run — against a root of dpkg's own rather than through `apt`, for the
+reason and with the limits written above.
 
 Everything else the brief asked for is done and was run: it builds, installs,
 launches from the menu, configures itself, serves, answers, logs, refuses what

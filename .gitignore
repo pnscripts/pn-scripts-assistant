@@ -1,33 +1,27 @@
-*.log
-*.sqlite
+# Editors and desktops, which every checkout of this grows its own of.
 .DS_Store
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.codex
-/.cursor/
+Thumbs.db
 /.idea
 /.nova
-/.phpunit.cache
 /.vscode
 /.zed
-/auth.json
-/node_modules
-/public/build
-/public/fonts-manifest.dev.json
-/public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-/vendor
-_ide_helper.php
-Homestead.json
-Homestead.yaml
-Thumbs.db
+/.cursor/
+/.codex
 
-# Release artifacts — built in CI, not committed.
+# Anything that holds a secret. None of these is tracked and none should be:
+# the program keeps its keys in its own settings, not in the source tree.
+.env
+.env.*
+/auth.json
+
+# What the program writes while it runs. A database or a log inside a checkout
+# is somebody's real brain, which is not source and must never be committed.
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Release artefacts — built by `make packages` and by CI, not committed.
 /dist
 /clients/dist
 build/
@@ -35,7 +29,3 @@ build/
 # Build tools fetched on demand, never committed: the Godot editor and its
 # export templates are about 1.4GB between them and are not part of the source.
 .tools/
-godot/.godot/
-
-# The exported visual is a build product, not source.
-godot/export_presets.cfg

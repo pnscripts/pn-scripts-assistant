@@ -1,0 +1,30 @@
+name: It should be able to
+description: Something it does not do yet.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What you want it to do
+      description: In terms of what you are trying to get done, rather than how it should be built.
+    validations:
+      required: true
+
+  - type: textarea
+    id: now
+    attributes:
+      label: What you do instead, today
+      description: |
+        The workaround, if there is one. This is the most useful box on the
+        form: it says how much the missing thing actually costs.
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Does it fit what this program is?
+      description: |
+        Not a test — a prompt. A "no" here is worth discussing, not hiding.
+      options:
+        - label: It works without sending anything off this machine, or it is honest about what it sends.
+        - label: It is reachable from inside the program, not only from a terminal.
+        - label: It does not need a new dependency, or the reason it does is worth writing down.

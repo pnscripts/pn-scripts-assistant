@@ -14,7 +14,7 @@ VERSION := $(shell tr -d ' \t\n\r' < VERSION)
 PACKAGES := $(ROOT)/build/packages
 GO := CGO_ENABLED=1 go
 
-.PHONY: help clean check test vulns build package validate checksums release version install-deps
+.PHONY: help clean check test race vulns build package packages validate checksums reproducible ci release version install-deps
 
 help:
 	@echo "  make release   everything below, in order, ending in files to publish"
@@ -23,8 +23,10 @@ help:
 	@echo "  make vulns     known vulnerabilities, including the toolchain's"
 	@echo "  make build     the binary, into build/"
 	@echo "  make package   the .deb"
+	@echo "  make packages  the .deb, the macOS bundles and disk images, the Windows folder"
 	@echo "  make validate  lintian and the desktop entry"
 	@echo "  make clean     remove build/"
+	@echo "  make ci        everything CI runs, in the same order"
 	@echo "  make version   what this would be released as"
 
 version:
@@ -48,6 +50,16 @@ check:
 test:
 	@echo "→ go test"
 	@cd clients && $(GO) test ./... -p 2
+
+# The same tests with the race detector, which CI runs on every push.
+#
+# Separate from `test` because it is several times slower and because the
+# thing it is looking for is rare — but it is looking in the right place: this
+# program answers on HTTP while a learning worker writes to the same database,
+# and a race there is a corrupted brain rather than a crash somebody notices.
+race:
+	@echo "→ go test -race"
+	@cd clients && $(GO) test -race ./... -p 2
 
 # Known vulnerabilities, in what is imported and in the toolchain itself.
 #
@@ -74,6 +86,15 @@ build:
 
 package:
 	@bash scripts/build-packages.sh deb
+
+# Everything somebody might download, from one machine.
+#
+# The .deb and the macOS pieces come out complete; the Windows installer does
+# not, because Inno Setup only runs on Windows — the script says so and builds
+# the zip anyway. CI builds each one on its own system, which is where the
+# files that get published come from.
+packages:
+	@bash scripts/build-packages.sh all
 
 # What the package says about itself, from the outside. Run after packaging
 # and again in CI, because a package that installs is not the same as a
@@ -106,6 +127,25 @@ validate:
 # built. Written beside the packages, named for the version.
 checksums:
 	@cd $(PACKAGES) && sha256sum *.deb > SHA256SUMS && cat SHA256SUMS
+
+# Built twice from one commit, and the two compared.
+#
+# "Check what you downloaded is what was built" is only as strong as the build
+# being the same build. Run after `package`, and it builds a second one.
+reproducible: package
+	@first="$$(sha256sum $(PACKAGES)/*.deb | cut -d' ' -f1)"; \
+	bash scripts/build-packages.sh deb >/dev/null; \
+	second="$$(sha256sum $(PACKAGES)/*.deb | cut -d' ' -f1)"; \
+	echo "→ reproducible"; \
+	echo "   first:  $$first"; \
+	echo "   second: $$second"; \
+	test "$$first" = "$$second" || { echo "   two builds of one commit differ"; exit 1; }; \
+	echo "   identical"
+
+# Everything CI runs, in the same order, so a pull request can be checked here
+# rather than found out about afterwards. Slower than `make check` by a long
+# way; that is what `check` is for.
+ci: check race vulns reproducible validate
 
 release: clean check test vulns package validate checksums
 	@echo
