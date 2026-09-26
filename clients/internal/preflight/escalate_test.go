@@ -15,9 +15,27 @@ func TestDevNullIsNotATerminal(t *testing.T) {
 		t.Skip("this test run has a real terminal attached")
 	}
 
-	got := escalate([]string{"sudo", "apt-get", "install", "-y", "x"}, true)
+	got, err := forRoot([]string{"sudo", "apt-get", "install", "-y", "x"}, true)
 
-	if got[0] == "sudo" {
+	/*
+	 * Two honest answers with no terminal, and which one depends on whether
+	 * this machine has a way to ask on screen.
+	 *
+	 * On a desktop, pkexec asks. On a machine with neither — a container, a
+	 * build runner — there is nowhere to ask at all, and saying so is the
+	 * answer. What must never happen is the third thing: keeping sudo, which
+	 * can only end in "a terminal is required to read the password" after a
+	 * download, inside an installer somebody is watching.
+	 */
+	if err != nil {
+		if got != nil {
+			t.Errorf("it refused and still handed back %v", got)
+		}
+
+		return
+	}
+
+	if len(got) == 0 || got[0] == "sudo" {
 		t.Errorf("kept sudo with no terminal to prompt on: %v", got)
 	}
 }

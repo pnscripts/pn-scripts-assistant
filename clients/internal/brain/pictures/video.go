@@ -52,17 +52,30 @@ func MakeIt(ctx context.Context, folder string, film Film) (string, error) {
 		return "", fmt.Errorf("a video needs at least one picture")
 	}
 
+	/*
+	 * What was asked for, before what it would take.
+	 *
+	 * These two checks were the other way round, so asking for a film of a
+	 * picture that does not exist was answered "ffmpeg is not installed" on
+	 * any machine without ffmpeg — a true sentence about the wrong problem,
+	 * which sends somebody to install five hundred megabytes and try again
+	 * with the same wrong path.
+	 *
+	 * Found by running the tests on a machine without ffmpeg, which is
+	 * something that had never happened: the test that says this is answered
+	 * "before ffmpeg is started" only ever ran where ffmpeg was.
+	 */
+	for _, picture := range film.Pictures {
+		if _, err := os.Stat(picture); err != nil {
+			return "", fmt.Errorf("there is no picture at %s", picture)
+		}
+	}
+
 	ffmpeg, err := exec.LookPath("ffmpeg")
 	if err != nil {
 		return "", fmt.Errorf(
 			"ffmpeg is not installed, and it is what puts the pictures together — " +
 				"it is in the list of parts this machine needs")
-	}
-
-	for _, picture := range film.Pictures {
-		if _, err := os.Stat(picture); err != nil {
-			return "", fmt.Errorf("there is no picture at %s", picture)
-		}
 	}
 
 	seconds := film.Seconds

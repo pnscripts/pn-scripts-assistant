@@ -106,7 +106,10 @@ func Install(r Requirement, w io.Writer) error {
 		return fmt.Errorf("%s must be installed manually: %s", r.Name, r.ManualHint)
 	}
 
-	argv = escalate(argv, r.NeedsRoot)
+	argv, err := forRoot(argv, r.NeedsRoot)
+	if err != nil {
+		return err
+	}
 
 	fmt.Fprintf(w, "$ %v\n", argv)
 
@@ -120,19 +123,45 @@ func Install(r Requirement, w io.Writer) error {
 // escalate swaps sudo for pkexec when running without a terminal, because sudo
 // has nowhere to prompt and would simply hang.
 func escalate(argv []string, needsRoot bool) []string {
+	argv, _ = forRoot(argv, needsRoot)
+
+	return argv
+}
+
+/*
+ * forRoot is the command to run, or why it cannot be run at all.
+ *
+ * Three situations and they are not alike. From a terminal, sudo asks there.
+ * From a desktop launcher, sudo has nowhere to prompt, and pkexec puts the
+ * question on the screen instead. And on a machine with neither — a
+ * container, a server over ssh with no tty, a continuous-integration runner —
+ * there is no way to ask for a password at all.
+ *
+ * That third case used to return the sudo command anyway, which could only
+ * end one way: "sudo: a terminal is required to read the password", printed
+ * after a download, from inside an installer somebody was watching. Saying so
+ * before starting is the same information a minute earlier and in words about
+ * their machine rather than about sudo.
+ *
+ * Found by running this program's tests on a machine that is not a desktop —
+ * the first time they had ever run anywhere but here.
+ */
+func forRoot(argv []string, needsRoot bool) ([]string, error) {
 	if !needsRoot || len(argv) == 0 || argv[0] != "sudo" {
-		return argv
+		return argv, nil
 	}
 
 	if isInteractiveTerminal() {
-		return argv
+		return argv, nil
 	}
 
-	if _, err := exec.LookPath("pkexec"); err != nil {
-		return argv
+	if _, err := exec.LookPath("pkexec"); err == nil {
+		return append([]string{"pkexec"}, argv[1:]...), nil
 	}
 
-	return append([]string{"pkexec"}, argv[1:]...)
+	return nil, fmt.Errorf("this needs to be installed as root and there is nowhere "+
+		"to ask for a password: no terminal, and no pkexec. Run it yourself: %s",
+		strings.Join(argv, " "))
 }
 
 /*

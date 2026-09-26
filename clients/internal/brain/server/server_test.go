@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"log/slog"
 	"net/http"
@@ -1327,7 +1328,22 @@ func TestThereIsSomewhereToKeepACopy(t *testing.T) {
 
 	places := placesForACopy(b.Root)
 
+	/*
+	 * On a machine with one disk there is genuinely nowhere, and that is the
+	 * rule rather than a fault: a copy beside the original survives a deleted
+	 * folder and nothing else — not the disk failing, not the drive being
+	 * lost, which are the things a copy is for.
+	 *
+	 * This test is about the other case, and it could only ever run on the
+	 * machine it was written on until a build runner ran it. There, the
+	 * brain's temporary folder and the home folder are the same filesystem,
+	 * so the case does not exist and there is nothing to assert.
+	 */
 	if len(places) == 0 {
+		if sameDisk(t, b.Root) {
+			t.Skip("one filesystem here, so a copy has nowhere to go that is not beside the original")
+		}
+
 		t.Fatal("nowhere at all was offered as a place for a copy")
 	}
 
@@ -1883,4 +1899,23 @@ func TestTheHouseSaysWhichHalfIsMissing(t *testing.T) {
 	if page.URL != "http://192.168.0.9:8123" {
 		t.Errorf("the address is %q", page.URL)
 	}
+}
+
+// sameDisk reports whether the brain and the home folder are on one
+// filesystem, which is the ordinary shape of a laptop and of a build runner.
+func sameDisk(t *testing.T, root string) bool {
+	t.Helper()
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return true
+	}
+
+	var a, b unix.Stat_t
+
+	if unix.Stat(root, &a) != nil || unix.Stat(home, &b) != nil {
+		return true
+	}
+
+	return a.Dev == b.Dev
 }
