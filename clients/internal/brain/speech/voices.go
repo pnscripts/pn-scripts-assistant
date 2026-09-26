@@ -98,8 +98,17 @@ func SetVoice(id string) {
 }
 
 // CurrentVoice reports which voice is in use.
-// RobotVoice is the system speech engine, kept as the robot of last resort.
-const RobotVoice = "system"
+const (
+	// RobotVoice is the system speech engine speaking as a machine.
+	RobotVoice = "system"
+
+	// WomanVoice and ManVoice are the same engine speaking as a woman and as
+	// a man. Three choices, three sounds — which is what the three buttons
+	// have always promised and did not deliver on a machine with no neural
+	// voices installed.
+	WomanVoice = "system:woman"
+	ManVoice   = "system:man"
+)
 
 /*
  * RobotModel is the voice the robot is built out of, and RobotID is what the
@@ -277,26 +286,52 @@ func Voices() []Voice {
 		}
 
 		/*
-		 * And named as a woman when it actually is one.
+		 * Named for what it is, which is now a machine.
 		 *
-		 * On a machine with no neural voice this is the voice — so what it
-		 * says here is what somebody is choosing between, and calling a
-		 * woman's voice "a robot" tells them nothing about the thing they
-		 * would hear.
+		 * This used to say "A woman, and plainly a machine", honestly: the
+		 * robot was built from a woman's voice spoken flat, and calling that
+		 * "a robot" would have told nobody what they were choosing. Its owner
+		 * decided the three choices should mean what they say — a woman for
+		 * the woman, a man for the man, and a machine for the robot — so the
+		 * robot is the formant synthesiser, which belongs to nobody, and the
+		 * name is true again.
 		 */
-		sex := "robot"
-
-		if Variant() != "" {
-			name = "A woman, and plainly a machine (" + e.Name + ")"
-			sex = "woman"
+		if v := Variant(); v != "" {
+			name = "A robot (" + e.Name + " " + v + ")"
 		}
 
 		out = append(out, Voice{
 			ID:     RobotVoice,
-			Sex:    sex,
+			Sex:    "robot",
 			Name:   name,
 			Engine: e.Name,
 		})
+
+		/*
+		 * And a woman and a man from the same engine.
+		 *
+		 * Three choices that all made one sound was the state of this on any
+		 * machine with no neural voices — which is most of them, and is this
+		 * one. espeak has women's and men's variants; they were never
+		 * offered because the single system voice took the whole list.
+		 */
+		if style := StyleFor("woman"); style.Variant != "" {
+			out = append(out, Voice{
+				ID:     WomanVoice,
+				Sex:    "woman",
+				Name:   "A woman (" + e.Name + " " + style.Variant + ")",
+				Engine: e.Name,
+			})
+		}
+
+		if style := StyleFor("man"); style.Variant != "" {
+			out = append(out, Voice{
+				ID:     ManVoice,
+				Sex:    "man",
+				Name:   "A man (" + e.Name + " " + style.Variant + ")",
+				Engine: e.Name,
+			})
+		}
 	}
 
 	return out

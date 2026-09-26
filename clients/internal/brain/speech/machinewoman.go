@@ -31,7 +31,47 @@ import (
  */
 
 /*
- * TheWomanRobot is the voices this speaks in, best first.
+ * TheRobot is the voice the robot speaks in, best first.
+ *
+ * Changed on its owner's instruction, and the instruction was about what the
+ * three choices mean: "the woman must be for woman, the man must be for man,
+ * but the third voice must be for robot". The third was a woman's voice
+ * spoken flat — chosen on the reasoning that a machine is made by delivery
+ * rather than by timbre, which is true of what a voice *does* and says
+ * nothing about whose voice it is. Somebody choosing "a robot" from three
+ * options where the other two are a woman and a man is not asking for a third
+ * person. They are asking for a machine.
+ *
+ * klatt is that. It is not a recording of anybody and not modelled on one: it
+ * is the Klatt formant synthesiser, the sound of a machine speaking, and it
+ * belongs to no sex — which is the whole reason it is the right answer here
+ * and the reason it was not considered before.
+ *
+ * High, because that is what was asked for, and because a formant voice
+ * carries better high than low: the consonants sit above the vowels rather
+ * than under them.
+ *
+ * Andrea and the f-variants are still here, behind it, for an espeak build
+ * with no klatt at all — a worse robot rather than a different kind of thing.
+ */
+var TheRobot = []Delivery{
+	// klatt: the original synthesiser, and the plainest of them.
+	{Variant: "klatt", Words: 175, Pitch: 70},
+
+	// klatt3 and klatt5 differ in their formant tables rather than in
+	// anything done to the sound afterwards. Kept in order behind the first.
+	{Variant: "klatt3", Words: 175, Pitch: 70},
+	{Variant: "klatt5", Words: 175, Pitch: 70},
+
+	// And the old answer, for a build with no klatt: a woman's voice spoken
+	// flat, which is a machine by delivery if not by timbre.
+	{Variant: "Andrea", Words: 175, Pitch: 30},
+	{Variant: "f4", Words: 175, Pitch: 45},
+}
+
+/*
+ * TheWomanRobot is what the robot used to be, and is now what "a woman"
+ * means on a machine with no neural voice: a woman's voice, spoken flat.
  *
  * Two wrong answers preceded this one and both are worth keeping written down,
  * because each was wrong in a way that sounded reasonable.
@@ -72,6 +112,19 @@ var TheWomanRobot = []Delivery{
 }
 
 /*
+ * TheMan is what "a man" means without a neural voice.
+ *
+ * espeak's own default is a man, which is why the very first version of this
+ * — espeak run with no voice argument at all — sounded like one when a woman
+ * had been asked for. m1 rather than that default, so the choice is a choice
+ * rather than an absence.
+ */
+var TheMan = []Delivery{
+	{Variant: "m1", Words: 175, Pitch: 40},
+	{Variant: "m3", Words: 175, Pitch: 40},
+}
+
+/*
  * Delivery is one voice and how it is spoken.
  *
  * Per voice rather than one setting for all of them, because the variants
@@ -96,6 +149,12 @@ type Delivery struct {
 var (
 	variantOnce      sync.Once
 	chosenVoiceStyle Delivery
+
+	womanOnce  sync.Once
+	womanStyle Delivery
+
+	manOnce  sync.Once
+	manStyle Delivery
 )
 
 /*
@@ -106,20 +165,54 @@ var (
  */
 func Variant() string { return Style().Variant }
 
-// Style is the voice this machine can actually use and how to speak it, or an
-// empty one when espeak has none of them.
+// Style is the robot's voice on this machine, which is also the default.
 func Style() Delivery {
 	variantOnce.Do(func() {
-		for _, style := range TheWomanRobot {
-			if variantWorks(style.Variant) {
-				chosenVoiceStyle = style
-
-				return
-			}
-		}
+		chosenVoiceStyle = firstThatWorks(TheRobot)
 	})
 
 	return chosenVoiceStyle
+}
+
+/*
+ * StyleFor is the voice of one kind — robot, woman or man — on this machine.
+ *
+ * Three lists rather than one, because the three choices mean three different
+ * things: "the woman must be for woman, the man must be for man, but the
+ * third voice must be for robot". Before this there was one espeak voice for
+ * all of them, so a machine with no neural voices offered three buttons and
+ * one sound.
+ *
+ * Probed rather than assumed, and the answer kept: a variant that is not
+ * installed makes espeak fail outright, and which data files are beside it
+ * cannot change while the program runs.
+ */
+func StyleFor(kind string) Delivery {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "woman":
+		womanOnce.Do(func() { womanStyle = firstThatWorks(TheWomanRobot) })
+
+		return womanStyle
+
+	case "man":
+		manOnce.Do(func() { manStyle = firstThatWorks(TheMan) })
+
+		return manStyle
+
+	default:
+		return Style()
+	}
+}
+
+// firstThatWorks is the first of these voices espeak will actually accept.
+func firstThatWorks(styles []Delivery) Delivery {
+	for _, style := range styles {
+		if variantWorks(style.Variant) {
+			return style
+		}
+	}
+
+	return Delivery{}
 }
 
 // UseVariant fixes the variant, for a test that needs to know which one it is
@@ -129,9 +222,11 @@ func UseVariant(name string) {
 
 	chosenVoiceStyle = Delivery{Variant: name, Words: 175, Pitch: 30}
 
-	for _, style := range TheWomanRobot {
-		if style.Variant == name {
-			chosenVoiceStyle = style
+	for _, known := range [][]Delivery{TheRobot, TheWomanRobot, TheMan} {
+		for _, style := range known {
+			if style.Variant == name {
+				chosenVoiceStyle = style
+			}
 		}
 	}
 
@@ -178,7 +273,9 @@ func speakingAs(engine *Engine, text string) []string {
 
 	switch {
 	case strings.HasPrefix(engine.Command, "espeak"):
-		style := Style()
+		// Whichever kind is chosen, rather than the robot every time: three
+		// buttons that make one sound is three buttons that are lying.
+		style := StyleFor(CurrentVoice().Sex)
 
 		if style.Variant == "" {
 			return nil
