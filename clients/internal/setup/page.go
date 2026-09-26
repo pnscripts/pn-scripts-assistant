@@ -421,6 +421,10 @@ html.has-stage .wrap{position:relative;z-index:1}
 
   <div class="step" id="step-welcome">
     <h2>A private assistant, on your own computer</h2>
+    <!-- Written for this machine when there is a model here to write it, and
+         these words when there is not — which is the run this wizard exists
+         for. See welcome.go. -->
+    <div id="welcome-said">
     <p class="sub">It listens, answers, remembers what you tell it, and reads
       the files you point it at. All of that happens here — nothing you say
       leaves this machine unless you choose to use a paid service, and it goes
@@ -428,6 +432,7 @@ html.has-stage .wrap{position:relative;z-index:1}
     <p class="sub">Setting it up takes a few minutes and one large download.
       This will say what each piece is for, how big it is and where it goes,
       before it fetches anything.</p>
+    </div>
     <div id="welcome-cost"></div>
   </div>
 
@@ -1336,7 +1341,62 @@ function renderBrainChoice(state){
  * agreed to the shape of the thing. Said first instead, from the same sizes
  * the requirement cards carry, so it cannot drift from what actually happens.
  */
+/*
+ * askForTheWelcome replaces the opening with one written for this machine.
+ *
+ * Asked once, in the background, and the page keeps its own words until an
+ * answer arrives — or forever, on the run where there is no model yet to
+ * write one. Nobody waits: a wizard that sits blank while a local model
+ * composes a paragraph would be a worse first impression than a paragraph
+ * written eighteen months ago.
+ */
+let welcomeAsked = false;
+
+async function askForTheWelcome(){
+  if (welcomeAsked) return;
+  welcomeAsked = true;
+
+  let said = "";
+
+  /*
+   * Asked until it is written, then left alone.
+   *
+   * Writing a paragraph on a machine with no graphics card is a minute or
+   * two, so the first answer is usually "not yet". Nobody waits for it: the
+   * page shows the words it ships with and swaps them when one arrives. Six
+   * tries over two minutes, and then it keeps what it has — which is also
+   * what happens on the run where there is no model at all.
+   */
+  for (let tries = 0; tries < 6 && !said; tries++) {
+    try {
+      const r = await fetch("/welcome");
+      const answer = (await r.json()) || {};
+      said = (answer.text || "").trim();
+
+      if (!said && !answer.writing) return;
+    } catch { return; }
+
+    if (!said) await new Promise((r) => setTimeout(r, 20000));
+  }
+
+  if (!said) return;
+
+  const box = el("welcome-said");
+  if (!box) return;
+
+  box.textContent = "";
+
+  for (const part of said.split(/\n\n+/)) {
+    const p = document.createElement("p");
+    p.className = "sub";
+    p.textContent = part.trim();
+    box.appendChild(p);
+  }
+}
+
 function renderWelcome(state){
+  askForTheWelcome();
+
   const box = el("welcome-cost");
   if (!box) return;
 

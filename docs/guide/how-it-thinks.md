@@ -32,6 +32,31 @@ throws away everything it had already read.
 That last part is why the second question in a conversation is ten times
 faster than the first.
 
+## What it knows about your machine
+
+Every turn carries a short inventory — what is installed, what is here but not
+ready, and what is missing:
+
+```
+On this machine, now:
+Thinks with: Ollama 0.34.0
+Writes code with: Claude Code 2.1.215, Codex 0.155, Cursor's agent
+Languages: .NET 9.0.121, Go 1.26.6, Java 21.0.6, Node.js 22.23.2, PHP 8.4.25, Python 3.12.3
+Game engines: Godot 4.7.1, Unity
+…
+```
+
+That is why "can you make a Godot game" gets an answer about *your* Godot
+rather than about game engines in general, and why it can say that Claude Code
+is installed and signed out rather than behaving as though it did not exist.
+It is read at start-up, kept for ten minutes, and read again the moment you
+press **Look again** or switch something off.
+
+The tools it is offered for a given turn are chosen from the same reading: what
+every turn needs, what this conversation has already used, what your message
+plausibly needs, and a budget — because every tool description is read again on
+every turn, and on a machine with no graphics card that is minutes.
+
 ## Hosted models
 
 Keys for Anthropic, OpenAI, OpenRouter and the rest can be set in the System

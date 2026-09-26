@@ -33,6 +33,25 @@ the window, which has the same settings one at a time, plus:
 - **The applications menu**, if you built the program yourself rather than
   installing the package. Installed from the package it is already there and
   the button says so.
+- **What is on this machine** — every language, engine, editor, coding agent,
+  browser and tool it found, with its version and whether it is ready. This is
+  the same list the assistant is given when it answers, so the panel and the
+  program cannot disagree about whether Godot is installed.
+
+## Switching something off
+
+Everything found is available; nothing has to be enabled. If you would rather
+the assistant left something alone, press **Do not use** beside it in *What is
+on this machine*. That takes away the tools that depend on it too — switch off
+Godot and it stops offering to build Godot projects — and the permissions panel
+says which decision put a capability out of reach, rather than leaving you to
+guess between a privacy setting and your own.
+
+It is one line in the settings file, empty until you write in it:
+
+```
+BRAIN_TURNED_OFF=godot,service:openai
+```
 
 ## Settings that live in the environment
 

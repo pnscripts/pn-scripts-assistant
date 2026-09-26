@@ -48,6 +48,13 @@ type Server struct {
 	// the window. See Finished.
 	finished bool
 
+	/*
+	 * welcome is the opening written for this machine, and writingWelcome
+	 * that somebody is writing it. See welcome.go.
+	 */
+	welcome        string
+	writingWelcome bool
+
 	// voice is which of robot/man/woman was picked, so the page can show
 	// which one is chosen after a reload. The setting itself is written to
 	// the settings file the moment it is chosen; this is only the mark.
@@ -145,6 +152,10 @@ func (s *Server) Serve(onReady func()) {
 
 	// Whether it actually works, rather than whether it is installed.
 	mux.HandleFunc("/ready", s.handleReady)
+
+	// The opening, written for this machine when there is a model to write
+	// it. See welcome.go.
+	mux.HandleFunc("/welcome", s.handleWelcome)
 
 	// Who it is: a name to call it, and the language it should expect to hear.
 	mux.HandleFunc("/identity", func(w http.ResponseWriter, r *http.Request) {
