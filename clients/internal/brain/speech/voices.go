@@ -23,6 +23,19 @@ type Voice struct {
 	// not an answer to it — it is a list of names that has to be researched
 	// before it can be chosen from.
 	Sex string `json:"sex,omitempty"`
+
+	/*
+	 * Style is how a system voice is spoken: which espeak variant, how fast
+	 * and at what pitch. Nil for a neural voice, whose delivery is the model's
+	 * own, and nil for the three by-kind entries, which resolve to whichever
+	 * variant this machine has.
+	 *
+	 * Set on a voice somebody picked by name, and it has to be carried here
+	 * rather than looked up from the kind: "A robot · klatt2" and "A robot ·
+	 * klatt5" are both robots, and asking StyleFor("robot") for either of them
+	 * gives back the default and neither of the two.
+	 */
+	Style *Delivery `json:"-"`
 }
 
 /*
@@ -300,11 +313,14 @@ func Voices() []Voice {
 			name = "A robot (" + e.Name + " " + v + ")"
 		}
 
+		robot := Style()
+
 		out = append(out, Voice{
 			ID:     RobotVoice,
 			Sex:    "robot",
 			Name:   name,
 			Engine: e.Name,
+			Style:  &robot,
 		})
 
 		/*
@@ -321,6 +337,7 @@ func Voices() []Voice {
 				Sex:    "woman",
 				Name:   "A woman (" + e.Name + " " + style.Variant + ")",
 				Engine: e.Name,
+				Style:  &style,
 			})
 		}
 
@@ -330,8 +347,20 @@ func Voices() []Voice {
 				Sex:    "man",
 				Name:   "A man (" + e.Name + " " + style.Variant + ")",
 				Engine: e.Name,
+				Style:  &style,
 			})
 		}
+
+		/*
+		 * And every variant under its own name, below those three.
+		 *
+		 * Below them rather than instead of them: "a robot, a woman or a man"
+		 * is what most people are choosing between, and "klatt2 or klatt5" is
+		 * a question only somebody who has heard both can answer — which is
+		 * why these are here at all, and why picking one in the panel speaks
+		 * a line immediately. See eachvoice.go.
+		 */
+		out = append(out, EachVoice()...)
 	}
 
 	return out

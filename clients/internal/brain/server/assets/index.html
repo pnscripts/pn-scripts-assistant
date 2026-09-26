@@ -762,8 +762,9 @@
                                 <button type="button" class="model-action" data-sex="man">A man</button>
                             </div>
                             <small class="field-note">Picks the best installed voice of that
-                                kind and says a line so you can hear it. Particular voices are
-                                listed under Engine.</small>
+                                kind and says a line so you can hear it. Every voice one by one
+                                — each robot, each woman, each man — is under Engine, in the
+                                Voice list.</small>
                         </label>
                         <label class="field field-check">
                             <input id="set-always-listen" type="checkbox">
@@ -1029,6 +1030,11 @@
             <label class="field" id="voice-field" hidden>
                 <span>Voice</span>
                 <select id="voice" aria-label="Voice"></select>
+                <small class="field-note">Every voice this machine can speak in, one by one.
+                    The first three are the best robot, woman and man it has; the rest are
+                    named for what they are, so a particular one can be asked for again.
+                    Choosing one says a line immediately — a voice picked from a list of
+                    names without hearing it is picked blind.</small>
             </label>
             <label class="field" id="microphone-field" hidden>
                 <span>Microphone</span>

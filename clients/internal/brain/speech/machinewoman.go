@@ -55,13 +55,34 @@ import (
  * with no klatt at all — a worse robot rather than a different kind of thing.
  */
 var TheRobot = []Delivery{
-	// klatt: the original synthesiser, and the plainest of them.
-	{Variant: "klatt", Words: 175, Pitch: 70},
+	/*
+	 * klatt4 at 45, chosen by ear against five others.
+	 *
+	 * The first answer here was klatt at 70 — high, because high was asked
+	 * for — and it was rejected on hearing it: too thin and too chirpy to
+	 * read as a machine. Then klatt4 at 45, and that was still too high.
+	 * Fifteen is where it stopped: hard and electronic, low enough to have
+	 * some weight behind it, and still espeak's own pitch control rather
+	 * than anything done to the audio.
+	 *
+	 * Three goes, each decided by listening to it. "High" was a guess at the
+	 * sound rather than a description of it, which is why none of this could
+	 * be settled by reading.
+	 *
+	 * Nothing is done to the audio. A ring modulator was tried alongside
+	 * these — it is the obvious way to make a voice electronic, and it is
+	 * also how every earlier attempt at a robot here ended up unintelligible.
+	 * It was not needed: the hardness is in the synthesiser, and a voice that
+	 * is hard because of its formants is still a voice you can follow.
+	 */
+	{Variant: "klatt4", Words: 175, Pitch: 15},
 
-	// klatt3 and klatt5 differ in their formant tables rather than in
-	// anything done to the sound afterwards. Kept in order behind the first.
-	{Variant: "klatt3", Words: 175, Pitch: 70},
-	{Variant: "klatt5", Words: 175, Pitch: 70},
+	// The others in the family, for a build whose espeak has no klatt4.
+	// Different formant tables rather than different treatments.
+	{Variant: "klatt2", Words: 175, Pitch: 15},
+	{Variant: "klatt", Words: 175, Pitch: 15},
+	{Variant: "klatt3", Words: 175, Pitch: 15},
+	{Variant: "klatt5", Words: 175, Pitch: 15},
 
 	// And the old answer, for a build with no klatt: a woman's voice spoken
 	// flat, which is a machine by delivery if not by timbre.
@@ -204,6 +225,53 @@ func StyleFor(kind string) Delivery {
 	}
 }
 
+/*
+ * chosenStyle is how the voice in use is spoken.
+ *
+ * A voice picked by name carries its own delivery and is used exactly as
+ * picked; one of the three by-kind choices resolves to whichever variant this
+ * machine has. Without this, every one of the thirty voices somebody can now
+ * choose from would be read in the default of its kind — the list would
+ * change, the sound would not, and nothing would say why.
+ */
+func chosenStyle() Delivery {
+	chosen := CurrentVoice()
+
+	if chosen.Style != nil {
+		return *chosen.Style
+	}
+
+	return StyleFor(chosen.Sex)
+}
+
+/*
+ * preferredStyles is the voices to ask for, best first, for an engine that
+ * cannot be asked whether it took the first one.
+ *
+ * The one chosen, then the rest of its kind. This used to be the women's list
+ * whatever had been chosen, so speech-dispatcher answered in a woman's voice
+ * to somebody who had asked for a man — silently, because spd-say exits zero
+ * either way.
+ */
+func preferredStyles() []Delivery {
+	chosen := CurrentVoice()
+
+	var out []Delivery
+
+	if chosen.Style != nil {
+		out = append(out, *chosen.Style)
+	}
+
+	switch chosen.Sex {
+	case "woman":
+		return append(out, TheWomanRobot...)
+	case "man":
+		return append(out, TheMan...)
+	default:
+		return append(out, TheRobot...)
+	}
+}
+
 // firstThatWorks is the first of these voices espeak will actually accept.
 func firstThatWorks(styles []Delivery) Delivery {
 	for _, style := range styles {
@@ -273,9 +341,10 @@ func speakingAs(engine *Engine, text string) []string {
 
 	switch {
 	case strings.HasPrefix(engine.Command, "espeak"):
-		// Whichever kind is chosen, rather than the robot every time: three
-		// buttons that make one sound is three buttons that are lying.
-		style := StyleFor(CurrentVoice().Sex)
+		// Whichever voice is chosen, rather than the robot every time: three
+		// buttons that make one sound is three buttons that are lying, and a
+		// list of thirty variants that all make one sound is worse.
+		style := chosenStyle()
 
 		if style.Variant == "" {
 			return nil
@@ -299,16 +368,33 @@ func speakingAs(engine *Engine, text string) []string {
 		 * which is the same trap that once had this program reporting speech
 		 * while producing nothing at all.
 		 */
-		if named := spdVoice(espeakLanguage(text)); named != "" {
+		if named := spdVoice(espeakLanguage(text), preferredStyles()); named != "" {
 			return []string{"-y", named}
 		}
 
 		// Nothing matched. A voice type is coarser — female rather than a
-		// particular machine — and it is closer than the default.
-		return []string{"-t", "female1"}
+		// particular machine — and it is closer than the default. Of the kind
+		// chosen, though: "female1" whatever had been asked for was how a
+		// man's voice came out as a woman's here.
+		return []string{"-t", spdType(CurrentVoice().Sex)}
 	}
 
 	return nil
+}
+
+/*
+ * spdType is the coarse voice speech-dispatcher understands, for a kind.
+ *
+ * It has no robot, so a robot asks for the same synthetic voice a woman does —
+ * which is what speech-dispatcher's espeak sounds like anyway, and is the
+ * closest thing to a machine in a list of three sexes.
+ */
+func spdType(kind string) string {
+	if kind == "man" {
+		return "male1"
+	}
+
+	return "female1"
 }
 
 // espeakLanguage is which language espeak should read this in. Cyrillic means
@@ -341,10 +427,10 @@ type spdOption struct{ name, language, variant string }
  * Asked once. The list is a subprocess and several hundred lines, and it
  * cannot change while the program runs any more than the installed data can.
  */
-func spdVoice(language string) string {
+func spdVoice(language string, styles []Delivery) string {
 	spdOnce.Do(readSpdVoices)
 
-	for _, style := range TheWomanRobot {
+	for _, style := range styles {
 		want := style.Variant
 
 		for _, code := range asked(language) {
