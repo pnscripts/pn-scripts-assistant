@@ -122,12 +122,6 @@ Written here rather than discovered by somebody who assumed otherwise:
   toolchain (read from `go.mod`, so it is the same everywhere) and the Debian
   libraries installed on the build machine, which decide the `Depends` line. A
   different Ubuntu release will legitimately produce a different package.
-- **The default branch is not protected.** GitHub refuses branch protection on
-  a private repository without a paid plan, so the CI checks are not yet
-  *required* on `main` — they run, and nothing enforces that they passed. This
-  becomes available, free, the day the repository is public, and
-  [ADR 0006](docs/decisions/0006-what-a-stranger-can-check.md) records the
-  settings to apply.
 - **No third party has audited this.** The audits in `docs/audit/` are the
   maintainer's own, written to a fixed vocabulary that distinguishes what was
   measured from what was merely implemented. They are honest, and they are not

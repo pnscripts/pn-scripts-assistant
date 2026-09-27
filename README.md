@@ -359,6 +359,8 @@ gets to say.
   a published number.
 - **Every action in CI is pinned to a commit**, not to a tag somebody could
   move, and only the job that publishes a release can write anything.
+- **`main` requires those checks to have passed**, and refuses force-pushes and
+  deletion.
 - **The audits in [docs/audit/](docs/audit/)** use a fixed vocabulary —
   VERIFIED, IMPLEMENTED — NOT VERIFIED, BROKEN — so what was measured is
   distinguishable from what was merely written. They are the maintainer's own;

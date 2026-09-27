@@ -121,17 +121,16 @@ about the last.
 The provenance chain trusts GitHub. If the workflow file itself is changed by
 somebody who should not have changed it, the attestation faithfully records
 that a compromised workflow built the file. Branch protection on `main` is what
-would close most of that, and it is **not in place** — not from neglect:
-GitHub refuses it on a private repository without a paid plan.
+closes most of that, and for a while it could not be had at all — GitHub
+refuses it on a private repository without a paid plan, with a 403 that says
+so. Making the repository public made it free, and it is now on: the six
+substantive CI checks required, force-pushes and deletion refused.
 
-    Upgrade to GitHub Pro or make this repository public to enable this
-    feature. (HTTP 403)
-
-So it costs nothing the day this repository becomes public, and until then it
-cannot be had at all. The settings to apply then, already decided: the CI
-checks required on `main`, force-pushes and deletion refused. Written down
-here so it is a step somebody takes rather than a thing everyone assumes was
-done.
+Admins are deliberately *not* held to it. On a project with one maintainer,
+enforcing it on them means locking the only person who can fix something out
+of fixing it at three in the morning. That is a trade, it is the wrong one for
+a larger project, and it is written here rather than left as a box somebody
+notices is unticked.
 
 The connection list checks the source, not the binary. A host assembled at
 runtime from pieces would not appear in it. That is a real limit, it is stated
