@@ -104,6 +104,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ubuntu-deb
+          if-no-files-found: error
           path: |
             build/packages/*.deb
             build/packages/SHA256SUMS
@@ -163,7 +164,10 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: clients/dist/*
+          # dist/, not clients/dist/. The builds run with working-directory
+          # clients and write to "../dist", which is the repository root.
+          path: dist/*
+          if-no-files-found: error
 
   # The macOS download: the bundle, the tarball and the disk image.
   #
@@ -202,6 +206,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: macos-packages
+          if-no-files-found: error
           path: |
             build/packages/*.dmg
             build/packages/*.tar.gz
@@ -250,6 +255,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows-packages
+          if-no-files-found: error
           path: |
             build/packages/*.exe
             build/packages/*.zip
@@ -291,7 +297,8 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: desktop-${{ matrix.target }}
-          path: clients/dist/*
+          path: dist/*
+          if-no-files-found: error
 
   release:
     name: Publish release

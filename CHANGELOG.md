@@ -6,6 +6,25 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## 0.2.1 — 2026-09-27
+
+Six jobs had been uploading nothing and passing.
+
+The first release exposed it, which is the only thing that could have: the
+publish job went looking for five sets of artifacts and found three. The CLI
+and the doctor, for all five systems, and the Linux desktop binary, were built
+with `working-directory: clients` and written to `../dist` — the repository
+root — while the upload step looked in `clients/dist`. It found no files, said
+so in a line nobody reads, and reported success.
+
+`if-no-files-found: error` on every upload in the workflow now, which is the
+half of this fix that matters. The path was one wrong word; a step that can
+find nothing and call it a success is a shape that will be wrong again.
+
+0.2.0's downloads were complete for anybody installing it — the package, the
+disk images and the Windows installer were all there. What was missing is the
+command-line tools beside them.
+
 ## 0.2.0 — 2026-09-27
 
 The first release anybody outside this machine can download.
