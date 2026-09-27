@@ -216,7 +216,7 @@ func TestTheSecondAttemptIsToldWhatWasWrong(t *testing.T) {
 
 	var told bool
 
-	for _, req := range model.asked {
+	for _, req := range model.Asked() {
 		if planning(req) || checking(req) {
 			continue
 		}

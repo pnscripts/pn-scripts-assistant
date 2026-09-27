@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,9 +24,20 @@ import (
 	"pn-scripts-assistant/internal/protocol"
 )
 
-// scripted answers with queued replies, so a whole task can be driven without
-// a model.
+/*
+ * scripted answers with queued replies, so a whole task can be driven without
+ * a model.
+ *
+ * Everything on it is behind a mutex, and that is not defensive tidiness. A
+ * task that hands work on starts a job of its own, and that job's goroutine
+ * goes on calling this after the parent task has settled — so the test reading
+ * `asked` to see what the model was shown races the delegate still writing to
+ * it. `-race` in CI caught it on a docs-only commit, intermittently, which is
+ * exactly how long a flake like this would otherwise have taken to find.
+ */
 type scripted struct {
+	mu sync.Mutex
+
 	replies []llm.Response
 	asked   []llm.Request
 
@@ -42,6 +54,9 @@ func (s *scripted) Name() string                   { return "scripted" }
 func (s *scripted) Available(context.Context) bool { return true }
 
 func (s *scripted) Chat(_ context.Context, req llm.Request) (llm.Response, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.asked = append(s.asked, req)
 
 	/*
@@ -82,6 +97,20 @@ func (s *scripted) Chat(_ context.Context, req llm.Request) (llm.Response, error
 	s.replies = s.replies[1:]
 
 	return r, nil
+}
+
+/*
+ * Asked is what the model was shown, copied under the lock.
+ *
+ * A copy rather than the slice itself: handing the slice back would move the
+ * race rather than fix it, since the caller would then range over something a
+ * delegate can still append to.
+ */
+func (s *scripted) Asked() []llm.Request {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return append([]llm.Request(nil), s.asked...)
 }
 
 func checking(req llm.Request) bool {
@@ -549,13 +578,15 @@ func TestAStepIsGivenABriefRatherThanTheConversation(t *testing.T) {
 
 	settled(t, db, task.ID)
 
-	if len(model.asked) == 0 {
+	asked := model.Asked()
+
+	if len(asked) == 0 {
 		t.Fatal("the model was never asked anything")
 	}
 
 	var whole string
 
-	for _, m := range model.asked[0].Messages {
+	for _, m := range asked[0].Messages {
 		whole += m.Content
 	}
 

@@ -127,7 +127,7 @@ func TestAnAgentIsRefusedToolsThatAreNotItsOwn(t *testing.T) {
 	// It was told no, in words, rather than the turn failing.
 	var told bool
 
-	for _, req := range model.asked {
+	for _, req := range model.Asked() {
 		for _, m := range req.Messages {
 			if m.Role == llm.RoleTool && strings.Contains(m.Content, "not one of the tools") {
 				told = true
@@ -170,7 +170,7 @@ func TestAnAgentIsOnlyShownItsOwnTools(t *testing.T) {
 
 	var offered []string
 
-	for _, req := range model.asked {
+	for _, req := range model.Asked() {
 		if planning(req) || checking(req) {
 			continue
 		}
@@ -368,7 +368,7 @@ func TestAStepIsToldWhichPartOfTheWorkItIs(t *testing.T) {
 
 	var whole string
 
-	for _, req := range model.asked {
+	for _, req := range model.Asked() {
 		if planning(req) || checking(req) {
 			continue
 		}
@@ -431,7 +431,7 @@ func TestThePlannerIsShownAShortlistAndNotTheRoster(t *testing.T) {
 
 	shown := ""
 
-	for _, req := range model.asked {
+	for _, req := range model.Asked() {
 		if !planning(req) {
 			continue
 		}

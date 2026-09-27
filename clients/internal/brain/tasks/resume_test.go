@@ -211,7 +211,7 @@ func TestRefusingIsCarriedForward(t *testing.T) {
 	// And the step after it was told.
 	var told bool
 
-	for _, req := range model.asked {
+	for _, req := range model.Asked() {
 		if planning(req) || checking(req) {
 			continue
 		}

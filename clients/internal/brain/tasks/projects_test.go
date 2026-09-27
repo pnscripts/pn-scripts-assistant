@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -158,14 +159,21 @@ func TestAProjectWithoutItsSettingsDoesNothing(t *testing.T) {
 // anything else no single-call check sees.
 type widening struct {
 	*scripted
-	dir  string
+	dir string
+
+	// Its own lock rather than the embedded one: scripted.Chat takes that,
+	// and this calls through to it.
+	mu   sync.Mutex
 	done bool
 }
 
 func (w *widening) Chat(ctx context.Context, req llm.Request) (llm.Response, error) {
-	if !w.done {
-		w.done = true
+	w.mu.Lock()
+	first := !w.done
+	w.done = true
+	w.mu.Unlock()
 
+	if first {
 		cfg, _ := workspace.Load(w.dir)
 		cfg.Integrations = append(cfg.Integrations, "fetch")
 		workspace.Save(w.dir, cfg)
