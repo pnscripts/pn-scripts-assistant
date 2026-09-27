@@ -1,7 +1,7 @@
 # Roadmap
 
 **Where this actually is, as of 23 September 2026.** The program is released as
-an Ubuntu package: `0.1.0`, installable with `apt`, in the applications menu,
+an Ubuntu package, installable with `apt`, in the applications menu,
 with a manual page and an audit behind it. What that release contains and what
 it does not is in [the release notes](RELEASE-NOTES-0.1.0.md); what was
 measured to get there is in [docs/audit/](audit/); how to install, configure

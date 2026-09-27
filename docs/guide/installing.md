@@ -27,7 +27,7 @@ brings in what the window needs.
 ### From the package
 
 ```bash
-sudo apt install ./pn-scripts-assistant_0.1.0_amd64.deb
+sudo apt install ./pn-scripts-assistant_*_amd64.deb
 ```
 
 Check first, if you like, that the file is the one that was built:

@@ -158,7 +158,7 @@ it was built from. Check any download with nothing installed but the GitHub
 CLI:
 
 ```bash
-gh attestation verify pn-scripts-assistant_0.1.0_amd64.deb --repo pnscripts/pn-scripts-assistant
+gh attestation verify pn-scripts-assistant_*_amd64.deb --repo pnscripts/pn-scripts-assistant
 ```
 
 Nothing is signed with a code-signing certificate — an Apple one and a Windows
