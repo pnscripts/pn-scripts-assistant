@@ -6,6 +6,22 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## 0.2.2 — 2026-09-27
+
+Every action in both workflows on its current major, and pinned to a commit.
+
+These four were held back on purpose: they run only in the job that publishes
+a release, which nothing but a real release can exercise, and merging an
+untested change into the path that signs and publishes downloads is how a
+release day goes wrong. They go in here because this release is the thing that
+tests them — `download-artifact`, `action-gh-release` and
+`attest-build-provenance` all ran to produce the files beside this note.
+
+`main` also holds admins to its checks now. It did not, and the consequence
+was not theoretical: a commit that failed CI reached `main` because the person
+pushing it could bypass the rule. A protection with a hole in it for whoever
+is most likely to be in a hurry is not much of a protection.
+
 ## 0.2.1 — 2026-09-27
 
 Six jobs had been uploading nothing and passing.

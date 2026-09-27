@@ -126,11 +126,19 @@ refuses it on a private repository without a paid plan, with a 403 that says
 so. Making the repository public made it free, and it is now on: the six
 substantive CI checks required, force-pushes and deletion refused.
 
-Admins are deliberately *not* held to it. On a project with one maintainer,
-enforcing it on them means locking the only person who can fix something out
-of fixing it at three in the morning. That is a trade, it is the wrong one for
-a larger project, and it is written here rather than left as a box somebody
-notices is unticked.
+Admins were, at first, deliberately *not* held to it — the reasoning being
+that on a one-maintainer project, enforcing the rule on the maintainer locks
+the only person who can fix something out of fixing it.
+
+That lasted one commit. CI went red on a change that touched three markdown
+files, the push to `main` went through anyway, and `main` carried a failing
+commit because the exception existed. The reasoning was not wrong about the
+three-in-the-morning case; it was wrong about which case actually happens. An
+admin in a hurry is not the exception to a rule about not shipping red, it is
+the reason for it.
+
+Admins are held to it now. The escape hatch is turning the setting off, which
+takes one call and leaves a record that it was turned off.
 
 The connection list checks the source, not the binary. A host assembled at
 runtime from pieces would not appear in it. That is a real limit, it is stated
