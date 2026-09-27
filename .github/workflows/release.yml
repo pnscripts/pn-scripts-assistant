@@ -101,7 +101,7 @@ jobs:
       - name: Checksums
         run: make checksums
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ubuntu-deb
           if-no-files-found: error
@@ -161,7 +161,7 @@ jobs:
           CGO_ENABLED: '0'
         run: go build -trimpath -ldflags="-s -w" -o "../dist/pn-scripts-assistant-cli-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" ./cmd/cli
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
           # dist/, not clients/dist/. The builds run with working-directory
@@ -203,7 +203,7 @@ jobs:
             hdiutil imageinfo "$dmg" >/dev/null || exit 1
           done
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: macos-packages
           if-no-files-found: error
@@ -252,7 +252,7 @@ jobs:
           ls -l build/packages
           ls build/packages/*-windows-setup.exe >/dev/null
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-packages
           if-no-files-found: error
@@ -294,7 +294,7 @@ jobs:
           CGO_ENABLED: '1'
         run: go build -trimpath -ldflags="-s -w" -o "../dist/pn-scripts-assistant-${{ matrix.target }}${{ matrix.ext }}" ./cmd/pn-scripts-assistant
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: desktop-${{ matrix.target }}
           path: dist/*
