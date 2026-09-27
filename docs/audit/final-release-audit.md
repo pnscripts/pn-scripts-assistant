@@ -213,9 +213,10 @@ Carried forward deliberately, each with its severity.
   a GitHub runner and this desktop from one commit and gated in CI; the install lifecycle has been run
   end to end; CI now runs on every push and pull request rather than only on a
   tag; every released file carries a signed provenance attestation.
-- **Open:** no automated test installs the package; hosted AI providers are
-  tested against fakes only; the tunnel and paired devices have never been
-  exercised across the internet.
+- **Open:** hosted AI providers are tested against fakes only; the tunnel and
+  paired devices have never been exercised across the internet. (The package
+  install is no longer on this list: CI installs, upgrades and removes it on
+  every push, in a root of dpkg's own — see `installs` in ci.yml.)
 
 ## Release readiness
 

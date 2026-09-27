@@ -21,8 +21,9 @@ nothing fails and nothing is visibly wrong. That has cost an afternoon more
 than once.
 
 CI runs the same checks on every push and every pull request, plus the race
-detector, a cross-compile for each system, `govulncheck`, and the `.deb` built
-and put through `lintian`. If it is red, it is red for a reason.
+detector, a cross-compile for each system, `govulncheck`, and the `.deb` built,
+put through `lintian`, built a second time and compared, then installed,
+upgraded over and removed. If it is red, it is red for a reason.
 
 ## What a change should carry
 

@@ -75,9 +75,15 @@ recall, the Extractor/Validator/Curator pipeline, the project and document
 scanners, the agent loop with its approval gate, filesystem and web tools, Home
 Assistant, lesson review, and the memory map.
 
-One binary, one SQLite file. 137 tests.
+One binary, one SQLite file. 163,000 lines of Go, 44,000 of them tests, across
+1,307 test functions and 71 packages.
 
 ## Capabilities today
+
+*A selection — the assistant now carries far more than this, and says so
+itself: ask it what it can do and the answer is built from what is actually
+installed rather than from a list written here. These are the ones whose
+guards are worth explaining.*
 
 | Tool | Risk | Notes |
 |---|---|---|
@@ -129,19 +135,31 @@ This matters more than it sounds. Measured against `qwen2.5-coder:7b` and
 — `llama3.2:3b` called `write_file` in response to "Hello, how are you?". The
 gate is what makes a badly behaved model annoying rather than dangerous.
 
+## Done since this list was written
+
+- **The native window**, on Linux. GTK3 and WebKitGTK 4.1, built with cgo, and
+  the `.deb` declares the libraries so `apt` brings them in.
+- **Voice**, both halves. It hears the room until you stop talking, answers,
+  reads the answer aloud and listens again. The voice it answers in is
+  chosen in the program from every one the machine can speak in.
+- **An installer for every system.** A `.deb`, a macOS `.dmg`, a Windows
+  installer, each built on the system it belongs to, and the package is
+  byte-for-byte reproducible between two machines.
+
 ## Still to do
 
-- **The native window on this machine.** The code is there and builds, but needs
-  `libwebkit2gtk-4.1-dev` and `libgtk-3-dev` installed. Without them the brain
-  serves its interface and says what is missing.
 - **Windows and macOS windows.** WebView2 and WKWebView, each needing
   platform-native code — which is where another language genuinely earns its
-  place. A mobile client would talk to the same HTTP API.
+  place. On both systems today it runs and serves its interface to the
+  browser. A mobile client would talk to the same HTTP API.
 - **Multi-drive expansion.** A drive registry in the data root, so the brain can
   grow across several disks instead of being rebuilt when one fills.
 - **More ingestion.** Browser history and email are the obvious next sources.
   Email needs OAuth, which is not something to set up silently.
-- **Voice.**
+- **Hosted providers, tested against something real.** Every one of the twelve
+  is tested against a fake. Nobody has watched one answer.
+- **The tunnel and paired devices, across the internet.** Both work on one
+  network. Neither has been used the way they are meant to be used.
 
 ## Two things measurement changed
 

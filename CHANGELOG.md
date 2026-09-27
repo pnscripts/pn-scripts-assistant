@@ -6,11 +6,14 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
-## Unreleased
+## 0.2.0 — 2026-09-27
 
-Everything below is on `dev` and not in a release yet. It is a lot, because
-0.1.0 was the first version that could be installed at all and this is the
-work that made it something to keep using.
+The first release anybody outside this machine can download.
+
+It is a large one, and the reason is in the version number below: 0.1.0 was
+prepared — it has notes, it has a package — and was never published. There was
+no tag and no release, so the README pointed at an empty page. Everything
+built since then arrives here at once.
 
 ### It can do more
 
@@ -83,10 +86,12 @@ work that made it something to keep using.
   because a project that reads people's files should say how to report a fault
   in it before somebody has to ask.
 
-## 0.1.0
+## 0.1.0 — prepared, never published
 
-The first release that could be installed rather than built: an Ubuntu
-package, a native window, and a brain that remembers.
+The first version that could be installed rather than built: an Ubuntu
+package, a native window, and a brain that remembers. It was built and
+checked, and no tag was ever pushed, so it never reached a releases page.
+Kept here because the work is real and 0.2.0 stands on it.
 
 The full notes are in
 [docs/RELEASE-NOTES-0.1.0.md](docs/RELEASE-NOTES-0.1.0.md).

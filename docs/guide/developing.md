@@ -56,6 +56,7 @@ On every push and every pull request, in
 | Builds for … | a build for each of the five systems, and the no-window packages tested with cgo off |
 | Known vulnerabilities | `govulncheck` |
 | The package | the `.deb` built, put through `lintian`, then **built again and compared** |
+| The package installs | it is installed, upgraded over and removed, in a root of dpkg's own |
 | Shell scripts | `shellcheck --severity=error` |
 
 `make ci` runs the same things here, in the same order. It is slow — several

@@ -239,6 +239,73 @@ jobs:
           name: package-from-ci
           path: build/packages/*.deb
 
+  # The package installs, upgrades and removes.
+  #
+  # The audit has carried "no automated test installs the package" as an open
+  # item since there was an audit. It was done by hand once, which answers the
+  # question for one afternoon and not for the next change.
+  #
+  # dpkg will do all three as an ordinary user into a directory of its own, so
+  # this needs no root and no container. --force-script-chrootless is the one
+  # that matters: without it dpkg tries to chroot before running maintainer
+  # scripts and needs root to do it. --force-depends because the fake root has
+  # no libraries in it; what is being tested here is the package's own file
+  # handling, and apt's dependency resolution is tested by apt.
+  installs:
+    needs: package
+    name: The package installs, upgrades and removes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: package-from-ci
+          path: package
+
+      - name: Install, upgrade, remove
+        run: |
+          set -euo pipefail
+
+          deb="$(ls package/*.deb)"
+          root="$(mktemp -d)"
+
+          mkdir -p "$root/root" "$root/admin/info" "$root/admin/updates" "$root/admin/triggers"
+          : > "$root/admin/status"
+
+          # --log, because the default is /var/log/dpkg.log and this is not root.
+          run_dpkg() {
+            dpkg --force-not-root --force-script-chrootless --force-depends \
+                 --instdir="$root/root" --admindir="$root/admin" \
+                 --log="$root/dpkg.log" "$@"
+          }
+
+          # A copy with a later version, so the upgrade is an upgrade rather
+          # than the same package installed twice.
+          dpkg-deb -R "$deb" "$root/next"
+          sed -i 's/^Version: .*/&+next/' "$root/next/DEBIAN/control"
+          dpkg-deb --build "$root/next" "$root/next.deb" >/dev/null
+
+          echo "--- install"
+          run_dpkg -i "$deb"
+          installed="$(find "$root/root" -type f | wc -l)"
+          echo "    $installed files"
+          test "$installed" -gt 0
+          test -x "$root/root/usr/bin/pn-scripts-assistant"
+          test -f "$root/root/usr/share/applications/pn-scripts-assistant.desktop"
+          test -f "$root/root/usr/share/doc/pn-scripts-assistant/copyright"
+
+          echo "--- upgrade"
+          run_dpkg -i "$root/next.deb"
+          upgraded="$(find "$root/root" -type f | wc -l)"
+          echo "    $upgraded files"
+          # The same files, not those plus the old ones left behind.
+          test "$upgraded" -eq "$installed"
+
+          echo "--- remove"
+          run_dpkg -r pn-scripts-assistant
+          left="$(find "$root/root" -type f | wc -l)"
+          echo "    $left files left"
+          test "$left" -eq 0
+
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting
   # preferences is a gate people start ignoring.
