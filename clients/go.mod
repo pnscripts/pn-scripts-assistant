@@ -4,7 +4,7 @@
 // knows — duplicating that would guarantee the two drift apart.
 module pn-scripts-assistant
 
-go 1.25.0
+go 1.26.0
 
 // The toolchain this is built with, pinned rather than left to whatever the
 // machine happens to have.
@@ -22,7 +22,7 @@ toolchain go1.26.6
 
 require (
 	github.com/yalue/onnxruntime_go v1.36.0
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.48.0
 	modernc.org/sqlite v1.59.0
 )
 
