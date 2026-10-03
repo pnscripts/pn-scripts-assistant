@@ -35,12 +35,15 @@ type Variant struct {
 	Size string `json:"size,omitempty"`
 
 	// NeedsGB is roughly what it wants in memory while it runs. An estimate,
-	// and the interface says so.
+	// and the interface says so. Zero when it cannot be worked out.
 	NeedsGB float64 `json:"needs_gb"`
 
-	Installed bool   `json:"installed"`
-	Fits      bool   `json:"fits"`
-	Verdict   string `json:"verdict"`
+	Installed bool `json:"installed"`
+	Fits      bool `json:"fits"`
+
+	// Verdict is what this machine would make of it; empty when there was
+	// nothing to judge it by.
+	Verdict string `json:"verdict"`
 }
 
 // Listed is one model with every size it comes in.
@@ -109,10 +112,27 @@ func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
 	 */
 	power := models.WhatItCanRun(r.Context(), client)
 
+	ok(w, map[string]any{
+		"machine": power.Describe(),
+		"tier":    string(power.Tier()),
+		"models":  listCatalogue(library, installed, power),
+	})
+}
+
+/*
+ * listCatalogue is every model in every size, each judged against this machine.
+ *
+ * A model published in one size only is listed under its bare name. When the
+ * size is not a parameter count there is nothing to judge it by, so it gets no
+ * estimate and no verdict rather than a made-up one: the interface shows what
+ * is known and leaves the rest blank, and an embedding model is small enough
+ * that the answer does not depend on its size.
+ */
+func listCatalogue(library []catalogue.Model, installed map[string]bool, power models.Power) []Listed {
 	out := make([]Listed, 0, len(library))
 
 	for _, m := range library {
-		listed := Listed{Name: m.Name, What: m.What, Can: m.Can}
+		listed := Listed{Name: m.Name, What: m.What, Can: m.Can, Variants: []Variant{}}
 
 		sizes := m.Sizes
 
@@ -133,16 +153,21 @@ func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
 				Size:      size,
 				NeedsGB:   catalogue.MemoryFor(size),
 				Installed: installed[name],
+				// Not refused for want of a number: a size nobody can judge
+				// is offered plainly, without a warning it has not earned.
+				Fits: true,
 			}
 
-			// An embedding model is small and runs once per thing remembered;
-			// the size list is usually empty and the machine is never the
-			// limit.
-			if m.Embedding() || v.NeedsGB == 0 {
+			switch {
+			case m.Embedding():
+				// Small, and run once per thing remembered; the machine is
+				// never the limit.
 				v.NeedsGB = 1
-			}
+				v.Fits, v.Verdict = judge(v.NeedsGB, true, power)
 
-			v.Fits, v.Verdict = judge(v.NeedsGB, m.Embedding(), power)
+			case v.NeedsGB > 0:
+				v.Fits, v.Verdict = judge(v.NeedsGB, false, power)
+			}
 
 			listed.AnyInstalled = listed.AnyInstalled || v.Installed
 			listed.Variants = append(listed.Variants, v)
@@ -151,11 +176,7 @@ func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
 		out = append(out, listed)
 	}
 
-	ok(w, map[string]any{
-		"machine": power.Describe(),
-		"tier":    string(power.Tier()),
-		"models":  out,
-	})
+	return out
 }
 
 /*

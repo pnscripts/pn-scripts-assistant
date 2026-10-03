@@ -478,9 +478,15 @@
              * Every verdict below is about this computer and nothing else, and
              * saying which computer is what makes them read as measurements
              * rather than as opinions somebody typed once.
+             *
+             * With looking things up switched off there is no list and no
+             * machine reading, only the reason — which is the thing to show,
+             * not "This machine: undefined".
              */
-            machine.textContent = `This machine: ${data.machine}. `
-                + 'What each one would be like here is worked out from that.';
+            machine.textContent = data.machine
+                ? `This machine: ${data.machine}. `
+                    + 'What each one would be like here is worked out from that.'
+                : (data.why || '');
         }
 
         host.textContent = '';
@@ -488,72 +494,152 @@
         for (const m of data.models || []) host.appendChild(modelRow(m));
     }
 
+    /*
+     * Which size to show first.
+     *
+     * The one already here, because somebody who has a model came to look at
+     * it; otherwise the largest that fits, because among the sizes this
+     * machine can run the larger is usually the better answer; otherwise the
+     * smallest, which is the nearest thing to fitting.
+     */
+    function firstChoice(variants) {
+        const here = variants.find((v) => v.installed);
+
+        if (here) return here;
+
+        const fitting = variants.filter((v) => v.fits);
+
+        return fitting.length ? fitting[fitting.length - 1] : variants[0];
+    }
+
+    /*
+     * What is known about one size, and nothing that is not.
+     *
+     * The library publishes parameter counts, not download sizes, so there is
+     * no download size to quote. What it wants in memory is an estimate and
+     * says so; a size this cannot judge simply has no verdict. A blank is
+     * honest; "undefined to download" was not.
+     */
+    function variantNote(v) {
+        const parts = [];
+
+        if (v.needs_gb > 0) parts.push(`wants about ${Math.ceil(v.needs_gb)}GB while running`);
+        if (v.verdict) parts.push(v.verdict);
+
+        return parts.join(' · ');
+    }
+
+    /*
+     * One row per model, with its sizes in a list beside it.
+     *
+     * The library answers with a model and the sizes it comes in, and each
+     * size is a different download with a different verdict. This used to read
+     * a flat model with a size and a verdict of its own — a shape the server
+     * stopped sending — so every row said "undefined".
+     */
     function modelRow(m) {
+        const variants = m.variants || [];
+
         const row = document.createElement('div');
         row.className = 'permit';
-        row.dataset.state = m.installed ? 'ok' : (m.fits ? '' : 'missing');
 
         const text = document.createElement('span');
         text.className = 'permit-text';
 
         const name = document.createElement('span');
         name.className = 'permit-name';
-        name.textContent = `${m.name} · ${m.job}`;
+        name.textContent = m.can && m.can.length ? `${m.name} · ${m.can.join(', ')}` : m.name;
+        text.appendChild(name);
 
-        const what = document.createElement('span');
-        what.className = 'permit-what';
-        what.textContent = m.what;
+        if (m.what) {
+            const what = document.createElement('span');
+            what.className = 'permit-what';
+            what.textContent = m.what;
+            what.title = m.what;
+            text.appendChild(what);
+        }
 
         const note = document.createElement('span');
         note.className = 'permit-note';
-        note.textContent = `${m.size} to download · ${m.verdict}`;
+        text.appendChild(note);
 
-        text.append(name, what, note);
         row.appendChild(text);
 
-        if (m.installed) {
-            const here = document.createElement('span');
-            here.className = 'permit-reading';
-            here.textContent = 'installed';
-            row.appendChild(here);
+        if (!variants.length) return row;
 
-            /*
-             * Updating a model is pulling it again.
-             *
-             * Ollama replaces it when the published one has changed and
-             * answers in a second when it has not, so the button is honest
-             * about what it does — it checks, and updates if there is
-             * anything to update. Claiming to know in advance would mean
-             * asking a registry on every page load for an answer that is
-             * almost always no.
-             */
-            const update = document.createElement('button');
-            update.className = 'model-action quiet';
-            update.textContent = 'Update';
-            update.title = `Fetch ${m.name} again if it has changed`;
-            update.onclick = () => press(update, async () => {
-                await call('/api/models/pull', { name: m.name });
-            }, 'checking…');
+        let v = firstChoice(variants);
 
-            row.appendChild(update);
+        let size = null;
 
-            return row;
+        if (variants.length > 1) {
+            size = document.createElement('select');
+            size.className = 'permit-choice';
+            size.setAttribute('aria-label', `Size of ${m.name}`);
+
+            for (const each of variants) {
+                const option = document.createElement('option');
+                option.value = each.name;
+                option.textContent = (each.size || each.name) + (each.installed ? ' — installed' : '');
+                option.selected = each === v;
+                size.appendChild(option);
+            }
+
+            row.appendChild(size);
         }
 
         const button = document.createElement('button');
-        button.className = 'model-action';
-        button.textContent = 'Install';
-
-        // Offered even when it does not fit, and said so plainly beside it.
-        // Refusing outright would be deciding for somebody about their own
-        // machine, and they may be about to add memory.
-        if (!m.fits) button.classList.add('danger');
-
-        button.onclick = () => press(button, async () => {
-            await call('/api/models/pull', { name: m.name });
-        }, 'downloading…');
-
         row.appendChild(button);
+
+        function show() {
+            row.dataset.state = v.installed ? 'ok' : (v.fits ? '' : 'missing');
+
+            const said = variantNote(v);
+
+            note.textContent = said;
+            note.hidden = !said;
+
+            button.disabled = false;
+
+            if (v.installed) {
+                /*
+                 * Updating a model is pulling it again.
+                 *
+                 * Ollama replaces it when the published one has changed and
+                 * answers in a second when it has not, so the button is honest
+                 * about what it does — it checks, and updates if there is
+                 * anything to update. Claiming to know in advance would mean
+                 * asking a registry on every page load for an answer that is
+                 * almost always no.
+                 */
+                button.className = 'model-action quiet';
+                button.textContent = 'Update';
+                button.title = `Fetch ${v.name} again if it has changed`;
+            } else {
+                // Offered even when it does not fit, and said so plainly beside it.
+                // Refusing outright would be deciding for somebody about their own
+                // machine, and they may be about to add memory.
+                button.className = 'model-action' + (v.fits ? '' : ' danger');
+                button.textContent = 'Install';
+                button.title = `Download ${v.name}`;
+            }
+        }
+
+        if (size) {
+            size.onchange = () => {
+                v = variants.find((each) => each.name === size.value) || v;
+                show();
+            };
+        }
+
+        button.onclick = () => {
+            const chosen = v;
+
+            press(button, async () => {
+                await call('/api/models/pull', { name: chosen.name });
+            }, chosen.installed ? 'checking…' : 'downloading…');
+        };
+
+        show();
 
         return row;
     }
