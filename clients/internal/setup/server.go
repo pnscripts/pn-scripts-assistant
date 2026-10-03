@@ -399,12 +399,13 @@ func (s *Server) Serve(onReady func()) {
 	})
 
 	/*
-	 * The one switch: how much it asks, and how much leaves.
+	 * How much it asks before doing something on this machine.
 	 *
 	 * The same three answers the program offers under Permissions, asked
 	 * here because it is the question every later approval prompt is the
 	 * consequence of. Somebody who wanted it never to stop should not first
-	 * have to meet a stream of questions to discover that it can.
+	 * have to meet a stream of questions to discover that it can. It says
+	 * nothing about what leaves the machine; that is /privacy.
 	 */
 	mux.HandleFunc("/freedom", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -425,6 +426,35 @@ func (s *Server) Serve(onReady func()) {
 		}
 
 		s.writeJSON(w, map[string]any{"ok": true, "freedom": string(level)})
+	})
+
+	/*
+	 * What may leave this machine.
+	 *
+	 * Its own question with its own answer, the same three the program
+	 * offers under System. It used to be worked out from how much it asks,
+	 * so the only way to let a paid service answer from setup was to tell it
+	 * never to stop, and asking to be asked closed the web.
+	 */
+	mux.HandleFunc("/privacy", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Mode string `json:"mode"`
+		}
+
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&body); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+
+			return
+		}
+
+		mode, err := s.savePrivacy(body.Mode)
+		if err != nil {
+			s.writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+
+			return
+		}
+
+		s.writeJSON(w, map[string]any{"ok": true, "privacy": string(mode)})
 	})
 
 	/*
@@ -567,10 +597,12 @@ func (s *Server) state() map[string]any {
 	paidBrain := false
 	chosenModel := ""
 	freedom := string(permits.AskEveryTime)
+	privacy := llm.ModePrivate
 
 	if cfg, err := config.LoadFrom(s.envPath); err == nil {
 		paidBrain = cfg.HasPaidProvider()
 		chosenModel = cfg.OllamaModel
+		privacy = llm.ParseMode(cfg.Privacy)
 
 		if asking := permits.Freedom(cfg.Asking()); permits.Known(asking) {
 			freedom = string(asking)
@@ -606,8 +638,17 @@ func (s *Server) state() map[string]any {
 	return map[string]any{
 		"requirements": views,
 
-		// The one switch, as the file has it. See /freedom.
+		// How much it asks, as the file has it. See /freedom.
 		"freedom": freedom,
+
+		// What may leave, as the file has it, and the three choices in the
+		// words the program itself uses for them. See /privacy.
+		"privacy": string(privacy),
+		"privacies": []llm.Description{
+			llm.ModePrivate.Describe(),
+			llm.ModeResearch.Describe(),
+			llm.ModeOpen.Describe(),
+		},
 
 		"protection": map[string]any{
 			"rules": rules,

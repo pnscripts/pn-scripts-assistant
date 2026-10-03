@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/org"
-	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/team"
 )
 
@@ -58,13 +58,13 @@ func TestASeatNamingAnUnknownJobIsNamed(t *testing.T) {
 }
 
 /*
- * The researcher's work is mostly the web, and on "ask me first" nothing
- * leaves. That is the switch working, not a fault — so it is a warning with
+ * The researcher's work is mostly the web, and with privacy private nothing
+ * leaves. That is the setting working, not a fault — so it is a warning with
  * a name and a reason, never a red cross on the last step of setup.
  */
 func TestTheResearcherIsHeldBackWhileNothingMayLeave(t *testing.T) {
 	machine := here{
-		freedom:  permits.AskEveryTime,
+		privacy:  llm.ModePrivate,
 		godot:    func() bool { return true },
 		pictures: func() bool { return true },
 	}
@@ -79,7 +79,7 @@ func TestTheResearcherIsHeldBackWhileNothingMayLeave(t *testing.T) {
 		t.Errorf("the note does not say who, or why: %q", got.Note)
 	}
 
-	machine.freedom = permits.Everything
+	machine.privacy = llm.ModeResearch
 
 	if got := canWorkHere(org.BuiltIn(), team.BuiltIn(), jobsThatShip(), machine); got.State != "yes" {
 		t.Errorf("with the web open and everything installed, somebody is still held back: %+v", got)
@@ -88,7 +88,7 @@ func TestTheResearcherIsHeldBackWhileNothingMayLeave(t *testing.T) {
 
 func TestTheGameDeveloperIsHeldBackWithoutGodot(t *testing.T) {
 	machine := here{
-		freedom:  permits.Everything,
+		privacy:  llm.ModeResearch,
 		godot:    func() bool { return false },
 		pictures: func() bool { return true },
 	}
@@ -117,7 +117,7 @@ func TestNobodyRetiredIsNamed(t *testing.T) {
 	}
 
 	got := canWorkHere(org.BuiltIn(), roster, jobsThatShip(), here{
-		freedom: permits.Everything, godot: func() bool { return false },
+		privacy: llm.ModeResearch, godot: func() bool { return false },
 		pictures: func() bool { return true },
 	})
 
@@ -127,45 +127,95 @@ func TestNobodyRetiredIsNamed(t *testing.T) {
 }
 
 /*
- * The switch writes what leaves as well as what it asks, in one go.
+ * Setup writes how much it asks, and leaves what may leave alone.
  *
- * Written in two steps once, the file said private while the program was
- * open. Setup is the first place the switch can be thrown.
+ * It used to write privacy from the same answer, so "never stop" here opened
+ * privacy and "ask me" closed it. They are two settings, and the one setup
+ * asks about is the only one it changes.
  */
-func TestTheSwitchIsWrittenWithWhatLeaves(t *testing.T) {
+func TestTheSwitchLeavesPrivacyAlone(t *testing.T) {
 	server, envPath := startServer(t)
 
-	got := postJSON(t, server.URL()+"/freedom", `{"level":"everything"}`)
-
-	if got["ok"] != true {
-		t.Fatalf("the switch was not saved: %v", got)
-	}
-
-	data, err := os.ReadFile(envPath)
+	before, err := os.ReadFile(envPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, want := range []string{"BRAIN_FREEDOM=everything", "BRAIN_PRIVACY=open"} {
-		if !strings.Contains(string(data), want) {
-			t.Errorf("the settings file does not say %s:\n%s", want, data)
+	if err := os.WriteFile(envPath, append(before, "BRAIN_PRIVACY=research\n"...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, level := range []string{"everything", "ask", "granted"} {
+		got := postJSON(t, server.URL()+"/freedom", `{"level":"`+level+`"}`)
+
+		if got["ok"] != true {
+			t.Fatalf("%s was not saved: %v", level, got)
 		}
-	}
 
-	if state := getJSON(t, server.URL()+"/state"); state["freedom"] != "everything" {
-		t.Errorf("setup reads the switch back as %v", state["freedom"])
-	}
+		data, err := os.ReadFile(envPath)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	postJSON(t, server.URL()+"/freedom", `{"level":"ask"}`)
+		text := string(data)
 
-	data, _ = os.ReadFile(envPath)
+		if !strings.Contains(text, "BRAIN_FREEDOM="+level) || strings.Count(text, "BRAIN_FREEDOM=") != 1 {
+			t.Errorf("after choosing %s the settings file says:\n%s", level, text)
+		}
 
-	if !strings.Contains(string(data), "BRAIN_PRIVACY=private") ||
-		strings.Count(string(data), "BRAIN_FREEDOM=") != 1 {
-		t.Errorf("turning it back did not replace both lines:\n%s", data)
+		if !strings.Contains(text, "BRAIN_PRIVACY=research") || strings.Count(text, "BRAIN_PRIVACY=") != 1 {
+			t.Errorf("choosing %s changed privacy:\n%s", level, text)
+		}
+
+		if state := getJSON(t, server.URL()+"/state"); state["freedom"] != level {
+			t.Errorf("setup reads %s back as %v", level, state["freedom"])
+		}
 	}
 
 	if bad := postJSON(t, server.URL()+"/freedom", `{"level":"sometimes"}`); bad["ok"] != false {
 		t.Errorf("an answer that is not one of the three was accepted: %v", bad)
+	}
+}
+
+// Privacy is chosen on its own in setup, and choosing it leaves how much it
+// asks alone.
+func TestPrivacyIsItsOwnChoiceInSetup(t *testing.T) {
+	server, envPath := startServer(t)
+
+	postJSON(t, server.URL()+"/freedom", `{"level":"ask"}`)
+
+	state := getJSON(t, server.URL()+"/state")
+
+	if state["privacy"] != "private" {
+		t.Errorf("a new setup reads privacy as %v, want private", state["privacy"])
+	}
+
+	if offered, _ := state["privacies"].([]any); len(offered) != 3 {
+		t.Errorf("setup offers %d privacy choices, want 3: %v", len(offered), state["privacies"])
+	}
+
+	for _, mode := range []string{"open", "research", "private"} {
+		if got := postJSON(t, server.URL()+"/privacy", `{"mode":"`+mode+`"}`); got["ok"] != true {
+			t.Fatalf("%s was not saved: %v", mode, got)
+		}
+
+		data, _ := os.ReadFile(envPath)
+		text := string(data)
+
+		if !strings.Contains(text, "BRAIN_PRIVACY="+mode) || strings.Count(text, "BRAIN_PRIVACY=") != 1 {
+			t.Errorf("after choosing %s the settings file says:\n%s", mode, text)
+		}
+
+		if !strings.Contains(text, "BRAIN_FREEDOM=ask") {
+			t.Errorf("choosing privacy %s changed how much it asks:\n%s", mode, text)
+		}
+
+		if state := getJSON(t, server.URL()+"/state"); state["privacy"] != mode || state["freedom"] != "ask" {
+			t.Errorf("after %s setup reads privacy %v, freedom %v", mode, state["privacy"], state["freedom"])
+		}
+	}
+
+	if bad := postJSON(t, server.URL()+"/privacy", `{"mode":"public"}`); bad["ok"] != false {
+		t.Errorf("a privacy that is not one of the three was accepted: %v", bad)
 	}
 }

@@ -44,38 +44,6 @@ func TestMemoryLeavesOnlyWhenEverythingIsAllowed(t *testing.T) {
 	}
 }
 
-/*
- * One switch decides what may leave, and it is a ladder.
- *
- * There used to be two settings and the second was the one that actually
- * stood in the way: its strictest value is also its default, and it refuses
- * rather than asks. Somebody who had said "stop asking me" still found it
- * refusing, from a setting they had not touched.
- */
-func TestWhatMayLeaveFollowsHowMuchItAsks(t *testing.T) {
-	for freedom, want := range map[string]Mode{
-		"ask":        ModePrivate,
-		"granted":    ModeResearch,
-		"everything": ModeOpen,
-		"EVERYTHING": ModeOpen,
-		"":           ModePrivate,
-		"nonsense":   ModePrivate,
-	} {
-		if got := ModeFor(freedom); got != want {
-			t.Errorf("%q gave %q, want %q", freedom, got, want)
-		}
-	}
-
-	// Allowing everything blocks nothing, which is the whole point of it.
-	if err := ModeFor("everything").GuardProvider("anthropic"); err != nil {
-		t.Errorf("everything still refused a provider: %v", err)
-	}
-
-	if !ModeFor("everything").AllowsWeb() {
-		t.Error("everything still refused the web")
-	}
-}
-
 func TestParseModeFallsBackToStrictest(t *testing.T) {
 	cases := map[string]Mode{
 		"private":  ModePrivate,

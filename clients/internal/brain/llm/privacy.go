@@ -3,7 +3,6 @@ package llm
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 // Mode is what is allowed to leave this machine.
@@ -34,37 +33,6 @@ const (
 	// database itself stays on this machine.
 	ModeOpen Mode = "open"
 )
-
-/*
- * ModeFor is what "how much it asks" means for what may leave this machine.
- *
- * There used to be two settings and they were two settings too many. One said
- * how much the program asks before doing things; the other said what may leave
- * the machine; and the second was the one that actually stood in the way,
- * because its strictest value is also its default and it refuses rather than
- * asks. Somebody who had said "stop asking me" then found it still refusing,
- * from a setting they had not touched, on a screen they had not opened.
- *
- * So there is one switch now, and it is a ladder. Asking about everything is
- * also keeping everything here. Allowing what has been allowed opens the web,
- * which is a search rather than a conversation. Allowing everything blocks
- * nothing at all — and that is a real choice with a real consequence, which
- * the panel says in as many words rather than implying.
- *
- * The enforcement itself is untouched. Every one of these values still goes
- * through GuardProvider, still at one choke point, so tightening it again is
- * one click and not a rebuild.
- */
-func ModeFor(freedom string) Mode {
-	switch strings.ToLower(strings.TrimSpace(freedom)) {
-	case "everything":
-		return ModeOpen
-	case "granted":
-		return ModeResearch
-	default:
-		return ModePrivate
-	}
-}
 
 // ParseMode reads a configured value.
 //

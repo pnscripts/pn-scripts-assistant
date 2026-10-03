@@ -485,15 +485,17 @@ html.has-stage .wrap{position:relative;z-index:1}
   </div>
 
   <div class="step" id="step-privacy" hidden>
-    <h2>What it asks you about</h2>
-    <p class="sub">One switch decides how much it stops to ask, and how much
-      may leave this machine. It is the same switch as under Permissions, and
-      you can change it there at any time.</p>
+    <h2>What it asks you about, and what may leave</h2>
+    <p class="sub">Two separate settings. The first is how much it stops to
+      ask before doing something on this machine; it is the same setting as
+      under Permissions. The second is what may leave this machine; it is the
+      same setting as Privacy under System. Neither changes the other, and you
+      can change both later.</p>
 
-    <!-- The one switch first, because everything below it depends on the
-         answer: on "never stop" the files listed underneath are recorded
-         rather than asked about, and a list of questions that will not be
-         asked should not be read as if it will. -->
+    <!-- How much it asks first, because the files listed underneath depend on
+         the answer: set to act freely they are recorded rather than asked
+         about, and a list of questions that will not be asked should not be
+         read as if it will. -->
     <div id="freedom-pick" class="models"></div>
     <p class="sub" id="freedom-files"></p>
 
@@ -504,6 +506,11 @@ html.has-stage .wrap{position:relative;z-index:1}
              placeholder="/a/folder/  or  a-file-name.txt">
     </label>
     <div id="privacy-yours"></div>
+
+    <!-- What may leave, last and on its own, so it cannot be read as a
+         consequence of how much it asks. -->
+    <h2>What may leave this machine</h2>
+    <div id="privacy-pick" class="models"></div>
   </div>
 
   <div class="step" id="step-apply" hidden>
@@ -2052,24 +2059,24 @@ function placeAtFirstUnfinished(state){
  * one.
  */
 /*
- * The one switch, in the words the program uses for it.
+ * How much it asks, in the words the program uses for it.
  *
  * Copied from Permissions rather than paraphrased: somebody who picks
- * "never stop" here and later opens that page should find the same sentence
+ * "act freely" here and later opens that page should find the same sentence
  * beside the same choice, not a second description that might mean something
- * slightly different.
+ * slightly different. Nothing here is about what leaves the machine — that is
+ * the privacy choice below, and these used to promise it when the two were
+ * one switch.
  */
 const FREEDOM = [
-  {level: "ask", name: "Ask me first — and nothing leaves this machine",
-   means: "It asks before anything that changes something, and nothing leaves this "
-     + "machine — no hosted model, no web."},
-  {level: "granted", name: "Do what I have allowed — the web is open, the model stays here",
-   means: "It does what you have already allowed and asks about the rest. The web "
-     + "is open; the model answering you stays on this machine."},
-  {level: "everything", name: "Never stop, never refuse — hosted models, the web, memory, all of it",
-   means: "It does anything it can, without asking, and nothing is held back: "
-     + "hosted models, the web, and what it has learned about you may all be sent. "
-     + "Everything is still recorded."},
+  {level: "ask", name: "Ask me every time",
+   means: "It asks before anything that changes something. Every action is recorded."},
+  {level: "granted", name: "Do what I have allowed, ask about the rest",
+   means: "It does what you have already allowed and asks about the rest. "
+     + "Every action is recorded."},
+  {level: "everything", name: "Act freely, and record everything",
+   means: "It does anything it can without asking. Every action is recorded, "
+     + "and files it overwrites are kept so they can be put back."},
 ];
 
 // Set while a choice is on its way, so a poll landing in between does not
@@ -2117,7 +2124,7 @@ function renderFreedomChoice(state){
 
   if (files){
     files.textContent = chosen === "everything"
-      ? "With the switch on never stop, these files do not stop it either. Reading "
+      ? "Set to act freely, it is not stopped by these files either. Reading "
         + "one is written down with the reason it would have asked, and nothing waits "
         + "for you."
       : "These are the files where it stops and puts the request to you first, "
@@ -2126,8 +2133,56 @@ function renderFreedomChoice(state){
   }
 }
 
+// The same guard for the privacy choice.
+let privacySaving = "";
+
+/*
+ * What may leave this machine, in the words the program uses for it.
+ *
+ * The three choices and what each means come from the server, from the same
+ * function that explains them under System, so the two cannot disagree.
+ */
+function renderPrivacyModeChoice(state){
+  const box = el("privacy-pick");
+  if (!box || !state.privacies) return;
+
+  const chosen = privacySaving || state.privacy || "private";
+
+  box.textContent = "";
+
+  state.privacies.forEach(p => {
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "ghost pick" + (chosen === p.mode ? " chosen" : "");
+    pick.disabled = privacySaving !== "";
+
+    const name = document.createElement("strong");
+    name.textContent = p.mode + " · " + p.summary;
+
+    const means = document.createElement("span");
+    means.textContent = p.detail;
+
+    pick.append(name, means);
+
+    pick.onclick = async () => {
+      privacySaving = p.mode;
+      renderPrivacyModeChoice(state);
+
+      try {
+        await post("/privacy", {mode: p.mode});
+      } finally {
+        privacySaving = "";
+        refresh();
+      }
+    };
+
+    box.appendChild(pick);
+  });
+}
+
 function renderPrivacyChoice(state){
   renderFreedomChoice(state);
+  renderPrivacyModeChoice(state);
 
   const box = el("privacy-rules");
 

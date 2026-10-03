@@ -90,7 +90,7 @@ func (s *Server) organisationTicks(cfg config.Config) []tick {
 	return []tick{
 		together,
 		canWorkHere(chart, roster, jobs, here{
-			freedom:  permits.Freedom(cfg.Asking()),
+			privacy:  llm.ParseMode(cfg.Privacy),
 			godot:    godotHere,
 			pictures: func() bool { return pictures.Reachable(cfg.PicturesURL) },
 			hosted:   cfg.HasPaidProvider(),
@@ -183,7 +183,10 @@ func holdsTogether(chart []org.Unit, roster []team.Agent, jobs shippedJobs) tick
 // concerned. Functions rather than answers so a test can be a machine it is
 // not.
 type here struct {
-	freedom  permits.Freedom
+	// privacy is what may leave this machine, which is what decides whether
+	// the web and a paid service are there at all. How much it asks does
+	// not: asking first still gets the work done.
+	privacy  llm.Mode
 	godot    func() bool
 	pictures func() bool
 
@@ -215,11 +218,11 @@ var needs = []need{
 	{
 		tools: []string{"web_search", "fetch_url", "read_a_page"},
 		missing: func(h here) string {
-			if llm.ModeFor(string(h.freedom)).AllowsWeb() {
+			if h.privacy.AllowsWeb() {
 				return ""
 			}
 
-			return "the web is closed while it asks first"
+			return "the web is closed while privacy is private"
 		},
 	},
 	{
@@ -240,8 +243,9 @@ var needs = []need{
 			}
 
 			// The other way is a paid service, which only exists when one is
-			// set up and something may leave this machine.
-			if h.hosted && llm.ModeFor(string(h.freedom)) != llm.ModePrivate {
+			// set up and privacy lets a hosted service be used — open, since
+			// research keeps the model on this machine.
+			if h.hosted && h.privacy == llm.ModeOpen {
 				return ""
 			}
 
@@ -326,12 +330,12 @@ func orName(title, name string) string {
 }
 
 /*
- * saveFreedom is the one switch, set from setup.
+ * saveFreedom is how much it asks, set from setup.
  *
- * Both settings in one write, for the reason the running program gives:
- * written in two steps once, the file ended up saying private while the
- * program was open. Setup is the first place the switch can be thrown and
- * must not be the place it starts disagreeing with itself.
+ * Only that. This used to write privacy in the same breath, worked out from
+ * the answer, so choosing "never stop" here also opened privacy and choosing
+ * "ask me" closed it. What may leave this machine is its own setting, under
+ * System, and setup leaves it as it found it.
  */
 func (s *Server) saveFreedom(level string) (permits.Freedom, error) {
 	f := permits.Freedom(strings.ToLower(strings.TrimSpace(level)))
@@ -340,10 +344,27 @@ func (s *Server) saveFreedom(level string) (permits.Freedom, error) {
 		return "", fmt.Errorf("%q is not a choice here — it is ask, granted or everything", level)
 	}
 
-	err := s.writeSettings(0o600,
-		[2]string{"BRAIN_FREEDOM", string(f)},
-		[2]string{"BRAIN_PRIVACY", string(llm.ModeFor(string(f)))},
-	)
+	err := s.writeSettings(0o600, [2]string{"BRAIN_FREEDOM", string(f)})
 
 	return f, err
+}
+
+/*
+ * savePrivacy is what may leave this machine, set from setup.
+ *
+ * Read strictly. ParseMode turns anything it does not know into private,
+ * which is the right reading of a typo in a file and the wrong answer to a
+ * request: somebody who sent something else should be told, not quietly
+ * given the strictest setting.
+ */
+func (s *Server) savePrivacy(mode string) (llm.Mode, error) {
+	m := llm.Mode(strings.ToLower(strings.TrimSpace(mode)))
+
+	if m != llm.ModePrivate && m != llm.ModeResearch && m != llm.ModeOpen {
+		return "", fmt.Errorf("%q is not a choice here — it is private, research or open", mode)
+	}
+
+	err := s.writeSettings(0o600, [2]string{"BRAIN_PRIVACY", string(m)})
+
+	return m, err
 }

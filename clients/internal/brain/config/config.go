@@ -425,62 +425,21 @@ func intText(n int) string {
 }
 
 /*
- * reconcile carries an old privacy setting onto the one switch that replaced
- * it.
- *
- * Privacy and "how much it asks" used to be two settings. They are one now,
- * and the mapping runs one way — the switch decides what may leave. Which
- * means a brain whose owner had opened privacy, and left the asking alone,
- * would have been quietly tightened by an upgrade: the program would have
- * started refusing things it had allowed the day before, from a setting the
- * owner never touched.
- *
- * So a privacy value that is more open than the switch raises the switch to
- * match. Once, at load, and then the file is written back with both in
- * agreement. It never tightens: an old privacy setting cannot take away
- * something the switch already allows.
- */
-/*
  * Asking is how much this configuration says the program should ask.
  *
- * Freedom, and nothing else. It used to be reconciled with privacy — the two
- * were one switch, so opening privacy raised what the program might do, and
- * allowing more let more leave the machine.
- *
- * That is the trade the permits package was written to end, and it came back
- * in the wiring: asked for permissions to be allowed by default, this program
- * would have started sending conversations to hosted services, because
- * "everything" meant open. Its owner asked for one of those things and would
- * have got both.
- *
- * They are two questions with two answers now. What may be done here is
- * Freedom; what may leave is Privacy; neither moves the other. See
+ * Freedom, and nothing else. What may be done here is Freedom; what may leave
+ * is Privacy; neither moves the other, here, at load, or in setup. See
  * UseFreedom and UsePrivacy.
+ *
+ * They were one switch for a while, and when they were split a function was
+ * left behind that raised Freedom to match Privacy every time this file was
+ * read: research meant at least "granted" and open meant "everything". So
+ * somebody who chose "ask every time" with privacy open was back to acting
+ * freely after a restart. Nothing reconciles them now. An old file reads as
+ * it was written: one that never had BRAIN_FREEDOM takes the default, and one
+ * written while they were coupled has two values that already agree.
  */
 func (c Config) Asking() string { return c.Freedom }
-
-func reconcile(freedom, privacy string) string {
-	openness := map[string]int{"private": 0, "research": 1, "open": 2}
-
-	wanted := map[string]string{"research": "granted", "open": "everything"}
-
-	by := map[string]int{"ask": 0, "granted": 1, "everything": 2}
-
-	was, known := openness[strings.ToLower(strings.TrimSpace(privacy))]
-	if !known {
-		return freedom
-	}
-
-	if by[strings.ToLower(strings.TrimSpace(freedom))] >= was {
-		return freedom
-	}
-
-	if raised, ok := wanted[strings.ToLower(strings.TrimSpace(privacy))]; ok {
-		return raised
-	}
-
-	return freedom
-}
 
 // boolText writes a setting the way the file reads it back.
 func boolText(on bool) string {
@@ -652,8 +611,6 @@ func LoadFrom(path string) (Config, error) {
 	assign(&cfg.Privacy, "BRAIN_PRIVACY")
 	assign(&cfg.Freedom, "BRAIN_FREEDOM")
 
-	cfg.Freedom = reconcile(cfg.Freedom, cfg.Privacy)
-
 	if v := get("BRAIN_LOOK_ONLINE"); v != "" {
 		cfg.LookOnline = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
@@ -810,19 +767,21 @@ func (c Config) Save(root string) error {
 	b.WriteString("# " + Product + " settings. Environment variables override these.\n\n")
 	b.WriteString("BRAIN_NAME=" + c.Name + "\n")
 	b.WriteString("BRAIN_OWNER=" + c.Owner + "\n\n")
-	b.WriteString("# private | research | open. Worked out from BRAIN_FREEDOM below\n")
-	b.WriteString("# and written here so the file says what is actually in force.\n")
-	b.WriteString("# Setting it by hand raises the freedom to match; it cannot\n")
-	b.WriteString("# lower it, since the switch below is the one that decides.\n")
+	b.WriteString("# What may leave this machine: private | research | open.\n")
+	b.WriteString("# private  — nothing leaves: the model is local and the web is off\n")
+	b.WriteString("# research — the web may be used; the model answering stays here\n")
+	b.WriteString("# open     — hosted models may answer, and the memory recalled\n")
+	b.WriteString("#            for a turn is sent with the conversation\n")
+	b.WriteString("# Separate from BRAIN_FREEDOM below; neither changes the other.\n")
 	b.WriteString("BRAIN_PRIVACY=" + c.Privacy + "\n\n")
 
-	b.WriteString("# The one switch: how much it asks, and how much leaves.\n")
-	b.WriteString("# ask        — asks before anything that changes something,\n")
-	b.WriteString("#              and nothing leaves this machine\n")
-	b.WriteString("# granted    — does what has been allowed; the web is open,\n")
-	b.WriteString("#              the model answering stays here\n")
-	b.WriteString("# everything — never stops and never refuses. Hosted models,\n")
-	b.WriteString("#              the web, and what it knows about you may be sent.\n")
+	b.WriteString("# How much it asks before doing something on this machine.\n")
+	b.WriteString("# ask        — asks before anything that changes something\n")
+	b.WriteString("# granted    — does what has been allowed, asks about the rest\n")
+	b.WriteString("# everything — acts without asking; overwritten files are kept\n")
+	b.WriteString("#              for undo\n")
+	b.WriteString("# Every action is recorded whatever this says. It decides nothing\n")
+	b.WriteString("# about what leaves the machine; BRAIN_PRIVACY above does that.\n")
 	b.WriteString("BRAIN_FREEDOM=" + c.Freedom + "\n")
 	b.WriteString("# Set once somebody has been through setup. Setup then only\n")
 	b.WriteString("# runs when it is asked for, from System or \"brain setup\".\n")

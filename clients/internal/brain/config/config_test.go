@@ -1,6 +1,10 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 /*
  * Setup runs once, and after that only when it is asked for.
@@ -172,6 +176,90 @@ func TestPrivacyAndPermissionAreSeparate(t *testing.T) {
 
 		if got := cfg.Asking(); got != c.freedom {
 			t.Errorf("freedom %q with privacy %q asks as %q", c.freedom, c.privacy, got)
+		}
+	}
+}
+
+/*
+ * A chosen permission level survives a restart, whatever privacy says.
+ *
+ * Loading used to raise it to match privacy — at least "granted" in research,
+ * "everything" in open — so somebody who chose "ask every time" with privacy
+ * open was acting freely again the next time the program started. The test
+ * above set the fields directly and never went through the file, which is
+ * where it happened.
+ */
+func TestAChosenPermissionSurvivesARestartInEveryPrivacyMode(t *testing.T) {
+	t.Setenv("BRAIN_FREEDOM", "")
+	t.Setenv("BRAIN_PRIVACY", "")
+
+	for _, privacy := range []string{"private", "research", "open"} {
+		for _, freedom := range []string{"ask", "granted", "everything"} {
+			root := t.TempDir()
+
+			cfg := Default()
+			cfg.Freedom, cfg.Privacy = freedom, privacy
+
+			if err := cfg.Save(root); err != nil {
+				t.Fatal(err)
+			}
+
+			// Twice: a restart loads the file, and anything that saves
+			// settings afterwards writes back what was loaded.
+			for restart := 1; restart <= 2; restart++ {
+				got, err := Load(root)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if got.Freedom != freedom || got.Asking() != freedom {
+					t.Errorf("privacy %s: chose %q, restart %d asks as %q",
+						privacy, freedom, restart, got.Asking())
+				}
+
+				if got.Privacy != privacy {
+					t.Errorf("permission %s: privacy %q came back as %q",
+						freedom, privacy, got.Privacy)
+				}
+
+				if err := got.Save(root); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+}
+
+/*
+ * Files written before the two were separated still read as they were.
+ *
+ * One with no permission line at all takes the default; one written while
+ * they were coupled already has two values that agreed, and keeps them.
+ */
+func TestOlderSettingsFilesStillRead(t *testing.T) {
+	t.Setenv("BRAIN_FREEDOM", "")
+	t.Setenv("BRAIN_PRIVACY", "")
+
+	for file, want := range map[string]struct{ freedom, privacy string }{
+		"BRAIN_PRIVACY=open\n":                          {"everything", "open"},
+		"BRAIN_PRIVACY=research\n":                      {"everything", "research"},
+		"BRAIN_PRIVACY=private\nBRAIN_FREEDOM=ask\n":    {"ask", "private"},
+		"BRAIN_PRIVACY=research\nBRAIN_FREEDOM=granted": {"granted", "research"},
+	} {
+		root := t.TempDir()
+
+		if err := os.WriteFile(filepath.Join(root, FileName), []byte(file), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if got.Freedom != want.freedom || got.Privacy != want.privacy {
+			t.Errorf("%q read as freedom %q, privacy %q; want %q, %q",
+				file, got.Freedom, got.Privacy, want.freedom, want.privacy)
 		}
 	}
 }

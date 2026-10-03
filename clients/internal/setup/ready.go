@@ -148,10 +148,10 @@ func (s *Server) quickTicks(cfg config.Config) []tick {
 	guard := tick{ID: "protect", What: "It will ask before reading your keys"}
 	chosen := protect.Load(root)
 
-	// On never stop, nothing asks — these included. Saying otherwise on the
-	// last step would be promising a question the switch has turned off.
+	// Set to act freely, nothing asks — these included. Saying otherwise on
+	// the last step would be promising a question that setting has turned off.
 	if permits.Freedom(cfg.Asking()) == permits.Everything {
-		guard.State, guard.Note = "skip", "not while the switch is on never stop — reading them is recorded instead"
+		guard.State, guard.Note = "skip", "not while it is set to act freely — reading them is recorded instead"
 	} else if len(chosen.Off) < len(protect.BuiltIn) {
 		guard.State = "yes"
 		guard.Note = fmt.Sprintf("%d of %d places", len(protect.BuiltIn)-len(chosen.Off),
