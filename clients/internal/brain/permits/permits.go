@@ -63,7 +63,10 @@ const (
 type Freedom string
 
 const (
-	// AskEveryTime is the default and the safe one.
+	// AskEveryTime stops before anything that changes something. It is not
+	// the default: a new brain starts on Everything (see config.Default), and
+	// this is what somebody who wants to be asked sets it back to. It is also
+	// how an unknown value is read, because that is the careful reading.
 	AskEveryTime Freedom = "ask"
 
 	// WhatIveAllowed runs what has been granted and asks about the rest. The
@@ -401,25 +404,22 @@ func (b *Book) save() error {
  */
 func Means(f Freedom) string {
 	/*
-	 * Both halves, because this is one switch.
+	 * What may happen on this machine, and nothing about what may leave it.
 	 *
-	 * It decides what the program may do on this machine and what may leave
-	 * it. Saying only the first half is how somebody ends up with a program
-	 * that has stopped asking and is still refusing, from a setting they
-	 * thought was about something else.
+	 * These used to describe both, because the two were one switch. They are
+	 * separate now (privacy has its own setting), and a sentence here that
+	 * promised what leaves would be a promise this setting does not keep.
 	 */
 	switch f {
 	case WhatIveAllowed:
 		return "It does what you have already allowed and asks about the rest. " +
-			"The web is open; the model answering you stays on this machine."
+			"Every action is recorded."
 
 	case Everything:
-		return "It does anything it can, without asking, and nothing is held back — " +
-			"hosted models, the web, and what it has learned about you may all be " +
-			"sent. Everything is still recorded."
+		return "It does anything it can without asking. Every action is recorded, " +
+			"and files it overwrites are kept so they can be put back."
 
 	default:
-		return "It asks before anything that changes something, and nothing leaves " +
-			"this machine."
+		return "It asks before anything that changes something. Every action is recorded."
 	}
 }

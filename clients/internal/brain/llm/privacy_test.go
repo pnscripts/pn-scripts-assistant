@@ -233,3 +233,27 @@ func TestDescribeNamesTheMode(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * What the open mode says has to match what it does.
+ *
+ * Its description once said learned memory was withheld in every mode, while
+ * AllowsMemoryFor sent the memory recalled for a turn to the hosted provider.
+ * A privacy panel that understates what leaves is the one wording this
+ * program cannot get wrong, so the sentence is pinned to the behaviour.
+ */
+func TestOpenSaysRecalledMemoryIsSent(t *testing.T) {
+	if !AllowsMemoryFor("anthropic", ModeOpen) {
+		t.Fatal("open mode no longer sends recalled memory; change its description, then this test")
+	}
+
+	d := ModeOpen.Describe()
+
+	if !strings.Contains(d.Detail, "memory recalled for that turn are sent") {
+		t.Errorf("open mode sends recalled memory but its description does not say so: %q", d.Detail)
+	}
+
+	if strings.Contains(d.Detail, "withheld") {
+		t.Errorf("open mode's description still says something is withheld: %q", d.Detail)
+	}
+}

@@ -1982,29 +1982,25 @@
         <section class="view" data-view="permissions" hidden>
             <div class="view-inner">
                 <!--
-                    One switch, and it decides both things.
+                    How much it asks, and only that.
 
-                    It used to be two: this, and a separate privacy setting for
-                    what may leave the machine. The second was the one that
-                    actually stood in the way — its strictest value is also its
-                    default, and it refuses rather than asks. Somebody who had
-                    said "stop asking me" then found it still refusing, from a
-                    setting they had not touched, on a page they had not opened.
-
-                    The enforcement is unchanged and still at one choke point,
-                    so tightening it again is this same control and not a
-                    rebuild.
+                    For a while this was one switch that also decided what may
+                    leave the machine. It is not now: privacy has its own
+                    select in System, and Brain.UseFreedom changes this setting
+                    without touching privacy. The labels below say only what
+                    happens on this machine, so they cannot promise anything
+                    about what leaves it.
                 -->
                 <div class="card card-wide">
                     <h2>How much it asks</h2>
                     <p class="privacy-summary" id="freedom-summary">—</p>
 
                     <div class="field">
-                        <span>Before it does something, and before anything leaves</span>
+                        <span>Before it does something on this machine</span>
                         <select id="freedom">
-                            <option value="ask">Ask me first — and nothing leaves this machine</option>
-                            <option value="granted">Do what I have allowed — the web is open, the model stays here</option>
-                            <option value="everything">Never stop, never refuse — hosted models, the web, memory, all of it</option>
+                            <option value="ask">Ask me every time</option>
+                            <option value="granted">Do what I have allowed, ask about the rest</option>
+                            <option value="everything">Act freely, and record everything</option>
                         </select>
                         <small class="field-note" id="freedom-means">—</small>
                     </div>
@@ -2051,10 +2047,10 @@
                     <p class="privacy-detail" id="privacy-detail"></p>
                     <div id="privacy-facts" class="kv"></div>
                     <p class="note">
-                        This is not a setting of its own any more. What may leave this
-                        machine follows <button type="button" class="link-button"
-                        data-view="permissions">how much it asks</button> — one switch
-                        rather than two that were meant to agree.
+                        What may leave this machine is set by the Privacy choice in
+                        System. <button type="button" class="link-button"
+                        data-view="permissions">How much it asks</button> is a separate
+                        setting, and neither changes the other.
                     </p>
                 </div>
 

@@ -36,29 +36,26 @@
     }
 
     /*
-     * What each setting means, in both halves.
+     * What each setting means for what happens on this machine.
      *
-     * Both, because this is one switch now: it decides what the program may do
-     * on this machine and what may leave it. Saying only the first half was
-     * how somebody ended up with a program that had stopped asking and was
-     * still refusing.
+     * Only that. These once described what may leave the machine too, because
+     * the two were one switch; privacy has its own setting now, and a line here
+     * about what leaves would promise something this control does not decide.
+     * Kept in step with permits.Means, which the server sends after a change.
      */
     const MEANS = {
-        ask: 'It asks before anything that changes something, and nothing leaves this '
-            + 'machine — no hosted model, no web.',
-        granted: 'It does what you have already allowed and asks about the rest. The web '
-            + 'is open; the model answering you stays on this machine.',
-        everything: 'It does anything it can, without asking, and nothing is held back: '
-            + 'hosted models, the web, and what it has learned about you may all be sent. '
-            + 'Everything is still recorded.',
+        ask: 'It asks before anything that changes something. Every action is recorded.',
+        granted: 'It does what you have already allowed and asks about the rest. '
+            + 'Every action is recorded.',
+        everything: 'It does anything it can without asking. Every action is recorded, '
+            + 'and files it overwrites are kept so they can be put back.',
     };
 
-    // The second half again, under the control itself, because the consequence
-    // of the last option is the one worth reading twice.
+    // What the choice means in practice, under the control itself.
     const LEAVES = {
-        ask: 'Nothing leaves this machine.',
-        granted: 'Searches leave. Your conversations and what it knows about you do not.',
-        everything: 'Anything may leave, including what it has learned about you.',
+        ask: 'Nothing changes until you say yes.',
+        granted: 'Anything you have not allowed waits for you.',
+        everything: 'Overwritten files are kept for undo: the last 60, for up to 14 days.',
     };
 
     let loaded = false;
@@ -122,16 +119,13 @@
 
         if (note) {
             /*
-             * It used to say privacy was a different question, set elsewhere,
-             * and that nothing on this page changed it. All three were true
-             * once and none of them is now — this control is the one that
-             * decides, and a panel that says otherwise is worse than a panel
-             * that says nothing.
+             * Privacy is its own setting again, so this points at it rather
+             * than claiming this switch decides it. For a while it said the
+             * opposite, which was true then and is not now.
              */
-            note.textContent = 'What may leave this machine follows this same switch, '
-                + 'and is currently “' + (data.privacy || '—') + '”. The Privacy page '
-                + 'shows what that means and what it is protecting; this is where it '
-                + 'is changed.';
+            note.textContent = 'What may leave this machine is a separate setting, '
+                + 'currently “' + (data.privacy || '—') + '”. It is changed under Privacy '
+                + 'in System, and nothing on this page changes it.';
         }
 
         draw(data.capabilities || []);

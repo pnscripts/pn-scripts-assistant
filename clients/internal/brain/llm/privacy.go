@@ -29,9 +29,9 @@ const (
 	// the model composes them, so this is a real if narrow disclosure.
 	ModeResearch Mode = "research"
 
-	// ModeOpen allows a third-party model. Conversation goes to it; recalled
-	// memory does not — that is withheld at every level, because it is the part
-	// the user never chose to type.
+	// ModeOpen allows a third-party model. The conversation goes to it, and so
+	// does the memory recalled for that turn (see AllowsMemoryFor). The memory
+	// database itself stays on this machine.
 	ModeOpen Mode = "open"
 )
 
@@ -146,9 +146,10 @@ func (m Mode) AllowsWeb() bool { return m != ModePrivate }
  * richest part.
  *
  * It is no longer absolute because the person it was protecting said so. It
- * now follows the one switch like everything else: on "allow everything",
- * nothing is held back, and that is stated on the panel rather than left to be
- * discovered. On anything else it behaves exactly as it always did.
+ * now follows the privacy mode: in open mode the memory recalled for a turn is
+ * sent with it to the hosted provider, and Describe says so rather than
+ * leaving it to be discovered. In every other mode it behaves exactly as it
+ * always did. The memory database is never sent; only what a turn recalls.
  */
 func AllowsMemoryFor(provider string, mode Mode) bool {
 	return provider == Local || mode == ModeOpen
@@ -174,9 +175,10 @@ func (m Mode) Describe() Description {
 	case ModeOpen:
 		return Description{
 			Mode:    ModeOpen,
-			Summary: "Conversations may be sent to a third-party model.",
-			Detail: "What you type can go to Anthropic. What the brain has learned about " +
-				"you is still withheld.",
+			Summary: "Conversations may be sent to a hosted model.",
+			Detail: "In open mode, your messages and the memory recalled for that turn " +
+				"are sent to the hosted provider you chose. The memory database itself " +
+				"stays on your machine.",
 		}
 	default:
 		return Description{

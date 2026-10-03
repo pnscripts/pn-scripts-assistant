@@ -60,9 +60,10 @@ var topics = []Topic{
 		Keys: []string{"private", "privacy", "my data", "sent anywhere", "secure", "safe", "who sees"},
 		Answer: "By default nothing leaves your computer. The model runs locally, the memory " +
 			"lives on your disk, and web access is switched off.\n\n" +
-			"If you later turn on web search or a paid model, PN Scripts Assistant still never sends what it " +
-			"has learned about you — only what you type in that conversation. That rule is " +
-			"enforced in the code, not just promised.",
+			"Research mode lets it search the web; no memory leaves. In open mode, your messages " +
+			"and the memory recalled for that turn are sent to the hosted provider you chose; " +
+			"the memory database itself stays on your machine. Each mode is enforced in the " +
+			"code, not just promised.",
 	},
 	{
 		Keys: []string{"cost", "pay", "free", "subscription", "price", "api key"},
