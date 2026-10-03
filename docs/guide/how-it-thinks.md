@@ -64,10 +64,11 @@ tab, and none is required. Which one answers a given turn depends on the
 privacy mode and on what is signed in; the local model is always the fallback,
 so a service being out of allowance degrades rather than fails.
 
-**What the assistant has learned about you never goes to a hosted model**, in
-any mode. Conversations are typed deliberately; memory is assembled from your
-disk without you composing it, so it is not the program's to forward. There is
-no setting that changes this.
+**In open mode, your messages and the memory recalled for that turn are sent
+to the hosted provider you chose; the memory database itself stays on your
+machine.** In `private` and `research` mode memory goes to no hosted model.
+Recalled memory is assembled from your disk rather than typed by you, which is
+why it only leaves when privacy is set to `open`.
 
 ## Who writes code
 

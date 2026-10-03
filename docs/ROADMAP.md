@@ -91,9 +91,17 @@ guards are worth explaining.*
 | `fetch_url` | Safe | every resolved address checked; redirects re-checked |
 | `web_search` | Safe | Brave API if keyed, else DuckDuckGo HTML |
 | `list_devices` | Safe | only when a smart home is configured |
-| `write_file` | **Mutating** | approval required; overwrite says so |
+| `write_file` | **Mutating** | approval as the Permissions setting says; overwrite says so, and the old file is kept for undo |
 | `run_command` | **Mutating** | argv array, no shell |
-| `set_device` | **Mutating** | approval required; unlocking says so in capitals |
+| `set_device` | **Mutating** | approval as the Permissions setting says; unlocking says so in capitals |
+
+Whether a Mutating tool stops for approval depends on the Permissions setting.
+The default is *act freely* (`everything`): it runs without asking. *Ask about
+what I have not allowed* (`granted`) runs what has been granted and asks about
+the rest, and always asks about anything rated critical. *Ask every time*
+(`ask`) stops before every one. In every setting each tool call is recorded,
+and a file the brain overwrites is kept so it can be put back: the last 60
+copies, for up to 14 days.
 
 Web tools are not registered at all in `private` mode. A tool the model can see
 is a tool it will try, and an assistant that keeps proposing something it may
@@ -123,8 +131,10 @@ argument, not a second command. That is also what makes the approval summary
 trustworthy: what is shown is exactly what will run, with no expansion happening
 afterwards.
 
-**A Mutating tool is never executed by the loop.** It records the call, stops
-the turn, and reports what it is waiting for. Decisions are final — the update
+**When a Mutating tool needs approval, the loop does not execute it.** It
+records the call, stops the turn, and reports what it is waiting for. Under the
+default *act freely* setting no approval is needed and the call runs, still
+recorded. Decisions are final — the update
 is conditional on the row still being pending, so a replayed request cannot turn
 a denial into an approval or run something twice. Approval executes the *stored*
 arguments, never anything sent alongside the approval, or the summary the owner

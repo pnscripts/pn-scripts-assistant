@@ -1,9 +1,22 @@
 # Installing it
 
-Three systems, one program. What differs is the wrapping and one real
-limitation: the native window is Linux-only, so on macOS and Windows the
-assistant runs and shows its interface in your browser. Everything else — the
-brain, the voice, the tools — is the same program.
+Three systems, one program, but not the same on each. The native window is
+Linux-only, so on macOS and Windows the assistant runs and shows its interface
+in your browser. Memory, typed conversation and most tools work the same
+everywhere. These parts are Linux-only:
+
+- **Listening.** Microphone capture uses PipeWire (`pw-record`) or ALSA
+  (`arecord`).
+- **Echo cancellation**, which keeps the machine's own sound out of what it
+  hears. It routes audio through PipeWire.
+- **Desktop control**: typing and clicking on your behalf goes through
+  `xdotool`.
+- **Confining project work by the kernel**, with Landlock. On macOS and Windows
+  a command still gets a cleaned environment and no shell, but the folder limit
+  is not enforced by the kernel.
+- **Telling your voice from others, and opening full web pages.** Both need
+  the cgo build, and the macOS and Windows builds are made without cgo. Plain
+  page fetching still works there.
 
 | System | Download | What it does |
 |---|---|---|
@@ -118,7 +131,9 @@ Applications and choose **Open**, then **Open** again in the dialog. Once only �
 after that it opens normally.
 
 There is no separate window on macOS. It starts, opens your browser at its own
-address, and everything happens there.
+address, and everything happens there. Listening, echo cancellation, desktop
+control and Landlock confinement are not available on a Mac; see the list at
+the top of this page.
 
 Ollama it cannot install for you on a Mac: get it from
 [ollama.com/download](https://ollama.com/download) and then carry on with
@@ -143,7 +158,9 @@ SmartScreen will stop the first run with "Windows protected your PC". That is
 the missing signature, not a verdict on the program: click **More info**, then
 **Run anyway**. Once only.
 
-There is no separate window on Windows either — it opens your browser.
+There is no separate window on Windows either; it opens your browser. As on a
+Mac, listening, echo cancellation, desktop control and Landlock confinement are
+Linux-only.
 
 Ollama is the same as on a Mac: install it from
 [ollama.com/download](https://ollama.com/download) first, and setup does

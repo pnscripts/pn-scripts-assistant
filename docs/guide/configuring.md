@@ -26,8 +26,10 @@ Nothing changes until the last screen.
 the window, which has the same settings one at a time, plus:
 
 - **Privacy** — `private` (nothing leaves), `research` (search queries only),
-  `open` (what you type may go to a hosted model). What the assistant has
-  learned about you never leaves in any mode.
+  `open` (hosted models allowed). In open mode, your messages and the memory
+  recalled for that turn are sent to the hosted provider you chose; the memory
+  database itself stays on your machine. In `private` and `research` no memory
+  leaves.
 - **Permissions** — *act freely* by default: it does what you ask without
   stopping to confirm, and writes down everything it does. *Ask about what I
   have not allowed* and *ask every time* are the other two.

@@ -62,12 +62,13 @@ This is the part that is enforced in code rather than promised in a prompt.
 |---|---|
 | `private` (default) | **nothing** — local model, local embeddings, no web |
 | `research` | search queries only; conversations and memory stay here |
-| `open` | what you type may go to a third-party model |
+| `open` | your messages and the memory recalled for that turn go to the hosted provider you chose |
 
-**What the brain has learned about you never leaves, in any mode.** Not in
-`open`, not with any setting. Conversations are typed deliberately; memory is
-assembled from your disk without you composing it, so it is not ours to forward.
-There is no configuration that changes this.
+**In `open` mode, your messages and the memory recalled for that turn are sent
+to the hosted provider you chose; the memory database itself stays on your
+machine.** In `private` and `research` mode no memory leaves at all. Recall is
+what a turn needs, not your whole memory, but it is assembled from your disk
+rather than typed by you, so choose `open` knowing that.
 
 An unrecognised privacy value is treated as `private`, because the safe reading
 of a typo is the strict one.
@@ -267,10 +268,11 @@ Silence detection calibrates to your room at the start of every turn, because a
 fixed threshold is either deaf in a quiet room or triggered by a fan in a noisy
 one.
 
-**Voice can ask but cannot act.** Spoken turns are sent without tools: their
-schemas cost more time than the answer does, and nobody talking to an assistant
-is asking it to write a file. It also means a misheard sentence has nothing to
-reach. Anything that changes something is typed, and still stops for approval.
+**Spoken turns can use the same tools as typed ones, under the same permission
+setting.** What was said decides whether tools are offered, not how it arrived:
+small talk is answered without them either way. Under the default *act freely*
+setting a spoken request can change something without stopping to ask, and is
+recorded like any other; set Permissions to ask if you would rather confirm.
 
 If it does not hear you, `pn-scripts-assistant mic-test` reports the three numbers that make
 that answerable: your room's noise floor, what therefore counted as speech, and
@@ -283,11 +285,13 @@ knowing. Measured on four cores with a 7B model: prompts are processed at about
 ten tokens a second and answers generated at two and a half. Prompt size is
 therefore very nearly the whole reply time.
 
-A spoken turn takes around 40 seconds. A typed one takes longer, because tool
-schemas are roughly 530 tokens sent with every message. Trimming what is sent
+A turn answered without tools, which is most small talk and much of what is
+said aloud, takes around 40 seconds. A turn that needs tools takes longer,
+spoken or typed, because tool schemas add roughly 530 tokens to the prompt. Trimming what is sent
 helps and has limits; the floor is the hardware. A GPU, or `open` mode with a
-hosted model, are the only things that change the order of magnitude — and in
-`open` mode what the brain has learned about you still never leaves.
+hosted model, are the only things that change the order of magnitude. In
+`open` mode your messages and the memory recalled for that turn are sent to the
+hosted provider you chose; the memory database itself stays on your machine.
 
 ## Commands
 
