@@ -775,6 +775,63 @@ func TestFirstRunAsksForANameOnlyOnce(t *testing.T) {
 }
 
 /*
+ * Pressing Begin without saying who you are leaves the owner unset.
+ *
+ * The naming card used to fill an empty owner field with its placeholder,
+ * which was a real person's name, so everybody who skipped it was saved as
+ * that person. The page now sends what was typed. This pins down the server's
+ * half: an empty owner is no owner, it does not stop the brain being named,
+ * and it never blanks an owner that is already set.
+ */
+func TestAnEmptyOwnerIsNoOwner(t *testing.T) {
+	ts, _, b := newServer(t)
+
+	b.Cfg.New = true
+	b.Cfg.Owner = ""
+
+	post := func(body string) {
+		t.Helper()
+
+		res, err := http.Post(ts.URL+"/api/settings", "application/json",
+			strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("posting %s returned %d", body, res.StatusCode)
+		}
+	}
+
+	post(`{"name":"Ariel","owner":""}`)
+
+	if b.Cfg.Owner != "" {
+		t.Errorf("an empty owner field was saved as %q", b.Cfg.Owner)
+	}
+
+	if b.Cfg.New {
+		t.Error("leaving the owner empty kept it asking to be introduced")
+	}
+
+	reloaded, err := config.Load(b.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if reloaded.Owner != "" {
+		t.Errorf("after a restart the owner is %q", reloaded.Owner)
+	}
+
+	b.Cfg.Owner = "Someone"
+	post(`{"owner":"  "}`)
+
+	if b.Cfg.Owner != "Someone" {
+		t.Errorf("an empty owner field blanked the owner already set: %q", b.Cfg.Owner)
+	}
+}
+
+/*
  * A brain that has a name should answer to it.
  *
  * Naming it on first run and then finding it ignores that name reads as

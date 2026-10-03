@@ -546,3 +546,42 @@ func TestTheLiveStatusLinesTakeTheirColourFromTheStatus(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * The naming card does not decide who its owner is.
+ *
+ * Its owner field once had a real person's name as its placeholder, and the
+ * script fell back to the placeholder when the field was empty, so every new
+ * brain whose owner pressed Begin without typing was saved as that person.
+ * The placeholder is a hint now and the field is sent as typed.
+ */
+func TestTheNamingCardDoesNotNameTheOwner(t *testing.T) {
+	page, err := assets.ReadFile("assets/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	field := regexp.MustCompile(`<input id="naming-owner"[^>]*placeholder="([^"]*)"`).
+		FindStringSubmatch(string(page))
+	if field == nil {
+		t.Fatal("no owner field with a placeholder on the naming card; has it moved?")
+	}
+
+	if field[1] != "Your name" {
+		t.Errorf("the owner field's placeholder is %q; it should be a neutral hint", field[1])
+	}
+
+	script, err := assets.ReadFile("assets/js/settings.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sent := regexp.MustCompile(`owner:\s*el\('naming-owner'\)[^\n]*`).FindString(string(script))
+	if sent == "" {
+		t.Fatal("settings.js no longer sends the naming card's owner field; has it moved?")
+	}
+
+	if strings.Contains(sent, "||") {
+		t.Errorf("an empty owner field falls back to a default: %s", sent)
+	}
+}

@@ -297,11 +297,14 @@ if (naming) {
     naming.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        // The placeholders are real defaults, not hints: somebody who presses
-        // Begin without typing has chosen them.
+        // The name's placeholder is a real default: somebody who presses Begin
+        // without typing has chosen it. The owner's is only a hint. It once
+        // read "Petar", and everybody who left it empty was saved as Petar.
+        // An empty owner is sent as empty, which the server leaves unset, the
+        // same as a brain nobody has introduced themselves to.
         const ok = await save({
             name: el('naming-name').value || 'Assistant',
-            owner: el('naming-owner').value || 'Petar',
+            owner: el('naming-owner').value.trim(),
         }, null);
 
         if (ok) {
