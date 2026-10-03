@@ -1,6 +1,6 @@
 # ADR 0002 — An organisation, not a team
 
-**Status:** accepted · **Date:** 2026-09-13
+**Status:** accepted, one point superseded (see "One switch for asking and privacy") · **Date:** 2026-09-13
 
 ## The real question
 
@@ -123,6 +123,16 @@ leaves; do what I have allowed and the web is open; never stop, never refuse. On
 last, nothing asks — critical actions and protected files included — and every
 high or critical action that ran is kept on its step and named in the task's
 account, which is what makes that choice reviewable.
+
+> **Superseded (2026-10-03).** Asking and privacy are two independent settings
+> now. The permission level (`BRAIN_FREEDOM`: ask, granted, everything) decides
+> only how much it asks before acting on this machine; privacy (`BRAIN_PRIVACY`:
+> private, research, open) decides only what may leave it. Neither sets the
+> other: not when `brain.conf` loads, and not in setup, which asks for each one
+> separately. What this paragraph says about "never stop" still holds for the
+> permission level: on *everything*, nothing asks and every high or critical
+> action that ran is kept on its step and named in the task's account. See
+> `docs/guide/configuring.md`.
 
 **Lanes, not a number.** This machine's model is one lane, one call at a time,
 because two calls on a processor take longer than twice as long. Hosted services
