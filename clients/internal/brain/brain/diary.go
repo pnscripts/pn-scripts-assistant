@@ -3,6 +3,7 @@ package brain
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/speech"
@@ -89,9 +90,7 @@ func (b *Brain) watchReminders(ctx context.Context) {
 				break
 			}
 
-			line := fmt.Sprintf("%s, a reminder: %s", b.Cfg.Owner, r.What)
-
-			if err := speech.SpeakAndWait(ctx, line); err != nil {
+			if err := speech.SpeakAndWait(ctx, reminderLine(b.Cfg.Owner, r.What)); err != nil {
 				b.Log.Warn("could not say a reminder", "id", r.ID, "error", err)
 
 				continue
@@ -102,4 +101,15 @@ func (b *Brain) watchReminders(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// reminderLine is what is said when a reminder is due: addressed to the owner
+// by name when there is one, and simply said when there is not, rather than
+// beginning with a comma.
+func reminderLine(owner, what string) string {
+	if owner = strings.TrimSpace(owner); owner == "" {
+		return "A reminder: " + what
+	}
+
+	return fmt.Sprintf("%s, a reminder: %s", owner, what)
 }
