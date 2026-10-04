@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -134,6 +135,16 @@ func TestSizesAreOrderedAndComfortIsSeparateFromFitting(t *testing.T) {
  * other. This runs the page's own script on the server's own answer.
  */
 func TestTheModelsViewShowsWhatTheCatalogueSends(t *testing.T) {
+	css, err := assets.ReadFile("assets/css/console.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Model names are shown as they are typed: "all-minilm", not "All-Minilm".
+	if !regexp.MustCompile(`\.permit-name\.as-typed\s*\{[^}]*text-transform:\s*none`).Match(css) {
+		t.Error("nothing stops the capitalising .permit-name rule from changing model names")
+	}
+
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("node is not installed")
 	}
@@ -163,6 +174,10 @@ func TestTheModelsViewShowsWhatTheCatalogueSends(t *testing.T) {
 	}
 
 	text := string(shown)
+
+	if strings.Contains(text, "not shown as typed") {
+		t.Errorf("a model name is drawn without the as-typed class, so CSS capitalises it")
+	}
 
 	if strings.Contains(strings.ToLower(text), "undefined") {
 		t.Errorf("the Models view printed undefined:\n%s", text)
@@ -195,6 +210,7 @@ const dir = process.argv[2];
 
 class Node {
     constructor(tag) {
+        this.classes = () => this.className.trim().split(/\s+/);
         this.tag = tag; this.children = []; this.dataset = {}; this.hidden = false;
         this._text = ''; this.className = ''; this.title = ''; this.value = '';
         this.classList = { add: (c) => { this.className += ' ' + c; }, remove: () => {} };
@@ -235,6 +251,15 @@ global.fetch = async (url) => ({
 eval(fs.readFileSync(path.join(dir, 'install.js'), 'utf8'));
 
 setTimeout(() => {
+    const names = [];
+    const walk = (n) => {
+        if (n.classes().includes('permit-name')) names.push(n);
+        n.children.forEach(walk);
+    };
+    walk(ids['catalogue-list']);
+    if (!names.length || names.some((n) => !n.classes().includes('as-typed'))) {
+        console.log('a model name is not shown as typed');
+    }
     console.log(ids['catalogue-machine'].lines().join('\n'));
     console.log(ids['catalogue-list'].lines().join('\n'));
 }, 50);

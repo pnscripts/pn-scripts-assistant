@@ -4148,6 +4148,15 @@ select { font-size: 13.5px; }
     text-transform: capitalize;
 }
 
+/*
+ * A model's name, exactly as it is typed.
+ *
+ * Capitalised, "all-minilm" read "All-Minilm" and "athene-v2" "Athene-V2" —
+ * names somebody may copy into a terminal or a search, where the capitals are
+ * wrong. Ollama's names are lowercase and are shown that way.
+ */
+.permit-name.as-typed { text-transform: none; }
+
 .permit-what {
     font-size: 11.5px;
     color: var(--text-dim);

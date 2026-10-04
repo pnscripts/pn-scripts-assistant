@@ -551,7 +551,7 @@
         text.className = 'permit-text';
 
         const name = document.createElement('span');
-        name.className = 'permit-name';
+        name.className = 'permit-name as-typed';
         name.textContent = m.can && m.can.length ? `${m.name} · ${m.can.join(', ')}` : m.name;
         text.appendChild(name);
 
