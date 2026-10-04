@@ -203,7 +203,9 @@ func TestASilentServerTimesOut(t *testing.T) {
 
 	// Accept and hold every connection without ever sending a greeting.
 	held := make(chan net.Conn, 4)
+	accepting := make(chan struct{})
 	go func() {
+		defer close(accepting)
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
@@ -212,7 +214,11 @@ func TestASilentServerTimesOut(t *testing.T) {
 			held <- conn
 		}
 	}()
+	// Stop accepting and wait for the loop to end before closing held, or the
+	// close races the loop's send (the race detector in CI caught exactly that).
 	defer func() {
+		listener.Close()
+		<-accepting
 		close(held)
 		for conn := range held {
 			conn.Close()
