@@ -8,10 +8,10 @@ import (
 // The memories this machine actually holds, abbreviated.
 var realMemories = []string{
 	"Petar regularly uses the website pnscripts.local (1160 visits in browser history).",
-	"Petar uses pnscripts.local and staging.tools.swytchbike.com frequently.",
+	"Petar uses pnscripts.local and staging.example-client.test frequently.",
 	"Petar regularly uses the website hosting.pnscripts.com (8 visits in browser history).",
-	"Petar has a .pdf file named \"1-PnScripts-Skillo.pdf\" at /home/petar/Documents/PN Scripts/",
-	"Petar's most-used websites: pnscripts.local (1160), staging.tools.swytchbike.com (240).",
+	"Petar has a .pdf file named \"1-Example-Invoice.pdf\" at /home/petar/Documents/Invoices/",
+	"Petar's most-used websites: pnscripts.local (1160), staging.example-client.test (240).",
 	"Petar reads news on dnevnik.bg most mornings.",
 }
 

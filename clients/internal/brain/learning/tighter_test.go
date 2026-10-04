@@ -176,7 +176,7 @@ func TestARefrainWithinOneDocumentCountsOnce(t *testing.T) {
 func TestWhatCountsAsTheSameLine(t *testing.T) {
 	same := [][2]string{
 		{"The  deployment window is  the first Tuesday", "the deployment window is the first tuesday"},
-		{"ПОЛУЧАТЕЛ ПН СКРИПТС ЕООД", "Получател ПН Скриптс ЕООД"},
+		{"ПОЛУЧАТЕЛ ПРИМЕР СОФТ ЕООД", "Получател Пример Софт ЕООД"},
 	}
 
 	for _, c := range same {
@@ -274,9 +274,9 @@ func TestAFormStopsBeingReadOnceItIsRecognised(t *testing.T) {
 	repeated.Forget()
 
 	header := []string{
-		"Получател ПН СКРИПТС ЕООД Доставчик ПЛАНЕТ АКАУНТИНГ ЕООД",
-		"Адрес кв. Бенковски ул. Тетевенска 16 Адрес ул. Н. Некрасов 32",
-		"МОЛ ПЕТЪР ВЕНЦИСЛАВОВ НИКОЛОВ МОЛ Юлиана Петрова",
+		"Получател ПРИМЕР СОФТ ЕООД Доставчик ДЕМО КОНСУЛТ ЕООД",
+		"Адрес ул. Примерна 1 Адрес ул. Тестова 2",
+		"МОЛ ИВАН ИВАНОВ МОЛ Мария Георгиева",
 		"Основание за неначисляване на ДДС чл.113, ал.9 от ЗДДС - лицето не е регистрирано",
 		"Код Наименование на стоката или услугата Мярка Количество Цена Сума общо",
 	}
@@ -289,8 +289,8 @@ func TestAFormStopsBeingReadOnceItIsRecognised(t *testing.T) {
 			fmt.Sprintf("\nПредоставяне на софтуерни консултантски услуги за месец %d\n", month)
 
 		said, why := FromDocumentContents(Document{
-			Name: fmt.Sprintf("%d_Skillo.pdf", month),
-			Path: fmt.Sprintf("/docs/%d_Skillo.pdf", month),
+			Name: fmt.Sprintf("%d_Invoice.pdf", month),
+			Path: fmt.Sprintf("/docs/%d_Invoice.pdf", month),
 			Kind: "PDF",
 		}, text, "Petar")
 
