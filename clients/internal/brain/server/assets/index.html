@@ -825,7 +825,12 @@
                         password — every provider worth using issues them, they can be
                         revoked on their own, and they cannot be used to take the account
                         over. It is kept in the settings file beside the brain and sent
-                        only to your own mail server.</p>
+                        only to your own mail server. Mail is read from one server and
+                        sent through another: Gmail reads on imap.gmail.com and sends
+                        through smtp.gmail.com. Leave the outgoing server blank and an
+                        incoming server named imap.<em>something</em> is taken to send
+                        through smtp.<em>something</em>; any other name needs the
+                        outgoing server filled in.</p>
                     <form id="mail-form">
                         <label class="field">
                             <span>Your address</span>
