@@ -19,13 +19,16 @@ var someLibrary = []catalogue.Model{
 	{Name: "qwen3", What: "The latest Qwen.", Can: []string{"tools", "thinking"}, Sizes: []string{"0.6b", "8b", "235b"}},
 	{Name: "nomic-embed-text", What: "An embedding model.", Can: []string{"embedding"}},
 	{Name: "mystery", What: "Published in one size nobody named."},
+	{Name: "gemma3", What: "Lightweight.", Can: []string{"vision"}, Sizes: []string{"27b", "270m", "4b", "12b", "1b"}},
+	{Name: "gemma3n", What: "Everyday devices.", Sizes: []string{"e2b", "e4b"}},
+	{Name: "dolphin-mixtral", What: "Experts.", Sizes: []string{"8x22b", "8x7b"}},
 }
 
 func TestEverySizeIsJudgedAgainstThisMachine(t *testing.T) {
 	out := listCatalogue(someLibrary, map[string]bool{"qwen3:8b": true}, reportedMachine)
 
-	if len(out) != 3 {
-		t.Fatalf("listed %d models, want 3", len(out))
+	if len(out) != len(someLibrary) {
+		t.Fatalf("listed %d models, want %d", len(out), len(someLibrary))
 	}
 
 	qwen := out[0]
@@ -61,6 +64,63 @@ func TestEverySizeIsJudgedAgainstThisMachine(t *testing.T) {
 	 */
 	if v := out[2].Variants[0]; v.Name != "mystery" || v.NeedsGB != 0 || v.Verdict != "" || !v.Fits {
 		t.Errorf("a model with no size: %+v", v)
+	}
+}
+
+/*
+ * Sizes are listed smallest first, and comfortable is told apart from fits.
+ *
+ * On four cores and 31GB a 12b fits and takes minutes per answer, so it is
+ * not where the interface should start; a 4b is. A size with no number to go
+ * on is listed last and judged not at all.
+ */
+func TestSizesAreOrderedAndComfortIsSeparateFromFitting(t *testing.T) {
+	out := listCatalogue(someLibrary, nil, reportedMachine)
+
+	byName := map[string]Listed{}
+	for _, m := range out {
+		byName[m.Name] = m
+	}
+
+	var order []string
+	comfortable := map[string]bool{}
+
+	for _, v := range byName["gemma3"].Variants {
+		order = append(order, v.Size)
+		comfortable[v.Size] = v.Comfortable
+
+		if !v.Fits {
+			t.Errorf("%s does not fit in 31GB: %+v", v.Name, v)
+		}
+	}
+
+	if strings.Join(order, " ") != "270m 1b 4b 12b 27b" {
+		t.Errorf("gemma3 sizes are listed as %v", order)
+	}
+
+	for size, want := range map[string]bool{"270m": true, "1b": true, "4b": true, "12b": false, "27b": false} {
+		if comfortable[size] != want {
+			t.Errorf("gemma3:%s comfortable on four cores is %v, want %v", size, comfortable[size], want)
+		}
+	}
+
+	for _, v := range byName["gemma3n"].Variants {
+		if v.NeedsGB != 0 || v.Verdict != "" || v.Comfortable || !v.Fits {
+			t.Errorf("an effective size was judged: %+v", v)
+		}
+	}
+
+	if v := byName["dolphin-mixtral"].Variants; v[0].Size != "8x7b" || v[0].Fits || v[1].Fits {
+		t.Errorf("every expert counts, and neither mixture fits in 31GB: %+v", v)
+	}
+
+	// A card with room for it is comfortable; spilling onto the processor is not.
+	card := models.Power{Cores: 8, RAMBytes: 64 << 30, Accelerated: true, VRAMBytes: 12 << 30}
+
+	for _, v := range listCatalogue(someLibrary[:1], nil, card)[0].Variants {
+		if want := v.NeedsGB <= 12; v.Comfortable != want {
+			t.Errorf("%s on a 12GB card: comfortable %v, want %v", v.Name, v.Comfortable, want)
+		}
 	}
 }
 
@@ -116,6 +176,9 @@ func TestTheModelsViewShowsWhatTheCatalogueSends(t *testing.T) {
 		"usable on a processor",
 		"nomic-embed-text",
 		"mystery",
+		// Not installed, so it opens on the largest size that runs well
+		// here rather than the largest that fits.
+		"gemma3 · vision\nLightweight.\nwants about 4GB while running · usable on a processor — seconds, not instant\nchosen: 4b",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the Models view does not show %q:\n%s", want, text)
@@ -145,6 +208,10 @@ class Node {
     contains() { return false; }
     lines() {
         if (this.hidden) return [];
+        if (this.tag === 'select') {
+            const chosen = this.children.find((o) => o.selected);
+            return ['chosen: ' + (chosen ? chosen._text : 'nothing')];
+        }
         const own = this._text ? [this._text] : [];
         return own.concat(...this.children.map((c) => c.lines()));
     }

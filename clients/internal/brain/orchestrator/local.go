@@ -348,7 +348,10 @@ func PlanModel(ctx context.Context, need Need, library []catalogue.Model, machin
 		mentionsCode := strings.Contains(strings.ToLower(m.What), "code")
 
 		for _, size := range m.Sizes {
-			b := params(size)
+			// The catalogue's own reading of its sizes: "8x7b" is every
+			// expert, not the 7b at the end of it, and an "e2b" has no
+			// number to go on and is passed over, as it always was.
+			b := catalogue.Billions(size)
 			if b <= 0 {
 				continue
 			}

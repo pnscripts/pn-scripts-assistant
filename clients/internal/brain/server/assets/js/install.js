@@ -498,18 +498,22 @@
      * Which size to show first.
      *
      * The one already here, because somebody who has a model came to look at
-     * it; otherwise the largest that fits, because among the sizes this
-     * machine can run the larger is usually the better answer; otherwise the
-     * smallest, which is the nearest thing to fitting.
+     * it; otherwise the largest that runs comfortably on this machine, which
+     * the server decides from what it measured. Not the largest that merely
+     * fits: on four cores that opened Qwen3 on 32b, minutes per answer, when
+     * 8b answers in seconds. Failing that, the smallest that fits, and failing
+     * that the smallest, which is the nearest thing to fitting.
      */
     function firstChoice(variants) {
         const here = variants.find((v) => v.installed);
 
         if (here) return here;
 
-        const fitting = variants.filter((v) => v.fits);
+        const comfortable = variants.filter((v) => v.comfortable);
 
-        return fitting.length ? fitting[fitting.length - 1] : variants[0];
+        if (comfortable.length) return comfortable[comfortable.length - 1];
+
+        return variants.find((v) => v.fits) || variants[0];
     }
 
     /*

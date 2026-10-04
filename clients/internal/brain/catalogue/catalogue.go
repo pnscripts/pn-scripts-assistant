@@ -151,8 +151,16 @@ var (
 	tags  = regexp.MustCompile(`<[^>]+>`)
 )
 
-// knownSize is a parameter count: 1b, 3b, 70b, 1.5b.
-var knownSize = regexp.MustCompile(`^\d+(\.\d+)?b$`)
+/*
+ * knownSize is a size a model is published in.
+ *
+ * Not only whole billions. The library also lists "270m" for the smallest
+ * models, "8x7b" for a mixture of experts and "e2b" for Gemma's "effective"
+ * sizes. Reading only "1b"-shaped words put those among what a model can do,
+ * so the Models view said "all-minilm · embedding, 22m, 33m" and offered no
+ * way to choose between them.
+ */
+var knownSize = regexp.MustCompile(`^(?:(\d+)x)?(e)?(\d+(?:\.\d+)?)([mbt])$`)
 
 func parse(page string) []Model {
 	var out []Model
@@ -206,7 +214,50 @@ func clean(s string) string {
 }
 
 /*
- * MemoryFor estimates what one size wants while it is running, in gigabytes.
+ * Billions is how many parameters a size has to hold in memory, in billions,
+ * or 0 when the size does not say.
+ *
+ * "270m" is 0.27 and "1t" is a thousand. A mixture of experts, "8x7b", is
+ * counted in full: every expert is loaded even though only some answer, and
+ * the experts share some of their layers, so this is a little more than the
+ * real figure — the right side to be wrong on when the question is whether it
+ * fits. An "effective" size, "e2b", names the parameters used per answer, not
+ * the ones loaded, which are more than twice as many and not given; it is a
+ * size with no number rather than a number that is too small.
+ */
+func Billions(size string) float64 {
+	m := knownSize.FindStringSubmatch(strings.ToLower(strings.TrimSpace(size)))
+	if m == nil || m[2] == "e" {
+		return 0
+	}
+
+	n, err := strconv.ParseFloat(m[3], 64)
+	if err != nil || n <= 0 {
+		return 0
+	}
+
+	switch m[4] {
+	case "m":
+		n /= 1000
+	case "t":
+		n *= 1000
+	}
+
+	if m[1] != "" {
+		experts, err := strconv.Atoi(m[1])
+		if err != nil || experts <= 0 {
+			return 0
+		}
+
+		n *= float64(experts)
+	}
+
+	return n
+}
+
+/*
+ * MemoryFor estimates what one size wants while it is running, in gigabytes,
+ * or 0 when the size does not say how large it is.
  *
  * An estimate and said to be one. What a model needs depends on the
  * quantisation ollama picks, the context length and what else is loaded, and
@@ -218,10 +269,8 @@ func clean(s string) string {
  * billion, plus a bit over a gigabyte for the context and the runtime.
  */
 func MemoryFor(size string) float64 {
-	size = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(size)), "b")
-
-	billions, err := strconv.ParseFloat(size, 64)
-	if err != nil || billions <= 0 {
+	billions := Billions(size)
+	if billions <= 0 {
 		return 0
 	}
 
