@@ -32,7 +32,8 @@ type Account struct {
 	// From is the address to send as, when it differs from the user name.
 	From string
 
-	// SMTPHost and SMTPPort are for sending. Empty means the same host on 587.
+	// SMTPHost and SMTPPort are for sending. An empty host is worked out from
+	// an imap.<domain> Host as smtp.<domain>; an empty port means 587.
 	SMTPHost string
 	SMTPPort int
 }
