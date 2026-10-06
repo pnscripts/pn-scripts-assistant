@@ -6,6 +6,38 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## 0.3.0 — 2026-10-06
+
+Two settings that had quietly become one are two again, the Models view says
+something true about every model, and mail goes to the server that sends it.
+
+### What you will notice
+
+- **The permission level and privacy are independent.** Loading `brain.conf`
+  used to raise the permission level to match privacy, so somebody who chose
+  "ask every time" with privacy open was acting freely again after a restart.
+  Setup coupled them the other way. Now each is read as written, and setup
+  asks about privacy separately. The interface and the documentation say what
+  each one actually does: in open mode the memory recalled for a turn goes to
+  the hosted provider with the messages; the database itself stays here.
+- **The Models view lists sizes, not "undefined".** Each model is one row with
+  every size it is published in — "270m", "8x7b" and "e2b" included — and what
+  each wants in memory and how it will run on this machine. A model opens on
+  the largest size that runs comfortably here rather than the largest that
+  merely fits. Model names are shown as typed, not capitalised.
+- **Mail goes through the outgoing server.** With the outgoing server left
+  blank, mail went to the reading server and failed. An incoming server named
+  `imap.<domain>` now sends through `smtp.<domain>`; anything else asks for the
+  outgoing server in Settings. A server that accepts and then says nothing no
+  longer holds a tool call forever, and every message carries a Message-ID.
+
+### Smaller fixes
+
+- The naming card no longer saves an empty owner under a placeholder name.
+- A reminder with nobody named begins "A reminder:", not ", a reminder:".
+- The README and installing guide no longer name a version that was never
+  published.
+
 ## 0.2.2 — 2026-09-27
 
 Every action in both workflows on its current major, and pinned to a commit.
