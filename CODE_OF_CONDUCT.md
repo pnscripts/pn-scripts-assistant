@@ -31,7 +31,7 @@ honestly promise to do.
 
 ## Reporting
 
-Email **petar.v.nikolov@gmail.com**, with `pn-scripts-assistant` in the
+Email **office@pnscripts.com**, with `pn-scripts-assistant` in the
 subject. If the problem is with the maintainer, say so in the issue and it will
 be answered in public.
 

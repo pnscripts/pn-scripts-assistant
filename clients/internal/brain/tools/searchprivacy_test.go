@@ -33,7 +33,7 @@ func TestOrdinaryQuestionsStillReachTheWeb(t *testing.T) {
 
 func TestPersonalDetailsNeverReachASearchEngine(t *testing.T) {
 	for _, c := range []struct{ what, query string }{
-		{"an email address", "when did petar.v.nikolov@gmail.com reply about the invoice"},
+		{"an email address", "when did someone@example.com reply about the invoice"},
 		{"a telephone number", "who called me from +359 88 123 4567"},
 		{"a card number", "charge on 4111 1111 1111 1111"},
 		{"an identity number", "check 8501015555 registration"},
@@ -49,7 +49,7 @@ func TestPersonalDetailsNeverReachASearchEngine(t *testing.T) {
 // The refusal explains itself, so the model searches for the general question
 // rather than concluding the web has nothing and answering from imagination.
 func TestARefusedSearchSaysWhy(t *testing.T) {
-	ok, why := PrivateEnough("what did petar.v.nikolov@gmail.com say")
+	ok, why := PrivateEnough("what did someone@example.com say")
 	if ok {
 		t.Fatal("an email address passed the check")
 	}

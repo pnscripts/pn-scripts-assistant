@@ -220,7 +220,7 @@ pn-scripts-assistant ($VERSION) unstable; urgency=medium
   * Built from $( git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "an unknown revision" ).
   * The release notes for this build are in the repository, under docs/.
 
- -- Petar Nikolov <petar.v.nikolov@gmail.com>  $(date -R -u -d "@$SOURCE_DATE_EPOCH" 2>/dev/null || date -R)
+ -- PN Scripts <office@pnscripts.com>  $(date -R -u -d "@$SOURCE_DATE_EPOCH" 2>/dev/null || date -R)
 CHANGELOG
 
     # -n so the name and timestamp are not written into the gzip header, which
@@ -308,7 +308,7 @@ Priority: optional
 Architecture: amd64
 Depends: $depends
 Recommends: xdotool, espeak-ng
-Maintainer: Petar Nikolov <petar.v.nikolov@gmail.com>
+Maintainer: PN Scripts <office@pnscripts.com>
 Homepage: https://github.com/pnscripts/pn-scripts-assistant
 Installed-Size: $(du -sk "$stage" | cut -f1)
 Description: Private assistant that runs entirely on this machine

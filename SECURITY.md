@@ -14,7 +14,7 @@ Use GitHub's private reporting: **Security → Report a vulnerability** on
 It is private between you and the maintainer, and it is the preferred route
 because the conversation, the fix and the advisory stay in one place.
 
-If that is not available to you, write to **petar.v.nikolov@gmail.com** with
+If that is not available to you, write to **office@pnscripts.com** with
 `pn-scripts-assistant` in the subject.
 
 What helps, in rough order of usefulness:
