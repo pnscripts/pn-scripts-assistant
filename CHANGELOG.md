@@ -63,7 +63,7 @@ first meeting is a conversation. See ADR 0007 and ADR 0008.
 
 ### Smaller fixes
 
-- Built with Go 1.26.9, which closes thirteen vulnerabilities govulncheck
+- Built with Go 1.26.9, which closes twelve vulnerabilities govulncheck
   found in the standard library of 1.26.6 (`net/http`, `net/textproto`,
   `crypto/tls`, `html/template`). Nothing in this code changed for it.
 
