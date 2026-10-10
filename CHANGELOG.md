@@ -6,10 +6,26 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
-## Unreleased
+## 0.4.0 — 2026-10-11
 
-Everything is allowed out of the box, it already knows how the work here is
-done, and the first meeting is a conversation. See ADR 0007.
+Everything is allowed out of the box and still recorded, what it keeps about
+you is encrypted at rest, it already knows how the work here is done, and the
+first meeting is a conversation. See ADR 0007 and ADR 0008.
+
+### Before you update — read this
+
+- **The first start encrypts your brain, and shows a recovery key once.**
+  Write it down or save it as a file before you press "I have kept it"; it is
+  never shown again. Without it, the brain cannot be opened on another
+  computer, or on this one if its keyring is lost.
+- **Older versions cannot read an encrypted brain.** There is no way back to
+  0.3.0 with the same data once 0.4.0 has started on it. The copy taken before
+  sealing (`brain.sqlite.before-sealing.pnsealed`) is itself sealed, so if you
+  might want to go back, copy the brain's folder somewhere safe before the
+  first start.
+- **Everything is allowed by default**, including on an existing install,
+  which is switched over once. If you want the old limits, set
+  `BRAIN_CONFINE=1` before you start it.
 
 ### What you will notice
 
@@ -40,6 +56,10 @@ done, and the first meeting is a conversation. See ADR 0007.
 - **No naming form and no greeting formula.** The first meeting is a
   conversation; your name, its name and your language are picked up from what
   you say.
+- **The copyright holder is the company**, ПН СКРИПТС ЕООД (PN Scripts),
+  in the licence, the package and the Windows installer. Security reports and
+  the package's maintainer address go to office@pnscripts.com. The licence is
+  still MIT.
 
 ## 0.3.0 — 2026-10-06
 
