@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/vault"
 	"sort"
 	"strconv"
 	"strings"
@@ -627,6 +628,19 @@ func LoadFrom(path string) (Config, error) {
 		return cfg, err
 	}
 
+	// Sealed values opened (ADR 0008); one that will not open — no key here
+	// yet, or another brain's — reads as unset rather than as ciphertext.
+	for k, v := range values {
+		if vault.IsSealedString(v) {
+			plain, err := vault.OpenIfSealed(v)
+			if err != nil {
+				plain = ""
+			}
+
+			values[k] = plain
+		}
+	}
+
 	/*
 	 * A file written before ADR 0007 is opened up once.
 	 *
@@ -928,11 +942,81 @@ func (c Config) Save(root string) error {
 	b.WriteString("HOME_ASSISTANT_URL=" + c.HomeAssistantURL + "\n")
 	b.WriteString("HOME_ASSISTANT_TOKEN=" + c.HomeAssistantToken + "\n")
 
-	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
+	// What is personal is sealed when the brain is (ADR 0008).
+	out := sealLines(b.String())
+
+	if err := vault.WriteAtomic(path, []byte(out), 0o600); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 
 	return nil
+}
+
+// Personal reports whether a setting is a secret, or says who somebody is.
+func Personal(key string) bool {
+	switch key {
+	case "MAIL_PASSWORD", "MAIL_USER", "MAIL_FROM", "BRAIN_OWNER", "BRAVE_SEARCH_KEY",
+		"HOME_ASSISTANT_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY":
+		return true
+	}
+
+	for _, svc := range llm.Services() {
+		if key == llm.KeySetting(svc.ID) {
+			return true
+		}
+	}
+
+	return strings.HasSuffix(key, "_API_KEY") || strings.HasSuffix(key, "_TOKEN") ||
+		strings.HasSuffix(key, "_PASSWORD") || strings.HasSuffix(key, "_SECRET")
+}
+
+// SealSetting is a value as it is written into the file: sealed when it is
+// personal and the brain has a key.
+func SealSetting(key, value string) string {
+	if Personal(key) {
+		return vault.SealIfActive(value)
+	}
+
+	return value
+}
+
+func sealLines(text string) string {
+	lines := strings.Split(text, "\n")
+
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+
+		key, value, found := strings.Cut(line, "=")
+		if found && value != "" {
+			lines[i] = key + "=" + SealSetting(strings.TrimSpace(key), value)
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+/*
+ * SealFile seals what is personal in a settings file in place, line by line,
+ * keeping everything else as it is. For a brain sealed on upgrade.
+ */
+func SealFile(path string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	sealed := sealLines(string(raw))
+	if sealed == string(raw) {
+		return nil
+	}
+
+	return vault.WriteAtomic(path, []byte(sealed), 0o600)
 }
 
 // readFile parses key=value lines, ignoring blanks and # comments. A missing

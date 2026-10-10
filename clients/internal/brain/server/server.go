@@ -159,6 +159,9 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/providers/{name}/test", s.handleTestProvider)
 
 	s.mux.HandleFunc("GET /api/permissions", s.handlePermissions)
+	s.mux.HandleFunc("GET /api/vault", s.handleVault)
+	s.mux.HandleFunc("GET /api/vault/recovery", s.handleRecovery)
+	s.mux.HandleFunc("POST /api/vault/recovery/kept", s.handleRecoveryKept)
 	s.mux.HandleFunc("POST /api/permissions/decide", s.handleDecide)
 	s.mux.HandleFunc("POST /api/permissions/freedom", s.handleFreedom)
 	s.mux.HandleFunc("POST /api/permissions/look-online", s.handleLookOnline)

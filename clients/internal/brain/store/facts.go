@@ -52,14 +52,14 @@ func (d *DB) AddFact(category, content string, embedding []float32) (int64, erro
 	var dims any
 
 	if len(embedding) > 0 {
-		blob = EncodeVector(embedding)
+		blob = d.sealBlob(EncodeVector(embedding))
 		dims = len(embedding)
 	}
 
 	res, err := d.sql().Exec(
 		`INSERT INTO knowledge_facts (category, content, embedding, dimensions, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		category, content, blob, dims, now, now,
+		category, d.seal(content), blob, dims, now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("storing fact: %w", err)
@@ -414,7 +414,7 @@ func (d *DB) DeleteFact(id int64) error {
 func (d *DB) ReplaceEmbedding(id int64, embedding []float32) error {
 	_, err := d.sql().Exec(
 		`UPDATE knowledge_facts SET embedding = ?, dimensions = ?, updated_at = ? WHERE id = ?`,
-		EncodeVector(embedding), len(embedding), time.Now().UTC().Format(time.RFC3339), id)
+		d.sealBlob(EncodeVector(embedding)), len(embedding), time.Now().UTC().Format(time.RFC3339), id)
 
 	return err
 }

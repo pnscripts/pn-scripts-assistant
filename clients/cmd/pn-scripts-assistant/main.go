@@ -44,6 +44,7 @@ import (
 	"pn-scripts-assistant/internal/brain/speech"
 	"pn-scripts-assistant/internal/brain/storage"
 	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/vault"
 	"pn-scripts-assistant/internal/brain/window"
 	"pn-scripts-assistant/internal/preflight"
 	"pn-scripts-assistant/internal/setup"
@@ -118,6 +119,12 @@ func main() {
 		err = runSnapshot(os.Args[2:])
 	case "start-again":
 		err = runStartAgain(os.Args[2:])
+	// A brain carried to a machine that has never seen it, unlocked from a
+	// terminal with its recovery key; the app asks in a window instead.
+	case "unlock":
+		err = runUnlock(os.Args[2:])
+	case "read-log":
+		err = runReadLog(os.Args[2:])
 	// Which copy is this. The first question anybody is asked when they
 	// report something, and until now there was no way to answer it.
 	case "version", "-v", "--version":
@@ -243,6 +250,8 @@ func usage() {
   pn-scripts-assistant menu               put the brain in the applications menu
   pn-scripts-assistant menu --remove      take it out again
   pn-scripts-assistant rewrite-paths      repair stored paths after a move, then re-embed
+  pn-scripts-assistant unlock             open an encrypted brain on a new machine with its recovery key
+  pn-scripts-assistant read-log           this program's log, its sealed lines opened
   pn-scripts-assistant version            which copy of the program this is
 
 `)
@@ -255,8 +264,35 @@ func openDB() (*store.DB, paths.Root, error) {
 		return nil, paths.Root{}, fmt.Errorf("locating the data root: %w", err)
 	}
 
-	db, err := store.Open(root.DatabasePath())
+	/*
+	 * Sealed (ADR 0008): the key from this machine's keyring, or a new one
+	 * for a brain that has none, or the recovery key on a machine that has
+	 * never seen this brain. Then whatever is still in the clear is sealed —
+	 * once, with a proved copy first, resumably — and only then is anything
+	 * read.
+	 */
+	u, err := unlockBrain(root)
 	if err != nil {
+		return nil, root, err
+	}
+
+	db, err := store.OpenSealed(root.DatabasePath(), u.Key)
+	if err != nil {
+		return nil, root, err
+	}
+
+	if done, err := db.SealInPlace(context.Background()); err != nil {
+		db.Close()
+
+		return nil, root, fmt.Errorf("sealing the brain: %w", err)
+	} else if done.Rows > 0 {
+		fmt.Fprintf(os.Stderr, "  sealed %d records in place; a sealed copy of the brain as it was is in %s\n",
+			done.Rows, store.BackupBeforeSealing(root.DatabasePath()))
+	}
+
+	if err := sealTheRest(root.Path, u.Key); err != nil {
+		db.Close()
+
 		return nil, root, err
 	}
 
@@ -280,6 +316,7 @@ func runStatus(args []string) error {
 	// exists yet: somebody reading this needs the path either way, and "there
 	// is nothing there" is itself an answer.
 	fmt.Printf("  log       : %s\n", logs.File())
+	fmt.Printf("  encrypted : %s\n", keyringSummary())
 
 	if info, err := os.Stat(root.DatabasePath()); err == nil {
 		fmt.Printf("  size      : %.1f MB\n", float64(info.Size())/(1<<20))
@@ -331,6 +368,8 @@ func runServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	addr := fs.String("addr", "", "address to listen on (loopback only)")
 	fs.Parse(args)
+
+	askForRecovery = func(root paths.Root) (vault.Unlocked, error) { return recoveryWindow(root, true) }
 
 	db, root, err := openDB()
 	if err != nil {
@@ -699,6 +738,8 @@ func runApp(args []string) error {
 	addr := fs.String("addr", "", "address to listen on (loopback only)")
 	skipSetup := fs.Bool("skip-setup", false, "start even if the machine is missing something")
 	fs.Parse(args)
+
+	askForRecovery = func(root paths.Root) (vault.Unlocked, error) { return recoveryWindow(root, false) }
 
 	db, root, err := openDB()
 	if err != nil {

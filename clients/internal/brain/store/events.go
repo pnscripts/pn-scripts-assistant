@@ -107,9 +107,9 @@ func (d *DB) PutInTheDiary(e Event) (int64, error) {
 		INSERT INTO events (uid, title, starts_at, ends_at, all_day, place, notes,
 			came_from, created_at, updated_at)
 		VALUES (?,?,?,?,?,?,?,?,?,?)`,
-		e.UID, strings.TrimSpace(e.Title),
+		e.UID, d.seal(strings.TrimSpace(e.Title)),
 		e.Starts.UTC().Format(time.RFC3339), e.Ends.UTC().Format(time.RFC3339),
-		e.AllDay, e.Place, e.Notes, e.CameFrom, now, now)
+		e.AllDay, d.seal(e.Place), d.seal(e.Notes), e.CameFrom, now, now)
 	if err != nil {
 		return 0, fmt.Errorf("writing it in the diary: %w", err)
 	}
@@ -151,9 +151,9 @@ func (d *DB) ChangeTheDiary(e Event) error {
 		SET title = ?, starts_at = ?, ends_at = ?, all_day = ?, place = ?,
 		    notes = ?, updated_at = ?
 		WHERE id = ?`,
-		strings.TrimSpace(e.Title),
+		d.seal(strings.TrimSpace(e.Title)),
 		e.Starts.UTC().Format(time.RFC3339), e.Ends.UTC().Format(time.RFC3339),
-		e.AllDay, e.Place, e.Notes, time.Now().UTC().Format(time.RFC3339), e.ID)
+		e.AllDay, d.seal(e.Place), d.seal(e.Notes), time.Now().UTC().Format(time.RFC3339), e.ID)
 
 	return err
 }

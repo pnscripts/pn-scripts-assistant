@@ -33,7 +33,7 @@ type Memory struct {
 // Remember writes one memory for one agent.
 func (d *DB) Remember(m Memory) error {
 	_, err := d.sql().Exec(`INSERT INTO agent_memories (agent, kind, content, task_id, step_id, created_at)
-		VALUES (?,?,?,?,?,?)`, m.Agent, m.Kind, strings.TrimSpace(m.Content),
+		VALUES (?,?,?,?,?,?)`, m.Agent, m.Kind, d.seal(strings.TrimSpace(m.Content)),
 		nullable(m.TaskID), nullable(m.StepID), time.Now().UTC().Format(time.RFC3339))
 
 	return err

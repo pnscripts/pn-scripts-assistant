@@ -25,7 +25,7 @@ func (d *DB) AddLesson(conversationID int64, content, status, confidence, source
 	res, err := d.sql().Exec(
 		`INSERT INTO lessons (conversation_id, content, status, confidence, source, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		nullifyID(conversationID), content, status, nullify(confidence), nullify(source), now, now,
+		nullifyID(conversationID), d.seal(content), status, nullify(confidence), nullify(source), now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("recording lesson: %w", err)
@@ -159,7 +159,7 @@ func (d *DB) PromoteLesson(lessonID int64, category, content string, embedding [
 		`INSERT INTO knowledge_facts
 		 (promoted_from_lesson_id, category, content, embedding, dimensions, source, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		lessonID, category, content, EncodeVector(embedding), len(embedding), source, now, now,
+		lessonID, category, d.seal(content), d.sealBlob(EncodeVector(embedding)), len(embedding), source, now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("promoting lesson %d: %w", lessonID, err)

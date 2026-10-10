@@ -92,6 +92,19 @@ func Write(ctx context.Context, src Source, root, dir string) (Copy, error) {
 		return Copy{}, fmt.Errorf("copying the settings: %w", err)
 	}
 
+	/*
+	 * And the record of its key (ADR 0008): without vault.json a copy of a
+	 * sealed brain could not be opened anywhere, recovery key or not. It
+	 * holds nothing that opens the brain without that key.
+	 */
+	if _, err := os.Stat(filepath.Join(root, "vault.json")); err == nil {
+		if err := copyFile(filepath.Join(root, "vault.json"), filepath.Join(dir, "vault.json"), 0o600); err != nil {
+			os.Remove(working)
+
+			return Copy{}, fmt.Errorf("copying the key record: %w", err)
+		}
+	}
+
 	// And where the other copies are kept, so a brain restored from this one
 	// carries on making the backups the old one was making. Best effort: a
 	// copy without the list is still the brain, and refusing to make one over

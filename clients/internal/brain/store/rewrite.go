@@ -84,7 +84,7 @@ func (d *DB) RewritePaths(rules []PathRewrite) ([]Rewritten, error) {
 		for _, r := range pending {
 			_, err := d.sql().Exec(
 				`UPDATE `+r.Table+` SET content = ?, updated_at = ? WHERE id = ?`,
-				r.New, now, r.ID,
+				d.seal(r.New), now, r.ID,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("updating %s %d: %w", r.Table, r.ID, err)
@@ -105,7 +105,7 @@ func (d *DB) SetEmbedding(table string, id int64, v []float32) error {
 
 	_, err := d.sql().Exec(
 		`UPDATE `+table+` SET embedding = ?, dimensions = ? WHERE id = ?`,
-		EncodeVector(v), len(v), id,
+		d.sealBlob(EncodeVector(v)), len(v), id,
 	)
 
 	return err
@@ -140,15 +140,33 @@ func (d *DB) CountContaining(text string) (int, error) {
 	var total int
 
 	for _, table := range []string{"knowledge_facts", "lessons"} {
-		var n int
-
-		err := d.sql().QueryRow(
-			`SELECT COUNT(*) FROM `+table+` WHERE content LIKE '%' || ? || '%'`, text).Scan(&n)
+		// Counted in Go: the content is sealed, so LIKE would look at
+		// ciphertext (sealed.go).
+		rows, err := d.sql().Query(`SELECT content FROM ` + table)
 		if err != nil {
 			return 0, fmt.Errorf("counting what mentions %s in %s: %w", text, table, err)
 		}
 
-		total += n
+		for rows.Next() {
+			var content string
+
+			if err := rows.Scan(&content); err != nil {
+				rows.Close()
+
+				return 0, err
+			}
+
+			if strings.Contains(content, text) {
+				total++
+			}
+		}
+
+		err = rows.Err()
+		rows.Close()
+
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	return total, nil

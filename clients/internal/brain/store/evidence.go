@@ -55,7 +55,7 @@ type Evidence struct {
 func (d *DB) Record(e Evidence) error {
 	_, err := d.sql().Exec(`INSERT INTO evidence (task_id, step_id, kind, subject, detail, ok, created_at)
 		VALUES (?,?,?,?,?,?,?)`, e.TaskID, nullable(e.StepID), e.Kind,
-		strings.TrimSpace(redact.Text(e.Subject)), strings.TrimSpace(redact.Text(e.Detail)), e.OK,
+		d.seal(strings.TrimSpace(redact.Text(e.Subject))), d.seal(strings.TrimSpace(redact.Text(e.Detail))), e.OK,
 		time.Now().UTC().Format(time.RFC3339))
 
 	return err

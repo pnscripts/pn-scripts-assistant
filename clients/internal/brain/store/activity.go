@@ -73,8 +73,8 @@ func (d *DB) RecordHappening(e protocol.Envelope) (int64, error) {
 	res, err := d.sql().Exec(`
 		INSERT INTO activity (id, type, task_id, step_id, device, said, data, created_at)
 		VALUES (?,?,?,?,?,?,?,?)`,
-		e.ID, string(e.Type), nullable(e.Task), nullable(e.Step), e.Device, e.Said,
-		string(e.Data), e.At.UTC().Format(time.RFC3339))
+		e.ID, string(e.Type), nullable(e.Task), nullable(e.Step), e.Device, d.seal(e.Said),
+		d.seal(string(e.Data)), e.At.UTC().Format(time.RFC3339))
 	if err != nil {
 		return 0, fmt.Errorf("recording what happened: %w", err)
 	}

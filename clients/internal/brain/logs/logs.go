@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 
 	"pn-scripts-assistant/internal/brain/paths"
+	"pn-scripts-assistant/internal/brain/vault"
 )
 
 const (
@@ -81,7 +82,9 @@ func Open(level slog.Level) (*slog.Logger, string) {
 		return logger, ""
 	}
 
-	logger := slog.New(Scrub(slog.NewTextHandler(io.MultiWriter(to, file),
+	// Each line in the file sealed once the brain is unlocked (ADR 0008); the
+	// terminal, which keeps nothing, sees it as it is.
+	logger := slog.New(Scrub(slog.NewTextHandler(io.MultiWriter(to, &vault.LineSealer{W: file}),
 		&slog.HandlerOptions{Level: level})))
 
 	everywhere(logger)

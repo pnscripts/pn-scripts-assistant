@@ -16,6 +16,8 @@
 package profile
 
 import (
+	"pn-scripts-assistant/internal/brain/vault"
+
 	"fmt"
 	"os"
 	"path/filepath"
@@ -49,7 +51,8 @@ func Path(root string) string { return filepath.Join(root, FileName) }
 // Read returns what its owner wrote, or empty when they have written nothing.
 // A missing file is the ordinary case and is not an error.
 func Read(root string) (string, error) {
-	raw, err := os.ReadFile(Path(root))
+	// Sealed when the brain is (ADR 0008): it is the most personal file here.
+	raw, err := vault.ReadFile(Path(root))
 
 	if os.IsNotExist(err) {
 		return "", nil
@@ -82,15 +85,13 @@ func Write(root, text string) error {
 		return nil
 	}
 
-	// Written whole and moved into place, like everything else in this folder:
-	// a file half written by a program that was killed is worse than none.
-	temp := Path(root) + ".new"
-
-	if err := os.WriteFile(temp, []byte(text+"\n"), 0o600); err != nil {
+	// Written whole, sealed when the brain is, and moved into place: a file
+	// half written by a program that was killed is worse than none.
+	if err := vault.WriteFile(Path(root), []byte(text+"\n"), 0o600); err != nil {
 		return fmt.Errorf("writing %s: %w", FileName, err)
 	}
 
-	return os.Rename(temp, Path(root))
+	return nil
 }
 
 /*

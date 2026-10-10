@@ -1,6 +1,9 @@
 package speech
 
 import (
+	"pn-scripts-assistant/internal/brain/vault"
+	"strings"
+
 	"fmt"
 	"os"
 	"path/filepath"
@@ -70,7 +73,13 @@ func KeepFailedTurn(path string, spokeForMS, peak int) string {
 
 	kept := filepath.Join(dir, name)
 
-	if err := os.WriteFile(kept, audio, 0o600); err != nil {
+	// A recording of its owner's voice: sealed when the brain is (ADR 0008),
+	// under a name that says so.
+	if vault.Active() != nil {
+		kept += ".pnsealed"
+	}
+
+	if err := vault.WriteFile(kept, audio, 0o600); err != nil {
 		return ""
 	}
 
@@ -89,7 +98,7 @@ func tidyFailedTurns(dir string) {
 	var wavs []os.DirEntry
 
 	for _, e := range entries {
-		if !e.IsDir() && filepath.Ext(e.Name()) == ".wav" {
+		if !e.IsDir() && (filepath.Ext(e.Name()) == ".wav" || strings.HasSuffix(e.Name(), ".wav.pnsealed")) {
 			wavs = append(wavs, e)
 		}
 	}

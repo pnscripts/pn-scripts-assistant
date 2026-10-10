@@ -21,7 +21,7 @@ func (d *DB) AddReminder(what string, at time.Time) (Reminder, error) {
 
 	res, err := d.sql().Exec(
 		`INSERT INTO reminders (what, at, created_at) VALUES (?, ?, ?)`,
-		what, at.UTC().Format(time.RFC3339), now.Format(time.RFC3339))
+		d.seal(what), at.UTC().Format(time.RFC3339), now.Format(time.RFC3339))
 	if err != nil {
 		return Reminder{}, fmt.Errorf("saving the reminder: %w", err)
 	}

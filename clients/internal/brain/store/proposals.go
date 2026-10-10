@@ -47,7 +47,7 @@ type Proposal struct {
 // Propose records a proposal, open.
 func (d *DB) Propose(p Proposal) (int64, error) {
 	res, err := d.sql().Exec(`INSERT INTO proposals (kind, conversation_id, request, body, state, created_at)
-		VALUES (?,?,?,?,?,?)`, p.Kind, nullable(p.ConversationID), p.Request, p.Body,
+		VALUES (?,?,?,?,?,?)`, p.Kind, nullable(p.ConversationID), d.seal(p.Request), d.seal(p.Body),
 		ProposalOpen, time.Now().UTC().Format(time.RFC3339))
 	if err != nil {
 		return 0, fmt.Errorf("recording the proposal: %w", err)
@@ -158,7 +158,7 @@ func (d *DB) Proposals(kind string, limit int) ([]Proposal, error) {
 // its questions — and leaves it open. Nothing else can be changed.
 func (d *DB) UpdateProposal(id int64, body string) error {
 	res, err := d.sql().Exec(`UPDATE proposals SET body = ? WHERE id = ? AND state = ?`,
-		body, id, ProposalOpen)
+		d.seal(body), id, ProposalOpen)
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func (d *DB) DecideProposal(id int64, state, outcome string) (bool, error) {
 	}
 
 	res, err := d.sql().Exec(`UPDATE proposals SET state = ?, outcome = ?, decided_at = ?
-		WHERE id = ? AND state = ?`, state, strings.TrimSpace(outcome),
+		WHERE id = ? AND state = ?`, state, d.seal(strings.TrimSpace(outcome)),
 		time.Now().UTC().Format(time.RFC3339), id, ProposalOpen)
 	if err != nil {
 		return false, err
@@ -199,7 +199,7 @@ func (d *DB) DecideProposal(id int64, state, outcome string) (bool, error) {
 // NoteOutcome adds what came of a proposal after it was decided — the task it
 // started, what failed — without changing its answer.
 func (d *DB) NoteOutcome(id int64, outcome string) error {
-	_, err := d.sql().Exec(`UPDATE proposals SET outcome = ? WHERE id = ?`, strings.TrimSpace(outcome), id)
+	_, err := d.sql().Exec(`UPDATE proposals SET outcome = ? WHERE id = ?`, d.seal(strings.TrimSpace(outcome)), id)
 
 	return err
 }

@@ -96,7 +96,7 @@ func (d *DB) NewGoal(g Goal) (int64, error) {
 		INSERT INTO goals (name, why, state, every_days, starts_itself, next_due,
 			created_at, updated_at)
 		VALUES (?,?,?,?,?,?,?,?)`,
-		g.Name, g.Why, orElse(g.State, GoalActive), g.EveryDays, g.StartsItself,
+		d.seal(g.Name), d.seal(g.Why), orElse(g.State, GoalActive), g.EveryDays, g.StartsItself,
 		next, now.Format(time.RFC3339), now.Format(time.RFC3339))
 	if err != nil {
 		return 0, fmt.Errorf("recording the goal: %w", err)
@@ -239,7 +239,7 @@ func (d *DB) UpdateGoal(g Goal) error {
 		SET name = ?, why = ?, state = ?, every_days = ?, starts_itself = ?,
 		    next_due = ?, updated_at = ?
 		WHERE id = ?`,
-		g.Name, g.Why, orElse(g.State, GoalActive), g.EveryDays, g.StartsItself,
+		d.seal(g.Name), d.seal(g.Why), orElse(g.State, GoalActive), g.EveryDays, g.StartsItself,
 		next, now, g.ID)
 
 	return err

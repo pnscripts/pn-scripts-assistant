@@ -23,6 +23,8 @@ import (
 	"sync/atomic"
 
 	_ "modernc.org/sqlite"
+
+	"pn-scripts-assistant/internal/brain/vault"
 )
 
 /*
@@ -42,6 +44,9 @@ type DB struct {
 
 	// Where it was opened from, so it can be opened again.
 	path string
+
+	// key seals what is personal in it (sealed.go), or nil.
+	key *vault.Key
 }
 
 // sql hands over the pool in use at this moment.
@@ -54,7 +59,11 @@ func (d *DB) sql() *sql.DB { return d.pool.Load() }
 // turns the remaining contention into a short wait instead of an immediate
 // "database is locked" error, which is the single most common way a
 // multi-goroutine SQLite program fails in production.
-func Open(path string) (*DB, error) {
+func Open(path string) (*DB, error) { return OpenSealed(path, nil) }
+
+// OpenSealed is Open for a brain whose personal columns are sealed with key.
+// A nil key reads sealed values as an error and writes plainly.
+func OpenSealed(path string, key *vault.Key) (*DB, error) {
 	if dir := filepath.Dir(path); dir != "" {
 		// 0700: the folder holds the database, and the database is the whole
 		// of what this program knows about somebody.
@@ -63,17 +72,14 @@ func Open(path string) (*DB, error) {
 		}
 	}
 
-	handle, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)")
-	if err != nil {
-		return nil, fmt.Errorf("opening %s: %w", path, err)
-	}
+	handle := openPool(path, key)
 
 	if err := handle.Ping(); err != nil {
 		handle.Close()
 		return nil, fmt.Errorf("reaching %s: %w", path, err)
 	}
 
-	db := &DB{path: path}
+	db := &DB{path: path, key: key}
 	db.pool.Store(handle)
 
 	if err := db.migrate(); err != nil {
@@ -126,7 +132,7 @@ func ours(path string) {
  * work that began before the disk moved.
  */
 func (d *DB) Reopen() error {
-	fresh, err := Open(d.path)
+	fresh, err := OpenSealed(d.path, d.key)
 	if err != nil {
 		return err
 	}

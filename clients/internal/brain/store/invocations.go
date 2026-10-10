@@ -43,7 +43,7 @@ func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, ri
 		`INSERT INTO tool_invocations
 		   (tool, arguments, summary, risk, status, conversation_id, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		tool, arguments, summary, risk, InvocationPending, conversationID, now, now,
+		tool, d.seal(arguments), d.seal(summary), risk, InvocationPending, conversationID, now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("recording tool call: %w", err)
@@ -129,7 +129,7 @@ func (d *DB) DecideInvocation(id int64, status string) (bool, error) {
 func (d *DB) CompleteInvocation(id int64, status, result string) error {
 	_, err := d.sql().Exec(
 		`UPDATE tool_invocations SET status = ?, result = ?, updated_at = ? WHERE id = ?`,
-		status, result, time.Now().UTC().Format(time.RFC3339), id,
+		status, d.seal(result), time.Now().UTC().Format(time.RFC3339), id,
 	)
 
 	return err

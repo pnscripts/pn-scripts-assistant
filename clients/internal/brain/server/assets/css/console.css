@@ -5534,3 +5534,13 @@ summary.equip-head { cursor: pointer; }
     .environment-row { grid-template-columns: 1fr auto; }
     .environment-needs { grid-column: 1 / -1; }
 }
+
+/*
+ * The recovery key, shown once (ADR 0008). Unlike the other banners it wraps
+ * in full: every word of it is something to read before pressing anything.
+ */
+.recovery { background: var(--status-warning, #e5c07b); }
+.recovery .drive-lost-note { flex-basis: 100%; }
+.recovery code { flex-basis: 100%; font-family: ui-monospace, monospace; word-break: break-all; }
+.recovery a { color: #080c11; font-weight: 600; }
+.recovery button { font: inherit; padding: 4px 12px; border-radius: 4px; border: 0; background: #080c11; color: #e5c07b; }

@@ -1,6 +1,8 @@
 package mcp
 
 import (
+	"pn-scripts-assistant/internal/brain/vault"
+
 	"pn-scripts-assistant/internal/brain/redact"
 
 	"encoding/json"
@@ -310,7 +312,7 @@ func (b *Book) Remove(id string) error {
 }
 
 func (b *Book) secrets() map[string]map[string]string {
-	raw, err := os.ReadFile(b.path("secrets.json"))
+	raw, err := vault.ReadFile(b.path("secrets.json"))
 	if err != nil {
 		return map[string]map[string]string{}
 	}
@@ -334,13 +336,8 @@ func (b *Book) saveSecrets(all map[string]map[string]string) error {
 		return err
 	}
 
-	path := b.path("secrets.json")
-
-	if err := os.WriteFile(path+".new", raw, 0o600); err != nil {
-		return err
-	}
-
-	return os.Rename(path+".new", path)
+	// Sealed when the brain is (ADR 0008).
+	return vault.WriteFile(b.path("secrets.json"), raw, 0o600)
 }
 
 // SetSecret keeps one secret for one server. Empty removes it.

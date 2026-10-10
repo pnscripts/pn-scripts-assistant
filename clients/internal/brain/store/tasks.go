@@ -273,7 +273,7 @@ func (d *DB) NewTaskThread(title string) (int64, error) {
 
 	res, err := d.sql().Exec(
 		`INSERT INTO conversations (title, kind, created_at, updated_at) VALUES (?, 'task', ?, ?)`,
-		title, now, now,
+		d.seal(title), now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("starting the thread a task works in: %w", err)
@@ -293,7 +293,7 @@ func (d *DB) NewTask(t Task) (int64, error) {
 			deadline, created_at, updated_at, parent_task_id, parent_step_id, depth,
 			within, never, risk, project, packages, resources, hired)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		t.Name, t.Goal, t.DoneWhen, orElse(t.State, TaskPlanning),
+		d.seal(t.Name), d.seal(t.Goal), d.seal(t.DoneWhen), orElse(t.State, TaskPlanning),
 		nullable(t.ConversationID), nullable(t.WorkConversationID), t.Provider,
 		t.StepsLeft, t.CallsLeft, t.ReplansLeft, asText(t.Deadline), now, now,
 		nullable(t.ParentTaskID), nullable(t.ParentStepID), t.Depth,
@@ -457,7 +457,7 @@ func (d *DB) FinishTask(id int64, state, report, because string) error {
 		UPDATE tasks
 		SET state = ?, report = ?, blocked_because = ?, updated_at = ?, finished_at = ?
 		WHERE id = ?`,
-		state, report, because, now, now, id)
+		state, d.seal(report), because, now, now, id)
 
 	return err
 }
@@ -539,7 +539,7 @@ func (d *DB) AddSteps(taskID int64, steps []TaskStep) error {
 				changes, assignee, risk, state, created_at, updated_at,
 				escalated_from, review_of, together, action)
 			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			taskID, highest+i+1, s.Instruction, s.DoneWhen, orElse(s.Kind, StepDo),
+			taskID, highest+i+1, d.seal(s.Instruction), d.seal(s.DoneWhen), orElse(s.Kind, StepDo),
 			s.Changes, s.Assignee, orElse(s.Risk, "low"), StepWaiting, now, now,
 			nullable(s.EscalatedFrom), nullable(s.ReviewOf), s.Together && i > 0, nullText(s.Action))
 		if err != nil {
@@ -687,7 +687,7 @@ func (d *DB) FinishStep(s TaskStep) error {
 		    why = ?, acted = ?, assignee = COALESCE(NULLIF(?, ''), assignee),
 		    ended_at = ?, updated_at = ?
 		WHERE id = ?`,
-		s.State, s.Answer, s.Evidence, s.CheckedBy, s.Verdict, s.Why, nullText(s.Acted),
+		s.State, d.seal(s.Answer), d.seal(s.Evidence), s.CheckedBy, s.Verdict, s.Why, nullText(s.Acted),
 		s.Assignee, ended, now, s.ID)
 
 	return err

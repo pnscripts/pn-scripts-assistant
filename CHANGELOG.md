@@ -27,6 +27,16 @@ done, and the first meeting is a conversation. See ADR 0007.
   complaints, and planning. A skill of your own with the same name wins.
 - **It can drive a Chrome of its own** (`drive_browser`), signed in once by
   you, and **read Thunderbird's mail folders** (`read_mailbox`).
+- **Encrypted at rest.** Conversations, memories, the record of every tool
+  call, the profile, the voiceprint, credentials, your name and the log are
+  sealed so only the program can read them; the key is in this computer's
+  keyring. An existing brain is sealed in place on the first start, with a
+  proved sealed copy first and safe against a power cut. You are shown a
+  recovery key once; on another computer the brain opens with it.
+- **More room to work.** Commands may run for three hours, a turn may take
+  thirty steps, a task four hours; bigger downloads and models install
+  without asking; root is asked for through the system's own password dialog
+  (`run_as_admin`).
 - **No naming form and no greeting formula.** The first meeting is a
   conversation; your name, its name and your language are picked up from what
   you say.

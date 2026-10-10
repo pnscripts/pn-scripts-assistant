@@ -1003,6 +1003,9 @@ func (s *Server) writeSettings(mode os.FileMode, settings ...[2]string) error {
 		 */
 		value := strings.NewReplacer("\r", " ", "\n", " ").Replace(setting[1])
 
+		// Sealed when it is personal and the brain has a key (ADR 0008).
+		value = config.SealSetting(name, value)
+
 		replaced := false
 
 		for i, line := range lines {

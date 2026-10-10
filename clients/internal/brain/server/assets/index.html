@@ -91,6 +91,22 @@
     a large part of what it knows is accurate and unusable at the same time,
     while the interface carries on looking completely normal.
 -->
+<!--
+    The recovery key, shown once (ADR 0008). The brain is encrypted and only
+    this key opens it on another computer; it is not shown again once kept.
+-->
+<div id="recovery" class="drive-lost recovery" hidden role="alert">
+    <strong>Your brain is now encrypted.</strong>
+    <span class="drive-lost-note">Only this program can read it, with a key this computer keeps in
+        <span id="recovery-keyring">its keyring</span>. To open it on another computer — the drive
+        travels, the key does not — you need this recovery key. Keep it somewhere safe, away from
+        the drive. It is shown once.</span>
+    <code id="recovery-key" style="display:block;margin:8px 0;font-size:15px;letter-spacing:1px;user-select:all"></code>
+    <span class="drive-lost-note" id="recovery-warning"></span>
+    <a id="recovery-file" href="/api/vault/recovery?as=file" download>Save it as a file</a>
+    <button type="button" id="recovery-kept">I have kept it</button>
+</div>
+
 <div id="travelled" class="drive-lost travelled" hidden role="alert">
     <strong>This drive has moved.</strong>
     <!--
@@ -2233,6 +2249,7 @@
      status. See status.js. -->
 <!-- First, so brainBooted exists before anything can report finishing. -->
 <script src="/js/boot.js"></script>
+<script src="/js/vault.js"></script>
 <!--
     And before the rest, so a device that has not been let in sees a locked
     door rather than nine panels of dashes and spinners.

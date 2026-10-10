@@ -32,7 +32,7 @@ func (d *DB) NewConversation(title string) (int64, error) {
 
 	res, err := d.sql().Exec(
 		`INSERT INTO conversations (title, created_at, updated_at) VALUES (?, ?, ?)`,
-		truncate(title, 60), now, now,
+		d.seal(truncate(title, 60)), now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("starting conversation: %w", err)
@@ -57,7 +57,7 @@ func (d *DB) RenameConversation(id int64, title string) error {
 
 	res, err := d.sql().Exec(
 		`UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?`,
-		truncate(title, 60), time.Now().UTC().Format(time.RFC3339), id,
+		d.seal(truncate(title, 60)), time.Now().UTC().Format(time.RFC3339), id,
 	)
 	if err != nil {
 		return fmt.Errorf("renaming conversation %d: %w", id, err)
@@ -129,7 +129,7 @@ func (d *DB) AddMessage(conversationID int64, role, provider, model, content str
 	res, err := d.sql().Exec(
 		`INSERT INTO messages (conversation_id, role, provider, model, content, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		conversationID, role, nullify(provider), nullify(model), content, now, now,
+		conversationID, role, nullify(provider), nullify(model), d.seal(content), now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("recording message: %w", err)
@@ -206,10 +206,10 @@ type Activity struct {
 // RecentActivity returns the newest few events across messages and learning.
 func (d *DB) RecentActivity(limit int) ([]Activity, error) {
 	rows, err := d.sql().Query(`
-		SELECT created_at, 'message', role || ': ' || substr(content, 1, 80)
+		SELECT created_at, 'message', role, content
 		FROM messages WHERE role IN ('user','assistant')
 		UNION ALL
-		SELECT created_at, 'lesson', status || ': ' || substr(content, 1, 80)
+		SELECT created_at, 'lesson', status, content
 		FROM lessons
 		ORDER BY 1 DESC LIMIT ?`, limit)
 	if err != nil {
@@ -221,11 +221,15 @@ func (d *DB) RecentActivity(limit int) ([]Activity, error) {
 
 	for rows.Next() {
 		var a Activity
-		var when string
+		var when, who, content string
 
-		if err := rows.Scan(&when, &a.Kind, &a.Summary); err != nil {
+		// Cut here rather than in SQL: the content is sealed (sealed.go), and
+		// SQL would be cutting the sealed text.
+		if err := rows.Scan(&when, &a.Kind, &who, &content); err != nil {
 			return nil, err
 		}
+
+		a.Summary = who + ": " + string(firstRunes(content, 80))
 
 		a.When, _ = time.Parse(time.RFC3339, when)
 		out = append(out, a)
@@ -309,6 +313,11 @@ func (d *DB) RecentConversations(limit int) ([]Recent, error) {
 		}
 
 		r.When, _ = time.Parse(time.RFC3339, lastAt)
+
+		// The SQL above sees sealed text; blank is judged here, in the clear.
+		if strings.TrimSpace(r.Opening) == "" {
+			continue
+		}
 
 		out = append(out, r)
 	}
@@ -396,4 +405,14 @@ func (d *DB) ForgetLastExchange(conversationID int64) (int, error) {
 	}
 
 	return len(remove), nil
+}
+
+// firstRunes is the first n characters of text, never cutting one in half.
+func firstRunes(text string, n int) []rune {
+	r := []rune(text)
+	if len(r) > n {
+		r = r[:n]
+	}
+
+	return r
 }

@@ -94,6 +94,21 @@ reads can try to talk it into reading a key and sending it somewhere, and
 nothing stops to ask. Set `BRAIN_CONFINE=1` (or privacy to `private`) on a
 machine where that matters.
 
+**What it keeps about you is encrypted at rest** so that only this program
+can read it ([ADR 0008](docs/decisions/0008-every-permission-and-sealed-at-rest.md)):
+conversations, memories and their embeddings, the record of every tool call,
+reminders, tasks, the profile, the voiceprint, integration credentials, the
+secrets and your name in `brain.conf`, and the log — AES-256-GCM with a key
+kept in this computer's keyring (Secret Service, DPAPI or Keychain; a 0600 key
+file where there is none). The first time, you are shown a **recovery key**
+once: the brain's drive travels and the key does not, and on another computer
+the brain opens only with it. This protects the drive, copies and backups,
+other users and other machines; it does not protect against a program running
+as you, which can ask the same keyring.
+
+Root is asked for, not taken: `run_as_admin` has the system show its own
+password dialog (polkit, UAC, the macOS prompt) each time.
+
 An unrecognised privacy value is still treated as `private`, because the safe
 reading of a typo is the strict one.
 

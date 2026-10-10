@@ -1,6 +1,8 @@
 package voiceprint
 
 import (
+	"pn-scripts-assistant/internal/brain/vault"
+
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -66,7 +68,7 @@ func Enrolled(root string) bool {
 
 // Load reads the voiceprint, or nothing if none has been taught.
 func Load(root string) (*Known, error) {
-	raw, err := os.ReadFile(filepath.Join(Folder(root), KnownFile))
+	raw, err := vault.ReadFile(filepath.Join(Folder(root), KnownFile))
 
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -160,8 +162,9 @@ func save(root string, known *Known) error {
 		return err
 	}
 
-	// Readable only by its owner: it describes their voice.
-	return os.WriteFile(filepath.Join(Folder(root), KnownFile), raw, 0o600)
+	// Readable only by its owner, and sealed when the brain is (ADR 0008):
+	// it describes their voice.
+	return vault.WriteFile(filepath.Join(Folder(root), KnownFile), raw, 0o600)
 }
 
 /*
