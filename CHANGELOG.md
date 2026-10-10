@@ -20,11 +20,11 @@ done, and the first meeting is a conversation. See ADR 0007.
   An existing install is switched over once, on upgrade. `BRAIN_CONFINE=1` puts
   every limit back. Every tool call is still written down, and a tool you
   refused by name stays refused.
-- **Fourteen built-in playbooks**, versioned, offered when their words come up:
+- **Twelve built-in playbooks**, versioned, offered when their words come up:
   building and publishing HTML5 games on itch.io and Game Jolt, building
   products, shipping pnscripts.com, WordPress.org review, social profiles,
-  naming, the sales hold, GitHub costs, machine load, the AI brain, mail and
-  complaints, and planning. A skill of your own with the same name wins.
+  naming, the sales hold, GitHub costs, machine load and the AI brain. A skill
+  of your own with the same name wins.
 - **It can drive a Chrome of its own** (`drive_browser`), signed in once by
   you, and **read Thunderbird's mail folders** (`read_mailbox`).
 - **Encrypted at rest.** Conversations, memories, the record of every tool

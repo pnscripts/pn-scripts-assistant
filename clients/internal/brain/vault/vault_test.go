@@ -23,7 +23,7 @@ func key(t *testing.T) *Key {
 func TestSealedComesBackAndSaysNothing(t *testing.T) {
 	k := key(t)
 
-	const secret = "Petar's overdraft is with the bank on the corner"
+	const secret = "The owner's overdraft is with the bank on the corner"
 
 	sealed := k.SealString(secret)
 

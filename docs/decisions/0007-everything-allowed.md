@@ -108,11 +108,14 @@ Playbooks are the same thing shipped in the binary:
 - Reading one says its version, so the record of a task says which version of
   the procedure was followed.
 
-Fourteen ship at version 1: `build_html5_games`, `publish_itch_io`,
+Twelve ship at version 1: `build_html5_games`, `publish_itch_io`,
 `publish_game_jolt`, `build_products`, `ship_pnscripts_com`,
 `wordpress_org_plugin_review`, `update_social_profiles`, `brand_naming`,
-`sales_hold`, `github_cost_control`, `machine_throttling`, `update_ai_brain`,
-`email_and_complaints`, `planning_loans_strategy`. They were extracted from the
+`sales_hold`, `github_cost_control`, `machine_throttling`, `update_ai_brain`.
+Two more were written at the same time, for the owner's own mail and
+complaints and for his loans and plans; those are his personal matters, not
+the company's work, so they are not in the public binary and live as ordinary
+skills in his own brain's `skills` folder instead. They were extracted from the
 workspace brain (profiles, lessons, `.skills`), the site's own `.ai` rules, the
 social kit and the product-factory specification. They carry no secrets,
 passwords, account numbers or personal data, and no path on anybody's machine;
@@ -194,7 +197,7 @@ it is gone from the first meeting (`brain/firstmeeting.go`):
   settings upgrade keeps every other line and the file mode, never writes the
   environment down, and happens once (`config/config_test.go`); an integration
   is approved as it is switched on (`mcp`); the last-line guard steps aside only
-  for a call that carries the flag (`tools`); fourteen playbooks load with
+  for a call that carries the flag (`tools`); twelve playbooks load with
   versions and sections, carry nothing private, are cued by their words, and
   lose to the owner's own skill of the same name (`skills/playbooks_test.go`);
   the DevTools client against a real WebSocket endpoint and Thunderbird folders
@@ -207,7 +210,8 @@ it is gone from the first meeting (`brain/firstmeeting.go`):
   - an older `brain.conf` (`private`, `ask`, profile off) came up `open`,
     `everything`, `BRAIN_CONFINE=0`, profile on, with its other lines kept;
   - `/api/permissions` reported freedom `everything`, `everything_allowed`
-    true, and all fourteen playbooks plus `drive_browser` and `read_mailbox`
+    true, and all fourteen playbooks (twelve since the
+    personal two moved out of the binary) plus `drive_browser` and `read_mailbox`
     registered; the log said "loaded what it has been taught, skills=14";
   - a brand new brain greeted with no composed line (only "This drive is
     filling up.", a real fact on that machine), the page had no naming form,

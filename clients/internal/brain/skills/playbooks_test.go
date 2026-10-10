@@ -11,11 +11,38 @@ import (
 
 // What its owner's work was, written down (ADR 0007). Each is checked by name
 // so that losing one is a failure, not a quieter list.
+//
+// Twelve. The procedures for its owner's own mail and complaints and for his
+// loans and plans were his personal matters rather than the company's work,
+// so they live as skills in his own brain's folder and not in a public binary.
 var wantPlaybooks = []string{
-	"brand_naming", "build_html5_games", "build_products", "email_and_complaints",
-	"github_cost_control", "machine_throttling", "planning_loans_strategy", "publish_game_jolt",
+	"brand_naming", "build_html5_games", "build_products",
+	"github_cost_control", "machine_throttling", "publish_game_jolt",
 	"publish_itch_io", "sales_hold", "ship_pnscripts_com", "update_ai_brain",
 	"update_social_profiles", "wordpress_org_plugin_review",
+}
+
+// Personal procedures are not shipped, and a test says so rather than a list
+// that is quietly one shorter.
+var personalPlaybooks = []string{"email_and_complaints", "planning_loans_strategy"}
+
+func TestPersonalProceduresAreNotShipped(t *testing.T) {
+	found, err := Builtin()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(found) != len(wantPlaybooks) {
+		t.Errorf("%d playbooks shipped, want %d", len(found), len(wantPlaybooks))
+	}
+
+	for _, s := range found {
+		for _, personal := range personalPlaybooks {
+			if s.Name == personal {
+				t.Errorf("%s is its owner's own and must not ship in the binary", personal)
+			}
+		}
+	}
 }
 
 func TestEveryPlaybookShipsVersionedAndReadable(t *testing.T) {

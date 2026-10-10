@@ -77,13 +77,13 @@ func TestUploadsAreJudgedByWhatIsAboveThem(t *testing.T) {
  * len() is bytes and Cyrillic is two bytes a letter, so for everything Petar
  * writes in Bulgarian the floor of 45 was really 22.
  *
- * "Петър Венциславов Николов" is 25 letters and reached his review queue as a
+ * "Иван Христофоров Георгиев" is 25 letters and reached his review queue as a
  * thing worth remembering.
  */
 func TestLengthIsCountedInLettersNotBytes(t *testing.T) {
 	repeated.Forget()
 
-	if kept := worthKeeping("Петър Венциславов Николов\n"); len(kept) != 0 {
+	if kept := worthKeeping("Иван Христофоров Георгиев\n"); len(kept) != 0 {
 		t.Errorf("a three-word name was kept: %q", kept)
 	}
 

@@ -553,7 +553,7 @@ func worthKeeping(text string) []string {
 		 * so for everything Petar writes in Bulgarian the floor of 45 was
 		 * really 22 and the ceiling of 320 was really 160. Short fragments got
 		 * through and whole sentences were cut, on exactly the documents this
-		 * was most likely to be reading. "Петър Венциславов Николов" is 25
+		 * was most likely to be reading. "Иван Христофоров Георгиев" is 25
 		 * letters and reached his review queue as a thing worth remembering.
 		 */
 		length := utf8.RuneCountInString(line)
