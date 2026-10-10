@@ -94,8 +94,11 @@ func Default() Policy {
 		Privacy:    CloudPreferred,
 		Opened:     true,
 		Thresholds: Thresholds{Warning: 40, Low: 20, Critical: 10},
-		Budget: Budget{MonthlyAPI: 0, TaskAPI: 0, MaxDownload: 10 * gb, MaxModelSize: 10 * gb,
-			MaxModelDisk: 40 * gb, MinFreeDisk: 20 * gb},
+		// Sizes raised by ADR 0008 so a large model installs without asking;
+		// paid use stays at nothing until its owner sets a budget, because
+		// that is money rather than a permission.
+		Budget: Budget{MonthlyAPI: 0, TaskAPI: 0, MaxDownload: 100 * gb, MaxModelSize: 100 * gb,
+			MaxModelDisk: 400 * gb, MinFreeDisk: 5 * gb},
 		Autonomy: Autonomy{InstallLocalModels: true, InstallTools: true, ApprovedAt: "2026-09-18"},
 		Notify:   "normal",
 	}

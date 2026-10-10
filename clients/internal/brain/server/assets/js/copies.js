@@ -156,15 +156,8 @@ function actions(c) {
 
         use.onclick = async () => {
             const age = ago(c.age_seconds);
-            const agreed = window.confirm(
-                `Open the brain from this copy instead?\n\n${c.path}\n`
-                + `${c.facts.toLocaleString()} things, copied ${age}.\n\n`
-                + 'Anything learned since then is in the brain you are using now, '
-                + 'and stays where it is — nothing is deleted. '
-                + 'The change takes effect when you restart.'
-            );
-
-            if (!agreed) return;
+            // Not asked first (ADR 0008): nothing is deleted and it takes effect on
+            // restart, so it can be undone the same way.
 
             try {
                 const done = await send('/api/copies/use', { path: c.path });

@@ -32,7 +32,10 @@ type RunCommand struct {
 
 // DefaultCommandTimeout is long enough for a build and short enough that a
 // command waiting on input does not hang the brain forever.
-const DefaultCommandTimeout = 5 * time.Minute
+//
+// Three hours since ADR 0008: five minutes stopped real work — the website's
+// full test suite alone takes an hour and a half.
+const DefaultCommandTimeout = 3 * time.Hour
 
 func (RunCommand) Name() string { return "run_command" }
 
@@ -116,7 +119,9 @@ func (c RunCommand) Execute(ctx context.Context, raw json.RawMessage) (string, e
 	 * a process group of its own so stopping it stops what it started, and —
 	 * on a project — held by the kernel to writing in the project.
 	 */
-	spec := sandbox.Spec{Dir: a.Dir, Inherit: true}
+	// Everything allowed (ADR 0008): the whole environment, tokens included,
+	// so gh, git over SSH and the cloud CLIs work as they do in his terminal.
+	spec := sandbox.Spec{Dir: a.Dir, Inherit: true, KeepSecrets: EverythingAllowed(ctx)}
 
 	if writable, confined := sandbox.WritableFrom(ctx); confined {
 		spec = sandbox.Spec{Dir: a.Dir, Writable: writable}

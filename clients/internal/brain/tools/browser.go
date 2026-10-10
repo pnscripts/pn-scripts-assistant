@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/paths"
@@ -364,7 +363,7 @@ func (d DriveBrowser) ensure(ctx context.Context) error {
 	}
 
 	cmd := exec.Command(chrome, append(args, "about:blank")...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	detach(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("could not start Chrome: %w", err)

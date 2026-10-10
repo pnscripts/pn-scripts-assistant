@@ -68,6 +68,11 @@ type Spec struct {
 	// a credential, instead of a clean one: for a command its owner is
 	// approving from a conversation, which may well need their SSH agent.
 	Inherit bool
+
+	// KeepSecrets inherits the environment unscrubbed: its owner allows
+	// everything (ADR 0008), and a token stripped from the environment is a
+	// gh or cloud command that fails for no reason he can see.
+	KeepSecrets bool
 }
 
 /*
@@ -85,6 +90,10 @@ func Command(ctx context.Context, spec Spec, argv ...string) (*exec.Cmd, error) 
 	env := Clean(spec.Env...)
 	if spec.Inherit {
 		env = Scrubbed(os.Environ(), spec.Env...)
+
+		if spec.KeepSecrets {
+			env = append(os.Environ(), spec.Env...)
+		}
 	}
 
 	name, args := argv[0], argv[1:]

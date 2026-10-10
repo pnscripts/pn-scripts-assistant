@@ -262,6 +262,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// it can drive, signed in as him, and Thunderbird's own mail folders.
 		tools.DriveBrowser{},
 		tools.ReadMailbox{},
+
+		// Root, with the operating system asking its owner (ADR 0008).
+		tools.RunAsAdmin{},
 	}
 
 	/*

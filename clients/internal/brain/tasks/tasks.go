@@ -83,11 +83,13 @@ var TheOwnersOwn = []string{"decide_waiting"}
 // should stop too early rather than too late.
 func Sensible() Budget {
 	return Budget{
-		MostSteps:    12,
+		// Raised by ADR 0008: twelve steps and half an hour stopped real work
+		// part way. Still bounded, so a task that loops ends.
+		MostSteps:    40,
 		MostAttempts: 2,
-		MostReplans:  1,
-		MostCalls:    40,
-		HowLong:      30 * time.Minute,
+		MostReplans:  2,
+		MostCalls:    200,
+		HowLong:      4 * time.Hour,
 	}
 }
 

@@ -36,8 +36,10 @@ import (
 // MaxSteps caps model-to-tool-to-model round trips in a single turn.
 //
 // Without it, a model that keeps re-reading the same file loops forever, and
-// small local models do this readily.
-const MaxSteps = 8
+// small local models do this readily. Thirty since ADR 0008: eight stopped
+// real work — a publish or a build is easily more than eight calls — and
+// everything is allowed now, so the limit is only there to stop a loop.
+const MaxSteps = 30
 
 // ToolOutputLimit truncates what is written into the transcript.
 //

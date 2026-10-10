@@ -365,7 +365,7 @@ func TestRegisteredTools(t *testing.T) {
 		"plan_project",
 
 		"put_in_the_diary", "put_it_back",
-		"read_a_page", "read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this", "remind_me", "remove_a_part", "run_command",
+		"read_a_page", "read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this", "remind_me", "remove_a_part", "run_as_admin", "run_command",
 		"scroll", "search_files", "set_appearance", "set_wake_word",
 		"start_project", "stop_background", "stop_hearing_this_machine", "type_text",
 		"web_search", "what_am_i_hearing", "what_can_you_do", "what_is_on", "what_ive_been_taught",

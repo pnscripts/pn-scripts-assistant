@@ -191,15 +191,8 @@ function wireTheMove() {
          * restart. Somebody moving their entire memory to another disk is
          * entitled to know all three before pressing anything.
          */
-        const agreed = window.confirm(
-            `Move the brain to ${where}?\n\n`
-            + 'Everything it knows is copied there and checked. The old folder is left '
-            + 'exactly as it is — nothing is deleted — but it stops being the brain, so '
-            + 'nothing opens it by accident.\n\n'
-            + 'It takes effect when you restart.'
-        );
-
-        if (!agreed) return;
+        // Not asked first (ADR 0008): nothing is deleted and it takes effect on
+        // restart, so it can be undone the same way.
 
         button.disabled = true;
         el('move-note').textContent = 'Moving…';

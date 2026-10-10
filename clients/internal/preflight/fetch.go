@@ -66,7 +66,8 @@ var allowedSuffixes = []string{
 }
 
 // mostBytes bounds a download, so a wrong URL cannot fill the disk.
-const mostBytes = 3 << 30 // 3GB
+// 64GB since ADR 0008: a large local model is more than three.
+const mostBytes = 64 << 30
 
 /*
  * download fetches one file, reporting progress as it goes.
