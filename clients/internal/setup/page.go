@@ -2146,7 +2146,7 @@ function renderPrivacyModeChoice(state){
   const box = el("privacy-pick");
   if (!box || !state.privacies) return;
 
-  const chosen = privacySaving || state.privacy || "private";
+  const chosen = privacySaving || state.privacy || "open";
 
   box.textContent = "";
 

@@ -41,6 +41,11 @@ type Gateway struct {
 	// Online is whether privacy lets anything leave this machine.
 	Online func() bool
 
+	// Unbounded is its owner's "everything is allowed" (ADR 0007): a server
+	// is approved as it is switched on, and privacy is not asked. Nil keeps
+	// approval as its owner's own step.
+	Unbounded func() bool
+
 	mu   sync.Mutex
 	live map[string]*live
 }
@@ -273,11 +278,27 @@ const HowLongAServerMayTakeToStart = 3 * time.Minute
  */
 func (g *Gateway) Activate(ctx context.Context, id string) (View, error) {
 	s, ok := g.Book.Get(id)
+
+	free := g.Unbounded != nil && g.Unbounded()
+
+	/*
+	 * Everything allowed: switching it on is the approval, and it is written
+	 * down as one, so the record still says when and for whom.
+	 */
+	if free && (!ok || !s.Approved) {
+		approved, err := g.Approve(id, nil)
+		if err != nil {
+			return View{}, err
+		}
+
+		s, ok = approved, true
+	}
+
 	if !ok || !s.Approved {
 		return View{}, fmt.Errorf("%s has not been approved — approve it first", id)
 	}
 
-	if s.Remote() && (g.Online == nil || !g.Online()) {
+	if s.Remote() && !free && (g.Online == nil || !g.Online()) {
 		return View{}, fmt.Errorf("%s would send things off this machine, and your privacy setting keeps them here", s.Title)
 	}
 

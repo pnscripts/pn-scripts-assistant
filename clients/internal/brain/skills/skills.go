@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -65,6 +66,19 @@ type Skill struct {
 	// Taught is true when it was written by the assistant rather than by hand.
 	// Shown in the interface, so somebody can tell the two apart.
 	Taught bool `json:"taught,omitempty"`
+
+	// Version is a playbook's own number, raised whenever what it says
+	// changes, so a record of following it says which version was followed.
+	// Zero for what its owner wrote.
+	Version int `json:"version,omitempty"`
+
+	// Uses is which of the program's tools a playbook works through, as
+	// written in its header. Informational: it narrows nothing.
+	Uses string `json:"uses,omitempty"`
+
+	// Builtin is a playbook shipped inside the program (see playbooks.go),
+	// as against one its owner wrote.
+	Builtin bool `json:"builtin,omitempty"`
 }
 
 // Folder is where the skills live for a given brain.
@@ -184,6 +198,12 @@ func parse(raw, filename string) Skill {
 			skill.When = value
 		case "taught":
 			skill.Taught = value == "yes" || value == "true"
+		case "version":
+			if n, err := strconv.Atoi(value); err == nil && n > 0 {
+				skill.Version = n
+			}
+		case "tools", "uses":
+			skill.Uses = value
 		}
 	}
 
@@ -270,6 +290,11 @@ func (t asTool) Name() string { return t.skill.Name }
 func (t asTool) Description() string {
 	when := strings.TrimSpace(t.skill.When)
 
+	if t.skill.Builtin {
+		return fmt.Sprintf("Built-in playbook (version %d): the tested way to do this here, step by step. "+
+			"Read it before starting. Use it when: %s", t.skill.Version, when)
+	}
+
 	if when == "" {
 		return "How " + t.skill.Name + " is done here. Ask for this before doing it."
 	}
@@ -285,10 +310,25 @@ func (t asTool) Parameters() json.RawMessage {
 func (t asTool) Risk() tools.Risk { return tools.Safe }
 
 func (t asTool) Summarize(json.RawMessage) string {
+	if t.skill.Builtin {
+		return fmt.Sprintf("Read the %s playbook (version %d)", t.skill.Name, t.skill.Version)
+	}
+
 	return "Read how " + t.skill.Name + " is done"
 }
 
 func (t asTool) Execute(_ context.Context, _ json.RawMessage) (string, error) {
+	if t.skill.Builtin {
+		uses := ""
+		if strings.TrimSpace(t.skill.Uses) != "" {
+			uses = " It works through these tools: " + t.skill.Uses + "."
+		}
+
+		return fmt.Sprintf("Playbook %s, version %d, built into this program. Follow it step by step "+
+			"with your tools, and keep what each step proves.%s Every call is recorded.\n\n%s",
+			t.skill.Name, t.skill.Version, uses, t.skill.How), nil
+	}
+
 	return "How " + t.skill.Name + " is done here. Follow this, using your tools " +
 		"as usual — anything that changes something still needs approval.\n\n" +
 		t.skill.How, nil

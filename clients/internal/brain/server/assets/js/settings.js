@@ -52,21 +52,8 @@ async function load() {
         return;
     }
 
-    /*
-     * Asked once, on a machine that has never run this before.
-     *
-     * A brain that names itself is a brain somebody has to go and look up how
-     * to rename. Asking takes ten seconds and the answer is the first thing it
-     * will ever be called.
-     */
-    if (status.first_run) {
-        const naming = el('naming');
-
-        if (naming) {
-            naming.hidden = false;
-            el('naming-name').focus();
-        }
-    }
+    // A first run asks nothing on a form: the first meeting is a
+    // conversation, and what it needs is learned from it (firstmeeting.go).
 
     /*
      * Which model answers what, and whether switching between them is free.
@@ -291,28 +278,6 @@ if (form) {
     });
 }
 
-const naming = el('naming-form');
-
-if (naming) {
-    naming.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        // The name's placeholder is a real default: somebody who presses Begin
-        // without typing has chosen it. The owner's is only a hint. It once
-        // read "Petar", and everybody who left it empty was saved as Petar.
-        // An empty owner is sent as empty, which the server leaves unset, the
-        // same as a brain nobody has introduced themselves to.
-        const ok = await save({
-            name: el('naming-name').value || 'Assistant',
-            owner: el('naming-owner').value.trim(),
-        }, null);
-
-        if (ok) {
-            el('naming').hidden = true;
-            location.reload();
-        }
-    });
-}
 
 
 /*

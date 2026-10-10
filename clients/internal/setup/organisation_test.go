@@ -141,7 +141,7 @@ func TestTheSwitchLeavesPrivacyAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(envPath, append(before, "BRAIN_PRIVACY=research\n"...), 0o600); err != nil {
+	if err := os.WriteFile(envPath, append(before, "BRAIN_PRIVACY=research\nBRAIN_EVERYTHING_ALLOWED=1\n"...), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -186,8 +186,9 @@ func TestPrivacyIsItsOwnChoiceInSetup(t *testing.T) {
 
 	state := getJSON(t, server.URL()+"/state")
 
-	if state["privacy"] != "private" {
-		t.Errorf("a new setup reads privacy as %v, want private", state["privacy"])
+	// Open: everything allowed out of the box (ADR 0007).
+	if state["privacy"] != "open" {
+		t.Errorf("a new setup reads privacy as %v, want open", state["privacy"])
 	}
 
 	if offered, _ := state["privacies"].([]any); len(offered) != 3 {

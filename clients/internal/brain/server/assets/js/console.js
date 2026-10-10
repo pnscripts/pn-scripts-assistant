@@ -67,10 +67,9 @@ const state = {
     /*
      * Nobody has told it what to call itself yet.
      *
-     * True only while the naming card is up on a brand new brain. Everything
-     * that would reach the room — the opening line and the microphone — waits
-     * for that card, because a program that starts talking and listening over
-     * a question it is still asking has not asked anything.
+     * True on a brand new brain, until the first conversation has said who
+     * is who. The microphone waits for that; the opening line does not, since
+     * there is no card to answer first any more (firstmeeting.go).
      */
     firstRun: false,
     busy: false,
@@ -436,7 +435,7 @@ async function refreshStatus() {
              * holds the microphone so nothing else can have it. So it is a
              * setting now, and this honours it.
              *
-             * Not while the naming card is up. Opening the microphone there
+             * Not on a brand new brain. Opening the microphone there
              * meant a brand new brain sat listening to the room, ready to
              * answer to a name its owner had not chosen yet, behind a dialog
              * covering the screen — and the first thing it would ever learn
@@ -1648,13 +1647,12 @@ async function openWhereWeLeftOff(canSpeak) {
      * indistinguishable from nothing having happened.
      */
     /*
-     * And nothing is said over the naming card either.
-     *
-     * The server refuses the greeting while the brain is new, which is the
-     * guarantee; this is so the page does not ask for one it cannot have.
-     * Begin reloads, and the greeting arrives then, by the chosen name.
+     * A first run is no longer special here: the naming card it waited for
+     * is gone.
      */
-    if (!state.firstRun) await openWhereWeLeftOff(canSpeak);
+    // A first run is opened like any other: there is no card to wait for,
+    // and the opener, if any, is the assistant's own (firstmeeting.go).
+    await openWhereWeLeftOff(canSpeak);
 
     refreshApprovals();
     refreshLessons();

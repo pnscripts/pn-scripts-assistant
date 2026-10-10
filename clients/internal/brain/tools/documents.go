@@ -70,7 +70,7 @@ func (ReadDocument) Execute(ctx context.Context, raw json.RawMessage) (string, e
 		return "", err
 	}
 
-	if err := GuardSensitive(a.Path); err != nil {
+	if err := GuardSensitive(ctx, a.Path); err != nil {
 		return "", err
 	}
 

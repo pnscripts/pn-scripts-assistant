@@ -24,8 +24,10 @@ type taught struct {
 // ReloadSkills makes the live tool list match the skills folder, and says how
 // many there are.
 func (b *Brain) ReloadSkills() (int, error) {
-	found, err := skills.Load(b.Root)
-	if err != nil {
+	// The playbooks it ships with as well as what it was taught (ADR 0007);
+	// a folder that cannot be read still leaves the playbooks.
+	found, err := skills.All(b.Root)
+	if err != nil && len(found) == 0 {
 		return 0, err
 	}
 

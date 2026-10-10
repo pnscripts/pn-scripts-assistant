@@ -89,8 +89,11 @@ func (ReadAPage) Execute(ctx context.Context, raw json.RawMessage) (string, erro
 	 */
 	var guard FetchURL
 
-	if err := guard.GuardTarget(url); err != nil {
-		return "", err
+	// Lifted with everything else when its owner allows everything (ADR 0007).
+	if !EverythingAllowed(ctx) {
+		if err := guard.GuardTarget(url); err != nil {
+			return "", err
+		}
 	}
 
 	text, err := browse.Page(ctx, url)

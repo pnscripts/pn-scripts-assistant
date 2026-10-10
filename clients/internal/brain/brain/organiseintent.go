@@ -131,6 +131,10 @@ func (b *Brain) aboutAHire(ctx context.Context, conversationID int64, offer tool
 		return offer.Text + "\n\n" + err.Error(), nil, true
 	}
 
+	if done, ok := b.doneAlready(ctx, pending); ok {
+		return offer.Text + "\n\n" + done, nil, true
+	}
+
 	return offer.Text + "\n\n" + b.inOwnWords(ctx,
 		"one closing line under a proposed hire that is waiting to be approved",
 		map[string]any{"it will be done exactly as written above": true},
@@ -154,7 +158,7 @@ func (b *Brain) askToApprove(conversationID int64, name string, args json.RawMes
 
 	summary := tool.Summarize(args)
 
-	if why := tools.ConsentFor(tool, args); why != "" {
+	if why := tools.ConsentFor(tool, args); why != "" && !b.Unbounded() {
 		summary = "Always asked — " + why + ": " + summary
 	}
 
@@ -164,6 +168,37 @@ func (b *Brain) askToApprove(conversationID int64, name string, args json.RawMes
 	}
 
 	return []agent.Pending{{ID: id, Tool: name, Summary: summary}}, nil
+}
+
+/*
+ * doneAlready carries out what was just recorded as waiting, when its owner
+ * allows everything (ADR 0007), and says what came of it.
+ *
+ * Recorded first and then decided through the one door every approval goes
+ * through, so the record reads exactly as if it had been approved by hand:
+ * what was asked, that it was approved, and what it returned.
+ */
+func (b *Brain) doneAlready(ctx context.Context, pending []agent.Pending) (string, bool) {
+	if !b.Unbounded() || len(pending) == 0 {
+		return "", false
+	}
+
+	var said []string
+
+	for _, p := range pending {
+		done, err := b.Decide(ctx, p.ID, true)
+
+		line := "Done: " + p.Summary
+		if err != nil {
+			line = "Tried, and it failed: " + p.Summary + " — " + err.Error()
+		} else if strings.TrimSpace(done.Result) != "" {
+			line += "\n" + done.Result
+		}
+
+		said = append(said, line)
+	}
+
+	return strings.Join(said, "\n\n"), true
 }
 
 /*
@@ -217,6 +252,10 @@ func (b *Brain) answeringAHire(ctx context.Context, conversationID int64, messag
 	pending, err := b.askToConfirmHire(conversationID, row.ID, p.Permanence, p.Goal)
 	if err != nil {
 		return err.Error(), nil, true
+	}
+
+	if done, ok := b.doneAlready(ctx, pending); ok {
+		return done, nil, true
 	}
 
 	how := "permanently"
@@ -289,6 +328,10 @@ func (b *Brain) answeringAProject(ctx context.Context, conversationID int64, mes
 		pending, err := b.askToApprove(conversationID, "start_project", args)
 		if err != nil {
 			return err.Error(), nil, true
+		}
+
+		if done, ok := b.doneAlready(ctx, pending); ok {
+			return done, nil, true
 		}
 
 		return b.inOwnWords(ctx, "one line telling somebody their yes is now waiting for them to approve it",

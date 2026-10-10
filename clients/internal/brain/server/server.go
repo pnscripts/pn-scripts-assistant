@@ -1509,11 +1509,10 @@ func (s *Server) handleGreeting(w http.ResponseWriter, r *http.Request) {
 	 * being skipped, it is being waited for. Pressing Begin reloads onto a
 	 * brain that is no longer new, and it says hello then — by its own name.
 	 */
-	if s.brain.Cfg.New {
-		ok(w, brain.Greeting{})
-
-		return
-	}
+	/*
+	 * A first meeting is greeted too, now that there is no card to answer
+	 * first: in the model's own words or not at all (see firstmeeting.go).
+	 */
 
 	/*
 	 * A few seconds for the assistant's own words, and then what it knows

@@ -76,22 +76,11 @@
     <div class="boot-bar"><span class="boot-bar-fill" id="boot-bar-fill"></span></div>
 </div>
 
-<div class="naming" id="naming" hidden>
-    <form class="naming-card" id="naming-form">
-        <h1>Before we start</h1>
-        <p>This brain runs on your machine and remembers what you tell it.
-            Nothing leaves here.</p>
-        <label class="field">
-            <span>What would you like to call it?</span>
-            <input id="naming-name" type="text" autocomplete="off" placeholder="Assistant">
-        </label>
-        <label class="field">
-            <span>And what should it call you?</span>
-            <input id="naming-owner" type="text" autocomplete="off" placeholder="Your name">
-        </label>
-        <button type="submit" class="model-action">Begin</button>
-    </form>
-</div>
+<!--
+    There used to be a naming card here, a form with two fields and a button. The first meeting is a conversation now (ADR 0007,
+    firstmeeting.go): the assistant learns what to call its owner, and what he
+    calls it, from what he says.
+-->
 
 <!--
     The brain has been carried to another machine.
@@ -797,9 +786,9 @@
                         <label class="field">
                             <span>Privacy</span>
                             <select id="set-privacy">
-                                <option value="private">private · nothing leaves this machine</option>
+                                <option value="open">open · may use a cloud model (default)</option>
                                 <option value="research">research · may read the web</option>
-                                <option value="open">open · may use a cloud model</option>
+                                <option value="private">private · nothing leaves this machine</option>
                             </select>
                         </label>
                         <button type="submit" class="model-action" id="set-save">Save</button>

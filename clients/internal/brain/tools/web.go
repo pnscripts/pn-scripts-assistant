@@ -147,8 +147,14 @@ func (f FetchURL) Execute(ctx context.Context, raw json.RawMessage) (string, err
 		return "", err
 	}
 
-	if err := f.GuardTarget(a.URL); err != nil {
-		return "", err
+	// Everything allowed (ADR 0007): this machine and the local network are
+	// addresses like any other. Otherwise only the public web.
+	free := EverythingAllowed(ctx)
+
+	if !free {
+		if err := f.GuardTarget(a.URL); err != nil {
+			return "", err
+		}
 	}
 
 	client := f.Client
@@ -160,6 +166,10 @@ func (f FetchURL) Execute(ctx context.Context, raw json.RawMessage) (string, err
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 5 {
 					return fmt.Errorf("too many redirects")
+				}
+
+				if free {
+					return nil
 				}
 
 				return f.GuardTarget(req.URL.String())

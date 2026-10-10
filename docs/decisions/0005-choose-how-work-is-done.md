@@ -1,6 +1,6 @@
 # ADR 0005 — Choose how work is done, and hold it to its boundaries
 
-**Status:** accepted · **Date:** 2026-09-18
+**Status:** accepted · **Date:** 2026-09-18 · **Partly superseded** by [ADR 0007](0007-everything-allowed.md): the always-asked approvals, confinement, grants and the coding agents' limits now hold only with `BRAIN_CONFINE=1`
 
 ## The question
 

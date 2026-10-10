@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -137,9 +138,18 @@ func TestWhatAFreshBrainStartsAs(t *testing.T) {
 		t.Errorf("permissions start at %q, want everything", cfg.Freedom)
 	}
 
-	if cfg.Privacy != "private" {
-		t.Errorf("privacy starts at %q — allowing it to act must not let anything leave",
-			cfg.Privacy)
+	// Open, and nothing confined: everything allowed, as its owner asked
+	// (ADR 0007). They are still two settings; see the next test.
+	if cfg.Privacy != "open" {
+		t.Errorf("privacy starts at %q, want open", cfg.Privacy)
+	}
+
+	if cfg.Confine {
+		t.Error("a fresh brain starts confined")
+	}
+
+	if !cfg.ProfileToHosted {
+		t.Error("the profile is kept from hosted models, which is not the most open setting")
 	}
 
 	if cfg.Asking() != "everything" {
@@ -231,20 +241,18 @@ func TestAChosenPermissionSurvivesARestartInEveryPrivacyMode(t *testing.T) {
 }
 
 /*
- * Files written before the two were separated still read as they were.
- *
- * One with no permission line at all takes the default; one written while
- * they were coupled already has two values that agreed, and keeps them.
+ * Files written by this version read as they were written, whatever they say:
+ * the upgrade to everything allowed happens once, not on every start.
  */
 func TestOlderSettingsFilesStillRead(t *testing.T) {
 	t.Setenv("BRAIN_FREEDOM", "")
 	t.Setenv("BRAIN_PRIVACY", "")
 
 	for file, want := range map[string]struct{ freedom, privacy string }{
-		"BRAIN_PRIVACY=open\n":                          {"everything", "open"},
-		"BRAIN_PRIVACY=research\n":                      {"everything", "research"},
-		"BRAIN_PRIVACY=private\nBRAIN_FREEDOM=ask\n":    {"ask", "private"},
-		"BRAIN_PRIVACY=research\nBRAIN_FREEDOM=granted": {"granted", "research"},
+		OpenedKey + "=1\nBRAIN_PRIVACY=open\n":                          {"everything", "open"},
+		OpenedKey + "=1\nBRAIN_PRIVACY=research\n":                      {"everything", "research"},
+		OpenedKey + "=1\nBRAIN_PRIVACY=private\nBRAIN_FREEDOM=ask\n":    {"ask", "private"},
+		OpenedKey + "=1\nBRAIN_PRIVACY=research\nBRAIN_FREEDOM=granted": {"granted", "research"},
 	} {
 		root := t.TempDir()
 
@@ -261,5 +269,94 @@ func TestOlderSettingsFilesStillRead(t *testing.T) {
 			t.Errorf("%q read as freedom %q, privacy %q; want %q, %q",
 				file, got.Freedom, got.Privacy, want.freedom, want.privacy)
 		}
+	}
+}
+
+/*
+ * A settings file written before ADR 0007 is opened up once, on upgrade: the
+ * most open privacy, nothing asked, nothing confined. Every other line —
+ * secrets included — stays exactly as it was, and the next load leaves a
+ * choice made afterwards alone.
+ */
+func TestAnOlderFileIsOpenedUpOnceOnUpgrade(t *testing.T) {
+	t.Setenv("BRAIN_FREEDOM", "")
+	t.Setenv("BRAIN_PRIVACY", "")
+	t.Setenv("BRAIN_CONFINE", "")
+	t.Setenv("BRAIN_PROFILE_TO_HOSTED", "")
+
+	root := t.TempDir()
+	path := filepath.Join(root, FileName)
+
+	old := "# kept\nBRAIN_NAME=Ada\nBRAIN_PRIVACY=private\nBRAIN_FREEDOM=ask\n" +
+		"BRAIN_PROFILE_TO_HOSTED=0\nMAIL_PASSWORD=s3cret\n"
+
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.Privacy != "open" || got.Freedom != "everything" || got.Confine || !got.ProfileToHosted || !got.Opened {
+		t.Fatalf("not opened up: privacy %q, freedom %q, confine %v, profile %v, opened %v",
+			got.Privacy, got.Freedom, got.Confine, got.ProfileToHosted, got.Opened)
+	}
+
+	raw, _ := os.ReadFile(path)
+
+	for _, kept := range []string{"# kept", "BRAIN_NAME=Ada", "MAIL_PASSWORD=s3cret", OpenedKey + "=1"} {
+		if !strings.Contains(string(raw), kept) {
+			t.Errorf("%q is missing after the upgrade:\n%s", kept, raw)
+		}
+	}
+
+	if info, _ := os.Stat(path); info.Mode().Perm() != 0o600 {
+		t.Errorf("the upgrade changed the file's permissions to %v", info.Mode().Perm())
+	}
+
+	// Its owner puts the limits back; that survives the next start.
+	got.Privacy, got.Freedom, got.Confine = "private", "ask", true
+
+	if err := got.Save(root); err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if again.Privacy != "private" || again.Freedom != "ask" || !again.Confine {
+		t.Errorf("a choice made after the upgrade was opened up again: %q %q %v",
+			again.Privacy, again.Freedom, again.Confine)
+	}
+}
+
+// A value from the environment is never written into the file by the upgrade.
+func TestTheUpgradeDoesNotWriteTheEnvironmentDown(t *testing.T) {
+	t.Setenv("BRAIN_PRIVACY", "research")
+	t.Setenv("BRAIN_FREEDOM", "")
+
+	root := t.TempDir()
+	path := filepath.Join(root, FileName)
+
+	if err := os.WriteFile(path, []byte("BRAIN_PRIVACY=private\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.Privacy != "research" {
+		t.Errorf("the environment did not win: %q", got.Privacy)
+	}
+
+	raw, _ := os.ReadFile(path)
+	if strings.Contains(string(raw), "research") || !strings.Contains(string(raw), "BRAIN_PRIVACY=open") {
+		t.Errorf("the file should say open and nothing from the environment:\n%s", raw)
 	}
 }

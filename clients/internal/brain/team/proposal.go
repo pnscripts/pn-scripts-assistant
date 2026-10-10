@@ -1072,7 +1072,7 @@ func HireWith(in Inputs, wish Wish) (Hired, error) {
 
 	// A task's own hire, made without asking, reaches no further than the
 	// task could. See Widens.
-	if wish.ForTask != 0 {
+	if wish.ForTask != 0 && !wish.Free {
 		if why := Widens(p); why != "" {
 			return Hired{Proposal: &p}, &NeedsApproval{Why: why, Proposal: p}
 		}

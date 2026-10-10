@@ -20,6 +20,7 @@ import (
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/skills"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 	"pn-scripts-assistant/internal/brain/wake"
@@ -197,9 +198,10 @@ func TestStatusCarriesEverythingTheInterfaceReads(t *testing.T) {
 		}
 	}
 
+	// Open by default since ADR 0007.
 	privacy, _ := s["privacy"].(map[string]any)
-	if privacy["mode"] != "private" {
-		t.Errorf("default privacy is %v, want private", privacy["mode"])
+	if privacy["mode"] != "open" {
+		t.Errorf("default privacy is %v, want open", privacy["mode"])
 	}
 }
 
@@ -278,9 +280,21 @@ func TestChatRejectsEmptyMessage(t *testing.T) {
 func TestRegisteredTools(t *testing.T) {
 	_, _, b := newServer(t)
 
+	// The playbooks it ships with are skills and are checked in the skills
+	// package (ADR 0007); this list is the program's own tools.
+	shipped := map[string]bool{}
+
+	if found, err := skills.Builtin(); err == nil {
+		for _, sk := range found {
+			shipped[sk.Name] = true
+		}
+	}
+
 	var names []string
 	for _, tool := range b.Agent.Registry.All() {
-		names = append(names, tool.Name())
+		if !shipped[tool.Name()] {
+			names = append(names, tool.Name())
+		}
 	}
 
 	// set_appearance, and now the two queue tools, are here for the same
@@ -311,7 +325,7 @@ func TestRegisteredTools(t *testing.T) {
 		// which is always put to its owner when it is permanent.
 		"click", "confirm_hire",
 
-		"decide_waiting", "do_in_background", "edit_document", "edit_file",
+		"decide_waiting", "do_in_background", "drive_browser", "edit_document", "edit_file",
 		"fetch_url", "films_without_subtitles",
 
 		/*
@@ -351,7 +365,7 @@ func TestRegisteredTools(t *testing.T) {
 		"plan_project",
 
 		"put_in_the_diary", "put_it_back",
-		"read_a_page", "read_document", "read_file", "read_integration", "remember_how_to_do_this", "remind_me", "remove_a_part", "run_command",
+		"read_a_page", "read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this", "remind_me", "remove_a_part", "run_command",
 		"scroll", "search_files", "set_appearance", "set_wake_word",
 		"start_project", "stop_background", "stop_hearing_this_machine", "type_text",
 		"web_search", "what_am_i_hearing", "what_can_you_do", "what_is_on", "what_ive_been_taught",
@@ -511,6 +525,11 @@ func TestPrivacyHidesAndRefusesTheWebTools(t *testing.T) {
  */
 func TestTheWebFollowsPrivacyWhileRunning(t *testing.T) {
 	_, _, b := newServer(t)
+
+	// Open by default (ADR 0007); private is still one switch away.
+	if _, err := b.UsePrivacy("private"); err != nil {
+		t.Fatal(err)
+	}
 
 	if !b.Agent.OffLimits("fetch_url") {
 		t.Fatal("the web is reachable in private mode")
@@ -1327,7 +1346,7 @@ func TestTheLatestConversationCarriesItsID(t *testing.T) {
  * reload, a second window or a tab left open from before would each produce
  * one.
  */
-func TestItSaysNothingUntilItHasBeenNamed(t *testing.T) {
+func TestAFirstRunIsNotGreetedFromAScript(t *testing.T) {
 	ts, _, b := newServer(t)
 
 	b.Cfg.New = true
@@ -1352,8 +1371,12 @@ func TestItSaysNothingUntilItHasBeenNamed(t *testing.T) {
 		return out.Text
 	}
 
-	if said := greeting(); said != "" {
-		t.Errorf("it greeted before it had been named: %q", said)
+	// There is no card to wait for any more (firstmeeting.go): a first run
+	// may be greeted, but never with a composed greeting or a recital.
+	for _, stock := range []string{"Good ", "Morning", "Afternoon", "Evening", "We have not met", "ask me what I can do", "!"} {
+		if said := greeting(); strings.Contains(said, stock) {
+			t.Errorf("a first meeting opened with a stock line: %q", said)
+		}
 	}
 
 	// And says hello properly once it has one — the greeting is postponed,
@@ -1677,8 +1700,9 @@ func TestPermissionsAreSeparateFromPrivacy(t *testing.T) {
 		t.Errorf("a new brain starts at %q, want everything", page.Freedom)
 	}
 
-	if page.Privacy != "private" {
-		t.Errorf("a new brain's privacy is %q — allowing more must not send more", page.Privacy)
+	// Open as well, as its owner asked (ADR 0007) — still its own setting.
+	if page.Privacy != "open" {
+		t.Errorf("a new brain's privacy is %q, want open", page.Privacy)
 	}
 
 	// Every capability, not only the ones with a decision on them: the
@@ -1996,4 +2020,22 @@ func sameDisk(t *testing.T, root string) bool {
 	}
 
 	return a.Dev == b.Dev
+}
+
+// The first meeting is a conversation: there is no form in the window asking
+// for names before anything else (firstmeeting.go).
+func TestThereIsNoNamingForm(t *testing.T) {
+	for _, file := range []string{"assets/index.html", "assets/js/settings.js"} {
+		raw, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, form := range []string{"naming-form", "naming-name", "naming-owner", "Before we start",
+			"What would you like to call it"} {
+			if strings.Contains(string(raw), form) {
+				t.Errorf("%s still has the naming form (%q)", file, form)
+			}
+		}
+	}
 }

@@ -74,19 +74,25 @@ type Policy struct {
 	// Notify is how much a switch of resource is said: verbose, normal or
 	// minimal.
 	Notify string `json:"notify"`
+
+	// Opened marks a policy already moved to cloud preferred by ADR 0007, so
+	// a policy written before it is moved once and then left as its owner
+	// sets it.
+	Opened bool `json:"everything_allowed,omitempty"`
 }
 
 const gb = int64(1) << 30
 
 /*
- * Default is the policy its owner approved: subscriptions first, balanced
- * privacy, local models and pinned tools installed without asking within
+ * Default is the policy its owner approved: subscriptions first, cloud
+ * preferred (balanced until ADR 0007, when he asked for everything open), local models and pinned tools installed without asking within
  * ten gigabytes — and twenty left free on the disk — and nothing paid per
  * use without asking, since there is no budget for it until one is set.
  */
 func Default() Policy {
 	return Policy{
-		Privacy:    Balanced,
+		Privacy:    CloudPreferred,
+		Opened:     true,
 		Thresholds: Thresholds{Warning: 40, Low: 20, Critical: 10},
 		Budget: Budget{MonthlyAPI: 0, TaskAPI: 0, MaxDownload: 10 * gb, MaxModelSize: 10 * gb,
 			MaxModelDisk: 40 * gb, MinFreeDisk: 20 * gb},
@@ -111,8 +117,23 @@ func LoadPolicy(root string) (Policy, error) {
 
 	p := Default()
 
+	p.Opened = false
+
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return Default(), fmt.Errorf("%s could not be read: %w", PolicyFile(root), err)
+	}
+
+	/*
+	 * Written before ADR 0007: moved to cloud preferred once, and saved, so
+	 * the next change its owner makes is kept rather than moved again.
+	 */
+	if !p.Opened {
+		p.Privacy = CloudPreferred
+		p.Opened = true
+
+		if err := p.Check(); err == nil {
+			SavePolicy(root, p)
+		}
 	}
 
 	return p, p.Check()

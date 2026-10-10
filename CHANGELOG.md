@@ -6,6 +6,31 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+Everything is allowed out of the box, it already knows how the work here is
+done, and the first meeting is a conversation. See ADR 0007.
+
+### What you will notice
+
+- **Everything allowed, still recorded.** Privacy starts at `open`, nothing is
+  asked before it acts, and nothing is confined: installing, sending mail,
+  hiring, integrations, work outside a project, protected files, local
+  addresses. Claude Code and Codex run with their own permission checks off.
+  An existing install is switched over once, on upgrade. `BRAIN_CONFINE=1` puts
+  every limit back. Every tool call is still written down, and a tool you
+  refused by name stays refused.
+- **Fourteen built-in playbooks**, versioned, offered when their words come up:
+  building and publishing HTML5 games on itch.io and Game Jolt, building
+  products, shipping pnscripts.com, WordPress.org review, social profiles,
+  naming, the sales hold, GitHub costs, machine load, the AI brain, mail and
+  complaints, and planning. A skill of your own with the same name wins.
+- **It can drive a Chrome of its own** (`drive_browser`), signed in once by
+  you, and **read Thunderbird's mail folders** (`read_mailbox`).
+- **No naming form and no greeting formula.** The first meeting is a
+  conversation; your name, its name and your language are picked up from what
+  you say.
+
 ## 0.3.0 — 2026-10-06
 
 Two settings that had quietly become one are two again, the Models view says

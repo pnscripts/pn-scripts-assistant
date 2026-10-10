@@ -76,6 +76,8 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 			ThisRun:  forThisRun[t.Name()],
 		}
 
+		// The standing decision, as recorded. While everything is allowed
+		// nothing asks whatever this says; see everything_allowed below.
 		if !c.Changes {
 			c.Decision = string(permits.Allow)
 		}
@@ -101,6 +103,11 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 		// nothing of the owner's.
 		"look_online":  s.brain.Cfg.LookOnline,
 		"capabilities": out,
+
+		// Every limit lifted (ADR 0007), and whether its owner put them back
+		// with BRAIN_CONFINE.
+		"everything_allowed": s.brain.Unbounded(),
+		"confine":            s.brain.Cfg.Confine,
 	})
 }
 

@@ -44,11 +44,12 @@ func (b *Brain) organisationTools() []tools.Tool {
 	})
 
 	b.Integrations = &mcp.Gateway{
-		Book:   mcp.Open(b.Root),
-		DB:     b.DB,
-		Log:    b.Log,
-		Ready:  func(recipe string) bool { return b.Recipes().Check(recipe, "").Ready() },
-		Online: func() bool { return b.Mode.AllowsWeb() },
+		Book:      mcp.Open(b.Root),
+		DB:        b.DB,
+		Log:       b.Log,
+		Ready:     func(recipe string) bool { return b.Recipes().Check(recipe, "").Ready() },
+		Online:    func() bool { return b.Mode.AllowsWeb() },
+		Unbounded: b.Unbounded,
 	}
 
 	games := tools.Games{Engines: b.Engines, Online: func() bool { return b.Cfg.LookOnline }, Places: b.placePaths}

@@ -1,6 +1,6 @@
 # ADR 0004 — Hire, equip, and confine
 
-**Status:** accepted · **Date:** 2026-09-18
+**Status:** accepted · **Date:** 2026-09-18 · **Partly superseded** by [ADR 0007](0007-everything-allowed.md): the always-asked approvals, confinement, grants now hold only with `BRAIN_CONFINE=1`
 
 ## The real question
 

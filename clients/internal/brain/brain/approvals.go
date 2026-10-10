@@ -101,7 +101,7 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 	 * again, since the settings may have changed while it waited, and run
 	 * under the same confinement as if it had needed no approval at all.
 	 */
-	if within := b.projectOf(invocation.ID); within != nil {
+	if within := b.projectOf(invocation.ID); within != nil && !b.Unbounded() {
 		if why := agent.Outside(within, tool, json.RawMessage(invocation.Arguments)); why != "" {
 			b.DB.CompleteInvocation(id, store.InvocationFailed, "refused: "+why)
 			invocation.Status = store.InvocationFailed
@@ -110,6 +110,10 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 		}
 
 		ctx = agent.Confined(ctx, within)
+	}
+
+	if b.Unbounded() {
+		ctx = tools.WithEverythingAllowed(ctx)
 	}
 
 	output, evidence, execErr := tools.Perform(ctx, tool, json.RawMessage(invocation.Arguments))

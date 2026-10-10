@@ -21,6 +21,8 @@
  *
  * So this is not a firewall and does not pretend to be one. It is the answer
  * to "what does it talk to without being told", checked rather than asserted.
+ * Nothing consults it at run time; it documents and blocks nothing — which
+ * is why it stayed when everything was allowed (ADR 0007).
  */
 package outside
 

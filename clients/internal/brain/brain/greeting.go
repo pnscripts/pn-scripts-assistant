@@ -133,7 +133,15 @@ func (b *Brain) Greet() Greeting {
 	 */
 	backAlready := last != nil && time.Since(last.When) < JustCameBack
 
-	if !backAlready {
+	/*
+	 * Nothing composed for a first meeting: no "Good evening", no list of
+	 * what it can do, no count of what it knows. That is the cliché its owner
+	 * asked to be rid of; the model opens instead, or nobody does until he
+	 * speaks. See firstmeeting.go.
+	 */
+	first := b.FirstMeeting()
+
+	if !backAlready && !first {
 		parts = append(parts, b.timeOfDay())
 	}
 
@@ -153,6 +161,9 @@ func (b *Brain) Greet() Greeting {
 	loaded := b.loadedTools()
 
 	introduction := introductionLine(b.Root, loaded)
+	if first {
+		introduction = ""
+	}
 
 	if introduction != "" {
 		parts = append(parts, SpokenIntroduction(introduction))
@@ -197,7 +208,7 @@ func (b *Brain) Greet() Greeting {
 
 	if waiting := b.waitingLine(); waiting != "" {
 		parts = append(parts, waiting)
-	} else if known := b.knowledgeLine(); known != "" && !backAlready {
+	} else if known := b.knowledgeLine(); known != "" && !backAlready && !first {
 		/*
 		 * "I know 1042 things about your work. Ask me anything."
 		 *
@@ -297,6 +308,29 @@ func (b *Brain) inOwnWords(ctx context.Context, brief string, facts any, plain s
  */
 func (b *Brain) GreetInWords(ctx context.Context) Greeting {
 	g := b.Greet()
+
+	// A first meeting opens in the model's own words or not at all.
+	if b.FirstMeeting() {
+		const about = "first meeting"
+
+		b.mu.Lock()
+		said, was := b.greetingSaid, b.greetingAbout
+		b.mu.Unlock()
+
+		if said == "" || was != about {
+			if said = b.firstWords(ctx); said != "" {
+				b.mu.Lock()
+				b.greetingSaid, b.greetingAbout, b.greetingWhen = said, about, time.Now()
+				b.mu.Unlock()
+			}
+		}
+
+		if said != "" {
+			g.Text, g.Facts = said, append(g.Facts, said)
+		}
+
+		return g
+	}
 
 	if len(g.Facts) == 0 || strings.TrimSpace(g.Text) == "" {
 		return g

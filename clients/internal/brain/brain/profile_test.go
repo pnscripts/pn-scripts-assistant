@@ -20,6 +20,9 @@ import (
 func TestTheProfileStaysOnThisMachineUnlessSaidOtherwise(t *testing.T) {
 	b := testBrain(t)
 
+	// On by default since ADR 0007; the switch that keeps it here still holds.
+	b.Cfg.ProfileToHosted = false
+
 	const secret = "I run a small studio and I never chase late payments myself."
 
 	if err := profile.Write(b.Root, secret); err != nil {

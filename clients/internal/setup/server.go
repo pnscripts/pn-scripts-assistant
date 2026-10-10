@@ -596,8 +596,9 @@ func (s *Server) state() map[string]any {
 	// key counts too.
 	paidBrain := false
 	chosenModel := ""
-	freedom := string(permits.AskEveryTime)
-	privacy := llm.ModePrivate
+	// The defaults, should the file not be readable: everything (ADR 0007).
+	freedom := string(permits.Everything)
+	privacy := llm.ModeOpen
 
 	if cfg, err := config.LoadFrom(s.envPath); err == nil {
 		paidBrain = cfg.HasPaidProvider()
@@ -967,6 +968,15 @@ func (s *Server) writeSetting(name, value string, mode os.FileMode) error {
 // one write, so the file is never read with one of them changed and not the
 // other.
 func (s *Server) writeSettings(mode os.FileMode, settings ...[2]string) error {
+	/*
+	 * An older file is opened up first (ADR 0007), and every file setup
+	 * writes says it already was — otherwise a choice made here, "ask" for
+	 * one, would be read as an old default and opened up on the next start.
+	 */
+	config.LoadFrom(s.envPath)
+
+	settings = append(settings, [2]string{config.OpenedKey, "1"})
+
 	data, err := os.ReadFile(s.envPath)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("could not read %s: %w", s.envPath, err)

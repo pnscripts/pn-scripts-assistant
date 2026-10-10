@@ -264,7 +264,7 @@ func (c *Conductor) attempt(ctx context.Context, task *store.Task, t *turn, r or
 		progress.Detail(r.Title + " is writing " + task.Name)
 
 		out := ex.Run(ctx, orchestrator.Job{Dir: task.Project, Prompt: c.agentPrompt(task, t.step, fix),
-			Model: orchestrator.ModelFor(r, work)})
+			Model: orchestrator.ModelFor(r, work), Unbounded: c.Agent != nil && c.Agent.EverythingAllowed()})
 
 		// Ended, not failed: nothing about the agent is learned from it.
 		if ctx.Err() != nil {

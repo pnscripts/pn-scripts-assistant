@@ -57,7 +57,7 @@ func TestSensitivePathsAreAskedAbout(t *testing.T) {
 
 		// And nothing reaches a tool without having been asked about, for the
 		// case where a caller does not go through the agent at all.
-		if err := GuardSensitive(p); err == nil {
+		if err := GuardSensitive(context.Background(), p); err == nil {
 			t.Errorf("a tool would have opened %s with no question anywhere", p)
 		}
 	}
@@ -108,7 +108,7 @@ func TestTheQuestionSaysWhatItIsAsking(t *testing.T) {
 
 	// And a tool reached without the question having been asked says so, in
 	// terms that point at the way to do it properly.
-	err := GuardSensitive("/home/petar/.ssh/id_rsa")
+	err := GuardSensitive(context.Background(), "/home/petar/.ssh/id_rsa")
 	if err == nil {
 		t.Fatal("a tool opened a private key with no question anywhere")
 	}
@@ -331,5 +331,19 @@ func TestSmartHomeRiskClassification(t *testing.T) {
 
 	if (SetDevice{}).Risk() != Mutating {
 		t.Error("changing a device must need approval")
+	}
+}
+
+// Everything allowed (ADR 0007): the last-line guards step aside, and only
+// for a call that carries it.
+func TestEverythingAllowedLiftsTheLastLineGuards(t *testing.T) {
+	free := WithEverythingAllowed(context.Background())
+
+	if err := GuardSensitive(free, "/home/someone/.ssh/id_rsa"); err != nil {
+		t.Errorf("a protected file was still refused: %v", err)
+	}
+
+	if err := GuardSensitive(context.Background(), "/home/someone/.ssh/id_rsa"); err == nil {
+		t.Error("without it, a protected file was not refused")
 	}
 }

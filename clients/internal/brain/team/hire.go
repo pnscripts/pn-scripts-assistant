@@ -69,6 +69,11 @@ type Wish struct {
 	// New asks for somebody new even when somebody here already does this:
 	// its owner pressed "take them on", not "who does this".
 	New bool
+
+	// Free is its owner's "everything is allowed" (ADR 0007): a task's hire
+	// is made even when it would reach further than the task, rather than
+	// kept as a proposal.
+	Free bool
 }
 
 // Hired is what came of a wish.

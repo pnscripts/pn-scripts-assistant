@@ -257,6 +257,11 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.Scroll{},
 		tools.WriteDocument{},
 		tools.LookAtScreen{OllamaURL: cfg.OllamaURL},
+
+		// What its owner's work was done with by hand (ADR 0007): a Chrome
+		// it can drive, signed in as him, and Thunderbird's own mail folders.
+		tools.DriveBrowser{},
+		tools.ReadMailbox{},
 	}
 
 	/*
@@ -665,6 +670,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		},
 
 		NothingAsks: func() bool { return b.Freedom() == permits.Everything },
+		Unbounded:   b.Unbounded,
 
 		/*
 		 * What is on this machine, for deciding which tools are worth
@@ -779,6 +785,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Registry:    b.Agent.Registry,
 		MayI:        b.Agent.MayI,
 		NothingAsks: b.Agent.NothingAsks,
+		Unbounded:   b.Agent.Unbounded,
 		OffLimits:   b.Agent.OffLimits,
 		Quietly:     true,
 	}
@@ -862,6 +869,8 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// Hiring freely and saying so afterwards, which is what its owner
 		// asked for. See tasks/hire.go.
 		Hire: func(w team.Wish) (team.Hired, error) {
+			w.Free = w.Free || b.Unbounded()
+
 			hired, err := team.HireWith(b.hiringInputs(), w)
 
 			// A hire that would reach further than the task may go by itself
@@ -1483,7 +1492,17 @@ nobody has. If you do not know where something is, list one of the places
 above and look. Asking which folder is fair when looking has not settled
 it; inventing the folder is not.`,
 		name, owner, b.howItActs(owner), owner, owner, owner, owner, owner,
-		b.whereThingsAre()+b.whatIsHere(), b.whatIsRemembered())
+		b.whereThingsAre()+b.whatIsHere(), b.whatIsRemembered()) + b.acquaintance()
+}
+
+// acquaintance is the first-meeting note while there is somebody to get to
+// know, and nothing once there is not. See firstmeeting.go.
+func (b *Brain) acquaintance() string {
+	if !b.stillGettingAcquainted() {
+		return ""
+	}
+
+	return "\n\n" + firstMeetingNote
 }
 
 /*
@@ -1771,7 +1790,7 @@ func (b *Brain) spokenSystemPrompt() string {
 		owner = "your owner"
 	}
 
-	return fmt.Sprintf(spokenPersona, name, owner, owner)
+	return fmt.Sprintf(spokenPersona, name, owner, owner) + b.acquaintance()
 }
 
 // ChatRequest is one message from a person.
@@ -1929,6 +1948,10 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	if _, err := b.DB.AddMessage(conversationID, llm.RoleUser, "", "", req.Message); err != nil {
 		return ChatReply{}, err
 	}
+
+	// What a first conversation settles — a name, a language — is written
+	// down as it is said, rather than asked for on a form.
+	b.learnFromFirstMeeting(req.Message)
 
 	/*
 	 * A question never goes unanswered in the record.
@@ -2677,6 +2700,19 @@ func (b *Brain) Freedom() permits.Freedom {
 	}
 
 	return f
+}
+
+/*
+ * Unbounded is whether every limit is lifted: freedom set to everything and
+ * nothing confined (ADR 0007). The default, as its owner asked. Read from the
+ * live settings on every call, like Freedom.
+ */
+func (b *Brain) Unbounded() bool {
+	b.mu.Lock()
+	confined := b.Cfg.Confine
+	b.mu.Unlock()
+
+	return !confined && b.Freedom() == permits.Everything
 }
 
 /*

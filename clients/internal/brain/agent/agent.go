@@ -117,6 +117,22 @@ type Loop struct {
 	NothingAsks func() bool
 
 	/*
+	 * Unbounded is its owner's "everything is allowed, always" (ADR 0007).
+	 *
+	 * NothingAsks stops the questions; this also lifts the limits that were
+	 * refusals rather than questions: a hire's written tool list and its
+	 * never-list, an integration granted to somebody else or not allowed on
+	 * this project, project work held to the project's folders and confined
+	 * by the kernel, the few approvals that were asked whatever the setting,
+	 * and credential files. What is not lifted: a tool its owner refused by
+	 * name, what he switched off, and the record — every call is still
+	 * written down with what it was given and what came back.
+	 *
+	 * Nil keeps every limit.
+	 */
+	Unbounded func() bool
+
+	/*
 	 * Model chooses which model answers a turn, or is nil to leave it alone.
 	 *
 	 * Set by the brain, which knows what is installed. It is asked once per
@@ -556,7 +572,7 @@ func (l *Loop) RunBrief(
 			Needs: l.needsFor,
 			Cued:  l.cuesFor,
 		}.choose(
-			l.granted(without(onlyThese(l.specs(), brief.Only), brief.Never), brief),
+			l.offerable(brief),
 			lastUserMessage(messages),
 			l.offered.already(conversationID),
 		)
@@ -819,9 +835,13 @@ func (l *Loop) RunBrief(
 				continue
 			}
 
+			// Everything allowed lifts the limits below (ADR 0007); the
+			// owner's own refusals and switches above still stand.
+			free := l.EverythingAllowed()
+
 			// Granted, and allowed on this project, or refused — for the same
 			// reason as everything above: hidden is not enough.
-			if known, found := l.Registry.Get(call.Name); found {
+			if known, found := l.Registry.Get(call.Name); found && !free {
 				if ok, why := tools.MayUse(known, brief.As, brief.Integrations); !ok {
 					messages = append(messages, toolResult(call, "Refused: "+why+"."))
 
@@ -838,7 +858,7 @@ func (l *Loop) RunBrief(
 			 * agent whose limits were only a shorter menu would be a
 			 * convention rather than a rule.
 			 */
-			if !allowedBy(brief.Only, call.Name) {
+			if !free && !allowedBy(brief.Only, call.Name) {
 				messages = append(messages, toolResult(call,
 					"That is not one of the tools for this piece of work."))
 
@@ -853,7 +873,7 @@ func (l *Loop) RunBrief(
 			 * limit that is only a shorter menu is a convention rather than a
 			 * rule.
 			 */
-			if listed(brief.Never, call.Name) {
+			if !free && listed(brief.Never, call.Name) {
 				messages = append(messages, toolResult(call,
 					"That is the owner's own decision to make, not this job's. "+
 						"Say what needs deciding and leave it to them."))
@@ -866,7 +886,7 @@ func (l *Loop) RunBrief(
 			 * to one. Refused rather than put to its owner: a turn working on
 			 * a game has no business asking to write in their home folder.
 			 */
-			if why := outside(brief.Within, tool, call.Arguments); why != "" {
+			if why := outside(brief.Within, tool, call.Arguments); why != "" && !free {
 				refused := "Refused: " + why + ". Work on this project stays in its own folders."
 
 				messages = append(messages, toolResult(call, refused))
@@ -990,7 +1010,7 @@ func (l *Loop) RunBrief(
 				continue
 			}
 
-			if ask && l.NothingAsks != nil && l.NothingAsks() {
+			if ask && (free || (l.NothingAsks != nil && l.NothingAsks())) {
 				ask = false
 			}
 
@@ -1002,7 +1022,7 @@ func (l *Loop) RunBrief(
 			 * After the setting rather than before, so that nothing above can
 			 * clear it — and after refusals, so a refused tool stays refused.
 			 */
-			if why := tools.ConsentFor(tool, call.Arguments); why != "" {
+			if why := tools.ConsentFor(tool, call.Arguments); why != "" && !free {
 				ask = true
 				summary = "Always asked — " + why + ": " + summary
 			}
@@ -1050,7 +1070,12 @@ func (l *Loop) RunBrief(
 
 			started := time.Now()
 
-			output, evidence, err := tools.Perform(Confined(ctx, brief.Within), tool, call.Arguments)
+			acting := Confined(ctx, brief.Within)
+			if free {
+				acting = tools.WithEverythingAllowed(ctx)
+			}
+
+			output, evidence, err := tools.Perform(acting, tool, call.Arguments)
 
 			step := Step{
 				Tool:     tool.Name(),
@@ -1101,6 +1126,10 @@ func (l *Loop) RunBrief(
 		HitStepLimit: true,
 	}, nil
 }
+
+// EverythingAllowed reports whether its owner has lifted every limit. See
+// Unbounded.
+func (l *Loop) EverythingAllowed() bool { return l != nil && l.Unbounded != nil && l.Unbounded() }
 
 // askFirst is the one tool the loop handles itself rather than executing.
 // See tools/ask.go.
@@ -2121,6 +2150,16 @@ func (l *Loop) cuesFor(name string) []string {
 	}
 
 	return nil
+}
+
+// offerable is every tool this turn may be offered: all of them when
+// everything is allowed, otherwise narrowed by the work's lists and grants.
+func (l *Loop) offerable(brief Brief) []llm.ToolSpec {
+	if l.EverythingAllowed() {
+		return l.specs()
+	}
+
+	return l.granted(without(onlyThese(l.specs(), brief.Only), brief.Never), brief)
 }
 
 // granted drops the tools this agent has not been granted, or that the work's

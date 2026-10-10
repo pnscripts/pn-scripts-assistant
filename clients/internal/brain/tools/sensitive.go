@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -52,7 +53,14 @@ func IsSensitive(path string) bool { return protect.IsSensitive(path) }
  * it: the thing that protects the credentials is the question, and this is
  * what makes the question impossible to bypass.
  */
-func GuardSensitive(path string) error {
+func GuardSensitive(ctx context.Context, path string) error {
+	// Everything allowed, by its owner (ADR 0007): the question was not put
+	// because he said never to put it, and the read is recorded like any
+	// other call.
+	if EverythingAllowed(ctx) {
+		return nil
+	}
+
 	rule, ask := protect.Ask(path)
 
 	if !ask {
@@ -63,4 +71,23 @@ func GuardSensitive(path string) error {
 		"%s is protected (%s) and this was not asked about first — "+
 			"open it from a conversation, where the request comes to you for a decision",
 		path, strings.ToLower(rule.What))
+}
+
+type everythingKey struct{}
+
+/*
+ * WithEverythingAllowed marks a call made while its owner allows everything
+ * (ADR 0007), so the last-line guards a tool carries itself — a protected
+ * file, for one — step aside exactly as the questions before them did.
+ */
+func WithEverythingAllowed(ctx context.Context) context.Context {
+	return context.WithValue(ctx, everythingKey{}, true)
+}
+
+// EverythingAllowed reports whether this call was made with every limit
+// lifted. See WithEverythingAllowed.
+func EverythingAllowed(ctx context.Context) bool {
+	on, _ := ctx.Value(everythingKey{}).(bool)
+
+	return on
 }

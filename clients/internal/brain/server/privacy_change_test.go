@@ -19,8 +19,9 @@ import (
 func TestChangingPrivacyTakesEffectAtOnce(t *testing.T) {
 	_, _, b := newServer(t)
 
-	if b.Mode != llm.ModePrivate {
-		t.Fatalf("a fresh brain should be private, is %q", b.Mode)
+	// Open since ADR 0007.
+	if b.Mode != llm.ModeOpen {
+		t.Fatalf("a fresh brain should be open, is %q", b.Mode)
 	}
 
 	got, err := b.UsePrivacy("research")
@@ -85,7 +86,7 @@ func TestAnUnknownPrivacySettingIsRefused(t *testing.T) {
 		t.Fatalf("the refusal does not say what was asked for: %v", err)
 	}
 
-	if b.Mode != llm.ModePrivate {
+	if b.Mode != llm.ModeOpen {
 		t.Fatalf("a refused change still moved the setting to %q", b.Mode)
 	}
 }

@@ -75,14 +75,14 @@ type writeDocArgs struct {
 	Text  string `json:"text"`
 }
 
-func (WriteDocument) Execute(_ context.Context, raw json.RawMessage) (string, error) {
+func (WriteDocument) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
 	var a writeDocArgs
 
 	if err := argsOf(raw, &a); err != nil {
 		return "", err
 	}
 
-	if err := GuardSensitive(a.Path); err != nil {
+	if err := GuardSensitive(ctx, a.Path); err != nil {
 		return "", err
 	}
 

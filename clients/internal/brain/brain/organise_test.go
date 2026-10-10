@@ -53,6 +53,10 @@ func quietBrain(t *testing.T) *Brain {
 func TestHiringInConversation(t *testing.T) {
 	b := quietBrain(t)
 
+	// The approval flow is what BRAIN_CONFINE=1 keeps; everything allowed is
+	// TestEverythingAllowedHiresWithoutAnApproval.
+	b.Cfg.Confine = true
+
 	conv, _ := b.DB.NewConversation("hiring")
 
 	reply, pending, handled := b.handleOrganising(context.Background(), conv, "Hire an electrician to help me plan this installation")
@@ -116,6 +120,9 @@ func TestHiringInConversation(t *testing.T) {
  */
 func TestAProjectInConversation(t *testing.T) {
 	b := quietBrain(t)
+
+	// Asked, as BRAIN_CONFINE=1 keeps it.
+	b.Cfg.Confine = true
 
 	conv, _ := b.DB.NewConversation("tetris")
 	dir := filepath.Join(t.TempDir(), "tetris")
@@ -272,5 +279,36 @@ func TestEveryShippedPackageLoadsOnARealBrain(t *testing.T) {
 				t.Errorf("%s's role may use %s, which this brain does not have", p.ID, tool)
 			}
 		}
+	}
+}
+
+/*
+ * Everything allowed (ADR 0007): the answer to the one question is the hire,
+ * carried out at once and recorded as approved, with nothing left waiting.
+ */
+func TestEverythingAllowedHiresWithoutAnApproval(t *testing.T) {
+	b := quietBrain(t)
+
+	conv, _ := b.DB.NewConversation("hiring")
+
+	if _, pending, _ := b.handleOrganising(context.Background(), conv, "Hire an electrician to help me plan this installation"); len(pending) != 0 {
+		t.Fatalf("asked before the question: %+v", pending)
+	}
+
+	reply, pending, handled := b.handleOrganising(context.Background(), conv, "just for this task")
+	if !handled || len(pending) != 0 {
+		t.Fatalf("it still waits for an approval: %+v", pending)
+	}
+
+	if !strings.Contains(reply, "Done:") || !strings.Contains(reply, "Hired") {
+		t.Errorf("the reply does not say it was done:\n%s", reply)
+	}
+
+	if waiting, _ := b.PendingApprovals(); len(waiting) != 0 {
+		t.Errorf("%d actions are still waiting", len(waiting))
+	}
+
+	if entries, _ := os.ReadDir(filepath.Join(b.Root, team.FolderName)); len(entries) == 0 {
+		t.Error("nobody was hired")
 	}
 }

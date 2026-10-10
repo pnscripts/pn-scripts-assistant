@@ -529,3 +529,29 @@ func TestAServerThatDiesSaysWhy(t *testing.T) {
 		t.Errorf("the reason was lost: %v", err)
 	}
 }
+
+// Everything allowed (ADR 0007): switching an integration on approves it, and
+// the approval is written down like any other.
+func TestEverythingAllowedApprovesAsItSwitchesOn(t *testing.T) {
+	g, db := gateway(t)
+	g.Unbounded = func() bool { return true }
+
+	s, err := fakeCommand("modern")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := g.AddOwn(s); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := g.Activate(context.Background(), "fake"); err != nil {
+		t.Fatalf("it was not started: %v", err)
+	}
+
+	if got, _ := g.Book.Get("fake"); !got.Approved {
+		t.Error("it is running and not recorded as approved")
+	}
+
+	_ = db
+}

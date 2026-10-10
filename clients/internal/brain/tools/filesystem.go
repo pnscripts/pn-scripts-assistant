@@ -62,7 +62,7 @@ func (ReadFile) Execute(ctx context.Context, raw json.RawMessage) (string, error
 		return "", err
 	}
 
-	if err := GuardSensitive(a.Path); err != nil {
+	if err := GuardSensitive(ctx, a.Path); err != nil {
 		return "", err
 	}
 
@@ -240,7 +240,7 @@ func (WriteFile) Execute(ctx context.Context, raw json.RawMessage) (string, erro
 
 	// Writing to a credentials path is as bad as reading one: it could replace
 	// an ssh key or a .env with content the model chose.
-	if err := GuardSensitive(a.Path); err != nil {
+	if err := GuardSensitive(ctx, a.Path); err != nil {
 		return "", err
 	}
 

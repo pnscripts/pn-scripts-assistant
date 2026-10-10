@@ -41,6 +41,15 @@ type Job struct {
 	Prompt  string
 	Model   string
 	Timeout time.Duration
+
+	/*
+	 * Unbounded is its owner's "everything is allowed" (ADR 0007): the agent
+	 * runs with its own permission checks off — Claude Code with
+	 * --dangerously-skip-permissions and every tool, Codex with its approvals
+	 * and sandbox bypassed — and a file it writes outside the project is
+	 * recorded rather than stopping the work. False keeps ADR 0005's limits.
+	 */
+	Unbounded bool
 }
 
 // Failures, for failing over.
@@ -108,6 +117,28 @@ var (
 )
 
 func (e ClaudeCodeExecutor) Run(ctx context.Context, job Job) Outcome {
+	return run(ctx, job, e.Argv(job), parseClaude)
+}
+
+// Argv is exactly what Claude Code is started with for this job.
+func (e ClaudeCodeExecutor) Argv(job Job) []string {
+	if job.Unbounded {
+		/*
+		 * Everything, as its owner asked (ADR 0007): every tool Claude Code
+		 * has, the shell included, its own permission prompts skipped, and
+		 * the owner's own settings and MCP servers loaded as they would be
+		 * in his terminal.
+		 */
+		argv := []string{e.Path, "-p", job.Prompt, "--output-format", "stream-json", "--verbose",
+			"--dangerously-skip-permissions"}
+
+		if job.Model != "" {
+			argv = append(argv, "--model", job.Model)
+		}
+
+		return argv
+	}
+
 	argv := []string{e.Path, "-p", job.Prompt, "--output-format", "stream-json", "--verbose",
 		"--permission-mode", "acceptEdits", "--allowedTools", claudeTools, "--disallowedTools", claudeRefuse,
 		"--strict-mcp-config", "--setting-sources", "project"}
@@ -116,7 +147,7 @@ func (e ClaudeCodeExecutor) Run(ctx context.Context, job Job) Outcome {
 		argv = append(argv, "--model", job.Model)
 	}
 
-	return run(ctx, job, argv, parseClaude)
+	return argv
 }
 
 // CodexExecutor runs Codex headless in its own sandbox.
@@ -125,14 +156,26 @@ type CodexExecutor struct{ Path string }
 func (CodexExecutor) ID() string { return "codex" }
 
 func (e CodexExecutor) Run(ctx context.Context, job Job) Outcome {
+	return run(ctx, job, e.Argv(job), parseCodex)
+}
+
+// Argv is exactly what Codex is started with for this job.
+func (e CodexExecutor) Argv(job Job) []string {
 	argv := []string{e.Path, "exec", "--json", "--sandbox", "workspace-write", "--skip-git-repo-check",
 		"-C", job.Dir}
+
+	// Everything (ADR 0007): no approvals and no sandbox, the full-access
+	// form of --full-auto.
+	if job.Unbounded {
+		argv = []string{e.Path, "exec", "--json", "--dangerously-bypass-approvals-and-sandbox",
+			"--skip-git-repo-check", "-C", job.Dir}
+	}
 
 	if job.Model != "" {
 		argv = append(argv, "-m", job.Model)
 	}
 
-	return run(ctx, job, append(argv, job.Prompt), parseCodex)
+	return append(argv, job.Prompt)
 }
 
 // parser reads one event line into the outcome.
@@ -181,8 +224,9 @@ func run(ctx context.Context, job Job, argv []string, parse parser) Outcome {
 	for lines.Scan() {
 		parse(lines.Bytes(), &o, job.Dir)
 
-		// Outside the project is the end of it, whatever it meant to do next.
-		if len(o.Outside) > 0 && o.Failure == "" {
+		// Outside the project is the end of it, whatever it meant to do next —
+		// unless everything is allowed, when it is recorded and goes on.
+		if len(o.Outside) > 0 && o.Failure == "" && !job.Unbounded {
 			o.Failure = FailOutside
 			o.Detail = "it wrote outside the project: " + strings.Join(o.Outside, ", ")
 

@@ -56,29 +56,53 @@ remembers what it learns about you, and what it learns stays here.
 
 ## Privacy
 
-This is the part that is enforced in code rather than promised in a prompt.
+Out of the box everything is allowed, and everything is recorded. Its owner
+asked for that ([ADR 0007](docs/decisions/0007-everything-allowed.md)), and an
+install that predates it is switched over once, on upgrade. The strict settings
+are still in the code and one line away in `brain.conf`.
 
 | mode | what leaves the machine |
 |---|---|
-| `private` (default) | **nothing** — local model, local embeddings, no web |
+| `open` (default) | your messages, the memory recalled for that turn and your profile go to the hosted provider you chose; the web may be read |
 | `research` | search queries only; conversations and memory stay here |
-| `open` | your messages and the memory recalled for that turn go to the hosted provider you chose |
+| `private` | **nothing** — local model, local embeddings, no web |
 
-**In `open` mode, your messages and the memory recalled for that turn are sent
-to the hosted provider you chose; the memory database itself stays on your
-machine.** In `private` and `research` mode no memory leaves at all. Recall is
-what a turn needs, not your whole memory, but it is assembled from your disk
-rather than typed by you, so choose `open` knowing that.
+| setting | default | what it does |
+|---|---|---|
+| `BRAIN_FREEDOM` | `everything` | nothing is asked before it acts (`granted` and `ask` still exist) |
+| `BRAIN_CONFINE` | `0` | `0` lifts every limit below; `1` puts all of them back |
+| work privacy (`resources/policy.json`) | `cloud_preferred` | Claude Code, Codex and hosted models are preferred for project work |
 
-An unrecognised privacy value is treated as `private`, because the safe reading
-of a typo is the strict one.
+With `BRAIN_CONFINE=0` and freedom `everything`, none of these stop or ask:
+installing software or a model, sending mail, a permanent hire, switching an
+integration on (switching it on approves it), project work outside its folders
+or the kernel sandbox around it, a hire's tool list, an integration granted to
+somebody else, protected files such as keys and mail folders, and addresses on
+this machine or the local network. Claude Code runs with
+`--dangerously-skip-permissions` and Codex with
+`--dangerously-bypass-approvals-and-sandbox`.
 
-**Everywhere it can connect to is written down**, with a reason beside each
-entry, in [`clients/internal/outside/outside.go`](clients/internal/outside/outside.go)
-— and a test reads the whole program and fails if an address turns up that is
-not on the list. There is no telemetry and nothing reporting to this project.
-Every host on it is something you asked it to install, a documentation site, a
-web search, or a model provider you gave your own key to.
+**What is kept:** a tool its owner refused by name stays refused, what he
+switched off (`BRAIN_TURNED_OFF`) stays off, and every tool call is still
+written down with what it was given and what came back. Files it overwrites are
+still kept so they can be put back.
+
+**What that means:** in open mode your messages, the memory recalled for a turn
+and `profile.md` are sent to the hosted provider you chose; the memory database
+itself stays on your machine. With nothing confined, a web page the assistant
+reads can try to talk it into reading a key and sending it somewhere, and
+nothing stops to ask. Set `BRAIN_CONFINE=1` (or privacy to `private`) on a
+machine where that matters.
+
+An unrecognised privacy value is still treated as `private`, because the safe
+reading of a typo is the strict one.
+
+**Everywhere it connects to on its own is written down**, with a reason beside
+each entry, in [`clients/internal/outside/outside.go`](clients/internal/outside/outside.go)
+— and a test reads the whole program and fails if an address is written into it
+that is not on the list. That list documents; it blocks nothing at run time.
+There is no telemetry and nothing reporting to this project. Addresses its owner
+asks for — a page, a mail server, an integration — are his and are not listed.
 
 ## Requirements
 
