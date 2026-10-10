@@ -61,6 +61,12 @@ first meeting is a conversation. See ADR 0007 and ADR 0008.
   the package's maintainer address go to office@pnscripts.com. The licence is
   still MIT.
 
+### Smaller fixes
+
+- Built with Go 1.26.9, which closes thirteen vulnerabilities govulncheck
+  found in the standard library of 1.26.6 (`net/http`, `net/textproto`,
+  `crypto/tls`, `html/template`). Nothing in this code changed for it.
+
 ## 0.3.0 — 2026-10-06
 
 Two settings that had quietly become one are two again, the Models view says
