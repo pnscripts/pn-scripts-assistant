@@ -191,7 +191,7 @@ Upstream-Name: pn-scripts-assistant
 Source: https://github.com/pnscripts/pn-scripts-assistant
 
 Files: *
-Copyright: 2026 Petar Nikolov
+Copyright: 2026 ПН СКРИПТС ЕООД (PN Scripts)
 License: MIT
 
 License: MIT
