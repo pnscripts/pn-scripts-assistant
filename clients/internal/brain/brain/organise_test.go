@@ -33,7 +33,7 @@ func quietBrain(t *testing.T) *Brain {
 	t.Cleanup(func() { db.Close() })
 
 	cfg := config.Default()
-	cfg.Owner = "Petar"
+	cfg.Owner = "Alex"
 	cfg.OllamaURL = "http://127.0.0.1:9"
 
 	team.Forget()

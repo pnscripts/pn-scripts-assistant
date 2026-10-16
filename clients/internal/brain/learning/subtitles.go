@@ -5,7 +5,7 @@ import "strings"
 /*
  * A subtitle is dialogue from a film, and it is never a memory.
  *
- * Petar asked whether the brain should learn from the subtitles on his film
+ * The owner asked whether the brain should learn from the subtitles on his film
  * drive. Two of the three things that question could mean are worth doing;
  * this is the one that is not, and it is worth writing down why rather than
  * only refusing.

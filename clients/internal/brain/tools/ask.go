@@ -10,7 +10,7 @@ import (
 /*
  * Asking, instead of guessing or ploughing on.
  *
- * Two of Petar's complaints are the same missing thing. "Understand and ask if
+ * Two of the owner's complaints are the same missing thing. "Understand and ask if
  * not for prompt" — when a request has two readings, pick neither and ask.
  * "Understand and ask when thinking if there is an issue" — when the work hits
  * something that changes what was asked for, stop and say so.

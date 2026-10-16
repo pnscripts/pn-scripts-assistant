@@ -15,12 +15,12 @@ func TestGuardRejectsSelfDescription(t *testing.T) {
 		"I can read files and run commands.",
 		"I will remember things across conversations.",
 		"My name is Vesper.",
-		"The assistant helps Petar with his projects.",
+		"The assistant helps Alex with his projects.",
 		"As an AI, I do not have personal preferences.",
 
 		// Every former name. Renaming left one stale identity claim each time.
 		"Sage is a self-learning assistant built on Laravel.",
-		"Vesper is Petar's personal AI assistant.",
+		"Vesper is Alex's personal AI assistant.",
 		"Pnexus is a private brain that learns over time.",
 		"PN Scripts Assistant is a personal, self-learning AI assistant.",
 
@@ -39,7 +39,7 @@ func TestGuardRejectsSelfDescription(t *testing.T) {
 	}
 
 	for _, lesson := range reject {
-		if !IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Petar") {
+		if !IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Alex") {
 			t.Errorf("guard let a self-description through: %q", lesson)
 		}
 	}
@@ -49,19 +49,19 @@ func TestGuardRejectsSelfDescription(t *testing.T) {
 // A rejected observation is silently gone; there is no queue for it.
 func TestGuardKeepsFactsAboutTheOwner(t *testing.T) {
 	keep := []string{
-		"Petar has a Go project called xplorer-golang-api on his external drive.",
-		"Petar prefers Laravel for web projects.",
-		"Petar runs PN Scripts, a hosting and domains business in Sofia.",
-		"Petar keeps his documents in /home/petar/Documents.",
-		"Petar corrected the assistant: the organisation name is lowercase.",
-		"Petar uses Ollama for local inference because the machine has no GPU.",
+		"Alex has a Go project called xplorer-golang-api on his external drive.",
+		"Alex prefers Laravel for web projects.",
+		"Alex runs PN Scripts, a hosting and domains business in Sofia.",
+		"Alex keeps his documents in /home/alex/Documents.",
+		"Alex corrected the assistant: the organisation name is lowercase.",
+		"Alex uses Ollama for local inference because the machine has no GPU.",
 
 		// Mentions an assistant but is a fact about the owner's preference.
-		"Petar prefers that the assistant asks for approval before running commands.",
+		"Alex prefers that the assistant asks for approval before running commands.",
 	}
 
 	for _, lesson := range keep {
-		if IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Petar") {
+		if IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Alex") {
 			t.Errorf("guard discarded a real fact about the owner: %q", lesson)
 		}
 	}
@@ -145,7 +145,7 @@ func TestCategoryFollowsTheSource(t *testing.T) {
 }
 
 func TestExtractorPromptRefusesSelfDescriptionAndAllowsNothing(t *testing.T) {
-	p := Extractor{Owner: "Petar", Name: "PN Scripts Assistant"}.Prompt("user: hello")
+	p := Extractor{Owner: "Alex", Name: "PN Scripts Assistant"}.Prompt("user: hello")
 
 	// Finding nothing must be presented as normal, or a model asked to extract
 	// a fact will always invent one.
@@ -153,7 +153,7 @@ func TestExtractorPromptRefusesSelfDescriptionAndAllowsNothing(t *testing.T) {
 		"Record nothing about the assistant",
 		"which is the common case",
 		`{"lesson": null}`,
-		"Petar",
+		"Alex",
 	} {
 		if !strings.Contains(p, required) {
 			t.Errorf("prompt is missing %q", required)
@@ -173,12 +173,12 @@ func TestGuardAgainstTheRealPendingLessons(t *testing.T) {
 		"I should not proceed with actions without explaining my intent and gaining approval",
 		"When answering a question, use the tool's call to provide more information than just the result",
 		"Always be mindful of my capabilities and limitations, using tools when necessary",
-		"I can recognize a simple command from Petar",
+		"I can recognize a simple command from Alex",
 		"I should prioritize one-purposeful calls over speculative ones.",
 	}
 
 	for _, lesson := range selfDescription {
-		if !IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Petar") {
+		if !IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Alex") {
 			t.Errorf("self-description survived: %q", lesson)
 		}
 	}
@@ -187,13 +187,13 @@ func TestGuardAgainstTheRealPendingLessons(t *testing.T) {
 		"The user prefers Laravel over Python for backend projects",
 		"When working on backend projects, the user prefers Laravel over Python.",
 		"User prefers sarcastic responses",
-		"Petar has two projects using Go, namely docs-saas-golang-api and xplorer-golang-api",
-		"Petar has two projects with golang-api, xplorer-hub and xplorer-golang-api",
-		"The folders within /media/petar/DEV/Projects/xplorer are separate projects",
+		"Alex has two projects using Go, namely docs-saas-golang-api and xplorer-golang-api",
+		"Alex has two projects with golang-api, xplorer-hub and xplorer-golang-api",
+		"The folders within /media/alex/DEV/Projects/xplorer are separate projects",
 	}
 
 	for _, lesson := range aboutTheOwner {
-		if IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Petar") {
+		if IsAboutTheAssistant(lesson, "PN Scripts Assistant", "Alex") {
 			t.Errorf("real fact about the owner was discarded: %q", lesson)
 		}
 	}
@@ -204,17 +204,17 @@ func TestGuardAgainstTheRealPendingLessons(t *testing.T) {
 // which is every one of the 79 facts in the real store.
 func TestGuardDoesNotDiscardScannedFacts(t *testing.T) {
 	scanned := []string{
-		`Petar has a Go project called "xplorer-golang-api" at /media/petar/DEV/Projects/xplorer/xplorer-golang-api, last modified 2026-03-07.`,
-		`Petar has a PHP/Composer project called "pnscripts.com" at /home/petar/Projects/Laravel/pnscripts/pnscripts.com, last modified 2025-08-01.`,
-		`Petar has a Word document called "XplorerServer.docx" at /home/petar/Documents/XplorerServer.docx, last modified 2024-02-11.`,
-		`Petar has a Node.js project called "_dev" at /media/petar/DEV/Projects/divacon.bg/themes/aeonmarket/_dev, last modified 2025-08-19.`,
+		`Alex has a Go project called "xplorer-golang-api" at /media/alex/DEV/Projects/xplorer/xplorer-golang-api, last modified 2026-03-07.`,
+		`Alex has a PHP/Composer project called "pnscripts.com" at /home/alex/Projects/Laravel/pnscripts/pnscripts.com, last modified 2025-08-01.`,
+		`Alex has a Word document called "XplorerServer.docx" at /home/alex/Documents/XplorerServer.docx, last modified 2024-02-11.`,
+		`Alex has a Node.js project called "_dev" at /media/alex/DEV/Projects/divacon.bg/themes/aeonmarket/_dev, last modified 2025-08-19.`,
 		// A README excerpt can contain anything, including first-person prose
 		// written by whoever authored the project.
-		`Petar has a Go project called "notes" at /home/petar/notes. README excerpt: # Notes. I wrote this to keep track of things.`,
+		`Alex has a Go project called "notes" at /home/alex/notes. README excerpt: # Notes. I wrote this to keep track of things.`,
 	}
 
 	for _, fact := range scanned {
-		if IsAboutTheAssistant(fact, "PN Scripts Assistant", "Petar") {
+		if IsAboutTheAssistant(fact, "PN Scripts Assistant", "Alex") {
 			t.Errorf("scanned fact was discarded: %q", fact)
 		}
 	}
@@ -225,10 +225,10 @@ func TestGuardDoesNotDiscardScannedFacts(t *testing.T) {
 // model restating the conversation, not learning something about anybody.
 func TestFragmentsAreNotFacts(t *testing.T) {
 	notFacts := []string{
-		"/media/petar/c8fc2986-4b79-4d7b-9a8c-e6db653915ac/DEV/Projects/xplorer/xplorer-golang-api",
+		"/media/alex/c8fc2986-4b79-4d7b-9a8c-e6db653915ac/DEV/Projects/xplorer/xplorer-golang-api",
 		"xplorer-golang-api",
 		"https://github.com/pnscripts/pn-scripts-assistant",
-		"the path /home/petar/Projects",
+		"the path /home/alex/Projects",
 		"",
 		"   ",
 		"Laravel",
@@ -245,11 +245,11 @@ func TestFragmentsAreNotFacts(t *testing.T) {
 // The rule must not swallow real facts, which are often short.
 func TestRealFactsSurviveTheFragmentCheck(t *testing.T) {
 	facts := []string{
-		"Petar prefers Laravel over Python",
-		"Petar runs PN Scripts in Sofia",
+		"Alex prefers Laravel over Python",
+		"Alex runs PN Scripts in Sofia",
 		"The user prefers sarcastic responses",
-		`Petar has a Go project called "xplorer-golang-api" at /media/petar/DEV/Projects/xplorer/xplorer-golang-api, last modified 2026-03-07.`,
-		"Petar regularly uses the website pnscripts.local (1160 visits in browser history).",
+		`Alex has a Go project called "xplorer-golang-api" at /media/alex/DEV/Projects/xplorer/xplorer-golang-api, last modified 2026-03-07.`,
+		"Alex regularly uses the website pnscripts.local (1160 visits in browser history).",
 	}
 
 	for _, s := range facts {

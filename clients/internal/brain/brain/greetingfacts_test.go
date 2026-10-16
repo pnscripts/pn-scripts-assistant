@@ -17,11 +17,11 @@ import (
  */
 func TestTheGreetingIsMadeOfFactsRatherThanSentences(t *testing.T) {
 	b := &Brain{}
-	b.Cfg.Owner = "Petar"
+	b.Cfg.Owner = "Alex"
 
 	facts := b.about(nil, false, true)
 
-	if facts["who you are greeting"] != "Petar" {
+	if facts["who you are greeting"] != "Alex" {
 		t.Errorf("it does not know who it is greeting: %v", facts)
 	}
 
@@ -125,17 +125,17 @@ func TestThePartOfTheDayIsSaidPlainly(t *testing.T) {
  * A greeting is one line, whatever shape the model gave it.
  *
  * Asked about an evening with three approvals waiting, the model here
- * answered "Hello Petar,\n\nThree actions waiting for approval." Read out
+ * answered "Hello Alex,\n\nThree actions waiting for approval." Read out
  * loud, that break is a silence in the middle of a sentence.
  */
 func TestAGreetingIsOneLine(t *testing.T) {
-	got := oneLine("Hello Petar,\n\nThree actions waiting for approval.")
+	got := oneLine("Hello Alex,\n\nThree actions waiting for approval.")
 
-	if got != "Hello Petar, Three actions waiting for approval." {
+	if got != "Hello Alex, Three actions waiting for approval." {
 		t.Errorf("it came out as %q", got)
 	}
 
-	if oneLine("Good morning, Petar.") != "Good morning, Petar." {
+	if oneLine("Good morning, Alex.") != "Good morning, Alex." {
 		t.Error("it changed a line that was already one line")
 	}
 }

@@ -125,7 +125,7 @@ func TestItOnlyLooksAtWhatItHasNotSeen(t *testing.T) {
 
 	first := &learner{}
 
-	pass, err := Look(context.Background(), first, remembered{}, "Petar", p)
+	pass, err := Look(context.Background(), first, remembered{}, "Alex", p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestItOnlyLooksAtWhatItHasNotSeen(t *testing.T) {
 
 	second := &learner{}
 
-	again, err := Look(context.Background(), second, known, "Petar", p)
+	again, err := Look(context.Background(), second, known, "Alex", p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestABigPlaceIsTakenInBites(t *testing.T) {
 
 	l := &learner{}
 
-	pass, err := Look(context.Background(), l, remembered{}, "Petar", p)
+	pass, err := Look(context.Background(), l, remembered{}, "Alex", p)
 	if err != nil {
 		t.Fatal(err)
 	}

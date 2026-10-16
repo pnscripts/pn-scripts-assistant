@@ -15,7 +15,7 @@
  *
  * Every failure here used to read "/api/turn -> 400", which names the endpoint
  * that failed and nothing about why — and the server had put a sentence in the
- * body explaining it. Petar got that string in red in the middle of his
+ * body explaining it. The owner got that string in red in the middle of his
  * conversation, twice, with no way to tell a busy microphone from a broken
  * one. The other panels in this program already read the body; the console,
  * which is the one people look at, did not.
@@ -495,7 +495,7 @@ function renderStorage(storage) {
 /*
  * Lessons the brain proposes to remember.
  *
- * These are inferences a model made about what Petar meant, and nothing can
+ * These are inferences a model made about what the owner meant, and nothing can
  * check them — which is why they wait here instead of promoting themselves.
  * Accepting one runs the same duplicate check as an automatic promotion, so
  * the one path a person touches is not the one path that creates duplicates.
@@ -663,7 +663,7 @@ async function talkLoop() {
      * One failed listen used to put a red line in the transcript and close the
      * microphone for good, and the commonest cause is the least serious: the
      * device is held for a moment by its own voice, or by the turn already
-     * running. Petar typed and spoke the same sentence at once and got
+     * running. The owner typed and spoke the same sentence at once and got
      * "/api/turn -> 400" in his conversation with listening switched off
      * behind it, so the second half of what he said went nowhere.
      *
@@ -1485,7 +1485,7 @@ window.brainOpenConversation = async function (id) {
      *
      * A stored conversation holds more than the two people in it: the system
      * prompt that set the brain up, and the raw output of every tool it
-     * called. Replaying all of it put "You are PN Brain, Petar's personal AI
+     * called. Replaying all of it put "You are PN Brain, Alex's personal AI
      * assistant…" at the top of the transcript as though the brain had opened
      * by reciting its own instructions, and buried the actual exchange under
      * tool output nobody asked to see twice.

@@ -58,7 +58,7 @@ func TestItSaysWhenItCannotTellVoicesApartAtAll(t *testing.T) {
 }
 
 /*
- * The state Petar's machine is actually in as this is written: the model is
+ * The state Alex's machine is actually in as this is written: the model is
  * there, nobody has taught it a voice yet.
  *
  * This is the one most likely to be hit and the easiest to describe wrongly.

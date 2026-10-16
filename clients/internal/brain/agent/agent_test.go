@@ -545,7 +545,7 @@ func TestWaitingToSeeWhetherItIsAnAnswer(t *testing.T) {
 		{`{"name": "read_file"`, false, true},
 		{"```json", false, true},
 		{"[", false, true},
-		{"Good morning, Petar", true, true},
+		{"Good morning, Alex", true, true},
 		{"I have checked and", true, true},
 
 		// Not yet enough to tell.
@@ -763,7 +763,7 @@ func TestRecognisingAPromiseWithoutAnAction(t *testing.T) {
 	for _, reply := range []string{
 		"There is one thing waiting for you: a memory about your models.",
 		"The file has three lines and the last one is blank.",
-		"Good morning, Petar.",
+		"Good morning, Alex.",
 		"I don't have a tool for that, so you would need to do it yourself.",
 		"Nothing is waiting.",
 		"That depends on what you mean — I will need more detail before I can answer, " +
@@ -1160,7 +1160,7 @@ func TestAnObjectWithBracesInsideItIsReadWhole(t *testing.T) {
  * which is exactly the guessing this exists to stop.
  */
 func TestAQuestionEndsTheTurnRatherThanBeingAnswered(t *testing.T) {
-	loop, db := newLoop(t, tools.Ask{Owner: "Petar"})
+	loop, db := newLoop(t, tools.Ask{Owner: "Alex"})
 
 	id, _ := db.NewConversation("")
 

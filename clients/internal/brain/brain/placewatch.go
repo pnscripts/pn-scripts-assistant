@@ -223,7 +223,7 @@ func describePass(name string, pass places.Pass) string {
 /*
  * finishedReading is the sentence said when a folder has been read to the end.
  *
- * What Petar asked for, in his words: not "I am learning from that" over and
+ * What the owner asked for, in his words: not "I am learning from that" over and
  * over, but "I learned …" once, when the queue for that thing is finished,
  * with everything about it.
  *

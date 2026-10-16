@@ -153,7 +153,7 @@ func TestNothingOffersToTypeUnlessAsked(t *testing.T) {
  * A greeting is not offered the tools for changing the machine.
  *
  * "Say hello in four words" made the small model propose creating
- * /home/Petar/greetings.txt, and the turn ended in an approval prompt instead
+ * /home/alex/greetings.txt, and the turn ended in an approval prompt instead
  * of an answer — so the question was never answered at all. Not a wrong answer
  * but no answer, arrived at by way of a confirmation nobody asked for.
  *

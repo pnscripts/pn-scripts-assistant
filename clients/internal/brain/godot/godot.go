@@ -1,6 +1,6 @@
 // Package godot is what the brain knows about the game engine.
 //
-// Petar asked for it to be able to make complex games with Godot, to check the
+// The owner asked for it to be able to make complex games with Godot, to check the
 // documentation, and to know about updates. Godot is not installed on this
 // machine and there is not one project on it, so all three start from nothing.
 //

@@ -17,7 +17,7 @@ func TestSitesIncludeARankedSummary(t *testing.T) {
 		{Domain: "onchebonche.bg", Visits: 26},
 	}
 
-	obs := FromSites(sites, "Petar")
+	obs := FromSites(sites, "Alex")
 
 	if len(obs) != len(sites)+1 {
 		t.Fatalf("got %d observations, want %d", len(obs), len(sites)+1)
@@ -55,7 +55,7 @@ func TestSitesIncludeARankedSummary(t *testing.T) {
 }
 
 func TestNoSitesMeansNoSummary(t *testing.T) {
-	if obs := FromSites(nil, "Petar"); len(obs) != 0 {
+	if obs := FromSites(nil, "Alex"); len(obs) != 0 {
 		t.Errorf("got %d observations for no sites", len(obs))
 	}
 }
@@ -67,7 +67,7 @@ func TestSummaryIsBoundedToTheTopFew(t *testing.T) {
 		many = append(many, Site{Domain: "site", Visits: 100 - i})
 	}
 
-	summary := FromSites(many, "Petar")[0].Content
+	summary := FromSites(many, "Alex")[0].Content
 
 	if got := strings.Count(summary, "("); got > TopSitesInSummary {
 		t.Errorf("summary lists %d sites, want at most %d", got, TopSitesInSummary)

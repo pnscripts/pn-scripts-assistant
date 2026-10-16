@@ -2014,7 +2014,7 @@ func printBanner(facts int, b *brain.Brain) {
 /*
  * runStartOver empties the review queue and lets those files be read again.
  *
- * The queue is meant to be a handful of judgements. Petar's held 9,199, and
+ * The queue is meant to be a handful of judgements. The owner's held 9,199, and
  * grouped by the folder they came from the top ten were all somebody else's —
  * a game engine's package cache, a vendored PHP library, two client sites'
  * upload folders. The rules that let those in have been tightened; this is the
@@ -2192,9 +2192,9 @@ func backupLessons(db *store.DB, root paths.Root) (string, error) {
  * forgetSkippedFolders removes memories of files the walk would now refuse.
  *
  * Tightening the rules stops new rubbish arriving and does nothing about what
- * is already remembered. Petar's brain held 1,220 facts, and 746 of them were
+ * is already remembered. The owner's brain held 1,220 facts, and 746 of them were
  * listings of files inside a Unity package cache, a vendored copy of
- * HTMLPurifier, and two client sites' upload folders — "Petar has a text
+ * HTMLPurifier, and two client sites' upload folders — "Alex has a text
  * document called Attr.AllowedFrameTargets.txt at …". Three in five of
  * everything it knew, and every search had to wade through it.
  *
@@ -2312,7 +2312,7 @@ func truncate(s string, n int) string {
  * The strongest of the three, and the only one that throws away things that
  * were right. It exists because the rules for what is worth reading changed
  * enough that what is stored was produced by rules nobody would choose now:
- * two in three of Petar's memories were listings of a package cache, and the
+ * two in three of the owner's memories were listings of a package cache, and the
  * documents that should have been read instead are all marked as read.
  * Tidying that leaves a memory that is half one set of rules and half another.
  *

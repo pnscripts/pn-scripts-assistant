@@ -69,7 +69,7 @@ If he decides he wants no question at all, he can grant it himself — this is a
 note, nothing here does it:
 
 - Linux, for one command: `sudo visudo -f /etc/sudoers.d/pn-scripts-assistant`
-  and a line such as `petar ALL=(root) NOPASSWD: /usr/bin/apt-get`, then point
+  and a line such as `alex ALL=(root) NOPASSWD: /usr/bin/apt-get`, then point
   the assistant at `sudo -n apt-get …` through `run_command`. Wider grants
   (`NOPASSWD: ALL`) are possible and mean anything running as his user is root.
 - Linux, through polkit: a rule in `/etc/polkit-1/rules.d/` returning

@@ -308,7 +308,7 @@ func ChooseModel(message string, sizes Sizes) Choice {
 	 *
 	 * A model shown thirty tools and given a greeting will find something to
 	 * do with them. "Say hello in four words" produced a request to create
-	 * /home/Petar/greetings.txt; told not to, it went looking for that file
+	 * /home/alex/greetings.txt; told not to, it went looking for that file
 	 * instead and reported it missing. Neither answer contains a greeting.
 	 *
 	 * The prompt asks it to answer conversation in words, and a

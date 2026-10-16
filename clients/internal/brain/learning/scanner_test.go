@@ -172,7 +172,7 @@ func TestObservationsCarryACheckableSource(t *testing.T) {
 	mk(t, root, "proj/go.mod")
 
 	found, _ := ScanProjects(root)
-	obs := FromProjects(found, "Petar")
+	obs := FromProjects(found, "Alex")
 
 	if len(obs) != 1 {
 		t.Fatalf("got %d observations", len(obs))
@@ -187,7 +187,7 @@ func TestObservationsCarryACheckableSource(t *testing.T) {
 		t.Errorf("a real project validated as %q", got)
 	}
 
-	if !strings.Contains(obs[0].Content, "Petar") {
+	if !strings.Contains(obs[0].Content, "Alex") {
 		t.Errorf("the fact does not name the owner: %q", obs[0].Content)
 	}
 }

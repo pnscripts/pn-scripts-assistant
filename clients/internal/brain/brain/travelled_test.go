@@ -19,12 +19,12 @@ import (
  * about everything else on the disk beside it.
  */
 func TestWhatToRewriteAfterAJourney(t *testing.T) {
-	from := "/media/petar/WORKDRIVE/PN-SCRIPTS-ASSISTANT-DATA"
+	from := "/media/alex/WORKDRIVE/PN-SCRIPTS-ASSISTANT-DATA"
 	to := "/Volumes/WORKDRIVE/PN-SCRIPTS-ASSISTANT-DATA"
 
 	old, now := prefixes(from, to)
 
-	if old != "/media/petar/WORKDRIVE" || now != "/Volumes/WORKDRIVE" {
+	if old != "/media/alex/WORKDRIVE" || now != "/Volumes/WORKDRIVE" {
 		t.Errorf("the substitution is %q → %q; it should be on the drive, not the folder", old, now)
 	}
 
@@ -34,9 +34,9 @@ func TestWhatToRewriteAfterAJourney(t *testing.T) {
 	 * nothing to do with the move — the rest of somebody's home folder, for
 	 * one — so only the root's own path is offered.
 	 */
-	old, now = prefixes("/home/petar/brain", "/home/petar/somewhere-else")
+	old, now = prefixes("/home/alex/brain", "/home/alex/somewhere-else")
 
-	if old != "/home/petar/brain" || now != "/home/petar/somewhere-else" {
+	if old != "/home/alex/brain" || now != "/home/alex/somewhere-else" {
 		t.Errorf("a renamed folder produced %q → %q, which claims too much", old, now)
 	}
 }
@@ -67,7 +67,7 @@ func TestAJourneyThatBrokeSomethingSaysHowMuch(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		if _, err := b.DB.AddFact("project",
-			"Petar has a Go project at "+old+"/DEV/thing", nil); err != nil {
+			"Alex has a Go project at "+old+"/DEV/thing", nil); err != nil {
 			t.Fatal(err)
 		}
 	}

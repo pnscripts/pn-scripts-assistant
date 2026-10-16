@@ -172,7 +172,7 @@ func TestTheSendingServerIsWorkedOut(t *testing.T) {
 // Every message carries a Date and a Message-ID in the sender's domain, and no
 // two messages share a Message-ID.
 func TestAMessageIsDatedAndNamed(t *testing.T) {
-	first := compose("Petar <me@example.com>", []string{"you@example.org"}, "Hello", "hi")
+	first := compose("Alex <me@example.com>", []string{"you@example.org"}, "Hello", "hi")
 	second := compose("me@example.com", []string{"you@example.org"}, "Hello", "hi")
 
 	if _, err := mail.ParseDate(headerOf(t, first, "Date")); err != nil {

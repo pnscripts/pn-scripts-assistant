@@ -5,7 +5,7 @@
 // the machine doing a job with the parts it already has: ffmpeg to get the
 // sound out, and the recogniser that is already resident for listening.
 //
-// 658 of the 866 films on Petar's drive have no subtitles beside them, which
+// 658 of the 866 films on the owner's drive have no subtitles beside them, which
 // is the whole reason this exists. It is also why it is one film at a time and
 // only when asked: a two-hour film is between one and three hours of work on a
 // processor with no graphics acceleration, so 658 of them is a month. A

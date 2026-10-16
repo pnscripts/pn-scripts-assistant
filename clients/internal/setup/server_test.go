@@ -212,20 +212,20 @@ func TestEachDriveIsOfferedTheRightFolder(t *testing.T) {
 	 * Any other drive: a named folder at the top, which is what somebody
 	 * plugging that drive into another machine would go looking for.
 	 */
-	onOther := brainFolderOn("/media/petar/backup")
+	onOther := brainFolderOn("/media/alex/backup")
 
-	if onOther != filepath.Join("/media/petar/backup", DataFolder) {
+	if onOther != filepath.Join("/media/alex/backup", DataFolder) {
 		t.Errorf("an external drive offers %q, want the named folder at its top",
 			onOther)
 	}
 
 	// And a home directory that is itself on external media belongs to that
 	// drive rather than to the system disk.
-	if onSameFilesystem("/media/petar/disk/home/petar", "/") {
+	if onSameFilesystem("/media/alex/disk/home/alex", "/") {
 		t.Error("a home directory on external media was claimed by the system disk")
 	}
 
-	if !onSameFilesystem("/media/petar/disk/things", "/media/petar/disk") {
+	if !onSameFilesystem("/media/alex/disk/things", "/media/alex/disk") {
 		t.Error("a path under a mount point was not recognised as being on it")
 	}
 }

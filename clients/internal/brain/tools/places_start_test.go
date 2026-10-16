@@ -24,7 +24,7 @@ func withCandidates(t *testing.T, found ...Candidate) Places {
 
 	return Places{
 		Root:       t.TempDir(),
-		Owner:      "Petar",
+		Owner:      "Alex",
 		Candidates: func() []Candidate { return found },
 	}
 }
@@ -128,8 +128,8 @@ func TestItWillNotStartOnSomewhereItDidNotFind(t *testing.T) {
  */
 func TestWithNothingWatchedItOffersWhatItFound(t *testing.T) {
 	tool := withCandidates(t,
-		Candidate{Path: "/home/petar", Name: "your home folder"},
-		Candidate{Path: "/media/petar/work", Name: "work"},
+		Candidate{Path: "/home/alex", Name: "your home folder"},
+		Candidate{Path: "/media/alex/work", Name: "work"},
 	)
 
 	said := run(t, tool, `{}`)
@@ -190,7 +190,7 @@ func TestAskingNothingStillReports(t *testing.T) {
 		t.Skip("cannot watch a temporary folder here")
 	}
 
-	tool := Places{Root: root, Owner: "Petar"}
+	tool := Places{Root: root, Owner: "Alex"}
 
 	if said := run(t, tool, `{}`); !strings.Contains(said, "somewhere") {
 		t.Fatalf("did not report the place it watches:\n%s", said)

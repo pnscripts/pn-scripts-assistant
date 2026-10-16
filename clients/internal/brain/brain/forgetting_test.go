@@ -84,7 +84,7 @@ func TestAFileDeletedFromAnAttachedPlaceIsForgotten(t *testing.T) {
 	gone := fact(t, b, "document:"+filepath.Join(folder, "deleted.md"), "something no longer true")
 
 	// And one from a conversation, which has no file and must never be swept.
-	said, err := b.DB.AddFact("conversation", "Petar bills in advance", []float32{0.4, 0.5, 0.6})
+	said, err := b.DB.AddFact("conversation", "Alex bills in advance", []float32{0.4, 0.5, 0.6})
 	if err != nil {
 		t.Fatal(err)
 	}

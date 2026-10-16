@@ -11,7 +11,7 @@ import (
  *
  * Refused by shape rather than by extension, because subtitles arrive as .srt,
  * .sub, .vtt, .ass and as plain .txt — and only the last of those was ever
- * read at all. Taken from a real file on Petar's drive.
+ * read at all. Taken from a real file on Alex's drive.
  */
 func TestSubtitlesAreRecognisedWhateverTheyAreCalled(t *testing.T) {
 	real := "1\n00:00:00,505 --> 00:00:03,806\n<i>Досега в \"Древните\"...</i>\n" +
@@ -35,7 +35,7 @@ func TestSubtitlesAreRecognisedWhateverTheyAreCalled(t *testing.T) {
 	// is refused with the reason a person can read.
 	said, why := FromDocumentContents(Document{
 		Name: "The Originals.txt", Path: "/films/The Originals.txt", Kind: "text",
-	}, real, "Petar")
+	}, real, "Alex")
 
 	if len(said) != 0 {
 		t.Errorf("remembered film dialogue: %+v", said)

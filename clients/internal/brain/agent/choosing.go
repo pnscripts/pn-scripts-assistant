@@ -55,7 +55,7 @@ const HowMuchSchema = 9000
  * about what a small model does when it can see them.
  *
  * "Say hello in four words" made the model here propose creating
- * /home/Petar/greetings.txt, and the turn ended in an approval prompt instead
+ * /home/alex/greetings.txt, and the turn ended in an approval prompt instead
  * of an answer: not a wrong answer but no answer, arrived at by way of a
  * confirmation nobody asked for. Two days ago, asked to say hello in five
  * words, it reached for write_document and stopped for approval again.

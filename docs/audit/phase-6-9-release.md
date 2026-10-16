@@ -7,7 +7,7 @@ was run here unless it says otherwise.
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| Nothing depends on the development directory | **VERIFIED** | `strings` over the packaged binary: **0** references to `/media/petar/…`. The packaging build already used `-trimpath`; an ad-hoc `go build` does not, which is why a scratch build shows 349. |
+| Nothing depends on the development directory | **VERIFIED** | `strings` over the packaged binary: **0** references to `/media/alex/…`. The packaging build already used `-trimpath`; an ad-hoc `go build` does not, which is why a scratch build shows 349. |
 | User data under `~/.local/share` | **VERIFIED** | A fresh run creates `~/.local/share/pn-scripts-assistant/data` and nothing else outside XDG paths. |
 | Configuration under `~/.config` | **VERIFIED** | `~/.config/pn-scripts-assistant/last-root.json`. The settings themselves live in the brain's own folder, by design: they describe the brain, and travel with it when the drive moves. |
 | State and logs under `~/.local/state` | **VERIFIED** | Phase 3. `~/.local/state/pn-scripts-assistant/logs/`, 0700, log 0600, rotated. |

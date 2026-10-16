@@ -25,7 +25,7 @@ func TestPersonalSettingsAreSealedInTheFile(t *testing.T) {
 	root := t.TempDir()
 
 	cfg := Default()
-	cfg.Owner, cfg.MailPassword, cfg.Name = "Petar Marker", "hunter2-marker", "Ariel"
+	cfg.Owner, cfg.MailPassword, cfg.Name = "Alex Marker", "hunter2-marker", "Ariel"
 
 	if err := cfg.Save(root); err != nil {
 		t.Fatal(err)
@@ -33,7 +33,7 @@ func TestPersonalSettingsAreSealedInTheFile(t *testing.T) {
 
 	raw, _ := os.ReadFile(filepath.Join(root, FileName))
 
-	for _, plain := range []string{"Petar Marker", "hunter2-marker"} {
+	for _, plain := range []string{"Alex Marker", "hunter2-marker"} {
 		if strings.Contains(string(raw), plain) {
 			t.Errorf("%q is in the settings file in the clear", plain)
 		}
@@ -44,7 +44,7 @@ func TestPersonalSettingsAreSealedInTheFile(t *testing.T) {
 	}
 
 	got, err := Load(root)
-	if err != nil || got.Owner != "Petar Marker" || got.MailPassword != "hunter2-marker" {
+	if err != nil || got.Owner != "Alex Marker" || got.MailPassword != "hunter2-marker" {
 		t.Fatalf("read back: %q %q %v", got.Owner, got.MailPassword, err)
 	}
 

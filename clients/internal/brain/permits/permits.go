@@ -55,7 +55,7 @@ const (
 /*
  * Freedom is how much the brain may do without being asked each time.
  *
- * Petar's words: "if a user decides to and tells it to do everything, then do
+ * The owner's words: "if a user decides to and tells it to do everything, then do
  * it based on the permissions". So there are three settings and the middle one
  * is the interesting one — it is what makes a granted permission mean
  * something rather than being a note nobody reads.

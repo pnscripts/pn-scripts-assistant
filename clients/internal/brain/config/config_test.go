@@ -29,7 +29,7 @@ func TestSetupIsRememberedAsDone(t *testing.T) {
 	}
 
 	fresh.SetupDone = true
-	fresh.Owner = "Petar"
+	fresh.Owner = "Alex"
 
 	if err := fresh.Save(root); err != nil {
 		t.Fatal(err)
@@ -55,7 +55,7 @@ func TestASettingsFileAloneIsNotSetup(t *testing.T) {
 	root := t.TempDir()
 
 	older := Default()
-	older.Owner = "Petar"
+	older.Owner = "Alex"
 	older.SetupDone = false
 
 	if err := older.Save(root); err != nil {

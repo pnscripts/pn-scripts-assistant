@@ -325,7 +325,7 @@ function drawBackground(jobs) {
      * This used to create a .jobs div and prepend it into #activity, and
      * console.js begins its own refresh by emptying that element — so a
      * running job was deleted every three seconds and rebuilt a second and a
-     * half later. Petar saw it blinking.
+     * half later. The owner saw it blinking.
      *
      * The box is now in the page, owned here, and the empty note is settled by
      * whichever of the two writers changed something. See brainActivityChanged.

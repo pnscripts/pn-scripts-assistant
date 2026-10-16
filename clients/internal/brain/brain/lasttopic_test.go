@@ -100,7 +100,7 @@ func TestWhatCountsAsTheSameConversation(t *testing.T) {
  */
 func TestALongTopicIsCutShort(t *testing.T) {
 	long := "I want you to learn from every documentation inside " +
-		"/media/petar/c8fc2986-4b79-4d7b-9a8c-e6db653915ac/DEV and tell me about it"
+		"/media/alex/c8fc2986-4b79-4d7b-9a8c-e6db653915ac/DEV and tell me about it"
 
 	line := lastTopicLine(said(long, time.Hour), true)
 

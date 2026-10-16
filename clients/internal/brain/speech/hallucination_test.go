@@ -3,7 +3,7 @@ package speech
 import "testing"
 
 /*
- * "Thanks for watching." arrived in Petar's conversation while a film was on
+ * "Thanks for watching." arrived in Alex's conversation while a film was on
  * and nobody had spoken. Whisper was trained on subtitles, so where there are
  * no words it returns the likeliest thing to appear in that position.
  */

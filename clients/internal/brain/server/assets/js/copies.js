@@ -212,7 +212,7 @@ function suggestions(drives) {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'copy-suggestion';
-        // The home folder is named as such. "/home/petar" in a row of drives
+        // The home folder is named as such. "/home/alex" in a row of drives
         // reads as a disk somebody has to recognise; "your home folder" is
         // what it actually is.
         chip.textContent = d.home

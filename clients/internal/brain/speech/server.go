@@ -512,7 +512,7 @@ func listenWaiting(
 	 * Everything the microphone catches is transcribed, because the only way to
 	 * find out whether its name was said is to make out the words first. So
 	 * this step runs on a cough, a door, a line of the film — and it used to
-	 * be a foreground step, which the page says out loud. Petar had it saying
+	 * be a foreground step, which the page says out loud. The owner had it saying
 	 * "I am making out what you said" at every sound in the room.
 	 *
 	 * When the brain has already been addressed — mid-conversation, or being

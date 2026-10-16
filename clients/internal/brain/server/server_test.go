@@ -37,7 +37,7 @@ func newServer(t *testing.T) (*httptest.Server, *store.DB, *brain.Brain) {
 	}
 
 	cfg := config.Default()
-	cfg.Owner = "Petar"
+	cfg.Owner = "Alex"
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	b := brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"), logger)
@@ -563,8 +563,8 @@ func TestAcceptingALessonStillChecksForDuplicates(t *testing.T) {
 	// threshold.
 	b.Learner.Curator.Embedder = fakeEmbedder{}
 
-	first, _ := db.AddLesson(0, "Petar prefers Laravel for backend work", "proposed", "high", "")
-	second, _ := db.AddLesson(0, "Petar prefers Laravel over Python", "proposed", "high", "")
+	first, _ := db.AddLesson(0, "Alex prefers Laravel for backend work", "proposed", "high", "")
+	second, _ := db.AddLesson(0, "Alex prefers Laravel over Python", "proposed", "high", "")
 
 	var out map[string]any
 	postJSON(t, ts.URL+"/api/lessons/"+itoa(first)+"/accept", &out)
@@ -758,7 +758,7 @@ func TestFirstRunAsksForANameOnlyOnce(t *testing.T) {
 	}
 
 	res, err := http.Post(ts.URL+"/api/settings", "application/json",
-		strings.NewReader(`{"name":"Ariel","owner":"Petar"}`))
+		strings.NewReader(`{"name":"Ariel","owner":"Alex"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1382,7 +1382,7 @@ func TestAFirstRunIsNotGreetedFromAScript(t *testing.T) {
 	// And says hello properly once it has one — the greeting is postponed,
 	// not lost, or the first thing a named brain does is nothing.
 	res, err := http.Post(ts.URL+"/api/settings", "application/json",
-		strings.NewReader(`{"name":"Ariel","owner":"Petar"}`))
+		strings.NewReader(`{"name":"Ariel","owner":"Alex"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1667,7 +1667,7 @@ func TestWhatWasHeardComesBackThroughTheTool(t *testing.T) {
 /*
  * Permission is not privacy, and the API says so.
  *
- * Petar's first point: "yes it can have privacy but the permissions on the
+ * Alex's first point: "yes it can have privacy but the permissions on the
  * machine is other thing". They were one setting, so the only way to let the
  * brain do more was to let more leave.
  */

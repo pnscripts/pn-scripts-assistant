@@ -42,7 +42,7 @@ the always-offered set. A test written months ago against a real failure
 refused it:
 
 > "Say hello in four words" made the small model propose creating
-> /home/Petar/greetings.txt, and the turn ended in an approval prompt instead
+> /home/alex/greetings.txt, and the turn ended in an approval prompt instead
 > of an answer.
 
 The same thing happened here on Tuesday: asked to say hello in five words, the

@@ -11,7 +11,7 @@ import (
 /*
  * The measurement this whole change came out of.
  *
- * Petar's review queue held 9,199 things. Grouped by the folder they came
+ * Alex's review queue held 9,199 things. Grouped by the folder they came
  * from, the top ten were all somebody else's — a Unity project's package cache
  * and build artifacts, a vendored copy of HTMLPurifier, two client websites'
  * upload folders. The document walk had a skip list; it had never met a game
@@ -32,7 +32,7 @@ func TestSomebodyElsesFoldersAreNotOpened(t *testing.T) {
 	for _, dir := range []string{
 		"Documents", "Счетоводство", "Projects", "src", "app", "notes",
 	} {
-		if !worthDescending(filepath.Join("/home/petar", dir), dir) {
+		if !worthDescending(filepath.Join("/home/alex", dir), dir) {
 			t.Errorf("%s stopped being read", dir)
 		}
 	}
@@ -68,13 +68,13 @@ func TestUploadsAreJudgedByWhatIsAboveThem(t *testing.T) {
 		t.Error("a website's uploads folder would still be read")
 	}
 
-	if !worthDescending("/home/petar/uploads", "uploads") {
+	if !worthDescending("/home/alex/uploads", "uploads") {
 		t.Error("somebody's own uploads folder stopped being read")
 	}
 }
 
 /*
- * len() is bytes and Cyrillic is two bytes a letter, so for everything Petar
+ * len() is bytes and Cyrillic is two bytes a letter, so for everything Alex
  * writes in Bulgarian the floor of 45 was really 22.
  *
  * "Иван Христофоров Георгиев" is 25 letters and reached his review queue as a
@@ -127,7 +127,7 @@ func TestTheSameLineInManyDocumentsStopsBeingAFact(t *testing.T) {
 			Name: "index.md",
 			Path: filepath.Join("/pkg", strings.Repeat("x", i+1), "index.md"),
 			Kind: "Markdown",
-		}, line+"\n", "Petar")
+		}, line+"\n", "Alex")
 
 		kept += len(said)
 	}
@@ -148,7 +148,7 @@ func TestARefrainWithinOneDocumentCountsOnce(t *testing.T) {
 
 	said, _ := FromDocumentContents(Document{
 		Name: "handbook.pdf", Path: "/docs/handbook.pdf", Kind: "PDF",
-	}, page, "Petar")
+	}, page, "Alex")
 
 	if len(said) == 0 {
 		t.Fatal("a document was silenced by its own repetition")
@@ -159,7 +159,7 @@ func TestARefrainWithinOneDocumentCountsOnce(t *testing.T) {
 		if got, _ := FromDocumentContents(Document{
 			Name: "other.pdf", Path: filepath.Join("/docs", strings.Repeat("y", i+1)+".pdf"),
 			Kind: "PDF",
-		}, line+"\n", "Petar"); len(got) == 0 {
+		}, line+"\n", "Alex"); len(got) == 0 {
 			t.Errorf("document %d was treated as boilerplate too early", i+2)
 		}
 	}
@@ -200,7 +200,7 @@ func TestWhatCountsAsTheSameLine(t *testing.T) {
 /*
  * Undoing what an earlier, looser rule let in.
  *
- * Petar's memory held 1,220 facts and 746 of them were listings of files
+ * Alex's memory held 1,220 facts and 746 of them were listings of files
  * inside a Unity package cache, a vendored PHP library and two client sites'
  * upload folders. Judged by asking the same functions the walk uses, so this
  * can never disagree with what the scanner is actually doing.
@@ -209,9 +209,9 @@ func TestAFileInsideASkippedFolderIsRecognised(t *testing.T) {
 	for _, path := range []string{
 		"/drive/DEV/TestLLM/Library/PackageCache/com.unity.ugui/Documentation~/index.md",
 		"/drive/DEV/divacon.bg/tools/htmlpurifier/vendor/x/Attr.txt",
-		"/home/petar/site/public/uploads/2024/09/photo.pdf",
-		"/home/petar/app/node_modules/left-pad/readme.md",
-		"/home/petar/app/__pycache__/thing.txt",
+		"/home/alex/site/public/uploads/2024/09/photo.pdf",
+		"/home/alex/app/node_modules/left-pad/readme.md",
+		"/home/alex/app/__pycache__/thing.txt",
 	} {
 		if !UnderASkippedFolder(path) {
 			t.Errorf("%s would still be remembered", path)
@@ -220,8 +220,8 @@ func TestAFileInsideASkippedFolderIsRecognised(t *testing.T) {
 
 	// And a file of his own is left alone.
 	for _, path := range []string{
-		"/home/petar/Documents/PN Scripts/Счетоводство/2025/фактура.pdf",
-		"/home/petar/Desktop/notes.md",
+		"/home/alex/Documents/PN Scripts/Счетоводство/2025/фактура.pdf",
+		"/home/alex/Desktop/notes.md",
 		"/drive/DEV/Projects/pnscripts/products/pn-scripts-assistant/README.md",
 	} {
 		if UnderASkippedFolder(path) {
@@ -241,13 +241,13 @@ func TestAFileInsideASkippedFolderIsRecognised(t *testing.T) {
 // about everything else.
 func TestThePathIsFoundInWhatItWrote(t *testing.T) {
 	cases := []struct{ said, want string }{
-		{`Petar has a text document called "Attr.txt" at /a/b/Attr.txt, last modified 2024-01-02.`,
+		{`Alex has a text document called "Attr.txt" at /a/b/Attr.txt, last modified 2024-01-02.`,
 			"/a/b/Attr.txt"},
-		{`cv.pdf, a PDF document at /home/petar/cv.pdf, says: he led the migration`,
-			"/home/petar/cv.pdf"},
-		{`Petar has a PDF at /home/petar/scan.pdf and there is nothing in it worth remembering — it holds no readable text.`,
-			"/home/petar/scan.pdf"},
-		{`Petar prefers Laravel over Python.`, ""},
+		{`cv.pdf, a PDF document at /home/alex/cv.pdf, says: he led the migration`,
+			"/home/alex/cv.pdf"},
+		{`Alex has a PDF at /home/alex/scan.pdf and there is nothing in it worth remembering — it holds no readable text.`,
+			"/home/alex/scan.pdf"},
+		{`Alex prefers Laravel over Python.`, ""},
 		{`He works at home, mostly in the evening.`, ""},
 	}
 
@@ -267,7 +267,7 @@ func TestThePathIsFoundInWhatItWrote(t *testing.T) {
  * the file: if most of what it offers has already been read elsewhere, this is
  * one rendering of a template and nothing in it is about itself.
  *
- * Built from what Petar's actually say, including the two lines that were
+ * Built from what Alex's actually say, including the two lines that were
  * still arriving after the line rule was in.
  */
 func TestAFormStopsBeingReadOnceItIsRecognised(t *testing.T) {
@@ -292,7 +292,7 @@ func TestAFormStopsBeingReadOnceItIsRecognised(t *testing.T) {
 			Name: fmt.Sprintf("%d_Invoice.pdf", month),
 			Path: fmt.Sprintf("/docs/%d_Invoice.pdf", month),
 			Kind: "PDF",
-		}, text, "Petar")
+		}, text, "Alex")
 
 		kept += len(said)
 
@@ -334,7 +334,7 @@ func TestTwelveDifferentDocumentsAreAllRead(t *testing.T) {
 			Kind: "Markdown",
 		}, fmt.Sprintf(
 			"The meeting on subject number %d settled that we would move the "+
-				"deployment to the following week instead.\n", i), "Petar")
+				"deployment to the following week instead.\n", i), "Alex")
 
 		if len(said) == 0 {
 			t.Fatalf("note %d was thrown away as a form: %q", i, why)
@@ -357,14 +357,14 @@ func TestOneSharedLineDoesNotMakeAForm(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		FromDocumentContents(Document{
 			Name: "other.md", Path: fmt.Sprintf("/notes/other-%d.md", i), Kind: "Markdown",
-		}, shared+"\n", "Petar")
+		}, shared+"\n", "Alex")
 	}
 
 	said, why := FromDocumentContents(Document{
 		Name: "mine.md", Path: "/notes/mine.md", Kind: "Markdown",
 	}, shared+"\n"+
 		"We agreed to move the reporting database onto the new machine first.\n"+
-		"Ivan is away for the whole of August so the migration waits for him.\n", "Petar")
+		"Ivan is away for the whole of August so the migration waits for him.\n", "Alex")
 
 	if len(said) == 0 {
 		t.Fatalf("a note with two lines of its own was thrown away: %q", why)
@@ -379,7 +379,7 @@ func TestOneSharedLineDoesNotMakeAForm(t *testing.T) {
  * A package inside a package is a dependency, whatever it is called.
  *
  * A name list can only know the folder names somebody thought of, and the two
- * that got through Petar's rules were "tools/htmlpurifier" and
+ * that got through Alex's rules were "tools/htmlpurifier" and
  * "public/js/summernote" — nothing anyone would have guessed. Both carried
  * what every distributed package carries: a manifest, or a licence.
  *
@@ -471,7 +471,7 @@ func TestAProjectIsNotADependencyOfItself(t *testing.T) {
 /*
  * A licence is not writing.
  *
- * 176 of Petar's queue were "summernote-ar-AR.min.js.LICENSE.txt" — one per
+ * 176 of Alex's queue were "summernote-ar-AR.min.js.LICENSE.txt" — one per
  * language of a text editor he did not write, in four copies of one site.
  */
 func TestALicenceIsNeverSomebodysWriting(t *testing.T) {
@@ -505,7 +505,7 @@ func TestALicenceIsNeverSomebodysWriting(t *testing.T) {
 /*
  * One stray file in a home folder must not disown the whole machine.
  *
- * Petar had run composer once in ~, so ~/composer.lock existed. With the home
+ * Alex had run composer once in ~, so ~/composer.lock existed. With the home
  * folder counted as a package, every project underneath became a package
  * inside a package: 242 of his 573 memories were his own Laravel projects'
  * README and documentation, disowned by a lock file he wrote by accident years

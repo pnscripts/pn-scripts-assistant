@@ -21,8 +21,8 @@ import (
 // Reply time on a CPU is close to linear in prompt size, and recall is the
 // biggest part of that prompt.
 func TestRecallIsTrimmedForThePrompt(t *testing.T) {
-	long := `Petar has a PHP/Composer project called "ps_emailsubscription" at ` +
-		`/media/petar/DEV/Projects/divacon.bg/modules/ps_emailsubscription, last modified 2025-08-19. ` +
+	long := `Alex has a PHP/Composer project called "ps_emailsubscription" at ` +
+		`/media/alex/DEV/Projects/divacon.bg/modules/ps_emailsubscription, last modified 2025-08-19. ` +
 		`README excerpt: # E-mail subscription form [![Build Status](https://travis-ci.com/x.svg)](https://t) ` +
 		strings.Repeat("more badge noise ", 40)
 
@@ -33,7 +33,7 @@ func TestRecallIsTrimmedForThePrompt(t *testing.T) {
 	}
 
 	// The part that answers questions must survive.
-	for _, want := range []string{"ps_emailsubscription", "/media/petar/DEV/Projects", "2025-08-19"} {
+	for _, want := range []string{"ps_emailsubscription", "/media/alex/DEV/Projects", "2025-08-19"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("trimming removed %q, which is the useful part", want)
 		}
@@ -47,7 +47,7 @@ func TestRecallIsTrimmedForThePrompt(t *testing.T) {
 
 // A fact cut mid-word reads as though it were complete and slightly wrong.
 func TestTrimPrefersASentenceBoundary(t *testing.T) {
-	s := "Petar has a Go project called xplorer at /home/petar/x, last modified 2026-01-01. " +
+	s := "Alex has a Go project called xplorer at /home/alex/x, last modified 2026-01-01. " +
 		strings.Repeat("trailing detail that should go away ", 20)
 
 	got := trimForPrompt(s, 120)
@@ -64,7 +64,7 @@ func TestTrimPrefersASentenceBoundary(t *testing.T) {
 // Short facts must pass through untouched, or every website fact would gain a
 // pointless ellipsis.
 func TestShortFactsAreNotTrimmed(t *testing.T) {
-	s := "Petar regularly uses the website pnscripts.local (1160 visits in browser history)."
+	s := "Alex regularly uses the website pnscripts.local (1160 visits in browser history)."
 
 	if got := trimForPrompt(s, RecalledFactLimit); got != s {
 		t.Errorf("a short fact was altered:\n  got  %q\n  want %q", got, s)
@@ -143,7 +143,7 @@ func testBrain(t *testing.T) *Brain {
 	t.Cleanup(func() { db.Close() })
 
 	cfg := config.Default()
-	cfg.Owner = "Petar"
+	cfg.Owner = "Alex"
 
 	return New(db, cfg, root, filepath.Join(root, "brain.sqlite"),
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -156,8 +156,8 @@ func TestRememberThemActuallyRemembers(t *testing.T) {
 	b := testBrain(t)
 	b.Learner.Curator.Embedder = fixedEmbedder{}
 
-	b.DB.AddLesson(0, "Petar prefers Laravel over Python", "proposed", "high", "")
-	b.DB.AddLesson(0, "Petar works from Sofia", "proposed", "high", "")
+	b.DB.AddLesson(0, "Alex prefers Laravel over Python", "proposed", "high", "")
+	b.DB.AddLesson(0, "Alex works from Sofia", "proposed", "high", "")
 
 	answer, handled := b.handleLessonInstruction(context.Background(), "Okay, remember them.")
 
@@ -243,7 +243,7 @@ func TestInstructionIsIgnoredWithAnEmptyQueue(t *testing.T) {
 // fixedEmbedder gives every distinct text its own direction.
 //
 // Summing character codes was not enough: two sentences that both begin
-// "Petar " came out similar enough to be treated as the same fact. A hash
+// "Alex " came out similar enough to be treated as the same fact. A hash
 // spreads them properly, which is what a real embedder does for genuinely
 // different statements.
 type fixedEmbedder struct{}
@@ -265,7 +265,7 @@ func (fixedEmbedder) Embed(_ context.Context, text string) ([]float32, error) {
 /*
  * A queue worked a hundred at a time must not report the hundred as the whole.
  *
- * Petar's queue held 9,197 lessons. Every count in the interface and every
+ * Alex's queue held 9,197 lessons. Every count in the interface and every
  * answer in the conversation was a report on one page of it: the badge read
  * 100 because that is what the fetch returns, and the reply read "all 100"
  * because that is what the batch contained. Both were true of the page and
@@ -321,7 +321,7 @@ func TestAQueueThatIsFinishedSaysNothingMore(t *testing.T) {
 }
 
 /*
- * The sentence Petar actually said, three times, in three sessions.
+ * The sentence Alex actually said, three times, in three sessions.
  *
  * "I want you to start to remember one by one everything that is in the
  * waiting list" went to the model every time, because the matcher only looked
@@ -455,7 +455,7 @@ func TestStoppingPartWayIsReportedAsStopping(t *testing.T) {
 /*
  * The instruction reaches the background, and the answer says so.
  *
- * The end-to-end of the sentence Petar said: it is recognised, a job is
+ * The end-to-end of the sentence Alex said: it is recognised, a job is
  * started, and he is told it will take a while rather than being handed a
  * finished-sounding sentence about a queue that has not moved.
  */
@@ -499,7 +499,7 @@ func TestTheWholeListInstructionStartsAJobAndSaysSo(t *testing.T) {
  * "I am learning from that", said every ninety seconds for an afternoon.
  *
  * A place is read a few files at a time over hours, and each bite was a fresh
- * step for the page to narrate. What Petar asked for instead is one sentence
+ * step for the page to narrate. What Alex asked for instead is one sentence
  * when a folder is finished, saying what came out of it.
  */
 func TestFinishingAFolderSaysWhatCameOutOfIt(t *testing.T) {
@@ -507,14 +507,14 @@ func TestFinishingAFolderSaysWhatCameOutOfIt(t *testing.T) {
 
 	// Two waiting from this folder, one from somewhere else.
 	b.DB.AddLesson(0, "something from a document", "proposed", "high",
-		"document:/home/petar/Documents/a.pdf")
+		"document:/home/alex/Documents/a.pdf")
 	b.DB.AddLesson(0, "something else from a document", "proposed", "high",
-		"reading:/home/petar/Documents/b.pdf")
+		"reading:/home/alex/Documents/b.pdf")
 	b.DB.AddLesson(0, "from another drive entirely", "proposed", "high",
 		"document:/media/drive/c.pdf")
 
 	said := b.finishedReading(
-		places.Place{Name: "your documents", Path: "/home/petar/Documents"},
+		places.Place{Name: "your documents", Path: "/home/alex/Documents"},
 		places.Pass{
 			Place: places.Place{Name: "your documents", Learned: 31},
 			Known: 4,
@@ -543,7 +543,7 @@ func TestAnEmptyFolderSaysThatItWasEmpty(t *testing.T) {
 	b := testBrain(t)
 
 	said := b.finishedReading(
-		places.Place{Name: "your desktop", Path: "/home/petar/Desktop"},
+		places.Place{Name: "your desktop", Path: "/home/alex/Desktop"},
 		places.Pass{Place: places.Place{Name: "your desktop", Learned: 0}})
 
 	if !strings.Contains(said, "nothing in it worth remembering") {

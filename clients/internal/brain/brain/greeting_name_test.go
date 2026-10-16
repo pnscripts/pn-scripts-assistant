@@ -9,7 +9,7 @@ import (
  * The name goes inside the sentence, before whatever ends it.
  *
  * Only the full stop was stripped, so a greeting ending in a question mark
- * became "Still up?, Petar." — punctuation in the middle of a question, in the
+ * became "Still up?, Alex." — punctuation in the middle of a question, in the
  * first words anybody hears, which makes every sentence after it sound
  * machine-made.
  *

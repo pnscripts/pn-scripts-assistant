@@ -135,7 +135,7 @@ func TestWhatOnePlaceSaidIsFindable(t *testing.T) {
 	db.AddFactFrom("document", "elsewhere", "document:/other.md", []float32{0, 0, 1})
 
 	// A conversation, which has no place and must never be swept with one.
-	db.AddFact("conversation", "Petar bills in advance", []float32{0.5, 0.5, 0})
+	db.AddFact("conversation", "Alex bills in advance", []float32{0.5, 0.5, 0})
 
 	from, err := db.FactsFromSource("document:/notes.md")
 	if err != nil {

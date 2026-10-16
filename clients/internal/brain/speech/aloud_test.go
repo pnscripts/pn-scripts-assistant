@@ -20,7 +20,7 @@ func TestCuttingSentences(t *testing.T) {
 		rest     string
 		found    bool
 	}{
-		{"Good morning, Petar. How can I help?", "Good morning, Petar.", "How can I help?", true},
+		{"Good morning, Alex. How can I help?", "Good morning, Alex.", "How can I help?", true},
 		{"One moment", "", "One moment", false},
 		{"Yes! That worked.", "Yes!", "That worked.", true},
 		{"Is it ready? I think so.", "Is it ready?", "I think so.", true},

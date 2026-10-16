@@ -13,8 +13,8 @@ import (
 
 // Site is a domain the owner uses, with how often.
 //
-// Deliberately a domain and a count, never a URL. "Petar regularly uses
-// tools.swytchbike.com" is a useful thing for an assistant to know; "Petar
+// Deliberately a domain and a count, never a URL. "Alex regularly uses
+// tools.swytchbike.com" is a useful thing for an assistant to know; "Alex
 // opened this specific page at 2am on Tuesday" is surveillance, and it would
 // also be recalled into prompts, which makes it worse rather than better. The
 // aggregate carries almost all of the value at a fraction of the intrusion.
@@ -42,7 +42,7 @@ var skipDomains = map[string]bool{
 
 // skipPrefixes catch sign-in and mail hosts by shape rather than by name.
 //
-// "Petar uses accounts.google.bg" is not a fact about how he works — everybody
+// "Alex uses accounts.google.bg" is not a fact about how he works — everybody
 // with a Google account visits it, and it is a login redirect rather than a
 // destination. Listing them individually would need a list that grows forever;
 // these are recognisable by their subdomain.
@@ -295,7 +295,7 @@ const TopSitesInSummary = 10
 //
 // One observation per site, plus one ranked summary of the top few — and the
 // summary is the point. Every per-site fact is worded almost identically
-// ("Petar regularly uses X (N visits)"), so they are all near-neighbours of each
+// ("Alex regularly uses X (N visits)"), so they are all near-neighbours of each
 // other in embedding space, and a question like "which sites do I use most"
 // recalls an essentially arbitrary twelve of them. The model then ranks whatever
 // it happened to get, which produced an answer that put a site with 26 visits

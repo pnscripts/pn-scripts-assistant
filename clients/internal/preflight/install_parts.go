@@ -332,7 +332,7 @@ func installWhisper(w io.Writer) error {
 	 * It used to install ggml-base.en.bin: a third the size, faster, and
 	 * unable to understand any language but English. Given Bulgarian it does
 	 * not fail — it invents English, confidently, and the words come back
-	 * fluent and wrong. Petar has been talking to a brain that could not
+	 * fluent and wrong. The owner has been talking to a brain that could not
 	 * understand him and neither of us knew, because nothing anywhere said so.
 	 *
 	 * An English-only default is defensible only if everybody who will ever

@@ -35,7 +35,7 @@ func TestADeviceIsPairedByACodeReadOffTheScreen(t *testing.T) {
 		t.Error("the code lasts longer than it was meant to")
 	}
 
-	device, token, err := book.Accept(code, "Petar's phone", "192.168.1.9")
+	device, token, err := book.Accept(code, "Alex's phone", "192.168.1.9")
 	if err != nil {
 		t.Fatal(err)
 	}

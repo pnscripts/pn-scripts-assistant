@@ -7,12 +7,12 @@ import (
 
 // The memories this machine actually holds, abbreviated.
 var realMemories = []string{
-	"Petar regularly uses the website pnscripts.local (1160 visits in browser history).",
-	"Petar uses pnscripts.local and staging.example-client.test frequently.",
-	"Petar regularly uses the website hosting.pnscripts.com (8 visits in browser history).",
-	"Petar has a .pdf file named \"1-Example-Invoice.pdf\" at /home/petar/Documents/Invoices/",
-	"Petar's most-used websites: pnscripts.local (1160), staging.example-client.test (240).",
-	"Petar reads news on dnevnik.bg most mornings.",
+	"Alex regularly uses the website pnscripts.local (1160 visits in browser history).",
+	"Alex uses pnscripts.local and staging.example-client.test frequently.",
+	"Alex regularly uses the website hosting.pnscripts.com (8 visits in browser history).",
+	"Alex has a .pdf file named \"1-Example-Invoice.pdf\" at /home/alex/Documents/Invoices/",
+	"Alex's most-used websites: pnscripts.local (1160), staging.example-client.test (240).",
+	"Alex reads news on dnevnik.bg most mornings.",
 }
 
 /*
@@ -58,8 +58,8 @@ func TestTheRecogniserIsToldTheNamesInUse(t *testing.T) {
 // whisper already knows perfectly well.
 func TestOrdinaryWordsAreNotTaughtBack(t *testing.T) {
 	prompt := PromptFrom([]string{
-		"Petar prefers tea to coffee and usually starts work at nine.",
-		"Petar lives in Sofia and reads in the evenings.",
+		"Alex prefers tea to coffee and usually starts work at nine.",
+		"Alex lives in Sofia and reads in the evenings.",
 	})
 
 	if prompt != "" {

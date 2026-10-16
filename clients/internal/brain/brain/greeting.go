@@ -421,7 +421,7 @@ func (b *Brain) GreetInWords(ctx context.Context) Greeting {
 	 * A greeting is one line, whatever shape the model gave it.
 	 *
 	 * It is read out loud as often as it is read, and a model handed a list
-	 * of facts sometimes answers with a list: "Hello Petar,\n\nThree actions
+	 * of facts sometimes answers with a list: "Hello Alex,\n\nThree actions
 	 * waiting for approval." Spoken, the break is a silence in the middle of
 	 * a sentence; on the page it is a paragraph where a line belongs.
 	 */
@@ -639,7 +639,7 @@ func (b *Brain) timeOfDay() string {
 	 * The name goes inside the sentence, before whatever ends it.
 	 *
 	 * Only the full stop was stripped, so the late-night greetings kept their
-	 * question mark and came out as "Still up?, Petar." — punctuation in the
+	 * question mark and came out as "Still up?, Alex." — punctuation in the
 	 * middle of a question, in the first three words anybody hears, which
 	 * makes everything after it sound machine-generated.
 	 */

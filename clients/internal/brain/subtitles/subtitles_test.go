@@ -9,7 +9,7 @@ import (
 /*
  * Which films have none, on the shapes a real drive actually holds.
  *
- * Petar's has 866 films and 1,362 subtitle files, and they are not paired one
+ * Alex's has 866 films and 1,362 subtitle files, and they are not paired one
  * to one: some films have two languages beside them, some subtitles belong to
  * a film that is no longer there, and the language is in the name as often as
  * it is not.

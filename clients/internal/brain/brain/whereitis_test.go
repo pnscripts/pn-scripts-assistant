@@ -43,7 +43,7 @@ func TestTheAssistantIsToldWhereThingsAre(t *testing.T) {
  * path being made up.
  */
 func TestTheAssistantIsToldNotToInventPaths(t *testing.T) {
-	b := &Brain{Root: t.TempDir(), Cfg: config.Config{Name: "PN Scripts Assistant", Owner: "Petar"}}
+	b := &Brain{Root: t.TempDir(), Cfg: config.Config{Name: "PN Scripts Assistant", Owner: "Alex"}}
 
 	/*
 	 * Whitespace collapsed before matching.
@@ -90,7 +90,7 @@ func TestThePromptAlwaysCarriesHowMuchIsRemembered(t *testing.T) {
 	}
 
 	for i := 0; i < 3; i++ {
-		if _, err := b.DB.AddFact("project", "Petar has a project", nil); err != nil {
+		if _, err := b.DB.AddFact("project", "Alex has a project", nil); err != nil {
 			t.Skipf("cannot add facts here: %v", err)
 		}
 	}

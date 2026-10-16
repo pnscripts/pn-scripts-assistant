@@ -27,14 +27,14 @@ func TestAPassReadsTheDocumentsItIsAboutToLearn(t *testing.T) {
 
 	listing := Observations{
 		{
-			Content: "Petar has a Markdown document called plan.md",
+			Content: "Alex has a Markdown document called plan.md",
 			Source:  "document:" + filepath.Join(dir, "plan.md"),
 		},
 		// What the scan leaves behind for each document it has not read.
 		{Source: ReadingSource(filepath.Join(dir, "plan.md"))},
 	}
 
-	got := ReadContents(context.Background(), listing, "Petar")
+	got := ReadContents(context.Background(), listing, "Alex")
 
 	if len(got) < 2 {
 		t.Fatalf("the document was listed and not read: %+v", got)
@@ -63,13 +63,13 @@ func TestTheListingIsKeptAlongsideTheContents(t *testing.T) {
 
 	listing := Observations{
 		{
-			Content: "Petar has a Markdown document called plan.md",
+			Content: "Alex has a Markdown document called plan.md",
 			Source:  "document:" + filepath.Join(dir, "plan.md"),
 		},
 		{Source: ReadingSource(filepath.Join(dir, "plan.md"))},
 	}
 
-	got := ReadContents(context.Background(), listing, "Petar")
+	got := ReadContents(context.Background(), listing, "Alex")
 
 	if got[0].Content != listing[0].Content {
 		t.Fatalf("the listing was replaced rather than added to: %q", got[0].Content)
@@ -79,11 +79,11 @@ func TestTheListingIsKeptAlongsideTheContents(t *testing.T) {
 // A project observation is not a document and must not be opened as one.
 func TestOnlyDocumentsAreOpened(t *testing.T) {
 	only := Observations{{
-		Content: "Petar has a Go project called pn-scripts-assistant",
-		Source:  "project:/home/petar/pn-scripts-assistant",
+		Content: "Alex has a Go project called pn-scripts-assistant",
+		Source:  "project:/home/alex/pn-scripts-assistant",
 	}}
 
-	if got := ReadContents(context.Background(), only, "Petar"); len(got) != 1 {
+	if got := ReadContents(context.Background(), only, "Alex"); len(got) != 1 {
 		t.Fatalf("something other than a document was opened: %+v", got)
 	}
 }
@@ -93,13 +93,13 @@ func TestOnlyDocumentsAreOpened(t *testing.T) {
 func TestAnUnreadableDocumentDoesNotStopThePass(t *testing.T) {
 	listing := Observations{
 		{Content: "a", Source: "document:/no/such/file.md"},
-		{Content: "b", Source: "document:/home/petar/holiday.heic"},
+		{Content: "b", Source: "document:/home/alex/holiday.heic"},
 		// A file that has gone since the scan: the placeholder is dropped so
 		// it comes round again rather than being marked read on one failure.
 		{Source: ReadingSource("/no/such/file.md")},
 	}
 
-	if got := ReadContents(context.Background(), listing, "Petar"); len(got) != 2 {
+	if got := ReadContents(context.Background(), listing, "Alex"); len(got) != 2 {
 		t.Fatalf("a missing document was not left to come round again: %+v", got)
 	}
 }
@@ -118,7 +118,7 @@ func TestADocumentWithNothingInItIsRecordedRatherThanRetried(t *testing.T) {
 	os.WriteFile(path, []byte("Page 1\n\n7\n"), 0o600)
 
 	got := ReadContents(context.Background(),
-		Observations{{Source: ReadingSource(path)}}, "Petar")
+		Observations{{Source: ReadingSource(path)}}, "Alex")
 
 	if len(got) != 1 {
 		t.Fatalf("expected one honest note, got %+v", got)

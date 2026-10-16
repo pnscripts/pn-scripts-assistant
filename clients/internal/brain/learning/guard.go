@@ -43,7 +43,7 @@ var assistantSubject = regexp.MustCompile(`^[a-z][a-z0-9 .-]{0,20} (is|can|uses|
 // the owner.
 //
 // These are checked against the whole text and only count when the owner is not
-// named, because "Petar prefers that the assistant asks first" is a real
+// named, because "Alex prefers that the assistant asks first" is a real
 // preference while "Always be mindful of my capabilities" is the assistant
 // reciting its own prompt.
 var instructions = []string{

@@ -33,7 +33,7 @@ func fresh(t *testing.T) string {
 func TestItAsksRatherThanRefuses(t *testing.T) {
 	fresh(t)
 
-	rule, ask := Ask("/home/petar/.ssh/id_rsa")
+	rule, ask := Ask("/home/alex/.ssh/id_rsa")
 
 	if !ask {
 		t.Fatal("a private key raised no question at all")
@@ -43,7 +43,7 @@ func TestItAsksRatherThanRefuses(t *testing.T) {
 		t.Errorf("the question comes with no reason to weigh: %+v", rule)
 	}
 
-	if _, ask := Ask("/home/petar/Projects/app/README.md"); ask {
+	if _, ask := Ask("/home/alex/Projects/app/README.md"); ask {
 		t.Error("an ordinary file was held up")
 	}
 }
@@ -58,7 +58,7 @@ func TestItAsksRatherThanRefuses(t *testing.T) {
 func TestItLearnsTheAnswerAndStopsAsking(t *testing.T) {
 	root := fresh(t)
 
-	const key = "/home/petar/.ssh/id_rsa"
+	const key = "/home/alex/.ssh/id_rsa"
 
 	if _, ask := Ask(key); !ask {
 		t.Fatal("it did not ask the first time")
@@ -72,7 +72,7 @@ func TestItLearnsTheAnswerAndStopsAsking(t *testing.T) {
 
 	// One file, not the rule it matched. Saying yes to one key must not open
 	// the whole folder.
-	if _, ask := Ask("/home/petar/.ssh/id_ed25519"); !ask {
+	if _, ask := Ask("/home/alex/.ssh/id_ed25519"); !ask {
 		t.Error("allowing one key allowed every key in the folder")
 	}
 
@@ -104,11 +104,11 @@ func TestTheOwnerDecidesWhatIsWorthAsking(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, ask := Ask("/home/petar/.mozilla/firefox/key4.db"); ask {
+	if _, ask := Ask("/home/alex/.mozilla/firefox/key4.db"); ask {
 		t.Error("a rule that was switched off still asked")
 	}
 
-	if _, ask := Ask("/home/petar/Documents/tax-returns/2025.pdf"); !ask {
+	if _, ask := Ask("/home/alex/Documents/tax-returns/2025.pdf"); !ask {
 		t.Error("something the owner added was not asked about")
 	}
 
@@ -156,18 +156,18 @@ func TestItFindsTheFileWhateverTheArgumentIsCalled(t *testing.T) {
 	fresh(t)
 
 	for _, args := range []string{
-		`{"path":"/home/petar/.aws/credentials"}`,
-		`{"file":"/home/petar/.aws/credentials"}`,
-		`{"directory":"/home/petar/.aws/"}`,
-		`{"files":["/tmp/fine.txt","/home/petar/.aws/credentials"]}`,
-		`{"where":{"deeper":"/home/petar/.aws/credentials"}}`,
+		`{"path":"/home/alex/.aws/credentials"}`,
+		`{"file":"/home/alex/.aws/credentials"}`,
+		`{"directory":"/home/alex/.aws/"}`,
+		`{"files":["/tmp/fine.txt","/home/alex/.aws/credentials"]}`,
+		`{"where":{"deeper":"/home/alex/.aws/credentials"}}`,
 	} {
 		if _, _, ask := InArguments(json.RawMessage(args)); !ask {
 			t.Errorf("missed the protected file in %s", args)
 		}
 	}
 
-	if _, _, ask := InArguments(json.RawMessage(`{"path":"/home/petar/notes.md"}`)); ask {
+	if _, _, ask := InArguments(json.RawMessage(`{"path":"/home/alex/notes.md"}`)); ask {
 		t.Error("an ordinary call was held up")
 	}
 }

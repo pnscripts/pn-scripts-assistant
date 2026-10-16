@@ -237,7 +237,7 @@ func TestTheSecondAttemptIsToldWhatWasWrong(t *testing.T) {
 // copying a phrase out of a listing will not reproduce the whitespace, and a
 // rule that fails over two spaces is not strictness, it is noise.
 func TestEvidenceIsMatchedOnWhatItSaysNotItsSpacing(t *testing.T) {
-	output := "list_directory /home/petar\nDocuments   Games\n  Projects\n"
+	output := "list_directory /home/alex\nDocuments   Games\n  Projects\n"
 
 	for _, c := range []struct {
 		evidence string

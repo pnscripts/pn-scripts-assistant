@@ -37,7 +37,7 @@ func TestLearningAFolderActuallyStoresWhatItFinds(t *testing.T) {
 	dir := t.TempDir()
 	learner := &rememberedWhat{}
 
-	out, err := LearnFolder{Learn: func() Ingests { return learner }, Owner: "Petar"}.
+	out, err := LearnFolder{Learn: func() Ingests { return learner }, Owner: "Alex"}.
 		Execute(context.Background(), json.RawMessage(`{"path":`+quote(dir)+`}`))
 	if err != nil {
 		t.Fatalf("learning an empty folder should report, not fail: %v", err)
@@ -147,7 +147,7 @@ func TestAFolderTooBigToLearnIsRefusedWithItsSize(t *testing.T) {
 	stored := false
 	learner := &countingLearner{onIngest: func() { stored = true }}
 
-	out, err := LearnFolder{Learn: func() Ingests { return learner }, Owner: "Petar"}.
+	out, err := LearnFolder{Learn: func() Ingests { return learner }, Owner: "Alex"}.
 		Execute(context.Background(), json.RawMessage(`{"path":`+quote(dir)+`}`))
 	if err != nil {
 		t.Fatalf("it should decline, not fail: %v", err)

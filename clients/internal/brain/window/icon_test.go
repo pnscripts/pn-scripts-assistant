@@ -18,7 +18,7 @@ import (
 func TestTheIconIsFoundWhereverItIs(t *testing.T) {
 	const (
 		appdir = "/opt/appimage"
-		home   = "/home/petar"
+		home   = "/home/alex"
 	)
 
 	// A build from source: dist/pn-scripts-assistant, with assets/pn-scripts-assistant.png beside it.

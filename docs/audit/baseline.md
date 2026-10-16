@@ -199,7 +199,7 @@ done.
 | Default port `127.0.0.1:8790` | default config | Untested against a port clash |
 | `~/.local/share`, `~/.config` | paths package | Standard |
 | External binaries when features are used: `xdotool`, `espeak-ng`, piper, whisper, `node`, `mutter`, Godot, Unity | tools, speech, engines | Each degrades with a message; Recommends covers two |
-| No developer paths in shipped code | verified by grep: only one comment mentions `/media/petar`; tests use their own temporary directories | — |
+| No developer paths in shipped code | verified by grep: only one comment mentions `/media/alex`; tests use their own temporary directories | — |
 
 ## Exit criteria
 

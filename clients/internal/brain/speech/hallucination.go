@@ -11,7 +11,7 @@ import "strings"
  * a room, the model does not return nothing — it returns the most likely thing
  * to appear where there are no words, which is one of those.
  *
- * It arrived in Petar's conversation as "Thanks for watching." while a film
+ * It arrived in the owner's conversation as "Thanks for watching." while a film
  * was on and nobody had spoken. That is worse than a mis-transcription: it is
  * a sentence he never said, attributed to him, answered by the brain, and
  * eligible to be learned as something about him.

@@ -54,7 +54,7 @@ func TestItOnlyOffersPlacesItCouldTakeOn(t *testing.T) {
 /*
  * And a name, not a mount point with a folder glued to the front of it.
  *
- * "DEV on /media/petar/c8fc2986-4b79-4d7b-9a8c-e6db653915ac" is a path being
+ * "DEV on /media/alex/c8fc2986-4b79-4d7b-9a8c-e6db653915ac" is a path being
  * read out. It appears in an approval prompt, which is the sentence somebody
  * has to judge before agreeing.
  */

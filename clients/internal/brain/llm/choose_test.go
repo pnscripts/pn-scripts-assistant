@@ -475,7 +475,7 @@ func TestCasualPhrasingIsNotTreatedAsDeepThought(t *testing.T) {
  * A greeting is answered, not investigated.
  *
  * "Say hello in four words" produced a request to create
- * /home/Petar/greetings.txt, and the turn ended in an approval prompt instead
+ * /home/alex/greetings.txt, and the turn ended in an approval prompt instead
  * of an answer. Told not to write files, it went looking for that same file
  * and reported it missing. Neither response contains a greeting.
  *

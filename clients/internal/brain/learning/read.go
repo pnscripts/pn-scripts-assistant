@@ -443,8 +443,8 @@ const SeenInThisManyDocuments = 3
 /*
  * FromDocumentContents turns what a document says into things to remember.
  *
- * Attributed rather than asserted. "The document cv.pdf says Petar led the
- * migration" is true whether or not he did; "Petar led the migration" is a
+ * Attributed rather than asserted. "The document cv.pdf says Alex led the
+ * migration" is true whether or not he did; "Alex led the migration" is a
  * claim the brain has no business making on the strength of having read a file
  * somebody left on a disk. The distinction matters most for the documents
  * least likely to be the owner's own — a contract, a paper, somebody else's
@@ -550,7 +550,7 @@ func worthKeeping(text string) []string {
 		 * Counted in characters, not bytes.
 		 *
 		 * len() on a Go string is bytes, and Cyrillic is two bytes a letter —
-		 * so for everything Petar writes in Bulgarian the floor of 45 was
+		 * so for everything the owner writes in Bulgarian the floor of 45 was
 		 * really 22 and the ceiling of 320 was really 160. Short fragments got
 		 * through and whole sentences were cut, on exactly the documents this
 		 * was most likely to be reading. "Иван Христофоров Георгиев" is 25

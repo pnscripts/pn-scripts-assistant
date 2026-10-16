@@ -14,7 +14,7 @@ import (
 /*
  * Writing subtitles for a film that has none.
  *
- * Petar asked whether the brain should learn subtitles, make them, and learn
+ * The owner asked whether the brain should learn subtitles, make them, and learn
  * from them. Making them is the part that is unambiguously worth having: 658
  * of the 866 films on his drive have none beside them, the machine already has
  * ffmpeg and a speech recogniser, and the answer is a file his player will

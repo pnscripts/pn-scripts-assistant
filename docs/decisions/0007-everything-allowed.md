@@ -157,7 +157,7 @@ it is gone from the first meeting (`brain/firstmeeting.go`):
   met; react to what was said; ask one thing only when you need it; answer in
   the language they write in.
 - **Setup is filled from the conversation.** Every message of a first meeting
-  goes through `LearnFromWords`: "I'm Petar", "call me…", "казвам се…",
+  goes through `LearnFromWords`: "I'm Alex", "call me…", "казвам се…",
   "аз съм…" give the owner's name; "your name is…", "ще се казваш…" the
   assistant's; a message mostly in Cyrillic sets the language to Bulgarian
   when none is set. Narrow on purpose — "I'm tired" is not a name — and

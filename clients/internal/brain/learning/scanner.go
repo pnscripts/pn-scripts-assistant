@@ -49,7 +49,7 @@ var skipDirs = map[string]bool{
 	/*
 	 * Everything below this line came out of one measurement.
 	 *
-	 * Petar's review queue held 9,199 things. Grouped by the folder they came
+	 * The owner's review queue held 9,199 things. Grouped by the folder they came
 	 * from, the top ten were all somebody else's: 3,589 from a Unity project's
 	 * PackageCache and Bee artifacts, 362 from a vendored copy of HTMLPurifier,
 	 * 370 from the uploads folders of two client websites, 218 from mail
@@ -168,7 +168,7 @@ func carriesAPackageMark(dir string) bool {
  *
  * A licence is the clearest case there is: it is the same text in millions of
  * copies, it says nothing about the person whose disk it is on, and it is
- * legally required to be there. 176 of Petar's review queue were files named
+ * legally required to be there. 176 of the owner's review queue were files named
  * "summernote-ar-AR.min.js.LICENSE.txt" — one per language of a text editor he
  * did not write, in four copies of the same site.
  */
@@ -185,7 +185,7 @@ func IsSomebodyElsesWriting(name string) bool {
 	 * "summernote-ar-AR.min.js.LICENSE.txt" has to be caught, so the check
 	 * cannot be on the whole name — but every word added here is a word
 	 * somebody might have put in a file of their own. "notice" and "changelog"
-	 * were on this list for an hour and caught "EmailNotice.pdf" in Petar's own
+	 * were on this list for an hour and caught "EmailNotice.pdf" in Alex's own
 	 * documents. They are still recognised as a whole filename, which is how
 	 * they appear when they are boilerplate.
 	 */
@@ -413,7 +413,7 @@ func ScanDocuments(root string) ([]Document, error) {
 	 * Seeding it as a package instead was one stray file away from disaster:
 	 * somebody had run composer once in their home folder, so ~/composer.lock
 	 * existed, and every project on the machine became a package inside a
-	 * package. 242 of Petar's 573 memories were his own Laravel projects'
+	 * package. 242 of the owner's 573 memories were his own Laravel projects'
 	 * README and documentation, disowned by a lock file he wrote by accident
 	 * years ago.
 	 *
@@ -565,7 +565,7 @@ func FromDocuments(docs []Document, owner string) Observations {
  * UnderASkippedFolder reports whether a path lies inside a folder the walk
  * would now refuse to enter.
  *
- * For undoing what an earlier, looser rule let in. Petar's memory held 1,220
+ * For undoing what an earlier, looser rule let in. The owner's memory held 1,220
  * facts and 746 of them were listings of files inside a Unity package cache, a
  * vendored PHP library and two client sites' upload folders — remembered
  * before those folders were on the skip list, and no less useless for having
@@ -652,7 +652,7 @@ func aPlaceSomebodyLives(dir string) bool {
  *
  * Both forms end the path the same way, with a comma or a full stop:
  *
- *   Petar has a text document called "x.txt" at /path/x.txt, last modified …
+ *   The owner has a text document called "x.txt" at /path/x.txt, last modified …
  *   x.pdf, a PDF document at /path/x.pdf, says: …
  *
  * Returns empty when there is no path in it, which is most facts — a sentence

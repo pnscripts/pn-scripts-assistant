@@ -33,7 +33,7 @@ func TestQuestionsLeftHangingAreClosedOnStartup(t *testing.T) {
 	}
 
 	for _, m := range []struct{ role, text string }{
-		{"user", "hello"}, {"assistant", "Hello, Petar."},
+		{"user", "hello"}, {"assistant", "Hello, Alex."},
 	} {
 		if _, err := db.AddMessage(done, m.role, "", "", m.text); err != nil {
 			t.Fatal(err)
@@ -94,7 +94,7 @@ func TestOnlyLessonsNeedingAPersonAreCountedAsWaiting(t *testing.T) {
 	db := open(t)
 
 	for _, status := range []string{"proposed", "validated", "validated", "promoted", "rejected"} {
-		if _, err := db.AddLesson(0, "Petar has a thing", status, "high", "/tmp/x"); err != nil {
+		if _, err := db.AddLesson(0, "Alex has a thing", status, "high", "/tmp/x"); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -64,7 +64,7 @@ var housekeeping = map[string][]string{
 	 * Changing things on the machine, which nothing conversational needs.
 	 *
 	 * "Say hello in four words" made the small model propose creating
-	 * /home/Petar/greetings.txt, and the turn ended in an approval prompt
+	 * /home/alex/greetings.txt, and the turn ended in an approval prompt
 	 * instead of an answer — so the question was never answered at all. That
 	 * is the worst version of this fault: not a wrong answer but no answer,
 	 * reached by way of a confirmation nobody asked for.

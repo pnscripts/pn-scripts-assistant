@@ -8,7 +8,7 @@ import (
 /*
  * A line that appears in many documents is a template, not a fact.
  *
- * This is the rule that Petar's queue was asking for. Grouped by folder, the
+ * This is the rule that the owner's queue was asking for. Grouped by folder, the
  * 9,199 things waiting for him were dominated by files that repeat: a manual
  * whose every page carries the same banner, a mail template kept in thirty
  * languages, a vendored library whose schema files share a licence header, a

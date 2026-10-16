@@ -205,7 +205,7 @@ func (b *Brain) somewhereToStart() []tools.Candidate {
 		/*
 		 * A name somebody would use for the drive, not its mount point.
 		 *
-		 * "DEV on /media/petar/c8fc2986-4b79-4d7b-9a8c-e6db653915ac" is a
+		 * "DEV on /media/alex/c8fc2986-4b79-4d7b-9a8c-e6db653915ac" is a
 		 * path with a folder glued to the front of it. What somebody calls
 		 * that is the external drive.
 		 */

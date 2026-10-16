@@ -19,7 +19,7 @@ func TestReadableStripsWhatShouldNotBeSpoken(t *testing.T) {
 	}{
 		{
 			name:    "long path",
-			in:      "It lives at /media/petar/c8fc2986/DEV/Projects/xplorer/xplorer-golang-api now.",
+			in:      "It lives at /media/alex/c8fc2986/DEV/Projects/xplorer/xplorer-golang-api now.",
 			absent:  []string{"c8fc2986", "xplorer-golang-api"},
 			present: []string{"It lives at", "that path", "now."},
 		},

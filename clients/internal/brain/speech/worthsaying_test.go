@@ -70,7 +70,7 @@ func TestLayoutIsNotReadOut(t *testing.T) {
 // when looked at, so it stays on the screen.
 func TestAPathOnItsOwnLineIsNotSpelledOut(t *testing.T) {
 	spoken, worth := WorthSaying(
-		"It lives here:\n/media/petar/c8fc2986-4b79/DEV/Projects/pnscripts/products\nHave a look.")
+		"It lives here:\n/media/alex/c8fc2986-4b79/DEV/Projects/pnscripts/products\nHave a look.")
 
 	if !worth {
 		t.Fatal("nothing was spoken")

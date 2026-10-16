@@ -35,7 +35,7 @@ func TestItCanSayWhichDrivesItLooksAfter(t *testing.T) {
 	// As if a pass had run over the attached one and left some to do.
 	places.Note(root, places.Place{Path: work, Learned: 40, Waiting: 120})
 
-	tool := Places{Root: root, Owner: "Petar"}
+	tool := Places{Root: root, Owner: "Alex"}
 
 	said, err := tool.Execute(context.Background(), json.RawMessage(`{}`))
 	if err != nil {

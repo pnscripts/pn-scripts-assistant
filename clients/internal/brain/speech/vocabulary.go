@@ -62,7 +62,7 @@ const MostPromptTokens = 90
 // and CamelCase or dotted identifiers.
 //
 // Deliberately not "any capitalised word". Ordinary names — London, Monday,
-// Petar — are already known, and filling the prompt with them spends the
+// Alex — are already known, and filling the prompt with them spends the
 // budget without buying anything.
 var distinctive = regexp.MustCompile(
 	`\b(?:[a-zA-Z0-9][a-zA-Z0-9-]*\.)+(?:com|net|org|io|dev|local|bg|co|app|sh|me)\b` +

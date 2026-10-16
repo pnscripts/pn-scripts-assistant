@@ -22,29 +22,29 @@ import (
  */
 func TestSensitivePathsAreAskedAbout(t *testing.T) {
 	ask := []string{
-		"/home/petar/.env",
-		"/home/petar/project/.env.local",
-		"/home/petar/project/.env.production",
-		"/home/petar/project/.env.anything-at-all",
-		"/home/petar/.ssh/id_rsa",
-		"/home/petar/.ssh/id_ed25519",
-		"/home/petar/.gnupg/secring.gpg",
-		"/home/petar/.aws/credentials",
-		"/home/petar/.kube/config",
-		"/home/petar/.docker/config.json",
-		"/home/petar/.config/gcloud/token.json",
-		"/home/petar/.password-store/x.gpg",
+		"/home/alex/.env",
+		"/home/alex/project/.env.local",
+		"/home/alex/project/.env.production",
+		"/home/alex/project/.env.anything-at-all",
+		"/home/alex/.ssh/id_rsa",
+		"/home/alex/.ssh/id_ed25519",
+		"/home/alex/.gnupg/secring.gpg",
+		"/home/alex/.aws/credentials",
+		"/home/alex/.kube/config",
+		"/home/alex/.docker/config.json",
+		"/home/alex/.config/gcloud/token.json",
+		"/home/alex/.password-store/x.gpg",
 		"/etc/shadow",
-		"/home/petar/certs/server.pem",
-		"/home/petar/certs/private.key",
-		"/home/petar/certs/bundle.p12",
-		"/home/petar/.npmrc",
-		"/home/petar/.netrc",
-		"/home/petar/.git-credentials",
-		"/home/petar/.pgpass",
-		"/home/petar/.my.cnf",
-		"/home/petar/composer/auth.json",
-		"/home/petar/.mozilla/firefox/profile/key4.db",
+		"/home/alex/certs/server.pem",
+		"/home/alex/certs/private.key",
+		"/home/alex/certs/bundle.p12",
+		"/home/alex/.npmrc",
+		"/home/alex/.netrc",
+		"/home/alex/.git-credentials",
+		"/home/alex/.pgpass",
+		"/home/alex/.my.cnf",
+		"/home/alex/composer/auth.json",
+		"/home/alex/.mozilla/firefox/profile/key4.db",
 
 		// Windows-style separators must not slip past the directory checks.
 		`C:\Users\petar\.ssh\id_rsa`,
@@ -67,15 +67,15 @@ func TestSensitivePathsAreAskedAbout(t *testing.T) {
 // to hold at once.
 func TestOrdinaryFilesAreAllowed(t *testing.T) {
 	allow := []string{
-		"/home/petar/Projects/app/README.md",
-		"/home/petar/Projects/app/composer.json",
-		"/home/petar/Projects/app/src/main.go",
-		"/home/petar/Documents/notes.txt",
-		"/home/petar/Projects/app/config/database.php",
-		"/home/petar/Projects/app/.gitignore",
-		"/home/petar/Projects/app/environment.md",
-		"/home/petar/Projects/keyboard-shortcuts.md",
-		"/home/petar/Projects/app/public/style.css",
+		"/home/alex/Projects/app/README.md",
+		"/home/alex/Projects/app/composer.json",
+		"/home/alex/Projects/app/src/main.go",
+		"/home/alex/Documents/notes.txt",
+		"/home/alex/Projects/app/config/database.php",
+		"/home/alex/Projects/app/.gitignore",
+		"/home/alex/Projects/app/environment.md",
+		"/home/alex/Projects/keyboard-shortcuts.md",
+		"/home/alex/Projects/app/public/style.css",
 	}
 
 	for _, p := range allow {
@@ -93,12 +93,12 @@ func TestOrdinaryFilesAreAllowed(t *testing.T) {
  * reading only "allow access?" teaches people to say yes to everything.
  */
 func TestTheQuestionSaysWhatItIsAsking(t *testing.T) {
-	rule, ask := protect.Ask("/home/petar/.ssh/id_rsa")
+	rule, ask := protect.Ask("/home/alex/.ssh/id_rsa")
 	if !ask {
 		t.Fatal("a private key did not raise a question")
 	}
 
-	said := protect.Explain("Read a file", "/home/petar/.ssh/id_rsa", rule)
+	said := protect.Explain("Read a file", "/home/alex/.ssh/id_rsa", rule)
 
 	for _, want := range []string{"Read a file", "id_rsa", "ssh keys", "log into"} {
 		if !strings.Contains(said, want) {
@@ -108,7 +108,7 @@ func TestTheQuestionSaysWhatItIsAsking(t *testing.T) {
 
 	// And a tool reached without the question having been asked says so, in
 	// terms that point at the way to do it properly.
-	err := GuardSensitive(context.Background(), "/home/petar/.ssh/id_rsa")
+	err := GuardSensitive(context.Background(), "/home/alex/.ssh/id_rsa")
 	if err == nil {
 		t.Fatal("a tool opened a private key with no question anywhere")
 	}

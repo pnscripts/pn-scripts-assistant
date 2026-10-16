@@ -107,7 +107,7 @@ func LearnFromWords(message string) Learned {
 		l.Name = name
 	}
 
-	// Both can be said in one breath — "I'm Petar, and you're Ariel" — but
+	// Both can be said in one breath — "I'm Alex, and you're Ariel" — but
 	// never as the same word.
 	if owner := firstMatch(ownerSaid, message); owner != l.Name {
 		l.Owner = owner

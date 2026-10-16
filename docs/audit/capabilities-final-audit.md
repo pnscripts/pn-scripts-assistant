@@ -45,7 +45,7 @@ configured" is not "not permitted" and neither is "not installed".
 | What the model knew about the machine | nothing | 31 things, with versions and states |
 | "what can you do" | 18 sentences written in Go, same on every machine | read off the registry, grouped, with the machine |
 | The introduction | one paragraph, identical everywhere | written by the model from this machine's facts |
-| The greeting | one phrase, identical at every launch | decided from the state — "Good morning, Petar." on a quiet morning; "three actions waiting for approval" on a busy evening |
+| The greeting | one phrase, identical at every launch | decided from the state — "Good morning, Alex." on a quiet morning; "three actions waiting for approval" on a busy evening |
 | The wizard's opening | generic | names .NET, Java, Python, Git, VS Code, Blender — all found here |
 | Tools offered per turn | 39 | 18, chosen and budgeted |
 | Prompt | 6,338 tokens | 3,905 |

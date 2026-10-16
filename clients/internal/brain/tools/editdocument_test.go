@@ -246,7 +246,7 @@ func TestChangingADocumentWaitsAndShowsBothHalves(t *testing.T) {
 	}
 
 	raw, _ := json.Marshal(editDocArgs{
-		Path: "/home/petar/contract.docx", Find: "Acme Ltd", Replace: "Beta Studio",
+		Path: "/home/alex/contract.docx", Find: "Acme Ltd", Replace: "Beta Studio",
 	})
 
 	summary := tool.Summarize(raw)

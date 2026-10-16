@@ -75,7 +75,7 @@ func (d *DB) CountFacts() (int, error) {
 	 * What it still believes, which is what every count of memory now means.
 	 *
 	 * This number goes into the system prompt — "you remember N things about
-	 * Petar" — so counting things it has retired would have it telling the
+	 * Alex" — so counting things it has retired would have it telling the
 	 * model, every turn, that it knows more than it does.
 	 */
 	err := d.sql().QueryRow(`
