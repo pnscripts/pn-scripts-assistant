@@ -24,6 +24,12 @@ number is 0, the second one changes when something visible changes.
 
 ### Changed
 
+- **Plain wording on the screens.** The brain is now explained where its
+  copies are kept: it is the assistant's knowledge base, everything it has
+  learned, remembered and been told, in one folder. Team members are called
+  specialists, learned ways of working are called procedures, and "ships
+  with" became "included with".
+
 - **A moved brain does not learn its own knowledge again.** Files inside the
   brain's folder are remembered relative to it (`@brain/knowledge/…`), and
   what was learned before is rewritten that way on the next start, so a brain

@@ -173,7 +173,7 @@
 
                 item.appendChild(head);
                 item.appendChild(node('p', 'note', p.summary));
-                item.appendChild(node('p', 'note tiny', p.id + ' ' + p.version + (p.built_in ? ' · ships with the program' : ' · yours: ' + p.file)));
+                item.appendChild(node('p', 'note tiny', p.id + ' ' + p.version + (p.built_in ? ' · included with the program' : ' · yours: ' + p.file)));
 
                 const role = p.role || {};
 

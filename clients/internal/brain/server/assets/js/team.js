@@ -153,7 +153,7 @@
                 return;
             }
 
-            say('Back to what it shipped as.');
+            say('Back to how it came with the program.');
             load();
         } catch (err) {
             say('That did not work: ' + err.message);
