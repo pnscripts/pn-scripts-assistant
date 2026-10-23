@@ -37,7 +37,7 @@ func TestToolOutputReachesAnthropicAsContentBlocks(t *testing.T) {
 				Name:      "read_file",
 				Arguments: json.RawMessage(`{"path":"/etc/hostname"}`),
 			}}},
-			{Role: RoleTool, ToolCallID: "c1", Content: "petar-desktop"},
+			{Role: RoleTool, ToolCallID: "c1", Content: "alex-desktop"},
 		},
 		Tools: []ToolSpec{{
 			Name:       "read_file",
@@ -76,7 +76,7 @@ func TestToolOutputReachesAnthropicAsContentBlocks(t *testing.T) {
 		t.Fatalf("the result was not sent as a tool_result: %+v", answered)
 	}
 
-	if answered[0].ToolUseID != "c1" || answered[0].Content != "petar-desktop" {
+	if answered[0].ToolUseID != "c1" || answered[0].Content != "alex-desktop" {
 		t.Errorf("the result does not answer the call: %+v", answered[0])
 	}
 }

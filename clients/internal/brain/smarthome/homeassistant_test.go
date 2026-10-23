@@ -61,7 +61,7 @@ func TestOnlyControllableDomainsAreListed(t *testing.T) {
 			// Not devices.
 			{"entity_id": "automation.morning", "state": "on", "attributes": map[string]any{}},
 			{"entity_id": "update.ha_core", "state": "off", "attributes": map[string]any{}},
-			{"entity_id": "person.petar", "state": "home", "attributes": map[string]any{}},
+			{"entity_id": "person.alex", "state": "home", "attributes": map[string]any{}},
 		})
 	})
 

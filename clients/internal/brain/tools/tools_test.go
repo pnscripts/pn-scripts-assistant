@@ -47,7 +47,7 @@ func TestSensitivePathsAreAskedAbout(t *testing.T) {
 		"/home/alex/.mozilla/firefox/profile/key4.db",
 
 		// Windows-style separators must not slip past the directory checks.
-		`C:\Users\petar\.ssh\id_rsa`,
+		`C:\Users\alex\.ssh\id_rsa`,
 	}
 
 	for _, p := range ask {

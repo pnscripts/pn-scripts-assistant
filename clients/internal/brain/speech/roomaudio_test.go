@@ -17,10 +17,10 @@ import (
  * This is real output from the machine this was written on, with a browser
  * playing music, which is the case the whole feature exists for.
  */
-const wpctlListing = `PipeWire 'pipewire-0' [1.0.5, petar@cen, cookie:1234]
+const wpctlListing = `PipeWire 'pipewire-0' [1.0.5, alex@cen, cookie:1234]
  └─ Clients:
-        32. xdg-desktop-portal                  [1.0.5, petar@cen, pid:2100]
-        44. Brave                               [1.0.5, petar@cen, pid:9001]
+        32. xdg-desktop-portal                  [1.0.5, alex@cen, pid:2100]
+        44. Brave                               [1.0.5, alex@cen, pid:9001]
 
 Audio
  ├─ Devices:

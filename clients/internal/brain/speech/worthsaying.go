@@ -13,7 +13,7 @@ import (
  * right for "what time is it" and wrong for everything else this program
  * produces. A written answer has headings, bullet points, file paths and code
  * in it, and read aloud those come out as "hash hash what it found, star,
- * slash media slash petar slash…". Nobody listens to the end of that, so the
+ * slash media slash alex slash…". Nobody listens to the end of that, so the
  * voice gets switched off, and then it cannot say the one thing that was worth
  * hearing either.
  *

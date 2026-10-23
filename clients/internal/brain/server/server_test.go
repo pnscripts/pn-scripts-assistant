@@ -1027,7 +1027,7 @@ func TestTheNameItShipsListeningFor(t *testing.T) {
 func TestTheMailPasswordNeverLeavesTheSettingsFile(t *testing.T) {
 	ts, _, b := newServer(t)
 
-	b.Cfg.MailUser = "petar@example.com"
+	b.Cfg.MailUser = "alex@example.com"
 	b.Cfg.MailHost = "imap.example.com"
 	b.Cfg.MailPassword = "hunter2-app-password"
 
@@ -1068,7 +1068,7 @@ func TestABlankPasswordBoxKeepsTheSavedOne(t *testing.T) {
 	b.Cfg.MailPassword = "already-saved"
 
 	res, err := http.Post(ts.URL+"/api/mail", "application/json",
-		strings.NewReader(`{"user":"petar@example.com","host":"imap.example.com","password":""}`))
+		strings.NewReader(`{"user":"alex@example.com","host":"imap.example.com","password":""}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1079,7 +1079,7 @@ func TestABlankPasswordBoxKeepsTheSavedOne(t *testing.T) {
 		t.Errorf("the saved password was wiped by an empty box: %q", b.Cfg.MailPassword)
 	}
 
-	if b.Cfg.MailUser != "petar@example.com" {
+	if b.Cfg.MailUser != "alex@example.com" {
 		t.Errorf("the rest of the form did not save: %q", b.Cfg.MailUser)
 	}
 }

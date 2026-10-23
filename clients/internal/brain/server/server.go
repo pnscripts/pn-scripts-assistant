@@ -577,7 +577,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	 *
 	 * A written answer has headings, bullet points, file paths and code in
 	 * it. Read aloud, those come out as "hash hash what it found, star, slash
-	 * media slash petar slash" — so nobody listens to the end, so the voice
+	 * media slash alex slash" — so nobody listens to the end, so the voice
 	 * gets turned off, so it cannot say the one thing that was worth hearing
 	 * either. An answer that is nothing but code is not spoken at all: it is
 	 * on the screen being read, and saying it aloud is worse than silence.

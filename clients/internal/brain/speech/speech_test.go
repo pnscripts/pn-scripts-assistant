@@ -390,7 +390,7 @@ func TestVoiceFollowsTheScriptOfTheText(t *testing.T) {
 		t.Errorf("English text got a Bulgarian voice: %s", english.ID)
 	}
 
-	bulgarian := voiceForText("Здравей Петър, как си днес?")
+	bulgarian := voiceForText("Здравей Алекс, как си днес?")
 	if !strings.HasPrefix(bulgarian.ID, "bg_") {
 		t.Errorf("Bulgarian text got %s, which cannot read Cyrillic", bulgarian.ID)
 	}
@@ -399,7 +399,7 @@ func TestVoiceFollowsTheScriptOfTheText(t *testing.T) {
 func TestScriptDetection(t *testing.T) {
 	cases := map[string]string{
 		"Hello there":   "latin",
-		"Здравей Петър": "cyrillic",
+		"Здравей Алекс": "cyrillic",
 		"Здравей, използвам Laravel днес": "cyrillic",
 		"I use pnscripts.local mostly":    "latin",
 		"":                                "",

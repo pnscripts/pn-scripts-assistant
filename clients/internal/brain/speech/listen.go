@@ -45,7 +45,7 @@ func modelSearch(home string) []string {
 // Two orderings, both chosen from measurements on Bulgarian speech.
 //
 // Multilingual before .en: an .en model given Bulgarian does not fail, it
-// forces the sounds into English words, so "здравей Петър" came back as
+// forces the sounds into English words, so "здравей Алекс" came back as
 // "Strava pater". Somebody who only speaks English loses nothing by having the
 // multilingual model; somebody who does not loses everything by the other.
 //
@@ -279,7 +279,7 @@ func Transcribe(ctx context.Context, wav string) (string, error) {
 	// whisper-cli defaults -l to "en", not to detection. Passing nothing
 	// therefore asserts English, and asserting English about Bulgarian speech
 	// does not fail — it produces fluent English that was never said. "Здравей,
-	// аз съм Петър" came back as "Hello, I'm Petr", which is the worst kind of
+	// аз съм Алекс" came back as "Hello, I'm Aleks", which is the worst kind of
 	// wrong: confident, plausible, and unrelated to the words spoken.
 	args := []string{"-m", r.Model, "-f", wav, "-nt", "-np", "-l", languageForTurn()}
 

@@ -15,10 +15,10 @@ func TestWhoIsWhoIsReadFromWhatIsSaid(t *testing.T) {
 		"Hi, I'm Alex. Let's get the itch page done.":       {Owner: "Alex"},
 		"my name is ada and I build games":                  {Owner: "Ada"},
 		"Call me Pete, everybody does":                      {Owner: "Pete"},
-		"Казвам се Петър и правя игри":                      {Owner: "Петър", Language: "bg"},
-		"Здрасти, аз съм Петър.":                            {Owner: "Петър", Language: "bg"},
+		"Казвам се Алекс и правя игри":                      {Owner: "Алекс", Language: "bg"},
+		"Здрасти, аз съм Алекс.":                            {Owner: "Алекс", Language: "bg"},
 		"Ще се казваш Ариел.":                               {Name: "Ариел", Language: "bg"},
-		"Казвам се Петър, ще те наричам Искра.":             {Owner: "Петър", Name: "Искра", Language: "bg"},
+		"Казвам се Алекс, ще те наричам Искра.":             {Owner: "Алекс", Name: "Искра", Language: "bg"},
 		"Your name is Ariel.":                               {Name: "Ariel"},
 		"I'm tired, can you just check the build?":          {},
 		"I am going to publish the game tomorrow":           {},
@@ -48,7 +48,7 @@ func TestTheFirstConversationFillsInTheSettings(t *testing.T) {
 		t.Error("the model is not told it has just met them")
 	}
 
-	b.learnFromFirstMeeting("Здравей. Казвам се Петър, ще се казваш Ариел.")
+	b.learnFromFirstMeeting("Здравей. Казвам се Алекс, ще се казваш Ариел.")
 
 	// A later sentence that looks like a name does not replace the one given.
 	b.learnFromFirstMeeting("Call me Bob")
@@ -58,7 +58,7 @@ func TestTheFirstConversationFillsInTheSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if saved.Owner != "Петър" || saved.Name != "Ариел" || saved.Language != "bg" {
+	if saved.Owner != "Алекс" || saved.Name != "Ариел" || saved.Language != "bg" {
 		t.Errorf("saved owner %q, name %q, language %q", saved.Owner, saved.Name, saved.Language)
 	}
 
