@@ -166,7 +166,7 @@ function renderSteps(steps) {
     return box;
 }
 
-function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps = [] } = {}) {
+function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps = [], answers = true } = {}) {
     clearBoot();
 
     const wrap = document.createElement('div');
@@ -209,9 +209,9 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps =
     }
 
     // A question asked the one way (ask.Show): its answers become buttons.
-    if (cssClass.includes('brain')) {
-        const answers = shownAnswers(text);
-        if (answers) wrap.appendChild(answers);
+    if (answers && cssClass.includes('brain')) {
+        const row = shownAnswers(text);
+        if (row) wrap.appendChild(row);
     }
 
     if (meta) {
@@ -326,6 +326,8 @@ async function send(text) {
 
     state.busy = true;
     el('send').disabled = true;
+    // Whatever was asked before has now been answered, one way or another.
+    document.querySelectorAll('#transcript .answers button').forEach((b) => { b.disabled = true; });
     addMessage('you', text, { cssClass: 'you' });
 
     const placeholder = showThinking();
@@ -1536,11 +1538,13 @@ window.brainOpenConversation = async function (id) {
     (convo.messages || [])
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .filter((m) => (m.content || '').trim() !== '')
-        .forEach((m) => {
+        .forEach((m, i, all) => {
             addMessage(
                 m.role === 'user' ? 'you' : state.brainName,
                 m.content,
-                { cssClass: m.role === 'user' ? 'you' : 'brain' }
+                // Only a question still waiting gets its answer buttons: the
+                // last message, and only when it is the assistant's.
+                { cssClass: m.role === 'user' ? 'you' : 'brain', answers: i === all.length - 1 }
             );
         });
 };
