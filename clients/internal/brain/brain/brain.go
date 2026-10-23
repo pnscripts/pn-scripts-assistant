@@ -92,6 +92,9 @@ type Brain struct {
 	// The small model used for small talk, looked up once. Empty means there
 	// is none installed and everything goes to the usual one.
 	rolesOnce sync.Once
+
+	// installed is the router's list of models on this machine, briefly cached.
+	installed installedCache
 	roles     llm.Sizes
 
 	// modelsResident is whether both models are held in memory at once, which
@@ -846,14 +849,16 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	b.Happens = activity.New(db)
 
 	b.Tasks = &tasks.Conductor{
-		DB:       db,
-		Log:      logger,
-		Jobs:     b.Jobs,
-		Happens:  b.Happens,
-		Agent:    b.TaskAgent,
-		Provider: func(name string) (llm.Provider, error) { return b.Router.Provider(name) },
-		Sizes:    b.modelRoles,
-		Roster:   func() []team.Agent { return team.Roster(b.Root) },
+		DB:         db,
+		Log:        logger,
+		Jobs:       b.Jobs,
+		Happens:    b.Happens,
+		Agent:      b.TaskAgent,
+		Provider:   func(name string) (llm.Provider, error) { return b.Router.Provider(name) },
+		Sizes:      b.modelRoles,
+		Models:     b.installedModels,
+		SpeedFloor: b.speedFloor,
+		Roster:     func() []team.Agent { return team.Roster(b.Root) },
 
 		/*
 		 * What the organisation looks like, what the jobs are, and what tools

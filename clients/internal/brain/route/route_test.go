@@ -132,3 +132,15 @@ func TestTraitsComeFromOllamaNames(t *testing.T) {
 		t.Errorf("phi3:3.8b read as %+v", tr)
 	}
 }
+
+func TestOnAProcessorAloneTheBiggestModelIsNotChosenForEverything(t *testing.T) {
+	got, _ := Pick("assistant", Needs{Reasoning: 1, Tools: true}, here, Policy{SpeedFloor: 1})
+	if got.Model == "qwen2.5:14b" {
+		t.Fatalf("a processor-only machine got the 14B model for everyday work: %+v", got)
+	}
+
+	got, _ = Pick("programmer", Needs{Coding: 3, Tools: true}, here, Policy{SpeedFloor: 1})
+	if got.Model != "qwen2.5-coder:7b" {
+		t.Fatalf("the programmer lost the coder on a processor-only machine: %+v", got)
+	}
+}

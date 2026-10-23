@@ -34,6 +34,7 @@ import (
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/org"
 	"pn-scripts-assistant/internal/brain/risk"
+	"pn-scripts-assistant/internal/brain/route"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/team"
 	"pn-scripts-assistant/internal/brain/tools"
@@ -114,6 +115,25 @@ type Conductor struct {
 
 	// Sizes is which model fills which role on this machine.
 	Sizes func() llm.Sizes
+
+	/*
+	 * Models is every model this machine can use right now, for the router.
+	 *
+	 * Asked at every step, so a model pulled or removed while a task runs
+	 * changes the next step's choice. Optional: without it, or when the
+	 * router finds nothing that fits, the step is thought with the role
+	 * model from Sizes exactly as before. Pins are the owner's own choice of
+	 * model per agent, by name.
+	 */
+	Models func() []route.Candidate
+	Pins   func() map[string]string
+	// SpeedFloor is route.Policy.SpeedFloor for this machine; nil means 0.
+	SpeedFloor func() int
+
+	// failed counts recent failures per model, so the router moves a model
+	// that keeps failing to the back of its order by itself.
+	failedMu sync.Mutex
+	failed   map[string]int
 
 	/*
 	 * Roster is who is available to do the work.
@@ -1004,6 +1024,8 @@ func (c *Conductor) think(ctx context.Context, task *store.Task, t *turn) {
 			c.brief(task, t.step, t.member), t.brief)
 	}
 
+	c.outcome(t.brief.Choice.Model, t.err)
+
 	// What the calls can prove they did, kept whatever the step comes to.
 	c.recordEvidence(task, t.step, t.res)
 
@@ -1331,6 +1353,10 @@ func (c *Conductor) park(task *store.Task, step *store.TaskStep, res agent.Resul
  */
 func (c *Conductor) choose(step *store.TaskStep, member team.Agent, through string) llm.Choice {
 	choice := llm.Choice{Why: member.Title, Tools: true}
+
+	if routed, ok := c.routed(member, through); ok {
+		return routed
+	}
 
 	if c.Sizes == nil {
 		return choice
@@ -1985,5 +2011,83 @@ func endOf(state string) protocol.Kind {
 		return protocol.TaskCancelled
 	default:
 		return protocol.TaskFailed
+	}
+}
+
+/*
+ * routed is the router's choice of model for one agent's step, when there is
+ * one to make: on this machine, for an agent that does not name its own
+ * model, with the models that are here now. The reason goes into Why, which
+ * the step's start event and log carry, so "why this model" is answered where
+ * the step is shown.
+ */
+func (c *Conductor) routed(member team.Agent, through string) (llm.Choice, bool) {
+	if c.Models == nil || llm.Elsewhere(through) {
+		return llm.Choice{}, false
+	}
+
+	for _, want := range member.Prefers {
+		if strings.TrimSpace(want) != "" {
+			return llm.Choice{}, false
+		}
+	}
+
+	candidates := c.Models()
+	if len(candidates) == 0 {
+		return llm.Choice{}, false
+	}
+
+	c.failedMu.Lock()
+	for i := range candidates {
+		candidates[i].Failures += c.failed[candidates[i].Name]
+	}
+	c.failedMu.Unlock()
+
+	var pins map[string]string
+	if c.Pins != nil {
+		pins = c.Pins()
+	}
+
+	needs := member.RouteNeeds()
+
+	floor := 0
+	if c.SpeedFloor != nil {
+		floor = c.SpeedFloor()
+	}
+
+	chosen, err := route.Pick(member.Name, needs, candidates, route.Policy{Pins: pins, SpeedFloor: floor})
+	if err != nil {
+		if c.Log != nil {
+			c.Log.Info("the router found no model, so the role model is used", "agent", member.Name, "why", err)
+		}
+
+		return llm.Choice{}, false
+	}
+
+	if c.Log != nil {
+		c.Log.Info("model chosen", "agent", member.Name, "model", chosen.Model, "why", chosen.Reason, "then", chosen.Fallbacks)
+	}
+
+	return llm.Choice{Model: chosen.Model, Why: chosen.Reason, Tools: true}, true
+}
+
+// outcome remembers whether a model's step worked: a failure counts against
+// it, a success clears its count.
+func (c *Conductor) outcome(model string, err error) {
+	if model == "" {
+		return
+	}
+
+	c.failedMu.Lock()
+	defer c.failedMu.Unlock()
+
+	if c.failed == nil {
+		c.failed = map[string]int{}
+	}
+
+	if err != nil && !llm.Forbidden(err) {
+		c.failed[model]++
+	} else if err == nil {
+		delete(c.failed, model)
 	}
 }

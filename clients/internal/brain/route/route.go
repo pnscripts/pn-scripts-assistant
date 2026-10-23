@@ -66,6 +66,10 @@ type Policy struct {
 	MemoryBytes int64
 	// Pins are the owner's own choices, by expert.
 	Pins map[string]string
+	// SpeedFloor is the least speed every pick asks for. 1 on a machine
+	// without a graphics card, where every billion parameters is seconds of
+	// waiting whatever the work is.
+	SpeedFloor int
 }
 
 // Choice is the model to use, why, and what to try next.
@@ -84,6 +88,10 @@ func Pick(expert string, needs Needs, candidates []Candidate, policy Policy) (Ch
 		c     Candidate
 		score float64
 		why   string
+	}
+
+	if needs.Speed < policy.SpeedFloor {
+		needs.Speed = policy.SpeedFloor
 	}
 
 	var usable []scored
