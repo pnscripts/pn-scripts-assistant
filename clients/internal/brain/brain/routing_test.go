@@ -7,6 +7,8 @@ import (
 
 	"pn-scripts-assistant/internal/brain/ask"
 	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/route"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 // A reply to a question with answers is the answer it picked, by number or
@@ -49,5 +51,24 @@ func TestANewBrainStartsWithTheSeedKnowledge(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(b.Root, "knowledge", "guides", "getting-started.md")); err != nil {
 		t.Fatalf("no starting knowledge: %v", err)
+	}
+}
+
+// What testing a model here showed reaches the router.
+func TestMeasuredSpeedReachesTheRouter(t *testing.T) {
+	b := testBrain(t)
+
+	if err := b.DB.RecordModelTest(store.ModelTest{Name: "llama3.2:3b", Seconds: 3.5, ToolCall: "proper"}); err != nil {
+		t.Fatal(err)
+	}
+
+	got := b.measured([]route.Candidate{{Name: "llama3.2:3b"}, {Name: "never-tested:7b"}})
+
+	if got[0].Seconds != 3.5 || got[0].ToolCall != "proper" {
+		t.Fatalf("the measurement did not reach the candidate: %+v", got[0])
+	}
+
+	if got[1].Seconds != 0 || got[1].ToolCall != "" {
+		t.Fatalf("an untested model got a measurement: %+v", got[1])
 	}
 }

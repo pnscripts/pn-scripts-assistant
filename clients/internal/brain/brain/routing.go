@@ -59,7 +59,7 @@ func (b *Brain) installedModels() []route.Candidate {
 	defer c.mu.Unlock()
 
 	if time.Since(c.at) < installedFor {
-		return append([]route.Candidate{}, c.found...)
+		return b.measured(append([]route.Candidate{}, c.found...))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -83,7 +83,32 @@ func (b *Brain) installedModels() []route.Candidate {
 
 	c.at, c.found = time.Now(), found
 
-	return append([]route.Candidate{}, found...)
+	return b.measured(append([]route.Candidate{}, found...))
+}
+
+/*
+ * measured adds what testing each model on this machine showed — seconds for
+ * one tool call, and whether the call came back as a real call — so the
+ * router weighs measured speed rather than guessing it from the size. Read at
+ * every call: a model measured a minute ago counts at the next step.
+ */
+func (b *Brain) measured(found []route.Candidate) []route.Candidate {
+	if b.DB == nil {
+		return found
+	}
+
+	tests, err := b.DB.ModelTests()
+	if err != nil {
+		return found
+	}
+
+	for i := range found {
+		if t, ok := tests[found[i].Name]; ok {
+			found[i].Seconds, found[i].ToolCall = t.Seconds, t.ToolCall
+		}
+	}
+
+	return found
 }
 
 // isEmbedding is a model that turns text into numbers and cannot answer.
