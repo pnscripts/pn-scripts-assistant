@@ -801,6 +801,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	 * every brain until somebody writes one. Refusing to start would refuse
 	 * somebody their assistant over a file that only ever adds to it.
 	 */
+	// The agent skills on this machine first, so they are in the list too.
+	b.importSkills()
+
 	if count, err := b.ReloadSkills(); err != nil {
 		logger.Warn("skills could not be read", "error", err)
 	} else if count > 0 {

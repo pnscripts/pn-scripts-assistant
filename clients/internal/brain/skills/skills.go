@@ -79,6 +79,17 @@ type Skill struct {
 	// Builtin is a playbook shipped inside the program (see playbooks.go),
 	// as against one its owner wrote.
 	Builtin bool `json:"builtin,omitempty"`
+
+	// Imported is the agent skill folder a playbook was made from (see
+	// imported.go), written with BrainToken when it is inside the brain.
+	// Empty for what its owner wrote or taught, which an import never
+	// overwrites. Deleting the "imported:" line from the file makes a
+	// playbook his.
+	Imported string `json:"imported,omitempty"`
+
+	// SourceTime is when that folder last changed, in seconds, so an import
+	// only writes again what moved on.
+	SourceTime int64 `json:"source_time,omitempty"`
 }
 
 // Folder is where the skills live for a given brain.
@@ -136,6 +147,8 @@ func Load(root string) ([]Skill, error) {
 			continue
 		}
 
+		skill.How = inBrain(skill.How, root)
+
 		out = append(out, skill)
 	}
 
@@ -157,8 +170,15 @@ func One(root, name string) (*Skill, error) {
 	}
 
 	skill := parse(string(raw), name)
+	skill.How = inBrain(skill.How, root)
 
 	return &skill, nil
+}
+
+// inBrain puts the brain's folder where a playbook says BrainToken, so the
+// pointers in it lead somewhere on whichever machine the brain is open on.
+func inBrain(text, root string) string {
+	return strings.ReplaceAll(text, BrainToken, filepath.Clean(root))
 }
 
 /*
@@ -204,6 +224,12 @@ func parse(raw, filename string) Skill {
 			}
 		case "tools", "uses":
 			skill.Uses = value
+		case "imported":
+			skill.Imported = value
+		case "source_mtime":
+			if n, err := strconv.ParseInt(value, 10, 64); err == nil {
+				skill.SourceTime = n
+			}
 		}
 	}
 
@@ -219,6 +245,12 @@ func Save(root string, skill Skill) error {
 	}
 
 	skill.How = strings.TrimSpace(skill.How)
+
+	// Kept portable: the brain's own folder is written as the token, so the
+	// file still points the right way once the brain is somewhere else.
+	if clean := filepath.Clean(root); len(clean) > 1 {
+		skill.How = strings.ReplaceAll(skill.How, clean, BrainToken)
+	}
 
 	if skill.How == "" {
 		return fmt.Errorf("a skill with no instructions in it would do nothing")
@@ -239,6 +271,11 @@ func Save(root string, skill Skill) error {
 
 	if skill.Taught {
 		b.WriteString("taught: yes\n")
+	}
+
+	if skill.Imported != "" {
+		b.WriteString("imported: " + skill.Imported + "\n")
+		b.WriteString("source_mtime: " + strconv.FormatInt(skill.SourceTime, 10) + "\n")
 	}
 
 	b.WriteString("---\n\n")

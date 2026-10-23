@@ -192,6 +192,12 @@ type Config struct {
 	// actually wrote.
 	WakeWord string
 
+	// SkillFolders is extra folders of agent skills (each skill a folder
+	// with a SKILL.md) to learn as playbooks, beside ~/.claude/skills, in
+	// the operating system's path-list form. Relative ones are taken from
+	// the brain's own folder, so the list travels with it.
+	SkillFolders string
+
 	/*
 	 * CancelRoom routes everything this machine plays through the echo
 	 * canceller, so the microphone stops hearing it.
@@ -719,6 +725,7 @@ func LoadFrom(path string) (Config, error) {
 	assign(&cfg.DefaultProvider, "LLM_DEFAULT_PROVIDER")
 	assign(&cfg.OllamaURL, "OLLAMA_BASE_URL")
 	assign(&cfg.WakeWord, "BRAIN_WAKE_WORD")
+	assign(&cfg.SkillFolders, "BRAIN_SKILL_FOLDERS")
 	assign(&cfg.FastModel, "OLLAMA_FAST_MODEL")
 
 	if v := get("BRAIN_ALWAYS_SPEAK"); v != "" {
@@ -897,6 +904,10 @@ func (c Config) Save(root string) error {
 	b.WriteString("# anything it hears, which is the default: requiring a name means\n")
 	b.WriteString("# transcription has to get that name right before anything can match.\n")
 	b.WriteString("BRAIN_WAKE_WORD=" + c.WakeWord + "\n")
+	b.WriteString("# More folders of agent skills to learn as playbooks, beside\n")
+	b.WriteString("# ~/.claude/skills (separated as in PATH; relative ones are inside\n")
+	b.WriteString("# this brain's folder).\n")
+	b.WriteString("BRAIN_SKILL_FOLDERS=" + c.SkillFolders + "\n")
 	b.WriteString("BRAIN_ALWAYS_NAME=" + boolText(c.AlwaysName) + "\n")
 	b.WriteString("# Answer one voice and ignore every other. Needs a voice to have\n")
 	b.WriteString("# been taught first, in Privacy.\n")

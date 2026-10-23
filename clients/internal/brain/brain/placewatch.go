@@ -78,6 +78,14 @@ func (b *Brain) keepPlaces(ctx context.Context) {
 	b.forgetWhatIsGone()
 
 	for {
+		// Every round of the learning also looks for agent skills that
+		// were written or changed since the last one.
+		if b.importSkills() {
+			if _, err := b.ReloadSkills(); err != nil {
+				b.Log.Warn("skills could not be reloaded", "error", err)
+			}
+		}
+
 		did := b.lookAtOnePlace(ctx)
 
 		wait := BetweenRounds
