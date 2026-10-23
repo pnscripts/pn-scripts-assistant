@@ -81,3 +81,22 @@ func TestSeveralQuestionsBecomeAQueue(t *testing.T) {
 		t.Fatalf("split into %q", got)
 	}
 }
+
+func TestAShownQuestionIsReadBackFromTheChat(t *testing.T) {
+	for _, lang := range []string{"bg", "en"} {
+		got, ok := FromShown(Show(where, lang))
+		if !ok || got.Text != where.Text || len(got.Options) != 3 || got.Options[0] != "On this computer" {
+			t.Fatalf("%s read back as %+v (ok=%v)", lang, got, ok)
+		}
+
+		if choice, other := Answer(got, "2"); other || choice != "On a USB stick" {
+			t.Fatalf("%s: 2 answered %q", lang, choice)
+		}
+	}
+
+	for _, text := range []string{"Hello.", "Steps:\n1. one\n2. two\n3. three", ""} {
+		if _, ok := FromShown(text); ok {
+			t.Errorf("%q was read as a question", text)
+		}
+	}
+}

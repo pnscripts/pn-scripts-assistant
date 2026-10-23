@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"pn-scripts-assistant/internal/brain/ask"
 )
 
 /*
@@ -46,7 +48,9 @@ func (Ask) Description() string {
 		"readings lead to different work; when something needed is missing; " +
 		"or when what you found while working changes what was asked for. " +
 		"Prefer this over picking an interpretation and hoping. It ends your " +
-		"turn — the answer comes back as their next message."
+		"turn — the answer comes back as their next message. Ask ONE question " +
+		"per call, never a list, and offer 2 to 4 answers with the one you " +
+		"recommend as \"recommended\"."
 }
 
 func (Ask) Parameters() json.RawMessage {
@@ -64,7 +68,13 @@ func (Ask) Parameters() json.RawMessage {
 			"options": {
 				"type": "array",
 				"items": {"type": "string"},
-				"description": "Optional: the readings you are choosing between, if there are two or three obvious ones."
+				"maxItems": 4,
+				"description": "2 to 4 short answers the owner can pick from. They can always answer in their own words as well."
+			},
+			"recommended": {
+				"type": "integer",
+				"minimum": 0,
+				"description": "Which answer you recommend, counting from 0. It is shown first and marked."
 			}
 		},
 		"required": ["question"],
@@ -104,9 +114,10 @@ func (Ask) Execute(context.Context, json.RawMessage) (string, error) {
 
 // Question is what was asked, pulled out of the call for the loop to end on.
 type Question struct {
-	Question string   `json:"question"`
-	Why      string   `json:"why"`
-	Options  []string `json:"options"`
+	Question    string   `json:"question"`
+	Why         string   `json:"why"`
+	Options     []string `json:"options"`
+	Recommended int      `json:"recommended"`
 }
 
 // ReadQuestion parses the arguments of an ask_first call.
@@ -121,6 +132,26 @@ func ReadQuestion(args json.RawMessage) (Question, bool) {
 
 	if q.Question == "" {
 		return Question{}, false
+	}
+
+	// One question at a time: the first of several is asked now, and the
+	// model asks the next one after this is answered.
+	if several := ask.Split(q.Question); len(several) > 1 {
+		q.Question = several[0]
+	}
+
+	kept := make([]string, 0, len(q.Options))
+
+	for _, o := range q.Options {
+		if o = strings.TrimSpace(o); o != "" && len(kept) < ask.Most {
+			kept = append(kept, o)
+		}
+	}
+
+	q.Options = kept
+
+	if q.Recommended < 0 || q.Recommended >= len(kept) {
+		q.Recommended = 0
 	}
 
 	return q, true
@@ -145,6 +176,15 @@ func (q Question) Text() string {
 		}
 
 		b.WriteString(" ")
+	}
+
+	// Two to four answers are shown the one way every question is: the
+	// recommended one first and marked, numbered, with Other last, so the
+	// reply can be a number, a word or a sentence.
+	if shown := (ask.Question{Text: q.Question, Options: q.Options, Recommended: q.Recommended}); ask.Validate(shown) == nil {
+		b.WriteString(ask.Show(shown, ask.Language(q.Question)))
+
+		return b.String()
 	}
 
 	b.WriteString(q.Question)

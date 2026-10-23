@@ -1956,6 +1956,12 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		}
 	}
 
+	// "2" or "второто" after a question with answers is that answer, written
+	// out, so the model and the history both read what was chosen.
+	if !isNew {
+		req.Message = b.answerToQuestion(conversationID, req.Message)
+	}
+
 	if _, err := b.DB.AddMessage(conversationID, llm.RoleUser, "", "", req.Message); err != nil {
 		return ChatReply{}, err
 	}

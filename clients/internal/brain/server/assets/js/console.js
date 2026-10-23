@@ -208,6 +208,12 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps =
         wrap.appendChild(row);
     }
 
+    // A question asked the one way (ask.Show): its answers become buttons.
+    if (cssClass.includes('brain')) {
+        const answers = shownAnswers(text);
+        if (answers) wrap.appendChild(answers);
+    }
+
     if (meta) {
         const m = document.createElement('div');
         m.className = 'meta';
@@ -219,6 +225,43 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps =
     transcript.appendChild(wrap);
     transcript.scrollTop = transcript.scrollHeight;
     return wrap;
+}
+
+/*
+ * The answers of a question shown as ask.Show writes it — numbered lines, the
+ * first marked as recommended, "Other" last — as buttons. A click sends the
+ * number, which the brain reads as that answer; Other puts the cursor in the
+ * box for an answer in your own words. Anything else gets no buttons.
+ */
+function shownAnswers(text) {
+    const lines = text.split('\n');
+    const options = [];
+    for (const line of lines) {
+        const m = line.trim().match(/^(\d+)\. (.+)$/);
+        if (m && Number(m[1]) === options.length + 1) options.push(m[2]);
+        else if (options.length) return null;
+    }
+    if (options.length < 3 || !/ \((Препоръчително|Recommended)\)$/.test(options[0])) return null;
+
+    const row = document.createElement('div');
+    row.className = 'answers';
+    options.forEach((label, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = i === 0 ? 'answer recommended' : 'answer';
+        b.textContent = label;
+        b.addEventListener('click', () => {
+            row.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+            if (i === options.length - 1) {
+                el('input').focus();
+                row.querySelectorAll('button').forEach((x) => { x.disabled = false; });
+                return;
+            }
+            send(String(i + 1));
+        });
+        row.appendChild(b);
+    });
+    return row;
 }
 
 function showThinking() {

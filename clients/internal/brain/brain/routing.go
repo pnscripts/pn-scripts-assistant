@@ -2,6 +2,9 @@ package brain
 
 import (
 	"context"
+
+	"pn-scripts-assistant/internal/brain/ask"
+	"pn-scripts-assistant/internal/brain/llm"
 	"strings"
 	"sync"
 	"time"
@@ -92,4 +95,37 @@ func isEmbedding(name string) bool {
 	}
 
 	return false
+}
+
+/*
+ * answerToQuestion turns a reply to the last question asked in this
+ * conversation into the answer it picked: "2", "второто", "the first one" or
+ * words from an answer. Anything else — the "Other" of every question — is
+ * left exactly as written.
+ */
+func (b *Brain) answerToQuestion(conversationID int64, reply string) string {
+	history, err := b.DB.History(conversationID)
+	if err != nil {
+		return reply
+	}
+
+	for i := len(history) - 1; i >= 0; i-- {
+		switch history[i].Role {
+		case llm.RoleUser:
+			return reply
+		case llm.RoleAssistant:
+			q, ok := ask.FromShown(history[i].Content)
+			if !ok {
+				return reply
+			}
+
+			if choice, other := ask.Answer(q, reply); !other {
+				return choice
+			}
+
+			return reply
+		}
+	}
+
+	return reply
 }

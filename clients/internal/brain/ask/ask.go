@@ -170,3 +170,77 @@ func Answer(q Question, reply string) (choice string, other bool) {
 
 	return strings.TrimSpace(reply), true
 }
+
+// Marks are how Show labels the recommended answer, in every language.
+var marks = []string{" (Препоръчително)", " (Recommended)"}
+
+var numbered = regexp.MustCompile(`^(\d+)\. (.+)$`)
+
+/*
+ * FromShown reads a question back out of the text Show made, so a reply in
+ * the next message ("2", "второто") can be matched without anything being
+ * kept beside the conversation: the chat history is the record. ok is false
+ * for text that is not a shown question.
+ */
+func FromShown(text string) (Question, bool) {
+	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
+
+	first := -1
+
+	var options []string
+
+	for i, line := range lines {
+		m := numbered.FindStringSubmatch(strings.TrimSpace(line))
+		if m == nil {
+			if first >= 0 {
+				return Question{}, false
+			}
+
+			continue
+		}
+
+		if n, _ := strconv.Atoi(m[1]); n != len(options)+1 {
+			return Question{}, false
+		}
+
+		if first < 0 {
+			first = i
+		}
+
+		options = append(options, m[2])
+	}
+
+	// The answers, then Other; and the first answer has to carry the mark.
+	if first < 1 || len(options) < Fewest+1 {
+		return Question{}, false
+	}
+
+	marked := false
+
+	for _, mark := range marks {
+		if strings.HasSuffix(options[0], mark) {
+			options[0] = strings.TrimSuffix(options[0], mark)
+			marked = true
+		}
+	}
+
+	if !marked {
+		return Question{}, false
+	}
+
+	return Question{
+		Text:    strings.TrimSpace(strings.Join(lines[:first], "\n")),
+		Options: options[:len(options)-1],
+	}, true
+}
+
+// Language is "bg" for text written in Cyrillic, "en" otherwise.
+func Language(text string) string {
+	for _, r := range text {
+		if r >= 'Ѐ' && r <= 'ӿ' {
+			return "bg"
+		}
+	}
+
+	return "en"
+}

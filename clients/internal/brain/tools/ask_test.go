@@ -64,3 +64,21 @@ func TestAskingNeedsNoPermission(t *testing.T) {
 		t.Error("asking a question was treated as changing something")
 	}
 }
+
+// One question, its answers numbered with the recommended one first and
+// marked, and Other last; a list of questions becomes its first one.
+func TestAQuestionIsAskedOneAtATimeWithAnswersToPick(t *testing.T) {
+	q, ok := ReadQuestion(json.RawMessage(`{
+		"question": "Коя игрова машина да ползвам? И трябва ли да има звук?",
+		"options": ["Three.js", "Godot", " "],
+		"recommended": 1
+	}`))
+	if !ok {
+		t.Fatal("not read")
+	}
+
+	want := "Коя игрова машина да ползвам?\n1. Godot (Препоръчително)\n2. Three.js\n3. Друго — кажете го с ваши думи"
+	if got := q.Text(); got != want {
+		t.Fatalf("shown as\n%s\nwant\n%s", got, want)
+	}
+}
