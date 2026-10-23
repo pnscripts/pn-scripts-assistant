@@ -6,6 +6,33 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+It knows what your other agents know, carries its knowledge with it, and
+looks twice at every message before you act on it.
+
+### Added
+
+- **Agent skills become playbooks.** On start and on every round of the
+  learning, every `SKILL.md` under `~/.claude/skills` (and any folder listed
+  in `BRAIN_SKILL_FOLDERS`) becomes a playbook: its description says when,
+  its text (up to 6,000 characters) says how, with a pointer to the full
+  file. A changed skill is refreshed; a skill you wrote or taught yourself is
+  never overwritten — remove the `imported:` line from a playbook to make it
+  yours.
+- **A knowledge folder inside the brain.** `knowledge/` in the brain's folder
+  is always learned, and is stored relative to the brain, so a brain on a USB
+  stick or opened through Remote has the same documents on any machine.
+  Imported skills are copied there with their references (never secrets,
+  databases or caches), so their playbooks keep working where the agent is
+  not installed.
+- **A scam guard.** Every message `read_mailbox` and `read_email` read is
+  checked — a sender domain that does not exist, look-alike brands and links,
+  replies that go elsewhere, pressure combined with a request for passwords,
+  money or access — and the verdict is written under it. Lists flag the
+  obvious ones from the headers. A new `scam_guard` playbook says what to do
+  next. Domains are looked up only when privacy allows the web.
+
 ## 0.4.0 — 2026-10-11
 
 Everything is allowed out of the box and still recorded, what it keeps about
