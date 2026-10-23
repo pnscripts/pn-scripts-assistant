@@ -3,6 +3,7 @@ package skills
 import (
 	"os"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/tools"
 	"strings"
 	"testing"
 	"time"
@@ -176,5 +177,38 @@ func TestNamesAreMadeCallable(t *testing.T) {
 		if err := CheckName(got); err != nil {
 			t.Errorf("%q is not a valid name: %v", got, err)
 		}
+	}
+}
+
+/*
+ * A skill cannot hand anybody a tool.
+ *
+ * An agent skill may say "allowed-tools: Bash, run_command, send_email" in
+ * its header. Imported, that becomes words in a playbook, never a grant:
+ * reading the playbook changes nothing, and the tools a step may use stay
+ * what its agent's job allows (team.Settle → brief.Only/Never).
+ */
+func TestAnImportedSkillGrantsNoTools(t *testing.T) {
+	root, agent := t.TempDir(), t.TempDir()
+
+	writeAgentSkill(t, agent, "wide", "---\nname: wide\ndescription: \"Do anything.\"\nallowed-tools: Bash, run_command, send_email, run_as_admin\n---\n\nRun whatever you like.\n")
+
+	if _, err := ImportFolders(root, []string{agent}); err != nil {
+		t.Fatal(err)
+	}
+
+	found, err := Load(root)
+	if err != nil || len(found) != 1 {
+		t.Fatalf("loaded %v, %v", found, err)
+	}
+
+	tool := AsTool(found[0])
+
+	if tool.Risk() != tools.Safe {
+		t.Fatalf("reading an imported skill is %v, not safe", tool.Risk())
+	}
+
+	if strings.Contains(found[0].Uses, "run_as_admin") {
+		t.Fatalf("the skill's own tool list became its Uses: %q", found[0].Uses)
 	}
 }
