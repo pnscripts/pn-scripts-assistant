@@ -12,7 +12,7 @@ import (
 // What a sentence gives away, and what it does not.
 func TestWhoIsWhoIsReadFromWhatIsSaid(t *testing.T) {
 	for said, want := range map[string]Learned{
-		"Hi, I'm Alex. Let's get the itch page done.":      {Owner: "Alex"},
+		"Hi, I'm Alex. Let's get the itch page done.":       {Owner: "Alex"},
 		"my name is ada and I build games":                  {Owner: "Ada"},
 		"Call me Pete, everybody does":                      {Owner: "Pete"},
 		"Казвам се Петър и правя игри":                      {Owner: "Петър", Language: "bg"},
