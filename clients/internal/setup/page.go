@@ -506,10 +506,14 @@ html.has-stage .wrap{position:relative;z-index:1}
              placeholder="/a/folder/  or  a-file-name.txt">
     </label>
     <div id="privacy-yours"></div>
+  </div>
 
-    <!-- What may leave, last and on its own, so it cannot be read as a
-         consequence of how much it asks. -->
+  <!-- What may leave, a screen of its own: one question at a time, so it
+       cannot be read as a consequence of how much it asks. -->
+  <div class="step" id="step-leave" hidden>
     <h2>What may leave this machine</h2>
+    <p class="sub">One choice. The recommended one is first; you can change it
+      later under System.</p>
     <div id="privacy-pick" class="models"></div>
   </div>
 
@@ -1990,6 +1994,9 @@ const STEPS = [
     */
    blocks: () => ""},
 
+  // One question per screen: what may leave comes after how much it asks.
+  {id: "leave", title: "What may leave", shown: () => true, blocks: () => ""},
+
   {id: "apply", title: "Ready", shown: () => true, blocks: () => ""},
 ];
 
@@ -2083,6 +2090,24 @@ const FREEDOM = [
 // put the tick back on the old answer and make the click look ignored.
 let freedomSaving = "";
 
+/*
+ * Every choice in setup is asked the one way questions are asked everywhere
+ * in the program: the recommended answer first, marked. RECOMMENDED is the
+ * program's own default for each, so pressing Next without reading keeps it.
+ */
+const RECOMMENDED = {freedom: "everything", privacy: "open"};
+
+function recommendedFirst(list, key, value){
+  return list.slice().sort((a, b) => (b[key] === value) - (a[key] === value));
+}
+
+function markRecommended(name){
+  const tag = document.createElement("span");
+  tag.className = "tag";
+  tag.textContent = "recommended";
+  name.appendChild(tag);
+}
+
 function renderFreedomChoice(state){
   const box = el("freedom-pick");
   if (!box) return;
@@ -2091,7 +2116,7 @@ function renderFreedomChoice(state){
 
   box.textContent = "";
 
-  FREEDOM.forEach(f => {
+  recommendedFirst(FREEDOM, "level", RECOMMENDED.freedom).forEach(f => {
     const pick = document.createElement("button");
     pick.type = "button";
     pick.className = "ghost pick" + (chosen === f.level ? " chosen" : "");
@@ -2099,6 +2124,7 @@ function renderFreedomChoice(state){
 
     const name = document.createElement("strong");
     name.textContent = f.name;
+    if (f.level === RECOMMENDED.freedom) markRecommended(name);
 
     const means = document.createElement("span");
     means.textContent = f.means;
@@ -2150,7 +2176,7 @@ function renderPrivacyModeChoice(state){
 
   box.textContent = "";
 
-  state.privacies.forEach(p => {
+  recommendedFirst(state.privacies, "mode", RECOMMENDED.privacy).forEach(p => {
     const pick = document.createElement("button");
     pick.type = "button";
     pick.className = "ghost pick" + (chosen === p.mode ? " chosen" : "");
@@ -2158,6 +2184,7 @@ function renderPrivacyModeChoice(state){
 
     const name = document.createElement("strong");
     name.textContent = p.mode + " · " + p.summary;
+    if (p.mode === RECOMMENDED.privacy) markRecommended(name);
 
     const means = document.createElement("span");
     means.textContent = p.detail;
