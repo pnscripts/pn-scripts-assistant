@@ -24,6 +24,10 @@ number is 0, the second one changes when something visible changes.
 
 ### Changed
 
+- **Each expert runs only its own tools**, also when everything is allowed.
+  A step that reaches for another expert's tool is handed, without asking
+  you, to an expert who has it (a specialist first, the general assistant
+  only when no specialist does).
 - The built-in playbooks are only what every user needs: asking, planning a
   goal, mail, documents and the scam guard. Procedures specific to one
   business are no longer shipped in the program.

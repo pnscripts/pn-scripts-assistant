@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -226,6 +227,22 @@ type Step struct {
 	// Evidence is what the call can prove it did, from its own arguments and
 	// output. See tools.Perform.
 	Evidence []store.Evidence `json:"evidence,omitempty"`
+
+	// Outside is a call refused because the tool is not this expert's.
+	Outside bool `json:"outside,omitempty"`
+}
+
+// OutsideTools is every tool this turn reached for that was not its own.
+func (r Result) OutsideTools() []string {
+	var out []string
+
+	for _, s := range r.Steps {
+		if s.Outside && !slices.Contains(out, s.Tool) {
+			out = append(out, s.Tool)
+		}
+	}
+
+	return out
 }
 
 type Result struct {
@@ -860,9 +877,20 @@ func (l *Loop) RunBrief(
 			 * agent whose limits were only a shorter menu would be a
 			 * convention rather than a rule.
 			 */
-			if !free && !allowedBy(brief.Only, call.Name) {
-				messages = append(messages, toolResult(call,
-					"That is not one of the tools for this piece of work."))
+			/*
+			 * Even when everything is allowed (owner 2026-10-23: "Само
+			 * своите"): an expert runs only its own tools. Everything allowed
+			 * means nothing is asked, not that one expert may borrow another's
+			 * tools. The refusal is kept as a step marked Outside, so the
+			 * conductor can give the work to an expert who has the tool.
+			 */
+			if !allowedBy(brief.Only, call.Name) {
+				refused := "That is not one of the tools for this piece of work; it goes to an expert who has it."
+
+				messages = append(messages, toolResult(call, refused))
+
+				steps = append(steps, Step{Tool: call.Name, Summary: "not this expert's tool: " + call.Name,
+					Failed: true, Result: refused, Outside: true})
 
 				continue
 			}

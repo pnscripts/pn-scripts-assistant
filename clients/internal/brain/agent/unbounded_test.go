@@ -25,7 +25,7 @@ func TestEverythingAllowedAsksNothing(t *testing.T) {
 	conv, _ := db.NewConversation("t")
 
 	res, err := loop.RunBrief(context.Background(), conv, askingFor("install_requirement"), nil,
-		Brief{WithTools: true, Only: []string{"read_file"}})
+		Brief{WithTools: true, Only: []string{"read_file", "install_requirement"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,5 +77,39 @@ func TestEverythingAllowedKeepsARefusal(t *testing.T) {
 
 	if ran != 0 || len(res.Pending) != 0 {
 		t.Errorf("a refused tool ran (%d) or was asked about (%d)", ran, len(res.Pending))
+	}
+}
+
+// Everything allowed is nothing asked, not borrowing another expert's tools
+// (owner 2026-10-23, "Само своите"): a tool outside the expert's own is
+// refused at run time, without a question, and marked so the work can go to
+// an expert who has it.
+func TestEverythingAllowedStillRunsOnlyTheExpertsOwnTools(t *testing.T) {
+	ran := 0
+
+	loop, db := newLoop(t, installing{counted{name: "install_requirement", ran: &ran}})
+
+	loop.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Allow }
+	loop.NothingAsks = func() bool { return true }
+	loop.Unbounded = func() bool { return true }
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.RunBrief(context.Background(), conv, askingFor("install_requirement"), nil,
+		Brief{WithTools: true, Only: []string{"read_file"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if ran != 0 {
+		t.Fatal("a tool outside the expert's own ran")
+	}
+
+	if len(res.Pending) != 0 {
+		t.Fatalf("the owner was asked: %+v", res.Pending)
+	}
+
+	if got := res.OutsideTools(); len(got) != 1 || got[0] != "install_requirement" {
+		t.Fatalf("the refusal was not marked for re-routing: %v", got)
 	}
 }

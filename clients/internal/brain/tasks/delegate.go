@@ -10,6 +10,7 @@ import (
 	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/team"
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 /*
@@ -57,7 +58,7 @@ const (
  * never somebody already in this chain, or two agents could hand one step
  * back and forth until the budget ran out.
  */
-func (c *Conductor) specialistFor(task *store.Task, step *store.TaskStep, exclude map[string]bool) (team.Agent, bool) {
+func (c *Conductor) specialistFor(task *store.Task, step *store.TaskStep, exclude map[string]bool, need ...string) (team.Agent, bool) {
 	root := task.ID
 	if top, err := c.DB.Root(task); err == nil && top != nil {
 		root = top.ID
@@ -69,10 +70,51 @@ func (c *Conductor) specialistFor(task *store.Task, step *store.TaskStep, exclud
 			continue
 		}
 
+		if !c.hasTools(candidate, need) {
+			continue
+		}
+
 		return candidate, true
 	}
 
+	// Nobody whose work it is has the tool: a specialist on the roster who
+	// does, and the generalist only when no specialist has it.
+	if len(need) > 0 {
+		for _, generalist := range []bool{false, true} {
+			for _, candidate := range c.roster() {
+				if (candidate.Name == "assistant") != generalist || exclude[candidate.Name] ||
+					!availableFor(candidate, task, root) || !c.hasTools(candidate, need) {
+					continue
+				}
+
+				return candidate, true
+			}
+		}
+	}
+
 	return team.Agent{}, false
+}
+
+// hasTools reports whether an agent, as settled, may run every tool named.
+func (c *Conductor) hasTools(a team.Agent, need []string) bool {
+	if len(need) == 0 {
+		return true
+	}
+
+	fit := team.Settle(a, c.chart(), c.Occupations, c.Toolbox)
+
+	only, withTools := fit.Only()
+	if !withTools {
+		return false
+	}
+
+	for _, tool := range need {
+		if (only != nil && !tools.Allowed(only, tool)) || tools.Listed(fit.Never, tool) {
+			return false
+		}
+	}
+
+	return true
 }
 
 /*
@@ -132,7 +174,7 @@ func (c *Conductor) chainOf(task *store.Task, member team.Agent) map[string]bool
  * planning call: the step is already the size a step should be, and the
  * reason it failed is carried in so the specialist does not repeat it.
  */
-func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.Agent, fit team.Fit, why string) (bool, error) {
+func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.Agent, fit team.Fit, why string, need ...string) (bool, error) {
 	if task.Depth >= MostDepth {
 		return false, nil
 	}
@@ -155,7 +197,7 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 
 	chain := c.chainOf(task, member)
 
-	specialist, ok := c.specialistFor(task, step, chain)
+	specialist, ok := c.specialistFor(task, step, chain, need...)
 
 	// Nobody here, so perhaps somebody who could be. See hire.go.
 	if !ok {

@@ -1138,6 +1138,25 @@ func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool
 	}
 
 	/*
+	 * It needed a tool that is not its own: straight to an expert who has
+	 * it, without asking anybody and without a second try that would be
+	 * refused the same way (owner 2026-10-23, "Само своите").
+	 */
+	if need := res.OutsideTools(); len(need) > 0 {
+		step.State = store.StepRunning
+
+		if err := c.DB.FinishStep(*step); err != nil {
+			return false, err
+		}
+
+		handed, err := c.handOn(task, step, member, fit,
+			"it needs "+strings.Join(need, ", ")+", which is not one of its tools", need...)
+		if err != nil || handed {
+			return false, err
+		}
+	}
+
+	/*
 	 * It did not do what it was for, so it is tried again — once.
 	 *
 	 * The reason is kept on the row and handed back on the next attempt, so

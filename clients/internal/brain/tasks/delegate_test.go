@@ -415,3 +415,76 @@ func TestAProjectStepHandedOnStaysInTheProject(t *testing.T) {
 			children[0].Project, children[0].Packages)
 	}
 }
+
+/*
+ * A tool that is not the expert's own: refused, and the step goes straight to
+ * an expert who has the tool — no second try, no question to the owner
+ * (owner 2026-10-23, "Само своите"), even with everything allowed.
+ */
+func TestAStepNeedingAnotherExpertsToolGoesToThatExpert(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("x"), 0o600)
+
+	model := &scripted{
+		plan: `{"name":"Files","steps":[{"do":"list the notes folder","kind":"look","who":"writer"}]}`,
+		replies: []llm.Response{
+			// The writer reaches for a tool it does not have.
+			{ToolCalls: []llm.ToolCall{{
+				ID: "c1", Name: "list_directory",
+				Arguments: json.RawMessage(`{"path":` + asJSON(dir) + `}`),
+			}}},
+			{Content: "I could not list it."},
+			// The archivist, who has it, does the step.
+			{ToolCalls: []llm.ToolCall{{
+				ID: "c2", Name: "list_directory",
+				Arguments: json.RawMessage(`{"path":` + asJSON(dir) + `}`),
+			}}},
+			{Content: "notes.txt is there."},
+		},
+	}
+
+	c, db, _ := newConductor(t, model, tools.ListDirectory{}, tools.ReadFile{})
+	c.Agent.Unbounded = func() bool { return true }
+
+	c.Roster = func() []team.Agent {
+		return []team.Agent{
+			{Name: "assistant", Title: "Assistant", For: "anything"},
+			{Name: "writer", Title: "Writer", For: "writing texts", Tools: []string{"read_file"}},
+			{Name: "archivist", Title: "Archivist", For: "keeping records", Tools: []string{"list_directory"}},
+		}
+	}
+
+	conv, _ := db.NewConversation("t")
+
+	task, _, err := c.Take(context.Background(), conv, "list the notes folder", "scripted", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	finished(t, db, task.ID)
+
+	steps, _ := db.Steps(task.ID)
+	children, _ := db.Children(task.ID)
+
+	if len(children) != 1 {
+		t.Fatalf("not re-routed: %d children, step %+v", len(children), steps[0])
+	}
+
+	childSteps, _ := db.Steps(children[0].ID)
+	if len(childSteps) != 1 || childSteps[0].Assignee != "archivist" {
+		t.Fatalf("re-routed to %+v, want the archivist who has list_directory", childSteps)
+	}
+
+	if steps[0].State != store.StepDone || steps[0].Assignee != "archivist" {
+		t.Errorf("the archivist's work did not finish the step: %+v", steps[0])
+	}
+
+	if steps[0].Attempts != 1 {
+		t.Errorf("the writer was given a second try that would be refused again: %d attempts", steps[0].Attempts)
+	}
+
+	pending, _ := db.PendingInvocations()
+	if len(pending) != 0 {
+		t.Errorf("the owner was asked: %+v", pending)
+	}
+}
