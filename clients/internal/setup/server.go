@@ -1258,6 +1258,10 @@ func (s *Server) chosenRoot() string {
 		return chosen
 	}
 
+	if portable, ok := paths.PortableRoot(); ok {
+		return portable
+	}
+
 	if r, err := paths.Find(); err == nil {
 		return r.Path
 	}

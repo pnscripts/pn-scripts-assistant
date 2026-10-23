@@ -252,6 +252,23 @@ func Find() (Root, error) {
 		return r, nil
 	}
 
+	// A portable copy keeps its brain beside the program and never looks
+	// anywhere else: the stick it runs from is the whole installation.
+	if dir, ok := PortableRoot(); ok {
+		if _, err := os.Stat(filepath.Join(dir, Marker)); err == nil {
+			r, err := read(dir)
+			if err != nil {
+				return Root{}, err
+			}
+
+			r.Borrowed = true
+
+			return r, nil
+		}
+
+		return Root{}, ErrNotFound
+	}
+
 	/*
 	 * What was chosen beats what is nearest.
 	 *
@@ -317,6 +334,13 @@ func Choose(dir string) (Root, error) {
 	r, err := Create(dir)
 	if err != nil {
 		return Root{}, err
+	}
+
+	// A portable copy choosing its own folder is not this machine's choice.
+	if portable, ok := PortableRoot(); ok && filepath.Clean(portable) == filepath.Clean(dir) {
+		r.Borrowed = true
+
+		return r, nil
 	}
 
 	Remember(r)
@@ -391,6 +415,15 @@ func FindOrCreate() (Root, error) {
 	 * is remembered. Nothing is created over the top of that; the caller is
 	 * told where the brain went instead.
 	 */
+	// A portable copy starts its own brain beside itself, whatever this
+	// machine remembers, and does not write itself into this machine's memory.
+	if dir, ok := PortableRoot(); ok {
+		r, err := Create(dir)
+		r.Borrowed = true
+
+		return r, err
+	}
+
 	if away, ok := LastKnown(); ok {
 		return Root{}, &AwayError{Path: away}
 	}
@@ -573,4 +606,44 @@ func DataFolderIn(dir string) []string {
 		filepath.Join(dir, DataFolder),
 		filepath.Join(dir, LegacyData),
 	}
+}
+
+/*
+ * Portable mode: the program and its brain in one folder, no installation.
+ *
+ * A folder holding the program next to a file named PORTABLE (any contents),
+ * or next to a PN-SCRIPTS-ASSISTANT-DATA folder that already holds a brain,
+ * is a portable copy. Its brain lives in that data folder, is found before
+ * anything this machine remembers, and is treated like a borrowed root: the
+ * machine's pointer file is never written, so unplugging the stick leaves
+ * nothing behind and the installed copy, if there is one, keeps its own brain.
+ */
+const PortableFlag = "PORTABLE"
+
+// executable is os.Executable, replaceable so a test can place the program.
+var executable = os.Executable
+
+// PortableRoot is the data folder of a portable copy, and whether this is one.
+func PortableRoot() (string, bool) {
+	exe, err := executable()
+	if err != nil {
+		return "", false
+	}
+
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+
+	dir := filepath.Dir(exe)
+	data := filepath.Join(dir, DataFolder)
+
+	if _, err := os.Stat(filepath.Join(dir, PortableFlag)); err == nil {
+		return data, true
+	}
+
+	if _, err := os.Stat(filepath.Join(data, Marker)); err == nil {
+		return data, true
+	}
+
+	return "", false
 }

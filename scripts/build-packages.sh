@@ -442,9 +442,13 @@ There are two downloads and they hold the same program.
                           administrator password, and can remove itself
                           again from Settings.
 
-  ...-windows-amd64.zip   this folder. Put it anywhere you like and run
-                          pn-scripts-assistant.exe. Nothing is installed and
-                          nothing is written outside the brain's own folder.
+  ...-windows-amd64.zip   this folder, the portable copy. Put it anywhere
+                          you like, a USB stick included, and run
+                          pn-scripts-assistant.exe. Nothing is installed: the
+                          brain is kept in PN-SCRIPTS-ASSISTANT-DATA beside
+                          the program and goes wherever the folder goes.
+                          Delete the file PORTABLE to keep the brain in your
+                          account instead.
 
 The first time, Windows will refuse
 -----------------------------------
@@ -679,6 +683,12 @@ build_windows() {
         -o "$dir/pn-scripts-assistant.exe" ./cmd/pn-scripts-assistant || die "windows build failed"
 
     cp "$ROOT/build/windows/README.txt" "$dir/" 2>/dev/null || true
+
+    # The zip is the portable copy: PORTABLE beside the program keeps the brain
+    # in the folder (paths.PortableRoot). The installer lists its files by
+    # name, so it never ships this one.
+    printf 'This copy keeps its brain beside it, in PN-SCRIPTS-ASSISTANT-DATA.\r\nDelete this file to keep the brain in your account instead.\r\n' \
+        > "$dir/PORTABLE"
 
     # Removed first: zip adds to an archive that already exists rather than
     # replacing it, so building the same version twice would otherwise produce

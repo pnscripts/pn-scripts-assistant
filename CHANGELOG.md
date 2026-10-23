@@ -26,6 +26,12 @@ looks twice at every message before you act on it.
   Imported skills are copied there with their references (never secrets,
   databases or caches), so their playbooks keep working where the agent is
   not installed.
+- **A portable copy.** The Windows zip now runs without installing
+  anything: the brain is kept in `PN-SCRIPTS-ASSISTANT-DATA` beside the
+  program, so the folder works from a USB stick, and the computer it runs on
+  does not remember it. On Linux, put a file named `PORTABLE` beside the
+  program for the same. The installer and the .deb keep the brain in your
+  account, as before.
 - **A scam guard.** Every message `read_mailbox` and `read_email` read is
   checked — a sender domain that does not exist, look-alike brands and links,
   replies that go elsewhere, pressure combined with a request for passwords,
