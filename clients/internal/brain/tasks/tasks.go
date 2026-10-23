@@ -927,7 +927,7 @@ func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, erro
 	}
 
 	c.happened(protocol.StepStarted, task, step, trimTo(step.Instruction, 120),
-		map[string]any{"position": step.Position, "assignee": member.Name, "through": through, "model": choice.Model})
+		map[string]any{"position": step.Position, "assignee": member.Name, "through": through, "model": choice.Model, "why": choice.Why})
 
 	step.Assignee = member.Name
 
