@@ -804,6 +804,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	 * every brain until somebody writes one. Refusing to start would refuse
 	 * somebody their assistant over a file that only ever adds to it.
 	 */
+	// The knowledge every brain starts with, written into its knowledge
+	// folder on the first start and refreshed on upgrades (see seed).
+	b.installSeed()
+
 	// The agent skills on this machine first, so they are in the list too.
 	b.importSkills()
 

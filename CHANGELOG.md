@@ -6,6 +6,28 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+### Added
+
+- **Each step gets the model its work needs.** A job's steps are thought with
+  the model their expert's work calls for — code, hard thinking, speed,
+  pictures — chosen from what is installed at that moment, with the reason
+  shown; a model that keeps failing gives way to the next.
+- **One question at a time.** When it needs to ask, it asks one question with
+  two to four answers to click, the recommended one first; reply with a
+  number, a word or your own sentence.
+- **Starting knowledge inside the program.** A new brain gets short guides in
+  its knowledge folder (getting started, portable copy and USB, the scam
+  guard, experts and models, trusted sources). Updates refresh the guides you
+  have not changed and never touch the ones you have.
+
+### Changed
+
+- The built-in playbooks are only what every user needs: asking, planning a
+  goal, mail, documents and the scam guard. Procedures specific to one
+  business are no longer shipped in the program.
+
 ## 0.5.0 — 2026-10-23
 
 It knows what your other agents know, carries its knowledge with it, and

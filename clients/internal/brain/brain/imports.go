@@ -3,6 +3,9 @@ package brain
 import (
 	"path/filepath"
 
+	"pn-scripts-assistant/internal/brain/places"
+	"pn-scripts-assistant/internal/brain/seed"
+
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/scam"
 
@@ -52,4 +55,25 @@ func (b *Brain) scamLookup() scam.Lookup {
 	}
 
 	return scamDNS
+}
+
+// installSeed writes the knowledge the program carries into this brain's
+// knowledge folder: once on a new brain, and again after an upgrade for the
+// guides its owner has not changed. A brain that cannot be written to still
+// starts; it simply has no guides.
+func (b *Brain) installSeed() {
+	if b.Root == "" {
+		return
+	}
+
+	done, err := seed.Install(places.Knowledge(b.Root))
+	if err != nil {
+		b.Log.Warn("the starting knowledge could not be written", "error", err)
+
+		return
+	}
+
+	if done.Changed() {
+		b.Log.Info("wrote the starting knowledge", "new", done.Written, "updated", done.Updated, "kept", done.Kept)
+	}
 }

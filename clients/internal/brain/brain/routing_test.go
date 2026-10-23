@@ -1,6 +1,8 @@
 package brain
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"pn-scripts-assistant/internal/brain/ask"
@@ -37,5 +39,15 @@ func TestAReplyToAQuestionIsTheAnswerItPicked(t *testing.T) {
 
 	if got := b.answerToQuestion(conv, "2"); got != "2" {
 		t.Errorf("an old question still captured the reply: %q", got)
+	}
+}
+
+// A new brain starts with the knowledge the program carries, in the folder
+// that travels with it.
+func TestANewBrainStartsWithTheSeedKnowledge(t *testing.T) {
+	b := testBrain(t)
+
+	if _, err := os.Stat(filepath.Join(b.Root, "knowledge", "guides", "getting-started.md")); err != nil {
+		t.Fatalf("no starting knowledge: %v", err)
 	}
 }

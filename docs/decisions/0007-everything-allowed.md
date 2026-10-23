@@ -121,6 +121,13 @@ social kit and the product-factory specification. They carry no secrets,
 passwords, account numbers or personal data, and no path on anybody's machine;
 a test checks for the shapes of those.
 
+> **Changed 2026-10-23.** The twelve procedures of one business left the binary
+> (they were its owner's work, not every user's). The program now ships only
+> what every user needs — `ask_one_question`, `plan_a_goal`, `handle_email`,
+> `work_with_documents` and `scam_guard` — plus a starting knowledge pack
+> (package `seed`) written into the brain's knowledge folder. A business's own
+> procedures come in as imported agent skills or as files in that folder.
+
 Every playbook keeps the outward habits that are about other people rather than
 about this machine: its owner signs in himself (no password is ever typed), and
 publishing, sending and paying wait for his yes in the conversation. Those are

@@ -12,19 +12,22 @@ import (
 // What its owner's work was, written down (ADR 0007). Each is checked by name
 // so that losing one is a failure, not a quieter list.
 //
-// Thirteen: the twelve of its owner's work, and the scam guard every user gets. The procedures for its owner's own mail and complaints and for his
-// loans and plans were his personal matters rather than the company's work,
-// so they live as skills in his own brain's folder and not in a public binary.
+// Only what every user needs (owner 23.10: "само тези от които има нужда"):
+// asking, planning a goal, mail, documents and the scam guard. The twelve
+// procedures of its owner's own business left the binary — they live in his
+// own skills and knowledge, which the program imports.
 var wantPlaybooks = []string{
-	"brand_naming", "build_html5_games", "build_products",
-	"github_cost_control", "machine_throttling", "publish_game_jolt",
-	"publish_itch_io", "sales_hold", "scam_guard", "ship_pnscripts_com", "update_ai_brain",
-	"update_social_profiles", "wordpress_org_plugin_review",
+	"ask_one_question", "handle_email", "plan_a_goal", "scam_guard", "work_with_documents",
 }
 
 // Personal procedures are not shipped, and a test says so rather than a list
 // that is quietly one shorter.
-var personalPlaybooks = []string{"email_and_complaints", "planning_loans_strategy"}
+var personalPlaybooks = []string{
+	"email_and_complaints", "planning_loans_strategy",
+	"brand_naming", "build_html5_games", "build_products", "github_cost_control",
+	"machine_throttling", "publish_game_jolt", "publish_itch_io", "sales_hold",
+	"ship_pnscripts_com", "update_ai_brain", "update_social_profiles", "wordpress_org_plugin_review",
+}
 
 func TestPersonalProceduresAreNotShipped(t *testing.T) {
 	found, err := Builtin()
@@ -108,7 +111,7 @@ func TestAPlaybookIsOfferedByItsWords(t *testing.T) {
 	found, _ := Builtin()
 
 	for _, s := range found {
-		if s.Name != "publish_itch_io" {
+		if s.Name != "handle_email" {
 			continue
 		}
 
@@ -119,12 +122,12 @@ func TestAPlaybookIsOfferedByItsWords(t *testing.T) {
 		}
 
 		cues := strings.Join(tool.(tools.Cued).Cues(), " ")
-		if !strings.Contains(cues, "itch") {
-			t.Errorf("itch is not a cue: %s", cues)
+		if !strings.Contains(cues, "inbox") {
+			t.Errorf("inbox is not a cue: %s", cues)
 		}
 
 		out, err := tool.Execute(context.Background(), nil)
-		if err != nil || !strings.Contains(out, "html-classic.itch.zone") {
+		if err != nil || !strings.Contains(out, "send_email only after the owner says yes") {
 			t.Errorf("reading it did not return the procedure: %v %q", err, out[:min(200, len(out))])
 		}
 
@@ -135,7 +138,7 @@ func TestAPlaybookIsOfferedByItsWords(t *testing.T) {
 		return
 	}
 
-	t.Fatal("publish_itch_io is not shipped")
+	t.Fatal("handle_email is not shipped")
 }
 
 // Its owner's own skill of the same name wins, so a playbook can be corrected
@@ -143,7 +146,7 @@ func TestAPlaybookIsOfferedByItsWords(t *testing.T) {
 func TestTheOwnersOwnVersionWins(t *testing.T) {
 	root := t.TempDir()
 
-	if err := Save(root, Skill{Name: "sales_hold", When: "selling", How: "Mine."}); err != nil {
+	if err := Save(root, Skill{Name: "handle_email", When: "selling", How: "Mine."}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -155,7 +158,7 @@ func TestTheOwnersOwnVersionWins(t *testing.T) {
 	count := 0
 
 	for _, s := range all {
-		if s.Name == "sales_hold" {
+		if s.Name == "handle_email" {
 			count++
 
 			if s.Builtin || s.How != "Mine." {
@@ -165,6 +168,6 @@ func TestTheOwnersOwnVersionWins(t *testing.T) {
 	}
 
 	if count != 1 || len(all) != len(wantPlaybooks) {
-		t.Errorf("%d sales_hold, %d skills in all", count, len(all))
+		t.Errorf("%d handle_email, %d skills in all", count, len(all))
 	}
 }
