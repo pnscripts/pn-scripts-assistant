@@ -1082,6 +1082,8 @@ func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool
 			return false, err
 		}
 
+		c.progress(task, step)
+
 		// Said before the row says waiting, for the same reason the report is:
 		// anything polling would otherwise see a task stop with no sign of
 		// what it was stopping for.
@@ -2096,4 +2098,49 @@ func (c *Conductor) outcome(model string, err error) {
 	} else if err == nil {
 		delete(c.failed, model)
 	}
+}
+
+/*
+ * progress is one line in the conversation the task came from each time a
+ * step is done, so the chat that asked for the work is also where it can be
+ * followed — "step 2 of 5 done", by whom and with which model. Only for the
+ * task somebody asked for: a specialist's own sub-task reports through its
+ * parent, and a one-step task is reported when it finishes.
+ */
+func (c *Conductor) progress(task *store.Task, step *store.TaskStep) {
+	if task.ParentTaskID != 0 {
+		return
+	}
+
+	steps, err := c.DB.Steps(task.ID)
+	if err != nil || len(steps) < 2 {
+		return
+	}
+
+	done := 0
+
+	for _, s := range steps {
+		if s.State == store.StepDone {
+			done++
+		}
+	}
+
+	who := strings.Join(nonEmpty(step.Assignee, step.Model), " · ")
+	if who != "" {
+		who = " (" + who + ")"
+	}
+
+	c.say(task, fmt.Sprintf("%s: step %d of %d done%s — %s", task.Name, done, len(steps), who, trimTo(step.Instruction, 100)))
+}
+
+func nonEmpty(values ...string) []string {
+	var out []string
+
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			out = append(out, v)
+		}
+	}
+
+	return out
 }

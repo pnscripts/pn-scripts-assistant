@@ -109,3 +109,32 @@ func TestTheReasonForAModelIsKeptOnTheStep(t *testing.T) {
 		t.Fatalf("kept %q", steps[0].ModelWhy)
 	}
 }
+
+// Each finished step is one line in the conversation that asked for the work;
+// a specialist's sub-task and a one-step task say nothing until the end.
+func TestProgressIsSaidInTheChatThatAskedForTheWork(t *testing.T) {
+	c, db, spoken := newConductor(t, &scripted{})
+	conv, _ := db.NewConversation("t")
+
+	id, _ := db.NewTask(store.Task{Name: "Space game", Goal: "g", State: store.TaskWorking, ConversationID: conv})
+	db.AddSteps(id, []store.TaskStep{{Instruction: "design the rules"}, {Instruction: "build it"}})
+
+	steps, _ := db.Steps(id)
+	steps[0].State, steps[0].Assignee, steps[0].Model = store.StepDone, "designer", "qwen2.5:14b"
+	db.FinishStep(steps[0])
+
+	task, _ := db.Task(id)
+	c.progress(task, &steps[0])
+
+	if got := spoken.whole(); got != "Space game: step 1 of 2 done (designer · qwen2.5:14b) — design the rules" {
+		t.Fatalf("said %q", got)
+	}
+
+	child := *task
+	child.ParentTaskID = 99
+	c.progress(&child, &steps[0])
+
+	if len(spoken.lines) != 1 {
+		t.Fatalf("a sub-task reported its own progress: %q", spoken.lines)
+	}
+}
