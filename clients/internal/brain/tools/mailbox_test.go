@@ -188,3 +188,23 @@ func TestEveryMessageReadIsCheckedForScams(t *testing.T) {
 		t.Errorf("an ordinary message:\n%s", ordinary)
 	}
 }
+
+// The address behind "Verify your account" is the part of a phishing mail
+// that gives it away, so it survives the HTML being made readable — also
+// when a plain part is there and is the one shown.
+func TestLinksBehindAnchorTextReachTheScamGuard(t *testing.T) {
+	html := `<p>Your parcel is waiting.</p><a href="https://parcel-redelivery.example/pay?id=1&amp;x=2">Track it here</a>`
+
+	only := bodyText("text/html; charset=utf-8", "", strings.NewReader(html))
+	if !strings.Contains(only, "https://parcel-redelivery.example/pay?id=1&x=2") {
+		t.Fatalf("the link behind the anchor text was lost:\n%s", only)
+	}
+
+	multi := "--b\r\nContent-Type: text/plain\r\n\r\nYour parcel is waiting. Track it here.\r\n" +
+		"--b\r\nContent-Type: text/html\r\n\r\n" + html + "\r\n--b--\r\n"
+
+	both := bodyText(`multipart/alternative; boundary="b"`, "", strings.NewReader(multi))
+	if !strings.HasPrefix(both, "Your parcel is waiting. Track it here.") || !strings.Contains(both, "parcel-redelivery.example") {
+		t.Fatalf("the plain part did not keep the HTML part's links:\n%s", both)
+	}
+}

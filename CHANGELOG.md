@@ -37,7 +37,10 @@ looks twice at every message before you act on it.
   replies that go elsewhere, pressure combined with a request for passwords,
   money or access — and the verdict is written under it. Lists flag the
   obvious ones from the headers. A new `scam_guard` playbook says what to do
-  next. Domains are looked up only when privacy allows the web.
+  next. Domains are looked up only when privacy allows the web. Mail read
+  over IMAP brings its Reply-To along, and the addresses behind the links of
+  an HTML message are listed under its text, so a link hidden behind
+  "Verify your account" is checked too.
 
 ### Security
 

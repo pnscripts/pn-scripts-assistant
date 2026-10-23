@@ -2,6 +2,7 @@ package tools
 
 import (
 	"pn-scripts-assistant/internal/brain/scam"
+	"regexp"
 
 	"bufio"
 	"bytes"
@@ -468,6 +469,12 @@ func bodyText(contentType, encoding string, body io.Reader) string {
 		}
 
 		if strings.TrimSpace(plain) != "" {
+			// The plain part says "click here"; where "here" goes is only in
+			// the HTML part, and that is what the scam guard has to see.
+			if _, list, ok := strings.Cut(html, linksHeading); ok && !strings.Contains(plain, linksHeading) {
+				return plain + linksHeading + list
+			}
+
 			return plain
 		}
 
@@ -486,7 +493,7 @@ func bodyText(contentType, encoding string, body io.Reader) string {
 	raw, _ := io.ReadAll(io.LimitReader(r, 8<<20))
 
 	if strings.HasPrefix(media, "text/html") {
-		return ReadableText(string(raw))
+		return ReadableText(string(raw)) + linkList(string(raw))
 	}
 
 	if strings.HasPrefix(media, "text/") {
@@ -525,4 +532,44 @@ func decodeHeader(v string) string {
 	}
 
 	return v
+}
+
+// linksHeading starts the list of where an HTML message's links really go.
+const linksHeading = "\n\nLinks in this message:\n"
+
+var hrefs = regexp.MustCompile(`(?i)href\s*=\s*["']?\s*(https?://[^"'\s>]+)`)
+
+/*
+ * linkList is where an HTML message's links point, which its readable text
+ * no longer says.
+ *
+ * Turning HTML into text keeps "Verify your account" and drops the address
+ * behind it — the one part of a phishing mail that gives it away. Listed
+ * under the text so the scam guard sees the real hosts and so does whoever
+ * reads the message. Twenty at most, each once.
+ */
+func linkList(html string) string {
+	seen := map[string]bool{}
+
+	var out []string
+
+	for _, m := range hrefs.FindAllStringSubmatch(html, -1) {
+		link := strings.ReplaceAll(m[1], "&amp;", "&")
+		if seen[link] {
+			continue
+		}
+
+		seen[link] = true
+		out = append(out, link)
+
+		if len(out) == 20 {
+			break
+		}
+	}
+
+	if len(out) == 0 {
+		return ""
+	}
+
+	return linksHeading + strings.Join(out, "\n")
 }
