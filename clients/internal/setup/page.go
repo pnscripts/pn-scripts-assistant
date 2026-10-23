@@ -480,7 +480,13 @@ html.has-stage .wrap{position:relative;z-index:1}
          partway through an install — and wrapping it here would freeze it.
          See identityBeingEdited. -->
     <div id="name-form"></div>
+  </div>
 
+  <!-- The voice, a screen of its own: one question at a time. -->
+  <div class="step" id="step-voice" hidden>
+    <h2>How it sounds</h2>
+    <p class="sub">Pick the voice it answers in. You can listen to each one
+      first, and change it later.</p>
     <div id="voice-pick"></div>
   </div>
 
@@ -1984,7 +1990,10 @@ const STEPS = [
    * Never blocks: it has a name already, and keeping the one it came with is
    * a perfectly good answer from somebody who does not want to give it another.
    */
-  {id: "name", title: "Name and voice", shown: () => true, blocks: () => ""},
+  {id: "name", title: "Name", shown: () => true, blocks: () => ""},
+
+  // One question per screen: the voice after the name.
+  {id: "voice", title: "Voice", shown: () => true, blocks: () => ""},
 
   {id: "privacy", title: "What it asks you about", shown: () => true,
    /*

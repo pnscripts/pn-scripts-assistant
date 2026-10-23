@@ -38,7 +38,11 @@ func TestSetupAsksOneQuestionPerScreenWithTheRecommendedFirst(t *testing.T) {
 		t.Fatal("what may leave has no screen of its own")
 	}
 
-	order := []string{`{id: "privacy"`, `{id: "leave"`, `{id: "apply"`}
+	if strings.Contains(stepHTML(t, "name"), `id="voice-pick"`) || !strings.Contains(stepHTML(t, "voice"), `id="voice-pick"`) {
+		t.Fatal("the name and the voice are still one screen")
+	}
+
+	order := []string{`{id: "name"`, `{id: "voice"`, `{id: "privacy"`, `{id: "leave"`, `{id: "apply"`}
 	at := -1
 
 	for _, step := range order {
