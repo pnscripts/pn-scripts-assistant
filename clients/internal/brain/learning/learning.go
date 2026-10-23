@@ -191,7 +191,7 @@ func homeDir() string {
 func observedPath(source string) (string, bool) {
 	for _, prefix := range []string{"project:", "document:"} {
 		if strings.HasPrefix(source, prefix) {
-			return strings.TrimPrefix(source, prefix), true
+			return Resolve(strings.TrimPrefix(source, prefix)), true
 		}
 	}
 
@@ -280,7 +280,7 @@ func (c Curator) Promote(ctx context.Context, lesson store.Lesson) (int64, error
 func plainSource(source string) string {
 	for _, prefix := range []string{"project:", "document:", "browser:"} {
 		if rest, found := strings.CutPrefix(source, prefix); found {
-			return rest
+			return Resolve(rest)
 		}
 	}
 

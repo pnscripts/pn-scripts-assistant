@@ -6,6 +6,7 @@ import (
 	"pn-scripts-assistant/internal/brain/places"
 	"pn-scripts-assistant/internal/brain/seed"
 
+	"pn-scripts-assistant/internal/brain/learning"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/scam"
 
@@ -64,6 +65,16 @@ func (b *Brain) scamLookup() scam.Lookup {
 func (b *Brain) installSeed() {
 	if b.Root == "" {
 		return
+	}
+
+	// Paths inside the brain are remembered relative to it, so a brain that
+	// moves does not learn its own knowledge folder again (see learning.Portable).
+	learning.SetBrainRoot(b.Root)
+
+	if n, err := b.DB.PortableSources(b.Root); err != nil {
+		b.Log.Warn("could not make the brain's own paths relative", "error", err)
+	} else if n > 0 {
+		b.Log.Info("made the brain's own paths relative", "rows", n)
 	}
 
 	done, err := seed.Install(places.Knowledge(b.Root))

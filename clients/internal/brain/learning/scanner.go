@@ -488,7 +488,7 @@ func (d Document) Sentence(owner string) string {
 	return s + "."
 }
 
-func (d Document) Source() string { return "document:" + d.Path }
+func (d Document) Source() string { return "document:" + Portable(d.Path) }
 
 func matchesAny(s string, patterns []*regexp.Regexp) bool {
 	for _, p := range patterns {

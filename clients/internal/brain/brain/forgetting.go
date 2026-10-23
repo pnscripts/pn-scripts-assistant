@@ -2,6 +2,7 @@ package brain
 
 import (
 	"os"
+	"pn-scripts-assistant/internal/brain/learning"
 	"strings"
 
 	"pn-scripts-assistant/internal/brain/places"
@@ -100,7 +101,7 @@ func (b *Brain) forgetWhatIsGone() {
 func pathOf(source string) (string, bool) {
 	for _, prefix := range []string{"document:", "project:"} {
 		if rest, found := strings.CutPrefix(source, prefix); found {
-			return rest, rest != ""
+			return learning.Resolve(rest), rest != ""
 		}
 	}
 

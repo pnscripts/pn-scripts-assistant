@@ -24,6 +24,10 @@ number is 0, the second one changes when something visible changes.
 
 ### Changed
 
+- **A moved brain does not learn its own knowledge again.** Files inside the
+  brain's folder are remembered relative to it (`@brain/knowledge/…`), and
+  what was learned before is rewritten that way on the next start, so a brain
+  on a USB stick or another computer keeps one copy of each fact.
 - **Each expert runs only its own tools**, also when everything is allowed.
   A step that reaches for another expert's tool is handed, without asking
   you, to an expert who has it (a specialist first, the general assistant

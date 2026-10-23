@@ -623,7 +623,7 @@ func KindOf(path string) string {
 // already on this machine would stay unread forever, and the reading would
 // only ever apply to files that arrived after it was written. Under its own
 // source, each of them comes up exactly once more.
-func ReadingSource(path string) string { return "reading:" + path }
+func ReadingSource(path string) string { return "reading:" + Portable(path) }
 
 /*
  * ContentsWanted marks the documents whose insides are still to be read.
@@ -654,7 +654,9 @@ func WantsReading(o Observation) (string, bool) {
 		return "", false
 	}
 
-	return strings.CutPrefix(o.Source, "reading:")
+	path, ok := strings.CutPrefix(o.Source, "reading:")
+
+	return Resolve(path), ok
 }
 
 /*
