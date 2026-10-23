@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"pn-scripts-assistant/internal/brain/scam"
 )
 
 /*
@@ -133,5 +135,56 @@ func TestNoThunderbirdIsSaid(t *testing.T) {
 	_, err := ReadMailbox{Home: t.TempDir()}.Execute(context.Background(), json.RawMessage(`{"action":"folders"}`))
 	if err == nil || !strings.Contains(err.Error(), "no Thunderbird") {
 		t.Errorf("got %v", err)
+	}
+}
+
+// fakeLookup answers from a list, so the test never asks the network.
+type fakeLookup map[string]bool
+
+func (f fakeLookup) Resolves(d string) (bool, bool) { v, ok := f[d]; return v, ok }
+
+func TestEveryMessageReadIsCheckedForScams(t *testing.T) {
+	home := fakeThunderbird(t)
+	inbox := filepath.Join(home, ".thunderbird", "abcd.default-release", "ImapMail", "imap.example.com", "INBOX")
+
+	phish := "\nFrom - Thu Oct 09 10:00:00 2026\n" +
+		"X-Mozilla-Status: 0001\n" +
+		"From: PayPal Service <alert@paypa1-secure.com>\n" +
+		"Reply-To: desk@claims-center.net\n" +
+		"Subject: Your account will be suspended\n" +
+		"Date: Thu, 9 Oct 2026 10:00:00 +0300\n" +
+		"\n" +
+		"Verify your account within 24 hours: https://paypa1-secure.com/login\n"
+
+	f, err := os.OpenFile(inbox, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.WriteString(phish)
+	f.Close()
+
+	var look scam.Lookup = fakeLookup{"paypa1-secure.com": false, "example.org": true, "grid.example": true}
+	m := ReadMailbox{Home: home, Lookup: func() scam.Lookup { return look }}
+
+	list := mailbox(t, m, `{"action":"list","folder":"ImapMail/imap.example.com/INBOX"}`)
+	if !strings.Contains(list, "Your account will be suspended [scam check: likely a scam]") {
+		t.Errorf("the list does not flag the phish:\n%s", list)
+	}
+
+	if strings.Contains(list, "Planned interruption [scam") {
+		t.Errorf("ordinary mail was flagged:\n%s", list)
+	}
+
+	read := mailbox(t, m, `{"action":"read","folder":"ImapMail/imap.example.com/INBOX","number":4}`)
+	for _, want := range []string{"Reply-To: desk@claims-center.net", "LIKELY A SCAM", "does not exist", "imitates paypal"} {
+		if !strings.Contains(read, want) {
+			t.Errorf("%q missing from:\n%s", want, read)
+		}
+	}
+
+	ordinary := mailbox(t, m, `{"action":"read","folder":"ImapMail/imap.example.com/INBOX","number":1}`)
+	if !strings.Contains(ordinary, "Scam check: no warning signs.") {
+		t.Errorf("an ordinary message:\n%s", ordinary)
 	}
 }

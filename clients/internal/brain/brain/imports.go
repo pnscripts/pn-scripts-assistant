@@ -3,6 +3,9 @@ package brain
 import (
 	"path/filepath"
 
+	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/scam"
+
 	"pn-scripts-assistant/internal/brain/skills"
 )
 
@@ -33,4 +36,20 @@ func (b *Brain) importSkills() bool {
 	b.Log.Info("imported agent skills as playbooks", "written", done.Written)
 
 	return true
+}
+
+// scamDNS is shared, so a domain is asked about once per run.
+var scamDNS = &scam.DNS{}
+
+/*
+ * scamLookup is the scam check's one question to the network — does this
+ * domain exist — asked only when the privacy setting lets anything reach the
+ * web. Under private, the check still reads the words and the addresses.
+ */
+func (b *Brain) scamLookup() scam.Lookup {
+	if !llm.ParseMode(b.Cfg.Privacy).AllowsWeb() {
+		return nil
+	}
+
+	return scamDNS
 }

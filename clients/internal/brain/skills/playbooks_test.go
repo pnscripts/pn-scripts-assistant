@@ -12,13 +12,13 @@ import (
 // What its owner's work was, written down (ADR 0007). Each is checked by name
 // so that losing one is a failure, not a quieter list.
 //
-// Twelve. The procedures for its owner's own mail and complaints and for his
+// Thirteen: the twelve of its owner's work, and the scam guard every user gets. The procedures for its owner's own mail and complaints and for his
 // loans and plans were his personal matters rather than the company's work,
 // so they live as skills in his own brain's folder and not in a public binary.
 var wantPlaybooks = []string{
 	"brand_naming", "build_html5_games", "build_products",
 	"github_cost_control", "machine_throttling", "publish_game_jolt",
-	"publish_itch_io", "sales_hold", "ship_pnscripts_com", "update_ai_brain",
+	"publish_itch_io", "sales_hold", "scam_guard", "ship_pnscripts_com", "update_ai_brain",
 	"update_social_profiles", "wordpress_org_plugin_review",
 }
 

@@ -261,7 +261,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// What its owner's work was done with by hand (ADR 0007): a Chrome
 		// it can drive, signed in as him, and Thunderbird's own mail folders.
 		tools.DriveBrowser{},
-		tools.ReadMailbox{},
+		tools.ReadMailbox{Lookup: b.scamLookup},
 
 		// Root, with the operating system asking its owner (ADR 0008).
 		tools.RunAsAdmin{},
@@ -307,7 +307,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		read := func() mail.Account { return mailAccount(b.Cfg) }
 
 		available = append(available,
-			tools.ReadEmail{Account: read},
+			tools.ReadEmail{Account: read, Lookup: b.scamLookup},
 			tools.SendEmail{Account: read},
 		)
 	}

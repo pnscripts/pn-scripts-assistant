@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"pn-scripts-assistant/internal/brain/scam"
+
 	"bufio"
 	"bytes"
 	"context"
@@ -37,6 +39,11 @@ import (
 type ReadMailbox struct {
 	// Home is where to look for Thunderbird; empty means the user's home.
 	Home string
+
+	// Lookup asks whether a domain exists, for the scam check; nil when
+	// nothing may be asked of the network, and then only the words and the
+	// addresses are checked.
+	Lookup func() scam.Lookup
 }
 
 func (ReadMailbox) Name() string { return "read_mailbox" }
@@ -156,7 +163,15 @@ func (m ReadMailbox) Execute(ctx context.Context, raw json.RawMessage) (string, 
 				continue
 			}
 
-			lines = append(lines, fmt.Sprintf("%d. %s — %s — %s", i+1, h.Get("Date"), from, subject))
+			line := fmt.Sprintf("%d. %s — %s — %s", i+1, h.Get("Date"), from, subject)
+
+			// A first look from the headers alone; reading the message
+			// checks it properly.
+			if v := scam.Check(scam.Message{From: from, ReplyTo: decodeHeader(h.Get("Reply-To")), Subject: subject}, nil); v.Warns() {
+				line += " [scam check: " + v.Level + "]"
+			}
+
+			lines = append(lines, line)
 		}
 
 		if len(lines) == 0 {
@@ -171,7 +186,12 @@ func (m ReadMailbox) Execute(ctx context.Context, raw json.RawMessage) (string, 
 			return "", fmt.Errorf("there is no message %d; the folder holds %d", a.Number, len(starts))
 		}
 
-		return readMessageAt(file, starts, a.Number-1)
+		var look scam.Lookup
+		if m.Lookup != nil {
+			look = m.Lookup()
+		}
+
+		return readMessageAt(file, starts, a.Number-1, look)
 	}
 
 	return "", fmt.Errorf("there is no action %q", a.Action)
@@ -355,7 +375,7 @@ func deletedFlag(h mail.Header) bool {
 	return err == nil && status&0x0008 != 0
 }
 
-func readMessageAt(file string, starts []int64, i int) (string, error) {
+func readMessageAt(file string, starts []int64, i int, look scam.Lookup) (string, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return "", err
@@ -388,13 +408,24 @@ func readMessageAt(file string, starts []int64, i int) (string, error) {
 
 	var b strings.Builder
 
-	for _, k := range []string{"Date", "From", "To", "Cc", "Subject", "Message-ID"} {
+	for _, k := range []string{"Date", "From", "Reply-To", "To", "Cc", "Subject", "Message-ID"} {
 		if v := msg.Header.Get(k); v != "" {
 			b.WriteString(k + ": " + decodeHeader(v) + "\n")
 		}
 	}
 
 	b.WriteString("\n" + truncateRunes(strings.TrimSpace(body), MostMessageText))
+
+	// Every message read is checked for the usual tricks, and the result is
+	// written where the model and its owner both see it.
+	verdict := scam.Check(scam.Message{
+		From:    decodeHeader(msg.Header.Get("From")),
+		ReplyTo: decodeHeader(msg.Header.Get("Reply-To")),
+		Subject: decodeHeader(msg.Header.Get("Subject")),
+		Body:    body,
+	}, look)
+
+	b.WriteString("\n\n" + verdict.String())
 
 	return b.String(), nil
 }

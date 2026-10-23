@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"pn-scripts-assistant/internal/brain/scam"
+
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,7 +25,13 @@ import (
  */
 
 // ReadEmail lists recent messages.
-type ReadEmail struct{ Account func() mail.Account }
+type ReadEmail struct {
+	Account func() mail.Account
+
+	// Lookup is as in ReadMailbox: the scam check's question to the
+	// network, or nil.
+	Lookup func() scam.Lookup
+}
 
 func (ReadEmail) Name() string { return "read_email" }
 
@@ -86,8 +94,15 @@ func (t ReadEmail) Execute(_ context.Context, raw json.RawMessage) (string, erro
 			body = body[:MaxReadBytes] + "\n\n[truncated]"
 		}
 
-		return fmt.Sprintf("From: %s\nDate: %s\nSubject: %s\n\n%s",
-			msg.From, msg.Date, msg.Subject, body), nil
+		var look scam.Lookup
+		if t.Lookup != nil {
+			look = t.Lookup()
+		}
+
+		verdict := scam.Check(scam.Message{From: msg.From, Subject: msg.Subject, Body: msg.Body}, look)
+
+		return fmt.Sprintf("From: %s\nDate: %s\nSubject: %s\n\n%s\n\n%s",
+			msg.From, msg.Date, msg.Subject, body, verdict), nil
 	}
 
 	count := a.Count
@@ -107,7 +122,13 @@ func (t ReadEmail) Execute(_ context.Context, raw json.RawMessage) (string, erro
 	var b strings.Builder
 
 	for _, m := range messages {
-		fmt.Fprintf(&b, "%d. %s — %s (%s)\n", m.Number, m.From, m.Subject, m.Date)
+		fmt.Fprintf(&b, "%d. %s — %s (%s)", m.Number, m.From, m.Subject, m.Date)
+
+		if v := scam.Check(scam.Message{From: m.From, Subject: m.Subject}, nil); v.Warns() {
+			b.WriteString(" [scam check: " + v.Level + "]")
+		}
+
+		b.WriteString("\n")
 	}
 
 	return strings.TrimRight(b.String(), "\n"), nil
