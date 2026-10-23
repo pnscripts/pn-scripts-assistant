@@ -99,7 +99,7 @@ func (t ReadEmail) Execute(_ context.Context, raw json.RawMessage) (string, erro
 			look = t.Lookup()
 		}
 
-		verdict := scam.Check(scam.Message{From: msg.From, Subject: msg.Subject, Body: msg.Body}, look)
+		verdict := scam.Check(scam.Message{From: msg.From, ReplyTo: msg.ReplyTo, Subject: msg.Subject, Body: msg.Body}, look)
 
 		return fmt.Sprintf("From: %s\nDate: %s\nSubject: %s\n\n%s\n\n%s",
 			msg.From, msg.Date, msg.Subject, body, verdict), nil
@@ -124,7 +124,7 @@ func (t ReadEmail) Execute(_ context.Context, raw json.RawMessage) (string, erro
 	for _, m := range messages {
 		fmt.Fprintf(&b, "%d. %s — %s (%s)", m.Number, m.From, m.Subject, m.Date)
 
-		if v := scam.Check(scam.Message{From: m.From, Subject: m.Subject}, nil); v.Warns() {
+		if v := scam.Check(scam.Message{From: m.From, ReplyTo: m.ReplyTo, Subject: m.Subject}, nil); v.Warns() {
 			b.WriteString(" [scam check: " + v.Level + "]")
 		}
 

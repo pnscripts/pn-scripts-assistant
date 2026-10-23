@@ -45,8 +45,11 @@ func (a Account) Configured() bool {
 
 // Message is one email, as much of it as was asked for.
 type Message struct {
-	Number  int
-	From    string
+	Number int
+	From   string
+	// ReplyTo is where an answer would go. Read because a reply diverted
+	// away from the sender is one of the commonest signs of a scam.
+	ReplyTo string
 	Subject string
 	Date    string
 	Body    string
@@ -232,7 +235,7 @@ func Recent(a Account, box string, count int) ([]Message, error) {
 
 	// PEEK, so that looking at the list does not mark anybody's mail as read.
 	lines, err := c.send(
-		"FETCH %d:%d (BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])", from, total)
+		"FETCH %d:%d (BODY.PEEK[HEADER.FIELDS (FROM REPLY-TO SUBJECT DATE)])", from, total)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", box, err)
 	}
@@ -272,7 +275,7 @@ func Read(a Account, box string, number int) (Message, error) {
 		return Message{}, err
 	}
 
-	lines, err := c.send("FETCH %d (BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)] BODY.PEEK[TEXT])",
+	lines, err := c.send("FETCH %d (BODY.PEEK[HEADER.FIELDS (FROM REPLY-TO SUBJECT DATE)] BODY.PEEK[TEXT])",
 		number)
 	if err != nil {
 		return Message{}, fmt.Errorf("reading message %d: %w", number, err)
@@ -338,6 +341,8 @@ func parseHeaders(lines []string) []Message {
 			switch strings.ToLower(strings.TrimSpace(name)) {
 			case "from":
 				current.From = value
+			case "reply-to":
+				current.ReplyTo = value
 			case "subject":
 				current.Subject = value
 			case "date":

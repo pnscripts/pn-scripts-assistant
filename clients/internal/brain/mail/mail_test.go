@@ -119,6 +119,19 @@ func TestHeadersAreReadOutOfAFetchReply(t *testing.T) {
 	}
 }
 
+// A reply that goes somewhere other than the sender is what the scam guard
+// looks for, so the header has to reach it.
+func TestTheReplyToHeaderIsRead(t *testing.T) {
+	got := parseHeaders([]string{
+		"* 7 FETCH (BODY[HEADER.FIELDS (FROM REPLY-TO SUBJECT DATE)]",
+		"From: Bank <service@bank.example>\nReply-To: refunds@elsewhere.example\nSubject: Refund\n",
+	})
+
+	if len(got) != 1 || got[0].ReplyTo != "refunds@elsewhere.example" {
+		t.Fatalf("Reply-To not read: %+v", got)
+	}
+}
+
 // headerOf pulls one header out of a composed message.
 func headerOf(t *testing.T, message, name string) string {
 	t.Helper()
