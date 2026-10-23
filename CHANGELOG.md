@@ -6,7 +6,7 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
-## Unreleased
+## 0.5.0 — 2026-10-23
 
 It knows what your other agents know, carries its knowledge with it, and
 looks twice at every message before you act on it.
