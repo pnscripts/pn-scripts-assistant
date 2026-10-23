@@ -353,6 +353,8 @@
                 const who = document.createElement('div');
                 who.className = 'task-step-note';
                 who.textContent = [step.assignee, step.model].filter(Boolean).join(' · ');
+                // Why this model, as the router said it, on hover.
+                if (step.model_why) who.title = step.model_why;
                 body.appendChild(who);
             }
 

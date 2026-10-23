@@ -926,6 +926,12 @@ func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, erro
 		return nil, err
 	}
 
+	if choice.Why != "" && choice.Why != member.Title {
+		if err := c.DB.SetStepModelWhy(step.ID, choice.Why); err != nil {
+			return nil, err
+		}
+	}
+
 	c.happened(protocol.StepStarted, task, step, trimTo(step.Instruction, 120),
 		map[string]any{"position": step.Position, "assignee": member.Name, "through": through, "model": choice.Model, "why": choice.Why})
 

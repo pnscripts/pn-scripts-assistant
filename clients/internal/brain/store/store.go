@@ -894,6 +894,10 @@ var migrations = []string{
 	);
 	CREATE INDEX idx_activity_task ON activity(task_id, seq);
 	`,
+
+	// 19: why a step was given the model it ran with, as the router said it,
+	// so the Tasks view can show it beside the model.
+	`ALTER TABLE task_steps ADD COLUMN model_why TEXT;`,
 }
 
 /*

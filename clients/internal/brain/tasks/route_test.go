@@ -83,3 +83,29 @@ func TestTheOwnersChoiceAndHostedServicesAreLeftAlone(t *testing.T) {
 		t.Fatalf("a hosted step was given a local model: %+v", got)
 	}
 }
+
+// Why the model was chosen is kept on the step, for the Tasks view.
+func TestTheReasonForAModelIsKeptOnTheStep(t *testing.T) {
+	db, err := store.Open(t.TempDir() + "/brain.sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	id, err := db.NewTask(store.Task{Name: "t", Goal: "g", State: store.TaskWorking})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.AddSteps(id, []store.TaskStep{{Instruction: "write it"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	steps, _ := db.Steps(id)
+	db.SetStepModelWhy(steps[0].ID, "qwen2.5-coder:7b: made for code")
+
+	steps, _ = db.Steps(id)
+	if steps[0].ModelWhy != "qwen2.5-coder:7b: made for code" {
+		t.Fatalf("kept %q", steps[0].ModelWhy)
+	}
+}

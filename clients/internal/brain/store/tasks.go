@@ -157,6 +157,8 @@ type TaskStep struct {
 	// Provider and Model record what actually ran, not what was planned.
 	Provider string `json:"provider,omitempty"`
 	Model    string `json:"model,omitempty"`
+	// ModelWhy is why that model was chosen for this step.
+	ModelWhy string `json:"model_why,omitempty"`
 
 	State    string `json:"state"`
 	Attempts int    `json:"attempts"`
@@ -556,7 +558,7 @@ const stepColumns = `id, task_id, position, instruction, done_when, kind, change
 	COALESCE(verdict,''), COALESCE(why,''),
 	COALESCE(started_at,''), COALESCE(ended_at,''), COALESCE(risk,''), COALESCE(acted,''),
 	COALESCE(handed_to,0), COALESCE(escalated_from,0), COALESCE(review_of,0),
-	COALESCE(together,0), COALESCE(action,'')`
+	COALESCE(together,0), COALESCE(action,''), COALESCE(model_why,'')`
 
 func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	var (
@@ -567,7 +569,7 @@ func scanStep(row interface{ Scan(...any) error }) (TaskStep, error) {
 	err := row.Scan(&s.ID, &s.TaskID, &s.Position, &s.Instruction, &s.DoneWhen,
 		&s.Kind, &s.Changes, &s.Assignee, &s.Provider, &s.Model, &s.State,
 		&s.Attempts, &s.Answer, &s.Evidence, &s.CheckedBy, &s.Verdict, &s.Why,
-		&started, &ended, &s.Risk, &s.Acted, &s.HandedTo, &s.EscalatedFrom, &s.ReviewOf, &s.Together, &s.Action)
+		&started, &ended, &s.Risk, &s.Acted, &s.HandedTo, &s.EscalatedFrom, &s.ReviewOf, &s.Together, &s.Action, &s.ModelWhy)
 	if err != nil {
 		return s, err
 	}
@@ -780,4 +782,11 @@ func (d *DB) InterruptWorkingTasks(because string) (int, error) {
 	n, err := res.RowsAffected()
 
 	return int(n), err
+}
+
+// SetStepModelWhy records why the step's model was chosen.
+func (d *DB) SetStepModelWhy(id int64, why string) error {
+	_, err := d.sql().Exec(`UPDATE task_steps SET model_why = ? WHERE id = ?`, why, id)
+
+	return err
 }
