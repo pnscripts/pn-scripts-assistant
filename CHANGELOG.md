@@ -33,6 +33,11 @@ looks twice at every message before you act on it.
   obvious ones from the headers. A new `scam_guard` playbook says what to do
   next. Domains are looked up only when privacy allows the web.
 
+### Security
+
+- Built with Go 1.26.10, which fixes GO-2026-6809 in `crypto/x509`
+  (found by govulncheck in CI on 2026-10-23).
+
 ## 0.4.0 — 2026-10-11
 
 Everything is allowed out of the box and still recorded, what it keeps about
