@@ -30,6 +30,10 @@ func TestAReplyToAQuestionIsTheAnswerItPicked(t *testing.T) {
 		"второто":         "На флашка",
 		"флашка":          "На флашка",
 		"на моя NAS диск": "на моя NAS диск",
+		// As speech recognition writes a spoken answer: capital, full stop.
+		"Второто.":       "На флашка",
+		"Две.":           "На флашка",
+		"Първото, моля.": "На този компютър",
 	} {
 		if got := b.answerToQuestion(conv, reply); got != want {
 			t.Errorf("%q became %q, want %q", reply, got, want)
