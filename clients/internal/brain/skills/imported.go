@@ -5,9 +5,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 	"unicode/utf8"
 )
@@ -45,7 +47,23 @@ const SkillFile = "SKILL.md"
 
 // DefaultSkillFolders are where agent skills are looked for when nothing else
 // is said: Claude Code's own folder in the home directory.
+//
+// PN_SCRIPTS_ASSISTANT_AGENT_SKILLS replaces it (a path list; "-" for none).
+// A test binary gets none unless it says otherwise, so no test ever learns
+// the skills of the machine it happens to run on.
 func DefaultSkillFolders() []string {
+	if v, ok := os.LookupEnv("PN_SCRIPTS_ASSISTANT_AGENT_SKILLS"); ok {
+		if strings.TrimSpace(v) == "-" {
+			return nil
+		}
+
+		return filepath.SplitList(v)
+	}
+
+	if testing.Testing() {
+		return nil
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return nil
@@ -84,6 +102,11 @@ func ImportFolders(root string, folders []string) (Imported, error) {
 	seen := map[string]bool{}
 
 	var firstErr error
+
+	// The copies carried in the brain itself come last, so a skill still on
+	// this machine is read from its source and a brain away from home reads
+	// what it brought with it.
+	folders = append(append([]string{}, folders...), KnowledgeSkills)
 
 	for _, folder := range folders {
 		folder = strings.TrimSpace(folder)
@@ -171,7 +194,9 @@ func importOne(root, dir string, seen map[string]bool, done *Imported) (string, 
 		" (and the files next to it)."
 
 	how := strings.TrimSpace(body)
-	room := MostRunes - utf8.RuneCountInString(note) - 40
+	// Room is left for the brain's folder replacing the token when it is
+	// read, so the playbook stays under the cap wherever the brain is.
+	room := MostRunes - utf8.RuneCountInString(note) - 300
 
 	if utf8.RuneCountInString(how) > room {
 		how = string([]rune(how)[:room])
@@ -200,13 +225,111 @@ func importOne(root, dir string, seen map[string]bool, done *Imported) (string, 
 }
 
 /*
- * carry is where the full skill can be read from afterwards.
+ * carry copies a skill's folder into the brain's knowledge folder and says
+ * where the copy is, written with the brain's token.
  *
- * The source file itself, written with the brain's token when it lies inside
- * the brain's own folder, so the pointer survives the brain being moved.
+ * So a brain carried on a USB stick, or opened through Remote, still has the
+ * full procedure, its scripts and its references on a machine where the
+ * agent's own folder does not exist. Files that look like secrets, databases
+ * or caches are never copied, and the copy is bounded in size.
+ *
+ * A folder that is already inside the knowledge folder is pointed at where
+ * it is rather than copied onto itself.
  */
 func carry(root, dir string) (string, error) {
-	return sourceFor(root, dir) + string(filepath.Separator) + SkillFile, nil
+	knowledge := filepath.Join(root, KnowledgeSkills)
+
+	if inside(dir, knowledge) {
+		return sourceFor(root, dir) + string(filepath.Separator) + SkillFile, nil
+	}
+
+	target := filepath.Join(knowledge, filepath.Base(dir))
+	temp := target + ".new"
+
+	_ = os.RemoveAll(temp)
+
+	if err := copyFolder(dir, temp); err != nil {
+		_ = os.RemoveAll(temp)
+
+		return "", err
+	}
+
+	// The previous copy is replaced whole, so a file removed from the skill
+	// is removed from the copy too.
+	_ = os.RemoveAll(target)
+
+	if err := os.Rename(temp, target); err != nil {
+		return "", err
+	}
+
+	return BrainToken + string(filepath.Separator) + filepath.Join(KnowledgeSkills, filepath.Base(dir), SkillFile), nil
+}
+
+// KnowledgeSkills is where copies of imported skills are kept, inside the
+// brain's folder. The same "knowledge" folder as places.KnowledgeFolder.
+var KnowledgeSkills = filepath.Join("knowledge", "skills")
+
+// MostCopiedBytes bounds one file and one skill's copy.
+const (
+	MostCopiedFile  = 5 << 20
+	MostCopiedSkill = 50 << 20
+)
+
+// notCopied are names that are never carried with a brain: credentials,
+// databases, caches and version control.
+var notCopied = regexp.MustCompile(`(?i)^(\.env.*|.*\.(key|pem|p12|pfx|sqlite3?|sql|db|pyc)|id_(rsa|ed25519|ecdsa).*|.*secret.*|.*credential.*|.*token.*|__pycache__|\.git|node_modules|\.ds_store)$`)
+
+func copyFolder(src, dst string) error {
+	total := int64(0)
+
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return nil
+		}
+
+		if rel != "." && notCopied.MatchString(d.Name()) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+
+			return nil
+		}
+
+		target := filepath.Join(dst, rel)
+
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o700)
+		}
+
+		if !d.Type().IsRegular() {
+			return nil
+		}
+
+		info, err := d.Info()
+		if err != nil || info.Size() > MostCopiedFile || total+info.Size() > MostCopiedSkill {
+			return nil
+		}
+
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+
+		total += info.Size()
+
+		return os.WriteFile(target, raw, 0o600)
+	})
+}
+
+func inside(path, base string) bool {
+	rel, err := filepath.Rel(base, path)
+
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // sourceFor is a skill folder as it is written down: relative to the brain's
@@ -215,6 +338,13 @@ func sourceFor(root, dir string) string {
 	if rel, err := filepath.Rel(root, dir); err == nil && rel != ".." &&
 		!strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel) {
 		return BrainToken + string(filepath.Separator) + rel
+	}
+
+	// Written the way people say it, so the header names no account.
+	if home, err := os.UserHomeDir(); err == nil && home != "" && inside(dir, home) {
+		if rel, err := filepath.Rel(home, dir); err == nil {
+			return "~" + string(filepath.Separator) + rel
+		}
 	}
 
 	return dir

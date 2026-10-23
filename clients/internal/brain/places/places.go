@@ -37,6 +37,27 @@ import (
 // travels with the brain rather than with the machine.
 const ListFile = "places.json"
 
+/*
+ * KnowledgeFolder is the one folder inside the brain it does learn from.
+ *
+ * Everything else in the brain's folder is its memory, and reading that back
+ * would be the brain learning itself (see sensible). This folder is the
+ * opposite: documents, rules and copies of agent skills put there on purpose
+ * so that they travel with the brain — on a USB stick, or opened through
+ * Remote on another machine — where a place elsewhere on this PC would not.
+ *
+ * It is always a place when it exists, and it is written in places.json
+ * relative to the brain, so the same list works wherever the brain is opened.
+ */
+const KnowledgeFolder = "knowledge"
+
+// Knowledge is the knowledge folder of a given brain.
+func Knowledge(root string) string { return filepath.Join(root, KnowledgeFolder) }
+
+// KnowledgeName is what the knowledge folder is called when it was never
+// named by anybody.
+const KnowledgeName = "Knowledge carried with the brain"
+
 // Kinds are what a place can be read for.
 const (
 	Projects  = "projects"
@@ -85,27 +106,76 @@ func (p Place) Never() bool { return p.LastLearned.IsZero() }
 func List(root string) ([]Place, error) {
 	raw, err := os.ReadFile(filepath.Join(root, ListFile))
 
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
 	var out []Place
 
-	if err := json.Unmarshal(raw, &out); err != nil {
+	if errors.Is(err, os.ErrNotExist) {
+		err = nil
+	} else if err != nil {
+		return nil, err
+	} else if err := json.Unmarshal(raw, &out); err != nil {
 		return nil, fmt.Errorf("reading the list of places: %w", err)
 	}
 
-	return out, nil
+	// Written relative to the brain, read as wherever the brain is now.
+	for i := range out {
+		if !filepath.IsAbs(out[i].Path) && root != "" {
+			out[i].Path = filepath.Join(root, filepath.FromSlash(out[i].Path))
+		}
+	}
+
+	return withKnowledge(root, out), nil
+}
+
+// withKnowledge adds the brain's knowledge folder when it exists and is not
+// already on the list.
+func withKnowledge(root string, list []Place) []Place {
+	if root == "" {
+		return list
+	}
+
+	folder := Knowledge(root)
+
+	if info, err := os.Stat(folder); err != nil || !info.IsDir() {
+		return list
+	}
+
+	for _, p := range list {
+		if p.Path == folder {
+			return list
+		}
+	}
+
+	return append(list, Place{Path: folder, Name: KnowledgeName, Kind: Documents, Added: time.Now().UTC()})
+}
+
+// isKnowledge reports whether a path is the brain's knowledge folder or in it.
+func isKnowledge(root, path string) bool {
+	if root == "" {
+		return false
+	}
+
+	folder := Knowledge(root)
+
+	return path == folder || within(path, folder)
 }
 
 func save(root string, list []Place) error {
 	sort.Slice(list, func(i, j int) bool { return list[i].Path < list[j].Path })
 
-	raw, err := json.MarshalIndent(list, "", "  ")
+	// The knowledge folder is written relative to the brain, with forward
+	// slashes, so the list reads the same on any machine and any system.
+	written := make([]Place, len(list))
+	copy(written, list)
+
+	for i := range written {
+		if isKnowledge(root, written[i].Path) {
+			if rel, err := filepath.Rel(root, written[i].Path); err == nil {
+				written[i].Path = filepath.ToSlash(rel)
+			}
+		}
+	}
+
+	raw, err := json.MarshalIndent(written, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -182,6 +252,11 @@ func sensible(root, path string) error {
 	}
 
 	clean := filepath.Clean(root)
+
+	// The one exception, and only that folder and what is in it.
+	if isKnowledge(clean, path) {
+		return nil
+	}
 
 	if path == clean || within(clean, path) || within(path, clean) {
 		return errors.New("that is the brain's own folder — it cannot learn from where it keeps itself")
@@ -310,6 +385,12 @@ func Note(root string, done Place) error {
 		list[i].Waiting = done.Waiting
 
 		return save(root, list)
+	}
+
+	// The knowledge folder is on the list without having been written to
+	// it; its first pass is what writes it down.
+	if isKnowledge(root, done.Path) {
+		return save(root, append(list, done))
 	}
 
 	return nil
