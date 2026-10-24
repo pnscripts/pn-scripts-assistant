@@ -26,3 +26,19 @@ func TestEachAgentSaysWhatItsWorkNeedsOfAModel(t *testing.T) {
 		}
 	}
 }
+
+// Work outside software goes to the specialist of its field.
+func TestWorkOutsideSoftwareGoesToItsSpecialist(t *testing.T) {
+	for instruction, want := range map[string]string{
+		"analyse the competitors and write the business strategy for the market": "business_strategist",
+		"build the budget forecast with costs and revenue":                       "finance_analyst",
+		"check the VAT on these invoices":                                        "accountant",
+		"review the contract terms and the privacy obligations":                  "legal_advisor",
+		"plan the launch campaign and social posts for the audience":             "marketing_specialist",
+		"compose music and jingles for the trailer":                              "music_producer",
+	} {
+		if got := For(BuiltIn(), "", "do", instruction); got.Name != want {
+			t.Errorf("%q went to %s, want %s", instruction, got.Name, want)
+		}
+	}
+}

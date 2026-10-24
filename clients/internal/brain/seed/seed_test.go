@@ -136,3 +136,18 @@ func TestThePackCarriesNothingPrivate(t *testing.T) {
 		}
 	}
 }
+
+// The originality rule ships to every user, in English and Bulgarian.
+func TestThePackCarriesTheOriginalityGuideInBothLanguages(t *testing.T) {
+	for file, want := range map[string]string{
+		"guides/originality.md":    "not a licence loophole",
+		"guides/originality.bg.md": "вратичка в лиценза",
+		"guides/how-i-work.md":     "Only what is needed",
+		"guides/how-i-work.bg.md":  "Само каквото е нужно",
+	} {
+		body, err := pack.ReadFile("pack/" + file)
+		if err != nil || !strings.Contains(string(body), want) {
+			t.Errorf("%s missing or without %q (%v)", file, want, err)
+		}
+	}
+}

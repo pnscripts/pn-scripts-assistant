@@ -106,7 +106,7 @@ func (c *Conductor) plan(ctx context.Context, request, provider string, forced b
 	if err != nil {
 		// No model to plan with. Forced still gets a task, which will stop at
 		// its first step and say the same thing in the report.
-		return single, forced, nil
+		return withOriginality(request, single), forced, nil
 	}
 
 	/*
@@ -130,7 +130,7 @@ func (c *Conductor) plan(ctx context.Context, request, provider string, forced b
 	if err != nil {
 		c.Log.Info("could not plan this job", "error", err)
 
-		return single, forced, nil
+		return withOriginality(request, single), forced, nil
 	}
 
 	written, ok := readPlan(reply.Content, c.budget().MostSteps)
@@ -146,7 +146,7 @@ func (c *Conductor) plan(ctx context.Context, request, provider string, forced b
 		 */
 		c.Log.Info("the model did not write a plan", "reply", trimTo(reply.Content, 200))
 
-		return single, forced, nil
+		return withOriginality(request, single), forced, nil
 	}
 
 	if written.Name == "" {
@@ -158,7 +158,7 @@ func (c *Conductor) plan(ctx context.Context, request, provider string, forced b
 		return written, false, nil
 	}
 
-	return written, true, nil
+	return withOriginality(request, written), true, nil
 }
 
 // plannerModel is the best this machine has. One short call with no tools, and

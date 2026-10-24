@@ -1,0 +1,136 @@
+package tasks
+
+import (
+	"strings"
+
+	"pn-scripts-assistant/internal/brain/store"
+)
+
+/*
+ * Checks before a result is called finished — only the ones it needs.
+ *
+ * Every produced result (a game, a logo, a jingle, a story, a business
+ * strategy, a contract draft) is checked for originality and meaning by the
+ * specialists whose field it touches, side by side, and their findings are
+ * part of the final report (knowledge/guides/originality.md, how-i-work.md).
+ * Only if needed (owner 2026-10-24): no sound specialist for a result without
+ * sound, no trademark search for an internal draft, one light check for a
+ * small change. Why each check was or was not used is written on the first
+ * check, so it can be read in the task.
+ */
+
+// OriginalityMarker starts the instruction of every check step.
+const OriginalityMarker = "Originality check"
+
+type aspect struct {
+	name       string
+	specialist string
+	cues       []string
+	check      string
+}
+
+var aspects = []aspect{
+	{"name and trademarks", "ip_specialist",
+		[]string{"name for", "brand", "logo", "trademark", "product name", "title for",
+			"име за", "марка", "лого", "заглавие за"},
+		"search the name in trademark registers and the stores where it will appear; no existing product's name, logo or trade dress"},
+	{"look", "visual_reviewer",
+		[]string{"logo", "character", "mascot", "icon", "illustration", "artwork", "art", "design", "game", "comic", "animation",
+			"лого", "герой", "персонаж", "талисман", "икон", "илюстрац", "рисун", "дизайн", "игра", "комикс", "анимац"},
+		"compare characters, logos and style with the closest known works; nothing made to look like a protected one"},
+	{"sound", "sound_reviewer",
+		[]string{"music", "song", "melody", "jingle", "sound", "audio", "soundtrack",
+			"музик", "песен", "мелоди", "джингъл", "звук", "аудио"},
+		"compare melodies, jingles and sound logos with known music; nothing played \"by ear\" from a known tune"},
+	{"game rules", "game_design_reviewer",
+		[]string{"game", "level", "puzzle", "игра", "ниво", "пъзел"},
+		"say in one sentence what only this game does and compare its core rule with the three closest famous titles"},
+	{"text and meaning", "copy_reviewer",
+		[]string{"story", "novel", "poem", "slogan", "text", "article", "post", "copy", "letter", "strategy", "plan", "report", "document",
+			"истори", "роман", "стихотвор", "слоган", "текст", "статия", "публикация", "писмо", "стратеги", "план", "отчет", "документ"},
+		"check the text against known works and that every part says something real for this reader"},
+	{"money", "finance_analyst",
+		[]string{"budget", "price", "pricing", "revenue", "cost", "profit", "invest", "loan", "forecast",
+			"бюджет", "цена", "приход", "разход", "печалба", "инвест", "кредит", "прогноз"},
+		"check every figure, assumption and calculation"},
+	{"tax and accounting", "accountant",
+		[]string{"tax", "vat", "invoice", "accounting", "данък", "ддс", "фактур", "счетовод"},
+		"check tax and accounting statements against the current rules of the country named"},
+	{"law", "legal_advisor",
+		[]string{"contract", "terms", "privacy policy", "gdpr", "licence", "license", "legal",
+			"договор", "условия", "поверителност", "лиценз", "правн", "закон"},
+		"check legal statements, licences and obligations; say what needs a qualified lawyer"},
+	{"business", "business_strategist",
+		[]string{"business", "strategy", "market", "competitor", "startup", "бизнес", "стратеги", "пазар", "конкурент"},
+		"check the strategy is the business's own, grounded in its market and not a copy of a known company's"},
+}
+
+// draftCues mean the result is for the owner's eyes only: one light check.
+var draftCues = []string{"draft", "sketch", "internal", "for myself", "quick", "чернова", "скица", "вътрешн", "за мен", "набързо"}
+
+func mentions(text string, cues []string) string {
+	for _, cue := range cues {
+		if strings.Contains(text, cue) {
+			return cue
+		}
+	}
+
+	return ""
+}
+
+// checksFor is which specialists a request needs and why each other one is
+// not needed.
+func checksFor(request string) (use []aspect, why []string) {
+	text := strings.ToLower(request)
+
+	for _, a := range aspects {
+		if cue := mentions(text, a.cues); cue != "" {
+			use = append(use, a)
+			why = append(why, a.name+": yes (\""+cue+"\")")
+		} else {
+			why = append(why, a.name+": not needed")
+		}
+	}
+
+	if len(use) > 1 && mentions(text, draftCues) != "" {
+		// A draft gets one light check: the first aspect it has.
+		use = use[:1]
+		why = append(why, "a draft: one light check only")
+	}
+
+	return use, why
+}
+
+// withOriginality ends a plan that produces something with its checks.
+func withOriginality(request string, p Plan) Plan {
+	for _, s := range p.Steps {
+		if strings.HasPrefix(s.Instruction, OriginalityMarker) {
+			return p
+		}
+	}
+
+	use, why := checksFor(request)
+	if len(use) == 0 {
+		return p
+	}
+
+	for i, a := range use {
+		instruction := OriginalityMarker + " (" + a.name + "): " + a.check +
+			". Generated by code is not an exception. Say what is too close or empty and what to change."
+
+		if i == 0 {
+			instruction += " Checks for this result — " + strings.Join(why, "; ") + "."
+		}
+
+		p.Steps = append(p.Steps, store.TaskStep{
+			Kind:        store.StepCheck,
+			Instruction: instruction,
+			Assignee:    a.specialist,
+			DoneWhen:    "the findings name what was compared and what, if anything, must change",
+			// Side by side: every check after the first runs with it.
+			Together: i > 0,
+		})
+	}
+
+	return p
+}

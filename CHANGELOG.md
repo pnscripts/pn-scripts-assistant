@@ -24,6 +24,17 @@ number is 0, the second one changes when something visible changes.
 
 ### Changed
 
+- **Specialists for every field, and only when needed.** Business strategist,
+  finance analyst, accountant, legal specialist, marketing specialist and
+  music producer join the developers, writer, designer and researcher, each
+  with only the tools its work needs.
+- **Original and meaningful before finished.** Whatever a job produces — a
+  game, a logo, a jingle, a story, a strategy, a contract draft — is checked
+  by the specialists of the fields it touches (trademarks, look, sound, game
+  rules, text and meaning, money, tax, law, business), side by side, and only
+  for the sides it has; why each check was or was not used is in the task,
+  and the findings are in the final report. New guides: "How I work" and
+  "Originality and licences", in English and Bulgarian.
 - **Plain wording on the screens.** The brain is now explained where its
   copies are kept: it is the assistant's knowledge base, everything it has
   learned, remembered and been told, in one folder. Team members are called
