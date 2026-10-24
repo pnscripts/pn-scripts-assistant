@@ -25,6 +25,9 @@ type Invocation struct {
 	Status    string    `json:"status"`
 	Result    string    `json:"result,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
+
+	// ConversationID is the conversation it was proposed in, when known.
+	ConversationID int64 `json:"conversation_id,omitempty"`
 }
 
 // RecordInvocation stores a proposed action awaiting approval.
@@ -86,9 +89,11 @@ func (d *DB) Invocation(id int64) (*Invocation, error) {
 	var result sql.NullString
 
 	err := d.sql().QueryRow(`
-		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, result, created_at
+		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, result, created_at,
+			COALESCE(conversation_id, 0)
 		FROM tool_invocations WHERE id = ?`, id).
-		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &result, &created)
+		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &result, &created,
+			&i.ConversationID)
 
 	if err == sql.ErrNoRows {
 		return nil, nil

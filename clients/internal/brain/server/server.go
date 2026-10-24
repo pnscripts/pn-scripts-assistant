@@ -26,6 +26,7 @@ import (
 
 	"pn-scripts-assistant/internal/brain/appearance"
 	"pn-scripts-assistant/internal/brain/brain"
+	"pn-scripts-assistant/internal/brain/cite"
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/desktop"
 	"pn-scripts-assistant/internal/brain/machine"
@@ -113,6 +114,12 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/setup", s.handleSetup)
 	// What is on this machine, and the one list that takes something away.
 	// Not /api/machine, which is the processor and the drives.
+	// The trust layer: what it did and why, citing, the page language.
+	s.mux.HandleFunc("GET /api/deeds", s.handleDeeds)
+	s.mux.HandleFunc("POST /api/settings/cite-sources", s.handleCiteSources)
+	s.mux.HandleFunc("GET /api/ui-language", s.handleUILanguage)
+	s.mux.HandleFunc("POST /api/open-source", s.handleOpenSource)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 
@@ -982,6 +989,9 @@ func (s *Server) handleSpeak(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	// A written answer cites its sources by number; heard, "[2]" is noise.
+	body.Text = cite.Strip(body.Text)
 
 	speak := speech.Speak
 	if body.Wait {

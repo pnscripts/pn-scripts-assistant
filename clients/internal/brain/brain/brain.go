@@ -23,6 +23,7 @@ import (
 	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/appearance"
 	"pn-scripts-assistant/internal/brain/autonomy"
+	"pn-scripts-assistant/internal/brain/cite"
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/engines"
 	"pn-scripts-assistant/internal/brain/environs"
@@ -812,8 +813,12 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Unbounded:   b.Agent.Unbounded,
 		GoalMode:    b.Agent.GoalMode,
 		OffLimits:   b.Agent.OffLimits,
+		Did:         b.recordDeed,
 		Quietly:     true,
 	}
+
+	// Every call the conversation makes is recorded with its reason too.
+	b.Agent.Did = b.recordDeed
 
 	/*
 	 * And whatever its owner has taught it, before anything can be asked.
@@ -1935,6 +1940,10 @@ type ChatReply struct {
 	// TaskID is set when the turn started a piece of work rather than
 	// answering, so the page can offer to go and watch it.
 	TaskID int64 `json:"task_id,omitempty"`
+
+	// Sources is what the answer was built from, numbered as it cites them.
+	// See the cite package.
+	Sources []cite.Source `json:"sources,omitempty"`
 }
 
 // Chat answers a message and records the exchange.
@@ -2168,7 +2177,15 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	messages := make([]llm.Message, 0, len(history)+1)
 
 	for _, m := range history {
-		messages = append(messages, llm.Message{Role: m.Role, Content: m.Content})
+		content := m.Content
+
+		// An earlier answer's numbers pointed at that turn's sources; read
+		// again now they would point at this one's.
+		if m.Role == llm.RoleAssistant {
+			content = cite.Strip(content)
+		}
+
+		messages = append(messages, llm.Message{Role: m.Role, Content: content})
 	}
 
 	// Memory is only ever given to a local model. What the brain has learned is
@@ -2237,7 +2254,27 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		}
 	}
 
-	if preamble := formatRecallLimited(recalled, factLimit); preamble != "" {
+	/*
+	 * Numbered, so the answer can say where each claim came from.
+	 *
+	 * The ledger keeps every place this turn draws on: what was recalled now,
+	 * and what the tools read while answering (see the cite package). A typed
+	 * turn is asked to cite by number; a spoken one is not, because "[2]"
+	 * read aloud is noise — but its sources are still listed.
+	 */
+	ledger := cite.NewLedger()
+	ledger.Quiet = !b.citing(req.Spoken)
+
+	numbers := ledger.Facts(recalled)
+
+	preamble := formatRecallLimited(recalled, factLimit)
+	if !ledger.Quiet {
+		preamble = cite.Preamble(recalled, numbers, factLimit, trimForPrompt)
+	}
+
+	ctx = cite.With(ctx, ledger)
+
+	if preamble != "" {
 		// Placed immediately before the newest user message, so it reads as
 		// context for the question rather than as part of the conversation.
 		messages = append(messages[:len(messages)-1],
@@ -2296,12 +2333,25 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		return ChatReply{}, err
 	}
 
+	// Held to the ledger: a number that points nowhere is taken out, and
+	// what the answer cites is marked so.
+	var sources []cite.Source
+
+	result.Reply, sources = sourcesFor(result.Reply, ledger)
+
 	// When the loop stopped for approval it has already written its own
 	// message; writing again would duplicate it in the transcript.
 	if !result.WaitingForApproval() {
-		if _, err := b.DB.AddMessage(conversationID, llm.RoleAssistant,
-			result.Provider, result.Model, result.Reply); err != nil {
+		id, err := b.DB.AddMessage(conversationID, llm.RoleAssistant,
+			result.Provider, result.Model, result.Reply)
+		if err != nil {
 			return ChatReply{}, err
+		}
+
+		if len(sources) > 0 {
+			if err := b.DB.SetSources(id, sources); err != nil {
+				b.Log.Warn("could not keep an answer's sources", "error", err)
+			}
 		}
 	}
 
@@ -2335,6 +2385,7 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 		Steps:            result.Steps,
 		PendingApprovals: result.Pending,
 		AlreadySpoken:    result.AlreadySpoken,
+		Sources:          sources,
 	}, nil
 }
 

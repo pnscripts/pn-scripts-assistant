@@ -312,6 +312,15 @@ type Config struct {
 	GoalMode bool
 
 	/*
+	 * CiteSources numbers what an answer was built from and asks the model
+	 * to say which sentence came from where (see the cite package). On by
+	 * default: an answer that says where it came from can be checked. Off
+	 * saves a few words of prompt per turn; the list of what was read is
+	 * still kept and shown either way.
+	 */
+	CiteSources bool
+
+	/*
 	 * AlwaysSpeak reads every answer aloud, however the question arrived.
 	 *
 	 * Answers were spoken only for turns that came in by voice, so a question
@@ -589,6 +598,7 @@ func Default() Config {
 		OllamaModel: "qwen2.5-coder:7b",
 		ModelChosen: false,
 		AutoModel:   true,
+		CiteSources: true,
 		AlwaysSpeak: true,
 		// Off until somebody turns it on. A program that opens the
 		// microphone the first time it is started, on a machine it was
@@ -768,6 +778,10 @@ func LoadFrom(path string) (Config, error) {
 		cfg.GoalMode = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
+	if v := get("BRAIN_CITE_SOURCES"); v != "" {
+		cfg.CiteSources = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
 	if v := get("BRAIN_AUTO_MODEL"); v != "" {
 		cfg.AutoModel = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
@@ -936,6 +950,8 @@ func (c Config) Save(root string) error {
 	b.WriteString("# Works on goals on its own; asks only before paying, sending or publishing\n")
 	b.WriteString("# in your name, deleting outside the goal's folder or changing the whole system.\n")
 	b.WriteString("BRAIN_GOAL_MODE=" + boolText(c.GoalMode) + "\n")
+	b.WriteString("# Say which sentence of an answer came from which source, by number.\n")
+	b.WriteString("BRAIN_CITE_SOURCES=" + boolText(c.CiteSources) + "\n")
 	b.WriteString("BRAIN_ALWAYS_SPEAK=" + boolText(c.AlwaysSpeak) + "\n")
 	b.WriteString("BRAIN_ALWAYS_LISTEN=" + boolText(c.AlwaysListen) + "\n")
 	b.WriteString("BRAIN_TURNED_OFF=" + strings.Join(c.TurnedOff, ",") + "\n")

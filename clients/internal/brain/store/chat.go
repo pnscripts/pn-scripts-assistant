@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -24,6 +25,9 @@ type Message struct {
 	Model     string    `json:"model,omitempty"`
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
+
+	// Sources is where an answer came from, numbered as it cites them.
+	Sources json.RawMessage `json:"sources,omitempty"`
 }
 
 // NewConversation starts a thread titled from its opening message.
@@ -84,6 +88,10 @@ func (d *DB) RenameConversation(id int64, title string) error {
  * act than it looks.
  */
 func (d *DB) DeleteConversation(id int64) error {
+	if err := d.ForgetDeedsOf(id); err != nil {
+		return fmt.Errorf("forgetting what was said in conversation %d: %w", id, err)
+	}
+
 	res, err := d.sql().Exec(`DELETE FROM conversations WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("deleting conversation %d: %w", id, err)
@@ -144,8 +152,10 @@ func (d *DB) AddMessage(conversationID int64, role, provider, model, content str
 // History returns every turn in order, oldest first.
 func (d *DB) History(conversationID int64) ([]Message, error) {
 	rows, err := d.sql().Query(`
-		SELECT id, role, COALESCE(provider,''), COALESCE(model,''), content, created_at
-		FROM messages WHERE conversation_id = ? ORDER BY id`, conversationID)
+		SELECT m.id, m.role, COALESCE(m.provider,''), COALESCE(m.model,''), m.content, m.created_at,
+			COALESCE(s.sources, '')
+		FROM messages m LEFT JOIN message_sources s ON s.message_id = m.id
+		WHERE m.conversation_id = ? ORDER BY m.id`, conversationID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,8 +167,14 @@ func (d *DB) History(conversationID int64) ([]Message, error) {
 		var m Message
 		var created string
 
-		if err := rows.Scan(&m.ID, &m.Role, &m.Provider, &m.Model, &m.Content, &created); err != nil {
+		var sources string
+
+		if err := rows.Scan(&m.ID, &m.Role, &m.Provider, &m.Model, &m.Content, &created, &sources); err != nil {
 			return nil, err
+		}
+
+		if sources != "" {
+			m.Sources = json.RawMessage(sources)
 		}
 
 		m.CreatedAt, _ = time.Parse(time.RFC3339, created)

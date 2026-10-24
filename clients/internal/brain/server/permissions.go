@@ -63,6 +63,18 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 		 */
 		Hidden bool   `json:"hidden,omitempty"`
 		Why2   string `json:"hidden_why,omitempty"`
+
+		// HiddenBy is the reason as a word the page can put in either
+		// language: off, needs or privacy.
+		HiddenBy string `json:"hidden_by,omitempty"`
+
+		// Off is its owner's own switch, which the Control page throws.
+		Off bool `json:"off"`
+
+		// Leaves is whether using it can send anything off this machine,
+		// and what. See tools.Leaves.
+		Leaves     bool   `json:"leaves"`
+		LeavesWhat string `json:"leaves_what,omitempty"`
 	}
 
 	out := []capability{}
@@ -89,7 +101,11 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 
 		if s.brain.Agent.OffLimits != nil && s.brain.Agent.OffLimits(t.Name()) {
 			c.Hidden, c.Why2 = true, s.whyHidden(t.Name())
+			c.HiddenBy = s.hiddenBy(t.Name())
 		}
+
+		c.Off = s.switchedOff(t.Name())
+		c.Leaves, c.LeavesWhat = tools.Leaves(t)
 
 		out = append(out, c)
 	}
@@ -107,7 +123,10 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 		// Every limit lifted (ADR 0007), and whether its owner put them back
 		// with BRAIN_CONFINE.
 		"everything_allowed": s.brain.Unbounded(),
-		"confine":            s.brain.Cfg.Confine,
+
+		// Whether answers say where they came from, by number.
+		"cite_sources": s.brain.Cfg.CiteSources,
+		"confine":      s.brain.Cfg.Confine,
 	})
 }
 
@@ -235,6 +254,31 @@ func (s *Server) handleFreedom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"freedom": string(level), "means": permits.Means(level)})
+}
+
+// switchedOff is whether its owner switched this one tool off by name.
+func (s *Server) switchedOff(tool string) bool {
+	for _, id := range s.brain.Cfg.TurnedOff {
+		if strings.EqualFold(strings.TrimSpace(id), tool) ||
+			strings.EqualFold(strings.TrimSpace(id), "tool:"+tool) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// hiddenBy is whyHidden as one word, for a page that says it in its own
+// language.
+func (s *Server) hiddenBy(tool string) string {
+	switch why := s.whyHidden(tool); {
+	case strings.HasPrefix(why, "switched off"):
+		return "off"
+	case strings.Contains(why, "is switched off"):
+		return "needs"
+	default:
+		return "privacy"
+	}
 }
 
 /*

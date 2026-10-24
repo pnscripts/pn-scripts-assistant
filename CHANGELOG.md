@@ -10,6 +10,22 @@ number is 0, the second one changes when something visible changes.
 
 ### Added
 
+- **Answers say where they came from.** Each answer lists its sources — things
+  it remembers with the file they came from, files and web pages it read,
+  search results — numbered, and a written answer ends each sentence that
+  relies on one with its number, like [2]. A number that points nowhere is
+  taken out before the answer is shown. Open a web source in your browser or
+  a file's folder from the list; the list stays with the conversation.
+- **What I did and why.** A new page lists every action, every action put to
+  you and every refusal, with the request behind it, the specialist, the
+  model and why it was chosen, what it was given and returned, and whether
+  anything left the computer. Filter by period, by changes, or by what left.
+- **Control.** The permissions page is now Control: every capability says
+  whether it can send anything off this computer and what, has an on/off
+  switch, and can be filtered; citing sources is switched here too. These
+  pages, and the sources, are in English and Bulgarian, following the
+  language you speak to it in.
+
 - **Each step gets the model its work needs.** A job's steps are thought with
   the model their expert's work calls for — code, hard thinking, speed,
   pictures — chosen from what is installed at that moment, with the reason
