@@ -100,21 +100,7 @@ func (s WebSearch) Execute(ctx context.Context, raw json.RawMessage) (string, er
 	 * sending; in the prompt it is a request, and a request can be argued with
 	 * by the user, by a page the model has read, or by its own confusion.
 	 */
-	if err := CheckQuery(query); err != nil {
-		return "", err
-	}
-
-	var (
-		results []SearchResult
-		err     error
-	)
-
-	if s.BraveKey != "" {
-		results, err = s.brave(ctx, query)
-	} else {
-		results, err = s.duckDuckGo(ctx, query)
-	}
-
+	results, err := s.Find(ctx, query)
 	if err != nil {
 		return "", err
 	}
@@ -134,6 +120,20 @@ func (s WebSearch) Execute(ctx context.Context, raw json.RawMessage) (string, er
 	}
 
 	return b.String(), nil
+}
+
+// Find is the search itself, for tools that read the results rather than
+// show them: checked for personal information first, as every query is.
+func (s WebSearch) Find(ctx context.Context, query string) ([]SearchResult, error) {
+	if err := CheckQuery(query); err != nil {
+		return nil, err
+	}
+
+	if s.BraveKey != "" {
+		return s.brave(ctx, query)
+	}
+
+	return s.duckDuckGo(ctx, query)
 }
 
 func (s WebSearch) client() *http.Client {

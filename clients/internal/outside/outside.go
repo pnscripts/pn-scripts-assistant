@@ -102,6 +102,15 @@ var Places = []Place{
 	{Host: "api.fireworks.ai", For: "Fireworks models", When: "open mode, with your own key"},
 	{Host: "api.cerebras.ai", For: "Cerebras models", When: "open mode, with your own key"},
 	{Host: "api.perplexity.ai", For: "Perplexity models", When: "open mode, with your own key"},
+
+	// Links in an originality report, for its reader to open; the program
+	// itself never connects to them (searching goes through web_search).
+	{Host: "www.tmdn.org", For: "EUIPO TMview link in an originality report", When: "never by the program; you open it"},
+	{Host: "tmsearch.uspto.gov", For: "USPTO trademark search link in an originality report", When: "never by the program; you open it"},
+	{Host: "branddb.wipo.int", For: "WIPO Global Brand Database link in an originality report", When: "never by the program; you open it"},
+	{Host: "lens.google.com", For: "search-by-image link in an originality report", When: "never by the program; you open it"},
+	{Host: "tineye.com", For: "search-by-image link in an originality report", When: "never by the program; you open it"},
+	{Host: "www.bing.com", For: "search-by-image link in an originality report", When: "never by the program; you open it"},
 }
 
 /*

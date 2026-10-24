@@ -298,6 +298,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("DELETE /api/diary/{id}", s.handleCancelEvent)
 	s.mux.HandleFunc("POST /api/diary/import", s.handleImportDiary)
 	s.mux.HandleFunc("GET /api/diary/export", s.handleExportDiary)
+	s.mux.HandleFunc("GET /api/reports/{name}", s.handleReport)
 	s.mux.HandleFunc("GET /api/models", s.handleModels)
 	/*
 	 * Installing the missing pieces from inside the program.

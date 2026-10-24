@@ -1134,6 +1134,11 @@ func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool
 			return true, c.reviewed(step)
 		}
 
+		// A check that found something is followed by the fix, by itself.
+		if err := c.afterCheck(task, step); err != nil {
+			c.Log.Info("could not add the follow-up of a check", "error", err)
+		}
+
 		return true, c.review(task, step, member)
 	}
 

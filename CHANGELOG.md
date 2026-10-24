@@ -36,6 +36,18 @@ number is 0, the second one changes when something visible changes.
   and the findings have their own "Originality and meaning" section in the
   final report. New guides: "How I work" and
   "Originality and licences", in English and Bulgarian.
+- **Originality checks with real tools.** Names are searched in trademark
+  registers, app and game stores and the web; a game's one sentence is
+  compared with the closest titles; pictures are compared with reference
+  pictures you give (resized, recoloured and mirrored copies are found);
+  melodies in MIDI files and code are compared, in any key, with well-known
+  public-domain themes. Findings go into a report — item, aspect, finding,
+  risk, action — saved as a table and a CSV sheet to download. "Audit the
+  originality of <folder>" checks a whole catalogue, each item only for what
+  it has, side by side; your own works are reported, never changed.
+- **Fixed by itself.** When a check finds something in what the assistant
+  made, the one who made it changes it and the same specialist checks again;
+  the report says what was changed.
 - **Plain wording on the screens.** The brain is now explained where its
   copies are kept: it is the assistant's knowledge base, everything it has
   learned, remembered and been told, in one folder. Team members are called

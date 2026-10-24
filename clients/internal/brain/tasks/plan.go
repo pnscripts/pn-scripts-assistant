@@ -93,6 +93,11 @@ func (c *Conductor) plan(ctx context.Context, request, provider string, forced b
 		return Plan{}, false, nil
 	}
 
+	// An originality audit of the user's own works has a fixed shape.
+	if audit, ok := auditPlan(request); ok {
+		return audit, true, nil
+	}
+
 	single := Plan{
 		Name:  nameFor(request),
 		Steps: []store.TaskStep{{Instruction: request, Kind: store.StepDo}},

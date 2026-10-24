@@ -33,3 +33,19 @@ a copy drawn or played by code is still a copy.
 
 The assistant runs this check before it reports any game, logo, music, story
 or other creative result as finished, and puts what it found in the report.
+
+## What it checks with
+- **Names:** searches trademark registers, app and game stores and the web,
+  and gives the close names with a risk and links to the official registers.
+- **Game rules:** tests the one sentence of what only the game does and
+  finds the three closest known titles.
+- **Pictures:** compares them with reference pictures you give — resized,
+  recoloured or mirrored copies are found — and says how to search the main
+  picture by image on the web.
+- **Melodies:** compares the notes in MIDI files and in code, in any key,
+  with a set of well-known public-domain themes.
+- **Report:** item | aspect | finding | risk | action, saved as a Markdown
+  table and a CSV sheet to download.
+- **Catalogue audit:** "audit the originality of <folder>" checks every item
+  in it for the aspects it has, side by side, and reports. Your own works are
+  never changed; what the assistant made itself it fixes and checks again.

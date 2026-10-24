@@ -34,7 +34,7 @@ import (
 var pack embed.FS
 
 // Version is the pack's version; raise it when a file in pack/ changes.
-const Version = 2
+const Version = 3
 
 // ManifestName is the record of what was shipped, inside the knowledge folder.
 const ManifestName = ".seed.json"

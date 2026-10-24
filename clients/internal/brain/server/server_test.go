@@ -303,75 +303,23 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		/*
-		 * Switching an integration on is always put to its owner; listing
-		 * them and reading what a running one offers are not. None of them
-		 * can add a server — that is the Integrations panel's, by hand.
-		 */
-		"activate_integration",
-
-		"ask_first", "brain_copies", "change_a_setting",
-
-		// The diary, which lives in this database rather than in an account
-		// somewhere. Reading it is Safe; writing to it is not.
-		"change_the_diary",
-
-		"change_this_conversation",
-
-		// What a piece of work needs on this machine, checked safely.
-		"check_requirements",
-
-		// Hiring, in two steps: a proposal that writes nothing, and making it,
-		// which is always put to its owner when it is permanent.
-		"click", "confirm_hire",
-
-		"decide_waiting", "do_in_background", "drive_browser", "edit_document", "edit_file",
-		"fetch_url", "films_without_subtitles",
-
-		/*
-		 * Taught how a job is done here. Alphabetical like everything else in
-		 * this list, because the registry sorts and the point of the list is
-		 * that it matches exactly.
-		 *
-		 * Writing one and deleting one are Mutating and go through the gate.
-		 * Reading one back is not, because what comes back is text: every
-		 * action in a skill is still carried out by the ordinary tools, with
-		 * the risk each of them always had. A skill cannot widen anything.
-		 */
-		"forget_how_to_do_this",
-
-		"forget_reminder",
-
-		// Games, whatever engine: the four over the engine contract, and the
-		// three Godot tools that were the first adapter.
-		"game_build", "game_check", "game_docs", "game_engines",
-
-		"godot_build", "godot_docs", "godot_status", "hire_agent", "how_fast_can_you_answer",
-
-		// Looking at a folder before working in it changes nothing.
-		"inspect_project",
-
-		// Looking after the machine by talking to it, rather than by finding
-		// the right panel. Installing and removing are Mutating and go through
-		// permissions like every other change; asking what is missing is not.
-		"install_a_model", "install_a_part", "install_requirement",
-
-		"learn_from_folder", "list_background", "list_directory",
-		"list_drives", "list_integrations", "list_models",
-		"list_reminders", "list_waiting", "list_windows", "look_at_screen",
-		"make_a_picture", "make_a_video", "make_subtitles", "open_app", "places_it_learns_from",
-
-		// A project worked out, and — always put to its owner — started.
-		"plan_project",
-
-		"put_in_the_diary", "put_it_back",
-		"read_a_page", "read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this", "remind_me", "remove_a_part", "run_as_admin", "run_command",
-		"scroll", "search_files", "set_appearance", "set_wake_word",
-		"start_project", "stop_background", "stop_hearing_this_machine", "type_text",
-		"web_search", "what_am_i_hearing", "what_can_you_do", "what_is_on", "what_ive_been_taught",
-		"what_this_machine_needs", "what_you_know",
-		"write_document",
-		"write_file",
+		"activate_integration", "ask_first", "audit_originality", "brain_copies", "change_a_setting",
+		"change_the_diary", "change_this_conversation", "check_name", "check_requirements", "click",
+		"closest_titles", "compare_melody", "compare_pictures", "confirm_hire", "decide_waiting",
+		"do_in_background", "drive_browser", "edit_document", "edit_file", "fetch_url",
+		"films_without_subtitles", "forget_how_to_do_this", "forget_reminder", "game_build",
+		"game_check", "game_docs", "game_engines", "godot_build", "godot_docs", "godot_status",
+		"hire_agent", "how_fast_can_you_answer", "inspect_project", "install_a_model", "install_a_part",
+		"install_requirement", "learn_from_folder", "list_background", "list_directory", "list_drives",
+		"list_integrations", "list_models", "list_reminders", "list_waiting", "list_windows",
+		"look_at_screen", "make_a_picture", "make_a_video", "make_subtitles", "open_app",
+		"places_it_learns_from", "plan_project", "put_in_the_diary", "put_it_back", "read_a_page",
+		"read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this",
+		"remind_me", "remove_a_part", "run_as_admin", "run_command", "scroll", "search_files",
+		"set_appearance", "set_wake_word", "start_project", "stop_background",
+		"stop_hearing_this_machine", "type_text", "web_search", "what_am_i_hearing", "what_can_you_do",
+		"what_is_on", "what_ive_been_taught", "what_this_machine_needs", "what_you_know",
+		"write_document", "write_file", "write_originality_report",
 	}
 
 	if strings.Join(names, ",") != strings.Join(want, ",") {

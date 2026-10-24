@@ -297,6 +297,22 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.ReadAPage{},
 
 		tools.WebSearch{BraveKey: cfg.BraveKey},
+
+		// The two originality checks that search, hidden with the web.
+		tools.CheckName{Search: tools.WebSearch{BraveKey: cfg.BraveKey}},
+		tools.ClosestTitles{Search: tools.WebSearch{BraveKey: cfg.BraveKey}},
+	)
+
+	/*
+	 * And the ones that only look here: pictures, melodies, the report, and
+	 * the audit of a whole folder, which searches only while the web is
+	 * allowed and otherwise says which checks it could not make.
+	 */
+	available = append(available,
+		tools.ComparePictures{},
+		tools.CompareMelody{},
+		tools.WriteOriginalityReport{},
+		tools.AuditOriginality{Search: tools.WebSearch{BraveKey: cfg.BraveKey}, Web: func() bool { return b.Mode.AllowsWeb() }},
 	)
 
 	/*
