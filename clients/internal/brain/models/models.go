@@ -119,6 +119,33 @@ func (c *Client) Has(ctx context.Context, name string) bool {
 	return false
 }
 
+// Delete removes an installed model from Ollama.
+func (c *Client) Delete(ctx context.Context, name string) error {
+	body, err := json.Marshal(map[string]string{"model": name})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.BaseURL+"/api/delete", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("removing %s: Ollama answered %s", name, res.Status)
+	}
+
+	return nil
+}
+
 // Pull downloads a model, reporting what it is doing as it goes.
 //
 // Ollama streams progress as a line of JSON per update. The callback is given

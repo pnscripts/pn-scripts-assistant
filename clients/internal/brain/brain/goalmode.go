@@ -2,16 +2,21 @@ package brain
 
 import (
 	"context"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/autonomy"
 	"pn-scripts-assistant/internal/brain/catalogue"
 	"pn-scripts-assistant/internal/brain/mcp"
 	"pn-scripts-assistant/internal/brain/models"
+	"pn-scripts-assistant/internal/brain/provision"
 	"pn-scripts-assistant/internal/brain/route"
 	"pn-scripts-assistant/internal/brain/storage"
+	"pn-scripts-assistant/internal/brain/store"
 )
 
 /*
@@ -206,3 +211,136 @@ func (b *Brain) acquiredIntegration(s mcp.Server, forWhom string) {
 func (b *Brain) integrationUsed(id string) {
 	autonomy.LedgerAt(b.Root).Touch("integration", id)
 }
+
+// TidyEvery is how often goal mode's unused downloads are looked for.
+const TidyEvery = 24 * time.Hour
+
+// tidyDownloads removes, once a day, what goal mode downloaded and has not
+// used for thirty days. Whatever the setting is now: it is only ever its own.
+func (b *Brain) tidyDownloads(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(SettleBeforeLooking):
+	}
+
+	for {
+		b.tidyOnce(ctx, time.Now())
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(TidyEvery):
+		}
+	}
+}
+
+// tidyOnce is one round, reported in the log and the activity record.
+func (b *Brain) tidyOnce(ctx context.Context, now time.Time) autonomy.Tidied {
+	// Nothing is taken away while work is under way: a step may be about to
+	// need it again.
+	if busy, err := b.DB.Tasks([]string{store.TaskPlanning, store.TaskWorking, store.TaskWaiting}, 1); err != nil || len(busy) > 0 {
+		return autonomy.Tidied{}
+	}
+
+	got := autonomy.Tidy(ctx, autonomy.LedgerAt(b.Root), autonomy.UnusedFor, b.stillNeeded, b.removers(), now)
+
+	for _, e := range got.Removed {
+		b.Log.Info("removed what goal mode downloaded and nobody used for 30 days", "kind", e.Kind, "name", e.Name)
+	}
+
+	for _, why := range got.Failed {
+		b.Log.Warn("could not remove an unused download; tried again tomorrow", "why", why)
+	}
+
+	return got
+}
+
+// stillNeeded is whether something goal mode downloaded is in use anyway: a
+// model its owner set by name or pinned, a runtime an approved
+// integration runs on, an integration someone added it for by hand since.
+func (b *Brain) stillNeeded(e autonomy.Entry) bool {
+	switch e.Kind {
+	case "model":
+		/*
+		 * The models its owner set by name, not the roles chosen from what is
+		 * installed: those are chosen again from what is left, so counting
+		 * them would keep every download for ever.
+		 */
+		for _, name := range []string{b.Cfg.OllamaModel, b.Cfg.EmbedModel} {
+			if name != "" && strings.EqualFold(name, e.Name) {
+				return true
+			}
+		}
+
+		if b.Tasks != nil && b.Tasks.Pins != nil {
+			for _, name := range b.Tasks.Pins() {
+				if strings.EqualFold(name, e.Name) {
+					return true
+				}
+			}
+		}
+	case "tool":
+		if b.Integrations != nil {
+			for _, s := range b.Integrations.Book.Servers() {
+				if s.Approved && s.Recipe != "" && (s.Recipe == e.ID || strings.EqualFold(s.Recipe, e.Name)) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// removers take each kind away, and prove it went.
+func (b *Brain) removers() autonomy.Removers {
+	return autonomy.Removers{
+		Model: func(ctx context.Context, name string) error {
+			client := models.New(b.Cfg.OllamaURL)
+
+			if err := client.Delete(ctx, name); err != nil {
+				return err
+			}
+
+			if (ollamaPuller{client}).DigestOf(ctx, name) != "" {
+				return errStillHere
+			}
+
+			b.installed.mu.Lock()
+			b.installed.at = time.Time{}
+			b.installed.mu.Unlock()
+
+			return nil
+		},
+		Tool: func(id, title string) error {
+			r, ok := b.Recipes().Get(id)
+			if !ok {
+				for _, x := range b.Recipes().All() {
+					if x.Title == title {
+						r, ok = x, true
+					}
+				}
+			}
+
+			if !ok {
+				return errUnknownRecipe
+			}
+
+			return provision.Take(r, io.Discard)
+		},
+		Integration: func(id string) error {
+			if b.Integrations == nil {
+				return errNoIntegrations
+			}
+
+			return b.Integrations.Discard(id)
+		},
+	}
+}
+
+var (
+	errStillHere      = errors.New("it is still installed after removing it")
+	errUnknownRecipe  = errors.New("no recipe knows how to remove it")
+	errNoIntegrations = errors.New("integrations are not running")
+)

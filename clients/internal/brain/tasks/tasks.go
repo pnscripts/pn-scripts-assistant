@@ -142,6 +142,10 @@ type Conductor struct {
 	GoalFolder func(id int64, name string) (string, error)
 	Prepared   func(since time.Time) []string
 
+	// Used is told of each model a step is thought with, so what goal mode
+	// downloaded counts as in use and is not removed as idle. Nil is nobody.
+	Used func(model string)
+
 	// failed counts recent failures per model, so the router moves a model
 	// that keeps failing to the back of its order by itself.
 	failedMu sync.Mutex
@@ -2159,6 +2163,10 @@ func (c *Conductor) routed(member team.Agent, through string) (llm.Choice, bool)
 
 	if c.Log != nil {
 		c.Log.Info("model chosen", "agent", member.Name, "model", chosen.Model, "why", chosen.Reason, "then", chosen.Fallbacks)
+	}
+
+	if c.Used != nil {
+		c.Used(chosen.Model)
 	}
 
 	return llm.Choice{Model: chosen.Model, Why: chosen.Reason, Tools: true}, true

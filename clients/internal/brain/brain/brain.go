@@ -22,6 +22,7 @@ import (
 	"pn-scripts-assistant/internal/brain/activity"
 	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/appearance"
+	"pn-scripts-assistant/internal/brain/autonomy"
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/engines"
 	"pn-scripts-assistant/internal/brain/environs"
@@ -883,6 +884,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Provide:    b.provideModel,
 		GoalFolder: b.goalFolder,
 		Prepared:   b.prepared,
+		Used:       func(model string) { autonomy.LedgerAt(b.Root).Touch("model", model) },
 		Roster:     func() []team.Agent { return team.Roster(b.Root) },
 
 		/*
@@ -1357,6 +1359,10 @@ func (b *Brain) Start(ctx context.Context) {
 	// And the drives and folders it looks after, read a bite at a time
 	// whenever one of them is attached and holds something it has not seen.
 	go b.keepPlaces(ctx)
+
+	// And what goal mode downloaded and nobody has used for thirty days is
+	// taken away again — only its own, never while work is under way.
+	go b.tidyDownloads(ctx)
 
 	// A resident recogniser, started in the background because loading its
 	// model takes seconds and nothing should wait on it. Without one, every

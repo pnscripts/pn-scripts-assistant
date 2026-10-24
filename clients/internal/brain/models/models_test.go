@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -51,5 +52,30 @@ func TestStartUpFetchesOnlyWhatThePolicyAllows(t *testing.T) {
 
 	if !strings.Contains(strings.Join(said, "\n"), "1.2 GB") {
 		t.Errorf("the refusal was not said: %v", said)
+	}
+}
+
+// A model is removed through Ollama's own delete, by name.
+func TestDeleteAsksOllamaToRemoveTheModel(t *testing.T) {
+	var got string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		got = r.Method + " " + r.URL.Path + " " + string(body)
+
+		if strings.Contains(string(body), "missing") {
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL)
+
+	if err := c.Delete(context.Background(), "qwen3:8b"); err != nil || got != `DELETE /api/delete {"model":"qwen3:8b"}` {
+		t.Errorf("%q, %v", got, err)
+	}
+
+	if err := c.Delete(context.Background(), "missing:1b"); err == nil {
+		t.Error("a failed removal was reported as done")
 	}
 }

@@ -59,6 +59,11 @@ number is 0, the second one changes when something visible changes.
   before anything is downloaded, given to the one specialist that needs it,
   and the tools the server says destroy are not offered. The registry is
   searched with a short word for the kind of tool, never your words.
+- **Unused downloads are removed on their own.** Once a day, models, tools
+  and integrations that goal mode downloaded and nobody has used for 30 days
+  are removed and the removal is proven; never anything you installed or set
+  by name, and nothing while a job is under way. A failed removal is tried
+  again the next day.
 - **Originality checks with real tools.** Names are searched in trademark
   registers, app and game stores and the web; a game's one sentence is
   compared with the closest titles; pictures are compared with reference

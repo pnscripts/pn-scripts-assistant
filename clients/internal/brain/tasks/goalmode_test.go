@@ -32,9 +32,17 @@ func TestGoalModeDownloadsTheModelAStepNeeds(t *testing.T) {
 
 	dev := team.Agent{Name: "dev", Title: "Game developer", Uses: team.UsesWork}
 
+	var used []string
+	c.Used = func(model string) { used = append(used, model) }
+
 	got := c.choose(&store.TaskStep{Instruction: "write the game loop"}, dev, llm.Local)
 	if got.Model != "qwen2.5-coder:7b" || strings.Join(asked, ",") != "dev" {
 		t.Fatalf("got %+v after asking for %v", got, asked)
+	}
+
+	// And it counts as used, so it is not removed as idle.
+	if strings.Join(used, ",") != "qwen2.5-coder:7b" {
+		t.Errorf("used: %v", used)
 	}
 
 	off := &Conductor{Sizes: c.Sizes, Models: func() []route.Candidate { return nil }}
