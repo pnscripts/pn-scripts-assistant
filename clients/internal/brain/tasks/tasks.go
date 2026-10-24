@@ -1671,7 +1671,7 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 		map[string]any{"the job": task.Name, "how it ended": state, "why": because}, plain))
 
 	var (
-		bullets                       []string
+		bullets, checks               []string
 		verified, claimed, unfinished int
 	)
 
@@ -1689,6 +1689,12 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 			unfinished++
 		}
 
+		if checked := originalityLine(s); checked != "" {
+			checks = append(checks, checked)
+
+			continue
+		}
+
 		if s.State == store.StepDone && s.Answer != "" {
 			bullets = append(bullets, "• "+trimTo(s.Answer, 400))
 		}
@@ -1696,6 +1702,17 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 
 	if len(bullets) > 0 {
 		sections = append(sections, strings.Join(bullets, "\n"))
+	}
+
+	/*
+	 * The originality and meaning checks, on their own.
+	 *
+	 * Mixed into the answers above they read as more of the work; they are
+	 * not, they are what the specialists found in it — and a reader looking
+	 * for "is this our own?" should find it under one heading.
+	 */
+	if len(checks) > 0 {
+		sections = append(sections, OriginalitySection+"\n"+strings.Join(checks, "\n"))
 	}
 
 	/*

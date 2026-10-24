@@ -63,3 +63,37 @@ func TestEachResultIsCheckedByTheSpecialistsItNeedsOnly(t *testing.T) {
 		}
 	}
 }
+
+// The specialists' findings are one section of the final report, under their
+// own heading, not more bullets among the answers.
+func TestTheChecksHaveTheirOwnSectionInTheReport(t *testing.T) {
+	plan := withOriginality("Направи ми лого за пекарна", Plan{Steps: []store.TaskStep{{Instruction: "draw the logo"}}})
+
+	steps := plan.Steps
+	steps[0].State, steps[0].Answer, steps[0].Verdict = store.StepDone, "logo.svg drawn", store.Verified
+	steps[1].State, steps[1].Answer = store.StepDone, "no registered mark named Zorna in TMview"
+	steps[2].State = store.StepRunning
+
+	report := (&Conductor{}).report(&store.Task{Name: "logo"}, steps, store.TaskDone, "done")
+
+	at := strings.Index(report, OriginalitySection)
+	if at < 0 {
+		t.Fatalf("no originality section:\n%s", report)
+	}
+
+	answers, section := report[:at], report[at:]
+
+	if !strings.Contains(answers, "logo.svg drawn") || strings.Contains(answers, "TMview") {
+		t.Errorf("the checks are mixed with the answers:\n%s", report)
+	}
+
+	for _, want := range []string{"• name and trademarks: no registered mark named Zorna", "• look: not done"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("section lacks %q:\n%s", want, section)
+		}
+	}
+
+	if plain := (&Conductor{}).report(&store.Task{Name: "sort"}, steps[:1], store.TaskDone, "done"); strings.Contains(plain, OriginalitySection) {
+		t.Errorf("a result without checks got the section:\n%s", plain)
+	}
+}

@@ -33,7 +33,8 @@ number is 0, the second one changes when something visible changes.
   by the specialists of the fields it touches (trademarks, look, sound, game
   rules, text and meaning, money, tax, law, business), side by side, and only
   for the sides it has; why each check was or was not used is in the task,
-  and the findings are in the final report. New guides: "How I work" and
+  and the findings have their own "Originality and meaning" section in the
+  final report. New guides: "How I work" and
   "Originality and licences", in English and Bulgarian.
 - **Plain wording on the screens.** The brain is now explained where its
   copies are kept: it is the assistant's knowledge base, everything it has

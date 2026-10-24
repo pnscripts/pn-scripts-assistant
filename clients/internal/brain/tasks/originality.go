@@ -134,3 +134,35 @@ func withOriginality(request string, p Plan) Plan {
 
 	return p
 }
+
+// OriginalitySection heads the checks in a task's final report.
+const OriginalitySection = "Originality and meaning:"
+
+// originalityLine is how one check step reads in the final report, or "" for
+// a step that is not a check.
+func originalityLine(s store.TaskStep) string {
+	if !strings.HasPrefix(s.Instruction, OriginalityMarker) {
+		return ""
+	}
+
+	what := "check"
+
+	if open := strings.Index(s.Instruction, "("); open >= 0 {
+		if end := strings.Index(s.Instruction[open:], ")"); end > 0 {
+			what = s.Instruction[open+1 : open+end]
+		}
+	}
+
+	switch {
+	case s.State == store.StepDone && s.Verdict == store.Unmet:
+		return "• " + what + ": found wrong on review — " + trimTo(s.Answer, 300)
+	case s.State == store.StepDone && s.Answer != "":
+		return "• " + what + ": " + trimTo(s.Answer, 300)
+	case s.State == store.StepDone:
+		return "• " + what + ": nothing found"
+	case s.State == store.StepSkipped:
+		return "• " + what + ": skipped"
+	default:
+		return "• " + what + ": not done"
+	}
+}
