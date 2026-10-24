@@ -166,7 +166,118 @@ function renderSteps(steps) {
     return box;
 }
 
-function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps = [], answers = true } = {}) {
+/*
+ * renderSources lists what an answer was built from, numbered as it cites.
+ *
+ * Kept by the program, not reported by the model (see the cite package): a
+ * number in the answer that pointed nowhere has already been taken out. What
+ * the answer cites comes first and is marked so; what was read and not cited
+ * follows, because an honest account includes both.
+ *
+ * Closed by default under a one-line count, like the steps: the answer is
+ * what somebody came for, and the sources are there to check it.
+ */
+function renderSources(sources) {
+    const T = window.pnT || ((k) => k);
+    const box = document.createElement('details');
+    box.className = 'sources';
+
+    const cited = sources.filter((s) => s.cited).length;
+
+    const head = document.createElement('summary');
+    head.className = 'sources-head';
+    head.textContent = `${T('sources.title')} · ${sources.length}`
+        + (cited ? ` · ${cited} ${T('sources.cited')}` : '');
+    box.appendChild(head);
+
+    const list = document.createElement('ol');
+    list.className = 'sources-list';
+
+    const order = [...sources].sort((a, b) => (b.cited ? 1 : 0) - (a.cited ? 1 : 0) || a.n - b.n);
+
+    order.forEach((s) => {
+        const item = document.createElement('li');
+        item.className = 'source' + (s.cited ? ' cited' : '');
+        item.dataset.kind = s.kind;
+
+        const n = document.createElement('span');
+        n.className = 'source-n';
+        n.textContent = `[${s.n}]`;
+        item.appendChild(n);
+
+        const text = document.createElement('span');
+        text.className = 'source-text';
+
+        const kind = document.createElement('span');
+        kind.className = 'source-kind';
+        kind.textContent = T('kind.' + s.kind);
+        text.appendChild(kind);
+
+        const title = document.createElement('span');
+        title.className = 'source-title';
+        // textContent: titles are file names and web page titles.
+        title.textContent = s.title || s.where || '';
+        title.title = s.where || '';
+        text.appendChild(title);
+
+        if (s.excerpt && s.excerpt !== s.title) {
+            const ex = document.createElement('span');
+            ex.className = 'source-excerpt';
+            ex.textContent = s.excerpt;
+            text.appendChild(ex);
+        }
+
+        const state = document.createElement('span');
+        state.className = 'source-state';
+        state.textContent = s.cited ? T('sources.cited') : T('sources.read');
+        text.appendChild(state);
+
+        const where = s.where || '';
+        const web = /^https?:\/\//i.test(where);
+        const file = !web && (where.startsWith('/') || /^[A-Za-z]:\\/.test(where));
+
+        if (web || file) {
+            const open = document.createElement('button');
+            open.type = 'button';
+            open.className = 'link-button source-open';
+            open.textContent = web ? T('sources.open') : T('sources.folder');
+            open.onclick = () => openSource(where, web, open);
+            text.appendChild(open);
+        }
+
+        // In the text column, under the state, so a narrow card never
+        // pushes the button off its edge.
+        item.appendChild(text);
+        list.appendChild(item);
+    });
+
+    box.appendChild(list);
+
+    return box;
+}
+
+/*
+ * Opening a source: on this machine the program hands it to the system's own
+ * browser or file manager (the window cannot follow a link itself); from
+ * another device an address opens in that device's browser, and a file — which
+ * is on the other machine — is not offered.
+ */
+function openSource(where, web, button) {
+    const here = ['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname);
+
+    if (!here) {
+        if (web) window.open(where, '_blank', 'noopener,noreferrer');
+
+        return;
+    }
+
+    api.post('/api/open-source', { where }).catch(() => {
+        button.textContent = (window.pnT || ((k) => k))('sources.failed');
+        button.disabled = true;
+    });
+}
+
+function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps = [], answers = true, sources = [] } = {}) {
     clearBoot();
 
     const wrap = document.createElement('div');
@@ -206,6 +317,10 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps =
             row.appendChild(chip);
         });
         wrap.appendChild(row);
+    }
+
+    if (sources && sources.length) {
+        wrap.appendChild(renderSources(sources));
     }
 
     // A question asked the one way (ask.Show): its answers become buttons.
@@ -379,6 +494,7 @@ async function send(text) {
             meta: `${data.provider} · ${data.model}`,
             actions: data.actions_taken || [],
             steps: data.steps || [],
+            sources: data.sources || [],
         });
 
         // A pause for approval is the interesting case, so surface it
@@ -976,6 +1092,11 @@ async function loadVoices() {
     language.onchange = async () => {
         try {
             await api.post('/api/language', { code: language.value });
+
+            // The pages follow the spoken language where they can.
+            if (window.pnSetLanguage) {
+                window.pnSetLanguage(language.value.startsWith('bg') ? 'bg' : 'en');
+            }
         } catch (err) {
             addMessage('error', String(err.message || err), { cssClass: 'error' });
         }
@@ -1490,7 +1611,7 @@ async function restoreConversation() {
             addMessage(
                 m.role === 'user' ? 'you' : state.brainName,
                 m.content,
-                { cssClass: m.role === 'user' ? 'you' : 'brain' }
+                { cssClass: m.role === 'user' ? 'you' : 'brain', sources: m.sources || [] }
             );
         });
 
@@ -1544,7 +1665,11 @@ window.brainOpenConversation = async function (id) {
                 m.content,
                 // Only a question still waiting gets its answer buttons: the
                 // last message, and only when it is the assistant's.
-                { cssClass: m.role === 'user' ? 'you' : 'brain', answers: i === all.length - 1 }
+                {
+                    cssClass: m.role === 'user' ? 'you' : 'brain',
+                    answers: i === all.length - 1,
+                    sources: m.sources || [],
+                }
             );
         });
 };

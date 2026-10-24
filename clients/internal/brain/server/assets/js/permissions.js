@@ -43,20 +43,14 @@
      * about what leaves would promise something this control does not decide.
      * Kept in step with permits.Means, which the server sends after a change.
      */
-    const MEANS = {
-        ask: 'It asks before anything that changes something. Every action is recorded.',
-        granted: 'It does what you have already allowed and asks about the rest. '
-            + 'Every action is recorded.',
-        everything: 'It does anything it can without asking. Every action is recorded, '
-            + 'and files it overwrites are kept so they can be put back.',
-    };
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
 
-    // What the choice means in practice, under the control itself.
-    const LEAVES = {
-        ask: 'Nothing changes until you say yes.',
-        granted: 'Anything you have not allowed waits for you.',
-        everything: 'Overwritten files are kept for undo: the last 60, for up to 14 days.',
-    };
+    // What each setting means, in the page's language. Kept in step with
+    // permits.Means, which the server sends after a change in English.
+    const means = (level) => T('means.' + (['ask', 'granted', 'everything'].includes(level) ? level : 'ask'));
+    const leavesOf = (level) => T('leaves.' + (['ask', 'granted', 'everything'].includes(level) ? level : 'ask'));
+
+    let last = null;
 
     let loaded = false;
 
@@ -97,11 +91,11 @@
 
         const summary = el('freedom-summary');
 
-        if (summary) summary.textContent = MEANS[data.freedom] || MEANS.ask;
+        if (summary) summary.textContent = means(data.freedom);
 
         const leaves = el('freedom-means');
 
-        if (leaves) leaves.textContent = LEAVES[data.freedom] || LEAVES.ask;
+        if (leaves) leaves.textContent = leavesOf(data.freedom);
 
         /*
          * Privacy named on this page, and only as a pointer.
@@ -123,12 +117,19 @@
              * than claiming this switch decides it. For a while it said the
              * opposite, which was true then and is not now.
              */
-            note.textContent = 'What may leave this machine is a separate setting, '
-                + 'currently “' + (data.privacy || '—') + '”. It is changed under Privacy '
-                + 'in System, and nothing on this page changes it.';
+            const mode = data.privacy ? T('privacy.' + data.privacy) : '—';
+
+            note.textContent = T('control.privacyNote', { p: mode.startsWith('privacy.') ? data.privacy : mode });
         }
 
-        draw(data.capabilities || []);
+        const cite = el('cite-sources');
+
+        if (cite && document.activeElement !== cite) {
+            cite.checked = data.cite_sources !== false;
+        }
+
+        last = data.capabilities || [];
+        draw(last);
         loaded = true;
     }
 
@@ -139,13 +140,25 @@
 
         host.textContent = '';
 
+        const shown = filtered(list);
+
         // What changes something first: those are the ones a decision is
         // about. The rest is there to be complete, not to be read.
-        const order = [...list].sort((a, b) =>
+        const order = [...shown].sort((a, b) =>
             (b.changes_something ? 1 : 0) - (a.changes_something ? 1 : 0)
             || a.name.localeCompare(b.name));
 
         for (const c of order) host.appendChild(row(c));
+
+        const summary = el('control-summary');
+
+        if (summary) {
+            summary.textContent = T('control.summary', {
+                n: list.length,
+                l: list.filter((c) => c.leaves).length,
+                o: list.filter((c) => c.off).length,
+            });
+        }
 
         const count = el('permissions-count');
 
@@ -158,7 +171,21 @@
 
         const empty = el('permissions-empty');
 
-        if (empty) empty.hidden = list.length > 0;
+        if (empty) {
+            empty.hidden = shown.length > 0;
+            empty.textContent = list.length ? T('control.nothingHere') : T('control.empty');
+        }
+    }
+
+    // What the "Show" choice keeps.
+    function filtered(list) {
+        const which = (el('control-filter') || {}).value || 'all';
+
+        if (which === 'leaves') return list.filter((c) => c.leaves);
+        if (which === 'changes') return list.filter((c) => c.changes_something);
+        if (which === 'off') return list.filter((c) => c.off);
+
+        return list;
     }
 
     function row(c) {
@@ -170,16 +197,30 @@
         text.className = 'permit-text';
 
         const name = document.createElement('span');
-        name.className = 'permit-name';
-        name.textContent = c.name.replace(/_/g, ' ');
+        name.className = 'permit-name human';
+        name.textContent = window.pnToolName ? window.pnToolName(c.name) : c.name.replace(/_/g, ' ');
+        name.title = c.name;
 
         const what = document.createElement('span');
         what.className = 'permit-what';
         // The tool's own words, cut to a line: the full description is written
-        // for a model and reads as a paragraph.
-        what.textContent = (c.what || '').split('.')[0];
+        // for a model and reads as a paragraph. Written in English, so shown
+        // only on the English page; the name above is in either language.
+        what.textContent = window.pnLang && window.pnLang() === 'bg' ? '' : (c.what || '').split('.')[0];
+        what.hidden = what.textContent === '';
 
         text.append(name, what);
+
+        /*
+         * Whether using it can send anything off this machine, and what —
+         * the question somebody looking at this list is actually asking.
+         */
+        const leaves = document.createElement('span');
+        leaves.className = 'permit-leaves' + (c.leaves ? ' sends' : '');
+        leaves.textContent = c.leaves
+            ? T('control.canSend', { what: window.pnLeavesWhat ? window.pnLeavesWhat(c.leaves_what) : c.leaves_what })
+            : T('control.stays');
+        text.appendChild(leaves);
 
         if (c.hidden) {
             const why = document.createElement('span');
@@ -188,23 +229,24 @@
             // privacy setting, a decision about this machine, something not
             // installed — and somebody deserves to know which one they are
             // looking at. The reason comes with the answer now.
-            why.textContent = c.hidden_why || 'out of reach';
+            why.textContent = c.hidden_by ? T('hidden.' + c.hidden_by) : (c.hidden_why || '');
             text.appendChild(why);
         }
 
         if (c.only_this_run) {
             const why = document.createElement('span');
             why.className = 'permit-note';
-            why.textContent = 'allowed until the program stops';
+            why.textContent = T('control.thisRun');
             text.appendChild(why);
         }
 
         item.appendChild(text);
+        item.appendChild(toggle(c, item));
 
         if (!c.changes_something) {
             const looks = document.createElement('span');
             looks.className = 'permit-reading';
-            looks.textContent = 'only looks';
+            looks.textContent = T('control.onlyLooks');
             item.appendChild(looks);
 
             return item;
@@ -214,9 +256,9 @@
         choice.className = 'permit-choice';
 
         for (const [value, label] of [
-            ['ask', 'Ask me'],
-            ['allow', 'Always allow'],
-            ['refuse', 'Never'],
+            ['ask', T('control.askMe')],
+            ['allow', T('control.allow')],
+            ['refuse', T('control.never')],
         ]) {
             const option = document.createElement('option');
             option.value = value;
@@ -241,9 +283,58 @@
             }
         };
 
+        choice.disabled = c.off;
         item.appendChild(choice);
 
         return item;
+    }
+
+    /*
+     * On or off, for one capability.
+     *
+     * Off takes it away completely — hidden from the model and refused if
+     * named — through the same list "What is on this machine" keeps
+     * (BRAIN_TURNED_OFF), so the two pages cannot disagree.
+     */
+    function toggle(c, item) {
+        const label = document.createElement('label');
+        label.className = 'switch';
+
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = !c.off;
+        box.setAttribute('role', 'switch');
+        box.setAttribute('aria-label', T('control.switch', {
+            name: window.pnToolName ? window.pnToolName(c.name) : c.name,
+        }));
+
+        const word = document.createElement('span');
+        word.className = 'switch-word';
+        word.textContent = c.off ? T('control.off') : T('control.on');
+
+        item.dataset.off = c.off ? 'yes' : 'no';
+
+        box.onchange = async () => {
+            const off = !box.checked;
+
+            box.disabled = true;
+
+            try {
+                await post('/api/environment/off', { id: 'tool:' + c.name, off });
+
+                c.off = off;
+                load();
+            } catch (err) {
+                box.checked = !off;
+                word.textContent = T('control.failed');
+            } finally {
+                box.disabled = false;
+            }
+        };
+
+        label.append(box, word);
+
+        return label;
     }
 
     const freedom = el('freedom');
@@ -255,16 +346,35 @@
 
                 const summary = el('freedom-summary');
 
-                if (summary) summary.textContent = answer.means || MEANS[answer.freedom];
+                if (summary) summary.textContent = means(answer.freedom);
 
                 const leaves = el('freedom-means');
 
-                if (leaves) leaves.textContent = LEAVES[answer.freedom] || LEAVES.ask;
+                if (leaves) leaves.textContent = leavesOf(answer.freedom);
             } catch (err) {
                 load();
             }
         };
     }
+
+    const cite = el('cite-sources');
+
+    if (cite) {
+        cite.onchange = async () => {
+            try {
+                await post('/api/settings/cite-sources', { on: cite.checked });
+            } catch (err) {
+                cite.checked = !cite.checked;
+            }
+        };
+    }
+
+    const filter = el('control-filter');
+
+    if (filter) filter.onchange = () => { if (last) draw(last); };
+
+    // Drawn again in the other language when it changes.
+    window.addEventListener('pn-language', () => load());
 
     /*
      * Loaded when the page is opened and then left alone.

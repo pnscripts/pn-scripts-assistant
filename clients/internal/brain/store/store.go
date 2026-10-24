@@ -898,6 +898,46 @@ var migrations = []string{
 	// 19: why a step was given the model it ran with, as the router said it,
 	// so the Tasks view can show it beside the model.
 	`ALTER TABLE task_steps ADD COLUMN model_why TEXT;`,
+
+	/*
+	 * 20: where an answer came from, and what was done and why.
+	 *
+	 * message_sources is the numbered list an answer was built from — kept
+	 * with the message, so a conversation opened next week still says where
+	 * each claim came from. deeds is every call the assistant made, put to
+	 * its owner or refused, with who acted, the request that led to it, the
+	 * model and why that model, and whether anything left the machine: the
+	 * record behind the "What I did and why" page. Both sealed like the
+	 * conversation they belong to.
+	 */
+	`
+	CREATE TABLE message_sources (
+		message_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+		sources    TEXT NOT NULL
+	);
+
+	CREATE TABLE deeds (
+		id              INTEGER PRIMARY KEY AUTOINCREMENT,
+		conversation_id INTEGER,
+		task_id         INTEGER,
+		tool            TEXT NOT NULL,
+		summary         TEXT NOT NULL DEFAULT '',
+		asked           TEXT NOT NULL DEFAULT '',
+		request         TEXT NOT NULL DEFAULT '',
+		result          TEXT NOT NULL DEFAULT '',
+		specialist      TEXT NOT NULL DEFAULT '',
+		model           TEXT NOT NULL DEFAULT '',
+		model_why       TEXT NOT NULL DEFAULT '',
+		outcome         TEXT NOT NULL,
+		level           TEXT NOT NULL DEFAULT '',
+		changes         INTEGER NOT NULL DEFAULT 0,
+		leaves          TEXT NOT NULL DEFAULT '',
+		millis          INTEGER NOT NULL DEFAULT 0,
+		created_at      TEXT NOT NULL
+	);
+	CREATE INDEX idx_deeds_created ON deeds(created_at, id);
+	CREATE INDEX idx_deeds_conversation ON deeds(conversation_id, id);
+	`,
 }
 
 /*

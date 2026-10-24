@@ -1,0 +1,363 @@
+/*
+ * The pages in English and Bulgarian.
+ *
+ * Which one: what the assistant has been told its owner speaks, asked of the
+ * server once; until that answer arrives, and when it has nothing to say, the
+ * browser's own language. A page written in one language and switched to the
+ * other once the answer arrives is redrawn: every element carrying
+ * data-i18n is filled again and a "pn-language" event tells the scripts that
+ * draw their own rows to draw them again.
+ *
+ * Every string a person reads in the parts that use this is here, in both
+ * languages, side by side — so a sentence changed in one is seen to need
+ * changing in the other.
+ */
+(function () {
+    const STRINGS = {
+        // Sources under an answer.
+        'sources.title': ['Sources', 'Източници'],
+        'sources.cited': ['cited', 'цитиран'],
+        'sources.read': ['read, not cited', 'прочетен, без цитат'],
+        'sources.open': ['Open', 'Отвори'],
+        'sources.folder': ['Show in folder', 'Покажи в папката'],
+        'sources.failed': ['It could not be opened.', 'Не можа да се отвори.'],
+        'kind.memory': ['Remembered', 'Запомнено'],
+        'kind.document': ['File', 'Файл'],
+        'kind.project': ['Project', 'Проект'],
+        'kind.page': ['Web page', 'Уеб страница'],
+        'kind.result': ['Search result', 'Резултат от търсене'],
+        'kind.mail': ['Email', 'Имейл'],
+        'kind.conversation': ['Earlier conversation', 'Предишен разговор'],
+        'kind.site': ['A site you visit', 'Сайт, който посещавате'],
+
+        // What I did and why.
+        'nav.deeds': ['What I did', 'Какво направих'],
+        'deeds.title': ['What I did and why', 'Какво направих и защо'],
+        'deeds.intro': [
+            'Every action I took, put to you or refused — with what was asked, who did it, '
+                + 'which model and why, and whether anything left this machine. The program keeps '
+                + 'this record itself; it is not the model\'s account of what it did.',
+            'Всяко действие, което извърших, предложих за одобрение или отказах — с това какво '
+                + 'беше поискано, кой специалист го изпълни, с кой модел и защо, и дали нещо е '
+                + 'напуснало този компютър. Записът се води от самата програма, а не от модела.',
+        ],
+        'deeds.period': ['Period', 'Период'],
+        'deeds.day': ['Last 24 hours', 'Последните 24 часа'],
+        'deeds.week': ['Last 7 days', 'Последните 7 дни'],
+        'deeds.month': ['Last 31 days', 'Последните 31 дни'],
+        'deeds.all': ['Everything', 'Всичко'],
+        'deeds.onlyChanges': ['Only actions that change something', 'Само действия, които променят нещо'],
+        'deeds.onlyLeaves': ['Only what left this machine', 'Само изпратеното извън компютъра'],
+        'deeds.refresh': ['Refresh', 'Обнови'],
+        'deeds.empty': ['Nothing was done in this period.', 'За този период няма действия.'],
+        'deeds.error': ['The record could not be read.', 'Записът не можа да бъде прочетен.'],
+        'deeds.count': ['{n} actions', '{n} действия'],
+        'deeds.countChanges': ['{n} changed something', '{n} с промяна'],
+        'deeds.countLeaves': ['{n} left this machine', '{n} извън компютъра'],
+        'deeds.countWaiting': ['{n} waiting for you', '{n} чакат вас'],
+        'deeds.countRefused': ['{n} refused', '{n} отказани'],
+        'deeds.countFailed': ['{n} failed', '{n} неуспешни'],
+        'outcome.done': ['Done', 'Изпълнено'],
+        'outcome.failed': ['Failed', 'Неуспешно'],
+        'outcome.waiting': ['Waiting for you', 'Чака вашето решение'],
+        'outcome.refused': ['Refused', 'Отказано'],
+        'deeds.why': ['Asked for', 'Поискано'],
+        'deeds.who': ['Who', 'Кой'],
+        'deeds.you': ['Your assistant', 'Вашият асистент'],
+        'deeds.model': ['Model', 'Модел'],
+        'deeds.modelWhy': ['Chosen because', 'Избран, защото'],
+        'deeds.asked': ['Given', 'Подадени данни'],
+        'deeds.result': ['Result', 'Резултат'],
+        'deeds.task': ['Task', 'Задача'],
+        'deeds.risk': ['Risk', 'Риск'],
+        'deeds.left': ['Left this machine', 'Излезе извън компютъра'],
+        'deeds.approved': ['You approved it', 'Вие го одобрихте'],
+        'deeds.took': ['took {t}', 'отне {t}'],
+        'deeds.changes': ['changes something', 'променя нещо'],
+        'deeds.looks': ['only looks', 'само чете'],
+        'risk.low': ['low', 'нисък'],
+        'risk.medium': ['medium', 'среден'],
+        'risk.high': ['high', 'висок'],
+        'risk.critical': ['critical', 'критичен'],
+
+        // Control.
+        'nav.control': ['Control', 'Контрол'],
+        'control.asks': ['How much it asks', 'Колко често пита'],
+        'control.before': ['Before it does something on this machine', 'Преди да направи нещо на този компютър'],
+        'freedom.ask': ['Ask me every time', 'Питай ме всеки път'],
+        'freedom.granted': ['Do what I have allowed, ask about the rest', 'Прави позволеното, питай за останалото'],
+        'freedom.everything': ['Act freely, and record everything', 'Действай свободно и записвай всичко'],
+        'means.ask': [
+            'It asks before anything that changes something. Every action is recorded.',
+            'Пита преди всяко действие, което променя нещо. Всяко действие се записва.',
+        ],
+        'means.granted': [
+            'It does what you have already allowed and asks about the rest. Every action is recorded.',
+            'Прави това, което вече сте позволили, и пита за останалото. Всяко действие се записва.',
+        ],
+        'means.everything': [
+            'It does anything it can without asking. Every action is recorded, and files it '
+                + 'overwrites are kept so they can be put back.',
+            'Прави всичко, което може, без да пита. Всяко действие се записва, а файловете, '
+                + 'които презаписва, се пазят, за да могат да бъдат върнати.',
+        ],
+        'leaves.ask': ['Nothing changes until you say yes.', 'Нищо не се променя, докато не потвърдите.'],
+        'leaves.granted': ['Anything you have not allowed waits for you.', 'Всичко непозволено изчаква вашето решение.'],
+        'leaves.everything': [
+            'Overwritten files are kept for undo: the last 60, for up to 14 days.',
+            'Презаписаните файлове се пазят за връщане: последните 60, до 14 дни.',
+        ],
+        'control.lookOnline': ['May look things up about itself', 'Може да проверява информация за себе си'],
+        'control.lookOnlineNote': [
+            'Updates, the list of models it could install, documentation. Sends nothing about you — '
+                + 'this is not your privacy setting.',
+            'Обновления, списъкът с модели за инсталиране, документация. Не изпраща нищо за вас — '
+                + 'това не е настройката за поверителност.',
+        ],
+        'control.privacyNote': [
+            'What may leave this machine is a separate setting, currently “{p}”. It is changed under '
+                + 'Privacy in System, and nothing on this page changes it.',
+            'Какво може да напуска този компютър е отделна настройка, в момента „{p}“. Тя се променя '
+                + 'от „Поверителност“ в „Система“ и нищо на тази страница не я променя.',
+        ],
+        'control.answers': ['Answers', 'Отговори'],
+        'control.cite': ['Say where answers come from', 'Посочвай откъде идват отговорите'],
+        'control.citeNote': [
+            'Each answer lists what it was built from — your files, pages it read, things it '
+                + 'remembers — and ends a sentence with the number of its source. Spoken answers are '
+                + 'listed without numbers. The list is kept either way.',
+            'Всеки отговор изрежда на какво се основава — ваши файлове, прочетени страници, '
+                + 'запомнени неща — и завършва изречението с номера на източника. Изговорените '
+                + 'отговори се изброяват без номера. Списъкът се пази и при изключена настройка.',
+        ],
+        'control.every': ['Every capability', 'Всички възможности'],
+        'control.everyNote': [
+            'Reading and looking never ask. The rest is your decision, and you can change any of it '
+                + 'here at any time. The switch takes a capability away completely.',
+            'Четенето и разглеждането никога не питат. Останалото е ваше решение и можете да го '
+                + 'промените тук по всяко време. Превключвателят изключва възможността напълно.',
+        ],
+        'control.show': ['Show', 'Покажи'],
+        'control.showAll': ['All', 'Всички'],
+        'control.showLeaves': ['Can send something off this machine', 'Могат да изпратят нещо извън компютъра'],
+        'control.showChanges': ['Change something', 'Променят нещо'],
+        'control.showOff': ['Switched off', 'Изключени'],
+        'control.summary': [
+            '{n} capabilities · {l} can send something off this machine · {o} switched off',
+            '{n} възможности · {l} могат да изпратят нещо извън компютъра · {o} изключени',
+        ],
+        'control.empty': ['Nothing registered.', 'Няма регистрирани възможности.'],
+        'control.nothingHere': ['None match.', 'Няма съвпадения.'],
+        'control.onlyLooks': ['only looks', 'само чете'],
+        'control.askMe': ['Ask me', 'Питай ме'],
+        'control.allow': ['Always allow', 'Винаги позволявай'],
+        'control.never': ['Never', 'Никога'],
+        'control.thisRun': ['allowed until the program stops', 'позволено до спиране на програмата'],
+        'control.on': ['On', 'Вкл.'],
+        'control.off': ['Off', 'Изкл.'],
+        'control.switch': ['Switch {name} on or off', 'Включване или изключване на „{name}“'],
+        'control.canSend': ['Can send: {what}', 'Може да изпрати: {what}'],
+        'control.stays': ['Stays on this machine', 'Остава на този компютър'],
+        'hidden.off': ['switched off by you', 'изключено от вас'],
+        'hidden.needs': ['needs something you switched off', 'нуждае се от нещо, което сте изключили'],
+        'hidden.privacy': ['out of reach at this privacy setting', 'недостъпно при тази настройка за поверителност'],
+        'control.failed': ['That could not be saved.', 'Промяната не можа да бъде запазена.'],
+        'privacy.private': ['private', 'частно'],
+        'privacy.research': ['research', 'проучване'],
+        'privacy.open': ['open', 'отворено'],
+        'deeds.stayedTrait': ['stayed on this machine', 'остана на този компютър'],
+    };
+
+    // What tools.Leaves says leaves, in both languages.
+    const LEAVES = {
+        'the address it is asked to read': 'адреса, който трябва да прочете',
+        'the search words, to a search engine': 'думите за търсене — към търсачка',
+        'the message, to the people it is addressed to': 'съобщението — към получателите му',
+        'what the page you open is sent': 'това, което се изпраща към отворената страница',
+        'your login, to your own mail server': 'данните за вход — към вашия пощенски сървър',
+        'a request for the download — nothing about you': 'заявка за изтегляне — нищо за вас',
+        'what the integration is given': 'това, което се подава на интеграцията',
+        'web search': 'търсене в интернет',
+        'your mail server': 'вашия пощенски сървър',
+        'an integration off this machine': 'интеграция извън компютъра',
+    };
+
+    // Each capability's name, for people rather than for the model.
+    const TOOLS = {
+        acquire_integration: ['Find and add an integration', 'Намиране и добавяне на интеграция'],
+        activate_integration: ['Switch an integration on', 'Включване на интеграция'],
+        ask_first: ['Ask you a question', 'Въпрос към вас'],
+        audit_originality: ['Check a catalogue for originality', 'Проверка на каталог за оригиналност'],
+        brain_copies: ['Copies of its knowledge', 'Копия на знанията'],
+        change_a_setting: ['Change a setting', 'Промяна на настройка'],
+        change_the_diary: ['Change the diary', 'Промяна в дневника'],
+        change_this_conversation: ['Rename or tidy this conversation', 'Промяна на този разговор'],
+        check_for_updates: ['Check for updates', 'Проверка за обновления'],
+        check_name: ['Check a name is free', 'Проверка дали име е свободно'],
+        check_requirements: ['Check what a task needs', 'Проверка на изискванията'],
+        click: ['Click on the screen', 'Щракване по екрана'],
+        closest_titles: ['Find the closest titles', 'Най-близки заглавия'],
+        compare_melody: ['Compare a melody', 'Сравняване на мелодия'],
+        compare_pictures: ['Compare pictures', 'Сравняване на изображения'],
+        confirm_hire: ['Confirm a new specialist', 'Потвърждаване на специалист'],
+        decide_waiting: ['Decide what is waiting', 'Решение по чакащи действия'],
+        do_in_background: ['Work in the background', 'Работа във фонов режим'],
+        drive_browser: ['Use its own browser', 'Работа със собствен браузър'],
+        edit_document: ['Edit a document', 'Редактиране на документ'],
+        edit_file: ['Edit a file', 'Редактиране на файл'],
+        fetch_url: ['Fetch a web address', 'Изтегляне на уеб адрес'],
+        films_without_subtitles: ['Find films without subtitles', 'Филми без субтитри'],
+        forget_how_to_do_this: ['Forget a learned procedure', 'Забравяне на научена процедура'],
+        forget_reminder: ['Remove a reminder', 'Премахване на напомняне'],
+        game_build: ['Build a game', 'Компилиране на игра'],
+        game_check: ['Check a game', 'Проверка на игра'],
+        game_docs: ['Read game engine documentation', 'Документация на игрови двигател'],
+        game_engines: ['Game engines on this machine', 'Игрови двигатели на компютъра'],
+        godot_build: ['Build with Godot', 'Компилиране с Godot'],
+        godot_docs: ['Read the Godot documentation', 'Документация на Godot'],
+        godot_status: ['Godot on this machine', 'Godot на компютъра'],
+        hire_agent: ['Propose a new specialist', 'Предложение за нов специалист'],
+        how_fast_can_you_answer: ['Measure answer speed', 'Измерване на скоростта на отговор'],
+        inspect_project: ['Look at a project', 'Преглед на проект'],
+        install_a_model: ['Install a model', 'Инсталиране на модел'],
+        install_a_part: ['Install a part', 'Инсталиране на компонент'],
+        install_requirement: ['Install what a task needs', 'Инсталиране на необходимото'],
+        learn_from_folder: ['Learn from a folder', 'Учене от папка'],
+        list_background: ['List background work', 'Фонова работа'],
+        list_devices: ['List devices in the house', 'Устройства в дома'],
+        list_directory: ['List a folder', 'Съдържание на папка'],
+        list_drives: ['List drives', 'Дискове'],
+        list_integrations: ['List integrations', 'Интеграции'],
+        list_models: ['List models', 'Модели'],
+        list_reminders: ['List reminders', 'Напомняния'],
+        list_waiting: ['List what is waiting', 'Чакащи действия'],
+        list_windows: ['List open windows', 'Отворени прозорци'],
+        look_at_screen: ['Look at the screen', 'Поглед към екрана'],
+        make_a_picture: ['Make a picture', 'Създаване на изображение'],
+        make_a_video: ['Make a video', 'Създаване на видео'],
+        make_subtitles: ['Make subtitles', 'Създаване на субтитри'],
+        open_app: ['Open an application', 'Отваряне на приложение'],
+        places_it_learns_from: ['Places it learns from', 'Места, от които се учи'],
+        plan_project: ['Plan a project', 'Планиране на проект'],
+        put_in_the_diary: ['Add to the diary', 'Запис в дневника'],
+        put_it_back: ['Put a file back', 'Връщане на файл'],
+        read_a_page: ['Read a web page', 'Четене на уеб страница'],
+        read_document: ['Read a document', 'Четене на документ'],
+        read_email: ['Read email', 'Четене на имейл'],
+        read_file: ['Read a file', 'Четене на файл'],
+        read_integration: ['Read from an integration', 'Четене от интеграция'],
+        read_mailbox: ['Read the mailbox', 'Четене на пощенската кутия'],
+        remember_how_to_do_this: ['Learn a procedure', 'Научаване на процедура'],
+        remind_me: ['Set a reminder', 'Напомняне'],
+        remove_a_part: ['Remove a part', 'Премахване на компонент'],
+        run_as_admin: ['Run as administrator', 'Изпълнение като администратор'],
+        run_command: ['Run a command', 'Изпълнение на команда'],
+        scroll: ['Scroll', 'Превъртане'],
+        search_files: ['Search files', 'Търсене във файлове'],
+        send_email: ['Send email', 'Изпращане на имейл'],
+        set_appearance: ['Change how it looks', 'Промяна на външния вид'],
+        set_device: ['Control a device', 'Управление на устройство'],
+        set_wake_word: ['Change the wake word', 'Промяна на думата за активиране'],
+        start_project: ['Start a project', 'Започване на проект'],
+        stop_background: ['Stop background work', 'Спиране на фонова работа'],
+        stop_hearing_this_machine: ['Stop hearing this machine', 'Изключване на звука от компютъра'],
+        type_text: ['Type text', 'Въвеждане на текст'],
+        web_search: ['Search the web', 'Търсене в интернет'],
+        what_am_i_hearing: ['What it is hearing', 'Какво чува'],
+        what_can_you_do: ['What it can do', 'Какво може'],
+        what_is_on: ['What is on the diary', 'Какво има в дневника'],
+        what_ive_been_taught: ['What it has been taught', 'Какво е научило'],
+        what_this_machine_needs: ['What this machine needs', 'Какво е нужно на компютъра'],
+        what_you_know: ['What it knows', 'Какво знае'],
+        write_document: ['Write a document', 'Писане на документ'],
+        write_file: ['Write a file', 'Запис на файл'],
+        write_originality_report: ['Write an originality report', 'Доклад за оригиналност'],
+    };
+
+    function guess() {
+        const said = (navigator.language || '').toLowerCase();
+
+        return said.startsWith('bg') ? 'bg' : 'en';
+    }
+
+    let lang = guess();
+
+    function T(key, vars) {
+        const pair = STRINGS[key];
+        let text = pair ? pair[lang === 'bg' ? 1 : 0] : key;
+
+        if (vars) {
+            for (const [name, value] of Object.entries(vars)) {
+                text = text.split('{' + name + '}').join(String(value));
+            }
+        }
+
+        return text;
+    }
+
+    function toolName(name) {
+        const pair = TOOLS[name];
+
+        if (pair) return pair[lang === 'bg' ? 1 : 0];
+
+        return String(name || '').replace(/_/g, ' ');
+    }
+
+    function leavesWhat(what) {
+        if (lang !== 'bg' || !what) return what || '';
+
+        return LEAVES[what] || what;
+    }
+
+    // Fills every element that names its string, in the language now chosen.
+    function apply(root) {
+        const scope = root || document;
+
+        scope.querySelectorAll('[data-i18n]').forEach((node) => {
+            node.textContent = T(node.dataset.i18n);
+        });
+
+        scope.querySelectorAll('[data-i18n-title]').forEach((node) => {
+            node.title = T(node.dataset.i18nTitle);
+        });
+
+        scope.querySelectorAll('[data-i18n-label]').forEach((node) => {
+            node.setAttribute('aria-label', T(node.dataset.i18nLabel));
+        });
+
+        document.documentElement.lang = lang;
+    }
+
+    function set(next) {
+        if (next !== 'bg' && next !== 'en') return;
+
+        const changed = next !== lang;
+
+        lang = next;
+        apply();
+
+        if (changed) window.dispatchEvent(new CustomEvent('pn-language', { detail: lang }));
+    }
+
+    window.pnLang = () => lang;
+    window.pnT = T;
+    window.pnToolName = toolName;
+    window.pnLeavesWhat = leavesWhat;
+    window.pnApplyLanguage = apply;
+    window.pnSetLanguage = set;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => apply());
+    } else {
+        apply();
+    }
+
+    fetch('/api/ui-language', { headers: { Accept: 'application/json' } })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((body) => {
+            const data = body && (body.data !== undefined ? body.data : body);
+
+            if (data && data.language) set(data.language);
+        })
+        .catch(() => { /* the browser's language stands */ });
+})();

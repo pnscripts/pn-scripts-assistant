@@ -58,6 +58,8 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 	if !approve {
 		invocation.Status = store.InvocationDenied
 
+		b.recordDenied(*invocation)
+
 		b.carryOn(ctx, *invocation)
 
 		return *invocation, nil
@@ -132,6 +134,8 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 
 	invocation.Status = status
 	invocation.Result = result
+
+	b.recordApproved(*invocation, tool, status == store.InvocationDone)
 
 	b.Log.Info("carried out an approved action", "id", id, "tool", invocation.Tool, "status", status)
 

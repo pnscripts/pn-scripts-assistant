@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/cite"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/pace"
 	"pn-scripts-assistant/internal/brain/permits"
@@ -162,6 +163,15 @@ type Loop struct {
 	 */
 	Quietly bool
 
+	/*
+	 * Did is told about every call this loop carried out, put to its owner or
+	 * refused on a standing decision — with who acted, what they were asked
+	 * and which model — so "what did it do, and why" has an answer after the
+	 * conversation has scrolled away. Nil records nothing beyond the
+	 * conversation itself.
+	 */
+	Did func(Deed)
+
 	DB       *store.DB
 	Registry *tools.Registry
 	Log      *slog.Logger
@@ -192,6 +202,43 @@ type Loop struct {
 	Have        func(id string) bool
 	cachedSpecs []llm.ToolSpec
 	specsFor    int64
+}
+
+// Deed outcomes: what became of one call.
+const (
+	DeedDone    = "done"
+	DeedFailed  = "failed"
+	DeedWaiting = "waiting"
+	DeedRefused = "refused"
+)
+
+// Deed is one call as Did hears of it.
+type Deed struct {
+	ConversationID int64
+	As             string
+	Step           Step
+	Args           json.RawMessage
+	Request        string
+	Model          string
+	ModelWhy       string
+	Outcome        string
+}
+
+func (l *Loop) did(conversationID int64, brief Brief, step Step, args json.RawMessage, messages []llm.Message, model, why, outcome string) {
+	if l.Did == nil {
+		return
+	}
+
+	l.Did(Deed{
+		ConversationID: conversationID,
+		As:             brief.As,
+		Step:           step,
+		Args:           args,
+		Request:        lastUserMessage(messages),
+		Model:          model,
+		ModelWhy:       why,
+		Outcome:        outcome,
+	})
 }
 
 // Pending is an action waiting for approval.
@@ -1041,6 +1088,10 @@ func (l *Loop) RunBrief(
 				l.DB.AddMessage(conversationID, llm.RoleTool, "", "",
 					"["+summary+"]\n"+refused)
 
+				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+					Asked: askedFor(call.Arguments), Level: level, Result: refused, Failed: true},
+					call.Arguments, messages, model, choice.Why, DeedRefused)
+
 				continue
 			}
 
@@ -1109,6 +1160,9 @@ func (l *Loop) RunBrief(
 
 				pending = append(pending, Pending{ID: id, Tool: tool.Name(), Summary: summary})
 
+				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+					Asked: askedFor(call.Arguments), Level: level}, call.Arguments, messages, model, choice.Why, DeedWaiting)
+
 				continue
 			}
 
@@ -1163,9 +1217,29 @@ func (l *Loop) RunBrief(
 			step.Millis = time.Since(started).Milliseconds()
 			steps = append(steps, step)
 
-			messages = append(messages, toolResult(call, output))
+			/*
+			 * What was read is numbered where the model reads it, so the
+			 * answer can say which page or file a sentence came from. Only
+			 * when the turn keeps a ledger — a conversation does; see the
+			 * cite package — and only for tools that read from a place.
+			 */
+			shown := output
+			if err == nil {
+				shown = cite.From(ctx).Note(tool.Name(), call.Arguments, output)
+			}
 
-			// Persisted so a later turn still knows what was looked up.
+			outcome := DeedDone
+			if step.Failed {
+				outcome = DeedFailed
+			}
+
+			l.did(conversationID, brief, step, call.Arguments, messages, model, choice.Why, outcome)
+
+			messages = append(messages, toolResult(call, shown))
+
+			// Persisted so a later turn still knows what was looked up —
+			// without this turn's source numbers, which mean nothing to the
+			// next one and would let it cite the wrong place.
 			l.DB.AddMessage(conversationID, llm.RoleTool, "", "",
 				"["+summary+"]\n"+truncate(output, ToolOutputLimit))
 		}
