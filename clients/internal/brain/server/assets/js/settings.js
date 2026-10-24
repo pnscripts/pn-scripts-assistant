@@ -109,6 +109,7 @@ async function load() {
         el('set-privacy').value = (status.privacy && status.privacy.mode) || 'private';
         el('set-always').checked = status.always_name !== false;
         el('set-auto-model').checked = status.auto_model !== false;
+        el('set-goal-mode').checked = status.goal_mode === true;
 
         // Defaults to on: an assistant you can talk to should answer out loud
         // unless somebody has said otherwise.
@@ -272,6 +273,7 @@ if (form) {
             privacy: el('set-privacy').value,
             always_name: el('set-always').checked,
             auto_model: el('set-auto-model').checked,
+            goal_mode: el('set-goal-mode').checked,
             always_listen: el('set-always-listen').checked,
             always_speak: el('set-always-speak').checked,
         }, el('set-note'));

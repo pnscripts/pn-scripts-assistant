@@ -637,6 +637,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"rerouting":     speech.Rerouting(),
 		"always_name":   s.brain.Cfg.AlwaysName,
 		"auto_model":    s.brain.Cfg.AutoModel,
+		"goal_mode":     s.brain.Cfg.GoalMode,
 		"always_speak":  s.brain.Cfg.AlwaysSpeak,
 		"always_listen": s.brain.Cfg.AlwaysListen,
 		"models":        modelRoles(s.brain),
@@ -1997,7 +1998,9 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		AlwaysName *bool `json:"always_name"`
 
 		// AutoModel is whether small talk may go to a quicker model.
-		AutoModel    *bool `json:"auto_model"`
+		AutoModel *bool `json:"auto_model"`
+		// GoalMode is the one consent to work on goals alone.
+		GoalMode     *bool `json:"goal_mode"`
 		AlwaysSpeak  *bool `json:"always_speak"`
 		AlwaysListen *bool `json:"always_listen"`
 
@@ -2076,6 +2079,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		s.brain.Cfg.AutoModel = *body.AutoModel
 	}
 
+	if body.GoalMode != nil {
+		s.brain.Cfg.GoalMode = *body.GoalMode
+	}
+
 	if body.AlwaysSpeak != nil {
 		s.brain.Cfg.AlwaysSpeak = *body.AlwaysSpeak
 	}
@@ -2152,6 +2159,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		"privacy":       s.brain.Cfg.Privacy,
 		"always_name":   s.brain.Cfg.AlwaysName,
 		"auto_model":    s.brain.Cfg.AutoModel,
+		"goal_mode":     s.brain.Cfg.GoalMode,
 		"always_speak":  s.brain.Cfg.AlwaysSpeak,
 		"always_listen": s.brain.Cfg.AlwaysListen,
 	})

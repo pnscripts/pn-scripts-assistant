@@ -18,6 +18,7 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"pn-scripts-assistant/internal/brain/orchestrator"
@@ -28,6 +29,7 @@ import (
 
 	"pn-scripts-assistant/internal/brain/activity"
 	"pn-scripts-assistant/internal/brain/agent"
+	"pn-scripts-assistant/internal/brain/autonomy"
 	"pn-scripts-assistant/internal/brain/capability"
 	"pn-scripts-assistant/internal/brain/jobs"
 	"pn-scripts-assistant/internal/brain/lanes"
@@ -129,6 +131,16 @@ type Conductor struct {
 	Pins   func() map[string]string
 	// SpeedFloor is route.Policy.SpeedFloor for this machine; nil means 0.
 	SpeedFloor func() int
+
+	/*
+	 * Goal mode (owner 2026-10-23). Provide downloads a model that fits when
+	 * none here does, GoalFolder gives work that makes something a folder of
+	 * its own, and Prepared is what goal mode put on the machine since a
+	 * moment, for the report. All nil when goal mode is off.
+	 */
+	Provide    func(expert string, needs route.Needs) error
+	GoalFolder func(id int64, name string) (string, error)
+	Prepared   func(since time.Time) []string
 
 	// failed counts recent failures per model, so the router moves a model
 	// that keeps failing to the back of its order by itself.
@@ -416,6 +428,17 @@ func (c *Conductor) TakeWith(ctx context.Context, conversationID int64, request,
 	})
 	if err != nil {
 		return nil, false, err
+	}
+
+	// Work that makes something new gets a folder of its own to make it in.
+	if how.Project == "" && c.GoalFolder != nil && makesSomething(request) {
+		if dir, err := c.GoalFolder(id, plan.Name); err == nil {
+			if err := c.DB.SetTaskProject(id, dir, ""); err != nil {
+				c.Log.Warn("could not give the work its folder", "task", id, "error", err)
+			}
+		} else if !errors.Is(err, autonomy.ErrOff) {
+			c.Log.Warn("could not make the work's folder", "task", id, "error", err)
+		}
 	}
 
 	for _, e := range how.Evidence {
@@ -1771,6 +1794,13 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 		}
 	}
 
+	// What goal mode put on the machine for this job.
+	if c.Prepared != nil {
+		if lines := c.Prepared(task.CreatedAt); len(lines) > 0 {
+			sections = append(sections, "Prepared for this job:\n"+strings.Join(lines, "\n"))
+		}
+	}
+
 	if len(acted) > 0 {
 		sections = append(sections, "Done without asking, because it is set never to stop:\n"+
 			strings.Join(acted, "\n"))
@@ -2082,6 +2112,10 @@ func (c *Conductor) routed(member team.Agent, through string) (llm.Choice, bool)
 	}
 
 	candidates := c.Models()
+	if len(candidates) == 0 && c.Provide != nil && c.Provide(member.Name, member.RouteNeeds()) == nil {
+		candidates = c.Models()
+	}
+
 	if len(candidates) == 0 {
 		return llm.Choice{}, false
 	}
@@ -2105,6 +2139,16 @@ func (c *Conductor) routed(member team.Agent, through string) (llm.Choice, bool)
 	}
 
 	chosen, err := route.Pick(member.Name, needs, candidates, route.Policy{Pins: pins, SpeedFloor: floor})
+
+	// Nothing here fits: goal mode downloads one that does, then chooses again.
+	if err != nil && c.Provide != nil {
+		if perr := c.Provide(member.Name, needs); perr == nil {
+			chosen, err = route.Pick(member.Name, needs, c.Models(), route.Policy{Pins: pins, SpeedFloor: floor})
+		} else if c.Log != nil && !errors.Is(perr, autonomy.ErrOff) {
+			c.Log.Info("no model could be provided", "agent", member.Name, "why", perr)
+		}
+	}
+
 	if err != nil {
 		if c.Log != nil {
 			c.Log.Info("the router found no model, so the role model is used", "agent", member.Name, "why", err)

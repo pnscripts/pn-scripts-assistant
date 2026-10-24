@@ -32,3 +32,14 @@ recommended one first; you can always answer in your own words.
 What I never do without your yes: pay for anything, send or publish as you,
 delete your files outside the task's own folder, or change the system for
 every user.
+
+## Working on goals on my own
+With "Work on goals on its own" on (Settings), a goal such as "make me a
+space game" or "make a business plan for my bakery" is done end to end: I
+plan it, choose the specialists, download a model that fits this computer
+when none here does (its checksum is verified), install the user-level tools
+it needs from their official sources with their published checksums, work in
+a folder of its own for each goal, check and fix the result, and report what
+I made and what I put on the computer. I still ask you before a payment or a
+paid service, sending or publishing in your name, deleting files outside the
+goal's folder, and any change to the whole system.

@@ -36,6 +36,16 @@ number is 0, the second one changes when something visible changes.
   and the findings have their own "Originality and meaning" section in the
   final report. New guides: "How I work" and
   "Originality and licences", in English and Bulgarian.
+- **Works on goals on its own.** One setting, agreed to once: a goal is
+  planned, staffed, provisioned and finished end to end. When no model here
+  fits a step, the largest one that fits the computer's memory and disk is
+  downloaded and its checksum verified, falling back to the next on failure;
+  user-level tools are installed from their official sources with their
+  published checksums; each goal that makes something works in a folder of
+  its own; the report lists what was put on the computer. Only four things
+  are still asked: a payment or a paid service, sending or publishing in your
+  name, deleting files outside the goal's folder, and a change to the whole
+  system. Only what it downloaded itself is ever offered for removal.
 - **Originality checks with real tools.** Names are searched in trademark
   registers, app and game stores and the web; a game's one sentence is
   compared with the closest titles; pictures are compared with reference

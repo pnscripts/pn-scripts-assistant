@@ -693,6 +693,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		NothingAsks: func() bool { return b.Freedom() == permits.Everything },
 		Unbounded:   b.Unbounded,
+		GoalMode:    func() bool { return b.Cfg.GoalMode },
 
 		/*
 		 * What is on this machine, for deciding which tools are worth
@@ -808,6 +809,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		MayI:        b.Agent.MayI,
 		NothingAsks: b.Agent.NothingAsks,
 		Unbounded:   b.Agent.Unbounded,
+		GoalMode:    b.Agent.GoalMode,
 		OffLimits:   b.Agent.OffLimits,
 		Quietly:     true,
 	}
@@ -878,6 +880,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Sizes:      b.modelRoles,
 		Models:     b.installedModels,
 		SpeedFloor: b.speedFloor,
+		Provide:    b.provideModel,
+		GoalFolder: b.goalFolder,
+		Prepared:   b.prepared,
 		Roster:     func() []team.Agent { return team.Roster(b.Root) },
 
 		/*

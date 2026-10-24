@@ -104,6 +104,10 @@ type Loop struct {
 	 */
 	MayI func(who, tool string, changesSomething bool, level risk.Level) permits.Answer
 
+	// GoalMode is whether its owner agreed to goal mode: only the four
+	// questions of tools.GoalModeAsks are asked. Nil is off.
+	GoalMode func() bool
+
 	/*
 	 * NothingAsks is whether its owner has said never to stop.
 	 *
@@ -1055,6 +1059,29 @@ func (l *Loop) RunBrief(
 			if why := tools.ConsentFor(tool, call.Arguments); why != "" && !free {
 				ask = true
 				summary = "Always asked — " + why + ": " + summary
+			}
+
+			/*
+			 * Goal mode replaces all of the above with four questions.
+			 *
+			 * Its owner agreed once that the work goes on by itself —
+			 * installing what it needs, downloading models, everything inside
+			 * the goal's folder — and that only paying, sending or publishing
+			 * in their name, deleting outside the folder and changing the
+			 * whole system are asked. Those four are asked whatever else is
+			 * set, "never stop" included. See tools.GoalModeAsks.
+			 */
+			if l.GoalMode != nil && l.GoalMode() {
+				inside := func(path string) bool { return brief.Within != nil && brief.Within.Allows(path) }
+
+				if why := tools.GoalModeAsks(tool, call.Arguments, inside); why != "" {
+					ask = true
+					answer = permits.Ask
+					summary = "Always asked — " + why + ": " + summary
+				} else {
+					ask = false
+					answer = permits.Allow
+				}
 			}
 
 			/*

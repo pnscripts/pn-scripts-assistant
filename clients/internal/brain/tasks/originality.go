@@ -381,3 +381,20 @@ func (c *Conductor) reviewAudit(task *store.Task) error {
 
 	return c.DB.AddSteps(task.ID, reviews)
 }
+
+// makesSomething is whether a request produces something new — what gets a
+// folder of its own in goal mode — rather than working on things the user
+// already has, which a request naming a path does.
+func makesSomething(request string) bool {
+	if pathCue.MatchString(request) {
+		return false
+	}
+
+	if makeCue.MatchString(request) {
+		return true
+	}
+
+	use, _ := checksFor(request)
+
+	return len(use) > 0 && !auditCue.MatchString(request)
+}

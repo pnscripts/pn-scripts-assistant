@@ -31,6 +31,8 @@ type Model struct {
 	Name  string `json:"name"`
 	Bytes int64  `json:"bytes"`
 	Size  string `json:"size"`
+	// Digest is Ollama's sha256 of the model's manifest.
+	Digest string `json:"digest,omitempty"`
 }
 
 // Measurement is what one model did when asked to use a tool.
@@ -77,8 +79,9 @@ func (c *Client) List(ctx context.Context) ([]Model, error) {
 
 	var out struct {
 		Models []struct {
-			Name string `json:"name"`
-			Size int64  `json:"size"`
+			Name   string `json:"name"`
+			Size   int64  `json:"size"`
+			Digest string `json:"digest"`
 		} `json:"models"`
 	}
 
@@ -89,7 +92,7 @@ func (c *Client) List(ctx context.Context) ([]Model, error) {
 	list := make([]Model, 0, len(out.Models))
 
 	for _, m := range out.Models {
-		list = append(list, Model{Name: m.Name, Bytes: m.Size, Size: readableSize(m.Size)})
+		list = append(list, Model{Name: m.Name, Bytes: m.Size, Size: readableSize(m.Size), Digest: m.Digest})
 	}
 
 	return list, nil

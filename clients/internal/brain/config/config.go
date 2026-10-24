@@ -301,6 +301,17 @@ type Config struct {
 	AutoModel bool
 
 	/*
+	 * GoalMode is the one consent for working on its own (owner 2026-10-23):
+	 * plan, choose experts and models, download models and user-level tools
+	 * from trusted sources with checksums, work in a folder of its own per
+	 * goal, check and fix its results, report at the end. Only four things
+	 * are still asked, every time: a payment or a paid service, sending or
+	 * publishing in the owner's name, deleting files outside the goal's
+	 * folder, and a change to the whole system. See tools.GoalModeAsks.
+	 */
+	GoalMode bool
+
+	/*
 	 * AlwaysSpeak reads every answer aloud, however the question arrived.
 	 *
 	 * Answers were spoken only for turns that came in by voice, so a question
@@ -753,6 +764,10 @@ func LoadFrom(path string) (Config, error) {
 		cfg.AlwaysListen = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
+	if v := get("BRAIN_GOAL_MODE"); v != "" {
+		cfg.GoalMode = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
 	if v := get("BRAIN_AUTO_MODEL"); v != "" {
 		cfg.AutoModel = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
@@ -918,6 +933,9 @@ func (c Config) Save(root string) error {
 	b.WriteString("BRAIN_VOICE_MATCH=" + fmt.Sprintf("%.2f", c.VoiceMatch) + "\n\n")
 
 	b.WriteString("BRAIN_AUTO_MODEL=" + boolText(c.AutoModel) + "\n")
+	b.WriteString("# Works on goals on its own; asks only before paying, sending or publishing\n")
+	b.WriteString("# in your name, deleting outside the goal's folder or changing the whole system.\n")
+	b.WriteString("BRAIN_GOAL_MODE=" + boolText(c.GoalMode) + "\n")
 	b.WriteString("BRAIN_ALWAYS_SPEAK=" + boolText(c.AlwaysSpeak) + "\n")
 	b.WriteString("BRAIN_ALWAYS_LISTEN=" + boolText(c.AlwaysListen) + "\n")
 	b.WriteString("BRAIN_TURNED_OFF=" + strings.Join(c.TurnedOff, ",") + "\n")
