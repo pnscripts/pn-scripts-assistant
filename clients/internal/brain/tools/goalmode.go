@@ -32,19 +32,39 @@ const (
 	AskSystemWide = "a change to the whole system"
 )
 
-// GoalModeConsent is the one sentence agreed to in setup.
+// UnusedForDays is how long something goal mode downloaded may lie unused
+// before it is removed again on its own.
+const UnusedForDays = 30
+
+/*
+ * GoalModeConsent is what is agreed to in setup, word for word what the
+ * Settings screen shows.
+ *
+ * It says plainly what the privacy setting does not cover (owner 2026-10-24):
+ * models, tools and integrations are downloaded from the internet even when
+ * privacy is "nothing leaves this machine", because a goal cannot be worked
+ * on without them — and those downloads carry nothing about the person. A
+ * registry is searched with a short word for the kind of tool, never with
+ * their words. Everything else still follows privacy.
+ */
 func GoalModeConsent(bulgarian bool) string {
 	if bulgarian {
-		return "Работя по целите ви сам — планирам, избирам специалисти и модели, изтеглям нужните модели и " +
-			"инструменти от доверени източници с проверка, работя в отделна папка за всяка цел и ви давам отчет. " +
-			"Питам ви само преди плащане или платена услуга, изпращане или публикуване от ваше име, изтриване " +
-			"на файлове извън папката на целта и промяна на цялата система."
+		return "Работя по целите ви сам — планирам, избирам специалисти и модели, изтеглям нужните модели, " +
+			"инструменти и интеграции от доверени източници с проверка, работя в отделна папка за всяка цел и ви " +
+			"давам отчет. За това изтеглям от интернет дори когато поверителността е „нищо не напуска този " +
+			"компютър“; при тези изтегляния не изпращам нищо за вас — нито разговори, нито файлове, нито лични " +
+			"данни. Всичко останало следва настройката ви за поверителност. Изтегленото от мен, което не е " +
+			"ползвано 30 дни, премахвам сам. Питам ви само преди плащане или платена услуга, изпращане или " +
+			"публикуване от ваше име, изтриване на файлове извън папката на целта и промяна на цялата система."
 	}
 
-	return "I work on your goals on my own — I plan, choose specialists and models, download the models and " +
-		"tools I need from trusted sources with checks, work in a separate folder for each goal and report " +
-		"to you. I ask you only before a payment or a paid service, sending or publishing in your name, " +
-		"deleting files outside the goal's folder, and changing the whole system."
+	return "I work on your goals on my own — I plan, choose specialists and models, download the models, tools " +
+		"and integrations I need from trusted sources with checks, work in a separate folder for each goal and " +
+		"report to you. For this I download from the internet even when privacy is set to \"nothing leaves " +
+		"this machine\"; these downloads send nothing about you — no conversations, files or personal data. " +
+		"Everything else follows your privacy setting. What I downloaded and have not used for 30 days I " +
+		"remove on my own. I ask you only before a payment or a paid service, sending or publishing in your " +
+		"name, deleting files outside the goal's folder, and changing the whole system."
 }
 
 // Spending is a tool that can cost money; Spends says how, or "".

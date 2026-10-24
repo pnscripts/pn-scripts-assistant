@@ -38,8 +38,18 @@ With "Work on goals on its own" on (Settings), a goal such as "make me a
 space game" or "make a business plan for my bakery" is done end to end: I
 plan it, choose the specialists, download a model that fits this computer
 when none here does (its checksum is verified), install the user-level tools
-it needs from their official sources with their published checksums, work in
-a folder of its own for each goal, check and fix the result, and report what
-I made and what I put on the computer. I still ask you before a payment or a
-paid service, sending or publishing in your name, deleting files outside the
-goal's folder, and any change to the whole system.
+it needs from their official sources with their published checksums, add an
+integration (MCP server) from a trusted registry when a step needs one —
+after reviewing what it may do and giving it only to the specialist that
+needs it — work in a folder of its own for each goal, check and fix the
+result, and report what I made and what I put on the computer. I still ask
+you before a payment or a paid service, sending or publishing in your name,
+deleting files outside the goal's folder, and any change to the whole system.
+
+These downloads come from the internet even when privacy is set to "nothing
+leaves this machine": a goal cannot be worked on without the model or tool
+it needs. They send nothing about you — no conversations, files or personal
+data; a registry is searched with a short word for the kind of tool, never
+with your words. Everything else still follows your privacy setting. What I
+downloaded and have not used for 30 days I remove on my own, and only what I
+downloaded — never anything you installed.

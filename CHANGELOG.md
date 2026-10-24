@@ -46,6 +46,11 @@ number is 0, the second one changes when something visible changes.
   are still asked: a payment or a paid service, sending or publishing in your
   name, deleting files outside the goal's folder, and a change to the whole
   system. Only what it downloaded itself is ever offered for removal.
+- **The goal-mode consent says what privacy does not cover.** Models, tools
+  and integrations are downloaded from the internet even when privacy is
+  "nothing leaves this machine"; the consent says so, and that those
+  downloads send nothing about you. Settings show the same words the program
+  enforces.
 - **Originality checks with real tools.** Names are searched in trademark
   registers, app and game stores and the web; a game's one sentence is
   compared with the closest titles; pictures are compared with reference

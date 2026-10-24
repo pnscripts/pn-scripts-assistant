@@ -75,3 +75,21 @@ func TestAnInstallNeedingTheAdministratorIsSystemWide(t *testing.T) {
 		t.Error("a system package was installed alone")
 	}
 }
+
+// The consent says what privacy does not cover: downloads from the internet
+// even in "this computer only", and that nothing about the person goes with
+// them. In both languages.
+func TestTheConsentSaysDownloadsLeavePrivacyAndCarryNothingPersonal(t *testing.T) {
+	for bg, words := range map[bool][]string{
+		false: {"from the internet", "nothing leaves this machine", "send nothing about you", "personal data", "30 days", "integrations"},
+		true:  {"от интернет", "нищо не напуска този компютър", "не изпращам нищо за вас", "лични данни", "30 дни", "интеграции"},
+	} {
+		s := GoalModeConsent(bg)
+
+		for _, w := range words {
+			if !strings.Contains(s, w) {
+				t.Errorf("bulgarian=%v: the consent does not say %q:\n%s", bg, w, s)
+			}
+		}
+	}
+}
