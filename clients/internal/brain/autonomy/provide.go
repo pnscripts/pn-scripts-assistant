@@ -24,7 +24,19 @@ type Room struct {
 	// model may use while it runs: the graphics card's, or the processor's
 	// memory less what the system and the program need.
 	Disk, Memory uint64
+
+	// Processor is a machine without graphics acceleration: a model runs on
+	// the processor there, where size costs speed far more than memory.
+	Processor bool
 }
+
+/*
+ * ProcessorMost is the largest model chosen for a machine that runs models on
+ * its processor. Found by the end-to-end goal: with 31 GB of memory and four
+ * cores, "the largest that fits" was a 32-billion-parameter model that
+ * would take minutes for every answer. Memory is not the limit there; speed is.
+ */
+const ProcessorMost = 6 * gb
 
 // Option is a model that could be downloaded, with what it takes.
 type Option struct {
@@ -59,11 +71,19 @@ func Choose(options []Option, room Room) (Option, string, error) {
 			refused = append(refused, o.Name+": size unknown")
 		case need > room.Memory:
 			refused = append(refused, fmt.Sprintf("%s: needs %.1f GB of memory", o.Name, o.GB))
+		case room.Processor && need > ProcessorMost:
+			refused = append(refused, fmt.Sprintf("%s: too slow on the processor alone", o.Name))
 		case need+diskMargin > room.Disk:
 			refused = append(refused, fmt.Sprintf("%s: needs %.1f GB of disk", o.Name, o.GB))
 		default:
-			return o, fmt.Sprintf("%s fits: about %.1f GB, with %.1f GB of memory and %.1f GB of disk free",
-				o.Name, o.GB, float64(room.Memory)/gb, float64(room.Disk)/gb), nil
+			why := fmt.Sprintf("%s fits: about %.1f GB, with %.1f GB of memory and %.1f GB of disk free",
+				o.Name, o.GB, float64(room.Memory)/gb, float64(room.Disk)/gb)
+
+			if room.Processor {
+				why += ", the largest that answers in reasonable time on the processor"
+			}
+
+			return o, why, nil
 		}
 	}
 

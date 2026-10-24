@@ -191,6 +191,17 @@ func toolsOf(agent Agent, fit Fit, box Toolbox) ([]string, bool) {
 		return agent.Tools, true
 	}
 
+	/*
+	 * The generalist is never narrowed by the job its seat names. It is the
+	 * one every step falls back to and the one a step goes to when nobody
+	 * else has its tool; narrowed to a personal assistant's mail and diary
+	 * tools it could not install what a goal needs, and the step went round
+	 * between specialists until it failed. Found by the end-to-end goal.
+	 */
+	if agent.Name == "assistant" {
+		return nil, false
+	}
+
 	if len(fit.Seat.Tools) > 0 {
 		return fit.Seat.Tools, true
 	}

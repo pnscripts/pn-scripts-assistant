@@ -28,7 +28,7 @@ func TestEachResultIsCheckedByTheSpecialistsItNeedsOnly(t *testing.T) {
 	base := Plan{Steps: []store.TaskStep{{Instruction: "do it"}, {Instruction: "finish it"}}}
 
 	cases := map[string][]string{
-		"Make me a great space strategy game":            {"visual_reviewer", "game_design_reviewer", "copy_reviewer", "business_strategist"},
+		"Make me a great space strategy game":            {"visual_reviewer", "game_design_reviewer"},
 		"Направи ми лого за пекарна":                     {"ip_specialist", "visual_reviewer"},
 		"compose a jingle for the radio":                 {"sound_reviewer"},
 		"Make a business strategy for a bakery in Sofia": {"copy_reviewer", "business_strategist"},
@@ -232,5 +232,28 @@ func TestAnAuditBringsOnlyTheSpecialistsItsFindingsNeed(t *testing.T) {
 
 	if final, _ := db.Steps(id); len(final) != len(after) {
 		t.Error("an audit finding was fixed in the user's own work")
+	}
+}
+
+// "Strategy" as a kind of game brings no business strategist; music a step
+// makes brings the sound check though the request never said "sound".
+func TestAGameGenreIsNotABusinessAndWhatStepsMakeIsChecked(t *testing.T) {
+	for _, request := range []string{"Make me a space strategy game", "Направи ми космическа стратегическа игра"} {
+		got := checkers(withOriginality(request, Plan{Steps: []store.TaskStep{{Instruction: "build it"}}}))
+		if strings.Join(got, ",") != "visual_reviewer,game_design_reviewer" {
+			t.Errorf("%s: %v", request, got)
+		}
+	}
+
+	plan := withOriginality("Make me a space strategy game", Plan{Steps: []store.TaskStep{
+		{Instruction: "Plan the levels"}, {Instruction: "Compose the music and sound effects"},
+	}})
+	if got := checkers(plan); strings.Join(got, ",") != "visual_reviewer,sound_reviewer,game_design_reviewer" {
+		t.Errorf("with music in the plan: %v", got)
+	}
+
+	// A business strategy is still a business strategy.
+	if got := checkers(withOriginality("Write a business strategy for my bakery", Plan{Steps: []store.TaskStep{{Instruction: "write it"}}})); !strings.Contains(strings.Join(got, ","), "business_strategist") {
+		t.Errorf("business strategy: %v", got)
 	}
 }

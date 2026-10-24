@@ -112,7 +112,7 @@ func modelsFolder() string {
 func (b *Brain) roomForModels(ctx context.Context, client *models.Client) autonomy.Room {
 	power := models.WhatItCanRun(ctx, client)
 
-	room := autonomy.Room{}
+	room := autonomy.Room{Processor: !power.Accelerated}
 
 	if power.Accelerated {
 		room.Memory = uint64(power.VRAMBytes)
@@ -147,10 +147,15 @@ func (b *Brain) provideModel(expert string, needs route.Needs) error {
 
 	b.Log.Info("goal mode downloaded a model", "model", e.Name, "digest", e.Digest, "for", expert)
 
-	// Seen at the next choice, not in half a minute.
+	// Seen at the next choice, not in half a minute — by the router and by
+	// the orchestrator, which keeps its own list of what can write code.
 	b.installed.mu.Lock()
 	b.installed.at = time.Time{}
 	b.installed.mu.Unlock()
+
+	if b.orch.o != nil {
+		b.orch.o.Forget()
+	}
 
 	return nil
 }
@@ -182,6 +187,14 @@ func (b *Brain) provideRecipe(recipe, forWhom string) error {
 		return autonomy.ErrOff
 	}
 
+	_, err := b.provideRecipeWanting(recipe, "", forWhom, nil)
+
+	return err
+}
+
+// provideRecipeWanting installs a recipe at a wanted version through goal
+// mode's rules, recorded in the ledger.
+func (b *Brain) provideRecipeWanting(recipe, want, forWhom string, w io.Writer) (autonomy.Entry, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
@@ -189,12 +202,10 @@ func (b *Brain) provideRecipe(recipe, forWhom string) error {
 
 	free, err := storage.FreeOn(home)
 	if err != nil {
-		return err
+		return autonomy.Entry{}, err
 	}
 
-	_, err = autonomy.ProvideTool(ctx, b.Recipes(), recipe, "", free, autonomy.LedgerAt(b.Root), forWhom, nil)
-
-	return err
+	return autonomy.ProvideTool(ctx, b.Recipes(), recipe, want, free, autonomy.LedgerAt(b.Root), forWhom, w)
 }
 
 // acquiredIntegration records an integration goal mode added, so the report

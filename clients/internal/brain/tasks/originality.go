@@ -84,16 +84,58 @@ func mentions(text string, cues []string) string {
 	return ""
 }
 
+// gameGenre is "strategy" as a kind of game: a space strategy game needs no
+// business strategist, and a "стратегическа игра" no review of a strategy.
+var gameGenre = regexp.MustCompile(`(real[- ]time |turn[- ]based |grand )?strateg(y|ic)|стратегическ\S*|стратегия`)
+
+var gameWords = []string{"game", "игра", "игри"}
+
 // checksFor is which specialists a request needs and why each other one is
 // not needed.
 func checksFor(request string) (use []aspect, why []string) {
+	return checksForPlan(request, nil)
+}
+
+/*
+ * checksForPlan is checksFor with the plan's own steps looked at as well —
+ * for what they make, not what they say: a game whose plan composes music
+ * gets the sound check though the request never said "sound". Only the
+ * aspects a step makes (look, sound) are taken from steps; words like "plan"
+ * or "report" in a step's instruction are how steps are written, not what
+ * the result is.
+ */
+func checksForPlan(request string, steps []store.TaskStep) (use []aspect, why []string) {
 	text := strings.ToLower(request)
 
+	if mentions(text, gameWords) != "" {
+		text = gameGenre.ReplaceAllString(text, "")
+	}
+
+	var made strings.Builder
+
+	for _, st := range steps {
+		if !strings.HasPrefix(st.Instruction, OriginalityMarker) {
+			made.WriteString(strings.ToLower(st.Instruction) + "\n")
+		}
+	}
+
 	for _, a := range aspects {
-		if cue := mentions(text, a.cues); cue != "" {
+		cue := mentions(text, a.cues)
+
+		switch {
+		case cue != "":
 			use = append(use, a)
 			why = append(why, a.name+": yes (\""+cue+"\")")
-		} else {
+		case a.name == "look" || a.name == "sound":
+			if step := mentions(made.String(), a.cues); step != "" {
+				use = append(use, a)
+				why = append(why, a.name+": yes (a step makes \""+step+"\")")
+
+				continue
+			}
+
+			why = append(why, a.name+": not needed")
+		default:
 			why = append(why, a.name+": not needed")
 		}
 	}
@@ -115,7 +157,7 @@ func withOriginality(request string, p Plan) Plan {
 		}
 	}
 
-	use, why := checksFor(request)
+	use, why := checksForPlan(request, p.Steps)
 	if len(use) == 0 {
 		return p
 	}

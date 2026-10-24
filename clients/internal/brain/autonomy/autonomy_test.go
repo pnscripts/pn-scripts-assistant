@@ -196,3 +196,18 @@ func TestEachGoalWorksInAFolderOfItsOwn(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// On a machine without graphics acceleration the largest model that fits in
+// memory is not chosen: one that answers in reasonable time is.
+func TestAProcessorOnlyMachineGetsAModelThatAnswersInTime(t *testing.T) {
+	options := []Option{{Name: "small", GB: 2}, {Name: "medium", GB: 5}, {Name: "large", GB: 20}}
+
+	got, why, err := Choose(options, Room{Disk: 100 * gb, Memory: 27 * gb, Processor: true})
+	if err != nil || got.Name != "medium" || !strings.Contains(why, "processor") {
+		t.Errorf("chose %s (%s, %v)", got.Name, why, err)
+	}
+
+	if got, _, _ := Choose(options, Room{Disk: 100 * gb, Memory: 27 * gb}); got.Name != "large" {
+		t.Errorf("with a graphics card: %s", got.Name)
+	}
+}

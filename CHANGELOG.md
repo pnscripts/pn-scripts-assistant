@@ -64,6 +64,28 @@ number is 0, the second one changes when something visible changes.
   are removed and the removal is proven; never anything you installed or set
   by name, and nothing while a job is under way. A failed removal is tried
   again the next day.
+- **A goal is tested from the request to the report.** "Make me a space
+  strategy game", with goal mode on and privacy set to this computer only,
+  runs on a brain of its own against a fake model library and tool source:
+  the plan, the specialists, a model and a tool downloaded and checked, the
+  work in the goal's own folder, the originality checks and one report —
+  with nobody asked anything.
+
+### Fixed
+
+- On a computer without graphics acceleration goal mode no longer downloads
+  the largest model that fits in memory (minutes per answer); it chooses one
+  that answers in reasonable time.
+- When nothing here could write code, goal mode now downloads a model that
+  can, instead of stopping the goal.
+- The general assistant is no longer limited to a personal assistant's mail
+  and diary tools, and a specialist is offered only the tools it may use, so
+  steps no longer go round between specialists until they fail.
+- A "strategy game" no longer brings a business strategist; music a plan
+  makes brings the sound check even when the request never said "sound".
+- Installs in goal mode wait for the result, are recorded and can be removed
+  again; the report says work was done without asking because of goal mode.
+- A data race when steps of one job ran side by side.
 - **Originality checks with real tools.** Names are searched in trademark
   registers, app and game stores and the web; a game's one sentence is
   compared with the closest titles; pictures are compared with reference

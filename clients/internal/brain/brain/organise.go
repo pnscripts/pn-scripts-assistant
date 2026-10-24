@@ -412,6 +412,28 @@ func (b *Brain) StartInstall(id, versions string) (string, error) {
 		return "", fmt.Errorf("there is no recipe called %q", id)
 	}
 
+	/*
+	 * In goal mode the step that asked waits for it, and goal mode's own
+	 * rules apply: user-level only, the disk kept from filling, and recorded
+	 * in the ledger so the report lists it and it can be removed again when
+	 * it goes unused. In the background it would be invisible to all three.
+	 */
+	if b.Cfg.GoalMode {
+		var said strings.Builder
+
+		e, err := b.provideRecipeWanting(id, versions, "this goal", &said)
+		if err != nil {
+			return "", fmt.Errorf("%w\n%s", err, lastFewLines(said.String(), 12))
+		}
+
+		from := e.Source
+		if from == "" {
+			from = "its official source"
+		}
+
+		return fmt.Sprintf("%s is installed (%s) from %s, checked, and it runs.", r.Title, orDash(e.Version), from), nil
+	}
+
 	if b.Jobs == nil {
 		return "", fmt.Errorf("there is nowhere to run that")
 	}

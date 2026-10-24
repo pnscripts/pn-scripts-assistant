@@ -275,3 +275,21 @@ func TestWhoMayBeGivenWork(t *testing.T) {
 		}
 	}
 }
+
+// Nor by the capabilities of the job its seat names: the generalist is the
+// one every step can fall back to.
+func TestTheGeneralistIsNotNarrowedByItsJob(t *testing.T) {
+	box := capabilityBox{"read_mailbox"}
+
+	if tools, narrowed := toolsOf(Agent{Name: "assistant"}, Fit{Can: []string{"email"}}, box); narrowed || tools != nil {
+		t.Errorf("the generalist was narrowed to %v", tools)
+	}
+
+	if tools, narrowed := toolsOf(Agent{Name: "secretary"}, Fit{Can: []string{"email"}}, box); !narrowed || len(tools) != 1 {
+		t.Errorf("another agent was not narrowed by its job: %v", tools)
+	}
+}
+
+type capabilityBox []string
+
+func (b capabilityBox) ForCapabilities([]string) []string { return b }

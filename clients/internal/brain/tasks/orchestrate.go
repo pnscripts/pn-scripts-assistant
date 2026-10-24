@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,9 +14,11 @@ import (
 	"time"
 
 	"pn-scripts-assistant/internal/brain/agent"
+	"pn-scripts-assistant/internal/brain/autonomy"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/orchestrator"
 	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/route"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 	"pn-scripts-assistant/internal/brain/workspace"
@@ -196,6 +199,20 @@ func (c *Conductor) carryOut(ctx context.Context, task *store.Task, t *turn, fix
 		}
 
 		d = c.decideFor(ctx, task, work)
+	}
+
+	/*
+	 * Goal mode: nothing here can write code, so a model that can is
+	 * downloaded — the size that fits — and the choice made again. Found by
+	 * the end-to-end goal: a general model pulled for planning was "not
+	 * suited to coding", and the game stopped there.
+	 */
+	if d.Primary == nil && c.Provide != nil {
+		if err := c.Provide(t.member.Name, route.Needs{Coding: 3, Tools: true}); err == nil {
+			d = c.decideFor(ctx, task, work)
+		} else if c.Log != nil && !errors.Is(err, autonomy.ErrOff) {
+			c.Log.Info("no model that can write code could be provided", "why", err)
+		}
 	}
 
 	if d.Primary == nil {

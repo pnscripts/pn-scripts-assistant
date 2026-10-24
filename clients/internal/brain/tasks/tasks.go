@@ -1806,8 +1806,13 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 	}
 
 	if len(acted) > 0 {
-		sections = append(sections, "Done without asking, because it is set never to stop:\n"+
-			strings.Join(acted, "\n"))
+		// Said truly: in goal mode it was the consent, not "never stop".
+		why := "Done without asking, because it is set never to stop:\n"
+		if c.Agent != nil && c.Agent.GoalMode != nil && c.Agent.GoalMode() {
+			why = "Done without asking, as agreed for goals worked on alone:\n"
+		}
+
+		sections = append(sections, why+strings.Join(acted, "\n"))
 	}
 
 	// Everybody taken on for the job, whether or not they are still here.

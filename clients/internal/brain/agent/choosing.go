@@ -124,11 +124,24 @@ func (o *remembered) keep(conversation int64, names []string) {
 	}
 }
 
+// already is a copy: steps of one job run side by side in the same
+// conversation, and handing out the set itself had one reading it while
+// another added to it (a data race the end-to-end goal found).
 func (o *remembered) already(conversation int64) map[string]bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	return o.sets[conversation]
+	set := o.sets[conversation]
+	if set == nil {
+		return nil
+	}
+
+	out := make(map[string]bool, len(set))
+	for name := range set {
+		out[name] = true
+	}
+
+	return out
 }
 
 /*

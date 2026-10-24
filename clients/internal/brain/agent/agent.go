@@ -2212,8 +2212,14 @@ func (l *Loop) cuesFor(name string) []string {
 // offerable is every tool this turn may be offered: all of them when
 // everything is allowed, otherwise narrowed by the work's lists and grants.
 func (l *Loop) offerable(brief Brief) []llm.ToolSpec {
+	/*
+	 * Even with everything allowed, only this expert's own tools: those are
+	 * the only ones it may run (see the refusal in the loop), and a menu
+	 * offering others had the model call them and be refused, step after
+	 * step. Found by the end-to-end goal.
+	 */
 	if l.EverythingAllowed() {
-		return l.specs()
+		return onlyThese(l.specs(), brief.Only)
 	}
 
 	return l.granted(without(onlyThese(l.specs(), brief.Only), brief.Never), brief)
