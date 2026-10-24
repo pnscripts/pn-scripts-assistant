@@ -65,6 +65,7 @@ var Places = []Place{
 	{Host: "huggingface.co", For: "speech and voice models", When: "setup, or when asked to install a voice"},
 	{Host: "nodejs.org", For: "a pinned Node, for the web game engines", When: "starting a web project that needs it"},
 	{Host: "ollama.com", For: "the model catalogue, and the installer", When: "choosing or installing a model"},
+	{Host: "registry.modelcontextprotocol.io", For: "finding an integration (MCP server) a goal needs, searched with a short word for the kind of tool", When: "goal mode, or when asked to add an integration"},
 	{Host: "registry.ollama.ai", For: "what a model weighs before pulling it", When: "choosing a model"},
 
 	// The job catalogues, which is where the thousands of occupations come

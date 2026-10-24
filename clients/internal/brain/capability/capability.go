@@ -197,7 +197,7 @@ var Operates = map[string]bool{
 	"scroll": true, "open_app": true, "send_email": true, "install_a_part": true,
 	"install_a_model": true, "remove_a_part": true, "install_requirement": true,
 	"godot_build": true, "game_check": true, "game_build": true, "decide_waiting": true,
-	"start_project": true, "confirm_hire": true,
+	"start_project": true, "confirm_hire": true, "acquire_integration": true,
 }
 
 // operating reports whether a tool acts on the world beyond a file.

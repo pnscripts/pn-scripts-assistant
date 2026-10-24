@@ -46,6 +46,18 @@ type Gateway struct {
 	// approval as its owner's own step.
 	Unbounded func() bool
 
+	/*
+	 * Goal mode's side (see acquire.go). Sources are where integrations are
+	 * found, in order; Provide installs what a server runs on; Acquired is
+	 * told of each one added on its own, and Used of each call, so that what
+	 * goal mode added is recorded and what goes unused can be removed. Nil
+	 * leaves each out.
+	 */
+	Sources  func() []Source
+	Provide  func(recipe, forWhom string) error
+	Acquired func(s Server, forWhom string)
+	Used     func(id string)
+
 	mu   sync.Mutex
 	live map[string]*live
 }

@@ -211,7 +211,12 @@ func ProvideTool(ctx context.Context, book *provision.Book, id, want string, fre
 	}
 
 	if s := r.Check(want); s.Ready() {
-		return Entry{Kind: "tool", Name: r.Title, Version: s.Version}, nil
+		// Ours or not, it is in use again.
+		if ledger != nil {
+			ledger.Touch("tool", r.Title)
+		}
+
+		return Entry{Kind: "tool", ID: r.ID, Name: r.Title, Version: s.Version}, nil
 	}
 
 	if r.NeedsRoot {
@@ -237,7 +242,7 @@ func ProvideTool(ctx context.Context, book *provision.Book, id, want string, fre
 		return Entry{}, err
 	}
 
-	e := Entry{Kind: "tool", Name: r.Title, Version: s.Version, Bytes: int64(bytesOf(r.Size)), Source: r.Source, For: forWhom}
+	e := Entry{Kind: "tool", ID: r.ID, Name: r.Title, Version: s.Version, Bytes: int64(bytesOf(r.Size)), Source: r.Source, For: forWhom}
 
 	if ledger != nil {
 		if err := ledger.Add(e); err != nil {

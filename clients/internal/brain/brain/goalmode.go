@@ -8,6 +8,7 @@ import (
 
 	"pn-scripts-assistant/internal/brain/autonomy"
 	"pn-scripts-assistant/internal/brain/catalogue"
+	"pn-scripts-assistant/internal/brain/mcp"
 	"pn-scripts-assistant/internal/brain/models"
 	"pn-scripts-assistant/internal/brain/route"
 	"pn-scripts-assistant/internal/brain/storage"
@@ -161,4 +162,47 @@ func (b *Brain) goalFolder(id int64, name string) (string, error) {
 // prepared is what goal mode put here since a moment, as report lines.
 func (b *Brain) prepared(since time.Time) []string {
 	return autonomy.Lines(autonomy.LedgerAt(b.Root).Since(since))
+}
+
+// integrationSources are where goal mode looks for an integration: the
+// catalogue first, then the official registry, trusting only the publishers
+// on the list (and those its owner added in integrations/trusted.json).
+func (b *Brain) integrationSources() []mcp.Source {
+	return []mcp.Source{mcp.CatalogueSource{}, mcp.OfficialRegistry{Trusted: mcp.TrustedFrom(b.Root)}}
+}
+
+// provideRecipe installs what an integration runs on, in goal mode only.
+func (b *Brain) provideRecipe(recipe, forWhom string) error {
+	if !b.Cfg.GoalMode {
+		return autonomy.ErrOff
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	home, _ := os.UserHomeDir()
+
+	free, err := storage.FreeOn(home)
+	if err != nil {
+		return err
+	}
+
+	_, err = autonomy.ProvideTool(ctx, b.Recipes(), recipe, "", free, autonomy.LedgerAt(b.Root), forWhom, nil)
+
+	return err
+}
+
+// acquiredIntegration records an integration goal mode added, so the report
+// lists it and only it is ever removed again.
+func (b *Brain) acquiredIntegration(s mcp.Server, forWhom string) {
+	err := autonomy.LedgerAt(b.Root).Add(autonomy.Entry{Kind: "integration", ID: s.ID, Name: s.ID,
+		Version: s.Version, Source: s.Source, For: forWhom})
+	if err != nil {
+		b.Log.Warn("an integration goal mode added could not be recorded", "integration", s.ID, "error", err)
+	}
+}
+
+// integrationUsed keeps an integration goal mode added from counting as unused.
+func (b *Brain) integrationUsed(id string) {
+	autonomy.LedgerAt(b.Root).Touch("integration", id)
 }

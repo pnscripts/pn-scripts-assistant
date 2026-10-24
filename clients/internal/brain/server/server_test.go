@@ -303,7 +303,7 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"activate_integration", "ask_first", "audit_originality", "brain_copies", "change_a_setting",
+		"acquire_integration", "activate_integration", "ask_first", "audit_originality", "brain_copies", "change_a_setting",
 		"change_the_diary", "change_this_conversation", "check_name", "check_requirements", "click",
 		"closest_titles", "compare_melody", "compare_pictures", "confirm_hire", "decide_waiting",
 		"do_in_background", "drive_browser", "edit_document", "edit_file", "fetch_url",
@@ -337,7 +337,7 @@ func TestRegisteredTools(t *testing.T) {
 	for _, n := range []string{
 		"write_file", "run_command", "click", "type_text", "open_app",
 		"write_document", "confirm_hire", "start_project", "install_requirement",
-		"activate_integration", "game_check", "game_build",
+		"activate_integration", "acquire_integration", "game_check", "game_build",
 	} {
 		tool, registered := b.Agent.Registry.Get(n)
 		if !registered {

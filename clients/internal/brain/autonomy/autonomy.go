@@ -34,8 +34,10 @@ var ErrNeedsOwner = errors.New("this needs administrator rights, so it is put to
 
 // Entry is one thing goal mode put on the machine.
 type Entry struct {
-	Kind    string    `json:"kind"` // "model" or "tool"
-	Name    string    `json:"name"`
+	Kind string `json:"kind"` // "model", "tool" or "integration"
+	Name string `json:"name"`
+	// ID is the recipe's or integration's own id, for taking it away again.
+	ID      string    `json:"id,omitempty"`
 	Version string    `json:"version,omitempty"`
 	Digest  string    `json:"digest,omitempty"`
 	Bytes   int64     `json:"bytes,omitempty"`
@@ -209,8 +211,8 @@ func Lines(entries []Entry) []string {
 
 		var detail []string
 
-		if e.Kind == "model" {
-			detail = append(detail, "model")
+		if e.Kind == "model" || e.Kind == "integration" {
+			detail = append(detail, e.Kind)
 		}
 
 		if e.Bytes > 0 {

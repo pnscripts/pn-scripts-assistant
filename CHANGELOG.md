@@ -51,6 +51,14 @@ number is 0, the second one changes when something visible changes.
   "nothing leaves this machine"; the consent says so, and that those
   downloads send nothing about you. Settings show the same words the program
   enforces.
+- **Integrations a goal needs are found and added on their own.** From the
+  built-in catalogue first, then the official MCP registry — only from
+  trusted publishers (add your own in integrations/trusted.json), pinned to
+  one version from npm or PyPI, running on this computer and needing no
+  account or secret, and only while privacy allows it. Each is reviewed
+  before anything is downloaded, given to the one specialist that needs it,
+  and the tools the server says destroy are not offered. The registry is
+  searched with a short word for the kind of tool, never your words.
 - **Originality checks with real tools.** Names are searched in trademark
   registers, app and game stores and the web; a game's one sentence is
   compared with the closest titles; pictures are compared with reference

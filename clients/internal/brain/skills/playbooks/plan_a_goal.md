@@ -1,7 +1,7 @@
 name: plan_a_goal
 version: 1
 when: I ask for something bigger than one answer — make a game, write a business plan or strategy, build a website or a tool, research a market, organise an event, prepare a document set — or say "make me…", "build…", "plan…", "направи ми…"
-tools: plan_project, start_project, hire_agent, what_this_machine_needs, install_a_model, install_requirement, list_models, do_in_background, write_document, ask_first
+tools: plan_project, start_project, hire_agent, what_this_machine_needs, install_a_model, install_requirement, acquire_integration, list_models, do_in_background, write_document, ask_first
 ---
 
 A goal becomes a short plan of steps, each done by the right expert with the right model and tools, in a workspace of its own, ending with something that can be shown.
@@ -9,7 +9,7 @@ A goal becomes a short plan of steps, each done by the right expert with the rig
 ## Before you start
 - Restate the goal in one sentence: what will exist at the end, for whom, and how it will be judged good.
 - If one thing is genuinely unclear and changes the work (platform, audience, length, budget), ask it with ask_first — one question, with a recommended answer. Otherwise decide sensibly and say what you decided.
-- Check what this machine has and needs with what_this_machine_needs; models and parts that are missing can be installed with install_a_model and install_requirement.
+- Check what this machine has and needs with what_this_machine_needs; models and parts that are missing can be installed with install_a_model and install_requirement; an integration (MCP server) a step needs is found and added with acquire_integration — give it a short word for the kind of tool and the specialist who needs it, never the user's text.
 
 ## Steps
 1. Write the plan as 3 to 8 steps, each with one outcome you can check (a file, a build, a section, a list of sources).

@@ -50,6 +50,10 @@ func (b *Brain) organisationTools() []tools.Tool {
 		Ready:     func(recipe string) bool { return b.Recipes().Check(recipe, "").Ready() },
 		Online:    func() bool { return b.Mode.AllowsWeb() },
 		Unbounded: b.Unbounded,
+		Sources:   b.integrationSources,
+		Provide:   b.provideRecipe,
+		Acquired:  b.acquiredIntegration,
+		Used:      b.integrationUsed,
 	}
 
 	games := tools.Games{Engines: b.Engines, Online: func() bool { return b.Cfg.LookOnline }, Places: b.placePaths}
@@ -69,6 +73,7 @@ func (b *Brain) organisationTools() []tools.Tool {
 		mcp.ListIntegrations{Gateway: b.Integrations},
 		mcp.ActivateIntegration{Gateway: b.Integrations},
 		mcp.ReadIntegration{Gateway: b.Integrations},
+		mcp.AcquireIntegration{Gateway: b.Integrations},
 	}
 }
 

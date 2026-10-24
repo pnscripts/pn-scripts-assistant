@@ -175,6 +175,10 @@ func (w *Wrapped) ExecuteShowing(ctx context.Context, args json.RawMessage) (str
 		return "", nil, err
 	}
 
+	if w.g.Used != nil {
+		w.g.Used(w.server.ID)
+	}
+
 	result, err := l.client.CallTool(ctx, w.def.Name, args)
 
 	text := ""

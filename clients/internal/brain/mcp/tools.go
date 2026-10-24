@@ -201,3 +201,90 @@ func (t ReadIntegration) Execute(ctx context.Context, raw json.RawMessage) (stri
 
 	return t.Gateway.ReadResource(ctx, a.Integration, a.URI, "")
 }
+
+// AcquireIntegration finds, reviews and adds an integration of a kind a step
+// needs, from the catalogue or a trusted registry, for one specialist.
+type AcquireIntegration struct{ Gateway *Gateway }
+
+func (AcquireIntegration) Name() string { return "acquire_integration" }
+
+func (AcquireIntegration) Description() string {
+	return "Find and add an integration (MCP server) of a kind a step needs — e.g. \"sqlite\", \"git\", " +
+		"\"time\" — from the built-in catalogue or the official MCP registry. Only trusted publishers, pinned " +
+		"versions from npm or PyPI, programs on this machine that need no account; given to the named " +
+		"specialist only, tools that say they destroy left out. Give a short word for the kind, never the " +
+		"user's text."
+}
+
+func (AcquireIntegration) Parameters() json.RawMessage {
+	return json.RawMessage(`{
+		"type": "object",
+		"properties": {
+			"kind": {"type": "string", "description": "One to three plain words for the kind of tool, such as sqlite or pdf."},
+			"for": {"type": "string", "description": "The specialist who needs it."}
+		},
+		"required": ["kind"],
+		"additionalProperties": false
+	}`)
+}
+
+func (AcquireIntegration) Risk() tools.Risk { return tools.Mutating }
+
+// Consent: outside goal mode, adding one is its owner's call.
+func (AcquireIntegration) Consent(json.RawMessage) string {
+	return "adding an integration from a registry"
+}
+
+func (AcquireIntegration) Weight(json.RawMessage) risk.Level { return risk.High }
+
+type acquireArgs struct {
+	Kind string `json:"kind"`
+	For  string `json:"for"`
+}
+
+func (AcquireIntegration) Summarize(raw json.RawMessage) string {
+	var a acquireArgs
+
+	json.Unmarshal(raw, &a)
+
+	return "Find and add an integration for " + a.Kind + ", for " + orElse(a.For, "the assistant") +
+		", from the catalogue or a trusted registry, after reviewing what it may do"
+}
+
+func (t AcquireIntegration) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
+	var a acquireArgs
+
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return "", err
+	}
+
+	g := t.Gateway
+
+	sources := []Source{CatalogueSource{}}
+	if g.Sources != nil {
+		sources = g.Sources()
+	}
+
+	online := g.Online != nil && g.Online()
+
+	got, err := g.Acquire(ctx, sources, a.Kind, a.For, online, g.Provide)
+	if err != nil {
+		return "", err
+	}
+
+	names := make([]string, 0, len(got.View.Tools))
+	for _, tool := range got.View.Tools {
+		if !listedIn(got.Hidden, tool.Name) {
+			names = append(names, tool.As)
+		}
+	}
+
+	line := fmt.Sprintf("%s (%s) is added and running for %s only. Checked — %s. Its tools: %s.",
+		got.View.Title, got.View.Source, got.For, strings.Join(got.Review.Passed, "; "), strings.Join(names, ", "))
+
+	if len(got.Hidden) > 0 {
+		line += " Not offered, because the server says they destroy: " + strings.Join(got.Hidden, ", ") + "."
+	}
+
+	return line, nil
+}

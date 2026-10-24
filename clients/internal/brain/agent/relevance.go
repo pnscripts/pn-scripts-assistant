@@ -109,6 +109,7 @@ var housekeeping = map[string][]string{
 	"list_integrations":    {"integration", "mcp", "list_integrations"},
 	"activate_integration": {"integration", "mcp", "activate_integration"},
 	"read_integration":     {"integration", "mcp", "read_integration"},
+	"acquire_integration":  {"integration", "mcp", "connector", "plugin", "acquire_integration"},
 }
 
 // mentions reports whether any of the cues appears in the message.
