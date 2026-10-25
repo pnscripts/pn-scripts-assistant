@@ -166,6 +166,10 @@ var players = []struct {
 
 // Speak synthesises and plays, returning when the sound has finished.
 func (p *Piper) Speak(ctx context.Context, text string) error {
+	if hush(text) {
+		return nil
+	}
+
 	// Recorded by the callers in speech.go, so that every engine does it and
 	// not only this one. See SpeakAndWait.
 

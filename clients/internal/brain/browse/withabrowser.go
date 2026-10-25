@@ -105,6 +105,11 @@ func shotWithABrowser(ctx context.Context, url string, seconds int, png string) 
 		"--virtual-time-budget=" + budget, "--window-size=1280,900",
 	}
 
+	// A page read for its text has no business making a sound: no audio, and
+	// no speech synthesis, which on Linux reaches the speakers through
+	// speech-dispatcher whatever the browser's own audio is doing.
+	common = append(common, Muted...)
+
 	shot := Shot{}
 
 	picture := exec.CommandContext(ctx, browser, append(append([]string{}, common...),
@@ -215,3 +220,6 @@ func lastLine(out string) string {
 
 // jsonShot is here so the shape stays beside the thing that fills it.
 var _ = json.Marshal
+
+// Muted are the flags that keep a headless browser from making any sound.
+var Muted = []string{"--mute-audio", "--disable-speech-api", "--disable-speech-synthesis-api"}

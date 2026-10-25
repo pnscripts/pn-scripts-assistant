@@ -215,6 +215,10 @@ context.modules = [
 
 // reloadAudio restarts the user's own audio services, which needs no password.
 func reloadAudio(ctx context.Context) error {
+	if Silent() {
+		return nil
+	}
+
 	out, err := exec.CommandContext(ctx, "systemctl", "--user", "restart",
 		"pipewire", "pipewire-pulse", "wireplumber").CombinedOutput()
 	if err != nil {

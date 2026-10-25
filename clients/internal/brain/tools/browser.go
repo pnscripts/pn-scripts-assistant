@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/browse"
 	"pn-scripts-assistant/internal/brain/paths"
 )
 
@@ -360,6 +361,9 @@ func (d DriveBrowser) ensure(ctx context.Context) error {
 
 	if d.Headless {
 		args = append(args, "--headless=new", "--disable-gpu")
+
+		// Nobody is watching a headless browser, so nobody should hear it.
+		args = append(args, browse.Muted...)
 	}
 
 	cmd := exec.Command(chrome, append(args, "about:blank")...)

@@ -523,6 +523,10 @@ func gainArgument(levels []float64) string {
 }
 
 func setGain(ctx context.Context, s stream, levels []float64) bool {
+	if Silent() {
+		return false
+	}
+
 	if len(levels) == 0 {
 		return false
 	}

@@ -30,6 +30,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# No test makes a sound or opens a microphone, including anything a test starts
+# as a subprocess. See clients/internal/brain/speech/silent.go.
+env:
+  PN_SCRIPTS_ASSISTANT_SILENT: "1"
+
 jobs:
   # Formatting, vet, and that two versions sort the way dpkg thinks they do.
   # Cheapest of the lot and the one most worth failing on.

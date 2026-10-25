@@ -23,6 +23,11 @@ on:
 permissions:
   contents: read
 
+# No test makes a sound or opens a microphone, including anything a test starts
+# as a subprocess. See clients/internal/brain/speech/silent.go.
+env:
+  PN_SCRIPTS_ASSISTANT_SILENT: "1"
+
 jobs:
   # Nothing ships if the safety properties are broken.
   #

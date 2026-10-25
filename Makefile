@@ -14,6 +14,11 @@ VERSION := $(shell tr -d ' \t\n\r' < VERSION)
 PACKAGES := $(ROOT)/build/packages
 GO := CGO_ENABLED=1 go
 
+# Tests make no sound and open no microphone, here or in anything they start.
+# Test binaries are silent by themselves (speech.Silent); this covers the
+# program and helpers a test runs as a subprocess. See speech/silent.go.
+QUIET := PN_SCRIPTS_ASSISTANT_SILENT=1
+
 .PHONY: help clean check test race vulns build package packages validate checksums reproducible ci release version install-deps
 
 help:
@@ -49,7 +54,7 @@ check:
 
 test:
 	@echo "→ go test"
-	@cd clients && $(GO) test ./... -p 2
+	@cd clients && $(QUIET) $(GO) test ./... -p 2
 
 # The same tests with the race detector, which CI runs on every push.
 #
@@ -59,7 +64,7 @@ test:
 # and a race there is a corrupted brain rather than a crash somebody notices.
 race:
 	@echo "→ go test -race"
-	@cd clients && $(GO) test -race ./... -p 2
+	@cd clients && $(QUIET) $(GO) test -race ./... -p 2
 
 # Known vulnerabilities, in what is imported and in the toolchain itself.
 #

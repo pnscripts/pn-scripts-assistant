@@ -296,6 +296,10 @@ func sinkExists(ctx context.Context, name string) bool {
  * refuse the whole change.
  */
 func moveEverythingPlaying(ctx context.Context) {
+	if Silent() {
+		return
+	}
+
 	if _, err := exec.LookPath("wpctl"); err != nil {
 		return
 	}

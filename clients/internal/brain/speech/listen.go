@@ -180,6 +180,10 @@ const MaxRecordSeconds = 20
 // this machine it is the built-in analog jack, which records near-silence while
 // a USB microphone sits unused — and that presents as a broken recogniser.
 func Record(ctx context.Context, seconds int, device, path string) error {
+	if Silent() {
+		return errSilent
+	}
+
 	if seconds <= 0 || seconds > MaxRecordSeconds {
 		seconds = MaxRecordSeconds
 	}
@@ -227,6 +231,10 @@ func Record(ctx context.Context, seconds int, device, path string) error {
 // asked to stop politely first: killing it outright can leave the WAV header
 // unwritten, and a header-less file transcribes as nothing at all.
 func recordPipeWire(ctx context.Context, seconds int, device, path string) error {
+	if Silent() {
+		return errSilent
+	}
+
 	args := []string{"--rate", "16000", "--channels", "1", "--format", "s16"}
 
 	if device != "" {

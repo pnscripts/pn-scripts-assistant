@@ -301,6 +301,10 @@ func PutBackAnythingLeftDown() []string {
  * and so is saved under exactly the key given to it.
  */
 func openAndSetLevel(ctx context.Context, d savedLevel) error {
+	if Silent() {
+		return nil
+	}
+
 	if _, err := exec.LookPath("aplay"); err != nil {
 		return fmt.Errorf("aplay is not installed")
 	}
