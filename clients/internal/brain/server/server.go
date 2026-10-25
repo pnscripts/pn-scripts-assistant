@@ -144,6 +144,14 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/mail/send/{id}", s.handleDraftSend)
 	s.mux.HandleFunc("POST /api/settings/mail-morning", s.handleMailMorning)
 
+	// Plan: what is next, the to-do lists, the online calendar. See plan.go.
+	s.mux.HandleFunc("GET /api/plan", s.handlePlan)
+	s.mux.HandleFunc("GET /api/todos", s.handleTodos)
+	s.mux.HandleFunc("POST /api/todos", s.handleTodoAdd)
+	s.mux.HandleFunc("POST /api/todos/{id}/tick", s.handleTodoTick)
+	s.mux.HandleFunc("POST /api/todos/{id}/remove", s.handleTodoRemove)
+	s.mux.HandleFunc("POST /api/settings/calendar", s.handleCalendarSettings)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 

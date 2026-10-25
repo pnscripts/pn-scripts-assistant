@@ -409,8 +409,17 @@ type Config struct {
 	 * account's own — every provider worth using issues them, they can be
 	 * revoked on their own, and they cannot be used to take the account over.
 	 */
-	MailHost     string
-	MailPort     int
+	MailHost string
+	MailPort int
+
+	/*
+	 * The owner's online calendar: its CalDAV address, user and an app
+	 * password, typed on the Plan page. Never filled in by the assistant.
+	 */
+	CalendarURL      string
+	CalendarUser     string
+	CalendarPassword string
+
 	MailUser     string
 	MailPassword string
 	MailFrom     string
@@ -798,6 +807,9 @@ func LoadFrom(path string) (Config, error) {
 		cfg.AutoModel = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
+	assign(&cfg.CalendarURL, "CALDAV_URL")
+	assign(&cfg.CalendarUser, "CALDAV_USER")
+	assign(&cfg.CalendarPassword, "CALDAV_PASSWORD")
 	assign(&cfg.MailHost, "MAIL_HOST")
 	assign(&cfg.MailUser, "MAIL_USER")
 	assign(&cfg.MailPassword, "MAIL_PASSWORD")
@@ -978,6 +990,9 @@ func (c Config) Save(root string) error {
 	b.WriteString("MAIL_FROM=" + c.MailFrom + "\n")
 	b.WriteString("SMTP_HOST=" + c.SMTPHost + "\n")
 	b.WriteString("SMTP_PORT=" + intText(c.SMTPPort) + "\n\n")
+	b.WriteString("CALDAV_URL=" + c.CalendarURL + "\n")
+	b.WriteString("CALDAV_USER=" + c.CalendarUser + "\n")
+	b.WriteString("CALDAV_PASSWORD=" + c.CalendarPassword + "\n\n")
 	b.WriteString("LLM_DEFAULT_PROVIDER=" + c.DefaultProvider + "\n")
 	b.WriteString("OLLAMA_BASE_URL=" + c.OllamaURL + "\n")
 	b.WriteString("OLLAMA_DEFAULT_MODEL=" + c.OllamaModel + "\n")

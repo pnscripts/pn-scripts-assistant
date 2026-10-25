@@ -106,6 +106,11 @@ var serves = map[string][]string{
 	"remind_me":        {"scheduling", "organisation"},
 	"list_reminders":   {"scheduling", "organisation"},
 	"forget_reminder":  {"scheduling", "organisation"},
+	"todo":             {"scheduling", "organisation"},
+	"list_todos":       {"scheduling", "organisation"},
+	"what_is_next":     {"scheduling", "organisation"},
+	"read_calendar":    {"scheduling", "organisation"},
+	"write_calendar":   {"scheduling", "organisation"},
 
 	// Speaking to people in the owner's name, which is why both of these need
 	// approval whoever holds them.

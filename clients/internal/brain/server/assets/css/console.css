@@ -5993,3 +5993,82 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 }
 .writing-item.is-plain { border-left-color: var(--accent-dim); }
 .mail-morning { margin: 10px 0 2px; font-size: 12px; }
+
+/* Plan: what is next and the to-do lists. */
+.plan-item { align-items: baseline; gap: 12px; }
+.plan-when { flex: 0 0 auto; min-width: 96px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+.plan-what { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--text); word-break: break-word; }
+.plan-chip {
+    flex: none;
+    font-size: 10px;
+    padding: 0 6px;
+    border-radius: 2px;
+    border: 1px solid var(--line);
+    color: var(--text-faint);
+}
+.writing-item.is-event, .writing-item.is-online { border-left-color: var(--accent-dim); }
+.writing-item.is-reminder { border-left-color: var(--warn); }
+.writing-item.is-todo { border-left-color: var(--ok); }
+.plan-online { color: var(--accent); border-color: var(--accent-dim); }
+.plan-reminder { color: var(--warn); border-color: rgba(240, 178, 107, 0.35); }
+.plan-todo { color: var(--ok); border-color: rgba(123, 196, 127, 0.35); }
+.tr-sub.plan-overdue { color: var(--danger); }
+
+.todo-items .todo-item { align-items: center; }
+.todo-item.is-done .plan-what { color: var(--text-faint); text-decoration: line-through; }
+.todo-text-cell { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.todo-item .model-action { margin-left: 0; flex: none; padding: 3px 9px; }
+.gl-form .todo-text { flex: 2 1 260px; }
+.gl-form input[type="date"] {
+    width: 100%;
+    box-sizing: border-box;
+    height: 34px;
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 6px 8px;
+    font: inherit;
+    font-size: 13px;
+    color-scheme: dark;
+}
+.cal-form .cal-url { flex: 3 1 340px; }
+.cal-form input[type="password"] {
+    width: 100%;
+    box-sizing: border-box;
+    height: 34px;
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 7px 9px;
+    font: inherit;
+}
+#plan-said.is-bad, #todo-said.is-bad, #cal-said.is-bad { color: var(--warn); }
+
+@media (max-width: 600px) {
+    .plan-item { flex-wrap: wrap; gap: 4px 10px; }
+    .plan-when { min-width: 0; }
+    .plan-item .plan-what { flex-basis: 100%; order: 3; }
+}
+.writing-item.todo-item { border-left-color: var(--accent-dim); }
+.writing-item.todo-item.is-warn { border-left-color: var(--danger); }
+/* Every kind of box in a field looks the same as the text boxes. */
+.field input[type="password"],
+.field input[type="date"],
+.field input[type="number"] {
+    width: 100%;
+    box-sizing: border-box;
+    height: 34px;
+    padding: 7px 9px;
+    border: 1px solid rgba(77, 208, 225, 0.18);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text);
+    font: inherit;
+    font-size: 13.5px;
+    outline: none;
+    color-scheme: dark;
+}
+.field input[type="password"]:focus,
+.field input[type="date"]:focus,
+.field input[type="number"]:focus { border-color: var(--accent); }
+.field input[type="text"] { box-sizing: border-box; }

@@ -212,6 +212,10 @@ func Write(events []store.Event) string {
 		}
 
 		b.WriteString("UID:" + uid + "\r\n")
+
+		// Required in every event of a calendar file; calendar servers refuse
+		// an event without it.
+		b.WriteString("DTSTAMP:" + time.Now().UTC().Format("20060102T150405Z") + "\r\n")
 		b.WriteString("SUMMARY:" + escape(e.Title) + "\r\n")
 
 		if e.AllDay {

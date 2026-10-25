@@ -213,7 +213,7 @@ type Brain struct {
 func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logger) *Brain {
 	// Every credential this brain holds is taken out of anything it keeps as
 	// evidence, wherever it turns up — a command line, a program's output.
-	redact.Add(cfg.AnthropicKey, cfg.OpenAIKey, cfg.OpenRouterKey, cfg.MailPassword, cfg.BraveKey)
+	redact.Add(cfg.AnthropicKey, cfg.OpenAIKey, cfg.OpenRouterKey, cfg.MailPassword, cfg.BraveKey, cfg.CalendarPassword)
 
 	for _, key := range cfg.ProviderKeys {
 		redact.Add(key)
@@ -374,6 +374,12 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	}
 
 	b.Desk = desk
+
+	// The online calendar's two tools, only when there is one; the Plan page
+	// adds them the moment one is set up. See calendar.go.
+	if cfg.CalendarURL != "" {
+		available = append(available, b.calendarTools()...)
+	}
 
 	// Smart-home tools appear only when there is a house to talk to. Offering
 	// them unconfigured would have the model promise to turn on lights it
@@ -660,6 +666,12 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.Remind{Diary: diaryOf{b}},
 		tools.ListReminders{Diary: diaryOf{b}},
 		tools.ForgetReminder{Diary: diaryOf{b}},
+
+		// To-do lists and "what is next", across the diary, the reminders,
+		// the lists and the online calendar. See tools/plan.go.
+		tools.TodoTool{Plan: b.planner()},
+		tools.ListTodos{Plan: b.planner()},
+		tools.WhatIsNext{Plan: b.planner()},
 
 		/*
 		 * Subtitles for a film that has none.

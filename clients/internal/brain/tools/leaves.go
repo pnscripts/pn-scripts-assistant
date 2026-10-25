@@ -65,6 +65,9 @@ func Reaches(t Tool, args json.RawMessage) string {
 
 	case "send_draft":
 		return "mail"
+
+	case "read_calendar", "write_calendar":
+		return "your calendar server"
 	}
 
 	if leaves, ok := t.(interface{ LeavesTheMachine() bool }); ok && leaves.LeavesTheMachine() {
@@ -86,6 +89,10 @@ func Leaves(t Tool) (bool, string) {
 		return true, "the message, to the people it is addressed to"
 	case "drive_browser":
 		return true, "what the page you open is sent"
+	case "read_calendar":
+		return true, "your login, to your own calendar server"
+	case "write_calendar":
+		return true, "the appointment, to your own calendar server"
 	case "read_email", "read_mailbox", "mail_digest":
 		return true, "your login, to your own mail server"
 	case "install_a_model", "install_a_part", "install_requirement", "check_for_updates":

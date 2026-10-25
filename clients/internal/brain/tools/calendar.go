@@ -123,6 +123,11 @@ func (t WhatIsOn) Execute(_ context.Context, raw json.RawMessage) (string, error
 
 // line is one event as somebody would read it out.
 func line(e store.Event) string {
+	// The diary keeps times in UTC; they are said in the owner's own time.
+	// Said in UTC, an appointment at two in Sofia read as noon, and a whole
+	// day read as the evening before.
+	e.Starts, e.Ends = e.Starts.Local(), e.Ends.Local()
+
 	when := e.Starts.Format("Mon 2 Jan")
 
 	if e.AllDay {

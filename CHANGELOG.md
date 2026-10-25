@@ -46,7 +46,14 @@ number is 0, the second one changes when something visible changes.
   it stands, and is recorded in What I did. Sending a draft from the chat
   always asks, even when everything else is allowed. Optionally, a one-line
   summary of new mail every morning.
-
+- **Plan: what is next, to-do lists and your online calendar.** A new Plan
+  page puts the diary, your online calendar, reminders and due to-dos in one
+  time order, overdue first. Keep to-do lists by name, with an optional due
+  day, ticked off in one click. Connect a CalDAV calendar (Nextcloud,
+  Fastmail, iCloud and others) with an app password: the server is checked
+  before anything is kept, its appointments appear under What is next, and
+  new ones can be added — never changed or deleted. Also in the chat: "what
+  is next?", "put milk on the shopping list".
 - **Answers say where they came from.** Each answer lists its sources — things
   it remembers with the file they came from, files and web pages it read,
   search results — numbered, and a written answer ends each sentence that
@@ -126,6 +133,9 @@ number is 0, the second one changes when something visible changes.
 
 ### Fixed
 
+- The diary said appointment times in UTC rather than local time, so an
+  appointment at two in Sofia was read as noon and a whole day as the evening
+  before.
 - On a computer without graphics acceleration goal mode no longer downloads
   the largest model that fits in memory (minutes per answer); it chooses one
   that answers in reasonable time.

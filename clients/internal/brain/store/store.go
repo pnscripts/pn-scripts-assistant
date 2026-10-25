@@ -964,6 +964,26 @@ var migrations = []string{
 	);
 	CREATE INDEX idx_mail_drafts_status ON mail_drafts(status, id);
 	`,
+
+	/*
+	 * 22: to-do lists.
+	 *
+	 * Things to do that have no hour of their own — which is most of them,
+	 * and why the diary and the reminders were not enough. Named lists
+	 * ("home", "work", "shopping"), an optional day they are due, and the
+	 * moment each was ticked off. Sealed like the diary.
+	 */
+	`
+	CREATE TABLE todos (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		list        TEXT NOT NULL DEFAULT '',
+		text        TEXT NOT NULL,
+		due         TEXT,
+		done_at     TEXT,
+		created_at  TEXT NOT NULL
+	);
+	CREATE INDEX idx_todos_open ON todos(done_at, due, id);
+	`,
 }
 
 /*

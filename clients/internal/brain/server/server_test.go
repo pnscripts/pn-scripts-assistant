@@ -311,14 +311,14 @@ func TestRegisteredTools(t *testing.T) {
 		"game_check", "game_docs", "game_engines", "glossary", "godot_build", "godot_docs", "godot_status",
 		"hire_agent", "how_fast_can_you_answer", "inspect_project", "install_a_model", "install_a_part",
 		"install_requirement", "learn_from_folder", "list_background", "list_directory", "list_drives",
-		"list_integrations", "list_models", "list_reminders", "list_waiting", "list_windows",
+		"list_integrations", "list_models", "list_reminders", "list_todos", "list_waiting", "list_windows",
 		"look_at_screen", "mail_digest", "make_a_picture", "make_a_video", "make_subtitles", "open_app",
 		"places_it_learns_from", "plan_project", "proofread", "put_in_the_diary", "put_it_back", "read_a_page",
 		"read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this",
 		"remind_me", "remove_a_part", "run_as_admin", "run_command", "scroll", "search_files",
 		"set_appearance", "set_wake_word", "start_project", "stop_background",
-		"stop_hearing_this_machine", "translate", "translate_document", "type_text", "web_search", "what_am_i_hearing", "what_can_you_do",
-		"what_is_on", "what_ive_been_taught", "what_this_machine_needs", "what_you_know",
+		"stop_hearing_this_machine", "todo", "translate", "translate_document", "type_text", "web_search", "what_am_i_hearing", "what_can_you_do",
+		"what_is_next", "what_is_on", "what_ive_been_taught", "what_this_machine_needs", "what_you_know",
 		"write_document", "write_file", "write_originality_report",
 	}
 
