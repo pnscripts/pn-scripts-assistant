@@ -3,6 +3,7 @@ package window
 import (
 	"os/exec"
 	"runtime"
+	"strings"
 )
 
 /*
@@ -40,25 +41,49 @@ var launch = func(cmd *exec.Cmd) error {
 }
 
 func OpenInBrowser(url string) bool {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-
-	case "windows":
-		// Through the shell's own handler: "start" is a cmd builtin rather
-		// than a program, and the empty string is the window title that start
-		// otherwise steals from a quoted URL.
-		cmd = exec.Command("cmd", "/c", "start", "", url)
-
-	default:
-		if _, err := exec.LookPath("xdg-open"); err != nil {
-			return false
-		}
-
-		cmd = exec.Command("xdg-open", url)
+	args := opener(runtime.GOOS, url)
+	if args == nil {
+		return false
 	}
 
-	return launch(cmd) == nil
+	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+		if _, err := exec.LookPath(args[0]); err != nil {
+			return false
+		}
+	}
+
+	return launch(exec.Command(args[0], args[1:]...)) == nil
+}
+
+/*
+ * opener is the command that opens url on goos, or nil for an address that
+ * must not be handed to the system at all.
+ *
+ * Only http and https: what is opened here is a page of this program's own,
+ * and an address of any other kind — a file:, a javascript:, a path — is not
+ * one of those whoever produced it.
+ *
+ * On Windows through rundll32's URL handler rather than "cmd /c start". The
+ * shell reads & | ^ < > in an address as its own syntax, so an address with a
+ * query string in it was cut at the first & and the rest run as a command.
+ * The handler takes the address as one argument and interprets nothing.
+ */
+func opener(goos, url string) []string {
+	lower := strings.ToLower(url)
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+		return nil
+	}
+
+	if strings.ContainsAny(url, "\x00\r\n") {
+		return nil
+	}
+
+	switch goos {
+	case "darwin":
+		return []string{"open", url}
+	case "windows":
+		return []string{"rundll32", "url.dll,FileProtocolHandler", url}
+	default:
+		return []string{"xdg-open", url}
+	}
 }

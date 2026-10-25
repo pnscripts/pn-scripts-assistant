@@ -203,10 +203,13 @@
 
         const what = document.createElement('span');
         what.className = 'permit-what';
-        // The tool's own words, cut to a line: the full description is written
-        // for a model and reads as a paragraph. Written in English, so shown
-        // only on the English page; the name above is in either language.
-        what.textContent = window.pnLang && window.pnLang() === 'bg' ? '' : (c.what || '').split('.')[0];
+        // A sentence for a person in the page's language (tools.Plain). The
+        // tool's own description is written for a model and reads as a
+        // paragraph, so it is only the fallback, cut to a line — for a
+        // procedure somebody taught it, written in whatever language they
+        // taught it in.
+        const bg = window.pnLang && window.pnLang() === 'bg';
+        what.textContent = (bg ? c.what_bg : c.what_en) || (c.what || '').split('.')[0];
         what.hidden = what.textContent === '';
 
         text.append(name, what);

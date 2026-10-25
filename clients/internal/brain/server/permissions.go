@@ -43,8 +43,13 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type capability struct {
-		Name     string `json:"name"`
-		What     string `json:"what"`
+		Name string `json:"name"`
+		What string `json:"what"`
+
+		// Plain is the same in a sentence for a person, in both languages.
+		// See tools.Plain.
+		PlainEN  string `json:"what_en,omitempty"`
+		PlainBG  string `json:"what_bg,omitempty"`
 		Changes  bool   `json:"changes_something"`
 		Decision string `json:"decision"`
 		Why      string `json:"why,omitempty"`
@@ -83,6 +88,8 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 		c := capability{
 			Name:     t.Name(),
 			What:     t.Description(),
+			PlainEN:  tools.Plain(t.Name(), "en"),
+			PlainBG:  tools.Plain(t.Name(), "bg"),
 			Changes:  t.Risk() == tools.Mutating,
 			Decision: string(permits.Ask),
 			ThisRun:  forThisRun[t.Name()],

@@ -33,7 +33,7 @@ func TestItAsksTheRightProgramForThisSystem(t *testing.T) {
 		t.Fatal("it reported failure despite the launch succeeding")
 	}
 
-	want := map[string]string{"darwin": "open", "windows": "cmd"}[runtime.GOOS]
+	want := map[string]string{"darwin": "open", "windows": "rundll32"}[runtime.GOOS]
 	if want == "" {
 		want = "xdg-open"
 	}
@@ -74,5 +74,37 @@ func TestItNeverClaimsSuccessItDidNotHave(t *testing.T) {
 
 	if OpenInBrowser("http://example.invalid/") {
 		t.Error("it claimed to open a browser that failed to start")
+	}
+}
+
+/*
+ * On Windows the address goes to the URL handler as one argument, never
+ * through the shell, which would read & in a query string as a second
+ * command. Anything but a web address is refused on every system.
+ */
+func TestTheAddressIsNeverReadAsACommand(t *testing.T) {
+	url := "http://127.0.0.1:41533/setup?a=1&calc.exe|x^y"
+
+	got := opener("windows", url)
+	if len(got) != 3 || got[0] != "rundll32" || got[1] != "url.dll,FileProtocolHandler" || got[2] != url {
+		t.Fatalf("windows opener = %q, want rundll32's handler with the address as one argument", got)
+	}
+
+	for _, arg := range got {
+		if arg == "cmd" || arg == "/c" || arg == "start" {
+			t.Fatalf("the shell is involved: %q", got)
+		}
+	}
+
+	for _, bad := range []string{"file:///etc/passwd", "javascript:alert(1)", "C:\\Windows\\system32\\calc.exe", "http://x/\nrm", ""} {
+		for _, goos := range []string{"windows", "linux", "darwin"} {
+			if got := opener(goos, bad); got != nil {
+				t.Errorf("%s opened %q as %q", goos, bad, got)
+			}
+		}
+	}
+
+	if got := opener("linux", "HTTPS://example.invalid/"); len(got) != 2 || got[0] != "xdg-open" {
+		t.Errorf("linux opener = %q", got)
 	}
 }
