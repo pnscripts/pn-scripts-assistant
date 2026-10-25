@@ -25,6 +25,24 @@ remembers what it learns about you, and what it learns stays here.
   down, and a file it changed can be put back. If you would rather be asked,
   the Permissions panel has three settings: ask every time, ask about what you
   have not already allowed, or act freely.
+- **Writes, proofreads and translates, in English and Bulgarian.** Proofreading
+  is done by rules, offline, each correction with its reason; a tone and a
+  word limit are checked too, and a rewrite is shown as changes before it is
+  kept. Files are translated into new files with their layout — Word,
+  OpenDocument, subtitles, Markdown — following your own glossary, and
+  checked for terms, numbers and links that did not survive.
+- **Reads scans and writes spreadsheets.** Text in scans and photos is read on
+  this machine (Tesseract or a local model that can see); tables become real
+  `.xlsx` files and workbooks are read with their numbers.
+- **Sorts your mail and drafts replies.** New mail is sorted from its headers —
+  suspicious, needs a reply, people, newsletters — and replies wait as drafts
+  until you press Send on each one.
+- **Plans.** To-do lists, the diary, reminders and your online calendar
+  (CalDAV) in one "what is next", in time order.
+- **Says where answers came from, and what it did.** Answers list their
+  sources by number; a page lists every action with who did it, which model and
+  why, and whether anything left the machine; every capability can be switched
+  off under Control.
 - **Draws what it knows.** The interface renders a live map of memory, built
   from real embedding similarity — not decoration.
 - **Listens and speaks.** Conversation mode hears you until you stop talking,
