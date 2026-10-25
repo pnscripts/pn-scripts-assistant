@@ -2132,8 +2132,13 @@ func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	 * if it fails, the ordinary path loads the model as it always did.
 	 */
 	if b.ollama != nil {
+		// The context is taken now, not read inside the goroutine: ctx is
+		// reassigned further down this function (the citing ledger), and the
+		// race detector caught the read and the write meeting.
+		warm := context.WithoutCancel(ctx)
+
 		go func() {
-			if err := b.ollama.Warm(context.WithoutCancel(ctx)); err != nil {
+			if err := b.ollama.Warm(warm); err != nil {
 				b.Log.Debug("could not warm the chat model", "error", err)
 			}
 		}()

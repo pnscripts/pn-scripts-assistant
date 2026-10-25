@@ -155,15 +155,17 @@ const MaxSpokenChars = 600
 // The waiting is done by the engine. spd-say -w returns when the message has
 // been spoken; the others block for as long as they are speaking anyway.
 func SpeakAndWait(ctx context.Context, text string) error {
-	if hush(text) {
-		return nil
-	}
-
 	engine := Available()
 	if engine == nil {
 		return fmt.Errorf(
 			"no speech engine found. speech-dispatcher on its own only queues text; " +
 				"it needs a voice behind it. On Linux: sudo apt install espeak-ng")
+	}
+
+	// After the engine is found, so a test still learns that there is none;
+	// before anything is started, so a test never makes a sound.
+	if hush(text) {
+		return nil
 	}
 
 	spoken := Readable(text)
@@ -256,15 +258,17 @@ func SpeakAndWait(ctx context.Context, text string) error {
 // seconds to read must not hold an HTTP request open for thirty seconds, and
 // there is nothing useful to report at the end anyway.
 func Speak(ctx context.Context, text string) error {
-	if hush(text) {
-		return nil
-	}
-
 	engine := Available()
 	if engine == nil {
 		return fmt.Errorf(
 			"no speech engine found. speech-dispatcher on its own only queues text; " +
 				"it needs a voice behind it. On Linux: sudo apt install espeak-ng")
+	}
+
+	// After the engine is found, so a test still learns that there is none;
+	// before anything is started, so a test never makes a sound.
+	if hush(text) {
+		return nil
 	}
 
 	spoken := Readable(text)
