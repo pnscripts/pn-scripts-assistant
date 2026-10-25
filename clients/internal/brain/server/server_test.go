@@ -305,7 +305,7 @@ func TestRegisteredTools(t *testing.T) {
 	want := []string{
 		"acquire_integration", "activate_integration", "ask_first", "audit_originality", "brain_copies", "change_a_setting",
 		"change_the_diary", "change_this_conversation", "check_name", "check_requirements", "click",
-		"closest_titles", "compare_melody", "compare_pictures", "confirm_hire", "decide_waiting",
+		"closest_titles", "compare_melody", "compare_pictures", "compare_versions", "confirm_hire", "decide_waiting",
 		"do_in_background", "drive_browser", "edit_document", "edit_file", "fetch_url",
 		"films_without_subtitles", "forget_how_to_do_this", "forget_reminder", "game_build",
 		"game_check", "game_docs", "game_engines", "godot_build", "godot_docs", "godot_status",
@@ -313,7 +313,7 @@ func TestRegisteredTools(t *testing.T) {
 		"install_requirement", "learn_from_folder", "list_background", "list_directory", "list_drives",
 		"list_integrations", "list_models", "list_reminders", "list_waiting", "list_windows",
 		"look_at_screen", "make_a_picture", "make_a_video", "make_subtitles", "open_app",
-		"places_it_learns_from", "plan_project", "put_in_the_diary", "put_it_back", "read_a_page",
+		"places_it_learns_from", "plan_project", "proofread", "put_in_the_diary", "put_it_back", "read_a_page",
 		"read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this",
 		"remind_me", "remove_a_part", "run_as_admin", "run_command", "scroll", "search_files",
 		"set_appearance", "set_wake_word", "start_project", "stop_background",

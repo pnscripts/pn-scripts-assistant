@@ -380,6 +380,20 @@
             Beside Tasks because it answers the question somebody has after
             one: "and what exactly did it do?"
         -->
+        <!--
+            Writing: proofreading by rules, rewriting in a tone, comparing
+            two versions. Next to What I did because both are about checking
+            work rather than starting it.
+        -->
+        <button type="button" class="nav-item" data-view="writing">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6"
+                      stroke-linejoin="round"/>
+                <path d="M13 7l4 4M13 20h7" fill="none" stroke="currentColor" stroke-width="1.6"
+                      stroke-linecap="round"/>
+            </svg>
+            <span data-i18n="nav.writing">Writing</span>
+        </button>
         <button type="button" class="nav-item" data-view="deeds">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -2019,6 +2033,105 @@
             </div>
         </section>
 
+        <section class="view" data-view="writing" hidden>
+            <div class="view-inner">
+                <!--
+                    Writing and proofreading. The checks are rules (the proof
+                    package) and answer at once without a model; a rewrite
+                    goes to the model through the brain and comes back
+                    proofread and compared. Everything drawn by writing.js
+                    with textContent: a rewrite is a model's words.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="writing.title">Writing and proofreading</h2>
+                    <p class="note" data-i18n="writing.intro"></p>
+
+                    <div class="writing-options">
+                        <label class="field">
+                            <span data-i18n="writing.language">Language</span>
+                            <select id="writing-language">
+                                <option value="auto" data-i18n="writing.auto">Detect</option>
+                                <option value="en" data-i18n="writing.en">English</option>
+                                <option value="bg" data-i18n="writing.bg">Bulgarian</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="writing.tone">Tone</span>
+                            <select id="writing-tone">
+                                <option value="" data-i18n="writing.noTone">No tone check</option>
+                            </select>
+                        </label>
+                        <label class="field writing-most">
+                            <span data-i18n="writing.maxWords">Most words</span>
+                            <input type="number" id="writing-most" min="0" step="10" inputmode="numeric">
+                        </label>
+                    </div>
+
+                    <label class="field">
+                        <span data-i18n="writing.text">Text</span>
+                        <textarea id="writing-text" class="writing-text" rows="10" spellcheck="true"
+                                  data-i18n-placeholder="writing.placeholder"></textarea>
+                    </label>
+
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="writing-check"
+                                data-i18n="writing.check">Proofread</button>
+                        <button type="button" class="model-action" id="writing-rewrite"
+                                data-i18n="writing.rewrite">Rewrite in this tone</button>
+                        <button type="button" class="model-action" id="writing-copy"
+                                data-i18n="writing.copy">Copy text</button>
+                    </div>
+
+                    <p class="deeds-counts" id="writing-stats" aria-live="polite"></p>
+                    <p class="note" id="writing-said" role="status" aria-live="polite"></p>
+
+                    <div id="writing-found" class="writing-found" hidden>
+                        <h3 data-i18n="writing.slips">Corrections</h3>
+                        <ol id="writing-slips" class="writing-list"></ol>
+                        <button type="button" class="model-action" id="writing-apply"
+                                data-i18n="writing.apply">Make the ticked corrections</button>
+                        <h3 id="writing-tone-title" data-i18n="writing.toneNotes" hidden>Tone and length</h3>
+                        <ol id="writing-notes" class="writing-list"></ol>
+                    </div>
+
+                    <div id="writing-new" class="writing-new" hidden>
+                        <p class="deeds-counts" id="writing-new-counts"></p>
+                        <div class="writing-diff" id="writing-new-diff"></div>
+                        <div class="writing-actions">
+                            <button type="button" class="model-action" id="writing-keep"
+                                    data-i18n="writing.keep">Use this version</button>
+                            <button type="button" class="model-action" id="writing-discard"
+                                    data-i18n="writing.discard">Discard</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="writing.compareTitle">Compare two versions</h2>
+                    <div class="writing-pair">
+                        <label class="field">
+                            <span data-i18n="writing.before">Earlier version</span>
+                            <textarea id="writing-before" class="writing-text" rows="7"></textarea>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="writing.after">Later version</span>
+                            <textarea id="writing-after" class="writing-text" rows="7"></textarea>
+                        </label>
+                    </div>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="writing-compare"
+                                data-i18n="writing.compare">Compare</button>
+                    </div>
+                    <p class="deeds-counts" id="writing-compare-counts" aria-live="polite"></p>
+                    <div class="writing-diff" id="writing-compare-diff" hidden></div>
+                    <p class="writing-legend">
+                        <span class="diff-del" data-i18n="writing.legendRemoved">Taken out</span>
+                        <span class="diff-ins" data-i18n="writing.legendAdded">Put in</span>
+                    </p>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="deeds" hidden>
             <div class="view-inner">
                 <!--
@@ -2370,6 +2483,7 @@
 <script src="/js/settings.js"></script>
 <script src="/js/permissions.js"></script>
 <script src="/js/deeds.js"></script>
+<script src="/js/writing.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>

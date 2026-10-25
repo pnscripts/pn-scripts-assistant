@@ -261,6 +261,12 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.TypeText{},
 		tools.Scroll{},
 		tools.WriteDocument{},
+
+		// Proofreading and comparing versions, by rules rather than by a
+		// model, in English and Bulgarian. See the proof package.
+		tools.Proofread{},
+		tools.CompareVersions{},
+
 		tools.LookAtScreen{OllamaURL: cfg.OllamaURL},
 
 		// What its owner's work was done with by hand (ADR 0007): a Chrome

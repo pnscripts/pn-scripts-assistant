@@ -165,6 +165,65 @@
         'privacy.private': ['private', 'частно'],
         'privacy.research': ['research', 'проучване'],
         'privacy.open': ['open', 'отворено'],
+        // Writing and proofreading.
+        'nav.writing': ['Writing', 'Писане'],
+        'writing.title': ['Writing and proofreading', 'Писане и коректура'],
+        'writing.intro': [
+            'Paste or type a text in English or Bulgarian. Proofreading uses rules, not a model, so it is '
+                + 'instant and nothing leaves this computer. Each correction says why; only the sure ones are '
+                + 'ticked, and clicking one shows it in the text. A rewrite in a tone uses the language model and '
+                + 'is shown as changes for you to keep or discard.',
+            'Поставете или въведете текст на английски или български. Коректурата използва правила, а не '
+                + 'модел, затова е мигновена и нищо не напуска компютъра. Всяка поправка казва защо; отметнати '
+                + 'са само сигурните, а с щракване се вижда къде е в текста. Пренаписването в избран тон '
+                + 'използва езиковия модел и се показва като промени, които можете да приемете или откажете.',
+        ],
+        'writing.language': ['Language', 'Език'],
+        'writing.auto': ['Detect', 'Автоматично'],
+        'writing.en': ['English', 'Английски'],
+        'writing.bg': ['Bulgarian', 'Български'],
+        'writing.tone': ['Tone', 'Тон'],
+        'writing.noTone': ['No tone check', 'Без проверка на тона'],
+        'writing.maxWords': ['Most words', 'Най-много думи'],
+        'writing.text': ['Text', 'Текст'],
+        'writing.placeholder': ['Paste or type the text here. Ctrl+Enter proofreads it.',
+            'Поставете или въведете текста тук. Ctrl+Enter го проверява.'],
+        'writing.check': ['Proofread', 'Провери'],
+        'writing.rewrite': ['Rewrite in this tone', 'Пренапиши в този тон'],
+        'writing.copy': ['Copy text', 'Копирай текста'],
+        'writing.copied': ['Copied.', 'Копирано.'],
+        'writing.needTone': ['Choose a tone first.', 'Първо изберете тон.'],
+        'writing.empty': ['There is no text yet.', 'Все още няма текст.'],
+        'writing.stats': [
+            '{words} words · {sentences} sentences · longest {longest} words · about {minutes} min to read',
+            '{words} думи · {sentences} изречения · най-дългото — {longest} думи · около {minutes} мин. четене',
+        ],
+        'writing.slips': ['Corrections', 'Поправки'],
+        'writing.toneNotes': ['Tone and length', 'Тон и дължина'],
+        'writing.none': ['No slips found by the rules. Meaning, style and facts are for you to judge.',
+            'Правилата не откриха грешки. Смисълът, стилът и фактите остават за ваша преценка.'],
+        'writing.apply': ['Make the ticked corrections', 'Нанеси отметнатите поправки'],
+        'writing.use': ['Use this correction', 'Използвай тази поправка'],
+        'writing.remove': ['take out', 'премахни'],
+        'writing.checkIt': ['check it', 'проверете'],
+        'writing.applied': ['Corrections made: {n}.', 'Нанесени поправки: {n}.'],
+        'writing.working': ['Rewriting… on a computer without a graphics card this can take a minute.',
+            'Пренаписване… на компютър без графична карта това може да отнеме минута.'],
+        'writing.rewritten': ['Rewritten by {model}: {removed} words taken out, {added} put in.',
+            'Пренаписано от {model}: премахнати думи — {removed}, добавени — {added}.'],
+        'writing.keep': ['Use this version', 'Използвай тази версия'],
+        'writing.discard': ['Discard', 'Откажи'],
+        'writing.kept': ['The new version is in the text box.', 'Новата версия е в полето за текст.'],
+        'writing.compareTitle': ['Compare two versions', 'Сравняване на две версии'],
+        'writing.before': ['Earlier version', 'По-ранна версия'],
+        'writing.after': ['Later version', 'По-късна версия'],
+        'writing.compare': ['Compare', 'Сравни'],
+        'writing.same': ['The two versions are the same.', 'Двете версии са еднакви.'],
+        'writing.diffCounts': ['{removed} words taken out, {added} put in, {same} unchanged.',
+            'Премахнати думи: {removed}, добавени: {added}, без промяна: {same}.'],
+        'writing.legendRemoved': ['Taken out', 'Премахнато'],
+        'writing.legendAdded': ['Put in', 'Добавено'],
+        'writing.failed': ['That did not work: {why}', 'Не се получи: {why}'],
         'deeds.stayedTrait': ['stayed on this machine', 'остана на този компютър'],
     };
 
@@ -199,6 +258,7 @@
         closest_titles: ['Find the closest titles', 'Най-близки заглавия'],
         compare_melody: ['Compare a melody', 'Сравняване на мелодия'],
         compare_pictures: ['Compare pictures', 'Сравняване на изображения'],
+        compare_versions: ['Compare two versions', 'Сравняване на версии'],
         confirm_hire: ['Confirm a new specialist', 'Потвърждаване на специалист'],
         decide_waiting: ['Decide what is waiting', 'Решение по чакащи действия'],
         do_in_background: ['Work in the background', 'Работа във фонов режим'],
@@ -239,6 +299,7 @@
         open_app: ['Open an application', 'Отваряне на приложение'],
         places_it_learns_from: ['Places it learns from', 'Места, от които се учи'],
         plan_project: ['Plan a project', 'Планиране на проект'],
+        proofread: ['Proofread', 'Коректура'],
         put_in_the_diary: ['Add to the diary', 'Запис в дневника'],
         put_it_back: ['Put a file back', 'Връщане на файл'],
         read_a_page: ['Read a web page', 'Четене на уеб страница'],
@@ -319,6 +380,10 @@
 
         scope.querySelectorAll('[data-i18n-title]').forEach((node) => {
             node.title = T(node.dataset.i18nTitle);
+        });
+
+        scope.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+            node.placeholder = T(node.dataset.i18nPlaceholder);
         });
 
         scope.querySelectorAll('[data-i18n-label]').forEach((node) => {

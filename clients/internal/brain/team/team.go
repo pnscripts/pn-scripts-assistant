@@ -316,18 +316,22 @@ func BuiltIn() []Agent {
 		{
 			Name: "writer", Title: "Writer", BuiltIn: true,
 			Position: "writer",
-			For: "writing something to be read by a person — a summary, a document, a " +
-				"letter, notes",
+			For: "writing, editing and proofreading something to be read by a person — a " +
+				"summary, a document, a letter, notes — in English or Bulgarian, in the tone asked for",
 			Uses: UsesBest,
 			Tools: []string{
 				// write_file as well as write_document: notes and a draft in
 				// markdown are writing, and a writer that could only produce a
 				// PDF would reach for a tool it does not have and stop.
-				"write_document", "write_file", "read_document", "read_file",
-				"search_files", "list_directory",
+				"write_document", "write_file", "edit_document", "read_document", "read_file",
+				"search_files", "list_directory", "proofread", "compare_versions",
 			},
 			Brief: "Write the thing itself, not a description of it. Plain words, and " +
-				"no more of them than the point needs.",
+				"no more of them than the point needs. Write in the reader's language and " +
+				"the tone asked for (formal, friendly, concise, persuasive, simple or polite). " +
+				"Run proofread on what you wrote, with that tone, and fix what it finds " +
+				"before handing it over; after changing somebody's text, show the changes " +
+				"with compare_versions rather than describing them.",
 		},
 	}, append(FieldSpecialists(), OriginalitySpecialists()...)...)
 }
@@ -415,10 +419,10 @@ func OriginalitySpecialists() []Agent {
 			"closest_titles", "read_file", "read_document", "search_files", "list_directory", "web_search", "read_a_page",
 			"write_originality_report"),
 		specialist("copy_reviewer", "Copy and text specialist",
-			"names, stories, slogans and texts checked for copying and for meaning",
-			"Check texts, slogans and story against known works and for plain meaning.",
+			"names, stories, slogans and texts checked for copying, for meaning and for correct spelling and punctuation",
+			"Check texts, slogans and story against known works and for plain meaning; run proofread for the slips.",
 			Needs{Tools: true},
-			"read_document", "read_file", "search_files", "web_search", "fetch_url"),
+			"read_document", "read_file", "search_files", "web_search", "fetch_url", "proofread", "compare_versions"),
 	}
 }
 

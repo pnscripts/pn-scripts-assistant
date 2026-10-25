@@ -10,6 +10,19 @@ number is 0, the second one changes when something visible changes.
 
 ### Added
 
+- **Writing and proofreading, in English and Bulgarian.** A new Writing page,
+  and the same in the chat ("proofread this", "make it more formal"). The
+  proofreading uses rules rather than a model — instant, offline, nothing
+  leaves the computer — and every correction says why: doubled words,
+  spacing, Latin letters hidden in Cyrillic words, в/във and с/със, ѝ, „не“
+  apart from a verb, по-/най-, the full article after a preposition, the comma
+  before че, защото, но and който, „…“ quotes; a/an, could of, more then, I.
+  Sure corrections are ticked and made in one press; the rest are yours to
+  decide. Choose a tone (formal, friendly, concise, persuasive, simple,
+  polite) and a word limit to have them checked too, or have the text
+  rewritten in that tone and see the changes before keeping them. Compare
+  two versions word by word, on the page or with "what changed?".
+
 - **Answers say where they came from.** Each answer lists its sources — things
   it remembers with the file they came from, files and web pages it read,
   search results — numbered, and a written answer ends each sentence that

@@ -120,6 +120,13 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/ui-language", s.handleUILanguage)
 	s.mux.HandleFunc("POST /api/open-source", s.handleOpenSource)
 
+	// Writing: proofread, compare and rewrite. See writing.go.
+	s.mux.HandleFunc("GET /api/writing/tones", s.handleWritingTones)
+	s.mux.HandleFunc("POST /api/writing/check", s.handleWritingCheck)
+	s.mux.HandleFunc("POST /api/writing/apply", s.handleWritingApply)
+	s.mux.HandleFunc("POST /api/writing/compare", s.handleWritingCompare)
+	s.mux.HandleFunc("POST /api/writing/rewrite", s.handleWritingRewrite)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 
