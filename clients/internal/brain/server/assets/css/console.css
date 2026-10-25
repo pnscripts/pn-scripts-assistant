@@ -5943,3 +5943,53 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 .gl-form { align-items: flex-start; }
 .gl-form .model-action { align-self: flex-end; }
 .gl-form input, .tr-file input { height: 34px; }
+
+/* The mail desk. */
+.mail-item { align-items: center; }
+.mail-item .model-action { margin-left: 0; flex: none; }
+.writing-item.is-warn { border-left-color: var(--danger); }
+.mail-when { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+.mail-new {
+    font-size: 10px;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    padding: 0 5px;
+    border-radius: 2px;
+}
+.mail-drafts { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.mail-draft {
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent-dim);
+    padding: 10px 12px;
+    background: rgba(77, 208, 225, 0.03);
+}
+.mail-draft.is-warn { border-left-color: var(--danger); }
+.mail-draft .field { margin-bottom: 8px; }
+.mail-draft input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 7px 9px;
+    font: inherit;
+    font-size: 13px;
+}
+.mail-draft input[type="text"]:focus { border-color: var(--accent); outline: none; }
+.mail-warning {
+    color: var(--danger);
+    font-size: 12px;
+    border: 1px solid rgba(224, 108, 117, 0.35);
+    background: rgba(224, 108, 117, 0.08);
+    padding: 6px 9px;
+    margin: 4px 0 10px;
+}
+.mail-send:not(:disabled) { background: rgba(77, 208, 225, 0.16); }
+#mail-nosend.is-bad { color: var(--warn); }
+
+@media (max-width: 600px) {
+    .mail-item { flex-wrap: wrap; }
+    .mail-item .model-action { flex-basis: 100%; }
+}
+.writing-item.is-plain { border-left-color: var(--accent-dim); }
+.mail-morning { margin: 10px 0 2px; font-size: 12px; }

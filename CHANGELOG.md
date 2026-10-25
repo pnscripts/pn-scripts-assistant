@@ -38,6 +38,14 @@ number is 0, the second one changes when something visible changes.
   numbers as numbers) and read back as rows with their numbers, every sheet
   by name; OpenDocument files are read without LibreOffice. Tesseract and the
   PDF tools can be installed from the list of what a task needs.
+- **Mail, sorted, with replies that wait for your yes.** A new Mail page sorts
+  new mail from its headers — suspicious first, then what needs a reply, then
+  people, then newsletters and notifications by sender — from your mail
+  server or from Thunderbird. Replies are drafted in the message's language
+  and tone and kept waiting; each is sent only when you press Send on it, as
+  it stands, and is recorded in What I did. Sending a draft from the chat
+  always asks, even when everything else is allowed. Optionally, a one-line
+  summary of new mail every morning.
 
 - **Answers say where they came from.** Each answer lists its sources — things
   it remembers with the file they came from, files and web pages it read,

@@ -136,6 +136,14 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/translate", s.handleTranslate)
 	s.mux.HandleFunc("POST /api/translate/file", s.handleTranslateFile)
 
+	// The mail desk. See maildesk.go.
+	s.mux.HandleFunc("GET /api/mail/digest", s.handleMailDigest)
+	s.mux.HandleFunc("GET /api/mail/drafts", s.handleDrafts)
+	s.mux.HandleFunc("POST /api/mail/drafts/{id}", s.handleDraftChange)
+	s.mux.HandleFunc("POST /api/mail/drafts/{id}/discard", s.handleDraftDiscard)
+	s.mux.HandleFunc("POST /api/mail/send/{id}", s.handleDraftSend)
+	s.mux.HandleFunc("POST /api/settings/mail-morning", s.handleMailMorning)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 

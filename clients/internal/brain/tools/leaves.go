@@ -60,8 +60,11 @@ func Reaches(t Tool, args json.RawMessage) string {
 	case "web_search", "check_name", "closest_titles":
 		return "web search"
 
-	case "read_email", "read_mailbox":
+	case "read_email", "read_mailbox", "mail_digest":
 		return "your mail server"
+
+	case "send_draft":
+		return "mail"
 	}
 
 	if leaves, ok := t.(interface{ LeavesTheMachine() bool }); ok && leaves.LeavesTheMachine() {
@@ -79,11 +82,11 @@ func Leaves(t Tool) (bool, string) {
 		return true, "the address it is asked to read"
 	case "web_search", "check_name", "closest_titles":
 		return true, "the search words, to a search engine"
-	case "send_email":
+	case "send_email", "send_draft":
 		return true, "the message, to the people it is addressed to"
 	case "drive_browser":
 		return true, "what the page you open is sent"
-	case "read_email", "read_mailbox":
+	case "read_email", "read_mailbox", "mail_digest":
 		return true, "your login, to your own mail server"
 	case "install_a_model", "install_a_part", "install_requirement", "check_for_updates":
 		return true, "a request for the download — nothing about you"

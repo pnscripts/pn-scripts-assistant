@@ -102,7 +102,7 @@ func (b *Brain) knownNames() capability.Known {
 			// Registered only once they are set up, and still this
 			// program's: a package may name them before they are.
 			switch name {
-			case "send_email", "read_email", "list_devices", "set_device":
+			case "send_email", "send_draft", "read_email", "list_devices", "set_device":
 				return true
 			}
 

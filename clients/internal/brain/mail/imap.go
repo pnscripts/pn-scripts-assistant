@@ -53,6 +53,12 @@ type Message struct {
 	Subject string
 	Date    string
 	Body    string
+
+	// Seen is whether its owner has opened it. Bulk is whether it says of
+	// itself that it went to a list: a newsletter, a notification, anything
+	// with an unsubscribe link or an automatic sender.
+	Seen bool
+	Bulk bool
 }
 
 // client is one IMAP connection.
@@ -235,7 +241,8 @@ func Recent(a Account, box string, count int) ([]Message, error) {
 
 	// PEEK, so that looking at the list does not mark anybody's mail as read.
 	lines, err := c.send(
-		"FETCH %d:%d (BODY.PEEK[HEADER.FIELDS (FROM REPLY-TO SUBJECT DATE)])", from, total)
+		"FETCH %d:%d (FLAGS BODY.PEEK[HEADER.FIELDS (FROM REPLY-TO SUBJECT DATE LIST-UNSUBSCRIBE LIST-ID PRECEDENCE AUTO-SUBMITTED)])",
+		from, total)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", box, err)
 	}
@@ -320,7 +327,7 @@ func parseHeaders(lines []string) []Message {
 			}
 
 			n, _ := strconv.Atoi(fields[1])
-			current = Message{Number: n}
+			current = Message{Number: n, Seen: strings.Contains(line, `\Seen`)}
 			open = true
 
 			continue
@@ -347,6 +354,16 @@ func parseHeaders(lines []string) []Message {
 				current.Subject = value
 			case "date":
 				current.Date = value
+			case "list-unsubscribe", "list-id":
+				current.Bulk = true
+			case "precedence":
+				if v := strings.ToLower(value); v == "bulk" || v == "list" || v == "junk" {
+					current.Bulk = true
+				}
+			case "auto-submitted":
+				if !strings.EqualFold(value, "no") && value != "" {
+					current.Bulk = true
+				}
 			}
 		}
 	}

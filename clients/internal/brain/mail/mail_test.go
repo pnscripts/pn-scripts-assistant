@@ -262,3 +262,20 @@ func TestASilentServerTimesOut(t *testing.T) {
 		t.Fatal("sending was still waiting on a silent server after five seconds")
 	}
 }
+
+// Whether a message was opened and whether it went to a list come from the
+// same reply as its headers.
+func TestSeenAndListMailAreRecognised(t *testing.T) {
+	got := parseHeaders([]string{
+		`* 3 FETCH (FLAGS (\Seen) BODY[HEADER.FIELDS (FROM SUBJECT LIST-UNSUBSCRIBE)]`,
+		"From: News <news@example.com>\nSubject: Weekly\nList-Unsubscribe: <mailto:u@example.com>\n",
+		`* 4 FETCH (FLAGS () BODY[HEADER.FIELDS (FROM SUBJECT PRECEDENCE AUTO-SUBMITTED)]`,
+		"From: Anna <anna@example.com>\nSubject: Question\nAuto-Submitted: no\n",
+		`* 5 FETCH (FLAGS () BODY[HEADER.FIELDS (FROM SUBJECT AUTO-SUBMITTED)]`,
+		"From: Robot <robot@example.com>\nSubject: Done\nAuto-Submitted: auto-generated\n",
+	})
+
+	if len(got) != 3 || !got[0].Seen || !got[0].Bulk || got[1].Seen || got[1].Bulk || !got[2].Bulk {
+		t.Errorf("%+v", got)
+	}
+}

@@ -938,6 +938,32 @@ var migrations = []string{
 	CREATE INDEX idx_deeds_created ON deeds(created_at, id);
 	CREATE INDEX idx_deeds_conversation ON deeds(conversation_id, id);
 	`,
+
+	/*
+	 * 21: replies waiting for their owner's yes.
+	 *
+	 * A draft is written by the assistant and sent only when its owner says
+	 * so, one message at a time. Kept here rather than in the mail server's
+	 * drafts folder because not every mailbox has one the program may write
+	 * to, and because a reply drafted for a message read in Thunderbird has
+	 * no server at all. Sealed like the mail it answers.
+	 */
+	`
+	CREATE TABLE mail_drafts (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		to_addr     TEXT NOT NULL,
+		subject     TEXT NOT NULL DEFAULT '',
+		body        TEXT NOT NULL DEFAULT '',
+		answers     TEXT NOT NULL DEFAULT '',
+		warning     TEXT NOT NULL DEFAULT '',
+		status      TEXT NOT NULL DEFAULT 'waiting',
+		note        TEXT NOT NULL DEFAULT '',
+		created_at  TEXT NOT NULL,
+		updated_at  TEXT NOT NULL,
+		sent_at     TEXT
+	);
+	CREATE INDEX idx_mail_drafts_status ON mail_drafts(status, id);
+	`,
 }
 
 /*

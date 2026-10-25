@@ -117,7 +117,7 @@ func TestAPlaybookIsOfferedByItsWords(t *testing.T) {
 
 		tool := AsTool(s)
 
-		if !strings.Contains(tool.Description(), "version 1") {
+		if !strings.Contains(tool.Description(), "version 2") {
 			t.Errorf("the description does not say the version: %q", tool.Description())
 		}
 
@@ -127,7 +127,7 @@ func TestAPlaybookIsOfferedByItsWords(t *testing.T) {
 		}
 
 		out, err := tool.Execute(context.Background(), nil)
-		if err != nil || !strings.Contains(out, "send_email only after the owner says yes") {
+		if err != nil || !strings.Contains(out, "send it with send_draft only after the owner says yes") {
 			t.Errorf("reading it did not return the procedure: %v %q", err, out[:min(200, len(out))])
 		}
 

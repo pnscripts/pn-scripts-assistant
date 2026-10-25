@@ -111,6 +111,11 @@ var serves = map[string][]string{
 	// approval whoever holds them.
 	"read_email": {"correspondence", "customer_support", "communication", "account_management"},
 	"send_email": {"correspondence", "communication", "customer_support", "public_relations", "account_management", "selling"},
+	"send_draft": {"correspondence", "communication", "customer_support", "public_relations", "account_management", "selling"},
+
+	// Reading what came in and drafting answers, which send nothing.
+	"mail_digest": {"correspondence", "customer_support", "communication", "account_management"},
+	"draft_reply": {"correspondence", "communication", "customer_support", "account_management"},
 
 	// What the brain itself knows.
 	"what_you_know":         {"knowledge_base", "research", "note_taking"},

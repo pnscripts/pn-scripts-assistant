@@ -194,7 +194,7 @@ var evidenceKinds = map[string]bool{
  */
 var Operates = map[string]bool{
 	"run_command": true, "set_device": true, "click": true, "type_text": true,
-	"scroll": true, "open_app": true, "send_email": true, "install_a_part": true,
+	"scroll": true, "open_app": true, "send_email": true, "send_draft": true, "install_a_part": true,
 	"install_a_model": true, "remove_a_part": true, "install_requirement": true,
 	"godot_build": true, "game_check": true, "game_build": true, "decide_waiting": true,
 	"start_project": true, "confirm_hire": true, "acquire_integration": true,

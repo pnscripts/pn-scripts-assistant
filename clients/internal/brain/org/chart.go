@@ -65,6 +65,10 @@ func BuiltIn() []Unit {
 					Name: "translator", Title: "Translator",
 					Job: "media.translator", Seniority: Senior,
 				},
+				{
+					Name: "mail_assistant", Title: "Mail assistant",
+					Job: "general.personal_assistant", Seniority: Mid,
+				},
 			},
 		},
 		{
@@ -103,7 +107,7 @@ func BuiltIn() []Unit {
 					 */
 					Name: "bookkeeper", Title: "Bookkeeper",
 					Job: "finance.bookkeeper", Seniority: Mid,
-					Never: []string{"send_email"},
+					Never: []string{"send_email", "send_draft"},
 				},
 			},
 		},

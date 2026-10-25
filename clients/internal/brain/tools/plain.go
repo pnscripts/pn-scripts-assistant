@@ -178,6 +178,8 @@ var plainWords = map[string][2]string{
 		"Превърта екрана."},
 	"search_files": {"Searches for words inside files.",
 		"Търси думи във файлове."},
+	"send_draft": {"Sends one drafted reply exactly as it stands, after you say yes to it.",
+		"Изпраща една подготвена чернова точно както е, след като кажете „да“."},
 	"send_email": {"Sends an email in your name.",
 		"Изпраща имейл от ваше име."},
 	"set_appearance": {"Changes how the program looks.",

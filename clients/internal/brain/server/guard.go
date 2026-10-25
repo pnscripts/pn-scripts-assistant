@@ -127,6 +127,9 @@ var atTheDeskOnly = []string{
 
 	// Writing a translated file into somebody's folders.
 	"/api/translate/file",
+
+	// Sending a message in its owner's name.
+	"/api/mail/send/",
 }
 
 func decisionRoute(path string) bool {

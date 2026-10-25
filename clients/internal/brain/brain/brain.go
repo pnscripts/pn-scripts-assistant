@@ -199,6 +199,9 @@ type Brain struct {
 	Integrations *mcp.Gateway
 	Engines      *engines.Registry
 
+	// Desk is the mail desk: the digest and drafts waiting for a yes.
+	Desk tools.MailDesk
+
 	// orch is the one decider for how work is done. See orchestrate.go.
 	orch orchestration
 
@@ -345,14 +348,32 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	 * try, and offering to read mail it cannot reach produces a brain that
 	 * promises to check and then reports an error every time.
 	 */
+	/*
+	 * The mail desk: a digest of what came in and replies kept as drafts,
+	 * from the mail server or from Thunderbird on this machine, so both are
+	 * offered whenever either could be there. Sending a draft needs the
+	 * server, like sending anything.
+	 */
+	desk := tools.MailDesk{
+		Account: func() mail.Account { return mailAccount(b.Cfg) },
+		Local:   tools.ReadMailbox{Lookup: b.scamLookup},
+		Drafts:  db,
+		Lookup:  b.scamLookup,
+	}
+
+	available = append(available, tools.MailDigest{Desk: desk}, tools.DraftReply{Desk: desk})
+
 	if account := mailAccount(cfg); account.Configured() {
 		read := func() mail.Account { return mailAccount(b.Cfg) }
 
 		available = append(available,
 			tools.ReadEmail{Account: read, Lookup: b.scamLookup},
 			tools.SendEmail{Account: read},
+			tools.SendDraft{Desk: desk},
 		)
 	}
+
+	b.Desk = desk
 
 	// Smart-home tools appear only when there is a house to talk to. Offering
 	// them unconfigured would have the model promise to turn on lights it
@@ -1389,6 +1410,10 @@ func (b *Brain) Start(ctx context.Context) {
 	// And what goal mode downloaded and nobody has used for thirty days is
 	// taken away again — only its own, never while work is under way.
 	go b.tidyDownloads(ctx)
+
+	// And, when its owner has asked for it, a summary of new mail once a
+	// morning. See mailmorning.go.
+	go b.mailMornings(ctx)
 
 	// A resident recogniser, started in the background because loading its
 	// model takes seconds and nothing should wait on it. Without one, every

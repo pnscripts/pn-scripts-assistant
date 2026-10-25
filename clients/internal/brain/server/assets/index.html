@@ -385,6 +385,15 @@
             two versions. Next to What I did because both are about checking
             work rather than starting it.
         -->
+        <button type="button" class="nav-item" data-view="mail">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M3.5 6.5l8.5 6.5 8.5-6.5" fill="none" stroke="currentColor" stroke-width="1.6"
+                      stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.mail">Mail</span>
+            <span class="nav-count" id="nav-mail" hidden>0</span>
+        </button>
         <button type="button" class="nav-item" data-view="writing">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2042,6 +2051,51 @@
             </div>
         </section>
 
+        <section class="view" data-view="mail" hidden>
+            <div class="view-inner">
+                <!--
+                    The mail desk: new mail sorted from its headers (maildesk
+                    package) and replies waiting for a yes. Sending is one
+                    press per draft, at the desk only. Drawn by maildesk.js
+                    with textContent: every line here came from somebody else.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="mail.title">New mail</h2>
+                    <p class="note" data-i18n="mail.intro"></p>
+                    <div class="gl-tools">
+                        <label class="field">
+                            <span data-i18n="mail.period">Since</span>
+                            <select id="mail-hours">
+                                <option value="24" data-i18n="mail.day">The last 24 hours</option>
+                                <option value="72" data-i18n="mail.three">The last 3 days</option>
+                                <option value="168" data-i18n="mail.week">The last 7 days</option>
+                            </select>
+                        </label>
+                        <button type="button" class="model-action" id="mail-refresh" data-i18n="deeds.refresh">Refresh</button>
+                    </div>
+                    <label class="switch mail-morning">
+                        <input type="checkbox" id="mail-morning">
+                        <span data-i18n="mail.morning">A summary of new mail every morning, in the conversation</span>
+                    </label>
+                    <p class="deeds-counts" id="mail-counts" aria-live="polite"></p>
+                    <p class="note" id="mail-said" role="status" aria-live="polite"></p>
+                    <div id="mail-groups"></div>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="mail.draftsTitle">Waiting for your yes</h2>
+                    <p class="note" data-i18n="mail.draftsIntro"></p>
+                    <p class="note is-bad" id="mail-nosend" hidden data-i18n="mail.noSend"></p>
+                    <div id="mail-drafts" class="mail-drafts"></div>
+                    <p class="activity-empty" id="mail-nodrafts" hidden data-i18n="mail.noDrafts"></p>
+                    <details class="gl-import" id="mail-done-box" hidden>
+                        <summary data-i18n="mail.done">Sent and discarded</summary>
+                        <ul id="mail-done" class="writing-list"></ul>
+                    </details>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="writing" hidden>
             <div class="view-inner">
                 <!--
@@ -2616,6 +2670,7 @@
 <script src="/js/settings.js"></script>
 <script src="/js/permissions.js"></script>
 <script src="/js/deeds.js"></script>
+<script src="/js/maildesk.js"></script>
 <script src="/js/writing.js"></script>
 <script src="/js/translation.js"></script>
 <script src="/js/providers.js"></script>

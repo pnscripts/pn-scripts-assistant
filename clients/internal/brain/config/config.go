@@ -321,6 +321,14 @@ type Config struct {
 	CiteSources bool
 
 	/*
+	 * MailMorning is a summary of new mail once a day, in the conversation:
+	 * what needs a reply, what looks suspicious, what drafts wait. Off by
+	 * default, because it means reading the mailbox — and connecting to the
+	 * mail server — without being asked each time.
+	 */
+	MailMorning bool
+
+	/*
 	 * AlwaysSpeak reads every answer aloud, however the question arrived.
 	 *
 	 * Answers were spoken only for turns that came in by voice, so a question
@@ -778,6 +786,10 @@ func LoadFrom(path string) (Config, error) {
 		cfg.GoalMode = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
+	if v := get("BRAIN_MAIL_MORNING"); v != "" {
+		cfg.MailMorning = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
 	if v := get("BRAIN_CITE_SOURCES"); v != "" {
 		cfg.CiteSources = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
@@ -952,6 +964,8 @@ func (c Config) Save(root string) error {
 	b.WriteString("BRAIN_GOAL_MODE=" + boolText(c.GoalMode) + "\n")
 	b.WriteString("# Say which sentence of an answer came from which source, by number.\n")
 	b.WriteString("BRAIN_CITE_SOURCES=" + boolText(c.CiteSources) + "\n")
+	b.WriteString("# A summary of new mail in the conversation once a morning.\n")
+	b.WriteString("BRAIN_MAIL_MORNING=" + boolText(c.MailMorning) + "\n")
 	b.WriteString("BRAIN_ALWAYS_SPEAK=" + boolText(c.AlwaysSpeak) + "\n")
 	b.WriteString("BRAIN_ALWAYS_LISTEN=" + boolText(c.AlwaysListen) + "\n")
 	b.WriteString("BRAIN_TURNED_OFF=" + strings.Join(c.TurnedOff, ",") + "\n")
