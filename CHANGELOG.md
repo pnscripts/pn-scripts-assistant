@@ -31,6 +31,13 @@ number is 0, the second one changes when something visible changes.
   term not translated as agreed, or a number, address or link that went
   missing, is listed with the result. A new Translation page, in English and
   Bulgarian, and a translator specialist for longer jobs.
+- **Scans, photos and spreadsheets.** Scans and photos — a scanned contract,
+  a photo of a receipt, a PDF with no text in it — are read on this computer,
+  by Tesseract or by a local model that can see, and say they came from a
+  scan. Spreadsheets are written as real .xlsx files (bold frozen header,
+  numbers as numbers) and read back as rows with their numbers, every sheet
+  by name; OpenDocument files are read without LibreOffice. Tesseract and the
+  PDF tools can be installed from the list of what a task needs.
 
 - **Answers say where they came from.** Each answer lists its sources — things
   it remembers with the file they came from, files and web pages it read,

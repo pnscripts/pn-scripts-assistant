@@ -254,7 +254,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.RunCommand{},
 		tools.EditFile{},
 		tools.SearchFiles{},
-		tools.ReadDocument{},
+		// Scans and photos are read by Tesseract, or by a local model that
+		// can see when Tesseract is missing. See tools/ocr.go.
+		tools.ReadDocument{OllamaURL: cfg.OllamaURL},
 		tools.ListWindows{},
 		tools.OpenApp{},
 		tools.Click{},

@@ -36,16 +36,18 @@ func (WriteDocument) Name() string { return "write_document" }
 
 func (WriteDocument) Description() string {
 	return "Write a document to a file: a PDF (.pdf), a Word document (.docx), " +
-		"or plain text (.txt, .md). Give the text to put in it, and a title for " +
-		"the first page. Use this rather than write_file when the owner asks for " +
-		"a document rather than a file of code or notes."
+		"a spreadsheet (.xlsx), or plain text (.txt, .md). Give the text to put in it, " +
+		"and a title for the first page (for a spreadsheet, the sheet's name). For a " +
+		"spreadsheet the text is the table: a Markdown table, tab-separated lines or CSV, " +
+		"first row the header; numbers become numbers. Use this rather than write_file " +
+		"when the owner asks for a document rather than a file of code or notes."
 }
 
 func (WriteDocument) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"properties": {
-			"path": {"type": "string", "description": "Absolute path to write, ending .pdf, .docx, .txt or .md"},
+			"path": {"type": "string", "description": "Absolute path to write, ending .pdf, .docx, .xlsx, .txt or .md"},
 			"title": {"type": "string", "description": "A heading for the top of the document"},
 			"text": {"type": "string", "description": "The body. Blank lines separate paragraphs."}
 		},
@@ -104,10 +106,12 @@ func (WriteDocument) Execute(ctx context.Context, raw json.RawMessage) (string, 
 		body, err = buildPDF(a.Title, a.Text)
 	case ".docx":
 		body, err = buildDocx(a.Title, a.Text)
+	case ".xlsx":
+		body, err = buildXlsx(a.Title, a.Text)
 	case ".txt", ".md", "":
 		body = []byte(plainText(a.Title, a.Text))
 	default:
-		return "", fmt.Errorf("%s is not a document this writes; use .pdf, .docx, .txt or .md",
+		return "", fmt.Errorf("%s is not a document this writes; use .pdf, .docx, .xlsx, .txt or .md",
 			filepath.Ext(a.Path))
 	}
 

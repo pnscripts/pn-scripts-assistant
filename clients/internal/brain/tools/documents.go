@@ -9,8 +9,10 @@ import (
 	"io"
 	"os/exec"
 	"path/filepath"
-	"pn-scripts-assistant/internal/brain/exe"
 	"strings"
+	"unicode/utf8"
+
+	"pn-scripts-assistant/internal/brain/exe"
 )
 
 /*
@@ -28,15 +30,20 @@ import (
  * returning something that looks like a failure of comprehension.
  */
 
-// ReadDocument extracts the text of a document.
-type ReadDocument struct{}
+// ReadDocument extracts the text of a document, or of a scan or a photo.
+type ReadDocument struct {
+	// OllamaURL is where a local model that can see is served, for scans
+	// Tesseract cannot read or a machine without it. Empty: Tesseract only.
+	OllamaURL string
+}
 
 func (ReadDocument) Name() string { return "read_document" }
 
 func (ReadDocument) Description() string {
-	return "Read the text of a PDF, Word document (.docx), spreadsheet (.xlsx) " +
-		"or presentation. Use this rather than read_file for anything that is " +
-		"not plain text."
+	return "Read the text of a PDF, Word document (.docx), OpenDocument file (.odt, .ods, .odp), " +
+		"spreadsheet (.xlsx, read as rows with tabs between cells) or presentation, and the text in " +
+		"a scan or a photo (.png, .jpg, .tif and scanned PDFs, read on this machine). Use this rather " +
+		"than read_file for anything that is not plain text."
 }
 
 func (ReadDocument) Parameters() json.RawMessage {
@@ -61,7 +68,7 @@ func (ReadDocument) Summarize(raw json.RawMessage) string {
 	return "Read the document " + a.Path
 }
 
-func (ReadDocument) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
+func (t ReadDocument) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
 	var a struct {
 		Path string `json:"path"`
 	}
@@ -83,16 +90,39 @@ func (ReadDocument) Execute(ctx context.Context, raw json.RawMessage) (string, e
 		err  error
 	)
 
-	switch strings.ToLower(filepath.Ext(a.Path)) {
+	ext := strings.ToLower(filepath.Ext(a.Path))
+
+	if pictureKinds[ext] {
+		text, err := t.scanned(ctx, a.Path)
+		if err != nil {
+			return "", err
+		}
+
+		return cut(text), nil
+	}
+
+	switch ext {
 	case ".pdf":
 		text, err = pdfText(ctx, a.Path)
+
+		// A PDF with no text layer is pictures of pages: a scan.
+		if err == nil && letters(text) < 20 {
+			scan, scanErr := t.scannedPDF(ctx, a.Path)
+			if scanErr != nil {
+				return "", scanErr
+			}
+
+			return cut(scan), nil
+		}
 	case ".docx":
 		text, err = officeText(a.Path, "word/document.xml")
 	case ".xlsx":
-		text, err = officeText(a.Path, "xl/sharedStrings.xml")
+		text, err = spreadsheetText(a.Path)
 	case ".pptx":
 		text, err = officeText(a.Path, "ppt/slides/")
-	case ".odt", ".ods", ".odp", ".doc", ".xls", ".ppt", ".rtf":
+	case ".odt", ".ods", ".odp":
+		text, err = officeText(a.Path, "content.xml")
+	case ".doc", ".xls", ".ppt", ".rtf":
 		text, err = convertedText(ctx, a.Path)
 	default:
 		return "", fmt.Errorf(
@@ -111,11 +141,22 @@ func (ReadDocument) Execute(ctx context.Context, raw json.RawMessage) (string, e
 			"scanned pictures rather than text", a.Path)
 	}
 
-	if len(text) > MaxReadBytes {
-		text = text[:MaxReadBytes] + "\n\n[truncated]"
+	return cut(text), nil
+}
+
+// cut keeps a document's text to what the model is given, at a character
+// boundary.
+func cut(text string) string {
+	if len(text) <= MaxReadBytes {
+		return text
 	}
 
-	return text, nil
+	end := MaxReadBytes
+	for end > 0 && !utf8.RuneStart(text[end]) {
+		end--
+	}
+
+	return text[:end] + "\n\n[truncated]"
 }
 
 // pdfText hands the file to pdftotext.
@@ -246,11 +287,15 @@ func charData(r io.Reader) (string, error) {
 		case xml.StartElement:
 			// A paragraph or row break is the only structure worth keeping;
 			// without it every sentence in the file runs into the next.
+			// OpenDocument names its own: h for headings, line-break,
+			// table-row and table-cell, and s for a run of spaces.
 			switch t.Name.Local {
-			case "p", "br", "tr", "row":
+			case "p", "h", "br", "tr", "row", "line-break", "table-row":
 				b.WriteString("\n")
-			case "tab", "tc", "c":
+			case "tab", "tc", "c", "table-cell":
 				b.WriteString("\t")
+			case "s":
+				b.WriteString(" ")
 			}
 		}
 	}

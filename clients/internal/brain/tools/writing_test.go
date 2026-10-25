@@ -167,11 +167,11 @@ func TestAnUnknownFormatIsRefused(t *testing.T) {
 	dir := t.TempDir()
 
 	args, _ := json.Marshal(writeDocArgs{
-		Path: filepath.Join(dir, "sheet.xlsx"), Text: "a,b,c",
+		Path: filepath.Join(dir, "slides.pptx"), Text: "a,b,c",
 	})
 
 	if _, err := (WriteDocument{}).Execute(context.Background(), args); err == nil {
-		t.Error("a spreadsheet was written as something else without saying so")
+		t.Error("a presentation was written as something else without saying so")
 	}
 }
 

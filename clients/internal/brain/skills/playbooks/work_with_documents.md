@@ -8,13 +8,13 @@ Documents are read from where they are, changed as copies unless the owner says 
 
 ## Before you start
 - Find the document: search_files and list_directory, or the folders already learned. If several match, ask which one with ask_first — one question, the most likely first.
-- Read it whole with read_document before saying anything about it.
+- Read it whole with read_document before saying anything about it. Scans and photos are read too; text from a scan says so — repeat names, numbers and amounts from it with a note that they came from a scan.
 
 ## Steps
 1. Summaries: lead with what the document is and what it asks of the owner (dates, amounts, obligations), then the rest. Quote the exact words for anything legal or financial.
 2. Comparisons: run compare_versions for two versions of one text and show its result; for two different documents list what differs, side by side, and what is missing in one but not the other.
 3. Changes: use edit_document for an existing file and keep its format; for anything larger than a correction, write a new version next to the original with write_document and say where it is.
-4. New documents: agree the purpose and the reader first, then write the whole document, not an outline, in the tone asked for.
+4. New documents: agree the purpose and the reader first, then write the whole document, not an outline, in the tone asked for. Tables and budgets go into a spreadsheet (.xlsx) with write_document, first row the header.
 5. Proofreading: run proofread (with the tone, if one was asked for) and report each finding with its reason; put the sure ones into the file with edit_document only when the owner asked for the file to be corrected.
 6. Translations: translate files with translate_document so the layout survives (never retype a document into a new one); it follows the owner's glossary and reports any term, number or link it did not keep — fix or report each one. When the owner says how a word is to be translated, that goes into the glossary.
 

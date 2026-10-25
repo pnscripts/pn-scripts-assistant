@@ -62,6 +62,12 @@ func Standard() *Book {
 			"freecad", []string{"freecad", "freecadcmd"}, "LGPL-2.0", []string{"--version"}),
 		system("inkscape", "Inkscape", Tool, "draws and converts vector graphics (SVG)",
 			"inkscape", []string{"inkscape"}, "GPL-3.0", []string{"--version"}),
+		system("tesseract", "Tesseract OCR", Tool,
+			"reads the text in scans and photos, in Bulgarian and English",
+			"tesseract-ocr tesseract-ocr-bul tesseract-ocr-eng", []string{"tesseract"}, "Apache-2.0", []string{"--version"}),
+		system("poppler", "Poppler PDF tools", Tool,
+			"reads the text of PDFs and turns scanned pages into pictures to be read",
+			"poppler-utils", []string{"pdftotext", "pdftoppm"}, "GPL-2.0", []string{"-v"}),
 		system("imagemagick", "ImageMagick", Tool, "resizes and converts pictures",
 			"imagemagick", []string{"convert", "magick"}, "ImageMagick licence (Apache-style)", []string{"-version"}),
 		system("blender", "Blender", Tool, "models, textures and renders 3D assets",
@@ -117,9 +123,11 @@ func Standard() *Book {
 // system is a recipe the distribution's package manager installs.
 func system(id, title, kind, why, pkg string, commands []string, licence string, versionArgs []string) Recipe {
 	req := preflight.Requirement{
-		Name:       title,
-		NeedsRoot:  true,
-		InstallCmd: func() []string { return []string{"sudo", "apt-get", "install", "-y", pkg} },
+		Name:      title,
+		NeedsRoot: true,
+		// pkg may name several packages: a program and its data, such as
+		// Tesseract and its Bulgarian.
+		InstallCmd: func() []string { return append([]string{"sudo", "apt-get", "install", "-y"}, strings.Fields(pkg)...) },
 		ManualHint: "sudo apt install " + pkg,
 	}
 
