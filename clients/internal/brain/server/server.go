@@ -127,6 +127,15 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/writing/compare", s.handleWritingCompare)
 	s.mux.HandleFunc("POST /api/writing/rewrite", s.handleWritingRewrite)
 
+	// Translation and the glossary. See translation.go.
+	s.mux.HandleFunc("GET /api/glossary", s.handleGlossary)
+	s.mux.HandleFunc("GET /api/glossary.csv", s.handleGlossaryCSV)
+	s.mux.HandleFunc("POST /api/glossary", s.handleGlossaryAdd)
+	s.mux.HandleFunc("POST /api/glossary/remove", s.handleGlossaryRemove)
+	s.mux.HandleFunc("POST /api/glossary/import", s.handleGlossaryImport)
+	s.mux.HandleFunc("POST /api/translate", s.handleTranslate)
+	s.mux.HandleFunc("POST /api/translate/file", s.handleTranslateFile)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 

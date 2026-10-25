@@ -194,6 +194,8 @@ var plainWords = map[string][2]string{
 		"Спира да чува звука, който самият компютър възпроизвежда."},
 	"todo": {"Adds, ticks off or removes items on your to-do lists.",
 		"Добавя, отмята или премахва задачи от списъците ви."},
+	"translate": {"Translates a text into another language, following your glossary.",
+		"Превежда текст на друг език, като спазва речника ви."},
 	"translate_document": {"Translates a text, Markdown, Word, OpenDocument or subtitle file into a new file with the same layout, following your glossary.",
 		"Превежда текстов, Markdown, Word, OpenDocument или файл със субтитри в нов файл със същото оформление, като спазва речника ви."},
 	"type_text": {"Types text on this computer.",

@@ -394,6 +394,15 @@
             </svg>
             <span data-i18n="nav.writing">Writing</span>
         </button>
+        <button type="button" class="nav-item" data-view="translation">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M3 5h9M7.5 3v2M5 5c1 4 4 7 7 8M10 5c-1 4-3.5 7-6.5 8" fill="none" stroke="currentColor"
+                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M13 21l4.5-10L22 21M14.6 17.5h5.8" fill="none" stroke="currentColor" stroke-width="1.6"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.translation">Translation</span>
+        </button>
         <button type="button" class="nav-item" data-view="deeds">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -2132,6 +2141,130 @@
             </div>
         </section>
 
+        <section class="view" data-view="translation" hidden>
+            <div class="view-inner">
+                <!--
+                    Translation with the owner's glossary. A text goes to the
+                    model through the brain; a file is translated into a new
+                    file beside it with its layout kept (translate package).
+                    Drawn by translation.js with textContent throughout.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="tr.title">Translation</h2>
+                    <p class="note" data-i18n="tr.intro"></p>
+
+                    <div class="writing-options">
+                        <label class="field">
+                            <span data-i18n="tr.from">From</span>
+                            <select id="tr-from"><option value="auto" data-i18n="tr.detect">Detect</option></select>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="tr.to">Into</span>
+                            <select id="tr-to"></select>
+                        </label>
+                    </div>
+
+                    <div class="writing-pair">
+                        <label class="field">
+                            <span data-i18n="tr.source">Text</span>
+                            <textarea id="tr-text" class="writing-text" rows="8"
+                                      data-i18n-placeholder="tr.placeholder"></textarea>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="tr.result">Translation</span>
+                            <textarea id="tr-out" class="writing-text" rows="8" readonly></textarea>
+                        </label>
+                    </div>
+
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="tr-go" data-i18n="tr.go">Translate</button>
+                        <button type="button" class="model-action" id="tr-copy" data-i18n="writing.copy">Copy text</button>
+                    </div>
+                    <p class="note" id="tr-said" role="status" aria-live="polite"></p>
+                    <ul id="tr-notes" class="writing-list"></ul>
+
+                    <h3 class="tr-sub" data-i18n="tr.fileTitle">Translate a file</h3>
+                    <p class="note" id="tr-formats"></p>
+                    <div class="tr-file">
+                        <label class="field">
+                            <span data-i18n="tr.path">Full path of the file</span>
+                            <input type="text" id="tr-path" autocomplete="off" spellcheck="false"
+                                   placeholder="/home/you/Documents/letter.docx">
+                        </label>
+                        <button type="button" class="model-action" id="tr-file" data-i18n="tr.fileGo">Translate the file</button>
+                    </div>
+                    <p class="note" id="tr-file-said" role="status" aria-live="polite"></p>
+                    <ul id="tr-file-notes" class="writing-list"></ul>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="gl.title">Glossary</h2>
+                    <p class="note" data-i18n="gl.intro"></p>
+
+                    <div class="gl-form">
+                        <label class="field">
+                            <span data-i18n="gl.source">Term</span>
+                            <input type="text" id="gl-source" autocomplete="off" maxlength="200">
+                        </label>
+                        <label class="field">
+                            <span data-i18n="gl.target">Always translated as</span>
+                            <input type="text" id="gl-target" autocomplete="off" maxlength="200">
+                        </label>
+                        <label class="field">
+                            <span data-i18n="tr.from">From</span>
+                            <select id="gl-from"><option value="" data-i18n="gl.any">Any language</option></select>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="tr.to">Into</span>
+                            <select id="gl-to"></select>
+                        </label>
+                        <label class="field gl-note">
+                            <span data-i18n="gl.note">Note (optional)</span>
+                            <input type="text" id="gl-note" autocomplete="off" maxlength="200">
+                        </label>
+                        <button type="button" class="model-action" id="gl-add" data-i18n="gl.add">Add</button>
+                    </div>
+                    <p class="note" id="gl-said" role="status" aria-live="polite"></p>
+
+                    <div class="gl-tools">
+                        <label class="field">
+                            <span data-i18n="gl.show">Show</span>
+                            <select id="gl-filter"><option value="" data-i18n="gl.all">All languages</option></select>
+                        </label>
+                        <a class="model-action gl-export" href="/api/glossary.csv" download="glossary.csv"
+                           data-i18n="gl.export">Save as a spreadsheet</a>
+                    </div>
+
+                    <p class="deeds-counts" id="gl-count"></p>
+                    <div class="gl-table-wrap">
+                        <table class="gl-table" id="gl-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="gl.source">Term</th>
+                                    <th data-i18n="gl.target">Always translated as</th>
+                                    <th data-i18n="gl.langs">Languages</th>
+                                    <th data-i18n="gl.noteShort">Note</th>
+                                    <th><span class="sr-only" data-i18n="gl.remove">Remove</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="gl-rows"></tbody>
+                        </table>
+                    </div>
+                    <p class="activity-empty" id="gl-empty" hidden data-i18n="gl.empty"></p>
+
+                    <details class="gl-import">
+                        <summary data-i18n="gl.importTitle">Add many at once</summary>
+                        <p class="note" data-i18n="gl.importHelp"></p>
+                        <textarea id="gl-csv" class="writing-text" rows="5" spellcheck="false"
+                                  placeholder="invoice;фактура&#10;contract;договор"></textarea>
+                        <div class="writing-actions">
+                            <button type="button" class="model-action" id="gl-import" data-i18n="gl.import">Add these</button>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="deeds" hidden>
             <div class="view-inner">
                 <!--
@@ -2484,6 +2617,7 @@
 <script src="/js/permissions.js"></script>
 <script src="/js/deeds.js"></script>
 <script src="/js/writing.js"></script>
+<script src="/js/translation.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>

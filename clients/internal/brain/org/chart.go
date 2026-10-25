@@ -61,6 +61,10 @@ func BuiltIn() []Unit {
 					Name: "writer", Title: "Writer",
 					Job: "media.writer", Seniority: Senior,
 				},
+				{
+					Name: "translator", Title: "Translator",
+					Job: "media.translator", Seniority: Senior,
+				},
 			},
 		},
 		{

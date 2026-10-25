@@ -266,6 +266,19 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// model, in English and Bulgarian. See the proof package.
 		tools.Proofread{},
 		tools.CompareVersions{},
+	}
+
+	/*
+	 * Translation, with the owner's glossary. Built after the brain exists,
+	 * because the translator asks the brain's model through its router.
+	 */
+	translating := tools.Translating{Translator: b.translator, Root: root}
+
+	available = append(available,
+		tools.Translate{With: translating},
+		tools.TranslateDocument{With: translating},
+		tools.Glossary{With: translating},
+		tools.ChangeGlossary{With: translating},
 
 		tools.LookAtScreen{OllamaURL: cfg.OllamaURL},
 
@@ -276,7 +289,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		// Root, with the operating system asking its owner (ADR 0008).
 		tools.RunAsAdmin{},
-	}
+	)
 
 	/*
 	 * The web tools are registered whatever the privacy setting, and hidden

@@ -22,6 +22,15 @@ number is 0, the second one changes when something visible changes.
   polite) and a word limit to have them checked too, or have the text
   rewritten in that tone and see the changes before keeping them. Compare
   two versions word by word, on the page or with "what changed?".
+- **Translation with your own glossary.** Translate a text, or a file into a
+  new file beside it with its layout kept: Word and OpenDocument (styles,
+  tables, headers, pictures), subtitles (timings kept), Markdown (code left
+  alone) and plain text; the original is never replaced. Keep a glossary of
+  agreed translations — add terms one by one, paste them from a spreadsheet,
+  or save them as one — and every translation follows it and is checked: a
+  term not translated as agreed, or a number, address or link that went
+  missing, is listed with the result. A new Translation page, in English and
+  Bulgarian, and a translator specialist for longer jobs.
 
 - **Answers say where they came from.** Each answer lists its sources — things
   it remembers with the file they came from, files and web pages it read,

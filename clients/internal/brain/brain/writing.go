@@ -7,9 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/glossary"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/proof"
 	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/translate"
 )
 
 /*
@@ -148,3 +150,27 @@ func unwrap(s string) string {
 
 	return s
 }
+
+/*
+ * translator is a translator as things stand now: the model through the
+ * router, and the glossary read fresh, so a term added a moment ago is used
+ * by the next sentence translated.
+ */
+func (b *Brain) translator() translate.Translator {
+	terms, err := glossary.Load(b.Root)
+	if err != nil {
+		b.Log.Warn("the glossary could not be read, so translation goes without it", "error", err)
+	}
+
+	return translate.Translator{
+		Glossary: terms,
+		Engine: func(ctx context.Context, system, user string) (string, error) {
+			said, _, err := b.writeWithModel(ctx, system, user, 10*time.Minute)
+
+			return said, err
+		},
+	}
+}
+
+// Translator is the translator the pages use.
+func (b *Brain) Translator() translate.Translator { return b.translator() }

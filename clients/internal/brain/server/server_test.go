@@ -304,11 +304,11 @@ func TestRegisteredTools(t *testing.T) {
 	// because it had no way to reach its own queue.
 	want := []string{
 		"acquire_integration", "activate_integration", "ask_first", "audit_originality", "brain_copies", "change_a_setting",
-		"change_the_diary", "change_this_conversation", "check_name", "check_requirements", "click",
+		"change_glossary", "change_the_diary", "change_this_conversation", "check_name", "check_requirements", "click",
 		"closest_titles", "compare_melody", "compare_pictures", "compare_versions", "confirm_hire", "decide_waiting",
 		"do_in_background", "drive_browser", "edit_document", "edit_file", "fetch_url",
 		"films_without_subtitles", "forget_how_to_do_this", "forget_reminder", "game_build",
-		"game_check", "game_docs", "game_engines", "godot_build", "godot_docs", "godot_status",
+		"game_check", "game_docs", "game_engines", "glossary", "godot_build", "godot_docs", "godot_status",
 		"hire_agent", "how_fast_can_you_answer", "inspect_project", "install_a_model", "install_a_part",
 		"install_requirement", "learn_from_folder", "list_background", "list_directory", "list_drives",
 		"list_integrations", "list_models", "list_reminders", "list_waiting", "list_windows",
@@ -317,7 +317,7 @@ func TestRegisteredTools(t *testing.T) {
 		"read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this",
 		"remind_me", "remove_a_part", "run_as_admin", "run_command", "scroll", "search_files",
 		"set_appearance", "set_wake_word", "start_project", "stop_background",
-		"stop_hearing_this_machine", "type_text", "web_search", "what_am_i_hearing", "what_can_you_do",
+		"stop_hearing_this_machine", "translate", "translate_document", "type_text", "web_search", "what_am_i_hearing", "what_can_you_do",
 		"what_is_on", "what_ive_been_taught", "what_this_machine_needs", "what_you_know",
 		"write_document", "write_file", "write_originality_report",
 	}

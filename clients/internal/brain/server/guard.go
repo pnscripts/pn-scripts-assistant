@@ -124,6 +124,9 @@ var atTheDeskOnly = []string{
 	"/api/resources/",  // how work is done: the policy, what may be installed and spent
 	"/api/models/",     // changing which model answers
 	"/api/upkeep/self", // updating the program
+
+	// Writing a translated file into somebody's folders.
+	"/api/translate/file",
 }
 
 func decisionRoute(path string) bool {

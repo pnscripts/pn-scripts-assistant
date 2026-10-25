@@ -333,6 +333,23 @@ func BuiltIn() []Agent {
 				"before handing it over; after changing somebody's text, show the changes " +
 				"with compare_versions rather than describing them.",
 		},
+		{
+			Name: "translator", Title: "Translator", BuiltIn: true,
+			Position: "translator",
+			For: "translating texts, documents and subtitles between languages with the owner's " +
+				"glossary, keeping the layout, and keeping the glossary itself",
+			Uses:  UsesBest,
+			Needs: Needs{Tools: true},
+			Tools: []string{
+				"translate", "translate_document", "glossary", "change_glossary",
+				"read_document", "read_file", "list_directory", "search_files", "proofread",
+			},
+			Never: []string{"run_command", "send_email", "edit_file"},
+			Brief: "Translate the meaning as a native speaker would write it, in the same register. " +
+				"Use translate_document for files so the layout survives, never retype a document. " +
+				"Follow the glossary; report every term, number or link the check says was not kept, " +
+				"and fix it. Proofread a translation into English or Bulgarian before handing it over.",
+		},
 	}, append(FieldSpecialists(), OriginalitySpecialists()...)...)
 }
 

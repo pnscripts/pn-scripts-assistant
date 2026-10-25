@@ -5862,3 +5862,84 @@ textarea.writing-text {
     .writing-actions .model-action { flex: 1 1 auto; }
 }
 .writing-found-text { color: var(--warn); }
+
+/* Translation and the glossary. */
+.tr-sub {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 18px 0 4px;
+    font-weight: 500;
+}
+.tr-file, .gl-form, .gl-tools { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
+.tr-file .field { flex: 1 1 320px; margin: 0; }
+.gl-form .field { flex: 1 1 170px; margin: 0; }
+.gl-form .gl-note { flex-basis: 220px; }
+.gl-tools { justify-content: space-between; margin: 14px 0 4px; }
+.gl-tools .field { margin: 0; min-width: 180px; }
+.tr-file input, .gl-form input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 7px 9px;
+    font: inherit;
+    font-size: 13px;
+}
+.tr-file input:focus, .gl-form input:focus { border-color: var(--accent); outline: none; }
+.tr-file .model-action, .gl-form .model-action { margin-left: 0; }
+.gl-export { text-decoration: none; margin-left: 0; display: inline-block; }
+#tr-said.is-bad, #tr-file-said.is-bad, #gl-said.is-bad { color: var(--warn); }
+textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raised); }
+
+.gl-table-wrap { overflow-x: auto; }
+.gl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.gl-table[hidden] { display: none; }
+.gl-table th {
+    text-align: left;
+    font-weight: 500;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+}
+.gl-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); color: var(--text); vertical-align: top; word-break: break-word; }
+.gl-table td:nth-child(3), .gl-table td:nth-child(4) { color: var(--text-dim); }
+.gl-table td:last-child { text-align: right; white-space: nowrap; }
+.gl-table .model-action { margin-left: 0; padding: 3px 9px; }
+.gl-import { margin-top: 14px; }
+.gl-import summary { cursor: pointer; font-size: 12.5px; color: var(--text-dim); }
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* A phone: each term becomes a small card with its labels. */
+@media (max-width: 600px) {
+    .gl-table thead { display: none; }
+    .gl-table, .gl-table tbody, .gl-table tr, .gl-table td { display: block; width: 100%; box-sizing: border-box; }
+    .gl-table tr { border-bottom: 1px solid var(--line); padding: 6px 0; }
+    .gl-table td { border: none; padding: 2px 0; text-align: left; }
+    .gl-table td:last-child { text-align: left; padding-top: 6px; }
+    .gl-table td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+    }
+    .gl-table td[data-label=""]::before { display: none; }
+}
+/* Labels in one line; the select and the text boxes are the same height. */
+.gl-form { align-items: flex-start; }
+.gl-form .model-action { align-self: flex-end; }
+.gl-form input, .tr-file input { height: 34px; }

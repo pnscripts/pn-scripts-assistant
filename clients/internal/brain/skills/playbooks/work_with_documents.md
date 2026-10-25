@@ -1,7 +1,7 @@
 name: work_with_documents
 version: 2
 when: I ask to read, summarise, compare, proofread, translate, fix, fill in or write a document, a letter, a contract, a report, a CV, a spreadsheet or a PDF, or to find something in my documents
-tools: read_document, write_document, edit_document, proofread, compare_versions, read_file, search_files, list_directory, ask_first
+tools: read_document, write_document, edit_document, proofread, compare_versions, translate_document, glossary, read_file, search_files, list_directory, ask_first
 ---
 
 Documents are read from where they are, changed as copies unless the owner says otherwise, and every claim about them points at the page or section it came from.
@@ -16,7 +16,7 @@ Documents are read from where they are, changed as copies unless the owner says 
 3. Changes: use edit_document for an existing file and keep its format; for anything larger than a correction, write a new version next to the original with write_document and say where it is.
 4. New documents: agree the purpose and the reader first, then write the whole document, not an outline, in the tone asked for.
 5. Proofreading: run proofread (with the tone, if one was asked for) and report each finding with its reason; put the sure ones into the file with edit_document only when the owner asked for the file to be corrected.
-6. Translations keep names, numbers, dates and formatting exactly.
+6. Translations: translate files with translate_document so the layout survives (never retype a document into a new one); it follows the owner's glossary and reports any term, number or link it did not keep — fix or report each one. When the owner says how a word is to be translated, that goes into the glossary.
 
 ## Verify
 - Every number and date said back matches the document.
