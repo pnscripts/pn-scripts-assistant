@@ -45,12 +45,14 @@
         const thead = document.createElement('thead');
         const tr = document.createElement('tr');
 
-        for (const h of header) {
+        header.forEach((h, i) => {
             const th = document.createElement('th');
             th.scope = 'col';
             th.textContent = h;
+            // A column of numbers has its heading over the numbers.
+            if (rows.length && rows.every((r) => r[i] === '' || isNumber(r[i] ?? ''))) th.className = 'is-num';
             tr.append(th);
-        }
+        });
 
         thead.append(tr);
 

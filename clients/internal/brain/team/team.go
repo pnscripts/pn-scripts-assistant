@@ -455,9 +455,11 @@ func FieldSpecialists() []Agent {
 		{Name: "accountant", Title: "Accountant and tax specialist", BuiltIn: true, Uses: UsesBest,
 			For:   "bookkeeping, invoices, VAT, taxes and checking accounts, under the rules of the country named",
 			Needs: Needs{Tools: true, Local: true},
-			Tools: []string{"table_summary", "calculate_table", "read_document", "write_document", "read_file", "search_files", "fetch_url"},
+			Tools: []string{"record_invoice", "import_invoices", "vat_summary", "table_summary", "calculate_table",
+				"read_document", "write_document", "read_file", "search_files", "fetch_url"},
 			Brief: "Name the rule and the year it applies to. Say plainly what needs a licensed accountant. " +
-				"Totals come from calculate_table, never from adding up in your head."},
+				"Totals come from calculate_table and vat_summary, never from adding up in your head. Report every " +
+				"check they raise, and say this is information, not tax advice."},
 		{Name: "legal_advisor", Title: "Legal specialist", BuiltIn: true, Uses: UsesReason,
 			For:   "contracts, terms, privacy, licences and obligations",
 			Needs: Needs{Tools: true, Thinks: true, Local: true},

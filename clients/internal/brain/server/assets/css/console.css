@@ -6251,3 +6251,25 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 .tab-recipe { margin: 10px 0; }
 .tab-recipe summary { cursor: pointer; color: var(--accent); font-size: 13px; }
 .tab-recipe pre { font-size: 12px; overflow-x: auto; background: var(--bg-raised); padding: 8px 10px; border-radius: 6px; }
+
+/* Invoices and VAT. */
+#books-result[hidden], #books-watch[hidden], #books-own-rates-field[hidden], #books-currency-field[hidden] { display: none; }
+.note.is-warn { color: var(--warn); }
+.books-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px 12px; margin: 8px 0 10px; }
+.books-form .books-wide { grid-column: span 2; }
+.books-form .books-check { display: flex; align-items: center; gap: 8px; }
+.books-form .books-check input { width: auto; }
+.books-total { font-weight: 600; margin: 4px 0; overflow-wrap: anywhere; }
+.books-meter { max-width: 420px; height: 6px; margin: 8px 0 4px; }
+.books-meter.is-over span { background: var(--danger); }
+.books-rule-list { margin: 6px 0 10px; padding-left: 20px; font-size: 13px; line-height: 1.55; color: var(--text-dim); }
+.books-rule-list li { margin: 4px 0; overflow-wrap: anywhere; }
+.books-rule-list strong { color: var(--text); }
+.books-rule-list a { color: var(--accent); }
+.books-rules details { font-size: 13px; margin: 6px 0; }
+.books-rules summary { cursor: pointer; color: var(--accent); }
+@media (max-width: 600px) {
+    .books-form { grid-template-columns: 1fr; }
+    .books-form .books-wide { grid-column: auto; }
+}
+.data-table th.is-num { text-align: right; }

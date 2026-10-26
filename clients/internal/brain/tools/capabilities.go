@@ -93,6 +93,11 @@ var serves = map[string][]string{
 	"table_summary":   {"financial_analysis", "budgeting", "bookkeeping", "accounting", "data_analysis"},
 	"calculate_table": {"financial_analysis", "budgeting", "bookkeeping", "accounting", "data_analysis"},
 
+	// The books: invoices and VAT, as information.
+	"record_invoice":  {"bookkeeping", "accounting"},
+	"import_invoices": {"bookkeeping", "accounting"},
+	"vat_summary":     {"bookkeeping", "accounting", "taxation"},
+
 	// A business's customers.
 	"customer_reply":          {"customer_support", "communication", "knowledge_base"},
 	"business_answers":        {"customer_support", "knowledge_base"},

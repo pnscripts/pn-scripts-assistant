@@ -697,6 +697,13 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.TableSummary{With: b.tables()},
 		tools.CalculateTable{With: b.tables()},
 
+		// The books: an invoice register, a month's VAT, the threshold —
+		// information under a country's rules, never a filing. See
+		// tools/books.go.
+		tools.RecordInvoice{With: b.bookkeeping()},
+		tools.ImportInvoices{With: b.bookkeeping()},
+		tools.VATSummary{With: b.bookkeeping()},
+
 		// Checking a text against the sources it cites: files stay here, and
 		// a web address is read only while the web is allowed.
 		tools.CheckClaimsTool{With: b.researching()},

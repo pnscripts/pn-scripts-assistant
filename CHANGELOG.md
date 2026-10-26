@@ -71,6 +71,21 @@ number is 0, the second one changes when something visible changes.
   never over an existing file. The finance and accounting specialists use
   it instead of adding up themselves. The .xlsx writer now writes several
   sheets, and .ods tables are read cell by cell.
+- **Invoices and VAT — information, not advice.** A new Invoices & VAT page,
+  and the same in the chat. An invoice register of sales and purchases,
+  typed in, read from a PDF, Word file or scan, or imported from a table,
+  every invoice checked as it is added: VAT exactly the rate of the net to
+  the cent, the total the net and the VAT, a rate the country has, the basis
+  for a zero rate, no VAT under reverse charge, the country's invoice
+  number form, a plausible VAT number, no date in the future, no issued
+  number twice, and gaps in the numbering shown. A month's VAT by rate, the
+  amount to pay or deduct and its due date, and the year's sales against
+  the registration threshold. Bulgaria's rules come from the VAT Act in
+  force from 1 January 2026, each with its article, a link to the source and
+  the date it was checked (20 % and 9 %, €51,130, the 14th of the next
+  month, invoices within 5 days, ten-digit numbers); for another country
+  the owner gives the rates and nothing is said about its law. Nothing is
+  ever filed. The accountant specialist uses these tools.
 
 ## 0.6.0 — 2026-10-26
 

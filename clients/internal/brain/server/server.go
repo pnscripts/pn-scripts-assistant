@@ -183,6 +183,15 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/tables/calculate", s.handleTablesCalculate)
 	s.mux.HandleFunc("POST /api/tables/save", s.handleTablesSave)
 
+	// Invoices and VAT, as information. See books.go.
+	s.mux.HandleFunc("GET /api/books", s.handleBooks)
+	s.mux.HandleFunc("POST /api/books/settings", s.handleBooksSettings)
+	s.mux.HandleFunc("POST /api/books/invoices", s.handleBooksRecord)
+	s.mux.HandleFunc("POST /api/books/invoices/{id}/remove", s.handleBooksRemove)
+	s.mux.HandleFunc("POST /api/books/read", s.handleBooksRead)
+	s.mux.HandleFunc("POST /api/books/import", s.handleBooksImport)
+	s.mux.HandleFunc("POST /api/books/summary", s.handleBooksSummary)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 

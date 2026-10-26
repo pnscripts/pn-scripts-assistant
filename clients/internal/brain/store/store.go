@@ -1070,6 +1070,37 @@ var migrations = []string{
 		value TEXT NOT NULL DEFAULT ''
 	);
 	`,
+
+	/*
+	 * 26: an invoice register and the settings of the VAT helper.
+	 *
+	 * The kind, the date and the rate are left readable so a period can be
+	 * found; who the invoice is with, its number and every amount are
+	 * somebody's business, and sealed.
+	 */
+	`
+	CREATE TABLE invoices (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		kind       TEXT NOT NULL,
+		number     TEXT NOT NULL DEFAULT '',
+		date       TEXT NOT NULL,
+		party      TEXT NOT NULL DEFAULT '',
+		party_vat  TEXT NOT NULL DEFAULT '',
+		net        TEXT NOT NULL DEFAULT '',
+		rate       TEXT NOT NULL DEFAULT '',
+		vat        TEXT NOT NULL DEFAULT '',
+		gross      TEXT NOT NULL DEFAULT '',
+		currency   TEXT NOT NULL DEFAULT '',
+		reverse    INTEGER NOT NULL DEFAULT 0,
+		note       TEXT NOT NULL DEFAULT '',
+		created_at TEXT NOT NULL
+	);
+	CREATE INDEX idx_invoices_date ON invoices(date);
+	CREATE TABLE books_settings (
+		key   TEXT PRIMARY KEY,
+		value TEXT NOT NULL DEFAULT ''
+	);
+	`,
 }
 
 /*

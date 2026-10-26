@@ -109,6 +109,8 @@ var Places = []Place{
 	{Host: "www.tmdn.org", For: "EUIPO TMview link in an originality report", When: "never by the program; you open it"},
 	{Host: "tmsearch.uspto.gov", For: "USPTO trademark search link in an originality report", When: "never by the program; you open it"},
 	{Host: "branddb.wipo.int", For: "WIPO Global Brand Database link in an originality report", When: "never by the program; you open it"},
+	{Host: "lex.bg", For: "the Bulgarian VAT Act, the source of the Invoices & VAT rules", When: "never by the program; you open it"},
+	{Host: "taxsummaries.pwc.com", For: "a summary of Bulgarian VAT, a second source of the Invoices & VAT rules", When: "never by the program; you open it"},
 	{Host: "lens.google.com", For: "search-by-image link in an originality report", When: "never by the program; you open it"},
 	{Host: "tineye.com", For: "search-by-image link in an originality report", When: "never by the program; you open it"},
 	{Host: "www.bing.com", For: "search-by-image link in an originality report", When: "never by the program; you open it"},

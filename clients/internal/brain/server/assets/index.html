@@ -427,6 +427,18 @@
             </svg>
             <span data-i18n="nav.tables">Tables</span>
         </button>
+        <!--
+            Invoices: the invoice register, a month's VAT and the
+            registration threshold, under a country's rules with their
+            sources — information, never a filing.
+        -->
+        <button type="button" class="nav-item" data-view="invoices">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M15 3v4h4M9 11h7M9 14.5h7M9 18h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <span data-i18n="nav.invoices">Invoices &amp; VAT</span>
+        </button>
         <button type="button" class="nav-item" data-view="writing">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2433,6 +2445,124 @@
             </div>
         </section>
 
+        <section class="view" data-view="invoices" hidden>
+            <div class="view-inner">
+                <!--
+                    Invoices: the month's VAT, adding an invoice (typed, or
+                    read from a document), importing a table, the register,
+                    and the rules with their sources. Drawn by invoices.js
+                    with textContent.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="books.title">Invoices and VAT</h2>
+                    <p class="note" data-i18n="books.intro"></p>
+                    <p class="note is-warn" data-i18n="books.notAdvice"></p>
+                    <div class="gl-form study-form">
+                        <label class="field">
+                            <span data-i18n="books.period">Month</span>
+                            <input type="text" id="books-period" autocomplete="off" maxlength="10" placeholder="2026-09">
+                        </label>
+                        <button type="button" class="model-action" id="books-sum" data-i18n="books.sum">Work out the VAT</button>
+                    </div>
+                    <p class="note" id="books-said" role="status" aria-live="polite"></p>
+                    <div id="books-result" hidden>
+                        <div class="table-wrap"><table class="data-table" id="books-lines"></table></div>
+                        <p class="books-total" id="books-total"></p>
+                        <p class="note" id="books-due"></p>
+                        <div class="books-watch" id="books-watch" hidden>
+                            <div class="study-meter books-meter" aria-hidden="true"><span id="books-meter"></span></div>
+                            <p class="note" id="books-watch-text"></p>
+                        </div>
+                        <ul class="writing-list research-claims" id="books-findings"></ul>
+                    </div>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="books.addTitle">Add an invoice</h2>
+                    <div class="gl-form study-form">
+                        <label class="field">
+                            <span data-i18n="books.kind">Kind</span>
+                            <select id="books-kind">
+                                <option value="sale" data-i18n="books.sale">Sale (issued)</option>
+                                <option value="purchase" data-i18n="books.purchase">Purchase (received)</option>
+                            </select>
+                        </label>
+                        <label class="field study-topic">
+                            <span data-i18n="books.readPath">Read it from a document (PDF, Word, scan)</span>
+                            <input type="text" id="books-doc" autocomplete="off" maxlength="1000" data-i18n-placeholder="books.readHint">
+                        </label>
+                        <button type="button" class="model-action quiet" id="books-read" data-i18n="books.read">Read</button>
+                    </div>
+                    <div class="books-form">
+                        <label class="field"><span data-i18n="books.number">Number</span><input type="text" id="books-number" maxlength="40"></label>
+                        <label class="field"><span data-i18n="books.date">Date</span><input type="date" id="books-date"></label>
+                        <label class="field books-wide"><span data-i18n="books.party">Customer or supplier</span><input type="text" id="books-party" maxlength="300"></label>
+                        <label class="field"><span data-i18n="books.partyVAT">Their VAT number</span><input type="text" id="books-party-vat" maxlength="30"></label>
+                        <label class="field"><span data-i18n="books.net">Net (without VAT)</span><input type="text" id="books-net" inputmode="decimal" maxlength="30"></label>
+                        <label class="field"><span data-i18n="books.rate">VAT rate</span><select id="books-rate"></select></label>
+                        <label class="field"><span data-i18n="books.vat">VAT</span><input type="text" id="books-vat" inputmode="decimal" maxlength="30" data-i18n-placeholder="books.auto"></label>
+                        <label class="field"><span data-i18n="books.gross">Total</span><input type="text" id="books-gross" inputmode="decimal" maxlength="30" data-i18n-placeholder="books.auto"></label>
+                        <label class="field books-wide"><span data-i18n="books.note">Note (e.g. the basis for a zero rate)</span><input type="text" id="books-note" maxlength="300"></label>
+                        <label class="field books-check"><input type="checkbox" id="books-reverse"> <span data-i18n="books.reverse">Reverse charge</span></label>
+                    </div>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="books-add" data-i18n="books.add">Add to the register</button>
+                        <button type="button" class="model-action quiet" id="books-check" data-i18n="books.check">Only check</button>
+                    </div>
+                    <p class="note" id="books-add-said" role="status" aria-live="polite"></p>
+                    <ul class="writing-list research-claims" id="books-add-findings"></ul>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="books.importTitle">Import a table of invoices</h2>
+                    <p class="note" data-i18n="books.importIntro"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="tab.path">Table (.csv, .xlsx, .ods)</span>
+                            <input type="text" id="books-import-path" autocomplete="off" maxlength="1000">
+                        </label>
+                        <label class="field">
+                            <span data-i18n="books.kind">Kind</span>
+                            <select id="books-import-kind">
+                                <option value="sale" data-i18n="books.sale">Sale (issued)</option>
+                                <option value="purchase" data-i18n="books.purchase">Purchase (received)</option>
+                            </select>
+                        </label>
+                        <button type="button" class="model-action" id="books-import" data-i18n="books.import">Import</button>
+                    </div>
+                    <p class="note" id="books-import-said" role="status" aria-live="polite"></p>
+                    <ul class="writing-list research-claims" id="books-import-findings"></ul>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="books.registerTitle">Invoice register</h2>
+                    <ul class="writing-list research-claims" id="books-register-findings"></ul>
+                    <div class="table-wrap"><table class="data-table" id="books-register"></table></div>
+                    <p class="activity-empty" id="books-empty" hidden data-i18n="books.empty"></p>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="books.rulesTitle">The rules used</h2>
+                    <div class="gl-form study-form">
+                        <label class="field">
+                            <span data-i18n="books.country">Country</span>
+                            <select id="books-country"></select>
+                        </label>
+                        <label class="field" id="books-own-rates-field" hidden>
+                            <span data-i18n="books.ownRates">Your VAT rates, in %</span>
+                            <input type="text" id="books-own-rates" maxlength="60" placeholder="21, 10, 0">
+                        </label>
+                        <label class="field" id="books-currency-field" hidden>
+                            <span data-i18n="books.currency">Currency</span>
+                            <input type="text" id="books-currency" maxlength="5" placeholder="EUR">
+                        </label>
+                        <button type="button" class="model-action" id="books-save" data-i18n="care.save">Save</button>
+                    </div>
+                    <div class="books-rules" id="books-rules"></div>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="writing" hidden>
             <div class="view-inner">
                 <!--
@@ -3207,6 +3337,7 @@
 <script src="/js/research.js"></script>
 <script src="/js/customers.js"></script>
 <script src="/js/tables.js"></script>
+<script src="/js/invoices.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>
