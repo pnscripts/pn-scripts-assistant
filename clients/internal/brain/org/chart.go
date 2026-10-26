@@ -120,6 +120,10 @@ func BuiltIn() []Unit {
 					Name: "researcher", Title: "Researcher",
 					Job: "general.researcher", Seniority: Senior,
 				},
+				{
+					Name: "tutor", Title: "Tutor",
+					Job: "education.teacher", Seniority: Senior,
+				},
 			},
 		},
 	}

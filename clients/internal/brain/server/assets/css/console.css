@@ -6072,3 +6072,127 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 .field input[type="date"]:focus,
 .field input[type="number"]:focus { border-color: var(--accent); }
 .field input[type="text"] { box-sizing: border-box; }
+
+/* Learning: lessons, practice questions, topics. */
+/* Their flex rules would otherwise outrank the hidden attribute. */
+#study-answer-row[hidden], #study-options[hidden], #study-self[hidden], #study-next[hidden],
+#study-review-all[hidden], .study-verdict[hidden] { display: none; }
+.study-form { margin-bottom: 10px; }
+.study-form .study-topic { flex: 3 1 260px; }
+.study-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.study-head h2 { margin-bottom: 6px; overflow-wrap: anywhere; }
+.study-meta { font-size: 12px; color: var(--text-faint); }
+.study-lesson { font-size: 14px; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; }
+.study-lesson h3 {
+    font-size: 12px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 18px 0 6px;
+    font-weight: 600;
+}
+.study-lesson p { margin: 0 0 10px; }
+.study-lesson ol, .study-lesson ul { margin: 0 0 10px; padding-left: 22px; }
+.study-lesson li { margin: 4px 0; }
+.study-lesson code {
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 12.5px;
+    background: rgba(127, 127, 127, 0.14);
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+.study-lesson pre {
+    background: rgba(127, 127, 127, 0.12);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    margin: 0 0 10px;
+}
+.study-lesson pre code { background: none; padding: 0; }
+.study-answers {
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 12px 0;
+}
+.study-answers summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+.study-answers[open] summary { margin-bottom: 8px; }
+
+.study-bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin: 4px 0 14px; }
+.study-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+.study-question { font-size: 16px; line-height: 1.5; margin: 0 0 14px; overflow-wrap: anywhere; }
+.study-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.study-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 12px;
+    text-align: left;
+    font: inherit;
+    font-size: 14px;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.study-option:hover:not(:disabled), .study-option:focus-visible { border-color: var(--accent); outline: none; }
+.study-option:disabled { cursor: default; }
+.study-letter {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+}
+.study-option.is-picked { border-color: var(--accent); }
+.study-option.is-right { border-color: var(--ok); background: rgba(123, 196, 127, 0.12); }
+.study-option.is-right .study-letter { border-color: var(--ok); color: var(--ok); }
+.study-option.is-wrong { border-color: var(--danger); background: rgba(224, 108, 117, 0.1); }
+.study-option.is-wrong .study-letter { border-color: var(--danger); color: var(--danger); }
+.study-answer-row .study-answer { flex: 3 1 240px; }
+.study-verdict {
+    border-left: 3px solid var(--line);
+    padding: 8px 12px;
+    margin: 12px 0 4px;
+    border-radius: 0 6px 6px 0;
+    background: rgba(127, 127, 127, 0.07);
+}
+.study-verdict.is-right { border-left-color: var(--ok); }
+.study-verdict.is-wrong { border-left-color: var(--danger); }
+.study-verdict.is-unsure { border-left-color: var(--warn); }
+.study-verdict-head { margin: 0 0 4px; font-weight: 600; overflow-wrap: anywhere; }
+.study-verdict.is-right .study-verdict-head { color: var(--ok); }
+.study-verdict-why { margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.5; overflow-wrap: anywhere; }
+.study-verdict-why:empty { display: none; }
+
+.study-item { align-items: center; justify-content: space-between; flex-wrap: wrap; border-left-color: var(--line); }
+.study-item.is-due { border-left-color: var(--accent); }
+.study-item-main { flex: 1 1 260px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.study-item-main strong { overflow-wrap: anywhere; }
+.study-stats { flex-basis: 100%; color: var(--text-dim); font-size: 12px; }
+.study-meter { flex-basis: 100%; max-width: 280px; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.study-meter span { display: block; height: 100%; background: var(--ok); }
+.study-item-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.study-item-actions .model-action { margin-left: 0; }
+
+@media (max-width: 600px) {
+    .study-form .field, .study-answer-row .field { flex: 1 1 100%; }
+    .study-form .model-action, .study-answer-row .model-action { flex: 1 1 auto; }
+    .study-item-actions { width: 100%; }
+    .study-item-actions .model-action { flex: 1 1 auto; }
+    .study-question { font-size: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .study-bar span, .study-option { transition: none; }
+}

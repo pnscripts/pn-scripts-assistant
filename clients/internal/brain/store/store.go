@@ -984,6 +984,44 @@ var migrations = []string{
 	);
 	CREATE INDEX idx_todos_open ON todos(done_at, due, id);
 	`,
+
+	/*
+	 * 23: learning with the assistant as a tutor.
+	 *
+	 * A topic is what somebody is learning, at a level, with the last lesson
+	 * written for it. Its cards are practice questions with their answers and
+	 * where each stands in the schedule (the study package): the box it is in,
+	 * when it is next due, and how often it was answered right and wrong.
+	 * What is learnt is personal — a child's homework, an exam somebody is
+	 * afraid of — so the words are sealed; the counts and dates are not.
+	 */
+	`
+	CREATE TABLE study_topics (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		topic       TEXT NOT NULL,
+		level       TEXT NOT NULL DEFAULT 'beginner',
+		lang        TEXT NOT NULL DEFAULT 'en',
+		lesson      TEXT NOT NULL DEFAULT '',
+		created_at  TEXT NOT NULL,
+		updated_at  TEXT NOT NULL
+	);
+	CREATE TABLE study_cards (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		topic_id    INTEGER NOT NULL REFERENCES study_topics(id) ON DELETE CASCADE,
+		kind        TEXT NOT NULL,
+		question    TEXT NOT NULL,
+		options     TEXT NOT NULL DEFAULT '',
+		answer      TEXT NOT NULL,
+		explain     TEXT NOT NULL DEFAULT '',
+		box         INTEGER NOT NULL DEFAULT 1,
+		due         TEXT NOT NULL,
+		right_count INTEGER NOT NULL DEFAULT 0,
+		wrong_count INTEGER NOT NULL DEFAULT 0,
+		last_at     TEXT,
+		created_at  TEXT NOT NULL
+	);
+	CREATE INDEX idx_study_cards_due ON study_cards(topic_id, due);
+	`,
 }
 
 /*

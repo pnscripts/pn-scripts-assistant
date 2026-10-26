@@ -673,6 +673,13 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.ListTodos{Plan: b.planner()},
 		tools.WhatIsNext{Plan: b.planner()},
 
+		// Learning: lessons at a level, practice questions marked by rules,
+		// missed ones brought back. See tools/study.go.
+		tools.LessonTool{With: b.tutoring()},
+		tools.QuizTool{With: b.tutoring()},
+		tools.CheckAnswer{With: b.tutoring()},
+		tools.StudyProgress{With: b.tutoring()},
+
 		/*
 		 * Subtitles for a film that has none.
 		 *

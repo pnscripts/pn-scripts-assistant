@@ -420,6 +420,21 @@
             </svg>
             <span data-i18n="nav.translation">Translation</span>
         </button>
+        <!--
+            Learning: lessons at the learner's level, practice questions
+            marked by rules, and the missed ones brought back. After
+            Translation because both are about words somebody is learning.
+        -->
+        <button type="button" class="nav-item" data-view="learning">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M2.5 9L12 4.5 21.5 9 12 13.5z" fill="none" stroke="currentColor" stroke-width="1.6"
+                      stroke-linejoin="round"/>
+                <path d="M6.5 11v4.5c1.5 1.7 3.3 2.5 5.5 2.5s4-.8 5.5-2.5V11M21.5 9v5.5" fill="none"
+                      stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.learning">Learning</span>
+            <span class="nav-count" id="nav-learning" hidden>0</span>
+        </button>
         <button type="button" class="nav-item" data-view="deeds">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -2288,6 +2303,120 @@
             </div>
         </section>
 
+        <section class="view" data-view="learning" hidden>
+            <div class="view-inner">
+                <!--
+                    Learning: a lesson at a level, practice questions one at a
+                    time, and the topics with what is due again. A question
+                    arrives without its answer; the answer comes back only once
+                    the learner has given theirs. Drawn by learning.js with
+                    textContent: lessons and questions are a model's words.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="study.title">Learn something</h2>
+                    <p class="note" data-i18n="study.intro"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="study.topic">What to learn</span>
+                            <input type="text" id="study-topic" autocomplete="off" maxlength="200"
+                                   list="study-topics" data-i18n-placeholder="study.topicHint">
+                            <datalist id="study-topics"></datalist>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="study.level">Level</span>
+                            <select id="study-level">
+                                <option value="child" data-i18n="study.level.child">Child (8–12)</option>
+                                <option value="beginner" selected data-i18n="study.level.beginner">Beginner</option>
+                                <option value="intermediate" data-i18n="study.level.intermediate">Intermediate</option>
+                                <option value="advanced" data-i18n="study.level.advanced">Advanced</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="study.language">Language</span>
+                            <select id="study-language">
+                                <option value="auto" data-i18n="study.auto">Same as the topic</option>
+                                <option value="en">English</option>
+                                <option value="bg">Български</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="gl-form study-form">
+                        <label class="field">
+                            <span data-i18n="study.minutes">Lesson length</span>
+                            <select id="study-minutes">
+                                <option value="10" data-i18n="study.min10">About 10 minutes</option>
+                                <option value="15" selected data-i18n="study.min15">About 15 minutes</option>
+                                <option value="30" data-i18n="study.min30">About 30 minutes</option>
+                                <option value="45" data-i18n="study.min45">About 45 minutes</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="study.count">Questions</span>
+                            <select id="study-count">
+                                <option value="3">3</option>
+                                <option value="5" selected>5</option>
+                                <option value="10">10</option>
+                            </select>
+                        </label>
+                        <button type="button" class="model-action" id="study-lesson" data-i18n="study.teach">Teach me</button>
+                        <button type="button" class="model-action" id="study-quiz" data-i18n="study.practise">Practise</button>
+                    </div>
+                    <p class="note" id="study-said" role="status" aria-live="polite"></p>
+                </div>
+
+                <div class="card card-wide" id="study-lesson-card" hidden>
+                    <div class="study-head">
+                        <h2 id="study-lesson-title"></h2>
+                        <span class="study-meta" id="study-lesson-meta"></span>
+                    </div>
+                    <div class="study-lesson" id="study-lesson-text"></div>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="study-lesson-quiz" data-i18n="study.practiseThis">Practise this topic</button>
+                        <button type="button" class="model-action quiet" id="study-lesson-close" data-i18n="study.close">Close</button>
+                    </div>
+                </div>
+
+                <div class="card card-wide" id="study-quiz-card" hidden>
+                    <div class="study-head">
+                        <h2 id="study-quiz-title" data-i18n="study.quizTitle">Practice</h2>
+                        <span class="study-meta" id="study-quiz-count"></span>
+                    </div>
+                    <div class="study-bar" aria-hidden="true"><span id="study-bar"></span></div>
+                    <p class="study-question" id="study-question"></p>
+                    <div class="study-options" id="study-options" role="group"></div>
+                    <div class="gl-form study-answer-row" id="study-answer-row">
+                        <label class="field study-answer">
+                            <span data-i18n="study.yourAnswer">Your answer</span>
+                            <input type="text" id="study-answer" autocomplete="off" maxlength="300">
+                        </label>
+                        <button type="button" class="model-action" id="study-check" data-i18n="study.check">Check</button>
+                    </div>
+                    <div class="study-verdict" id="study-verdict" role="status" aria-live="polite" hidden>
+                        <p class="study-verdict-head" id="study-verdict-head"></p>
+                        <p class="study-verdict-why" id="study-verdict-why"></p>
+                        <div class="writing-actions" id="study-self" hidden>
+                            <button type="button" class="model-action" id="study-self-right" data-i18n="study.selfRight">I was right</button>
+                            <button type="button" class="model-action quiet" id="study-self-wrong" data-i18n="study.selfWrong">I was wrong</button>
+                        </div>
+                    </div>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="study-next" hidden data-i18n="study.next">Next question</button>
+                        <button type="button" class="model-action quiet" id="study-stop" data-i18n="study.stop">Stop</button>
+                    </div>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="study.topicsTitle">What you are learning</h2>
+                    <div class="gl-tools">
+                        <p class="deeds-counts" id="study-counts"></p>
+                        <button type="button" class="model-action" id="study-review-all" hidden></button>
+                    </div>
+                    <ul id="study-list" class="writing-list study-list"></ul>
+                    <p class="activity-empty" id="study-empty" hidden data-i18n="study.empty"></p>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="translation" hidden>
             <div class="view-inner">
                 <!--
@@ -2767,6 +2896,7 @@
 <script src="/js/maildesk.js"></script>
 <script src="/js/writing.js"></script>
 <script src="/js/translation.js"></script>
+<script src="/js/learning.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>

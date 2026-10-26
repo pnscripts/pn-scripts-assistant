@@ -6,6 +6,26 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+### Added
+
+- **Learning, with the assistant as a tutor.** A new Learning page, and the
+  same in the chat ("teach me fractions for a ten-year-old", "quiz me",
+  "what should I revise?"). Name any topic and a level — child, beginner,
+  intermediate or advanced — for a lesson in one clear shape: the goal, what
+  to know first, small steps each with a worked example, common mistakes,
+  questions to check yourself with their answers folded away, and what to
+  learn next. Practice questions (choices, numbers, short answers) come one
+  at a time without their answers. Answers are marked by rules wherever a
+  rule can tell — a letter or the option's words, a number however it is
+  written (12,5, 1/3, "120 cm"), a short answer whatever its capitals — and
+  otherwise judged by the model against the expected answer, or by you when
+  there is no model. Missed questions come back in minutes, right ones
+  tomorrow, then in three days, a week and a month, until they count as
+  learnt; the page lists every topic with its progress and what is due. A
+  tutor specialist teaches with only these tools and reading, never writing.
+
 ## 0.6.0 — 2026-10-26
 
 ### Added

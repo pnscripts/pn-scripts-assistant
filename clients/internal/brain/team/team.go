@@ -334,6 +334,25 @@ func BuiltIn() []Agent {
 				"with compare_versions rather than describing them.",
 		},
 		{
+			Name: "tutor", Title: "Tutor", BuiltIn: true,
+			Position: "tutor",
+			// Learning words only. "explain", "plan", "step" and "level" are in
+			// steps of every kind of work and would send them here.
+			For:   "teaching and tutoring a learner with lessons, quizzes and flashcards",
+			Uses:  UsesReason,
+			Needs: Needs{Tools: true},
+			Tools: []string{
+				"lesson", "quiz", "check_answer", "study_progress",
+				"read_document", "read_file", "web_search", "read_a_page", "what_you_know",
+			},
+			Never: []string{"write_file", "edit_file", "write_document", "edit_document", "run_command", "send_email", "send_draft"},
+			Brief: "Teach at the learner's level and in their language. Use lesson for a new topic and quiz to " +
+				"practise; ask one question at a time and never give the answer before the learner has tried. " +
+				"Mark every reply with check_answer instead of judging it yourself, then say why. Start a " +
+				"session with study_progress and offer the questions that are due. Never do homework for the " +
+				"learner: guide them to the answer with hints. Never invent facts; say when you are not sure.",
+		},
+		{
 			Name: "mail_assistant", Title: "Mail assistant", BuiltIn: true,
 			Position: "mail_assistant",
 			// Its words are mail words only: "draft" alone also means a chapter

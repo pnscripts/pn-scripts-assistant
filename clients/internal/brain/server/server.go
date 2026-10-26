@@ -152,6 +152,14 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/todos/{id}/remove", s.handleTodoRemove)
 	s.mux.HandleFunc("POST /api/settings/calendar", s.handleCalendarSettings)
 
+	// Learning: lessons, practice questions, review. See study.go.
+	s.mux.HandleFunc("GET /api/study", s.handleStudy)
+	s.mux.HandleFunc("GET /api/study/{id}", s.handleStudyTopic)
+	s.mux.HandleFunc("POST /api/study/lesson", s.handleStudyLesson)
+	s.mux.HandleFunc("POST /api/study/quiz", s.handleStudyQuiz)
+	s.mux.HandleFunc("POST /api/study/answer", s.handleStudyAnswer)
+	s.mux.HandleFunc("POST /api/study/{id}/remove", s.handleStudyRemove)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 
