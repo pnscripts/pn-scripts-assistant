@@ -21,4 +21,19 @@ Direct dependencies (full list with indirect ones in `clients/go.mod` / `clients
 
 The Go standard library is © The Go Authors, BSD-3-Clause.
 
-Speech, language and voice models and the ONNX Runtime library are not part of this repository: the program downloads them at install or run time from their publishers (see `clients/internal/preflight/`), under the publishers' own licences.
+Speech, language and voice models, datasets and the ONNX Runtime library are not part of this repository: the program downloads them at install or run time from their publishers (see `clients/internal/preflight/`), under the publishers' own licences, listed below.
+
+## Models and data the program downloads on the user's machine
+
+Nothing below is stored in this repository or in the release files. The program downloads each item from its publisher when the user installs or enables the matching feature; each keeps its publisher's licence.
+
+| Item | Publisher / source | Licence |
+|---|---|---|
+| Ollama (local model runner) | https://github.com/ollama/ollama | MIT |
+| Chat models chosen from the user's hardware, for example `llama3.2:3b` (Meta) and `qwen2.5-coder:7b` (Alibaba Cloud) | Ollama model library | Llama 3.2 Community Licence (requires "Built with Llama" attribution and the Acceptable Use Policy when redistributed; here the user downloads it directly); Apache-2.0 |
+| `nomic-embed-text` embedding model | Nomic AI via Ollama | Apache-2.0 |
+| whisper.cpp and the Whisper `ggml-small` speech model | https://github.com/ggml-org/whisper.cpp, OpenAI Whisper | MIT |
+| Piper text-to-speech and Piper voices (for example en_GB-alba-medium, bg_BG-dimitar-medium; other English voices are offered as choices) | https://github.com/rhasspy/piper, https://huggingface.co/rhasspy/piper-voices | Piper MIT; each voice has its own dataset licence in its model card (alba CC BY 4.0, dimitar CC0; lessac, amy and jenny_dioco have their own dataset terms, see the cards). Voices with non-commercial or special terms must not be bundled in a release. |
+| ONNX Runtime | https://github.com/microsoft/onnxruntime | MIT |
+| ESCO classification (European Commission), optional occupation and skills data | https://esco.ec.europa.eu | Reuse under the European Commission's ESCO terms (attribution to the European Commission) |
+| O*NET database (U.S. Department of Labor), optional | https://www.onetcenter.org/database.html | CC BY 4.0 (attribution to the U.S. Department of Labor, Employment and Training Administration; O*NET is a trademark of the USDOL/ETA; this product is not endorsed by them) |
