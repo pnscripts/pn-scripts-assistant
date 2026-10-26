@@ -435,6 +435,19 @@
             <span data-i18n="nav.learning">Learning</span>
             <span class="nav-count" id="nav-learning" hidden>0</span>
         </button>
+        <!--
+            Research: a question looked into on the web, written up with
+            numbered sources and every claim checked against them. After
+            Learning: both are about finding things out.
+        -->
+        <button type="button" class="nav-item" data-view="research">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M15 15l5.5 5.5M7.8 10.5l1.9 1.9 3.3-3.6" fill="none" stroke="currentColor" stroke-width="1.6"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.research">Research</span>
+        </button>
         <button type="button" class="nav-item" data-view="deeds">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -2417,6 +2430,84 @@
             </div>
         </section>
 
+        <section class="view" data-view="research" hidden>
+            <div class="view-inner">
+                <!--
+                    Research: the question, the report with its sources and
+                    claims check, a text checked against its own sources, and
+                    the reports kept. Drawn by research.js with textContent:
+                    a report is a model's words built from web pages.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="research.title">Research a question</h2>
+                    <p class="note" data-i18n="research.intro"></p>
+                    <p class="note is-bad" id="research-web" hidden data-i18n="research.noWeb"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="research.question">Question</span>
+                            <input type="text" id="research-question" autocomplete="off" maxlength="500"
+                                   data-i18n-placeholder="research.questionHint">
+                        </label>
+                        <label class="field">
+                            <span data-i18n="research.depth">Depth</span>
+                            <select id="research-depth">
+                                <option value="quick" selected data-i18n="research.depth.quick">Quick — 4 sources</option>
+                                <option value="thorough" data-i18n="research.depth.thorough">Thorough — 8 sources</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="research.language">Report in</span>
+                            <select id="research-language">
+                                <option value="auto" data-i18n="research.auto">Same as the question</option>
+                                <option value="en">English</option>
+                                <option value="bg">Български</option>
+                            </select>
+                        </label>
+                        <button type="button" class="model-action" id="research-run" data-i18n="research.run">Research</button>
+                    </div>
+                    <p class="note" id="research-said" role="status" aria-live="polite"></p>
+                </div>
+
+                <div class="card card-wide" id="research-report-card" hidden>
+                    <div class="study-head">
+                        <h2 id="research-report-title"></h2>
+                        <span class="study-meta" id="research-report-meta"></span>
+                    </div>
+                    <div class="research-summary" id="research-summary"></div>
+                    <div class="study-lesson research-report" id="research-report-text"></div>
+                    <div class="writing-actions">
+                        <a class="model-action" id="research-download" href="#" download data-i18n="research.download">Download (.md)</a>
+                        <button type="button" class="model-action quiet" id="research-close" data-i18n="study.close">Close</button>
+                    </div>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="research.checkTitle">Check a text against its sources</h2>
+                    <p class="note" data-i18n="research.checkIntro"></p>
+                    <label class="field">
+                        <span data-i18n="research.checkText">Text with [1], [2] … after its claims</span>
+                        <textarea id="research-check-text" class="writing-text" rows="6" maxlength="60000"></textarea>
+                    </label>
+                    <label class="field">
+                        <span data-i18n="research.checkSources">Sources, one per line, in the order of their numbers</span>
+                        <textarea id="research-check-sources" class="writing-text" rows="3" maxlength="8000"
+                                  data-i18n-placeholder="research.checkSourcesHint"></textarea>
+                    </label>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="research-check-run" data-i18n="research.checkRun">Check the claims</button>
+                    </div>
+                    <p class="note" id="research-check-said" role="status" aria-live="polite"></p>
+                    <ul id="research-check-out" class="writing-list research-claims"></ul>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="research.listTitle">Your research</h2>
+                    <ul id="research-list" class="writing-list study-list"></ul>
+                    <p class="activity-empty" id="research-empty" hidden data-i18n="research.empty"></p>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="translation" hidden>
             <div class="view-inner">
                 <!--
@@ -2897,6 +2988,7 @@
 <script src="/js/writing.js"></script>
 <script src="/js/translation.js"></script>
 <script src="/js/learning.js"></script>
+<script src="/js/research.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>

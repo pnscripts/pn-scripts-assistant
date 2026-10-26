@@ -160,6 +160,15 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/study/answer", s.handleStudyAnswer)
 	s.mux.HandleFunc("POST /api/study/{id}/remove", s.handleStudyRemove)
 
+	// Research with sources: reports, their claims check, and checking a
+	// text against its own sources. See research.go.
+	s.mux.HandleFunc("GET /api/research", s.handleResearchList)
+	s.mux.HandleFunc("GET /api/research/{id}", s.handleResearchOne)
+	s.mux.HandleFunc("GET /api/research/{id}/download", s.handleResearchDownload)
+	s.mux.HandleFunc("POST /api/research", s.handleResearchRun)
+	s.mux.HandleFunc("POST /api/research/check", s.handleResearchCheck)
+	s.mux.HandleFunc("POST /api/research/{id}/remove", s.handleResearchRemove)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 

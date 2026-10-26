@@ -311,6 +311,79 @@
         'study.noModel': ['No language model is available to write lessons and questions. Questions already kept can still be practised.',
             'Няма езиков модел, който да пише уроци и въпроси. Вече запазените въпроси могат да се упражняват.'],
 
+        // Research with sources.
+        'nav.research': ['Research', 'Проучване'],
+        'research.title': ['Research a question', 'Проучете въпрос'],
+        'research.intro': [
+            'Ask a question and I look it up on the web: I choose what to search for, read the best sources I '
+                + 'find — official bodies and scholarly sources first, never one site over and over — and write a '
+                + 'report from them only, with a number after every claim. Then every sentence is checked against '
+                + 'the source it cites, and what the sources do not say is marked. Your question is sent to a search '
+                + 'engine and each page is requested from its site; the report is kept here. A language model writes '
+                + 'the report and can be wrong, so read the marked claims in their source before relying on them.',
+            'Задайте въпрос и аз го проучвам в интернет: избирам какво да търся, чета най-добрите намерени източници '
+                + '— първо официални органи и научни източници, никога един и същ сайт отново и отново — и пиша '
+                + 'доклад само от тях, с номер след всяко твърдение. След това всяко изречение се проверява спрямо '
+                + 'източника, който посочва, и се отбелязва какво източниците не казват. Въпросът ви се изпраща на '
+                + 'търсачка и всяка страница се изисква от сайта ѝ; докладът се пази тук. Докладът се пише от езиков '
+                + 'модел, който може да греши, затова прочетете отбелязаните твърдения в източника, преди да разчитате на тях.',
+        ],
+        'research.noWeb': ['Research reads the web, and the privacy setting keeps this machine to itself. Allow the web in Control to use it.',
+            'Проучването чете интернет, а настройката за поверителност не позволява излизане от този компютър. Разрешете интернет в „Контрол“, за да го използвате.'],
+        'research.noModel': ['No language model is available to write the report.', 'Няма езиков модел, който да напише доклада.'],
+        'research.nothing': ['No source could be found or read for that question. Try other words.',
+            'Не беше намерен или прочетен нито един източник за този въпрос. Опитайте с други думи.'],
+        'research.question': ['Question', 'Въпрос'],
+        'research.questionHint': ['e.g. What changed in EU rules on online returns in 2025?', 'напр. Какво се промени в правилата на ЕС за връщане на онлайн покупки през 2025 г.?'],
+        'research.depth': ['Depth', 'Дълбочина'],
+        'research.depth.quick': ['Quick — 4 sources', 'Бързо — 4 източника'],
+        'research.depth.thorough': ['Thorough — 8 sources', 'Задълбочено — 8 източника'],
+        'research.depthName.quick': ['Quick', 'Бързо'],
+        'research.depthName.thorough': ['Thorough', 'Задълбочено'],
+        'research.language': ['Report in', 'Доклад на'],
+        'research.auto': ['Same as the question', 'Езика на въпроса'],
+        'research.run': ['Research', 'Проучи'],
+        'research.working': ['Searching, reading and checking… {s} s. This usually takes one to three minutes.',
+            'Търся, чета и проверявам… {s} сек. Обикновено отнема от една до три минути.'],
+        'research.done': ['Done: {n} sources read. The report is below and kept in Your research.',
+            'Готово: прочетени източници — {n}. Докладът е по-долу и е запазен в „Вашите проучвания“.'],
+        'research.nSources': ['{n} sources', 'източници: {n}'],
+        'research.supported': ['{n} of {of} claims supported', 'подкрепени твърдения: {n} от {of}'],
+        'research.flagged': ['{n} to check', 'за проверка: {n}'],
+        'research.sourceN': ['Source {n}', 'Източник {n}'],
+        'research.download': ['Download (.md)', 'Изтегляне (.md)'],
+        'research.open': ['Open', 'Отвори'],
+        'research.removedReport': ['The report was removed.', 'Докладът е премахнат.'],
+        'research.listTitle': ['Your research', 'Вашите проучвания'],
+        'research.empty': ['Nothing yet. Ask a question above and press Research.',
+            'Още няма нищо. Задайте въпрос горе и натиснете „Проучи“.'],
+        'research.checkTitle': ['Check a text against its sources', 'Проверка на текст спрямо източниците му'],
+        'research.checkIntro': [
+            'Paste a text that puts [1], [2] … after its claims — an essay, an article, an answer — and list its '
+                + 'sources in the same order, as web addresses or full paths of files on this computer. Every sentence '
+                + 'is checked against the source it cites. Nothing is kept.',
+            'Поставете текст, в който след твърденията има [1], [2] … — есе, статия, отговор — и изброете '
+                + 'източниците му в същия ред като уеб адреси или пълни пътища до файлове на този компютър. Всяко '
+                + 'изречение се проверява спрямо източника, който посочва. Нищо не се запазва.',
+        ],
+        'research.checkText': ['Text with [1], [2] … after its claims', 'Текст с [1], [2] … след твърденията'],
+        'research.checkSources': ['Sources, one per line, in the order of their numbers', 'Източници, по един на ред, в реда на номерата им'],
+        'research.checkSourcesHint': ['https://example.org/page\n/home/you/Documents/notes.pdf', 'https://example.org/page\n/home/you/Документи/бележки.pdf'],
+        'research.checkRun': ['Check the claims', 'Провери твърденията'],
+        'research.checking': ['Reading the sources and checking…', 'Чета източниците и проверявам…'],
+        'research.checked': ['{n} claims: {ok} supported, {bad} to check.', 'Твърдения: {n} — подкрепени: {ok}, за проверка: {bad}.'],
+        'research.removed': ['{n} citations pointed to no source and were removed.', 'Премахнати препратки към несъществуващ източник: {n}.'],
+        'research.unread': ['Could not read {what}', 'Не можа да се прочете {what}'],
+        'research.markOk': ['Supported', 'Подкрепено'],
+        'research.markCheck': ['Check', 'Проверете'],
+        'research.status.unsourced': ['It cites no source.', 'Не посочва източник.'],
+        'research.status.number': ['A figure in it is not in the cited source.', 'Число в него го няма в посочения източник.'],
+        'research.status.weak': ['Few of its words are in the cited source.', 'Малко от думите му са в посочения източник.'],
+        'research.status.unread': ['The cited source could not be read.', 'Посоченият източник не можа да бъде прочетен.'],
+        'research.verdict.confirmed': ['Confirmed by the fact check', 'Потвърдено при проверката'],
+        'research.verdict.partly': ['Only partly supported', 'Само частично подкрепено'],
+        'research.verdict.not_supported': ['Not supported by the cited source', 'Не се подкрепя от посочения източник'],
+
         // Translation and the glossary.
         'nav.translation': ['Translation', 'Превод'],
         'tr.title': ['Translation', 'Превод'],
@@ -547,6 +620,7 @@
         change_this_conversation: ['Rename or tidy this conversation', 'Промяна на този разговор'],
         check_for_updates: ['Check for updates', 'Проверка за обновления'],
         check_answer: ['Mark an answer', 'Проверка на отговор'],
+        check_claims: ['Check claims against their sources', 'Проверка на твърдения спрямо източниците'],
         check_name: ['Check a name is free', 'Проверка дали име е свободно'],
         check_requirements: ['Check what a task needs', 'Проверка на изискванията'],
         click: ['Click on the screen', 'Щракване по екрана'],
@@ -614,6 +688,7 @@
         remember_how_to_do_this: ['Learn a procedure', 'Научаване на процедура'],
         remind_me: ['Set a reminder', 'Напомняне'],
         remove_a_part: ['Remove a part', 'Премахване на компонент'],
+        research: ['Research a question with sources', 'Проучване на въпрос с източници'],
         run_as_admin: ['Run as administrator', 'Изпълнение като администратор'],
         run_command: ['Run a command', 'Изпълнение на команда'],
         scroll: ['Scroll', 'Превъртане'],

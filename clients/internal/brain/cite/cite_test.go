@@ -178,3 +178,25 @@ func TestTheLedgerTravelsInTheContext(t *testing.T) {
 		t.Errorf("a nil ledger changed the output: %q", out)
 	}
 }
+
+// A research report numbers its sources from 1; in a turn that already has
+// a [1], they are given the turn's numbers, in the text and in the list.
+func TestAResearchReportTakesTheTurnsNumbers(t *testing.T) {
+	l := NewLedger()
+
+	l.Facts([]store.Scored{fact(1, "Alex lives in Sofia.", "")})
+
+	out := l.Note("research", json.RawMessage(`{"question":"q"}`),
+		"## Short answer\nThe rate is 20 % [1]. Hotels pay 9 % [2][1].\n\n## Sources\n\n"+
+			"1. [VAT rates](https://nra.bg/vat) — official body\n2. [Hotels [2024]](https://news.example.com/h) — other site\n")
+
+	for _, want := range []string{"20 % [2].", "9 % [3][2].", "2. [VAT rates](https://nra.bg/vat)", "3. [Hotels"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("lacks %q:\n%s", want, out)
+		}
+	}
+
+	if got := l.Sources(); len(got) != 3 || got[1].Where != "https://nra.bg/vat" || got[1].Kind != Page {
+		t.Errorf("%+v", got)
+	}
+}

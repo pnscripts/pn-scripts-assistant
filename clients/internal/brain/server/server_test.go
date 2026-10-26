@@ -304,7 +304,7 @@ func TestRegisteredTools(t *testing.T) {
 	// because it had no way to reach its own queue.
 	want := []string{
 		"acquire_integration", "activate_integration", "ask_first", "audit_originality", "brain_copies", "change_a_setting",
-		"change_glossary", "change_the_diary", "change_this_conversation", "check_answer", "check_name", "check_requirements", "click",
+		"change_glossary", "change_the_diary", "change_this_conversation", "check_answer", "check_claims", "check_name", "check_requirements", "click",
 		"closest_titles", "compare_melody", "compare_pictures", "compare_versions", "confirm_hire", "decide_waiting",
 		"do_in_background", "draft_reply", "drive_browser", "edit_document", "edit_file", "fetch_url",
 		"films_without_subtitles", "forget_how_to_do_this", "forget_reminder", "game_build",
@@ -315,7 +315,7 @@ func TestRegisteredTools(t *testing.T) {
 		"look_at_screen", "mail_digest", "make_a_picture", "make_a_video", "make_subtitles", "open_app",
 		"places_it_learns_from", "plan_project", "proofread", "put_in_the_diary", "put_it_back", "quiz", "read_a_page",
 		"read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this",
-		"remind_me", "remove_a_part", "run_as_admin", "run_command", "scroll", "search_files",
+		"remind_me", "remove_a_part", "research", "run_as_admin", "run_command", "scroll", "search_files",
 		"set_appearance", "set_wake_word", "start_project", "stop_background",
 		"stop_hearing_this_machine", "study_progress", "todo", "translate", "translate_document", "type_text", "web_search", "what_am_i_hearing", "what_can_you_do",
 		"what_is_next", "what_is_on", "what_ive_been_taught", "what_this_machine_needs", "what_you_know",

@@ -293,11 +293,35 @@ func BuiltIn() []Agent {
 				// exactly who needs the one that runs them.
 				"web_search", "fetch_url", "read_a_page", "read_document", "read_file",
 				"search_files", "list_directory", "what_you_know",
+				// A question to be looked into properly, with a report whose
+				// claims are checked; and checking a text against its sources.
+				"research", "check_claims",
 			},
 			Brief: "Say where each thing came from. A fact with no source is a guess " +
 				"that has been written down neatly. Use fetch_url first and read_a_page " +
 				"only when it comes back empty — the second is a whole browser and costs " +
-				"most of a minute.",
+				"most of a minute. When somebody wants a question looked into properly or " +
+				"wants sources, use research, and report what its claims check flagged.",
+		},
+		{
+			Name: "fact_checker", Title: "Fact checker", BuiltIn: true,
+			Position: "fact_checker",
+			// No "check", "verify", "text" or "report": they are in steps of
+			// every kind of work — a build is checked, a form is verified, a
+			// report is written — and the first four letters would send them
+			// all here.
+			For:   "facts, claims and figures held to their cited sources",
+			Uses:  UsesReason,
+			Needs: Needs{Tools: true},
+			Tools: []string{
+				"check_claims", "fetch_url", "read_a_page", "web_search", "read_document", "read_file",
+			},
+			Never: []string{"write_file", "edit_file", "write_document", "edit_document", "run_command", "send_email", "send_draft"},
+			Brief: "Judge a claim only by what its source says, never by what you remember. Use check_claims " +
+				"for a text with numbered sources. For each claim say supported, partly or not supported, and " +
+				"quote the words or figures that decide it. A claim with no source is unverified, not false. " +
+				"Prefer the primary source — the law, the statistics office, the study — over a page that " +
+				"repeats it, and say when a source is old. Change nothing; report.",
 		},
 		{
 			Name: "designer", Title: "Designer", BuiltIn: true,

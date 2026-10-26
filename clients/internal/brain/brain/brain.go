@@ -324,6 +324,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		tools.WebSearch{BraveKey: cfg.BraveKey},
 
+		// Research with sources, hidden with the web it is made of. See
+		// tools/research.go.
+		tools.ResearchTool{With: b.researching()},
+
 		// The two originality checks that search, hidden with the web.
 		tools.CheckName{Search: tools.WebSearch{BraveKey: cfg.BraveKey}},
 		tools.ClosestTitles{Search: tools.WebSearch{BraveKey: cfg.BraveKey}},
@@ -679,6 +683,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.QuizTool{With: b.tutoring()},
 		tools.CheckAnswer{With: b.tutoring()},
 		tools.StudyProgress{With: b.tutoring()},
+
+		// Checking a text against the sources it cites: files stay here, and
+		// a web address is read only while the web is allowed.
+		tools.CheckClaimsTool{With: b.researching()},
 
 		/*
 		 * Subtitles for a film that has none.

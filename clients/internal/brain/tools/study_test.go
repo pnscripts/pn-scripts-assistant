@@ -57,7 +57,10 @@ const fractionQuiz = `[` +
  * and the missed one coming back.
  */
 func TestTutorLessonQuizAndAnswers(t *testing.T) {
-	now := time.Date(2026, 10, 26, 17, 0, 0, 0, time.UTC)
+	// The store stamps new questions due with the real clock, so the test's
+	// clock starts a minute after it: a fixed date here passed on the day it
+	// was written and failed from the next hour on.
+	now := time.Now().UTC().Add(time.Minute)
 	m := &tutorModel{lesson: "# Fractions\n## Goal\n…", quiz: fractionQuiz, judge: "WRONG — the denominator is the bottom number."}
 	tutor := tutorFor(t, m, now)
 	ctx := context.Background()

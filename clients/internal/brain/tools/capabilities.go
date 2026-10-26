@@ -83,9 +83,11 @@ var serves = map[string][]string{
 
 	// Reaching the web. The three that leave this machine, so the list of who
 	// gets them is worth reading twice.
-	"web_search":  {"web_research", "research", "seo", "market_research", "competitive_analysis", "journalism", "literature_review"},
-	"fetch_url":   {"web_research", "research", "seo", "market_research", "competitive_analysis", "journalism"},
-	"read_a_page": {"web_research", "research", "seo", "market_research", "competitive_analysis", "journalism"},
+	"web_search":   {"web_research", "research", "seo", "market_research", "competitive_analysis", "journalism", "literature_review"},
+	"fetch_url":    {"web_research", "research", "seo", "market_research", "competitive_analysis", "journalism"},
+	"read_a_page":  {"web_research", "research", "seo", "market_research", "competitive_analysis", "journalism"},
+	"research":     {"web_research", "research", "market_research", "competitive_analysis", "journalism", "literature_review"},
+	"check_claims": {"research", "journalism", "literature_review", "editing"},
 
 	// Games.
 	"godot_status": {"game_development", "godot"},

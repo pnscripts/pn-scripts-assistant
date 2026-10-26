@@ -262,6 +262,9 @@ func (l *Ledger) noting(tool string, a readArgs, output string) string {
 	case "web_search":
 		return l.results(output)
 
+	case "research":
+		return l.report(output)
+
 	case "read_document", "read_file":
 		path := strings.TrimSpace(a.Path)
 		if path == "" {
@@ -324,6 +327,62 @@ func (l *Ledger) results(output string) string {
 
 		return strings.Replace(block, m[1]+". ", "["+strconv.Itoa(n)+"] ", 1)
 	}) + "\nIf your answer uses a result, end that sentence with its number in square brackets."
+}
+
+// reportSource is one line of a research report's list of sources:
+// "3. [Title](https://…) — …".
+var reportSource = regexp.MustCompile(`(?m)^(\d{1,3})\. \[(.*?)\]\((https?://[^)\s]+)\)`)
+
+var reportCite = regexp.MustCompile(`\[(\d{1,3})\]`)
+
+/*
+ * report renumbers a research report's sources as the turn's own.
+ *
+ * The report numbers its sources from 1, as a document must; beside a
+ * remembered fact that is already [1] in this turn, the model would cite the
+ * wrong one. So every source in its list is put in the ledger, and every
+ * [n] in the report — in the text and in the list — is rewritten to the
+ * ledger's number.
+ */
+func (l *Ledger) report(output string) string {
+	to := map[string]string{}
+
+	for _, m := range reportSource.FindAllStringSubmatch(output, -1) {
+		n := l.add(Source{Kind: Page, Title: strings.TrimSpace(m[2]), Where: m[3], key: "url:" + m[3]})
+		to[m[1]] = strconv.Itoa(n)
+	}
+
+	if len(to) == 0 {
+		return output
+	}
+
+	// The list's own numbers, then the citations; a citation followed by
+	// "(" is a link's text, not a number, and is left alone.
+	output = reportSource.ReplaceAllStringFunc(output, func(line string) string {
+		m := reportSource.FindStringSubmatch(line)
+
+		return strings.Replace(line, m[1]+". ", to[m[1]]+". ", 1)
+	})
+
+	var b strings.Builder
+
+	last := 0
+
+	for _, at := range reportCite.FindAllStringSubmatchIndex(output, -1) {
+		if at[1] < len(output) && output[at[1]] == '(' {
+			continue
+		}
+
+		if n, ok := to[output[at[2]:at[3]]]; ok {
+			b.WriteString(output[last:at[2]])
+			b.WriteString(n)
+			last = at[3]
+		}
+	}
+
+	b.WriteString(output[last:])
+
+	return b.String()
 }
 
 func pageTitle(address string) string {

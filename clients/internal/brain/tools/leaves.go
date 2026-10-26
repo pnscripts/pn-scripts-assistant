@@ -60,6 +60,9 @@ func Reaches(t Tool, args json.RawMessage) string {
 	case "web_search", "check_name", "closest_titles":
 		return "web search"
 
+	case "research":
+		return "web search and the pages it reads"
+
 	case "read_email", "read_mailbox", "mail_digest":
 		return "your mail server"
 
@@ -85,6 +88,10 @@ func Leaves(t Tool) (bool, string) {
 		return true, "the address it is asked to read"
 	case "web_search", "check_name", "closest_titles":
 		return true, "the search words, to a search engine"
+	case "research":
+		return true, "the search words, to a search engine, and a request for each page it reads"
+	case "check_claims":
+		return true, "a request for each web page it is given as a source; files stay here"
 	case "send_email", "send_draft":
 		return true, "the message, to the people it is addressed to"
 	case "drive_browser":

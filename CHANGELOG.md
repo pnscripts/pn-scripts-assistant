@@ -25,6 +25,22 @@ number is 0, the second one changes when something visible changes.
   tomorrow, then in three days, a week and a month, until they count as
   learnt; the page lists every topic with its progress and what is due. A
   tutor specialist teaches with only these tools and reading, never writing.
+- **Research with sources.** A new Research page, and the same in the chat
+  ("research … with sources"). The assistant plans the searches, reads the
+  best sources it finds — official and scholarly first, forums last, never
+  more than two pages from one site — and writes a report from them only: a
+  short answer, what the sources say, where they disagree and what they do
+  not settle, with a number after every claim and a list of sources saying
+  what kind of place each is, its date and when it was read. Then every
+  sentence is checked against its own source: citations to sources that do
+  not exist are removed, and a claim with no source, a figure that is in
+  none of its sources, or a sentence that shares almost no words with its
+  source is marked and put to a fact checker that sees only the source's
+  passage. Reports are kept, sealed, and download as Markdown. **Check a
+  text against its sources** does the same for any text that cites [1],
+  [2] … with web addresses or files. A fact-checker specialist joins the
+  researcher. Research reads the web, so it is off while privacy keeps the
+  machine to itself.
 
 ## 0.6.0 — 2026-10-26
 

@@ -124,6 +124,11 @@ func BuiltIn() []Unit {
 					Name: "tutor", Title: "Tutor",
 					Job: "education.teacher", Seniority: Senior,
 				},
+				{
+					Name: "fact_checker", Title: "Fact checker",
+					Job: "media.fact_checker", Seniority: Senior,
+					Never: []string{"send_email", "send_draft"},
+				},
 			},
 		},
 	}

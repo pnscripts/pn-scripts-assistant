@@ -33,6 +33,15 @@ func TestThePlannersChoiceIsTakenWhenItNamesSomebodyReal(t *testing.T) {
 	}
 }
 
+// The fact checker is not sent every step that checks something.
+func TestTheFactCheckerDoesNotTakeEveryCheck(t *testing.T) {
+	for _, step := range []string{"check the form again and verify the report text", "verify the build works", "write the report"} {
+		if got := For(BuiltIn(), "", store.StepDo, step); got.Name == "fact_checker" {
+			t.Errorf("%q went to the fact checker", step)
+		}
+	}
+}
+
 // When the planner says nothing, the step itself decides.
 func TestAStepWithNoNameFindsSomebodyByWhatItNeeds(t *testing.T) {
 	roster := BuiltIn()
@@ -44,6 +53,8 @@ func TestAStepWithNoNameFindsSomebodyByWhatItNeeds(t *testing.T) {
 		{store.StepLook, "search the web for what changed in Godot 4.3", "researcher"},
 		{store.StepDo, "export the Godot project and check the build runs", "game_developer"},
 		{store.StepDo, "say hello", "assistant"},
+		{store.StepDo, "hold each claim and figure in the draft to its cited source", "fact_checker"},
+		{store.StepLook, "research the VAT rate with sources", "researcher"},
 	} {
 		if got := For(roster, "", c.kind, c.instruction); got.Name != c.want {
 			t.Errorf("%q went to %q, want %q", c.instruction, got.Name, c.want)

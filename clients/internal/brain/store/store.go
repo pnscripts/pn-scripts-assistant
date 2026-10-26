@@ -1022,6 +1022,32 @@ var migrations = []string{
 	);
 	CREATE INDEX idx_study_cards_due ON study_cards(topic_id, due);
 	`,
+
+	/*
+	 * 24: research reports.
+	 *
+	 * The question, the finished report, the sources it was written from
+	 * (with what was read of them, so the check can be run again) and what
+	 * the check found. What somebody looks into — an illness, a debt, a
+	 * lawsuit — is as personal as anything they say, so all of it is
+	 * sealed; only the counts and the date are not.
+	 */
+	`
+	CREATE TABLE research_reports (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		question   TEXT NOT NULL,
+		lang       TEXT NOT NULL DEFAULT 'en',
+		depth      TEXT NOT NULL DEFAULT 'quick',
+		report     TEXT NOT NULL DEFAULT '',
+		sources    TEXT NOT NULL DEFAULT '[]',
+		claims     TEXT NOT NULL DEFAULT '[]',
+		model      TEXT NOT NULL DEFAULT '',
+		n_sources  INTEGER NOT NULL DEFAULT 0,
+		n_claims   INTEGER NOT NULL DEFAULT 0,
+		n_flagged  INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL
+	);
+	`,
 }
 
 /*
