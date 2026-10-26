@@ -408,16 +408,29 @@ func (t asTool) AddedAtRunTime() {}
  * everything rather than better at one thing.
  */
 func (t asTool) Cues() []string {
+	// The name first, both ways: the agent counts naming it as a full match.
 	out := []string{strings.ReplaceAll(t.skill.Name, "_", " "), t.skill.Name}
+	seen := map[string]bool{}
 
-	for _, word := range strings.FieldsFunc(strings.ToLower(t.skill.When), notALetter) {
-		if len(word) > 3 && !tooCommon[word] {
+	// What it is for, in English and in Bulgarian when it has both, so a
+	// request in either language finds it. Letters are counted, not bytes:
+	// a Cyrillic word of two letters is four bytes.
+	for _, word := range strings.FieldsFunc(strings.ToLower(t.skill.When+" "+t.skill.WhenBG), notALetter) {
+		if utf8.RuneCountInString(word) > 3 && !tooCommon[word] && !seen[word] {
+			seen[word] = true
 			out = append(out, word)
 		}
 	}
 
 	return out
 }
+
+// IsSkill says a skill is one of the many — the built-in pack's, or one read
+// from a skill folder — so the agent gives those their own few places in a
+// turn rather than let a hundred of them crowd out the tools. The program's
+// own playbooks and its owner's skills are few, and keep being offered on
+// one word of what they are for.
+func (t asTool) IsSkill() bool { return t.skill.Pack || t.skill.Imported != "" }
 
 func notALetter(r rune) bool {
 	return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r < 128
@@ -434,4 +447,11 @@ var tooCommon = map[string]bool{
 	"them": true, "then": true, "they": true, "thing": true, "things": true,
 	"this": true, "want": true, "wants": true, "what": true, "when": true,
 	"where": true, "which": true, "with": true, "would": true, "your": true,
+	// Words every description of a skill has, which say nothing about which.
+	"user": true, "users": true, "help": true, "helps": true, "using": true, "such": true,
+	"also": true, "there": true, "their": true, "these": true, "those": true, "other": true,
+	// The same in Bulgarian.
+	"когато": true, "който": true, "която": true, "което": true, "които": true, "потребителят": true,
+	"потребител": true, "иска": true, "пита": true, "като": true, "трябва": true, "помощ": true,
+	"нещо": true, "това": true, "тези": true, "или": true, "също": true, "може": true,
 }

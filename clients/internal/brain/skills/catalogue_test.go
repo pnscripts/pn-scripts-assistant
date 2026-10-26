@@ -163,3 +163,22 @@ func TestTheShippedPackCarriesNothingPrivate(t *testing.T) {
 		return nil
 	})
 }
+
+// Only the many are rationed: the pack's and the imported ones.
+func TestOnlyPackAndImportedSkillsAreRationed(t *testing.T) {
+	type rationed interface{ IsSkill() bool }
+
+	for _, c := range []struct {
+		skill Skill
+		want  bool
+	}{
+		{Skill{Name: "pack_one", Pack: true, Builtin: true}, true},
+		{Skill{Name: "from_folder", Imported: "/x/y"}, true},
+		{Skill{Name: "scam_guard", Builtin: true, Version: 1}, false},
+		{Skill{Name: "mine", When: "my way"}, false},
+	} {
+		if got := AsTool(c.skill).(rationed).IsSkill(); got != c.want {
+			t.Errorf("%s: %v", c.skill.Name, got)
+		}
+	}
+}

@@ -191,3 +191,55 @@ func names(specs []llm.ToolSpec) map[string]bool {
 
 	return out
 }
+
+// A hundred skills do not crowd out the tools: one shared word is not a
+// match, two are, the name is, and only the best three get in.
+func TestSkillsAreOfferedOnlyOnARealMatchAndOnlyAFew(t *testing.T) {
+	cues := map[string][]string{
+		"travel_planning": {"travel planning", "travel_planning", "plan", "trip", "budget", "bookings", "packing"},
+		"budget_basics":   {"budget basics", "budget_basics", "budget", "monthly", "savings", "plan"},
+		"meal_planning":   {"meal planning", "meal_planning", "plan", "meals", "shopping", "list"},
+		"essay_writing":   {"essay writing", "essay_writing", "essay", "outline", "thesis", "plan"},
+		"code_review":     {"code review", "code_review", "review", "diff", "bugs"},
+	}
+
+	var specs []llm.ToolSpec
+	for name := range cues {
+		specs = append(specs, llm.ToolSpec{Name: name, Description: "x"})
+	}
+
+	specs = append(specs, llm.ToolSpec{Name: "read_file", Description: "read a file"})
+
+	c := Choosing{
+		Cued:  func(tool string) []string { return cues[tool] },
+		Skill: func(tool string) bool { _, ok := cues[tool]; return ok },
+	}
+
+	offered := func(msg string) []string {
+		var out []string
+
+		for _, s := range c.choose(specs, msg, nil) {
+			if _, ok := cues[s.Name]; ok {
+				out = append(out, s.Name)
+			}
+		}
+
+		return out
+	}
+
+	if got := offered("plan my week"); len(got) != 0 {
+		t.Errorf("one shared word offered %v", got)
+	}
+
+	if got := offered("help me plan a trip to rome on a budget"); len(got) != 2 || got[1] != "travel_planning" {
+		t.Errorf("a trip: %v", got)
+	}
+
+	if got := offered("do a code review of this"); len(got) != 1 || got[0] != "code_review" {
+		t.Errorf("named outright: %v", got)
+	}
+
+	if got := offered("plan trip budget bookings packing monthly savings meals shopping list essay outline thesis"); len(got) != MostSkills {
+		t.Errorf("more than %d skills: %v", MostSkills, got)
+	}
+}

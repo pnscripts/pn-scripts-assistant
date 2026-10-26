@@ -91,6 +91,39 @@ type Choosing struct {
 
 	// Cued is a tool that asks to be offered only when it is mentioned.
 	Cued func(tool string) []string
+
+	// Skill says a tool is a skill: instructions, not a capability, of which
+	// there may be a hundred. Nil is none.
+	Skill func(tool string) bool
+}
+
+// MostSkills is how many skills one turn is offered, the best matches first.
+// A hundred skills each offered on one shared word would crowd out the tools
+// that do the work; three is room for the right one and its neighbours.
+const MostSkills = 3
+
+/*
+ * skillScore is how well a message matches a skill: the distinct words of
+ * what it is for that the message contains, and the skill named outright
+ * counts as much as three. One shared word is not a match — "plan", "file"
+ * and "check" are in a third of all requests and a third of all skills.
+ */
+func skillScore(text string, cues []string) int {
+	if len(cues) >= 2 && (strings.Contains(text, cues[0]) || strings.Contains(text, cues[1])) {
+		return 3
+	}
+
+	seen := map[string]bool{}
+	n := 0
+
+	for _, c := range cues {
+		if c != "" && !seen[c] && strings.Contains(text, c) {
+			seen[c] = true
+			n++
+		}
+	}
+
+	return n
 }
 
 /*
@@ -163,6 +196,13 @@ func (c Choosing) choose(specs []llm.ToolSpec, message string, already map[strin
 
 	var keep []ranked
 
+	type scored struct {
+		spec  llm.ToolSpec
+		score int
+	}
+
+	var skillsHere []scored
+
 	for _, spec := range specs {
 		/*
 		 * Something whose requirement is not on this machine is not offered.
@@ -186,6 +226,12 @@ func (c Choosing) choose(specs []llm.ToolSpec, message string, already map[strin
 			// message mentions it, because taking it away now would throw
 			// away everything the model has already read.
 			keep = append(keep, ranked{spec, 2})
+
+		case c.Skill != nil && c.Skill(spec.Name) && c.cuedFor(spec.Name) != nil:
+			// A skill competes with the other skills for a few places.
+			if score := skillScore(text, c.cuedFor(spec.Name)); score >= 2 {
+				skillsHere = append(skillsHere, scored{spec, score})
+			}
 
 		case c.cuedFor(spec.Name) != nil:
 			// A tool that asked to be offered only when it is mentioned —
@@ -212,6 +258,17 @@ func (c Choosing) choose(specs []llm.ToolSpec, message string, already map[strin
 		default:
 			keep = append(keep, ranked{spec, 1})
 		}
+	}
+
+	// The best-matching skills, and only those, join the claims.
+	sort.SliceStable(skillsHere, func(i, j int) bool { return skillsHere[i].score > skillsHere[j].score })
+
+	for i, sk := range skillsHere {
+		if i == MostSkills {
+			break
+		}
+
+		keep = append(keep, ranked{sk.spec, 2})
 	}
 
 	// The budget, spent on the strongest claims first and, within a claim, in

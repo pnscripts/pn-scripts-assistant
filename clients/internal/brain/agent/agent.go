@@ -641,6 +641,7 @@ func (l *Loop) RunBrief(
 			Have:  l.Have,
 			Needs: l.needsFor,
 			Cued:  l.cuesFor,
+			Skill: l.isSkill,
 		}.choose(
 			l.offerable(brief),
 			lastUserMessage(messages),
@@ -2268,6 +2269,18 @@ func namesOf(specs []llm.ToolSpec) []string {
 	}
 
 	return out
+}
+
+// isSkill is whether a tool is a skill (see skills.AsTool).
+func (l *Loop) isSkill(name string) bool {
+	tool, ok := l.Registry.Get(name)
+	if !ok {
+		return false
+	}
+
+	skill, ok := tool.(interface{ IsSkill() bool })
+
+	return ok && skill.IsSkill()
 }
 
 func (l *Loop) cuesFor(name string) []string {
