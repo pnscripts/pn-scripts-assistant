@@ -1,6 +1,8 @@
 package seed
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -127,12 +129,29 @@ func TestAnUpgradeUpdatesUntouchedGuidesAndAddsNewOnes(t *testing.T) {
 func TestThePackCarriesNothingPrivate(t *testing.T) {
 	files, _ := Files()
 
-	bad := regexp.MustCompile(`(?i)petar|петър|nikolov|pnscripts\.com|/home/[a-z]+/|/media/[a-z]+/|ai-brain|@gmail`)
+	bad := regexp.MustCompile(`(?i)pnscripts\.com|/home/[a-z]+/|/media/[a-z]+/|ai-brain|@gmail`)
+
+	// The owner's names are checked by their SHA-256, so the test that keeps
+	// them out of the pack does not itself carry them.
+	private := map[string]bool{
+		"9d6245d7fb961b620b28c91d22e1a585413743388dc1833e678129f1751d94ae": true,
+		"b3f73b9f2252e3d0762e50d43e80fe9f31f6a49777c8fe9f88ff06b5c188377c": true,
+		"4754ddf3e436fa4c57da68e83e40c55245c3fc6e7cb1ed1d965c11f88e55a52b": true,
+	}
+
+	word := regexp.MustCompile(`\p{L}+`)
 
 	for _, f := range files {
 		body, _ := pack.ReadFile("pack/" + f)
 		if m := bad.FindString(string(body)); m != "" {
 			t.Errorf("%s contains %q", f, m)
+		}
+
+		for _, w := range word.FindAllString(string(body), -1) {
+			sum := sha256.Sum256([]byte(strings.ToLower(w)))
+			if private[hex.EncodeToString(sum[:])] {
+				t.Errorf("%s contains a private name", f)
+			}
 		}
 	}
 }
