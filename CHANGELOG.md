@@ -6,7 +6,7 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
-## Unreleased
+## 0.7.0 — 2026-10-26
 
 ### Added
 

@@ -39,6 +39,27 @@ remembers what it learns about you, and what it learns stays here.
   until you press Send on each one.
 - **Plans.** To-do lists, the diary, reminders and your online calendar
   (CalDAV) in one "what is next", in time order.
+- **Teaches.** A lesson on any topic at your level — child, beginner,
+  intermediate or advanced — and practice questions marked by rules, the
+  missed ones coming back until you know them.
+- **Looks things up properly.** A research report from the best sources it
+  can find, with a number after every claim, and every sentence checked
+  against the source it cites; any text with numbered sources can be checked
+  the same way.
+- **Answers your customers from your own words.** Replies come from your
+  answer book and your business documents; what only you can decide — a
+  question your words do not answer, a refund, a price you never gave — is
+  marked, and nothing is sent until you say yes.
+- **Calculates with your tables, and checks every total.** Budgets and sales
+  in .csv, .xlsx or .ods are worked out with exact arithmetic — the model
+  never adds anything up — and every total is checked a second way, including
+  the sheet's own.
+- **Keeps an invoice register and works out the VAT.** Each invoice checked as
+  it is added, a month's VAT and its due date, the registration threshold —
+  under Bulgaria's VAT Act with the article and the date it was checked, or
+  your own rates. Information, not tax advice; nothing is ever filed.
+- **Fills in PDF forms.** Into a new file beside the form, any language drawn
+  with a font that has it, every value read back before it is saved.
 - **Says where answers came from, and what it did.** Answers list their
   sources by number; a page lists every action with who did it, which model and
   why, and whether anything left the machine; every capability can be switched
