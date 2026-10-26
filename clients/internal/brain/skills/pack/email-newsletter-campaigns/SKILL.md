@@ -31,6 +31,12 @@ Hi {first_name},
 [Footer: company name, address, why you get this, unsubscribe]
 ```
 
+## Sending rhythm
+- Pick a frequency the user can keep (e.g. every two weeks) and tell subscribers at sign-up.
+- Send at a consistent day and time; test a different slot only one variable at a time.
+- Clean the list every few months: remove hard bounces and long-inactive contacts after a re-engagement attempt.
+- Keep a simple log: date, segment, subject, clicks, sales, unsubscribes.
+
 ## Pitfalls
 - Buying or scraping lists breaks consent rules and ruins deliverability.
 - Misleading subjects ("Re:", "Your order") erode trust and can break the law.

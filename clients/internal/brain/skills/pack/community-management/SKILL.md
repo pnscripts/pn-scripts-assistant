@@ -33,6 +33,9 @@ Reply like a helpful person, not a press office. Protect members, stay calm in p
 Comment: "Ordered two weeks ago, still nothing. Terrible service."
 Reply: "Hi Maria, sorry - two weeks is too long and we understand the frustration. We have sent you a private message to check your order right away. - Elena"
 
+## Response times
+- Aim to answer questions and complaints within the time the user's audience expects (often the same working day); set an away message outside working hours.
+
 ## Pitfalls
 - Deleting fair criticism usually backfires; answer it instead.
 - Arguing in public, sarcasm and copy-paste replies make things worse.

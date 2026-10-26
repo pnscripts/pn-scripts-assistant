@@ -33,6 +33,10 @@ Call to action: "Start free trial" beats "Submit"; say what happens next ("No ca
 - Is every claim true and provable?
 - Would the reader say these words out loud?
 
+## Questions to ask
+- What does the reader do today instead of buying this, and why is that worse?
+- Which objection most often stops a sale?
+
 ## Pitfalls
 - Writing for everyone ends up persuading no one; pick one reader.
 - Fake urgency ("only 2 left" when untrue), fake reviews and hidden conditions are misleading and may break consumer law.

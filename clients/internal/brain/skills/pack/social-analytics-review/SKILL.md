@@ -25,6 +25,20 @@ Instagram, September vs August: reach -18%, engagement rate 4.1% -> 5.3%, posts 
 Reading: fewer posts explain most of the reach drop; per-post quality improved. Carousels with tips had double the saves of single photos.
 Decision: keep 3 carousels a week, return to 12-14 posts a month, test reels on Tuesdays for 4 weeks.
 
+## Report template
+```
+Period: [dates] vs [previous dates]     Goal: [goal]
+Summary: [3-5 lines]
+| Metric | This period | Previous | Change |
+| Reach | ... | ... | ...% |
+| Engagement rate | ... | ... | ... pp |
+| Link clicks | ... | ... | ...% |
+| Conversions | ... | ... | ...% |
+Top posts: [title - metric - why it worked]
+Weak posts: [title - metric - likely reason]
+Actions: [do more / do less / test - target]
+```
+
 ## Pitfalls
 - Vanity metrics (likes, followers) without a link to the goal.
 - Concluding from one viral post.

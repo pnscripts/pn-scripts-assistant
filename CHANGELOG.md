@@ -6,7 +6,21 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
-## 0.8.0 — 2026-10-26
+## 0.8.1 — 2026-10-27
+
+### Added
+
+- **The whole built-in skill pack: 137 skills in 32 areas, in English and
+  Bulgarian.** Besides the areas of 0.8.0: writing and editing, email,
+  e-commerce, project management, productivity, small-business finance and
+  bookkeeping, legal-document basics, health and fitness information,
+  cooking and home, travel, personal finance, game design, career and CV,
+  family organisation, cars and gardening. Skills on money, law and health
+  give general orientation and say when a professional is needed; the
+  Bulgarian VAT skill follows the VAT Act in force from 1 January 2026
+  (registration when the turnover of a calendar year exceeds the threshold).
+
+## 0.8.0 — 2026-10-27
 
 ### Added
 

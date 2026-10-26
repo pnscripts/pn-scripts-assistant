@@ -30,6 +30,13 @@ Local bakery in Plovdiv. Seeds: sourdough bread, birthday cake, bakery.
 - Transactional cluster: "birthday cake order Plovdiv", "custom cake Plovdiv" -> cake order page.
 - Informational cluster: "how to store sourdough bread" -> short blog guide linking to the shop.
 
+## Checklist
+- Every keyword group has exactly one target page.
+- Each group's intent matches the page type (guide, product, category, local page).
+- At least a few specific, low-competition phrases are included for quick wins.
+- Brand and competitor names are used only where it is fair and legal.
+- Estimates are labelled as estimates when no tool data is available.
+
 ## Pitfalls
 - High-volume generic words ("shoes") are usually unwinnable for a small site; prefer specific phrases.
 - Do not create separate pages for near-identical phrases; it splits relevance.

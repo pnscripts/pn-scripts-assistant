@@ -25,6 +25,20 @@ A calendar the user can keep beats an ambitious one they abandon in week two. Pl
 
 Status values: Idea, Draft, Ready, Scheduled, Published.
 
+## Questions to ask
+- Which channel brings the most customers today? Start there.
+- What content already exists that can be reused or updated?
+- Who approves posts, and how long does approval take?
+- Which dates are off-limits (holidays, busy season, team leave)?
+
+## Reuse example
+One customer-story video (5 min) becomes: a 45-second clip, 3 quote graphics, a LinkedIn post with the lesson, a blog case study and a newsletter section.
+
+## Checklist
+- Every slot has an owner and a status.
+- Each pillar appears at least once a month.
+- Key dates have content ready a week ahead.
+
 ## Pitfalls
 - Planning more than the team can produce; missed posts kill the habit.
 - Only promotional posts; audiences tune out.

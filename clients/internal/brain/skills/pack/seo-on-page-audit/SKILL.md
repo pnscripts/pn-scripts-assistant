@@ -33,6 +33,10 @@ Target: "handmade leather wallet". Current title: `Home | Shop`.
 - Fix (Medium): H1 "Welcome" -> "Handmade Leather Wallets".
 - Fix (Medium): add a 150-word intro on materials, sizes and care; link to the care guide.
 
+## Questions to ask
+- Which page should rank for this phrase if several pages cover it?
+- Is the page new, or did it lose rankings after a change (redesign, URL change, content cut)?
+
 ## Pitfalls
 - Keyword stuffing, hidden text and doorway pages hurt rankings.
 - Several pages aiming at the same phrase compete with each other; merge or differentiate them.

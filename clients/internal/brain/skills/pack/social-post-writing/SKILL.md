@@ -27,6 +27,16 @@ Source: blog post "5 ways to cut cloud costs".
 - X: "Your cloud bill has a 'forgot to turn it off' tax. 5 places to look:" plus a thread.
 - Instagram carousel: slide 1 the hook, slides 2-6 one tip each, slide 7 "Save this for your next budget review".
 
+## Checklist before posting
+- The hook works on its own, without the image.
+- One idea, one call to action.
+- Facts, numbers and quotes are true and sourced.
+- Tags and mentions are correct; people tagged agreed to it.
+- Image or video has alt text or captions.
+- Link works and has tracking parameters if the user measures clicks.
+- Disclosure added for paid or gifted content.
+- Spelling and names checked once more.
+
 ## Pitfalls
 - Same text pasted to every network looks lazy and underperforms.
 - Hashtag stuffing and engagement bait ("comment YES") can reduce reach.
