@@ -6,7 +6,7 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
-## Unreleased
+## 0.8.0 — 2026-10-26
 
 ### Added
 
@@ -24,6 +24,20 @@ number is 0, the second one changes when something visible changes.
   version, references and scripts, written into the brain on start). A
   skill is instructions, not permission: its scripts run only as commands
   you approve.
+- **43 built-in skills in English and Bulgarian**, in 16 areas: research
+  and fact-checking, summarising, translation, software development, data
+  and spreadsheets, design and UI, marketing and SEO, social media, sales
+  and customer support, HR and hiring, education, languages, security and
+  privacy, 3D and Blender, audio and video, photography. More areas follow
+  as each skill passes its review.
+
+### Changed
+
+- With a hundred skills on hand, the built-in pack's skills and the ones
+  read from skill folders are offered only when a request shares two words
+  of what a skill is for (or names it), three at most per turn, so they never
+  crowd out the tools that do the work; a request in Bulgarian finds them
+  by their Bulgarian description.
 
 ## 0.7.0 — 2026-10-26
 

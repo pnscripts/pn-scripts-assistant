@@ -290,6 +290,13 @@ func TestRegisteredTools(t *testing.T) {
 		}
 	}
 
+	// And the built-in skill pack, checked there too.
+	if found, err := skills.Pack(); err == nil {
+		for _, sk := range found {
+			shipped[sk.Name] = true
+		}
+	}
+
 	var names []string
 	for _, tool := range b.Agent.Registry.All() {
 		if !shipped[tool.Name()] {

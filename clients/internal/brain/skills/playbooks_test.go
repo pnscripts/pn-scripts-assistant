@@ -157,6 +157,16 @@ func TestTheOwnersOwnVersionWins(t *testing.T) {
 
 	count := 0
 
+	// The built-in pack is counted apart; this is about the playbooks.
+	var notPack []Skill
+	for _, s := range all {
+		if !s.Pack {
+			notPack = append(notPack, s)
+		}
+	}
+
+	all = notPack
+
 	for _, s := range all {
 		if s.Name == "handle_email" {
 			count++

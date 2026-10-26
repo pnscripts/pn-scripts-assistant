@@ -60,9 +60,9 @@ remembers what it learns about you, and what it learns stays here.
   your own rates. Information, not tax advice; nothing is ever filed.
 - **Fills in PDF forms.** Into a new file beside the form, any language drawn
   with a font that has it, every value read back before it is saved.
-- **Follows skills.** Built-in skills, the skill folders of other agents on
-  the computer (SKILL.md, as Claude Code keeps them) and your own, each with
-  a switch; a skill is offered only when your request matches it, and
+- **Follows skills.** 43 built-in skills in English and Bulgarian, the skill
+  folders of other agents on the computer (SKILL.md, as Claude Code keeps
+  them) and your own, each with a switch; a skill is offered only when your request matches it, and
   anything it changes still asks you first.
 - **Says where answers came from, and what it did.** Answers list their
   sources by number; a page lists every action with who did it, which model and
