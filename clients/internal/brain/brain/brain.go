@@ -260,6 +260,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// Scans and photos are read by Tesseract, or by a local model that
 		// can see when Tesseract is missing. See tools/ocr.go.
 		tools.ReadDocument{OllamaURL: cfg.OllamaURL},
+		// PDF forms: read their fields, fill them into a new file, read every
+		// value back. See tools/pdfforms.go.
+		tools.PDFFormFields{},
+		tools.FillPDFForm{},
 		tools.ListWindows{},
 		tools.OpenApp{},
 		tools.Click{},

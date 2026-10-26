@@ -456,7 +456,7 @@ func FieldSpecialists() []Agent {
 			For:   "bookkeeping, invoices, VAT, taxes and checking accounts, under the rules of the country named",
 			Needs: Needs{Tools: true, Local: true},
 			Tools: []string{"record_invoice", "import_invoices", "vat_summary", "table_summary", "calculate_table",
-				"read_document", "write_document", "read_file", "search_files", "fetch_url"},
+				"pdf_form_fields", "fill_pdf_form", "read_document", "write_document", "read_file", "search_files", "fetch_url"},
 			Brief: "Name the rule and the year it applies to. Say plainly what needs a licensed accountant. " +
 				"Totals come from calculate_table and vat_summary, never from adding up in your head. Report every " +
 				"check they raise, and say this is information, not tax advice."},

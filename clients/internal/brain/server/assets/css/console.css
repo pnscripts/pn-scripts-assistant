@@ -6273,3 +6273,7 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
     .books-form .books-wide { grid-column: auto; }
 }
 .data-table th.is-num { text-align: right; }
+
+/* PDF forms. */
+#forms-card[hidden] { display: none; }
+.forms-grid .field span { overflow-wrap: anywhere; }

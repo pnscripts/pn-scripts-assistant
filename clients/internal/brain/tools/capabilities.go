@@ -98,6 +98,10 @@ var serves = map[string][]string{
 	"import_invoices": {"bookkeeping", "accounting"},
 	"vat_summary":     {"bookkeeping", "accounting", "taxation"},
 
+	// PDF forms.
+	"pdf_form_fields": {"public_administration", "bookkeeping", "accounting"},
+	"fill_pdf_form":   {"public_administration", "bookkeeping", "accounting"},
+
 	// A business's customers.
 	"customer_reply":          {"customer_support", "communication", "knowledge_base"},
 	"business_answers":        {"customer_support", "knowledge_base"},

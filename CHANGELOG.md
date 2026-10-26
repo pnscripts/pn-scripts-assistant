@@ -86,6 +86,19 @@ number is 0, the second one changes when something visible changes.
   month, invoices within 5 days, ten-digit numbers); for another country
   the owner gives the rates and nothing is said about its law. Nothing is
   ever filed. The accountant specialist uses these tools.
+- **Filling in PDF forms.** A new PDF forms page, and the same in the chat
+  ("fill in this application"). A form's fields are read — text,
+  checkboxes, radio buttons, lists, with their choices and whether they are
+  required or read-only — and the form is filled into a new file beside the
+  original, which is never changed and never written over. Every value is
+  read back from the new file before it is saved, and a value a field
+  cannot take is said while the rest is filled. Every filled value is drawn
+  into the form so it shows the same in every reader: Helvetica for plain
+  Latin text, otherwise a font from this computer that has the letters —
+  Cyrillic included — embedded with only the letters used. Works with old
+  and compressed (PDF 1.5+) files alike, and mends a damaged cross-reference
+  table; encrypted and signed PDFs are left alone. No new library: the
+  program reads and writes the PDF itself, as an incremental update.
 
 ## 0.6.0 — 2026-10-26
 

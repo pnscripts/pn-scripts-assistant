@@ -439,6 +439,18 @@
             </svg>
             <span data-i18n="nav.invoices">Invoices &amp; VAT</span>
         </button>
+        <!--
+            PDF forms: a form's fields laid out to fill in, saved as a new
+            file with every value read back.
+        -->
+        <button type="button" class="nav-item" data-view="forms">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <rect x="4" y="3" width="16" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M7.5 8h9M7.5 12h9M7.5 16h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <path d="M15 16.5l1.3 1.3 2.4-2.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.forms">PDF forms</span>
+        </button>
         <button type="button" class="nav-item" data-view="writing">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2563,6 +2575,45 @@
             </div>
         </section>
 
+        <section class="view" data-view="forms" hidden>
+            <div class="view-inner">
+                <!--
+                    PDF forms: open a form, its fields laid out by kind, and
+                    the filled copy saved beside it. Drawn by forms.js with
+                    textContent: field names are the form maker's words.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="forms.title">Fill in a PDF form</h2>
+                    <p class="note" data-i18n="forms.intro"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="forms.path">The form (.pdf)</span>
+                            <input type="text" id="forms-path" autocomplete="off" maxlength="1000" data-i18n-placeholder="forms.pathHint">
+                        </label>
+                        <button type="button" class="model-action" id="forms-open" data-i18n="forms.open">Open</button>
+                    </div>
+                    <p class="note" id="forms-said" role="status" aria-live="polite"></p>
+                </div>
+
+                <div class="card card-wide" id="forms-card" hidden>
+                    <div class="study-head">
+                        <h2 data-i18n="forms.fields">Fields</h2>
+                        <span class="study-meta" id="forms-count"></span>
+                    </div>
+                    <div class="books-form forms-grid" id="forms-fields"></div>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="forms.out">Save the filled form as</span>
+                            <input type="text" id="forms-out" autocomplete="off" maxlength="1000">
+                        </label>
+                        <button type="button" class="model-action" id="forms-fill" data-i18n="forms.fill">Fill and save</button>
+                    </div>
+                    <p class="note" id="forms-done" role="status" aria-live="polite"></p>
+                    <ul class="writing-list research-claims" id="forms-problems"></ul>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="writing" hidden>
             <div class="view-inner">
                 <!--
@@ -3338,6 +3389,7 @@
 <script src="/js/customers.js"></script>
 <script src="/js/tables.js"></script>
 <script src="/js/invoices.js"></script>
+<script src="/js/forms.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>

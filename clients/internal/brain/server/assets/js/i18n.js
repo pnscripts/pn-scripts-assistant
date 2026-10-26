@@ -572,6 +572,47 @@
         'books.f.overThreshold': ['sales in {year} passed the {threshold} registration threshold on {date}, with invoice {number}',
             'продажбите през {year} надминаха прага за регистрация {threshold} на {date}, с фактура {number}'],
 
+        // PDF forms.
+        'nav.forms': ['PDF forms', 'PDF формуляри'],
+        'forms.title': ['Fill in a PDF form', 'Попълване на PDF формуляр'],
+        'forms.intro': [
+            'Give the path of a fillable PDF form: its fields are laid out here by kind — text, checkboxes, choices. '
+                + 'The filled form is saved as a new file beside the original, which is never changed, and every value '
+                + 'is read back from the new file before it is saved. Letters of any language are drawn with a font that '
+                + 'has them. Encrypted and signed PDFs are left as they are. Everything stays on this computer.',
+            'Въведете пътя до PDF формуляр за попълване: полетата му се подреждат тук по вид — текст, отметки, '
+                + 'избор. Попълненият формуляр се запазва като нов файл до оригинала, който никога не се променя, и '
+                + 'всяка стойност се прочита отново от новия файл, преди да бъде запазен. Буквите на всеки език се '
+                + 'изписват с шрифт, който ги има. Шифрованите и подписаните PDF файлове не се пипат. Всичко остава на този компютър.',
+        ],
+        'forms.path': ['The form (.pdf)', 'Формулярът (.pdf)'],
+        'forms.pathHint': ['/home/you/Documents/application.pdf', '/home/you/Документи/заявление.pdf'],
+        'forms.open': ['Open', 'Отвори'],
+        'forms.fields': ['Fields', 'Полета'],
+        'forms.count': ['{n} fields', 'полета: {n}'],
+        'forms.none': ['— none —', '— няма —'],
+        'forms.max': ['at most {n}', 'до {n} знака'],
+        'forms.readOnly': ['This field is read-only.', 'Това поле е само за четене.'],
+        'forms.signature': ['A signature is added in a PDF program, not here.', 'Подписът се поставя в програма за PDF, не тук.'],
+        'forms.out': ['Save the filled form as', 'Запазване на попълнения формуляр като'],
+        'forms.fill': ['Fill and save', 'Попълни и запази'],
+        'forms.nothing': ['Nothing has been changed yet.', 'Още нищо не е променено.'],
+        'forms.saved': ['{n} fields filled and saved to {path}; every value was read back from the new file.',
+            'Попълнени полета: {n}, запазено в {path}; всяка стойност е проверена в новия файл.'],
+        'forms.exists': ['There is already a file with that name; choose another.', 'Вече има файл с това име; изберете друго.'],
+        'forms.notFilled': ['Nothing could be filled; see why below.', 'Нищо не можа да бъде попълнено; вижте защо по-долу.'],
+        'forms.p.noField': ['{field}: there is no field of that name', '{field}: няма поле с такова име'],
+        'forms.p.readOnly': ['{field}: the field is read-only', '{field}: полето е само за четене'],
+        'forms.p.tooLong': ['{field}: the field takes at most {max} characters', '{field}: полето приема най-много {max} знака'],
+        'forms.p.notYesNo': ['{field}: a checkbox is yes or no', '{field}: отметката е „да“ или „не“'],
+        'forms.p.notAnOption': ['{field}: the choices are {choices}', '{field}: възможностите са {choices}'],
+        'forms.p.signature': ['{field}: a signature field is signed in a PDF program, not filled', '{field}: полето за подпис се подписва в програма за PDF, не се попълва'],
+        'forms.p.button': ['{field}: a push button holds no value', '{field}: бутонът не съдържа стойност'],
+        'forms.p.inline': ['{field}: the field cannot be changed in this file', '{field}: полето не може да бъде променено в този файл'],
+        'forms.p.noFont': ['{field}: filled, but no font on this computer can draw these letters; readers that draw fields themselves will show them',
+            '{field}: попълнено, но на този компютър няма шрифт с тези букви; ще се видят в програмите, които сами изписват полетата'],
+        'forms.p.readBack': ['{field}: the new file did not read back as filled', '{field}: новият файл не се прочете като попълнен'],
+
         // Research with sources.
         'nav.research': ['Research', 'Проучване'],
         'research.title': ['Research a question', 'Проучете въпрос'],
@@ -902,6 +943,7 @@
         edit_document: ['Edit a document', 'Редактиране на документ'],
         edit_file: ['Edit a file', 'Редактиране на файл'],
         fetch_url: ['Fetch a web address', 'Изтегляне на уеб адрес'],
+        fill_pdf_form: ['Fill in a PDF form', 'Попълване на PDF формуляр'],
         films_without_subtitles: ['Find films without subtitles', 'Филми без субтитри'],
         forget_how_to_do_this: ['Forget a learned procedure', 'Забравяне на научена процедура'],
         forget_reminder: ['Remove a reminder', 'Премахване на напомняне'],
@@ -938,6 +980,7 @@
         make_a_video: ['Make a video', 'Създаване на видео'],
         make_subtitles: ['Make subtitles', 'Създаване на субтитри'],
         open_app: ['Open an application', 'Отваряне на приложение'],
+        pdf_form_fields: ['Read a PDF form\'s fields', 'Полета на PDF формуляр'],
         places_it_learns_from: ['Places it learns from', 'Места, от които се учи'],
         plan_project: ['Plan a project', 'Планиране на проект'],
         proofread: ['Proofread', 'Коректура'],

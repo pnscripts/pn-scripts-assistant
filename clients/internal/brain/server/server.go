@@ -192,6 +192,10 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/books/import", s.handleBooksImport)
 	s.mux.HandleFunc("POST /api/books/summary", s.handleBooksSummary)
 
+	// PDF forms: fields read, filled into a new file. See forms.go.
+	s.mux.HandleFunc("POST /api/forms/fields", s.handleFormFields)
+	s.mux.HandleFunc("POST /api/forms/fill", s.handleFormFill)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 
