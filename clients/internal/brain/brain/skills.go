@@ -2,6 +2,8 @@ package brain
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"pn-scripts-assistant/internal/brain/skills"
@@ -40,7 +42,14 @@ func (b *Brain) ReloadSkills() (int, error) {
 
 	now := map[string]bool{}
 
+	// A skill its owner switched off is not offered at all.
+	off := skills.Disabled(b.Root)
+
 	for _, skill := range found {
+		if off[skill.Name] {
+			continue
+		}
+
 		if err := b.Agent.Registry.Register(skills.AsTool(skill)); err != nil {
 			/*
 			 * Refused rather than allowed to shadow something built in.
@@ -131,3 +140,67 @@ func (t teachingOf) SkillNames() []string {
 
 	return out
 }
+
+// MySkillsFolder is the folder of agent skills inside the brain, read like
+// any other: a skill copied there is learnt on the next reload.
+const MySkillsFolder = "my-skills"
+
+// SkillFolders are where skills are read from, in the order read: the
+// default agent folders, this brain's own folder of skills, and the ones its
+// owner added in the settings.
+func (b *Brain) SkillFolders() []string {
+	out := append([]string{}, skills.DefaultSkillFolders()...)
+	out = append(out, filepath.Join(b.Root, MySkillsFolder))
+
+	for _, f := range filepath.SplitList(b.Cfg.SkillFolders) {
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
+		}
+	}
+
+	return out
+}
+
+/*
+ * RefreshSkills reads every skill folder again and makes the live list
+ * match: what the Skills page's Reload does, and what start and every
+ * learning pass do, so a skill added or changed anywhere is picked up.
+ */
+func (b *Brain) RefreshSkills() (int, error) {
+	b.importSkills()
+
+	return b.ReloadSkills()
+}
+
+// SetSkillEnabled switches a skill on or off and makes the list match.
+func (b *Brain) SetSkillEnabled(name string, on bool) error {
+	if err := skills.SetEnabled(b.Root, name, on); err != nil {
+		return err
+	}
+
+	_, err := b.ReloadSkills()
+
+	return err
+}
+
+// SetSkillFolders keeps the owner's own skill folders and reads them.
+func (b *Brain) SetSkillFolders(folders []string) (int, error) {
+	var kept []string
+
+	for _, f := range folders {
+		if f = strings.TrimSpace(f); f != "" {
+			kept = append(kept, f)
+		}
+	}
+
+	b.Cfg.SkillFolders = strings.Join(kept, string(filepath.ListSeparator))
+
+	if err := b.Cfg.Save(b.Root); err != nil {
+		return 0, err
+	}
+
+	return b.RefreshSkills()
+}
+
+// SkillCatalogue is every skill with its source and whether it is on.
+func (b *Brain) SkillCatalogue() ([]skills.Entry, error) { return skills.Catalogue(b.Root) }

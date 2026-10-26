@@ -94,8 +94,14 @@ func All(root string) ([]Skill, error) {
 
 	out := append([]Skill{}, own...)
 
-	for _, s := range builtin {
+	pack, perr := Pack()
+	if perr != nil && err == nil {
+		err = perr
+	}
+
+	for _, s := range append(builtin, pack...) {
 		if !mine[s.Name] {
+			mine[s.Name] = true
 			out = append(out, s)
 		}
 	}

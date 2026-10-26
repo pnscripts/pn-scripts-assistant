@@ -6277,3 +6277,16 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 /* PDF forms. */
 #forms-card[hidden] { display: none; }
 .forms-grid .field span { overflow-wrap: anywhere; }
+
+/* Skills. */
+.sk-item { align-items: flex-start; }
+.sk-item.is-off { opacity: 0.6; }
+.sk-badge.sk-pack, .sk-badge.sk-playbook { color: var(--accent); border-color: var(--accent); }
+.sk-badge.sk-imported { color: var(--text-dim); }
+.sk-badge.sk-taught { color: var(--ok); border-color: var(--ok); }
+.sk-how { flex-basis: 100%; font-size: 13px; }
+.sk-how summary { cursor: pointer; color: var(--accent); }
+.sk-how pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-height: 360px; overflow: auto; background: var(--bg-raised); padding: 8px 10px; border-radius: 6px; }
+.sk-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); }
+.sk-toggle input { width: auto; }
+.sk-folders li { overflow-wrap: anywhere; }

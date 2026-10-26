@@ -120,7 +120,9 @@ func (s *Server) handleForgetSkill(w http.ResponseWriter, r *http.Request) {
  * makes twice.
  */
 func (s *Server) handleReloadSkills(w http.ResponseWriter, r *http.Request) {
-	count, err := s.brain.ReloadSkills()
+	// Every folder read again first, so a skill added or changed anywhere is
+	// in the list Reload makes.
+	count, err := s.brain.RefreshSkills()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 

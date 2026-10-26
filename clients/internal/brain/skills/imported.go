@@ -128,6 +128,17 @@ func ImportFolders(root string, folders []string) (Imported, error) {
 		for _, entry := range entries {
 			dir := filepath.Join(folder, entry.Name())
 
+			// A folder may also hold playbooks as plain files, in the same
+			// shape as the ones built in: name, when, a line of dashes,
+			// then the steps.
+			if info, err := os.Stat(dir); err == nil && info.Mode().IsRegular() {
+				if name, err := importPlaybook(root, dir, seen, &done); err != nil && firstErr == nil && name != "" {
+					firstErr = fmt.Errorf("importing %s: %w", name, err)
+				}
+
+				continue
+			}
+
 			if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 				continue
 			}
@@ -144,6 +155,70 @@ func ImportFolders(root string, folders []string) (Imported, error) {
 	}
 
 	return done, firstErr
+}
+
+/*
+ * importPlaybook brings one playbook file in: a .md file that says what it
+ * is for ("when:") above a line of dashes. A README or any other Markdown
+ * without that header is not a playbook and is passed over.
+ */
+func importPlaybook(root, file string, seen map[string]bool, done *Imported) (string, error) {
+	base := filepath.Base(file)
+	if !strings.EqualFold(filepath.Ext(base), ".md") || strings.HasPrefix(base, ".") || strings.EqualFold(base, "README.md") {
+		return "", nil
+	}
+
+	info, err := os.Stat(file)
+	if err != nil || info.Size() > 256<<10 {
+		return "", nil
+	}
+
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return "", nil
+	}
+
+	p := parse(string(raw), strings.TrimSuffix(base, filepath.Ext(base)))
+	if strings.TrimSpace(p.When) == "" || strings.TrimSpace(p.How) == "" {
+		return "", nil
+	}
+
+	name := NormaliseName(p.Name)
+	if CheckName(name) != nil || seen[name] {
+		return name, nil
+	}
+
+	seen[name] = true
+
+	stamp := info.ModTime().Unix()
+	source := sourceFor(root, file)
+
+	if existing, err := One(root, name); err == nil && existing != nil {
+		if existing.Imported == "" {
+			done.Kept = append(done.Kept, name)
+
+			return name, nil
+		}
+
+		if existing.SourceTime == stamp && existing.Imported == source {
+			done.Unchanged++
+
+			return name, nil
+		}
+	}
+
+	skill := Skill{
+		Name: name, When: oneLine(p.When), How: capRunes(p.How, MostRunes), Uses: p.Uses,
+		Imported: source, SourceTime: stamp,
+	}
+
+	if err := Save(root, skill); err != nil {
+		return name, err
+	}
+
+	done.Written = append(done.Written, name)
+
+	return name, nil
 }
 
 func importOne(root, dir string, seen map[string]bool, done *Imported) (string, error) {

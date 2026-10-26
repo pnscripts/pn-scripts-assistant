@@ -299,6 +299,9 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/skills", s.handleSkills)
 	s.mux.HandleFunc("POST /api/skills", s.handleSaveSkill)
 	s.mux.HandleFunc("POST /api/skills/reload", s.handleReloadSkills)
+	s.mux.HandleFunc("GET /api/skills/catalogue", s.handleSkillCatalogue)
+	s.mux.HandleFunc("POST /api/settings/skills/{name}", s.handleSkillEnabled)
+	s.mux.HandleFunc("POST /api/settings/skill-folders", s.handleSkillFolders)
 	s.mux.HandleFunc("DELETE /api/skills/{name}", s.handleForgetSkill)
 
 	// Who does which part of a job.

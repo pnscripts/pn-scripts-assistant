@@ -350,6 +350,18 @@
             <span>Teaching</span>
         </button>
         <!--
+            Skills: every skill it can follow — built in, read from other
+            agents' skill folders, or written by its owner — with a switch
+            each. After Teaching: skills are what it was taught.
+        -->
+        <button type="button" class="nav-item" data-view="skills">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M5 4h10l4 4v12H5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M8.5 12.5l2 2 4-4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.skills">Skills</span>
+        </button>
+        <!--
             Who works here, and what work there is in the world to be done.
 
             Its own entry because it is a thing to sit and read rather than
@@ -1813,6 +1825,57 @@
 
                     <p class="note" id="skill-said"></p>
                     <p class="note" id="skill-folder"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" data-view="skills" hidden>
+            <div class="view-inner">
+                <!--
+                    Skills: the catalogue with sources and switches, searched
+                    as you type; the folders skills are read from; Reload.
+                    Drawn by skills.js with textContent.
+                -->
+                <div class="card card-wide">
+                    <div class="study-head">
+                        <h2 data-i18n="sk.title">Skills</h2>
+                        <span class="study-meta" id="sk-count"></span>
+                    </div>
+                    <p class="note" data-i18n="sk.intro"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="sk.search">Search</span>
+                            <input type="search" id="sk-search" autocomplete="off" maxlength="100" data-i18n-placeholder="sk.searchHint">
+                        </label>
+                        <label class="field">
+                            <span data-i18n="sk.show">Show</span>
+                            <select id="sk-filter">
+                                <option value="all" data-i18n="sk.all">All</option>
+                                <option value="builtin" data-i18n="sk.builtin">Built in</option>
+                                <option value="imported" data-i18n="sk.imported">From skill folders</option>
+                                <option value="taught" data-i18n="sk.taught">Yours</option>
+                                <option value="off" data-i18n="sk.offOnly">Switched off</option>
+                            </select>
+                        </label>
+                        <button type="button" class="model-action" id="sk-reload" data-i18n="sk.reload">Reload</button>
+                    </div>
+                    <p class="note" id="sk-said" role="status" aria-live="polite"></p>
+                    <ul id="sk-list" class="writing-list study-list sk-list"></ul>
+                    <p class="activity-empty" id="sk-empty" hidden data-i18n="sk.none"></p>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="sk.foldersTitle">Where skills are read from</h2>
+                    <p class="note" data-i18n="sk.foldersIntro"></p>
+                    <ul id="sk-folders" class="books-rule-list sk-folders"></ul>
+                    <label class="field">
+                        <span data-i18n="sk.added">Your own folders, one per line</span>
+                        <textarea id="sk-added" class="writing-text" rows="3" maxlength="4000" data-i18n-placeholder="sk.addedHint"></textarea>
+                    </label>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="sk-save" data-i18n="care.save">Save</button>
+                    </div>
+                    <p class="note" id="sk-folders-said" role="status" aria-live="polite"></p>
                 </div>
             </div>
         </section>
@@ -3390,6 +3453,7 @@
 <script src="/js/tables.js"></script>
 <script src="/js/invoices.js"></script>
 <script src="/js/forms.js"></script>
+<script src="/js/skills.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>

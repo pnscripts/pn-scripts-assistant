@@ -613,6 +613,56 @@
             '{field}: попълнено, но на този компютър няма шрифт с тези букви; ще се видят в програмите, които сами изписват полетата'],
         'forms.p.readBack': ['{field}: the new file did not read back as filled', '{field}: новият файл не се прочете като попълнен'],
 
+        // Skills.
+        'nav.skills': ['Skills', 'Умения'],
+        'sk.title': ['Skills', 'Умения'],
+        'sk.intro': [
+            'A skill is written instructions for one kind of work. The assistant offers a skill to the model only when '
+                + 'your request matches what the skill is for, and follows it with its own tools — anything that changes '
+                + 'something, including running a skill\'s scripts, still asks you first. Skills come built in, from the '
+                + 'skill folders of other agents on this computer (SKILL.md folders, as Claude Code keeps them), or from you. '
+                + 'Switch off any you do not want offered.',
+            'Умението е писмени указания за един вид работа. Асистентът предлага умението на модела само когато '
+                + 'заявката ви отговаря на това, за което е умението, и го изпълнява със своите инструменти — всичко, '
+                + 'което променя нещо, включително изпълнението на скриптове на умението, пак първо ви пита. Уменията '
+                + 'са вградени, от папките с умения на други агенти на този компютър (папки със SKILL.md, както ги пази '
+                + 'Claude Code) или ваши. Изключете всяко, което не искате да се предлага.',
+        ],
+        'sk.search': ['Search', 'Търсене'],
+        'sk.searchHint': ['e.g. travel, invoice, review', 'напр. пътуване, фактура, преглед'],
+        'sk.show': ['Show', 'Показване'],
+        'sk.all': ['All', 'Всички'],
+        'sk.builtin': ['Built in', 'Вградени'],
+        'sk.imported': ['From skill folders', 'От папки с умения'],
+        'sk.taught': ['Yours', 'Ваши'],
+        'sk.offOnly': ['Switched off', 'Изключени'],
+        'sk.reload': ['Reload', 'Презареди'],
+        'sk.reloaded': ['Every folder read again: {n} skills offered.', 'Всички папки са прочетени отново: предлагат се {n} умения.'],
+        'sk.none': ['No skill matches.', 'Няма умение, което да отговаря.'],
+        'sk.count': ['{on} of {n} on', 'включени {on} от {n}'],
+        'sk.instructions': ['Instructions', 'Указания'],
+        'sk.on': ['On', 'Вкл.'],
+        'sk.onFor': ['{name} on', '{name} е включено'],
+        'sk.nowOn': ['{name} is offered again.', '{name} отново се предлага.'],
+        'sk.nowOff': ['{name} is no longer offered.', '{name} вече не се предлага.'],
+        'sk.src.pack': ['built-in', 'вградено'],
+        'sk.src.playbook': ['built-in playbook', 'вграден наръчник'],
+        'sk.src.imported': ['from a skill folder', 'от папка с умения'],
+        'sk.src.taught': ['yours', 'ваше'],
+        'sk.foldersTitle': ['Where skills are read from', 'Откъде се четат уменията'],
+        'sk.foldersIntro': [
+            'Every folder is read on start, on every learning pass and when you press Reload, so a skill added or changed there is picked up. A skill that is yours wins over one of the same name from a folder.',
+            'Всяка папка се чете при стартиране, при всяко учене и когато натиснете „Презареди“, така че добавено или променено там умение се взима. Ваше умение има предимство пред едноименно умение от папка.',
+        ],
+        'sk.kind.default': ['Other agents', 'Други агенти'],
+        'sk.kind.mine': ['This assistant\'s own folder', 'Собствената папка на асистента'],
+        'sk.kind.added': ['Added by you', 'Добавена от вас'],
+        'sk.found': ['{n} skills', 'умения: {n}'],
+        'sk.missing': ['not on this computer', 'няма я на този компютър'],
+        'sk.added': ['Your own folders, one per line', 'Ваши папки, по една на ред'],
+        'sk.addedHint': ['/home/you/skills', '/home/you/умения'],
+        'sk.saved': ['Saved and read: {n} skills offered.', 'Запазено и прочетено: предлагат се {n} умения.'],
+
         // Research with sources.
         'nav.research': ['Research', 'Проучване'],
         'research.title': ['Research a question', 'Проучете въпрос'],

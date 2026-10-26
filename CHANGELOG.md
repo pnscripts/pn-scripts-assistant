@@ -6,6 +6,25 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+### Added
+
+- **Skills.** A new Skills page lists every skill the assistant can follow,
+  with a badge for where it came from: built in (in Bulgarian too when the
+  screen is in Bulgarian), read from the skill folders of other agents on
+  the computer (SKILL.md folders as Claude Code keeps them, and plain
+  playbook files), from the assistant's own `my-skills` folder, or written
+  by its owner — whose own win over any of the same name. Search, a filter,
+  a switch for each skill (a skill switched off is not offered at all), the
+  folders skills are read from with how many each holds, folders of your
+  own, and Reload, which reads every folder again; start and every learning
+  pass do the same, so a skill added or changed anywhere is picked up. The
+  program can carry a built-in skill pack (each skill with its Bulgarian
+  version, references and scripts, written into the brain on start). A
+  skill is instructions, not permission: its scripts run only as commands
+  you approve.
+
 ## 0.7.0 — 2026-10-26
 
 ### Added

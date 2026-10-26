@@ -90,6 +90,15 @@ type Skill struct {
 	// SourceTime is when that folder last changed, in seconds, so an import
 	// only writes again what moved on.
 	SourceTime int64 `json:"source_time,omitempty"`
+
+	// Pack is a skill of the built-in skill pack (see catalogue.go), and
+	// Folder its folder in the pack.
+	Pack   bool   `json:"pack,omitempty"`
+	Folder string `json:"folder,omitempty"`
+
+	// WhenBG and HowBG are its words in Bulgarian, when it has them.
+	WhenBG string `json:"when_bg,omitempty"`
+	HowBG  string `json:"how_bg,omitempty"`
 }
 
 // Folder is where the skills live for a given brain.
@@ -327,6 +336,10 @@ func (t asTool) Name() string { return t.skill.Name }
 func (t asTool) Description() string {
 	when := strings.TrimSpace(t.skill.When)
 
+	if t.skill.Pack {
+		return "Built-in skill: how to do this well, step by step. Read it before starting. Use it when: " + when
+	}
+
 	if t.skill.Builtin {
 		return fmt.Sprintf("Built-in playbook (version %d): the tested way to do this here, step by step. "+
 			"Read it before starting. Use it when: %s", t.skill.Version, when)
@@ -347,6 +360,10 @@ func (t asTool) Parameters() json.RawMessage {
 func (t asTool) Risk() tools.Risk { return tools.Safe }
 
 func (t asTool) Summarize(json.RawMessage) string {
+	if t.skill.Pack {
+		return "Read the " + t.skill.Name + " skill"
+	}
+
 	if t.skill.Builtin {
 		return fmt.Sprintf("Read the %s playbook (version %d)", t.skill.Name, t.skill.Version)
 	}
@@ -355,6 +372,12 @@ func (t asTool) Summarize(json.RawMessage) string {
 }
 
 func (t asTool) Execute(_ context.Context, _ json.RawMessage) (string, error) {
+	if t.skill.Pack {
+		return "Skill " + t.skill.Name + ", built into this program. Follow it with your tools; anything " +
+			"that changes something, and running any of its scripts, still needs approval as usual.\n\n" +
+			t.skill.How, nil
+	}
+
 	if t.skill.Builtin {
 		uses := ""
 		if strings.TrimSpace(t.skill.Uses) != "" {

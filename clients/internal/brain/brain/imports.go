@@ -1,6 +1,7 @@
 package brain
 
 import (
+	"os"
 	"path/filepath"
 
 	"pn-scripts-assistant/internal/brain/places"
@@ -22,7 +23,11 @@ import (
  * list is reloaded only when something was written.
  */
 func (b *Brain) importSkills() bool {
-	folders := append(skills.DefaultSkillFolders(), filepath.SplitList(b.Cfg.SkillFolders)...)
+	if b.Root != "" {
+		_ = os.MkdirAll(filepath.Join(b.Root, MySkillsFolder), 0o755)
+	}
+
+	folders := b.SkillFolders()
 
 	done, err := skills.ImportFolders(b.Root, folders)
 	if err != nil {
@@ -75,6 +80,12 @@ func (b *Brain) installSeed() {
 		b.Log.Warn("could not make the brain's own paths relative", "error", err)
 	} else if n > 0 {
 		b.Log.Info("made the brain's own paths relative", "rows", n)
+	}
+
+	// The built-in skill pack, with its references and scripts, where a
+	// skill's own instructions say they are.
+	if err := skills.InstallPack(b.Root); err != nil {
+		b.Log.Warn("the built-in skills could not be written", "error", err)
 	}
 
 	done, err := seed.Install(places.Knowledge(b.Root))
