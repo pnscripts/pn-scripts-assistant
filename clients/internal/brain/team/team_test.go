@@ -35,9 +35,9 @@ func TestThePlannersChoiceIsTakenWhenItNamesSomebodyReal(t *testing.T) {
 
 // The fact checker is not sent every step that checks something.
 func TestTheFactCheckerDoesNotTakeEveryCheck(t *testing.T) {
-	for _, step := range []string{"check the form again and verify the report text", "verify the build works", "write the report"} {
-		if got := For(BuiltIn(), "", store.StepDo, step); got.Name == "fact_checker" {
-			t.Errorf("%q went to the fact checker", step)
+	for _, step := range []string{"check the form again and verify the report text", "verify the build works", "write the report", "reply to the mail from Anna about the business plan"} {
+		if got := For(BuiltIn(), "", store.StepDo, step); got.Name == "fact_checker" || got.Name == "customer_care" {
+			t.Errorf("%q went to %s", step, got.Name)
 		}
 	}
 }
@@ -55,6 +55,7 @@ func TestAStepWithNoNameFindsSomebodyByWhatItNeeds(t *testing.T) {
 		{store.StepDo, "say hello", "assistant"},
 		{store.StepDo, "hold each claim and figure in the draft to its cited source", "fact_checker"},
 		{store.StepLook, "research the VAT rate with sources", "researcher"},
+		{store.StepDo, "answer the customer enquiry about delivery to the shop", "customer_care"},
 	} {
 		if got := For(roster, "", c.kind, c.instruction); got.Name != c.want {
 			t.Errorf("%q went to %q, want %q", c.instruction, got.Name, c.want)

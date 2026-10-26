@@ -84,6 +84,12 @@ func BuiltIn() []Unit {
 					Name: "marketer", Title: "Marketer",
 					Job: "marketing.marketing_manager", Seniority: Senior,
 				},
+				{
+					// Customers are the market answering back.
+					Name: "customer_care", Title: "Customer care",
+					Job: "support.customer_care", Seniority: Mid,
+					Never: []string{"send_email", "send_draft"},
+				},
 			},
 		},
 		{

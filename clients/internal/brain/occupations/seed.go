@@ -1121,6 +1121,14 @@ var seed = []shelf{
 	}},
 
 	{Support, []entry{
+		{id: "customer_care", title: "Customer care", aliases: "customer service|обслужване на клиенти",
+			what:     "Answers a business's customers in its own words, and hands its owner what only the owner can decide.",
+			needs:    "customer_support communication knowledge_base",
+			does:     "Answer from what the business has written down, never from a guess\nNever promise money or a date nobody has promised\nHand the owner what only the owner can decide",
+			makes:    "Replies waiting for the owner's yes",
+			knows:    "The business's prices, terms and hours\nWhat the customer actually asked",
+			measured: "Was the customer answered right the first time",
+			risk:     store.RiskMedium},
 		{id: "technical_support_specialist", title: "Technical support specialist", aliases: "help desk|IT support|техническа поддръжка",
 			what:  "Gets somebody working again, and says what went wrong.",
 			needs: "customer_support troubleshooting communication -knowledge_base -machine_upkeep"},

@@ -57,6 +57,8 @@ var sealedColumns = []struct {
 	{"study_topics", []string{"topic", "lesson"}, nil},
 	{"study_cards", []string{"question", "options", "answer", "explain"}, nil},
 	{"research_reports", []string{"question", "report", "sources", "claims"}, nil},
+	{"care_answers", []string{"question", "answer"}, nil},
+	{"care_profile", []string{"value"}, nil},
 }
 
 // SealBatch is how many rows one transaction seals.

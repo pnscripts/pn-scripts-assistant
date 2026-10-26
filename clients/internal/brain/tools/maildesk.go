@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/care"
 	"pn-scripts-assistant/internal/brain/mail"
 	"pn-scripts-assistant/internal/brain/maildesk"
 	"pn-scripts-assistant/internal/brain/scam"
@@ -393,50 +394,7 @@ func (t DraftReply) Execute(ctx context.Context, raw json.RawMessage) (string, e
 		return "", err
 	}
 
-	if strings.TrimSpace(a.Body) == "" {
-		return "", fmt.Errorf("a draft needs something to say")
-	}
-
-	if t.Desk.Drafts == nil {
-		return "", fmt.Errorf("drafts cannot be kept here")
-	}
-
-	var answers, warning string
-
-	if a.Answers != "" {
-		orig, err := t.Desk.original(ctx, a.Answers)
-		if err != nil {
-			return "", err
-		}
-
-		verdict := scam.Check(scam.Message{From: orig.From, ReplyTo: orig.ReplyTo, Subject: orig.Subject}, t.Desk.look())
-
-		if a.To == "" {
-			a.To = maildesk.Address(orig.From)
-
-			// A reply goes where the sender asked — unless that is exactly
-			// what the scam check is worried about.
-			if orig.ReplyTo != "" && !verdict.Warns() {
-				a.To = maildesk.Address(orig.ReplyTo)
-			}
-		}
-
-		if a.Subject == "" {
-			a.Subject = maildesk.ReplySubject(orig.Subject)
-		}
-
-		answers = fmt.Sprintf("%s — %s, %s", orig.From, orig.Subject, orig.Date)
-
-		if verdict.Warns() {
-			warning = verdict.String()
-		}
-	}
-
-	if strings.TrimSpace(a.To) == "" {
-		return "", fmt.Errorf("say who the message is for, or which message it answers")
-	}
-
-	dr, err := t.Desk.Drafts.AddDraft(a.To, a.Subject, a.Body, answers, warning)
+	dr, warning, err := t.Desk.Keep(ctx, a.Answers, a.To, a.Subject, a.Body)
 	if err != nil {
 		return "", err
 	}
@@ -449,6 +407,61 @@ func (t DraftReply) Execute(ctx context.Context, raw json.RawMessage) (string, e
 	}
 
 	return out, nil
+}
+
+/*
+ * Keep files a draft: to the sender of the message it answers (answers is
+ * its reference, like imap:INBOX:12) unless to is given, with Re: and its
+ * subject, and with the scam check's verdict on that message kept beside
+ * it. Nothing is sent. Shared by draft_reply and customer replies.
+ */
+func (m MailDesk) Keep(ctx context.Context, answers, to, subject, body string) (store.Draft, string, error) {
+	if strings.TrimSpace(body) == "" {
+		return store.Draft{}, "", fmt.Errorf("a draft needs something to say")
+	}
+
+	if m.Drafts == nil {
+		return store.Draft{}, "", fmt.Errorf("drafts cannot be kept here")
+	}
+
+	var about, warning string
+
+	if answers != "" {
+		orig, err := m.original(ctx, answers)
+		if err != nil {
+			return store.Draft{}, "", err
+		}
+
+		verdict := scam.Check(scam.Message{From: orig.From, ReplyTo: orig.ReplyTo, Subject: orig.Subject}, m.look())
+
+		if to == "" {
+			to = maildesk.Address(orig.From)
+
+			// A reply goes where the sender asked — unless that is exactly
+			// what the scam check is worried about.
+			if orig.ReplyTo != "" && !verdict.Warns() {
+				to = maildesk.Address(orig.ReplyTo)
+			}
+		}
+
+		if subject == "" {
+			subject = maildesk.ReplySubject(orig.Subject)
+		}
+
+		about = fmt.Sprintf("%s — %s, %s", orig.From, orig.Subject, orig.Date)
+
+		if verdict.Warns() {
+			warning = verdict.String()
+		}
+	}
+
+	if strings.TrimSpace(to) == "" {
+		return store.Draft{}, "", fmt.Errorf("say who the message is for, or which message it answers")
+	}
+
+	dr, err := m.Drafts.AddDraft(to, subject, body, about, warning)
+
+	return dr, warning, err
 }
 
 // SendDraft sends one draft, as it stands, after the owner's yes.
@@ -521,6 +534,15 @@ func (t SendDraft) Execute(ctx context.Context, raw json.RawMessage) (string, er
 func SendWaitingDraft(desk MailDesk, id int64) (string, error) {
 	if desk.Drafts == nil {
 		return "", fmt.Errorf("drafts cannot be kept here")
+	}
+
+	/*
+	 * A customer reply with a question still in it for its owner — [[ASK:
+	 * …]] — is not finished, and sending it would show the customer the
+	 * note. It stays waiting until the gap is filled.
+	 */
+	if waiting, err := desk.Drafts.Draft(id); err == nil && care.HasGaps(waiting.Body) {
+		return "", fmt.Errorf("draft %d still has a question for you marked [[…]]; fill it in on the Mail page first", id)
 	}
 
 	if desk.Account == nil || !desk.Account().Configured() {

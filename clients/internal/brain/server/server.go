@@ -169,6 +169,15 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/research/check", s.handleResearchCheck)
 	s.mux.HandleFunc("POST /api/research/{id}/remove", s.handleResearchRemove)
 
+	// Customers: replies from the business's own words, the answer book,
+	// how it wants to sound. See care.go.
+	s.mux.HandleFunc("GET /api/care", s.handleCare)
+	s.mux.HandleFunc("POST /api/care/profile", s.handleCareProfile)
+	s.mux.HandleFunc("POST /api/care/answers", s.handleCareAnswer)
+	s.mux.HandleFunc("POST /api/care/answers/{id}/remove", s.handleCareAnswerRemove)
+	s.mux.HandleFunc("POST /api/care/reply", s.handleCareReply)
+	s.mux.HandleFunc("POST /api/care/keep", s.handleCareKeep)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 

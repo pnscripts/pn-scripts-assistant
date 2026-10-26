@@ -1048,6 +1048,28 @@ var migrations = []string{
 		created_at TEXT NOT NULL
 	);
 	`,
+
+	/*
+	 * 25: answering a business's customers.
+	 *
+	 * The answer book is questions the business has answered, as it wants
+	 * them answered; the profile is its name, signature, tone, documents
+	 * folder and what it always wants to decide itself. Sealed: a business's
+	 * answers are its own, and its customers' questions often name them.
+	 */
+	`
+	CREATE TABLE care_answers (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		question   TEXT NOT NULL,
+		answer     TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	);
+	CREATE TABLE care_profile (
+		key   TEXT PRIMARY KEY,
+		value TEXT NOT NULL DEFAULT ''
+	);
+	`,
 }
 
 /*

@@ -1272,3 +1272,15 @@ func mdEscape(s string) string {
 
 	return strings.NewReplacer("[", "(", "]", ")").Replace(s)
 }
+
+// ContentStems are the meaningful word stems of a text, for other packages
+// that match a question to passages the same way the check does.
+func ContentStems(s string) []string { return contentStems(s) }
+
+// StemsOf is every word stem in a text, for looking up.
+func StemsOf(text string) map[string]bool { return stemsOf(text) }
+
+// StripCitations takes every [n] out of a text, and the space before it.
+func StripCitations(text string) string {
+	return regexp.MustCompile(`[ \x{00a0}]*`+citeRe.String()).ReplaceAllString(text, "")
+}

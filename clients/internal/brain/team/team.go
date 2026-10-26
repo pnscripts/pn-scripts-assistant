@@ -304,6 +304,25 @@ func BuiltIn() []Agent {
 				"wants sources, use research, and report what its claims check flagged.",
 		},
 		{
+			Name: "customer_care", Title: "Customer care", BuiltIn: true,
+			Position: "customer_care",
+			// "reply", "mail", "answer" and "business" are in steps of every
+			// kind of work and would send them all here.
+			For:   "customer enquiries and customer care for a shop",
+			Uses:  UsesWork,
+			Needs: Needs{Tools: true},
+			Tools: []string{
+				"customer_reply", "business_answers", "mail_digest", "read_document", "read_file", "what_you_know",
+			},
+			// Drafts only: a reply waits for the owner's yes, and the answer
+			// book is the owner's to change.
+			Never: []string{"send_email", "send_draft", "change_business_answers", "write_file", "edit_file", "run_command"},
+			Brief: "Answer a customer only from the business's answer book and documents, with customer_reply. " +
+				"Show the owner every point it raises — a question only they can answer, a promise of money or " +
+				"time, a figure the business never gave — and never fill a gap with a guess. Keep the reply as a " +
+				"draft; it is sent only after the owner says yes.",
+		},
+		{
 			Name: "fact_checker", Title: "Fact checker", BuiltIn: true,
 			Position: "fact_checker",
 			// No "check", "verify", "text" or "report": they are in steps of

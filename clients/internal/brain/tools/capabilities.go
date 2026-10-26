@@ -89,6 +89,11 @@ var serves = map[string][]string{
 	"research":     {"web_research", "research", "market_research", "competitive_analysis", "journalism", "literature_review"},
 	"check_claims": {"research", "journalism", "literature_review", "editing"},
 
+	// A business's customers.
+	"customer_reply":          {"customer_support", "communication", "knowledge_base"},
+	"business_answers":        {"customer_support", "knowledge_base"},
+	"change_business_answers": {"knowledge_base"},
+
 	// Games.
 	"godot_status": {"game_development", "godot"},
 	"godot_docs":   {"game_development", "godot", "gdscript"},

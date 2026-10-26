@@ -379,6 +379,14 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 	b.Desk = desk
 
+	// Customer replies from the business's own answers and documents, kept
+	// as drafts on the same desk. See care.go.
+	available = append(available,
+		tools.CustomerReply{With: b.customerCare()},
+		tools.BusinessAnswers{With: b.customerCare()},
+		tools.ChangeBusinessAnswers{With: b.customerCare()},
+	)
+
 	// The online calendar's two tools, only when there is one; the Plan page
 	// adds them the moment one is set up. See calendar.go.
 	if cfg.CalendarURL != "" {

@@ -6225,3 +6225,15 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 @media (prefers-reduced-motion: reduce) {
     .research-sources li { transition: none; }
 }
+
+/* Customers: what the owner must look at before a reply is kept. */
+#care-reply-card[hidden] { display: none; }
+.care-points { margin: 0 0 12px; }
+.care-point.is-gap, .care-point.is-promise, .care-point.is-always { border-left-color: var(--warn); }
+.care-point.is-gap strong, .care-point.is-promise strong, .care-point.is-always strong { color: var(--warn); }
+.care-point.is-unsupported { border-left-color: var(--danger); }
+.care-point.is-unsupported strong { color: var(--danger); }
+.care-point.is-ok { border-left-color: var(--ok); }
+.care-point.is-ok strong { color: var(--ok); }
+.care-based { font-size: 12px; overflow-wrap: anywhere; }
+.care-answer { white-space: pre-wrap; overflow-wrap: anywhere; }

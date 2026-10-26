@@ -303,9 +303,9 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"acquire_integration", "activate_integration", "ask_first", "audit_originality", "brain_copies", "change_a_setting",
-		"change_glossary", "change_the_diary", "change_this_conversation", "check_answer", "check_claims", "check_name", "check_requirements", "click",
-		"closest_titles", "compare_melody", "compare_pictures", "compare_versions", "confirm_hire", "decide_waiting",
+		"acquire_integration", "activate_integration", "ask_first", "audit_originality", "brain_copies", "business_answers", "change_a_setting",
+		"change_business_answers", "change_glossary", "change_the_diary", "change_this_conversation", "check_answer", "check_claims", "check_name", "check_requirements", "click",
+		"closest_titles", "compare_melody", "compare_pictures", "compare_versions", "confirm_hire", "customer_reply", "decide_waiting",
 		"do_in_background", "draft_reply", "drive_browser", "edit_document", "edit_file", "fetch_url",
 		"films_without_subtitles", "forget_how_to_do_this", "forget_reminder", "game_build",
 		"game_check", "game_docs", "game_engines", "glossary", "godot_build", "godot_docs", "godot_status",

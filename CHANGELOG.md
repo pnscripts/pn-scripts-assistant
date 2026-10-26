@@ -41,6 +41,20 @@ number is 0, the second one changes when something visible changes.
   [2] … with web addresses or files. A fact-checker specialist joins the
   researcher. Research reads the web, so it is off while privacy keeps the
   machine to itself.
+- **Customer replies for a small business.** A new Customers page, and the
+  same in the chat ("answer this customer"). Replies are written only from
+  the business's own answer book and the documents in its folder (prices,
+  terms, hours; text, PDF, Word, OpenDocument, spreadsheets), in the
+  customer's language, in a friendly or formal tone, with its signature.
+  Each message is told apart (question, order, complaint, refund,
+  cancellation) and each reply checked before the owner sees it: what the
+  business's words do not answer is left as [[ASK: …]] for the owner, a
+  promise of money or time nobody has made and a figure the business never
+  gave are marked, and so is anything on the owner's "always leave to me"
+  list. A reply is kept as a mail draft that waits for a yes like any
+  other, and a draft with a gap still in it cannot be sent. A corrected
+  reply can be saved in the answer book. A customer-care specialist writes
+  drafts only.
 
 ## 0.6.0 — 2026-10-26
 

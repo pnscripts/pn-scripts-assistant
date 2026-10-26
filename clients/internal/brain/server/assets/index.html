@@ -402,6 +402,20 @@
             <span data-i18n="nav.mail">Mail</span>
             <span class="nav-count" id="nav-mail" hidden>0</span>
         </button>
+        <!--
+            Customers: replies to a business's customers from its own answer
+            book and documents, checked, kept as mail drafts. After Mail:
+            they end up on the same desk.
+        -->
+        <button type="button" class="nav-item" data-view="customers">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M4 5.5h11a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 3v-3H4A1.5 1.5 0 0 1 2.5 13V7A1.5 1.5 0 0 1 4 5.5z"
+                      fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M19 9h1a1.5 1.5 0 0 1 1.5 1.5v5A1.5 1.5 0 0 1 20 17h-1v2.5L16 17h-4" fill="none" stroke="currentColor"
+                      stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="nav.customers">Customers</span>
+        </button>
         <button type="button" class="nav-item" data-view="writing">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2217,6 +2231,125 @@
             </div>
         </section>
 
+        <section class="view" data-view="customers" hidden>
+            <div class="view-inner">
+                <!--
+                    Customers: a customer's message in, a checked reply out —
+                    what it was written from, the questions only the owner can
+                    answer, promises nobody has made, figures the business
+                    never gave — then kept as a mail draft for the owner's yes.
+                    Drawn by customers.js with textContent.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="care.title">Answer a customer</h2>
+                    <p class="note" data-i18n="care.intro"></p>
+                    <label class="field">
+                        <span data-i18n="care.message">The customer's message</span>
+                        <textarea id="care-message" class="writing-text" rows="6" maxlength="20000"
+                                  data-i18n-placeholder="care.messageHint"></textarea>
+                    </label>
+                    <div class="gl-form study-form">
+                        <label class="field">
+                            <span data-i18n="care.language">Reply in</span>
+                            <select id="care-language">
+                                <option value="auto" data-i18n="care.auto">The customer's language</option>
+                                <option value="en">English</option>
+                                <option value="bg">Български</option>
+                            </select>
+                        </label>
+                        <button type="button" class="model-action" id="care-write" data-i18n="care.write">Write a reply</button>
+                    </div>
+                    <p class="note" id="care-said" role="status" aria-live="polite"></p>
+                </div>
+
+                <div class="card card-wide" id="care-reply-card" hidden>
+                    <div class="study-head">
+                        <h2 data-i18n="care.replyTitle">The reply</h2>
+                        <span class="study-meta" id="care-reply-meta"></span>
+                    </div>
+                    <ul class="writing-list care-points" id="care-points"></ul>
+                    <label class="field">
+                        <span data-i18n="care.replyText">Change anything before keeping it</span>
+                        <textarea id="care-reply" class="writing-text" rows="10" maxlength="20000"></textarea>
+                    </label>
+                    <p class="note care-based" id="care-based"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="care.to">Customer's email</span>
+                            <input type="email" id="care-to" autocomplete="off" maxlength="300">
+                        </label>
+                        <label class="field study-topic">
+                            <span data-i18n="care.subject">Subject</span>
+                            <input type="text" id="care-subject" autocomplete="off" maxlength="300">
+                        </label>
+                    </div>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="care-keep" data-i18n="care.keep">Keep as a mail draft</button>
+                        <button type="button" class="model-action quiet" id="care-copy" data-i18n="care.copy">Copy</button>
+                        <button type="button" class="model-action quiet" id="care-learn" data-i18n="care.learn">Save in the answer book</button>
+                    </div>
+                    <p class="note" id="care-kept" role="status" aria-live="polite"></p>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="care.bookTitle">Answer book</h2>
+                    <p class="note" data-i18n="care.bookIntro"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="care.q">Question</span>
+                            <input type="text" id="care-q" autocomplete="off" maxlength="1000" data-i18n-placeholder="care.qHint">
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span data-i18n="care.a">Answer, as you want it given</span>
+                        <textarea id="care-a" class="writing-text" rows="3" maxlength="8000"></textarea>
+                    </label>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="care-add" data-i18n="care.add">Add to the answer book</button>
+                    </div>
+                    <p class="note" id="care-book-said" role="status" aria-live="polite"></p>
+                    <ul id="care-list" class="writing-list study-list"></ul>
+                    <p class="activity-empty" id="care-empty" hidden data-i18n="care.empty"></p>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="care.profileTitle">Your business</h2>
+                    <p class="note" data-i18n="care.profileIntro"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="care.name">Business name</span>
+                            <input type="text" id="care-name" autocomplete="off" maxlength="200">
+                        </label>
+                        <label class="field">
+                            <span data-i18n="care.tone">Tone</span>
+                            <select id="care-tone">
+                                <option value="friendly" data-i18n="care.friendly">Friendly</option>
+                                <option value="formal" data-i18n="care.formal">Formal</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span data-i18n="care.signature">Signature</span>
+                        <textarea id="care-signature" class="writing-text" rows="2" maxlength="1000"></textarea>
+                    </label>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="care.folder">Folder with your prices, terms and hours</span>
+                            <input type="text" id="care-folder" autocomplete="off" maxlength="1000" data-i18n-placeholder="care.folderHint">
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span data-i18n="care.always">Always leave to me messages about</span>
+                        <input type="text" id="care-always" autocomplete="off" maxlength="1000" data-i18n-placeholder="care.alwaysHint">
+                    </label>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="care-save" data-i18n="care.save">Save</button>
+                    </div>
+                    <p class="note" id="care-profile-said" role="status" aria-live="polite"></p>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="writing" hidden>
             <div class="view-inner">
                 <!--
@@ -2989,6 +3122,7 @@
 <script src="/js/translation.js"></script>
 <script src="/js/learning.js"></script>
 <script src="/js/research.js"></script>
+<script src="/js/customers.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>
