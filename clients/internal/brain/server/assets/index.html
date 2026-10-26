@@ -416,6 +416,17 @@
             </svg>
             <span data-i18n="nav.customers">Customers</span>
         </button>
+        <!--
+            Tables: a budget or a sales sheet looked over and calculated
+            exactly, every total checked a second way.
+        -->
+        <button type="button" class="nav-item" data-view="tables">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M3 9h18M3 14.5h18M9.5 9v11" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            <span data-i18n="nav.tables">Tables</span>
+        </button>
         <button type="button" class="nav-item" data-view="writing">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2350,6 +2361,78 @@
             </div>
         </section>
 
+        <section class="view" data-view="tables" hidden>
+            <div class="view-inner">
+                <!--
+                    Tables: a table looked over, a question answered from it
+                    with every total checked a second way, and the result
+                    saved as a new workbook with its checks. Drawn by
+                    tables.js with textContent: cells are somebody's data.
+                -->
+                <div class="card card-wide">
+                    <h2 data-i18n="tab.title">Work with a table</h2>
+                    <p class="note" data-i18n="tab.intro"></p>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="tab.path">Table (.csv, .xlsx, .ods)</span>
+                            <input type="text" id="tab-path" autocomplete="off" maxlength="1000" data-i18n-placeholder="tab.pathHint">
+                        </label>
+                        <label class="field" id="tab-sheet-field" hidden>
+                            <span data-i18n="tab.sheet">Sheet</span>
+                            <select id="tab-sheet"></select>
+                        </label>
+                        <button type="button" class="model-action" id="tab-look" data-i18n="tab.look">Look it over</button>
+                    </div>
+                    <p class="note" id="tab-said" role="status" aria-live="polite"></p>
+                </div>
+
+                <div class="card card-wide" id="tab-summary-card" hidden>
+                    <div class="study-head">
+                        <h2 id="tab-summary-title"></h2>
+                        <span class="study-meta" id="tab-summary-meta"></span>
+                    </div>
+                    <div class="table-wrap"><table class="data-table" id="tab-columns"></table></div>
+                    <h3 class="tab-sub" data-i18n="tab.checks">Checks</h3>
+                    <ul class="writing-list research-claims" id="tab-findings"></ul>
+                </div>
+
+                <div class="card card-wide" id="tab-ask-card" hidden>
+                    <h2 data-i18n="tab.askTitle">Work something out</h2>
+                    <div class="gl-form study-form">
+                        <label class="field study-topic">
+                            <span data-i18n="tab.question">Question</span>
+                            <input type="text" id="tab-question" autocomplete="off" maxlength="500" data-i18n-placeholder="tab.questionHint">
+                        </label>
+                        <button type="button" class="model-action" id="tab-run" data-i18n="tab.run">Work it out</button>
+                    </div>
+                    <p class="note" id="tab-run-said" role="status" aria-live="polite"></p>
+                    <div id="tab-result" hidden>
+                        <p class="tab-explain" id="tab-explain"></p>
+                        <div class="table-wrap"><table class="data-table" id="tab-rows"></table></div>
+                        <div id="tab-forecast-box" hidden>
+                            <h3 class="tab-sub" data-i18n="tab.forecast">Estimate</h3>
+                            <p class="note" data-i18n="tab.forecastNote"></p>
+                            <div class="table-wrap"><table class="data-table" id="tab-forecast"></table></div>
+                        </div>
+                        <h3 class="tab-sub" data-i18n="tab.checks">Checks</h3>
+                        <ul class="writing-list research-claims" id="tab-checks"></ul>
+                        <details class="tab-recipe">
+                            <summary data-i18n="tab.recipe">How it was calculated</summary>
+                            <pre id="tab-recipe"></pre>
+                        </details>
+                        <div class="gl-form study-form">
+                            <label class="field study-topic">
+                                <span data-i18n="tab.out">Save as a new workbook</span>
+                                <input type="text" id="tab-out" autocomplete="off" maxlength="1000">
+                            </label>
+                            <button type="button" class="model-action" id="tab-save" data-i18n="tab.save">Save as .xlsx</button>
+                        </div>
+                        <p class="note" id="tab-save-said" role="status" aria-live="polite"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="writing" hidden>
             <div class="view-inner">
                 <!--
@@ -3123,6 +3206,7 @@
 <script src="/js/learning.js"></script>
 <script src="/js/research.js"></script>
 <script src="/js/customers.js"></script>
+<script src="/js/tables.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>

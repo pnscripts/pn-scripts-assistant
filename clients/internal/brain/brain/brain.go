@@ -692,6 +692,11 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.CheckAnswer{With: b.tutoring()},
 		tools.StudyProgress{With: b.tutoring()},
 
+		// Tables: looked over and calculated exactly, every total checked a
+		// second way. See tools/tables.go.
+		tools.TableSummary{With: b.tables()},
+		tools.CalculateTable{With: b.tables()},
+
 		// Checking a text against the sources it cites: files stay here, and
 		// a web address is read only while the web is allowed.
 		tools.CheckClaimsTool{With: b.researching()},

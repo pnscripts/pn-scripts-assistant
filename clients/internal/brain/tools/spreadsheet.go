@@ -179,6 +179,20 @@ func buildXlsx(title, text string) ([]byte, error) {
 		return nil, fmt.Errorf("there are no rows to put in the spreadsheet")
 	}
 
+	return BuildWorkbook([]Sheet{{Title: title, Rows: rows}})
+}
+
+// Sheet is one sheet of a workbook to be written: its name and its rows,
+// the first of them the header.
+type Sheet struct {
+	Title string
+	Rows  [][]string
+}
+
+// worksheetXML is one sheet's XML: the header bold and frozen, numbers as
+// numbers, columns as wide as what is in them.
+func worksheetXML(rows [][]string) string {
+
 	widest := 0
 	widths := map[int]int{}
 
@@ -250,13 +264,44 @@ func buildXlsx(title, text string) ([]byte, error) {
 
 	sheet.WriteString(`</sheetData></worksheet>`)
 
+	return sheet.String()
+}
+
+// BuildWorkbook writes sheets as one workbook.
+func BuildWorkbook(sheets []Sheet) ([]byte, error) {
+	if len(sheets) == 0 {
+		return nil, fmt.Errorf("there are no sheets to write")
+	}
+
+	var (
+		overrides, entries, rels strings.Builder
+		used                     = map[string]bool{}
+	)
+
+	for i, sh := range sheets {
+		n := i + 1
+
+		name := sheetName(sh.Title)
+		for base, k := name, 2; used[strings.ToLower(name)]; k++ {
+			name = sheetName(fmt.Sprintf("%s %d", base, k))
+		}
+
+		used[strings.ToLower(name)] = true
+
+		fmt.Fprintf(&overrides, `<Override PartName="/xl/worksheets/sheet%d.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`, n)
+		fmt.Fprintf(&entries, `<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, escapeXML(name), n, n)
+		fmt.Fprintf(&rels, `<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet%d.xml"/>`, n, n)
+	}
+
+	styles := len(sheets) + 1
+
 	files := []struct{ name, body string }{
 		{"[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 			`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
 			`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
 			`<Default Extension="xml" ContentType="application/xml"/>` +
 			`<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
-			`<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+			overrides.String() +
 			`<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
 			`</Types>`},
 		{"_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -266,11 +311,11 @@ func buildXlsx(title, text string) ([]byte, error) {
 		{"xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 			`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ` +
 			`xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-			`<sheets><sheet name="` + escapeXML(sheetName(title)) + `" sheetId="1" r:id="rId1"/></sheets></workbook>`},
+			`<sheets>` + entries.String() + `</sheets></workbook>`},
 		{"xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
-			`<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+			rels.String() +
+			fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`, styles) +
 			`</Relationships>`},
 		{"xl/styles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 			`<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
@@ -281,7 +326,10 @@ func buildXlsx(title, text string) ([]byte, error) {
 			`<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
 			`<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>` +
 			`</styleSheet>`},
-		{"xl/worksheets/sheet1.xml", sheet.String()},
+	}
+
+	for i, sh := range sheets {
+		files = append(files, struct{ name, body string }{fmt.Sprintf("xl/worksheets/sheet%d.xml", i+1), worksheetXML(sh.Rows)})
 	}
 
 	var buf bytes.Buffer

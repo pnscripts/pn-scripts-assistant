@@ -178,6 +178,11 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/care/reply", s.handleCareReply)
 	s.mux.HandleFunc("POST /api/care/keep", s.handleCareKeep)
 
+	// Tables: looked over, calculated and checked, saved. See tables.go.
+	s.mux.HandleFunc("POST /api/tables/look", s.handleTablesLook)
+	s.mux.HandleFunc("POST /api/tables/calculate", s.handleTablesCalculate)
+	s.mux.HandleFunc("POST /api/tables/save", s.handleTablesSave)
+
 	s.mux.HandleFunc("GET /api/environment", s.handleEnvironment)
 	s.mux.HandleFunc("POST /api/environment/off", s.handleEnvironmentOff)
 

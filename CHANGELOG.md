@@ -55,6 +55,22 @@ number is 0, the second one changes when something visible changes.
   other, and a draft with a gap still in it cannot be sent. A corrected
   reply can be saved in the answer book. A customer-care specialist writes
   drafts only.
+- **Tables, with every total checked.** A new Tables page, and the same in
+  the chat ("total my expenses by category"). A .csv, .tsv, .xlsx or .ods
+  table is looked over first: each column's sum, range and average, cells
+  that are not numbers (by row), rows entered twice, and every "Total" row
+  compared with what its rows really add up to. Numbers are read however
+  they are written (1 234,56 or 1,234.56, лв., €, %, a negative in
+  brackets), each column deciding its decimal mark, and 1,250 is never
+  guessed. A question becomes a recipe the model writes but never
+  calculates; the program carries it out exactly — filters, a new column
+  from a formula, groups, sums, averages, the largest first, a forecast by
+  average or trend — leaves the sheet's own totals out so nothing counts
+  twice, and checks every total a second way from the source rows. The
+  result saves as a new workbook with its checks on a sheet of their own,
+  never over an existing file. The finance and accounting specialists use
+  it instead of adding up themselves. The .xlsx writer now writes several
+  sheets, and .ods tables are read cell by cell.
 
 ## 0.6.0 — 2026-10-26
 

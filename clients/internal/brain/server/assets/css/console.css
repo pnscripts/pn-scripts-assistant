@@ -6237,3 +6237,17 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 .care-point.is-ok strong { color: var(--ok); }
 .care-based { font-size: 12px; overflow-wrap: anywhere; }
 .care-answer { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Tables: data tables scroll inside their card, never the page. */
+#tab-summary-card[hidden], #tab-ask-card[hidden], #tab-result[hidden], #tab-forecast-box[hidden], #tab-sheet-field[hidden] { display: none; }
+.table-wrap { max-width: 100%; overflow-x: auto; margin: 0 0 12px; border: 1px solid var(--line); border-radius: 6px; }
+.data-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.data-table th, .data-table td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.data-table th { color: var(--text-dim); font-weight: 600; background: var(--bg-raised); position: sticky; top: 0; }
+.data-table td.is-num { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.tab-sub { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin: 14px 0 6px; }
+.tab-explain { margin: 0 0 10px; overflow-wrap: anywhere; }
+.tab-recipe { margin: 10px 0; }
+.tab-recipe summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+.tab-recipe pre { font-size: 12px; overflow-x: auto; background: var(--bg-raised); padding: 8px 10px; border-radius: 6px; }

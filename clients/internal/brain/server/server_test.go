@@ -303,7 +303,7 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"acquire_integration", "activate_integration", "ask_first", "audit_originality", "brain_copies", "business_answers", "change_a_setting",
+		"acquire_integration", "activate_integration", "ask_first", "audit_originality", "brain_copies", "business_answers", "calculate_table", "change_a_setting",
 		"change_business_answers", "change_glossary", "change_the_diary", "change_this_conversation", "check_answer", "check_claims", "check_name", "check_requirements", "click",
 		"closest_titles", "compare_melody", "compare_pictures", "compare_versions", "confirm_hire", "customer_reply", "decide_waiting",
 		"do_in_background", "draft_reply", "drive_browser", "edit_document", "edit_file", "fetch_url",
@@ -317,7 +317,7 @@ func TestRegisteredTools(t *testing.T) {
 		"read_document", "read_file", "read_integration", "read_mailbox", "remember_how_to_do_this",
 		"remind_me", "remove_a_part", "research", "run_as_admin", "run_command", "scroll", "search_files",
 		"set_appearance", "set_wake_word", "start_project", "stop_background",
-		"stop_hearing_this_machine", "study_progress", "todo", "translate", "translate_document", "type_text", "web_search", "what_am_i_hearing", "what_can_you_do",
+		"stop_hearing_this_machine", "study_progress", "table_summary", "todo", "translate", "translate_document", "type_text", "web_search", "what_am_i_hearing", "what_can_you_do",
 		"what_is_next", "what_is_on", "what_ive_been_taught", "what_this_machine_needs", "what_you_know",
 		"write_document", "write_file", "write_originality_report",
 	}
