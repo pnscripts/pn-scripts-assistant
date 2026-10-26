@@ -15,7 +15,7 @@ func TestEveryCapabilitySaysWhatItDoesInBothLanguages(t *testing.T) {
 
 	for _, tool := range b.Agent.Registry.All() {
 		for _, lang := range []string{"en", "bg"} {
-			if tools.Plain(tool.Name(), lang) == "" {
+			if tools.PlainOf(tool, lang) == "" {
 				t.Errorf("%s has no plain description in %s (tools/plain.go)", tool.Name(), lang)
 			}
 		}

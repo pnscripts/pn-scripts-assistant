@@ -455,3 +455,34 @@ var tooCommon = map[string]bool{
 	"потребител": true, "иска": true, "пита": true, "като": true, "трябва": true, "помощ": true,
 	"нещо": true, "това": true, "тези": true, "или": true, "също": true, "може": true,
 }
+
+/*
+ * Plain is what the skill is for, in one sentence, for the Control page: a
+ * pack skill's or an imported one's own description (its Bulgarian one when
+ * it has it). The program's playbooks have their sentences in tools/plain.go,
+ * and its owner's skills fall back to what he wrote.
+ */
+func (t asTool) Plain(lang string) string {
+	when := t.skill.When
+	if lang == "bg" && t.skill.WhenBG != "" {
+		when = t.skill.WhenBG
+	}
+
+	if t.skill.Builtin && !t.skill.Pack {
+		return ""
+	}
+
+	return firstSentence(when)
+}
+
+func firstSentence(s string) string {
+	s = strings.TrimSpace(s)
+
+	for i, r := range s {
+		if (r == '.' || r == '!' || r == '?') && i > 20 && (i+1 == len(s) || s[i+1] == ' ') {
+			return s[:i+1]
+		}
+	}
+
+	return s
+}

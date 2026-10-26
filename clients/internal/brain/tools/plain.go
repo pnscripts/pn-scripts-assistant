@@ -277,3 +277,21 @@ func Plain(name, lang string) string {
 
 	return pair[0]
 }
+
+// Plained is a tool that says in plain words what it does itself — a skill,
+// whose own description is its plain words — rather than by an entry above.
+type Plained interface {
+	Plain(lang string) string
+}
+
+// PlainOf is a tool's plain sentence: its own when it has one, otherwise the
+// entry above.
+func PlainOf(t Tool, lang string) string {
+	if p, ok := t.(Plained); ok {
+		if s := p.Plain(lang); s != "" {
+			return s
+		}
+	}
+
+	return Plain(t.Name(), lang)
+}

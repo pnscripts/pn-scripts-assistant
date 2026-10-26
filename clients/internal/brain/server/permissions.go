@@ -88,8 +88,8 @@ func (s *Server) handlePermissions(w http.ResponseWriter, r *http.Request) {
 		c := capability{
 			Name:     t.Name(),
 			What:     t.Description(),
-			PlainEN:  tools.Plain(t.Name(), "en"),
-			PlainBG:  tools.Plain(t.Name(), "bg"),
+			PlainEN:  tools.PlainOf(t, "en"),
+			PlainBG:  tools.PlainOf(t, "bg"),
 			Changes:  t.Risk() == tools.Mutating,
 			Decision: string(permits.Ask),
 			ThisRun:  forThisRun[t.Name()],

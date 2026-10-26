@@ -90,9 +90,10 @@ func TestASkillEditedByHandIsPickedUp(t *testing.T) {
 
 	// Its own, beside the playbooks the program ships with (ADR 0007).
 	shipped, _ := skills.Builtin()
+	pack, _ := skills.Pack()
 
-	if count != 1+len(shipped) {
-		t.Fatalf("loaded %d skills after one was written by hand beside %d playbooks", count, len(shipped))
+	if count != 1+len(shipped)+len(pack) {
+		t.Fatalf("loaded %d skills after one was written by hand beside %d playbooks and %d pack skills", count, len(shipped), len(pack))
 	}
 
 	if _, ok := b.Agent.Registry.Get("handover"); !ok {
