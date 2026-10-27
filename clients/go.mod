@@ -21,7 +21,7 @@ go 1.26.0
 toolchain go1.26.10
 
 require (
-	github.com/yalue/onnxruntime_go v1.36.0
+	github.com/yalue/onnxruntime_go v1.38.0
 	golang.org/x/sys v0.48.0
 	modernc.org/sqlite v1.59.0
 )
