@@ -760,6 +760,11 @@ func Present() {
  * time given, then closes it. It is what `pn-scripts-assistant window-check`
  * runs, so the release can prove on a real Windows that the window works
  * rather than that it compiles.
+ *
+ * It goes through what the program does with a window: the first page loads,
+ * the same window is sent on to a second address (setup handing over to the
+ * assistant), it is brought to the front (a second copy starting), and Close
+ * from another goroutine ends it (the program being told to stop).
  */
 func Check(url string, within time.Duration) error {
 	version, err := runtimeVersion()
@@ -767,15 +772,35 @@ func Check(url string, within time.Duration) error {
 		return err
 	}
 
-	result := make(chan bool, 1)
+	second := url + "?then"
+	result := make(chan error, 1)
+	pages := 0
 
-	loaded = func(ok bool) {
+	finish := func(err error) {
 		select {
-		case result <- ok:
+		case result <- err:
 		default:
 		}
 
-		Close()
+		go Close()
+	}
+
+	loaded = func(ok bool) {
+		pages++
+
+		switch {
+		case !ok:
+			finish(fmt.Errorf("WebView2 %s opened the window but page %d did not load", version, pages))
+		case pages == 1:
+			pendingMu.Lock()
+			pendingURL = second
+			pendingMu.Unlock()
+
+			procPostMessageW.Call(hwnd.Load(), wmNavigate, 0, 0)
+			Present()
+		default:
+			finish(nil)
+		}
 	}
 	defer func() { loaded = nil }()
 
@@ -787,14 +812,10 @@ func Check(url string, within time.Duration) error {
 	}
 
 	select {
-	case ok := <-result:
-		if !ok {
-			return fmt.Errorf("WebView2 %s opened the window but the page did not load", version)
-		}
-
-		return nil
+	case err := <-result:
+		return err
 	default:
-		return fmt.Errorf("WebView2 %s: the page did not load within %s", version, within)
+		return fmt.Errorf("WebView2 %s: %d of 2 pages loaded within %s", version, pages, within)
 	}
 }
 
