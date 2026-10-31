@@ -165,7 +165,9 @@ asks for — a page, a mail server, an integration — are his and are not liste
 ## Requirements
 
 - [Ollama](https://ollama.com) with a chat model and `nomic-embed-text`
-- For the native window: `libwebkit2gtk-4.1-dev` and `libgtk-3-dev` (Linux)
+- For the native window: `libwebkit2gtk-4.1-dev` and `libgtk-3-dev` (Linux);
+  on Windows the Microsoft Edge WebView2 runtime (part of Windows 11) and
+  `WebView2Loader.dll` beside the program, which both Windows downloads carry
 - For speech: any of `speech-dispatcher`, `espeak-ng`, or `piper`
 - For listening: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) with
   `whisper-cli` on your PATH and a model of 50MB or more
@@ -270,8 +272,10 @@ Or just the binary, without a package:
 CGO_ENABLED=1 go build -C clients -trimpath -o ../build/pn-scripts-assistant ./cmd/pn-scripts-assistant
 ```
 
-`CGO_ENABLED=0` builds too — you get the assistant without a native window,
-reachable in any browser at `127.0.0.1:8790`.
+`CGO_ENABLED=0` builds too — on Linux you get the assistant without a native
+window, reachable in any browser at `127.0.0.1:8790`. The Windows build needs
+no cgo for its window; `bash scripts/build-packages.sh windows` puts the
+WebView2 loader beside it.
 
 ## Running it
 
