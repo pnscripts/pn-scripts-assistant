@@ -82,6 +82,10 @@ type Runner struct {
 	mu   sync.Mutex
 	jobs map[int64]*Job
 	next int64
+
+	// inFlight counts the goroutines still doing work or announcing it, so
+	// Wait can tell when nothing is touching anything any more.
+	inFlight sync.WaitGroup
 }
 
 // DefaultAtMost is deliberately small. Two model calls on four cores already
@@ -223,9 +227,13 @@ func (r *Runner) start(what string, silent, queued bool, work func(context.Conte
 	 */
 	snapshot := *job
 
+	r.inFlight.Add(1)
+
 	r.mu.Unlock()
 
 	go func() {
+		defer r.inFlight.Done()
+
 		/*
 		 * A job that panics fails; it does not take the program down.
 		 *
@@ -304,6 +312,28 @@ func (r *Runner) List() []Job {
 
 	return out
 }
+
+/*
+ * StopAll asks every job still running to end, and Wait returns once none is
+ * doing anything any more — announcing included.
+ *
+ * For shutting down cleanly, and for tests: a job that is still writing into a
+ * data folder when that folder is removed fails the removal ("directory not
+ * empty"), which is a test failing because of what ran after it ended.
+ */
+func (r *Runner) StopAll() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, j := range r.jobs {
+		if j.State == Running {
+			j.cancel()
+		}
+	}
+}
+
+// Wait blocks until every job started so far has finished.
+func (r *Runner) Wait() { r.inFlight.Wait() }
 
 // Stop ends one job early.
 func (r *Runner) Stop(id int64) error {

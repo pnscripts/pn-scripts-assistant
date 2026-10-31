@@ -6,6 +6,20 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+### Fixed
+
+- **The proofreader leaves code alone.** Fenced code blocks and `inline
+  code` in Markdown are no longer checked, on the Writing page and in the
+  proofread tool: a selector, a query or a shell line is not a sentence.
+  On the built-in skill pack this took the Bulgarian findings from 470 to 13.
+- **Unticked checklist boxes are not slips.** "- [ ]" was reported as a space
+  before a bracket, and applying the sure findings turned it into "[]".
+- A task test that could fail now and again on a busy machine, because the
+  task it started was still writing when its folder was removed, now stops
+  and waits for the task first.
+
 ## 0.8.1 — 2026-10-27
 
 ### Added

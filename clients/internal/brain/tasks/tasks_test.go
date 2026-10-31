@@ -181,10 +181,39 @@ func newConductor(t *testing.T, model llm.Provider, ts ...tools.Tool) (*Conducto
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 	spoken := &said{db: db}
 
+	/*
+	 * Every task a test starts is stopped and waited for before the test's
+	 * folder is removed.
+	 *
+	 * Take returns while the task's own goroutine is still working, so a test
+	 * that only looks at the plan ends with that goroutine writing into the
+	 * brain's folder. Removing the folder then failed now and again with
+	 * "directory not empty" (staging CI, 0.8.0). Cleanups run last-in first,
+	 * so this one runs before the database closes and the folder goes.
+	 */
+	runner := &jobs.Runner{}
+
+	t.Cleanup(func() {
+		runner.StopAll()
+
+		finished := make(chan struct{})
+
+		go func() {
+			runner.Wait()
+			close(finished)
+		}()
+
+		select {
+		case <-finished:
+		case <-time.After(20 * time.Second):
+			t.Error("a task was still running twenty seconds after it was told to stop")
+		}
+	})
+
 	return &Conductor{
 		DB:   db,
 		Log:  quiet,
-		Jobs: &jobs.Runner{},
+		Jobs: runner,
 		Agent: &agent.Loop{
 			DB: db, Log: quiet, Quietly: true,
 			Registry: tools.NewRegistry(ts...),

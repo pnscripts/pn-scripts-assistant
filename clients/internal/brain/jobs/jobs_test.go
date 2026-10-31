@@ -215,3 +215,59 @@ func TestAJobThatPanicsDoesNotTakeTheProgramWithIt(t *testing.T) {
 		t.Fatal("the job never finished")
 	}
 }
+
+/*
+ * Stopping everything and waiting means nothing is still running afterwards —
+ * including the announcement, which happens after the work itself.
+ */
+func TestStopAllAndWaitLeaveNothingRunning(t *testing.T) {
+	var (
+		mu        sync.Mutex
+		announced int
+	)
+
+	r := &Runner{Announce: func(Job) {
+		mu.Lock()
+		announced++
+		mu.Unlock()
+	}}
+
+	for i := 0; i < 2; i++ {
+		if _, err := r.Start(fmt.Sprintf("job %d", i), func(ctx context.Context) (string, error) {
+			<-ctx.Done()
+
+			return "", ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	r.StopAll()
+
+	finished := make(chan struct{})
+
+	go func() {
+		r.Wait()
+		close(finished)
+	}()
+
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Wait did not return after every job was stopped")
+	}
+
+	for _, j := range r.List() {
+		if j.State != Stopped {
+			t.Errorf("%s is %v after StopAll and Wait", j.What, j.State)
+		}
+	}
+
+	// Both announcements already happened: Wait covers them too.
+	mu.Lock()
+	defer mu.Unlock()
+
+	if announced != 2 {
+		t.Errorf("Wait returned after %d of 2 announcements", announced)
+	}
+}

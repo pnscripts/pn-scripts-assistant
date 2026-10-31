@@ -74,7 +74,11 @@ func Language(text string) string {
 }
 
 // Check finds the slips in text. lang is "en", "bg" or empty to guess.
+// Markdown code — fenced blocks and `inline` — is not checked (code.go).
 func Check(text, lang string) []Finding {
+	code := codeSpans(text)
+	text = withoutCode(text, code)
+
 	if lang != "bg" && lang != "en" {
 		lang = Language(text)
 	}
@@ -93,7 +97,7 @@ func Check(text, lang string) []Finding {
 		out = append(out, english(text)...)
 	}
 
-	return tidy(out)
+	return tidy(outsideCode(out, code))
 }
 
 /*
@@ -240,6 +244,12 @@ func spacing(text string) []Finding {
 		// "...": an ellipsis may stand after a space at the start of a
 		// quotation, and a lone dot after a space is usually a file name.
 		if text[end] == '.' && end+1 < len(text) && text[end+1] != ' ' && text[end+1] != '\n' {
+			continue
+		}
+
+		// "[ ]" is a Markdown checkbox, not a stray space: taking the space
+		// out would turn an unticked item into a pair of brackets.
+		if text[end] == ']' && text[m[0]] == '[' && start == m[0]+1 && end == start+1 {
 			continue
 		}
 

@@ -299,3 +299,90 @@ func TestAHugeComparisonStillFinishes(t *testing.T) {
 		t.Error("two different long texts compared as the same")
 	}
 }
+
+/*
+ * Markdown code is left alone: what is wrong in prose is often right in a
+ * command, a selector or a query, and the same slip outside the code is still
+ * found.
+ */
+func TestCodeIsNotProofread(t *testing.T) {
+	text := "Сложете правилото `color: red !important;` във файла.\n\n" +
+		"```sql\nSELECT name FROM people WHERE (age > 18;\nSELECT \"име\" , 'x' FROM t;\n```\n\n" +
+		"~~~\nthe the code\n~~~\n" +
+		"Тук има грешка  в текста и и още една."
+
+	found := Check(text, "bg")
+
+	// The prose after the code is still checked, at the right place.
+	prose := strings.LastIndex(text, "Тук")
+
+	var after []string
+
+	for _, f := range found {
+		if f.At < prose {
+			t.Errorf("a finding in or before the code: %+v (%q)", f, f.Found)
+		}
+
+		if text[f.At:f.At+f.Length] != f.Found {
+			t.Errorf("a finding points at %q but says %q", text[f.At:f.At+f.Length], f.Found)
+		}
+
+		after = append(after, f.Rule)
+	}
+
+	if !strings.Contains(strings.Join(after, " "), "repeated_word") {
+		t.Errorf("the doubled word after the code was missed: %v", after)
+	}
+
+	if !strings.Contains(strings.Join(after, " "), "double_space") {
+		t.Errorf("the double space after the code was missed: %v", after)
+	}
+
+	// Applying the sure findings changes nothing inside the code.
+	out := Apply(text, found)
+	for _, keep := range []string{"`color: red !important;`", "WHERE (age > 18;", "the the code"} {
+		if !strings.Contains(out, keep) {
+			t.Errorf("applying the findings changed the code %q:\n%s", keep, out)
+		}
+	}
+}
+
+func TestWhatCountsAsCode(t *testing.T) {
+	cases := []struct {
+		text string
+		want []string
+	}{
+		{"a `b` c", []string{"`b`"}},
+		{"a ``b ` c`` d", []string{"``b ` c``"}},
+		{"an unclosed ` stays text", nil},
+		{"one `para\n\nnext` para", nil},
+		{"x\n```\ncode\n```\ny", []string{"```\ncode\n```\n"}},
+		{"x\n~~~~\n~~~\n~~~~\ny", []string{"~~~~\n~~~\n~~~~\n"}},
+		{"x\n```\nnever closed", []string{"```\nnever closed"}},
+		{"x\n    ```\nnot a fence (four spaces)", nil},
+	}
+
+	for _, c := range cases {
+		var got []string
+		for _, s := range codeSpans(c.text) {
+			got = append(got, c.text[s.at:s.end])
+		}
+
+		if strings.Join(got, "|") != strings.Join(c.want, "|") {
+			t.Errorf("%q: code %q, want %q", c.text, got, c.want)
+		}
+	}
+}
+
+// A Markdown checklist keeps its unticked boxes: "[ ]" is not a stray space.
+func TestUntickedBoxesAreNotSlips(t *testing.T) {
+	text := "- [ ] Номер на фактурата\n- [x] Дата\n- [ ] Сума\n"
+
+	for _, f := range Check(text, "bg") {
+		t.Errorf("a checklist was proofread: %+v", f)
+	}
+
+	if got := fixed("Done [x ] and ( a ]", "en"); got != "Done [x] and ( a]" {
+		t.Errorf("a real space before a bracket was not fixed: %q", got)
+	}
+}
