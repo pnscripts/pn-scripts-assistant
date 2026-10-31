@@ -62,6 +62,7 @@ jobs:
 
       # vet reaches the window, which is cgo against GTK and WebKit.
       - name: Install what the window needs
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
@@ -81,6 +82,7 @@ jobs:
           cache-dependency-path: clients/go.sum
 
       - name: Install what the window needs
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
@@ -165,6 +167,7 @@ jobs:
       # of these are cgo against GTK and WebKit, so without this the scan does
       # not come back clean: it does not run at all.
       - name: Install what the window needs
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
@@ -193,6 +196,7 @@ jobs:
           cache-dependency-path: clients/go.sum
 
       - name: Install what the window and the packaging need
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
@@ -324,6 +328,7 @@ jobs:
   windows-window:
     name: The Windows window opens
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -352,6 +357,15 @@ jobs:
         working-directory: clients
         run: go test ./internal/brain/window/
 
+      # So the build makes the installer too, which the steps after the window
+      # install, run and remove.
+      - name: Make sure Inno Setup is here
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
+
       - name: Build the Windows folder
         shell: bash
         run: bash scripts/build-packages.sh windows
@@ -365,6 +379,74 @@ jobs:
           grep -q "window check OK" window-check.txt
           grep -q "with its icon" window-check.txt
 
+      # What somebody does with the download (G3): the installer, silently,
+      # for this account only; the program it installed starts and serves its
+      # page; removing it takes the program and leaves the brain.
+      - name: The installer installs, the program starts, removing it keeps the brain
+        shell: pwsh
+        env:
+          BRAIN_SETUP_DONE: 'true'
+          OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+          PN_SCRIPTS_ASSISTANT_SILENT: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Get-ChildItem build/packages/*-windows-setup.exe | Select-Object -First 1
+          if (-not $setup) { throw 'no installer was built' }
+          Start-Process $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/LOG=$env:RUNNER_TEMP\install.log" -Wait
+          $app = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant"
+          foreach ($f in 'pn-scripts-assistant.exe','WebView2Loader.dll','WebView2Loader-LICENSE.txt','pn-scripts-assistant.ico') {
+            if (-not (Test-Path "$app\$f")) { Get-Content "$env:RUNNER_TEMP\install.log" -Tail 30; throw "the installer did not put $f in $app" }
+          }
+          if (Test-Path "$app\PORTABLE") { throw 'the installed copy is marked portable' }
+          Write-Output "installed in $app"
+
+          $p = Start-Process "$app\pn-scripts-assistant.exe" -ArgumentList 'serve','-addr','127.0.0.1:8899' -PassThru
+          $up = $false
+          for ($i = 0; $i -lt 90 -and -not $up; $i++) {
+            try { $up = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8899/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
+          }
+          if (-not $up) { throw 'the installed program did not answer within 90 s' }
+          $page = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8899/
+          if ($page.StatusCode -ne 200 -or $page.Content -notmatch 'PN Scripts Assistant') { throw 'the page did not come back' }
+          Write-Output 'the installed program answers and serves its page'
+          Stop-Process -Id $p.Id
+          $p.WaitForExit(20000) | Out-Null
+
+          $brain = "$env:USERPROFILE\.local\share\pn-scripts-assistant\data\brain.sqlite"
+          if (-not (Test-Path $brain)) { throw "the brain is not where it should be: $brain" }
+
+          $un = Get-ChildItem "$app\unins*.exe" | Select-Object -First 1
+          Start-Process $un.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          for ($i = 0; $i -lt 60 -and (Test-Path "$app\pn-scripts-assistant.exe"); $i++) { Start-Sleep 1 }
+          if (Test-Path "$app\pn-scripts-assistant.exe") { throw 'removing it left the program behind' }
+          if (-not (Test-Path $brain)) { throw 'removing the program took the brain with it' }
+          Write-Output 'removed; the brain is still there'
+
+      # The zip: unpacked anywhere, it keeps its brain beside itself.
+      - name: The portable zip keeps its brain beside it
+        shell: pwsh
+        env:
+          BRAIN_SETUP_DONE: 'true'
+          OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+          PN_SCRIPTS_ASSISTANT_SILENT: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Get-ChildItem build/packages/*-windows-amd64.zip | Select-Object -First 1
+          $to = "$env:RUNNER_TEMP\stick"
+          Expand-Archive $zip.FullName -DestinationPath $to
+          $dir = "$to\PN-Scripts-Assistant"
+          if (-not (Test-Path "$dir\PORTABLE")) { throw 'the zip is not marked portable' }
+          $p = Start-Process "$dir\pn-scripts-assistant.exe" -ArgumentList 'serve','-addr','127.0.0.1:8898' -PassThru
+          $up = $false
+          for ($i = 0; $i -lt 90 -and -not $up; $i++) {
+            try { $up = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8898/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
+          }
+          if (-not $up) { throw 'the portable program did not answer within 90 s' }
+          Stop-Process -Id $p.Id
+          $p.WaitForExit(20000) | Out-Null
+          if (-not (Test-Path "$dir\PN-SCRIPTS-ASSISTANT-DATA\brain.sqlite")) { throw 'the portable brain is not beside the program' }
+          Write-Output 'the portable copy keeps its brain beside it'
+
   scripts:
     name: Shell scripts
     runs-on: ubuntu-latest
@@ -372,6 +454,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: shellcheck
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck

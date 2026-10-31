@@ -60,7 +60,7 @@ On every push and every pull request, in
 | The package | the `.deb` built, put through `lintian`, then **built again and compared** |
 | The package installs | it is installed, upgraded over and removed, in a root of dpkg's own |
 | Shell scripts | `shellcheck --severity=error` |
-| The Windows window opens | on a Windows runner: the Windows folder built, then `window-check` opens the real window, hands over to a second page, brings it forward and closes it, with its icon |
+| The Windows window opens | on a Windows runner: the Windows folder and installer built; `window-check` opens the real window, hands over to a second page, brings it forward and closes it, with its icon; the installer installs silently for the account, the installed program serves its page, removing it keeps the brain; the zip, unpacked, keeps its brain beside it |
 
 `make ci` runs the same things here, in the same order. It is slow — several
 minutes against `make check`'s few seconds — and it is the difference between
