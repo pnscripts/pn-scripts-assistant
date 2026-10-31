@@ -2,7 +2,10 @@ name: Release
 
 # Builds every distributable artifact. Runs in CI rather than locally so that
 # release binaries come from a clean machine rather than somebody's laptop, and
-# so that the Windows and macOS builds happen on Windows and macOS.
+# so that the Windows build happens on Windows.
+#
+# Linux and Windows only (decided 17.10.2026): no macOS download is published.
+# CI still compiles for darwin, so the source keeps building there.
 
 on:
   push:
@@ -126,8 +129,6 @@ jobs:
         include:
           - { goos: linux,   goarch: amd64, ext: '' }
           - { goos: linux,   goarch: arm64, ext: '' }
-          - { goos: darwin,  goarch: amd64, ext: '' }
-          - { goos: darwin,  goarch: arm64, ext: '' }
           - { goos: windows, goarch: amd64, ext: '.exe' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -173,48 +174,6 @@ jobs:
           # clients and write to "../dist", which is the repository root.
           path: dist/*
           if-no-files-found: error
-
-  # The macOS download: the bundle, the tarball and the disk image.
-  #
-  # On a Mac rather than cross-compiled, because hdiutil is what makes a real
-  # .dmg — an image built with xorriso on Linux does mount, and is what this
-  # script falls back to, but the one people download should be the proper
-  # article. Nothing here is signed or notarised; the README inside says so.
-  macos:
-    needs: tests
-    name: macOS packages
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # The version is worked out from the tag and the commit.
-          fetch-depth: 0
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: clients/go.mod
-          cache-dependency-path: clients/go.sum
-
-      - name: Build the bundles and the disk images
-        run: bash scripts/build-packages.sh macos
-
-      # Built by hdiutil here, so it says so. A job that quietly produced the
-      # fallback image on a Mac would mean hdiutil had gone missing and nobody
-      # would find out until somebody could not open the download.
-      - name: It is a real disk image
-        run: |
-          ls -l build/packages
-          for dmg in build/packages/*.dmg; do
-            hdiutil imageinfo "$dmg" >/dev/null || exit 1
-          done
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: macos-packages
-          if-no-files-found: error
-          path: |
-            build/packages/*.dmg
-            build/packages/*.tar.gz
 
   # The Windows download: the zip and the installer.
   #
@@ -338,9 +297,9 @@ jobs:
       attestations: write
     # Including every installer: a release that publishes everything except
     # the thing the documentation tells people to install is not a release.
-    # One per system — the .deb, the .dmg, the Windows setup — and the plain
+    # One per system — the .deb and the Windows setup — and the plain
     # archives beside them for anybody who would rather not install anything.
-    needs: [tests, deb, macos, windows, cli, desktop]
+    needs: [tests, deb, windows, cli, desktop]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -350,8 +309,8 @@ jobs:
 
       # One list of checksums over everything published, written here because
       # here is the only place that has everything: the .deb comes from the
-      # Ubuntu runner, the disk images from the Mac and the installer from
-      # Windows, and a sums file from any one of them covers a third of the
+      # Ubuntu runner and the installer from Windows, and a sums file from
+      # either one of them covers half of the
       # release. Somebody checking a download should not have to work out
       # which machine made it.
       - name: Gather the files and sum them
@@ -364,8 +323,8 @@ jobs:
 
       # Where each file came from, in a form somebody else can check.
       #
-      # Nothing here is signed with a certificate — an Apple one and a Windows
-      # one cost money every year and identify a company, and this program has
+      # Nothing here is signed with a certificate — a Windows one costs money
+      # every year and identify a company, and this program has
       # neither. That is said plainly in the documentation, and it leaves a
       # real question unanswered: a checksum proves a download matches a
       # published number, and nothing proves the published number came from

@@ -842,7 +842,9 @@ case "$want" in
     deb)     build_deb ;;
     macos)   prepare_notes; build_macos ;;
     windows) prepare_notes; build_windows ;;
-    all)     build_deb; prepare_notes; build_macos; build_windows ;;
+    # Linux and Windows are what is released (decided 17.10.2026); the macOS
+    # bundle still builds on request, unsupported and unpublished.
+    all)     build_deb; prepare_notes; build_windows ;;
     *)       die "unknown target: $want (deb, macos, windows, all)" ;;
 esac
 

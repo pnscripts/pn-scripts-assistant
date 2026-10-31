@@ -150,7 +150,7 @@ other users and other machines; it does not protect against a program running
 as you, which can ask the same keyring.
 
 Root is asked for, not taken: `run_as_admin` has the system show its own
-password dialog (polkit, UAC, the macOS prompt) each time.
+password dialog (polkit, UAC) each time.
 
 An unrecognised privacy value is still treated as `private`, because the safe
 reading of a typo is the strict one.
@@ -199,21 +199,19 @@ network, which undoes the careful part.
 
 ## Installing it
 
-On Ubuntu it installs as a package and draws its own window; on Windows it
-installs for your account and opens in its own window too (Microsoft Edge
-WebView2, falling back to your browser where WebView2 is missing). On macOS it
-shows its interface in your browser.
+Two systems: Linux (Ubuntu and Debian) and Windows. On Ubuntu it installs as
+a package and draws its own window; on Windows it installs for your account
+and opens in its own window too (Microsoft Edge WebView2, falling back to your
+browser where WebView2 is missing). There is no macOS download.
 
 | System | Download | |
 |---|---|---|
 | Ubuntu / Debian | `pn-scripts-assistant_<version>_amd64.deb` | `sudo apt install ./…deb` |
-| macOS 11+ | `…-macos-arm64.dmg` (or `amd64` for Intel) | drag it to Applications |
 | Windows 10+ | `…-windows-setup.exe` | run it; no administrator password |
 
-Nothing is signed — there is no Apple developer account and no Windows
-certificate behind this — so macOS and Windows both refuse the first open and
-both take one extra click to pass. [installing.md](docs/guide/installing.md)
-says exactly which click, for each.
+Nothing is signed — there is no Windows certificate behind this — so Windows
+refuses the first open and takes one extra click to pass.
+[installing.md](docs/guide/installing.md) says exactly which click.
 
 ### On Ubuntu
 

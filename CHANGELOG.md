@@ -45,6 +45,12 @@ fixed, each with a test.
 - **On Windows the window stays on the assistant's own pages**: anything else
   opens in your browser, and the developer tools are off.
 
+### Changed
+
+- **Linux and Windows only.** Releases no longer carry macOS files; the
+  downloads are the Ubuntu/Debian package and the Windows installer and zip.
+  The source still compiles for macOS, unsupported.
+
 ### Checked
 
 - **Updating from 0.8 keeps everything.** A brain written by 0.8.1 —

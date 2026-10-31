@@ -20,9 +20,10 @@ Each is a target of its own: `make test` after a change costs a minute,
 `make release` costs several.
 
 `make release` builds the Ubuntu package, because that is the one this machine
-can build and check completely. `make packages` builds the macOS bundles and
-disk images and the Windows folder as well — everything except the Windows
-installer, which needs Inno Setup and therefore needs Windows. CI builds each
+can build and check completely. `make packages` builds the Windows folder as
+well — everything except the Windows installer, which needs Inno Setup and
+therefore needs Windows. Releases are Linux and Windows only; no macOS file is
+published. CI builds each
 one on its own system, which is where the published files come from.
 
 ## The version
@@ -53,17 +54,14 @@ out the commit it was built from, run `make package`, and compare with the
 `SHA256SUMS` published beside the download.
 
 CI then builds every download on the system it belongs to — the `.deb` and its
-`lintian` check on Ubuntu, the disk images with `hdiutil` on a Mac, the
-installer with Inno Setup on Windows — and attaches them all to the release
+`lintian` check on Ubuntu, the installer with Inno Setup on Windows — and attaches them all to the release
 with one `SHA256SUMS` over the lot. The publish job waits for every one of
 them: a release that publishes everything except the thing the documentation
 tells people to install is not a release, and that is as true of the installer
 as it is of the package.
 
-The two checks in those jobs are there because both failures are silent
-otherwise. The macOS job runs `hdiutil imageinfo` on what it built, so an
-image that quietly came from the cross-platform fallback fails the job rather
-than the download. The Windows job checks the setup `.exe` exists, because the
+The check in the Windows job is there because that failure is silent
+otherwise: it checks the setup `.exe` exists, because the
 script only warns when Inno Setup is missing — right for somebody building on
 Linux, wrong for the job whose whole purpose is that file.
 
@@ -88,8 +86,8 @@ Linux, wrong for the job whose whole purpose is that file.
   What it still depends on, stated rather than left to be discovered: the
   Debian libraries on the build machine decide the `Depends` line, so a
   different Ubuntu release will legitimately produce a different package.
-- **Signing.** Nothing is signed anywhere: no Debian key, no Apple Developer
-  certificate, no Windows code-signing certificate. Each download is trusted
+- **Signing.** Nothing is signed anywhere: no Debian key, no Windows
+  code-signing certificate. Each download is trusted
   because you built it or because its checksum matches, not because of a key.
-  macOS and Windows both say so at the first open, and
-  [installing.md](installing.md) says how to get past each.
+  Windows says so at the first open, and [installing.md](installing.md) says
+  how to get past it.

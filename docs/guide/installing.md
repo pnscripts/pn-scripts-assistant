@@ -1,10 +1,9 @@
 # Installing it
 
-Three systems, one program, but not the same on each. Ubuntu and Windows get
-the assistant in its own window (WebKitGTK on Linux, Microsoft Edge WebView2
-on Windows); on macOS it shows its interface in your browser. Memory, typed
-conversation and most tools work the same everywhere. These parts are
-Linux-only:
+Two systems: Linux (Ubuntu and Debian) and Windows. Both get the assistant in
+its own window (WebKitGTK on Linux, Microsoft Edge WebView2 on Windows).
+Memory, typed conversation and most tools work the same on both. These parts
+are Linux-only:
 
 - **Listening.** Microphone capture uses PipeWire (`pw-record`) or ALSA
   (`arecord`).
@@ -12,26 +11,25 @@ Linux-only:
   hears. It routes audio through PipeWire.
 - **Desktop control**: typing and clicking on your behalf goes through
   `xdotool`.
-- **Confining project work by the kernel**, with Landlock. On macOS and Windows
-  a command still gets a cleaned environment and no shell, but the folder limit
-  is not enforced by the kernel.
+- **Confining project work by the kernel**, with Landlock. On Windows a command
+  still gets a cleaned environment and no shell, but the folder limit is not
+  enforced by the kernel — so commands written into `cmd /c` or PowerShell
+  are always asked about there.
 - **Telling your voice from others, and opening full web pages.** Both need
-  the cgo build, and the macOS and Windows builds are made without cgo. Plain
-  page fetching still works there.
+  the cgo build, and the Windows build is made without cgo. Plain page
+  fetching still works there.
 
 | System | Download | What it does |
 |---|---|---|
 | Ubuntu / Debian | `pn-scripts-assistant_<version>_amd64.deb` | installs with `apt`, native window, menu entry |
-| macOS 11 or newer | `...-macos-<arch>.dmg` | drag to Applications; opens in your browser |
 | Windows 10 or newer, 64-bit | `...-windows-setup.exe` | installs for your account, Start menu entry, its own window |
 
 Every file has its SHA-256 in the `SHA256SUMS` published beside it.
 
-Nothing on any of them is signed: there is no Apple Developer account and no
-Windows code-signing certificate behind this, both of which cost money every
-year and identify a company. Each system says so in its own way when you first
-open it, and the way past it is written below. That is the honest state of it
-rather than something to work around.
+Nothing is signed: there is no Windows code-signing certificate behind this,
+which costs money every year and identifies a company. Windows says so when
+you first open it, and the way past it is written below. That is the honest
+state of it rather than something to work around.
 
 ## On Ubuntu
 
@@ -119,32 +117,6 @@ rm -rf ~/.local/state/pn-scripts-assistant
 If the brain was moved to another drive, `status` names that folder and the
 first path above will not be it.
 
-## On macOS
-
-macOS 11 or newer, Intel or Apple silicon — take the `.dmg` whose name matches
-(`amd64` for Intel, `arm64` for an M-series Mac). Open it and drag **PN Scripts
-Assistant** onto the Applications shortcut beside it.
-
-The first open will be refused: macOS says the app "cannot be opened because it
-is from an unidentified developer", which means it is not signed, not that
-anything is wrong with it. Right-click (or Control-click) the app in
-Applications and choose **Open**, then **Open** again in the dialog. Once only —
-after that it opens normally.
-
-There is no separate window on macOS. It starts, opens your browser at its own
-address, and everything happens there. Listening, echo cancellation, desktop
-control and Landlock confinement are not available on a Mac; see the list at
-the top of this page.
-
-Ollama it cannot install for you on a Mac: get it from
-[ollama.com/download](https://ollama.com/download) and then carry on with
-setup, which does the rest including the model.
-
-To remove it: drag the app to the Bin. What it learned stays in
-`~/Library/Application Support/pn-scripts-assistant` — deliberately, the same
-as everywhere else — and `rm -rf` on that folder is the deliberate way to take
-it away too.
-
 ## On Windows
 
 Windows 10 or newer, 64-bit. Two downloads, the same program inside:
@@ -167,10 +139,10 @@ instead and works the same; installing the *Evergreen WebView2 Runtime* from
 Microsoft's WebView2 download page gives it its window at the next start.
 Links that open a new window (sources, downloads) open in your usual browser.
 
-As on a Mac, listening, echo cancellation, desktop control and Landlock
+Listening, echo cancellation, desktop control and Landlock
 confinement are Linux-only.
 
-Ollama is the same as on a Mac: install it from
+Ollama it cannot install for you on Windows: install it from
 [ollama.com/download](https://ollama.com/download) first, and setup does
 everything after that.
 
@@ -184,7 +156,8 @@ Delete that folder when you actually mean it.
 make packages
 ```
 
-That builds the `.deb`, both macOS bundles and their disk images, and the
-Windows folder, into `build/packages`. The Windows *installer* is the one thing
+That builds the `.deb` and the Windows folder into `build/packages`.
+(`bash scripts/build-packages.sh macos` still makes a macOS bundle for anybody
+who wants to try one; it is not published, supported or tested.) The Windows *installer* is the one thing
 it cannot produce here: Inno Setup only runs on Windows, so the script says so
 and builds the rest. The release workflow builds each one on its own system.
