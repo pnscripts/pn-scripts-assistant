@@ -383,7 +383,20 @@ func loadIcon() uintptr {
 	// IMAGE_ICON, LR_LOADFROMFILE | LR_DEFAULTSIZE
 	icon, _, _ := procLoadImageW.Call(0, uintptr(unsafe.Pointer(name)), 1, 0, 0, 0x0010|0x0040)
 
+	iconLoaded.Store(icon != 0)
+
 	return icon
+}
+
+var iconLoaded atomic.Bool
+
+// Icon says, for window-check, whether the window wears its own icon.
+func Icon() string {
+	if iconLoaded.Load() {
+		return ", with its icon"
+	}
+
+	return ", without its icon (" + paths.Name + ".ico is not beside the program)"
 }
 
 // iconPath is pn-scripts-assistant.ico beside the program, or "".

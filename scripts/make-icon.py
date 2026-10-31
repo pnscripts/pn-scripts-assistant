@@ -183,6 +183,47 @@ def shrink(pixels, size):
     return out
 
 
+def png_bytes(pixels, size, alpha=False):
+    """A PNG of the pixels: RGB, or RGBA fully opaque (what an .ico wants)."""
+    raw = b"".join(
+        b"\x00" + bytes(v for px in row for v in (list(px) + [255] if alpha else px)) for row in pixels
+    )
+
+    def chunk(tag, data):
+        body = tag + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
+
+    png = b"\x89PNG\r\n\x1a\n"
+    png += chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6 if alpha else 2, 0, 0, 0))
+    png += chunk(b"IDAT", zlib.compress(raw, 9))
+    png += chunk(b"IEND", b"")
+
+    return png
+
+
+def write_ico(path, images):
+    """A Windows icon holding one PNG per size, largest first.
+
+    PNG entries are what Windows has read since Vista, and they keep the
+    file small; a 256 entry is written with 0 in its size bytes, as the
+    format says.
+    """
+    header = struct.pack("<HHH", 0, 1, len(images))
+    offset = len(header) + 16 * len(images)
+    entries, bodies = b"", b""
+
+    for size, png in images:
+        side = 0 if size >= 256 else size
+        entries += struct.pack("<BBBBHHII", side, side, 0, 0, 1, 32, len(png), offset)
+        bodies += png
+        offset += len(png)
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, "wb") as f:
+        f.write(header + entries + bodies)
+
+
 def write_png(path, pixels, size):
     raw = b"".join(
         b"\x00" + bytes(v for px in row for v in px) for row in pixels
@@ -221,4 +262,14 @@ for size in (256, 128, 64, 48):
 # inside it.
 write_png("assets/pn-scripts-assistant.png", full, SIZE)
 
-print(f"  written {SIZE}, 256, 128, 64, 48")
+# The Windows icon: beside the program in both downloads, where the window
+# loads it, and the one the installer's shortcuts, the uninstall entry and
+# the installer itself show. Small sizes are drawn from the full image like
+# the rest, because Windows picks 16, 24 and 32 for lists and the taskbar.
+write_ico(
+    "packaging/windows/pn-scripts-assistant.ico",
+    [(256, png_bytes(shrink(full, 256), 256, alpha=True))]
+    + [(size, png_bytes(shrink(full, size), size, alpha=True)) for size in (128, 64, 48, 32, 24, 16)],
+)
+
+print(f"  written {SIZE}, 256, 128, 64, 48 and the Windows icon")

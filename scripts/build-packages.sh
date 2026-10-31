@@ -752,6 +752,10 @@ build_windows() {
 
     cp "$ROOT/build/windows/README.txt" "$dir/" 2>/dev/null || true
 
+    # Its icon, beside it: the window loads it from there, and the installer's
+    # shortcuts and uninstall entry point at it (scripts/make-icon.py draws it).
+    cp "$ROOT/packaging/windows/pn-scripts-assistant.ico" "$dir/" || die "the Windows icon is missing"
+
     # The window. Without the loader the program falls back to the browser,
     # which is a working program but not the one the release describes.
     if webview2_loader "$dir"; then

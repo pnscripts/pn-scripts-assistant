@@ -47,6 +47,9 @@ fixed, each with a test.
 
 ### Changed
 
+- **Its own icon on Windows.** The window, the taskbar, the Start menu and
+  desktop shortcuts, the installer and the entry under *Settings → Apps* show
+  the assistant's icon instead of the blank default one.
 - **Linux and Windows only.** Releases no longer carry macOS files; the
   downloads are the Ubuntu/Debian package and the Windows installer and zip.
   The source still compiles for macOS, unsupported.

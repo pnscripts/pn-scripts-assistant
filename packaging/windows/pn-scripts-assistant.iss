@@ -44,7 +44,8 @@ WizardStyle=modern
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayName=PN Scripts Assistant
-UninstallDisplayIcon={app}\pn-scripts-assistant.exe
+UninstallDisplayIcon={app}\pn-scripts-assistant.ico
+SetupIconFile={#SourceDir}\pn-scripts-assistant.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -57,11 +58,12 @@ Source: "{#SourceDir}\pn-scripts-assistant.exe"; DestDir: "{app}"; Flags: ignore
 Source: "{#SourceDir}\README.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#SourceDir}\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\WebView2Loader-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\pn-scripts-assistant.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\PN Scripts Assistant"; Filename: "{app}\pn-scripts-assistant.exe"
-Name: "{group}\Set up again"; Filename: "{app}\pn-scripts-assistant.exe"; Parameters: "setup"
-Name: "{autodesktop}\PN Scripts Assistant"; Filename: "{app}\pn-scripts-assistant.exe"; Tasks: desktopicon
+Name: "{group}\PN Scripts Assistant"; Filename: "{app}\pn-scripts-assistant.exe"; IconFilename: "{app}\pn-scripts-assistant.ico"
+Name: "{group}\Set up again"; Filename: "{app}\pn-scripts-assistant.exe"; Parameters: "setup"; IconFilename: "{app}\pn-scripts-assistant.ico"
+Name: "{autodesktop}\PN Scripts Assistant"; Filename: "{app}\pn-scripts-assistant.exe"; IconFilename: "{app}\pn-scripts-assistant.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\pn-scripts-assistant.exe"; Description: "Open it now"; Flags: nowait postinstall skipifsilent

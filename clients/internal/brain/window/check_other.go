@@ -14,6 +14,10 @@ func Check(url string, within time.Duration) error {
 }
 
 // Engine names what draws the window.
+// Icon is said by window-check on Windows only; elsewhere the icon theme
+// draws it.
+func Icon() string { return "" }
+
 func Engine() string {
 	if Available() {
 		return "WebKitGTK"

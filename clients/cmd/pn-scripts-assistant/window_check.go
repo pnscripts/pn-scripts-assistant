@@ -56,7 +56,7 @@ func runWindowCheck(args []string) error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stdout, "window check OK: %s showed the page\n", window.Engine())
+	fmt.Fprintf(os.Stdout, "window check OK: %s showed the page%s\n", window.Engine(), window.Icon())
 
 	return nil
 }

@@ -359,10 +359,11 @@ jobs:
       - name: The window opens and shows its page
         shell: bash
         run: |
-          ls -l build/windows/PN-Scripts-Assistant/WebView2Loader.dll
+          ls -l build/windows/PN-Scripts-Assistant/WebView2Loader.dll build/windows/PN-Scripts-Assistant/pn-scripts-assistant.ico
           build/windows/PN-Scripts-Assistant/pn-scripts-assistant.exe window-check 120s > window-check.txt 2>&1 || { cat window-check.txt; exit 1; }
           cat window-check.txt
           grep -q "window check OK" window-check.txt
+          grep -q "with its icon" window-check.txt
 
   scripts:
     name: Shell scripts
