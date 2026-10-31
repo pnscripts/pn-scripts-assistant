@@ -55,6 +55,8 @@ Name: "desktopicon"; Description: "Put a shortcut on the desktop"; GroupDescript
 [Files]
 Source: "{#SourceDir}\pn-scripts-assistant.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\README.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#SourceDir}\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\WebView2Loader-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\PN Scripts Assistant"; Filename: "{app}\pn-scripts-assistant.exe"

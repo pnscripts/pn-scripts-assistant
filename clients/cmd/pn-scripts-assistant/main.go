@@ -125,6 +125,10 @@ func main() {
 		err = runUnlock(os.Args[2:])
 	case "read-log":
 		err = runReadLog(os.Args[2:])
+	// Not for people: opens a window on a page of its own and says whether it
+	// loaded. The release runs it on a real Windows (window_check.go).
+	case "window-check":
+		err = runWindowCheck(os.Args[2:])
 	// Which copy is this. The first question anybody is asked when they
 	// report something, and until now there was no way to answer it.
 	case "version", "-v", "--version":

@@ -467,8 +467,10 @@ will ask you to install Ollama, which it cannot install for you on Windows
 -- get it from https://ollama.com/download, then continue. Everything after
 that, including the language model, it does itself.
 
-There is no separate window on Windows yet. PN Scripts Assistant runs and shows its
-interface in your browser.
+It opens in its own window, drawn by Microsoft Edge WebView2, which
+Windows 11 includes and almost every Windows 10 already has. Where it is
+missing, PN Scripts Assistant shows itself in your browser instead; installing
+the "Evergreen WebView2 Runtime" from Microsoft gives it its window.
 
 Where your data goes
 --------------------
@@ -651,6 +653,72 @@ archive_zip() {
 }
 
 # ---------------------------------------------------------------------------
+# The WebView2 loader
+# ---------------------------------------------------------------------------
+#
+# The Windows window is a WebView2 (clients/internal/brain/window), and
+# Microsoft's documented way in is WebView2Loader.dll, shipped beside the
+# program. It comes from Microsoft's own NuGet package at a pinned version,
+# and the package is checked against the SHA-256 recorded here before
+# anything is taken out of it: a download that is not byte for byte the one
+# that was read and licence-checked does not go into a release.
+#
+# Licence: BSD-style (the package's LICENSE.txt, shipped beside the DLL as
+# WebView2Loader-LICENSE.txt, as its binary-redistribution clause asks).
+#
+# Without it the program still runs and shows itself in the browser, so a
+# build that cannot fetch it (offline) says so loudly; a release cannot,
+# because CI checks for the DLL.
+WEBVIEW2_VERSION="1.0.4258.31"
+WEBVIEW2_SHA256="56f7f4b8bf9aee4b8efefbbdd4f67d5f74ebd1b100ed0806da71bf76af481aa9"
+
+webview2_loader() {
+    local into="$1"
+    local cache="$ROOT/build/cache"
+    local pkg="$cache/microsoft.web.webview2.$WEBVIEW2_VERSION.nupkg"
+    local url="https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/$WEBVIEW2_VERSION/microsoft.web.webview2.$WEBVIEW2_VERSION.nupkg"
+
+    mkdir -p "$cache"
+
+    if [ ! -f "$pkg" ]; then
+        curl -fsSL --retry 3 -o "$pkg.part" "$url" || { rm -f "$pkg.part"; return 1; }
+        mv "$pkg.part" "$pkg"
+    fi
+
+    local got
+    got="$(sha256sum "$pkg" | cut -d' ' -f1)"
+
+    if [ "$got" != "$WEBVIEW2_SHA256" ]; then
+        rm -f "$pkg"
+        die "the WebView2 package does not match its recorded SHA-256 (got $got)"
+    fi
+
+    local tmp="$cache/webview2-$WEBVIEW2_VERSION"
+    rm -rf "$tmp"
+    mkdir -p "$tmp"
+
+    if command -v unzip >/dev/null; then
+        unzip -q -o "$pkg" build/native/x64/WebView2Loader.dll LICENSE.txt -d "$tmp" || return 1
+    elif command -v 7z >/dev/null; then
+        7z x -bso0 -bsp0 -o"$tmp" "$pkg" build/native/x64/WebView2Loader.dll LICENSE.txt >/dev/null || return 1
+    else
+        local from="$pkg" to="$tmp"
+
+        if command -v cygpath >/dev/null; then
+            from="$(cygpath -w "$from")"
+            to="$(cygpath -w "$to")"
+        fi
+
+        powershell -NoProfile -Command \
+            "Add-Type -A System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::ExtractToDirectory('$from', '$to')" || return 1
+    fi
+
+    cp "$tmp/build/native/x64/WebView2Loader.dll" "$into/WebView2Loader.dll" || return 1
+    cp "$tmp/LICENSE.txt" "$into/WebView2Loader-LICENSE.txt" || return 1
+    rm -rf "$tmp"
+}
+
+# ---------------------------------------------------------------------------
 # Windows
 # ---------------------------------------------------------------------------
 #
@@ -683,6 +751,14 @@ build_windows() {
         -o "$dir/pn-scripts-assistant.exe" ./cmd/pn-scripts-assistant || die "windows build failed"
 
     cp "$ROOT/build/windows/README.txt" "$dir/" 2>/dev/null || true
+
+    # The window. Without the loader the program falls back to the browser,
+    # which is a working program but not the one the release describes.
+    if webview2_loader "$dir"; then
+        log "  WebView2 loader $WEBVIEW2_VERSION beside the program"
+    else
+        warn "  the WebView2 loader could not be fetched: this build shows itself in the browser"
+    fi
 
     # The zip is the portable copy: PORTABLE beside the program keeps the brain
     # in the folder (paths.PortableRoot). The installer lists its files by

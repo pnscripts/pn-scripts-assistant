@@ -256,6 +256,28 @@ jobs:
         run: |
           ls -l build/packages
           ls build/packages/*-windows-setup.exe >/dev/null
+          ls build/windows/PN-Scripts-Assistant/WebView2Loader.dll >/dev/null
+
+      # The window, on a real Windows, from the folder that was just packed:
+      # WebView2 must say the page loaded. See the same job in ci.yml.
+      - name: Make sure the WebView2 runtime is here
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $pv = (Get-ItemProperty -Path $key -Name pv -ErrorAction SilentlyContinue).pv
+          if (-not $pv -or $pv -eq '0.0.0.0') {
+            Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile "$env:RUNNER_TEMP\wv2setup.exe"
+            Start-Process -FilePath "$env:RUNNER_TEMP\wv2setup.exe" -ArgumentList '/silent','/install' -Wait
+            $pv = (Get-ItemProperty -Path $key -Name pv -ErrorAction SilentlyContinue).pv
+          }
+          Write-Output "WebView2 runtime: $pv"
+
+      - name: The window opens and shows its page
+        shell: bash
+        run: |
+          build/windows/PN-Scripts-Assistant/pn-scripts-assistant.exe window-check 120s > window-check.txt 2>&1 || { cat window-check.txt; exit 1; }
+          cat window-check.txt
+          grep -q "window check OK" window-check.txt
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

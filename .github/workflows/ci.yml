@@ -314,6 +314,56 @@ jobs:
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting
   # preferences is a gate people start ignoring.
+  # The Windows window, opened on a real Windows.
+  #
+  # The window is WebView2 reached by COM vtable index from Go, and a build for
+  # Windows compiling on Linux says nothing about whether those indices are
+  # right. So a Windows runner builds the package the way a release does —
+  # loader fetched and checked against its SHA-256 — opens a window on a page
+  # of its own and fails unless WebView2 says the page loaded.
+  windows-window:
+    name: The Windows window opens
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: clients/go.mod
+          cache-dependency-path: clients/go.sum
+
+      # Windows 11 has it; a server image may not. Installed from Microsoft
+      # when missing, the same way a person without it would get it.
+      - name: Make sure the WebView2 runtime is here
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $pv = (Get-ItemProperty -Path $key -Name pv -ErrorAction SilentlyContinue).pv
+          if (-not $pv -or $pv -eq '0.0.0.0') {
+            Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile "$env:RUNNER_TEMP\wv2setup.exe"
+            Start-Process -FilePath "$env:RUNNER_TEMP\wv2setup.exe" -ArgumentList '/silent','/install' -Wait
+            $pv = (Get-ItemProperty -Path $key -Name pv -ErrorAction SilentlyContinue).pv
+          }
+          Write-Output "WebView2 runtime: $pv"
+
+      - name: Test the window package
+        working-directory: clients
+        run: go test ./internal/brain/window/
+
+      - name: Build the Windows folder
+        shell: bash
+        run: bash scripts/build-packages.sh windows
+
+      - name: The window opens and shows its page
+        shell: bash
+        run: |
+          ls -l build/windows/PN-Scripts-Assistant/WebView2Loader.dll
+          build/windows/PN-Scripts-Assistant/pn-scripts-assistant.exe window-check 120s > window-check.txt 2>&1 || { cat window-check.txt; exit 1; }
+          cat window-check.txt
+          grep -q "window check OK" window-check.txt
+
   scripts:
     name: Shell scripts
     runs-on: ubuntu-latest

@@ -23,6 +23,14 @@ The Go standard library is © The Go Authors, BSD-3-Clause.
 
 Speech, language and voice models, datasets and the ONNX Runtime library are not part of this repository: the program downloads them at install or run time from their publishers (see `clients/internal/preflight/`), under the publishers' own licences, listed below.
 
+## Shipped beside the program in the Windows downloads
+
+| File | Component | Licence |
+|---|---|---|
+| `WebView2Loader.dll` | Microsoft Edge WebView2 SDK loader (x64), from the NuGet package `Microsoft.Web.WebView2` 1.0.4258.31, SHA-256 of the package checked at build time (`scripts/build-packages.sh`) | BSD-style licence by Microsoft Corporation, shipped beside it as `WebView2Loader-LICENSE.txt` |
+
+The WebView2 runtime itself is not shipped: it is part of Windows 11 and is installed on almost every Windows 10, kept up to date by Microsoft.
+
 ## Models and data the program downloads on the user's machine
 
 Nothing below is stored in this repository or in the release files. The program downloads each item from its publisher when the user installs or enables the matching feature; each keeps its publisher's licence.
