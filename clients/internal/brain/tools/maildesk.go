@@ -2,6 +2,8 @@ package tools
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -377,6 +379,10 @@ type draftArgs struct {
 	Subject string `json:"subject"`
 	Body    string `json:"body"`
 	ID      int64  `json:"id"`
+
+	// Seen is the fingerprint of the draft as the owner was shown it when
+	// asked; see SendDraft.Pin.
+	Seen string `json:"seen,omitempty"`
 }
 
 func (DraftReply) Summarize(raw json.RawMessage) string {
@@ -464,6 +470,16 @@ func (m MailDesk) Keep(ctx context.Context, answers, to, subject, body string) (
 	return dr, warning, err
 }
 
+/*
+ * Pinning is a tool whose approval must hold what the question showed.
+ *
+ * Called when a call is put in front of the owner; what it returns is stored
+ * as the call's arguments and is what runs after the yes.
+ */
+type Pinning interface {
+	Pin(args json.RawMessage) json.RawMessage
+}
+
 // SendDraft sends one draft, as it stands, after the owner's yes.
 type SendDraft struct{ Desk MailDesk }
 
@@ -516,6 +532,41 @@ func (t SendDraft) Summarize(raw json.RawMessage) string {
 	return head
 }
 
+/*
+ * Pin ties the approval to the words it showed.
+ *
+ * The question shows the draft as it stands when asked, and the yes may come
+ * minutes later. In between the draft can be edited — on the Mail page, or by
+ * anything else that can reach it — and the yes would then send words the
+ * owner never saw. So the fingerprint of what was shown travels with the
+ * approval, and a draft that no longer matches it is not sent.
+ */
+func (t SendDraft) Pin(raw json.RawMessage) json.RawMessage {
+	var a draftArgs
+
+	if json.Unmarshal(raw, &a) != nil || t.Desk.Drafts == nil {
+		return raw
+	}
+
+	dr, err := t.Desk.Drafts.Draft(a.ID)
+	if err != nil {
+		return raw
+	}
+
+	pinned, err := json.Marshal(map[string]any{"id": a.ID, "seen": fingerprint(dr)})
+	if err != nil {
+		return raw
+	}
+
+	return pinned
+}
+
+func fingerprint(dr store.Draft) string {
+	sum := sha256.Sum256([]byte(dr.To + "\x00" + dr.Subject + "\x00" + dr.Body))
+
+	return hex.EncodeToString(sum[:16])
+}
+
 func (t SendDraft) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
 	var a draftArgs
 
@@ -523,7 +574,7 @@ func (t SendDraft) Execute(ctx context.Context, raw json.RawMessage) (string, er
 		return "", err
 	}
 
-	return SendWaitingDraft(t.Desk, a.ID)
+	return sendDraft(t.Desk, a.ID, a.Seen)
 }
 
 /*
@@ -532,6 +583,13 @@ func (t SendDraft) Execute(ctx context.Context, raw json.RawMessage) (string, er
  * on it. Shared by the tool and the Mail page's Send button.
  */
 func SendWaitingDraft(desk MailDesk, id int64) (string, error) {
+	return sendDraft(desk, id, "")
+}
+
+// errDraftChanged is a draft edited after the owner was asked about it.
+var errDraftChanged = errors.New("it was changed after you were asked; ask me to send it again so you see the new words")
+
+func sendDraft(desk MailDesk, id int64, seen string) (string, error) {
 	if desk.Drafts == nil {
 		return "", fmt.Errorf("drafts cannot be kept here")
 	}
@@ -543,6 +601,8 @@ func SendWaitingDraft(desk MailDesk, id int64) (string, error) {
 	 */
 	if waiting, err := desk.Drafts.Draft(id); err == nil && care.HasGaps(waiting.Body) {
 		return "", fmt.Errorf("draft %d still has a question for you marked [[…]]; fill it in on the Mail page first", id)
+	} else if err == nil && seen != "" && fingerprint(waiting) != seen {
+		return "", fmt.Errorf("draft %d was not sent: %w", id, errDraftChanged)
 	}
 
 	if desk.Account == nil || !desk.Account().Configured() {
@@ -553,6 +613,13 @@ func SendWaitingDraft(desk MailDesk, id int64) (string, error) {
 	dr, err := desk.Drafts.ClaimDraft(id)
 	if err != nil {
 		return "", fmt.Errorf("draft %d: %w", id, err)
+	}
+
+	// Checked again on what was claimed: an edit can land between the two.
+	if seen != "" && fingerprint(dr) != seen {
+		_ = desk.Drafts.FailedDraft(id, errDraftChanged.Error())
+
+		return "", fmt.Errorf("draft %d was not sent: %w", id, errDraftChanged)
 	}
 
 	var to []string

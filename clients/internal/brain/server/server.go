@@ -1498,9 +1498,29 @@ func (s *Server) handleMail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.brain.Cfg.MailUser = strings.TrimSpace(body.User)
-	s.brain.Cfg.MailHost = strings.TrimSpace(body.Host)
-	s.brain.Cfg.SMTPHost = strings.TrimSpace(body.SMTP)
+	user, host, smtp := strings.TrimSpace(body.User), strings.TrimSpace(body.Host), strings.TrimSpace(body.SMTP)
+
+	/*
+	 * A saved password belongs to the account and the servers it was typed for.
+	 *
+	 * Blank means keep it — the form never shows it — but only while the
+	 * account and both servers stay what they were. Otherwise changing the host
+	 * alone would hand the owner's password, at the next mail check, to
+	 * whichever server was typed in, and nobody would have typed it for that
+	 * server.
+	 */
+	cfg := s.brain.Cfg
+	if body.Password == "" && cfg.MailPassword != "" &&
+		(user != cfg.MailUser || host != cfg.MailHost || smtp != cfg.SMTPHost) {
+		fail(w, http.StatusBadRequest,
+			"Type the password again: the saved one was for another account or server.")
+
+		return
+	}
+
+	s.brain.Cfg.MailUser = user
+	s.brain.Cfg.MailHost = host
+	s.brain.Cfg.SMTPHost = smtp
 
 	// Blank means keep what is saved, not clear it: the form never shows the
 	// password, so submitting the form must not wipe it.

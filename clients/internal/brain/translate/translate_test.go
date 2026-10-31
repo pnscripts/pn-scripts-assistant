@@ -312,3 +312,37 @@ func TestAnOpenDocumentStaysValid(t *testing.T) {
 		t.Errorf("the mimetype entry is not first and stored: %v", names)
 	}
 }
+
+/*
+ * A link put where the translation goes is not followed.
+ *
+ * Found by the 1.0 security review: the "does it exist" check runs minutes
+ * before the write, and os.WriteFile follows a dangling link. A link made to
+ * point at another file must be refused at the write, and that file untouched.
+ */
+func TestATranslationDoesNotWriteThroughALink(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "note.md")
+	_ = os.WriteFile(in, []byte("Hello.\n"), 0o600)
+
+	victim := filepath.Join(dir, "elsewhere", "victim.md")
+	out := filepath.Join(dir, "note.bg.md")
+
+	// Dangling now (the existence check passes), and pointing somewhere the
+	// owner never named.
+	if err := os.Symlink(victim, out); err != nil {
+		t.Skip("no symlinks here:", err)
+	}
+
+	_ = os.MkdirAll(filepath.Dir(victim), 0o700)
+
+	u := &upper{}
+
+	if _, err := (Translator{Engine: u.engine}).File(context.Background(), in, out, "en", "bg"); err == nil {
+		t.Error("the translation was written through a link")
+	}
+
+	if _, err := os.Stat(victim); err == nil {
+		t.Error("the file the link pointed at was created")
+	}
+}

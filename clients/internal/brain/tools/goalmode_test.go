@@ -39,6 +39,15 @@ func TestGoalModeAsksOnlyTheFourThings(t *testing.T) {
 		{"delete from elsewhere", RunCommand{}, cmd("/home/ana", "rm", "notes.txt"), AskDeleting},
 		{"remove software", RemovePart{}, nil, AskDeleting},
 		{"delete inside", RunCommand{}, cmd(goal, "rm", "-rf", "build"), ""},
+		// Found by the 1.0 security review: the shell's own program is what
+		// is judged, and "~" is the home folder, not a folder called "~".
+		{"delete outside by a shell", RunCommand{}, cmd(goal, "bash", "-c", "rm -rf ~/Documents"), AskDeleting},
+		{"delete outside by tilde", RunCommand{}, cmd(goal, "rm", "-rf", "~/Documents"), AskDeleting},
+		{"delete outside by PowerShell", RunCommand{}, cmd(goal, "powershell", "-Command", `Remove-Item -Recurse C:\Users\ana`), AskDeleting},
+		{"encoded PowerShell", RunCommand{}, cmd(goal, "powershell", "-EncodedCommand", "AAAA"), AskSystemWide},
+		{"registry", RunCommand{}, cmd(goal, "reg", "delete", `HKLM\X`), AskSystemWide},
+		{"delete inside by a shell", RunCommand{}, cmd(goal, "bash", "-c", "rm -rf build && npm run build"), ""},
+		{"build by a shell", RunCommand{}, cmd(goal, "bash", "-c", "npm install && npm test"), ""},
 		{"git reset inside", RunCommand{}, cmd(goal, "git", "reset", "--hard"), ""},
 		{"build", RunCommand{}, cmd(goal, "godot4", "--headless", "--export-release", "Linux"), ""},
 		{"download a model", InstallModel{}, json.RawMessage(`{"name":"qwen3:8b"}`), ""},

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -139,9 +140,13 @@ const (
 
 	wvGetSettings             = 3
 	wvNavigate                = 5
+	wvAddNavigationStarting   = 7
 	wvAddNavigationCompleted  = 15
 	wvAddNewWindowRequested   = 44
 	setPutIsStatusBarEnabled  = 10
+	setPutAreDevToolsEnabled  = 12
+	navStartGetURI            = 3
+	navStartPutCancel         = 8
 	navGetIsSuccess           = 3
 	newWindowGetURI           = 3
 	newWindowPutHandled       = 6
@@ -212,6 +217,10 @@ var (
 		url                      string
 		failure                  error
 	}
+
+	// opened is the address the program last navigated to; only the window's
+	// own thread reads or writes it.
+	opened string
 
 	// loaded is told whether each navigation succeeded; set by Check.
 	loaded func(ok bool)
@@ -601,11 +610,15 @@ func controllerReady(gen int64, h uintptr) *handler {
 			// The status bar shows link addresses with the port in them;
 			// an application has no use for it.
 			settings.call(setPutIsStatusBarEnabled, 0)
+			// An application's window is not a place to inspect and
+			// rewrite its page (1.0 security review).
+			settings.call(setPutAreDevToolsEnabled, 0)
 			settings.release()
 		}
 
 		var token int64
 
+		webview.call(wvAddNavigationStarting, uintptr(unsafe.Pointer(navigationStarting())), uintptr(unsafe.Pointer(&token)))
 		webview.call(wvAddNewWindowRequested, uintptr(unsafe.Pointer(newWindowRequested())), uintptr(unsafe.Pointer(&token)))
 		webview.call(wvAddNavigationCompleted, uintptr(unsafe.Pointer(navigationCompleted())), uintptr(unsafe.Pointer(&token)))
 
@@ -644,6 +657,43 @@ func newWindowRequested() *handler {
 	})
 }
 
+/*
+ * The window stays on the address the program opened.
+ *
+ * Anything else — a link with no handler, a dropped file, a page script
+ * setting location — is cancelled; a web address goes to the system browser
+ * instead, where it has an address bar. See sameOrigin.
+ */
+func navigationStarting() *handler {
+	return newHandler(func(_ uintptr, args *object) uintptr {
+		if args == nil {
+			return 0
+		}
+
+		var uri *uint16
+		if hr := args.call(navStartGetURI, uintptr(unsafe.Pointer(&uri))); failed(hr) || uri == nil {
+			args.call(navStartPutCancel, 1)
+
+			return 0
+		}
+
+		target := windows.UTF16PtrToString(uri)
+		windows.CoTaskMemFree(unsafe.Pointer(uri))
+
+		if sameOrigin(opened, target) {
+			return 0
+		}
+
+		args.call(navStartPutCancel, 1)
+
+		if strings.HasPrefix(strings.ToLower(target), "http://") || strings.HasPrefix(strings.ToLower(target), "https://") {
+			OpenInBrowser(target)
+		}
+
+		return 0
+	})
+}
+
 func navigationCompleted() *handler {
 	return newHandler(func(_ uintptr, args *object) uintptr {
 		if loaded == nil || args == nil {
@@ -668,6 +718,9 @@ func navigate(url string) {
 	if err != nil {
 		return
 	}
+
+	// The one address the window may show from now on: see navigationStarting.
+	opened = url
 
 	current.webview.call(wvNavigate, uintptr(unsafe.Pointer(u)))
 	runtime.KeepAlive(u)

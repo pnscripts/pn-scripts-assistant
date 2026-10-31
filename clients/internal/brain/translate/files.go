@@ -98,7 +98,24 @@ func (tr Translator) File(ctx context.Context, path, out, from, to string) (Resu
 		return res, err
 	}
 
-	if err := os.WriteFile(out, body, 0o644); err != nil {
+	/*
+	 * Created, never replaced. The check above was minutes ago — a long book
+	 * takes that long — and a file or a link put at out since then must not
+	 * be overwritten or followed: O_EXCL refuses both.
+	 */
+	file, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return res, fmt.Errorf("%s could not be created as a new file: %w", out, err)
+	}
+
+	if _, err := file.Write(body); err != nil {
+		file.Close()
+		os.Remove(out)
+
+		return res, err
+	}
+
+	if err := file.Close(); err != nil {
 		return res, err
 	}
 

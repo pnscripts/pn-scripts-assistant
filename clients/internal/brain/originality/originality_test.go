@@ -358,3 +358,21 @@ func TestTheCatalogueAuditChecksEachItemForTheAspectsItHasOnly(t *testing.T) {
 		t.Errorf("offline: %+v", offline)
 	}
 }
+
+// A finding that begins like a formula stays text in the spreadsheet (found by
+// the 1.0 security review: a page the model read could plant =HYPERLINK).
+func TestAReportCellIsNeverAFormula(t *testing.T) {
+	for in, want := range map[string]string{
+		"=HYPERLINK(\"x\")": "'=HYPERLINK(\"x\")",
+		"+1":                "'+1",
+		"-2":                "'-2",
+		"@SUM(A1)":          "'@SUM(A1)",
+		"\t=1":              "'\t=1",
+		"plain words":       "plain words",
+		"":                  "",
+	} {
+		if got := sheetCell(in); got != want {
+			t.Errorf("sheetCell(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

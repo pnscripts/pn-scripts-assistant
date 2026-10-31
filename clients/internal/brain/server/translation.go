@@ -201,6 +201,15 @@ func (s *Server) handleTranslateFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Where it writes is held to the same rule as what it reads.
+	if body.Out != "" {
+		if err := tools.GuardSensitive(r.Context(), body.Out); err != nil {
+			fail(w, http.StatusForbidden, err.Error())
+
+			return
+		}
+	}
+
 	if _, err := os.Stat(path); err != nil {
 		fail(w, http.StatusNotFound, "There is no file at that path.")
 

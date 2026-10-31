@@ -502,7 +502,7 @@ func (s *Server) Serve(onReady func()) {
 		go onReady()
 	})
 
-	_ = http.Serve(s.listener, mux)
+	_ = http.Serve(s.listener, guard(mux))
 }
 
 /*

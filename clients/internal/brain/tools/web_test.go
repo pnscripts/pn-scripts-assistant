@@ -224,3 +224,43 @@ func (r rewriteHost) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	return http.DefaultTransport.RoundTrip(req)
 }
+
+/*
+ * DNS rebinding: the name passes the check, then dials somewhere private.
+ *
+ * Found by the 1.0 security review. GuardTarget resolved the name once; the
+ * connection resolved it again. Here the check is told the name is public
+ * (the first answer) and the real resolver then gives loopback (the second):
+ * the socket itself must refuse.
+ */
+func TestTheAddressDialledIsCheckedToo(t *testing.T) {
+	secret := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("secrets"))
+	}))
+	defer secret.Close()
+
+	_, port, _ := net.SplitHostPort(strings.TrimPrefix(secret.URL, "http://"))
+
+	f := FetchURL{Resolver: func(string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("93.184.216.34")}, nil
+	}}
+
+	out, err := f.Execute(context.Background(),
+		json.RawMessage(`{"url":"http://localhost:`+port+`/"}`))
+
+	if err == nil || strings.Contains(out, "secrets") {
+		t.Fatalf("a rebound name reached loopback: %v %q", err, out)
+	}
+
+	if !strings.Contains(err.Error(), "internal address") {
+		t.Errorf("refused, but not by the dial guard: %v", err)
+	}
+
+	if refuseInternal("tcp", "169.254.169.254:80", nil) == nil || refuseInternal("tcp", "[fd00::1]:80", nil) == nil {
+		t.Error("the dial guard let a private address through")
+	}
+
+	if refuseInternal("tcp", "93.184.216.34:443", nil) != nil {
+		t.Error("the dial guard refused a public address")
+	}
+}

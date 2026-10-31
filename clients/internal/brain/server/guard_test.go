@@ -229,6 +229,53 @@ func TestDecisionsStayAtTheDesk(t *testing.T) {
 }
 
 /*
+ * Reading is fine from a phone; changing these is not.
+ *
+ * Found by the 1.0 security review: a limited device could point the mailbox
+ * at another server (the saved password went with the next mail check), write
+ * files, read files into the brain by their path here, and start unattended
+ * goal work. Reading the same things stays allowed.
+ */
+func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
+	s, got := guarded(t, config.ReachNetwork)
+
+	code, _, _ := s.paired.Offer(pair.Limited)
+	_, token, _ := s.paired.Accept(code, "phone", "192.168.1.9")
+
+	carry := func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+token) }
+
+	for _, path := range []string{"/api/mail", "/api/mail/drafts", "/api/goals", "/api/skills"} {
+		*got = false
+
+		if w := ask(s, "GET", path, "192.168.1.9:4000", carry); w.Code != 200 {
+			t.Errorf("a limited device could not read %s (%d)", path, w.Code)
+		}
+	}
+
+	for _, path := range []string{
+		"/api/mail", "/api/mail/drafts/3", "/api/mail/drafts/3/discard", "/api/tables/save",
+		"/api/forms/fill", "/api/forms/fields", "/api/books/import", "/api/diary/import",
+		"/api/goals", "/api/goals/2/work", "/api/skills", "/api/skills/reload",
+		"/api/providers/connect", "/api/devices/connect", "/api/tunnel", "/api/copies",
+		"/api/desktop", "/api/organisation/agents/x/state",
+	} {
+		*got = false
+
+		w := ask(s, "POST", path, "192.168.1.9:4000", carry)
+
+		if w.Code != http.StatusForbidden || *got {
+			t.Errorf("a limited device was allowed to post to %s (%d)", path, w.Code)
+		}
+	}
+
+	// Talking stays a phone's to do.
+	*got = false
+	if w := ask(s, "POST", "/api/chat", "192.168.1.9:4000", carry); w.Code != 200 || !*got {
+		t.Errorf("a limited device could not talk (%d)", w.Code)
+	}
+}
+
+/*
  * Claiming a code is the one route a stranger may call.
  *
  * It has to be: it is how a device stops being a stranger. What protects it is
@@ -476,5 +523,19 @@ func TestANamePointedAtThisComputerIsRefused(t *testing.T) {
 		}); w.Code != 200 || !*got {
 			t.Errorf("%s was refused (%d)", host, w.Code)
 		}
+	}
+}
+
+// No API answer is kept by the window's HTTP cache, which is not sealed (found
+// by the 1.0 security review). The page's own files may still be cached.
+func TestAnswersAreNotCached(t *testing.T) {
+	s, _ := guarded(t, config.ReachHere)
+
+	if w := ask(s, "GET", "/api/conversations", "127.0.0.1:5000", nil); w.Header().Get("Cache-Control") != "no-store" {
+		t.Errorf("an API answer may be cached: %q", w.Header().Get("Cache-Control"))
+	}
+
+	if w := ask(s, "GET", "/js/console.js", "127.0.0.1:5000", nil); w.Header().Get("Cache-Control") == "no-store" {
+		t.Error("the page's own files were kept out of the cache too")
 	}
 }

@@ -1013,14 +1013,15 @@ func TestTheMailPasswordNeverLeavesTheSettingsFile(t *testing.T) {
 /*
  * Saving the form with the password box empty keeps the saved one.
  *
- * The form never shows the password, so somebody changing only the server name
- * submits a blank box — and clearing it there would silently break the mailbox
- * they just finished setting up.
+ * The form never shows the password, so saving it again — to change the
+ * morning check, or just pressing Save twice — submits a blank box, and
+ * clearing it there would silently break the mailbox they just set up.
  */
 func TestABlankPasswordBoxKeepsTheSavedOne(t *testing.T) {
 	ts, _, b := newServer(t)
 
 	b.Cfg.MailPassword = "already-saved"
+	b.Cfg.MailUser, b.Cfg.MailHost = "alex@example.com", "imap.example.com"
 
 	res, err := http.Post(ts.URL+"/api/mail", "application/json",
 		strings.NewReader(`{"user":"alex@example.com","host":"imap.example.com","password":""}`))
@@ -1036,6 +1037,54 @@ func TestABlankPasswordBoxKeepsTheSavedOne(t *testing.T) {
 
 	if b.Cfg.MailUser != "alex@example.com" {
 		t.Errorf("the rest of the form did not save: %q", b.Cfg.MailUser)
+	}
+}
+
+/*
+ * But a saved password is never sent to a server it was not typed for.
+ *
+ * Found by the 1.0 security review: changing only the host kept the password,
+ * so the next mail check signed in to whatever server was typed — the owner's
+ * password, handed to it. A new account or server needs the password again.
+ */
+func TestAPasswordIsNotCarriedToAnotherServer(t *testing.T) {
+	ts, _, b := newServer(t)
+
+	b.Cfg.MailPassword = "already-saved"
+	b.Cfg.MailUser, b.Cfg.MailHost = "alex@example.com", "imap.example.com"
+
+	for _, body := range []string{
+		`{"user":"alex@example.com","host":"imap.elsewhere.test","password":""}`,
+		`{"user":"alex@example.com","host":"imap.example.com","smtp":"smtp.elsewhere.test","password":""}`,
+		`{"user":"someone@example.com","host":"imap.example.com","password":""}`,
+	} {
+		res, err := http.Post(ts.URL+"/api/mail", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		res.Body.Close()
+
+		if res.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s: saved with the old password (%d)", body, res.StatusCode)
+		}
+
+		if b.Cfg.MailHost != "imap.example.com" || b.Cfg.MailUser != "alex@example.com" || b.Cfg.SMTPHost != "" {
+			t.Fatalf("%s: the settings changed anyway", body)
+		}
+	}
+
+	// With the password typed again, the new server is saved.
+	res, err := http.Post(ts.URL+"/api/mail", "application/json",
+		strings.NewReader(`{"user":"alex@example.com","host":"imap.elsewhere.test","password":"typed-again"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res.Body.Close()
+
+	if b.Cfg.MailHost != "imap.elsewhere.test" || b.Cfg.MailPassword != "typed-again" {
+		t.Errorf("a new server with its password was not saved: %q", b.Cfg.MailHost)
 	}
 }
 

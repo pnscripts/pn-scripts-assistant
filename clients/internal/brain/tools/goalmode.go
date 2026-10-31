@@ -2,6 +2,7 @@ package tools
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -116,6 +117,25 @@ func GoalModeAsks(t Tool, args json.RawMessage, inside func(path string) bool) s
 }
 
 func commandAsks(a commandArgs, inside func(string) bool) string {
+	/*
+	 * A shell's own program, command by command: "bash -c 'rm -rf
+	 * ~/Documents'" is judged as rm with that path, not as bash with one
+	 * argument that happens to sit inside the goal's folder.
+	 */
+	if commands, hidden, ok := Inline(a.Argv); ok {
+		if hidden {
+			return AskSystemWide
+		}
+
+		for _, command := range commands {
+			if why := commandAsks(commandArgs{Argv: command, Dir: a.Dir}, inside); why != "" {
+				return why
+			}
+		}
+
+		return ""
+	}
+
 	why := Destructive(a.Argv)
 	if why == "" {
 		return ""
@@ -123,7 +143,8 @@ func commandAsks(a commandArgs, inside func(string) bool) string {
 
 	switch {
 	case strings.Contains(why, "administrator"), strings.Contains(why, "service"), strings.Contains(why, "machine off"),
-		strings.Contains(why, "formats"), strings.Contains(why, "overwrites data"), strings.Contains(why, "stops programs"):
+		strings.Contains(why, "formats"), strings.Contains(why, "overwrites data"), strings.Contains(why, "stops programs"),
+		strings.Contains(why, "whole system"):
 		return AskSystemWide
 	}
 
@@ -143,7 +164,24 @@ func commandAsks(a commandArgs, inside func(string) bool) string {
 		}
 
 		p := arg
-		if !filepath.IsAbs(p) {
+
+		// "~" is the home folder to the shell, not a folder called "~" here.
+		if p == "~" || strings.HasPrefix(p, "~/") || strings.HasPrefix(p, `~\`) {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return AskDeleting
+			}
+
+			p = filepath.Join(home, p[1:])
+		}
+
+		// Other ways of naming a folder the shell fills in: not worked out
+		// here, so asked.
+		if strings.ContainsAny(p, "$%") {
+			return AskDeleting
+		}
+
+		if !filepath.IsAbs(p) && !(len(p) > 2 && p[1] == ':') {
 			p = filepath.Join(dir, p)
 		}
 

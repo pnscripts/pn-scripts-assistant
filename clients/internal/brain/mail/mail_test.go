@@ -279,3 +279,36 @@ func TestSeenAndListMailAreRecognised(t *testing.T) {
 		t.Errorf("%+v", got)
 	}
 }
+
+/*
+ * A folder name with a line break in it is not sent at all.
+ *
+ * The name comes from the model, and the model reads mail strangers wrote: a
+ * second line would be a second IMAP command — DELETE, EXPUNGE, COPY — that
+ * nobody asked for. Nothing may reach the server, not even the first line.
+ */
+func TestAFolderNameCannotCarryASecondCommand(t *testing.T) {
+	here, there := net.Pipe()
+	defer here.Close()
+	defer there.Close()
+
+	got := make(chan string, 1)
+	go func() {
+		buf := make([]byte, 256)
+		there.SetReadDeadline(time.Now().Add(300 * time.Millisecond))
+		n, _ := there.Read(buf)
+		got <- string(buf[:n])
+	}()
+
+	c := &client{conn: here}
+
+	for _, name := range []string{"INBOX\r\na2 DELETE INBOX", "INBOX\na2 EXPUNGE", "IN\x00BOX"} {
+		if _, err := c.selectBox(name); !errors.Is(err, errLineBreak) {
+			t.Errorf("%q: want the line-break refusal, got %v", name, err)
+		}
+	}
+
+	if sent := <-got; sent != "" {
+		t.Errorf("something reached the server: %q", sent)
+	}
+}

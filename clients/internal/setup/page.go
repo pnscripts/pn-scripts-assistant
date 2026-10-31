@@ -1865,7 +1865,7 @@ async function install(name){
   busy = true;
   refresh();
 
-  await fetch("/install?name=" + encodeURIComponent(name));
+  await fetch("/install?name=" + encodeURIComponent(name), {method: "POST"});
   refresh();
 }
 
@@ -2977,7 +2977,7 @@ async function refresh(){
 el("continue").onclick = async () => {
   el("continue").disabled = true;
   el("status").textContent = "Starting your assistant…";
-  await fetch("/done");
+  await fetch("/done", {method: "POST"});
 };
 
 refresh();

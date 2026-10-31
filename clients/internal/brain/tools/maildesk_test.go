@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -108,5 +109,44 @@ func TestWithNoMailboxTheDigestSaysSo(t *testing.T) {
 
 	if _, err := call(t, MailDigest{Desk: desk}, map[string]any{}); err != ErrNoMail {
 		t.Errorf("%v", err)
+	}
+}
+
+/*
+ * The yes sends the words the question showed, or nothing.
+ *
+ * Found by the 1.0 security review: the approval stored only the draft's
+ * number, so a draft edited between the question and the yes went out with
+ * words the owner never saw. The pinned fingerprint now travels with it.
+ */
+func TestADraftChangedAfterTheQuestionIsNotSent(t *testing.T) {
+	desk, db := deskFor(t)
+
+	dr, err := db.AddDraft("anna@example.org", "Hello", "The words you saw.", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	send := SendDraft{Desk: desk}
+	raw, _ := json.Marshal(map[string]any{"id": dr.ID})
+
+	pinned := send.Pin(raw)
+	if !strings.Contains(string(pinned), `"seen"`) {
+		t.Fatalf("nothing was pinned: %s", pinned)
+	}
+
+	if _, err := db.ChangeDraft(dr.ID, "anna@example.org", "Hello", "Other words."); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := send.Execute(context.Background(), pinned); !errors.Is(err, errDraftChanged) {
+		t.Errorf("a changed draft: %v", err)
+	}
+
+	// Asked again, the new words are what is pinned, and it goes on to the
+	// next check (here: no mail account).
+	if _, err := send.Execute(context.Background(), send.Pin(raw)); err == nil || errors.Is(err, errDraftChanged) ||
+		!strings.Contains(err.Error(), "Settings") {
+		t.Errorf("an unchanged draft: %v", err)
 	}
 }

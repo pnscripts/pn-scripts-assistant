@@ -935,6 +935,45 @@ func TestNeverStopReadsAProtectedFileWithoutAsking(t *testing.T) {
 	}
 }
 
+/*
+ * Goal mode settles everything except the four questions — and a protected
+ * file, which it never agreed to.
+ *
+ * Found by the 1.0 security review: goal mode cleared the protected-path
+ * question, so a page read in goal mode could get a key read and posted on
+ * with nobody asked.
+ */
+func TestGoalModeStillAsksBeforeReadingAKey(t *testing.T) {
+	home := t.TempDir()
+	key := filepath.Join(home, ".ssh", "id_ed25519")
+
+	os.MkdirAll(filepath.Dir(key), 0o700)
+	os.WriteFile(key, []byte("not a real key"), 0o600)
+
+	protect.Use(protect.Choices{})
+
+	loop, db := newLoop(t, tools.ReadFile{})
+	loop.GoalMode = func() bool { return true }
+
+	model := &scripted{replies: []llm.Response{{
+		ToolCalls: []llm.ToolCall{{
+			ID: "c1", Name: "read_file",
+			Arguments: json.RawMessage(`{"path":` + quote(key) + `}`),
+		}},
+	}}}
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.Run(context.Background(), conv, model, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !res.WaitingForApproval() {
+		t.Fatal("goal mode read a private key without asking anybody")
+	}
+}
+
 // An ordinary file is read without ceremony. Both halves have to hold: a brain
 // that asks about everything is one whose questions stop being read.
 func TestAnOrdinaryFileIsJustRead(t *testing.T) {

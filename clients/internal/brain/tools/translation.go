@@ -156,6 +156,13 @@ func (t TranslateDocument) Execute(ctx context.Context, raw json.RawMessage) (st
 		return "", err
 	}
 
+	// Where it writes is held to the same rule as what it reads.
+	if a.Out != "" {
+		if err := GuardSensitive(ctx, a.Out); err != nil {
+			return "", err
+		}
+	}
+
 	if t.With.Translator == nil {
 		return "", translate.ErrNoEngine
 	}

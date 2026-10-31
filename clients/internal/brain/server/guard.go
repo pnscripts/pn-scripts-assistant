@@ -132,9 +132,65 @@ var atTheDeskOnly = []string{
 	"/api/mail/send/",
 }
 
+/*
+ * changedAtTheDeskOnly are routes a device away from the computer may read but
+ * not post to.
+ *
+ * Kept apart from atTheDeskOnly because reading them from a phone is fine —
+ * looking at a draft, a goal, the list of skills — while changing them is a
+ * decision: where the owner's mail password is sent, a file written or read
+ * into the brain by its path on this computer, unattended work started, a
+ * credential or a connection given, what the program is allowed to learn.
+ */
+var changedAtTheDeskOnly = []string{
+	"/api/mail",            // the mailbox, its servers, drafts waiting to be sent
+	"/api/tables/look",     // reads a spreadsheet by its path here
+	"/api/tables/save",     // writes a file into the owner's folders
+	"/api/forms/",          // reads and fills a PDF by its path here
+	"/api/books/read",      // reads a file by its path here
+	"/api/books/import",    // the same, into the books
+	"/api/diary/import",    // the same, into the diary
+	"/api/glossary/import", // the same, into the glossary
+	"/api/goals",           // a goal, and unattended work towards it
+	"/api/skills",          // what it is taught and may load
+	"/api/open-source",     // opening a file or folder on this computer
+	"/api/desktop",         // the applications menu entry
+	"/api/environment/",    // what it may notice around it
+	"/api/copies",          // where copies of the brain go
+	"/api/tunnel",          // being reachable from the internet
+	"/api/devices/",        // connecting another brain or device
+	"/api/providers/",      // a hosted model and its key
+	"/api/team/",           // what a specialist may use
+	"/api/lessons/",        // lessons it keeps for good
+	"/api/voiceprint/",     // whose voice it answers
+	"/api/vault/",          // the recovery key
+	"/api/journey/",        // its record of what happened
+	"/api/organisation/",   // the organisation, every change
+}
+
 func decisionRoute(path string) bool {
 	for _, prefix := range atTheDeskOnly {
 		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// decision is decisionRoute, plus the routes that are decisions only when
+// something is being changed.
+func decision(r *http.Request) bool {
+	if decisionRoute(r.URL.Path) {
+		return true
+	}
+
+	if !changesSomething(r) {
+		return false
+	}
+
+	for _, prefix := range changedAtTheDeskOnly {
+		if strings.HasPrefix(r.URL.Path, prefix) {
 			return true
 		}
 	}
@@ -151,6 +207,17 @@ func decisionRoute(path string) bool {
  */
 func (s *Server) Guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		/*
+		 * No answer of the API is kept by the window's own cache.
+		 *
+		 * The brain is sealed on disk; WebKit's and WebView2's HTTP caches are
+		 * not, and for the portable copy the WebView2 folder sits on the same
+		 * stick. A conversation kept there in the clear would undo the seal.
+		 */
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+
 		who := s.whoIsAsking(r)
 
 		if who.Here {
@@ -213,7 +280,7 @@ func (s *Server) Guard(next http.Handler) http.Handler {
 		if who.Known {
 			s.paired.Seen(who.Device.ID, fromAddress(r))
 
-			if who.Device.Can != pair.Full && decisionRoute(r.URL.Path) {
+			if who.Device.Can != pair.Full && decision(r) {
 				fail(w, http.StatusForbidden,
 					"this device can talk to it and watch it, but decisions are made at the computer")
 

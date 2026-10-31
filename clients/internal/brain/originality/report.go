@@ -109,10 +109,26 @@ func Write(dir, title string, f []Finding, when time.Time) (string, string, erro
 	_ = w.Write([]string{"item", "aspect", "finding", "risk", "action", "fixed"})
 
 	for _, x := range f {
-		_ = w.Write([]string{x.Item, x.Aspect, x.Finding, string(x.Risk), x.Action, x.Fixed})
+		_ = w.Write([]string{sheetCell(x.Item), sheetCell(x.Aspect), sheetCell(x.Finding), sheetCell(string(x.Risk)), sheetCell(x.Action), sheetCell(x.Fixed)})
 	}
 
 	w.Flush()
 
 	return md, sheet, w.Error()
+}
+
+/*
+ * sheetCell keeps a finding from being run as a formula.
+ *
+ * The words come from the model and from the pages it read, and a cell that
+ * begins with = + - @ (or a tab or carriage return before one) is a formula
+ * to Excel and LibreOffice — "=HYPERLINK(...)" in a report somebody opens.
+ * A leading apostrophe makes it text, which is what it always was.
+ */
+func sheetCell(text string) string {
+	if text != "" && strings.ContainsRune("=+-@\t\r", rune(text[0])) {
+		return "'" + text
+	}
+
+	return text
 }

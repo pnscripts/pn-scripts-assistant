@@ -206,7 +206,13 @@ func Unconfinable(t Tool, raw json.RawMessage) string {
 		return ""
 	}
 
-	program := filepath.Base(a.Argv[0])
+	program := ProgramName(a.Argv[0])
+
+	// cmd and PowerShell too (found by the 1.0 security review): on Windows
+	// there is no kernel confinement at all, so these are always asked there.
+	if _, _, inlined := Inline(a.Argv); inlined && (program == "cmd" || program == "powershell" || program == "pwsh") {
+		return program + " runs a command written into its argument, and this machine cannot hold what that writes to the project — write it to a script in the project and run that"
+	}
 
 	inline := map[string][]string{
 		"sh": {"-c"}, "bash": {"-c"}, "dash": {"-c"}, "zsh": {"-c"}, "fish": {"-c"},

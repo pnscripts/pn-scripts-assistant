@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -113,6 +114,51 @@ func (f FetchURL) GuardTarget(raw string) error {
 	return nil
 }
 
+/*
+ * guardedTransport checks the address it actually connects to.
+ *
+ * GuardTarget resolves the name once to decide, and the connection resolves
+ * it again to dial. A name with a zero TTL can answer a public address the
+ * first time and 169.254.169.254 or the router the second — DNS rebinding —
+ * so the check that matters is made on the socket, after resolution, on the
+ * very address being dialled.
+ *
+ * A proxy from the environment is not used while guarding: the connection
+ * would then be to the proxy, the name resolved where this cannot see it.
+ */
+func guardedTransport(free bool) http.RoundTripper {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+
+	if free {
+		return transport
+	}
+
+	// The guard is the only way out: no proxy decides for it.
+	transport.Proxy = nil
+
+	transport.DialContext = (&net.Dialer{
+		Timeout:   15 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Control:   refuseInternal,
+	}).DialContext
+
+	return transport
+}
+
+func refuseInternal(network, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		host = address
+	}
+
+	if ip := net.ParseIP(host); ip != nil && isInternal(ip) {
+		return fmt.Errorf("refusing to connect to the internal address %s, "+
+			"which is this machine or the local network", ip)
+	}
+
+	return nil
+}
+
 // isInternal covers every range that is not the public internet.
 func isInternal(ip net.IP) bool {
 	return ip.IsLoopback() ||
@@ -160,7 +206,8 @@ func (f FetchURL) Execute(ctx context.Context, raw json.RawMessage) (string, err
 	client := f.Client
 	if client == nil {
 		client = &http.Client{
-			Timeout: 20 * time.Second,
+			Transport: guardedTransport(free),
+			Timeout:   20 * time.Second,
 			// A redirect can point at a private address after the original
 			// target passed the check, so every hop is guarded again.
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {

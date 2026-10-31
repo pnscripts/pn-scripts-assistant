@@ -13,6 +13,7 @@ package mail
 import (
 	"bufio"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -129,6 +130,18 @@ func (c *client) send(format string, args ...any) ([]string, error) {
 
 	tag := fmt.Sprintf("a%03d", c.tag)
 	command := fmt.Sprintf(format, args...)
+
+	/*
+	 * One command is one line, whatever it was handed.
+	 *
+	 * A folder name comes from the model, and the model reads mail written by
+	 * strangers: "INBOX\r\na2 DELETE INBOX" would otherwise be two commands,
+	 * the second one nobody asked for. Quoting cannot carry a line break in
+	 * IMAP, so a name holding one is refused rather than repaired.
+	 */
+	if strings.ContainsAny(command, "\r\n\x00") {
+		return nil, errLineBreak
+	}
 
 	if _, err := fmt.Fprintf(c.conn, "%s %s\r\n", tag, command); err != nil {
 		return nil, err
@@ -398,6 +411,8 @@ func quote(s string) string {
 
 	return `"` + r.Replace(s) + `"`
 }
+
+var errLineBreak = errors.New("a mailbox name or sign-in cannot contain a line break")
 
 var errNotSetUp = fmt.Errorf(
 	"no mailbox is set up: put the address, server and an app password into " +

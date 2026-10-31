@@ -2,7 +2,6 @@ package tools
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"strings"
 )
 
@@ -73,12 +72,55 @@ func (RunCommand) Consent(raw json.RawMessage) string {
  * rm removed.
  */
 func Destructive(argv []string) string {
-	if len(argv) == 0 {
+	return destructive(argv, 0)
+}
+
+func destructive(argv []string, depth int) string {
+	if len(argv) == 0 || depth > 4 {
 		return ""
 	}
 
-	program := filepath.Base(argv[0])
+	/*
+	 * A shell handed its program as a string is judged by that program.
+	 *
+	 * "bash -c 'rm -rf ~/Documents'" used to read as bash, which deletes
+	 * nothing; and on Windows every deletion is a command of cmd or
+	 * PowerShell, never a program of its own. Found by the 1.0 security
+	 * review. An encoded PowerShell command cannot be read at all, so it is
+	 * asked about as what it might be.
+	 */
+	if commands, hidden, ok := Inline(argv); ok {
+		if hidden {
+			return HiddenCommand
+		}
+
+		for _, command := range commands {
+			if why := destructive(command, depth+1); why != "" {
+				return why
+			}
+		}
+
+		return ""
+	}
+
+	program := ProgramName(argv[0])
 	args := argv[1:]
+
+	// Programs that run the rest of their arguments as a command.
+	switch program {
+	case "xargs", "env", "nohup", "nice", "timeout", "time", "exec", "command", "builtin", "stdbuf", "ionice":
+		rest := args
+		for len(rest) > 0 && (strings.HasPrefix(rest[0], "-") || strings.Contains(rest[0], "=") ||
+			(program == "timeout" && len(rest[0]) > 0 && rest[0][0] >= '0' && rest[0][0] <= '9')) {
+			rest = rest[1:]
+		}
+
+		return destructive(rest, depth+1)
+	}
+
+	if why := windowsDestructive(program, args); why != "" {
+		return why
+	}
 
 	has := func(flags ...string) bool {
 		for _, a := range args {
@@ -162,6 +204,174 @@ func Destructive(argv []string) string {
 
 	if strings.HasPrefix(program, "mkfs") {
 		return "it formats a disk"
+	}
+
+	return ""
+}
+
+// HiddenCommand is why a command whose program cannot be read is asked about.
+const HiddenCommand = "it runs a hidden command that cannot be read, so it may change the whole system"
+
+/*
+ * ProgramName is a program's own name, the same on every system: no folder
+ * (either slash), no .exe, lower case — "C:\\Windows\\System32\\cmd.exe" is cmd.
+ */
+func ProgramName(path string) string {
+	if i := strings.LastIndexAny(path, `/\`); i >= 0 {
+		path = path[i+1:]
+	}
+
+	path = strings.ToLower(path)
+
+	for _, ext := range []string{".exe", ".com", ".bat", ".cmd"} {
+		path = strings.TrimSuffix(path, ext)
+	}
+
+	return path
+}
+
+/*
+ * Inline is the program a shell was handed as a string, split into the
+ * commands the shell would run: sh/bash/zsh -c, cmd /c, powershell -Command
+ * (or no flag at all, which is the same thing to PowerShell). hidden is an
+ * encoded PowerShell command, which cannot be read. ok is false when argv is
+ * not such a call.
+ *
+ * The split is deliberately generous — on ; & | newlines, $( ` ( ) { } — so a
+ * command hidden in a substitution or a script block is still seen. Quotes are
+ * dropped rather than parsed: the question is only which programs appear.
+ */
+func Inline(argv []string) (commands [][]string, hidden bool, ok bool) {
+	if len(argv) < 2 {
+		return nil, false, false
+	}
+
+	program := ProgramName(argv[0])
+	args := argv[1:]
+
+	var script string
+
+	switch program {
+	case "sh", "bash", "dash", "zsh", "fish", "ksh", "ash", "busybox":
+		for i, a := range args {
+			if strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--") && strings.ContainsRune(a[1:], 'c') && i+1 < len(args) {
+				script = args[i+1]
+				ok = true
+
+				break
+			}
+		}
+	case "cmd":
+		for i, a := range args {
+			if l := strings.ToLower(a); l == "/c" || l == "/k" || l == "/r" {
+				script = strings.Join(args[i+1:], " ")
+				ok = true
+
+				break
+			}
+		}
+	case "powershell", "pwsh":
+		for i := 0; i < len(args); i++ {
+			l := strings.ToLower(args[i])
+
+			switch {
+			case l == "-e" || l == "-ec" || strings.HasPrefix(l, "-enc"):
+				return nil, true, true
+			case l == "-c" || strings.HasPrefix(l, "-com"):
+				script = strings.Join(args[i+1:], " ")
+				ok = true
+			case l == "-f" || strings.HasPrefix(l, "-fi"):
+				// A script file: run like any program, judged like one.
+				return nil, false, false
+			case strings.HasPrefix(l, "-"):
+				// -NoProfile, -ExecutionPolicy Bypass and the like.
+				if l == "-executionpolicy" || l == "-ep" || l == "-windowstyle" || l == "-w" ||
+					strings.HasPrefix(l, "-config") || l == "-version" || l == "-v" || l == "-wd" {
+					i++
+				}
+
+				continue
+			default:
+				// No flag: the rest is the command.
+				script = strings.Join(args[i:], " ")
+				ok = true
+			}
+
+			break
+		}
+	}
+
+	if !ok {
+		return nil, false, false
+	}
+
+	split := strings.NewReplacer(";", "\n", "&", "\n", "|", "\n", "$(", "\n", "`", "\n",
+		"(", "\n", ")", "\n", "{", "\n", "}", "\n", "\r", "\n")
+
+	for _, line := range strings.Split(split.Replace(script), "\n") {
+		var words []string
+
+		for _, word := range strings.Fields(line) {
+			if word = strings.Trim(word, `'"`); word != "" {
+				words = append(words, word)
+			}
+		}
+
+		if len(words) > 0 {
+			commands = append(commands, words)
+		}
+	}
+
+	return commands, false, true
+}
+
+/*
+ * windowsDestructive is the same question for cmd and PowerShell, whose
+ * deleting, formatting and stopping are commands rather than programs.
+ * PowerShell's aliases (del, rd, ri, erase, rm, rmdir) all mean Remove-Item.
+ */
+func windowsDestructive(program string, args []string) string {
+	sub := ""
+	if len(args) > 0 {
+		sub = strings.ToLower(args[0])
+	}
+
+	switch program {
+	case "del", "erase", "rd", "rmdir", "remove-item", "ri", "clear-content", "clc":
+		return "it deletes files for good"
+	case "format", "format-volume", "clear-disk", "diskpart", "initialize-disk", "remove-partition":
+		return "it formats a disk"
+	case "taskkill", "tskill", "stop-process", "spps":
+		return "it stops programs"
+	case "stop-service", "spsv", "set-service", "remove-service":
+		return "it stops or disables a service"
+	case "sc":
+		switch sub {
+		case "stop", "delete", "config":
+			return "it stops or disables a service"
+		}
+	case "net":
+		switch sub {
+		case "stop", "user", "localgroup":
+			return "it stops a service or changes accounts — a change to the whole system"
+		}
+	case "stop-computer", "restart-computer":
+		return "it turns the machine off"
+	case "runas":
+		return "it runs as the administrator"
+	case "start-process", "saps", "start":
+		for _, a := range args {
+			if strings.EqualFold(a, "runas") {
+				return "it runs as the administrator"
+			}
+		}
+	case "reg":
+		switch sub {
+		case "delete", "add", "import", "restore":
+			return "it changes the whole system's registry"
+		}
+	case "remove-itemproperty", "set-itemproperty", "bcdedit", "set-executionpolicy", "takeown", "icacls", "cacls":
+		return "it changes the whole system's settings or permissions"
 	}
 
 	return ""

@@ -1000,6 +1000,9 @@ func (l *Loop) RunBrief(
 			 */
 			held, rule, ask := protect.InArguments(call.Arguments)
 
+			// Kept apart: goal mode settles everything else, never this.
+			protected := ask
+
 			if ask && tool.Risk() != tools.Mutating {
 				summary = protect.Explain(summary, held, rule)
 			}
@@ -1130,6 +1133,16 @@ func (l *Loop) RunBrief(
 					ask = true
 					answer = permits.Ask
 					summary = "Always asked — " + why + ": " + summary
+				} else if protected && !free && (l.NothingAsks == nil || !l.NothingAsks()) {
+					/*
+					 * Something protected — keys, passwords, the vault — is
+					 * still asked. Goal mode agreed to working alone, not to
+					 * reading the credentials: the 1.0 security review showed
+					 * a page read in goal mode getting "cat ~/.ssh/id_ed25519"
+					 * run and posted on, with nobody asked.
+					 */
+					ask = true
+					answer = permits.Ask
 				} else {
 					ask = false
 					answer = permits.Allow
@@ -1153,6 +1166,11 @@ func (l *Loop) RunBrief(
 				summary = asked
 
 				l.doing("waiting", "Waiting for you: "+summary)
+
+				// What runs after the yes must be what the question showed.
+				if p, ok := tool.(tools.Pinning); ok {
+					call.Arguments = p.Pin(call.Arguments)
+				}
 
 				id, err := l.DB.RecordInvocation(conversationID, tool.Name(), string(call.Arguments), summary, string(tools.Mutating))
 				if err != nil {

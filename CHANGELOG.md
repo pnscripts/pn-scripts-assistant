@@ -6,6 +6,45 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+### Security
+
+An independent review of everything added since 0.4 found these; all are
+fixed, each with a test.
+
+- **Setup could be driven by another web page.** The setup screen's own small
+  server had no check of where a request came from, so a page open in your
+  browser could have switched every approval off or pointed the assistant at
+  another server. Setup now answers only its own page on this computer, and
+  everything that changes something must be sent as a change (POST).
+- **Goal mode no longer reads protected files without asking.** Keys,
+  passwords and the other protected places are asked about in goal mode too.
+  Commands handed to a shell as text (`bash -c`, `cmd /c`, PowerShell
+  `-Command`) are judged by what they run, so deleting with them is asked
+  about like `rm`; an encoded PowerShell command is always asked about. On
+  Windows, cmd and PowerShell commands are never treated as confined.
+- **A folder name cannot carry a second mail command.** A mailbox name with a
+  line break in it is refused instead of being sent to the mail server.
+- **Paired phones read, the computer decides.** A device paired for talking
+  can no longer change the mailbox, write or import files by path, start goal
+  work, change skills, providers, devices or the tunnel.
+- **A saved mail password stays with its server.** Changing the account or a
+  mail server now needs the password typed again.
+- **The yes sends the words it showed.** A draft edited after you were asked
+  to send it is not sent; you are asked again.
+- **Web pages are checked at the moment of connecting**, so a name that
+  changes its address after the check (DNS rebinding) cannot reach this
+  computer or the local network. A proxy set in the environment is not used
+  while that check is on.
+- **Translations are written as new files only**, never through a link, and
+  where they are written is held to the same protection as what is read.
+- **Spreadsheet cells in originality reports cannot run as formulas.**
+- **Answers of the assistant's API are not kept in the window's cache**, which
+  is not encrypted.
+- **On Windows the window stays on the assistant's own pages**: anything else
+  opens in your browser, and the developer tools are off.
+
 ## 0.9.0 — 2026-10-31
 
 ### Added
