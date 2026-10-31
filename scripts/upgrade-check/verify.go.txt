@@ -1,0 +1,187 @@
+// zzverify reads a scratch brain seeded by 0.8.1 back through the 1.0 store
+// (G8): every record still there and readable, the schema at the newest
+// migration, and no personal word in the clear on disk.
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"pn-scripts-assistant/internal/brain/paths"
+	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/vault"
+
+	_ "modernc.org/sqlite"
+)
+
+const mark = "ZZUPGRADEMARK"
+
+var failures int
+
+func check(ok bool, what string, args ...any) {
+	if ok {
+		fmt.Printf("  ok    %s\n", fmt.Sprintf(what, args...))
+	} else {
+		failures++
+		fmt.Printf("  FAIL  %s\n", fmt.Sprintf(what, args...))
+	}
+}
+
+func main() {
+	root := os.Getenv("PN_SCRIPTS_ASSISTANT_DATA_ROOT")
+	if !strings.Contains(root, "/scratchpad/") {
+		fmt.Println("refusing: not a scratch root")
+		os.Exit(2)
+	}
+
+	r, err := paths.FindOrCreate()
+	if err != nil || r.Path != root {
+		fmt.Println("root:", r.Path, err)
+		os.Exit(2)
+	}
+
+	u, err := vault.Unlock(r.Path, vault.System(), false)
+	if err != nil {
+		fmt.Println("unlock:", err)
+		os.Exit(2)
+	}
+
+	vault.Use(u.Key)
+
+	db, err := store.OpenSealed(r.DatabasePath(), u.Key)
+	if err != nil {
+		fmt.Println("open:", err)
+		os.Exit(2)
+	}
+
+	has := func(s string) bool { return strings.Contains(s, mark) }
+
+	msgs, err := db.History(1)
+	check(err == nil && len(msgs) >= 2 && has(msgs[0].Content) && has(msgs[1].Content), "conversation 1: %d messages, words intact (%v)", len(msgs), err)
+
+	if len(msgs) >= 2 {
+		src, err := db.Sources(msgs[1].ID)
+		check(err == nil && has(string(src)), "sources of the answer (%v)", err)
+	}
+
+	facts, err := db.AllFacts()
+	found := false
+	for _, f := range facts {
+		found = found || has(f.Content)
+	}
+	check(err == nil && found, "facts: %d, the seeded one readable", len(facts))
+
+	deeds, err := db.Deeds(store.DeedFilter{})
+	found = false
+	for _, d := range deeds {
+		found = found || (has(d.Summary) && has(d.Request) && has(d.Result))
+	}
+	check(err == nil && found, "deeds: %d, summary/request/result readable (%v)", len(deeds), err)
+
+	drafts, err := db.Drafts("", 0)
+	check(err == nil && len(drafts) == 1 && has(drafts[0].Subject) && has(drafts[0].Body), "mail drafts: %d (%v)", len(drafts), err)
+
+	todos, err := db.Todos("", true)
+	check(err == nil && len(todos) == 1 && has(todos[0].Text), "to-dos: %d (%v)", len(todos), err)
+
+	topics, err := db.StudyTopics(time.Now())
+	check(err == nil && len(topics) == 1 && has(topics[0].Topic), "study topics: %d (%v)", len(topics), err)
+
+	if len(topics) == 1 {
+		cards, err := db.StudyCards(topics[0].ID)
+		check(err == nil && len(cards) == 1 && has(cards[0].Question) && has(cards[0].Answer) && len(cards[0].Options) == 2,
+			"study cards: %d (%v)", len(cards), err)
+	}
+
+	reports, err := db.ResearchReports()
+	check(err == nil && len(reports) == 1 && has(reports[0].Question), "research reports: %d (%v)", len(reports), err)
+
+	answers, err := db.CareAnswers()
+	check(err == nil && len(answers) == 1 && has(answers[0].Question) && has(answers[0].Answer), "customer answers: %d (%v)", len(answers), err)
+
+	profile, err := db.CareProfile()
+	check(err == nil && has(profile["business"]), "customer profile (%v)", err)
+
+	invoices, err := db.Invoices("", "")
+	check(err == nil && len(invoices) == 1 && has(invoices[0].Party) && invoices[0].Gross == "120.00", "invoices: %d (%v)", len(invoices), err)
+
+	books, err := db.BooksSettings()
+	check(err == nil && has(books["company"]), "books settings (%v)", err)
+
+	goals, err := db.Goals()
+	check(err == nil && len(goals) == 1 && has(goals[0].Name), "goals: %d (%v)", len(goals), err)
+
+	reminders, err := db.Reminders(true, 50)
+	check(err == nil && len(reminders) == 1 && has(reminders[0].What), "reminders: %d (%v)", len(reminders), err)
+
+	db.Close()
+
+	// The schema, read straight from the file.
+	raw, err := sql.Open("sqlite", "file:"+r.DatabasePath()+"?mode=ro")
+	if err == nil {
+		var version int
+		err = raw.QueryRow(`SELECT MAX(version) FROM schema_version`).Scan(&version)
+		check(err == nil && version == store.Migrations(), "schema at migration %d of %d (%v)", version, store.Migrations(), err)
+
+		tables, _ := raw.Query(`SELECT name FROM sqlite_master WHERE type='table'`)
+		var names []string
+		for tables.Next() {
+			var n string
+			tables.Scan(&n)
+			names = append(names, n)
+		}
+		tables.Close()
+
+		clear := 0
+		for _, t := range names {
+			rows, err := raw.Query(`SELECT * FROM "` + t + `"`)
+			if err != nil {
+				continue
+			}
+			cols, _ := rows.Columns()
+			for rows.Next() {
+				vals := make([]any, len(cols))
+				ptrs := make([]any, len(cols))
+				for i := range vals {
+					ptrs[i] = &vals[i]
+				}
+				rows.Scan(ptrs...)
+				for i, v := range vals {
+					var s string
+					switch x := v.(type) {
+					case string:
+						s = x
+					case []byte:
+						s = string(x)
+					}
+					if has(s) {
+						clear++
+						fmt.Printf("  CLEAR %s.%s\n", t, cols[i])
+					}
+				}
+			}
+			rows.Close()
+		}
+		check(clear == 0, "no personal word in the clear in any column (%d found)", clear)
+		raw.Close()
+	} else {
+		check(false, "open raw: %v", err)
+	}
+
+	for _, f := range []string{r.DatabasePath(), r.DatabasePath() + "-wal"} {
+		b, err := os.ReadFile(f)
+		if err == nil {
+			check(!strings.Contains(string(b), mark), "%s holds no personal word in its bytes", f[strings.LastIndex(f, "/")+1:])
+		}
+	}
+
+	if failures > 0 {
+		fmt.Printf("\n%d checks failed\n", failures)
+		os.Exit(1)
+	}
+
+	fmt.Println("\nall checks passed")
+}

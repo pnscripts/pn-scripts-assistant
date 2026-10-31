@@ -1,0 +1,97 @@
+// zzseed fills a scratch brain with data through the 0.8.1 store, for the
+// 0.8.x -> 1.0 upgrade check (G8). Never pointed at a real brain: it refuses
+// unless PN_SCRIPTS_ASSISTANT_DATA_ROOT is under the scratch folder.
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"pn-scripts-assistant/internal/brain/paths"
+	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/vault"
+)
+
+const mark = "ZZUPGRADEMARK"
+
+func must(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "seed:", err)
+		os.Exit(1)
+	}
+}
+
+func main() {
+	root := os.Getenv("PN_SCRIPTS_ASSISTANT_DATA_ROOT")
+	if !strings.Contains(root, "/scratchpad/") {
+		must(fmt.Errorf("refusing: %q is not a scratch root", root))
+	}
+
+	r, err := paths.FindOrCreate()
+	must(err)
+
+	if r.Path != root {
+		must(fmt.Errorf("found %s, not the scratch root", r.Path))
+	}
+
+	u, err := vault.Unlock(r.Path, vault.System(), false)
+	must(err)
+	vault.Use(u.Key)
+
+	db, err := store.OpenSealed(r.DatabasePath(), u.Key)
+	must(err)
+	defer db.Close()
+
+	conv, err := db.NewConversation("Plans for the garden " + mark)
+	must(err)
+	_, err = db.AddMessage(conv, "user", "", "", "Remind me what Ana said about tomatoes "+mark)
+	must(err)
+	msg, err := db.AddMessage(conv, "assistant", "ollama", "qwen3:4b", "Ana said to plant them in May "+mark)
+	must(err)
+	must(db.SetSources(msg, []map[string]any{{"kind": "memory", "title": "Ana " + mark}}))
+
+	_, err = db.AddFact("person", "Ana grows tomatoes in Plovdiv "+mark, nil)
+	must(err)
+
+	_, err = db.AddDeed(store.Deed{ConversationID: conv, Tool: "read_file", Summary: "Read garden.txt " + mark,
+		Request: "open my garden notes " + mark, Result: "12 lines " + mark, Outcome: "done", CreatedAt: time.Now()})
+	must(err)
+
+	_, err = db.AddDraft("ana@example.org", "Tomatoes "+mark, "Dear Ana, thank you "+mark, "", "")
+	must(err)
+
+	due := time.Now().Add(48 * time.Hour)
+	_, err = db.AddTodo("Garden "+mark, "Buy seeds "+mark, &due)
+	must(err)
+
+	topic, err := db.SaveStudyTopic("Photosynthesis "+mark, "beginner", "en", "Plants make sugar from light "+mark)
+	must(err)
+	_, err = db.AddStudyCards(topic.ID, []store.StudyCard{{Kind: "choice", Question: "What do plants need? " + mark,
+		Options: []string{"Light " + mark, "Salt"}, Answer: "Light " + mark, Explain: "Because " + mark, Due: time.Now()}})
+	must(err)
+
+	src, _ := json.Marshal([]map[string]string{{"title": "Seed guide " + mark, "url": "https" + "://example.org/" + mark}})
+	_, err = db.SaveResearch(store.ResearchReport{Question: "When to plant tomatoes " + mark, Lang: "en", Depth: "quick",
+		Report: "In May " + mark, Sources: src, Claims: json.RawMessage(`[]`), Model: "qwen3:4b", NSources: 1})
+	must(err)
+
+	_, err = db.AddCareAnswer("Do you ship to Varna? "+mark, "Yes, in two days "+mark)
+	must(err)
+	must(db.SetCareProfile(map[string]string{"business": "Garden shop " + mark, "tone": "warm"}))
+
+	_, err = db.AddInvoice(store.Invoice{Kind: "sale", Number: "0000000042", Date: "2026-10-01", Party: "Ana Ltd " + mark,
+		PartyVAT: "BG123456789", Net: "100.00", Rate: "20", VAT: "20.00", Gross: "120.00", Currency: "EUR", Note: "Seeds " + mark})
+	must(err)
+	must(db.SetBooksSettings(map[string]string{"company": "My shop " + mark, "vat_id": "BG999999999"}))
+
+	_, err = db.NewGoal(store.Goal{Name: "Grow tomatoes " + mark, Why: "Fresh food " + mark})
+	must(err)
+
+	_, err = db.AddReminder("Water the garden "+mark, time.Now().Add(time.Hour))
+	must(err)
+
+	fmt.Println("seeded", r.Path, "conversation", conv)
+}

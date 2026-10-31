@@ -45,6 +45,19 @@ fixed, each with a test.
 - **On Windows the window stays on the assistant's own pages**: anything else
   opens in your browser, and the developer tools are off.
 
+### Checked
+
+- **Updating from 0.8 keeps everything.** A brain written by 0.8.1 —
+  conversations with their sources, memories, the record of what it did, mail
+  drafts, to-dos, lessons and questions, research reports, customer answers,
+  invoices, goals and reminders — opens in this version with every record
+  readable and nothing stored in the clear. `scripts/upgrade-check.sh` repeats
+  the check for any earlier release.
+
+### Fixed
+
+- The Learning page no longer says "1 topics · 1 questions".
+
 ## 0.9.0 — 2026-10-31
 
 ### Added
