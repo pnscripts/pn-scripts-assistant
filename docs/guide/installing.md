@@ -13,8 +13,8 @@ are Linux-only:
   `xdotool`.
 - **Confining project work by the kernel**, with Landlock. On Windows a command
   still gets a cleaned environment and no shell, but the folder limit is not
-  enforced by the kernel — so commands written into `cmd /c` or PowerShell
-  are always asked about there.
+  enforced by the kernel — so project work does not run commands written into
+  `cmd /c` or PowerShell there; it writes them to a script first.
 - **Telling your voice from others, and opening full web pages.** Both need
   the cgo build, and the Windows build is made without cgo. Plain page
   fetching still works there.

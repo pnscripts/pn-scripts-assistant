@@ -422,6 +422,7 @@ whichever model you point it at. How it came to be built this way is in
 | [Setting it up](docs/guide/configuring.md) | the first run, privacy, environment |
 | [Models](docs/guide/how-it-thinks.md) | which one answers, and why the second question is faster |
 | [When something is wrong](docs/guide/troubleshooting.md) | the log first |
+| [Known limits](docs/guide/known-limits.md) | what it does not do yet, written down |
 | [Working on it](docs/guide/developing.md) | building, tests, expectations |
 | [Making a release](docs/guide/releasing.md) | `make release` |
 | [What changed](CHANGELOG.md) | between versions, in the terms you would notice |

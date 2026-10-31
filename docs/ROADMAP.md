@@ -1,11 +1,13 @@
 # Roadmap
 
-**Where this actually is, as of 23 September 2026.** The program is released as
-an Ubuntu package, installable with `apt`, in the applications menu,
-with a manual page and an audit behind it. What that release contains and what
-it does not is in [the release notes](RELEASE-NOTES-0.1.0.md); what was
-measured to get there is in [docs/audit/](audit/); how to install, configure
-and build it is in [docs/guide/](guide/).
+**Where this actually is, as of 31 October 2026.** The program is released
+for two systems: an Ubuntu/Debian package, installable with `apt`, in the
+applications menu, with a manual page; and a Windows installer and zip, with a
+window of its own. What each release contains is in the
+[changelog](../CHANGELOG.md); what it does not do yet is in
+[known limits](guide/known-limits.md); what was measured to get there is in
+[docs/audit/](audit/); how to install, configure and build it is in
+[docs/guide/](guide/).
 
 The rest of this file is the reasoning: which tools were chosen and why, which
 choices were reversed, and what measurement changed. It is kept because the
@@ -40,7 +42,8 @@ above traces back to that. The static build existed only to escape it, and the
 static build is what kept failing.
 
 Go removes the question rather than answering it. One binary, one SQLite file, no
-server, no daemon, no cgo. Vectors are float32 blobs and similarity is computed in
+server, no daemon. (The one cgo part since is the Linux window, GTK and
+WebKitGTK; the Windows window and everything else are plain Go.) Vectors are float32 blobs and similarity is computed in
 process, which at this size is exact and cheaper than the network hop it replaced.
 
 Verified equivalent on the real data before the old system was removed: 79 facts,
@@ -64,9 +67,10 @@ and unusable at the same time. `brain rewrite-paths` repairs them and re-embeds
 what it changed — rewriting the text alone would leave each vector describing the
 old wording, and nothing would ever surface that mismatch.
 
-Where other languages still earn their place: platform-native code for Windows
-WebView2 and macOS WKWebView, and Python if PDF text extraction or OCR is ever
-added.
+Where other languages still earn their place: none so far. The Windows window
+reaches WebView2 through its COM interfaces from Go, PDF text and forms are
+read and written by Go code written from the format, and scans are read by
+Tesseract or a local model that can see, called as programs.
 
 ## Where it stands
 
@@ -75,8 +79,8 @@ recall, the Extractor/Validator/Curator pipeline, the project and document
 scanners, the agent loop with its approval gate, filesystem and web tools, Home
 Assistant, lesson review, and the memory map.
 
-One binary, one SQLite file. 163,000 lines of Go, 44,000 of them tests, across
-1,307 test functions and 71 packages.
+One binary, one SQLite file. 217,000 lines of Go, 58,000 of them tests, across
+1,653 test functions and 91 packages (counted 31 October 2026).
 
 ## Capabilities today
 
@@ -87,12 +91,12 @@ guards are worth explaining.*
 
 | Tool | Risk | Notes |
 |---|---|---|
-| `read_file`, `list_directory` | Safe | credential paths refused outright |
-| `fetch_url` | Safe | every resolved address checked; redirects re-checked |
+| `read_file`, `list_directory` | Safe | keys, passwords and other protected paths are asked about first, goal mode included |
+| `fetch_url` | Safe | every resolved address checked, redirects re-checked, and the address actually dialled checked again |
 | `web_search` | Safe | Brave API if keyed, else DuckDuckGo HTML |
 | `list_devices` | Safe | only when a smart home is configured |
 | `write_file` | **Mutating** | approval as the Permissions setting says; overwrite says so, and the old file is kept for undo |
-| `run_command` | **Mutating** | argv array, no shell |
+| `run_command` | **Mutating** | argv array, no shell; a shell handed a program as text (`bash -c`, `cmd /c`, PowerShell) is judged by what it runs |
 | `set_device` | **Mutating** | approval as the Permissions setting says; unlocking says so in capitals |
 
 Whether a Mutating tool stops for approval depends on the Permissions setting.
@@ -158,20 +162,29 @@ gate is what makes a badly behaved model annoying rather than dangerous.
 - **Voice**, both halves. It hears the room until you stop talking, answers,
   reads the answer aloud and listens again. The voice it answers in is
   chosen in the program from every one the machine can speak in.
-- **An installer for every system.** A `.deb`, a macOS `.dmg`, a Windows
+- **An installer for each released system.** A `.deb` and a Windows
   installer, each built on the system it belongs to, and the package is
-  byte-for-byte reproducible between two machines.
+  byte-for-byte reproducible between two machines. (A macOS bundle was
+  published until 0.9; from 1.0 the releases are Linux and Windows only.)
+- **Its own icon on Windows**, on the window, the shortcuts, the installer and
+  the uninstall entry.
+- **A security review of everything added since 0.4**, by a reviewer who had
+  not written it, with every finding fixed (October 2026).
+- **Updating keeps everything.** `scripts/upgrade-check.sh` builds an earlier
+  release, fills a sealed scratch brain through it, opens it with the current
+  code and reads every record back.
 
 ## Still to do
 
-- **The macOS window.** WKWebView, platform-native code. Not planned for
-  1.0, which ships for Linux and Windows only; on macOS the assistant keeps
-  serving its interface to the browser. A mobile client would talk to the
-  same HTTP API.
+- **macOS.** Not planned: releases are Linux and Windows only. The source
+  still compiles for macOS and serves its interface to the browser there,
+  untested. A mobile client would talk to the same HTTP API.
+- **Windows: moving the window between screens of different scaling.** The
+  window does not yet redraw for the new screen's scaling (WM_DPICHANGED).
 - **Multi-drive expansion.** A drive registry in the data root, so the brain can
   grow across several disks instead of being rebuilt when one fills.
-- **More ingestion.** Browser history and email are the obvious next sources.
-  Email needs OAuth, which is not something to set up silently.
+- **More ingestion.** Browser history is the obvious next source. Mail is read
+  with an app password over IMAP; OAuth sign-in is not offered.
 - **Hosted providers, tested against something real.** Every one of the twelve
   is tested against a fake. Nobody has watched one answer.
 - **The tunnel and paired devices, across the internet.** Both work on one

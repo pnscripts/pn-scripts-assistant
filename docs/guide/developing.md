@@ -2,8 +2,8 @@
 
 ## What it is
 
-One Go module in `clients/`, one binary. About 112,000 lines of Go, 40,000 of
-them tests, and 23,000 lines of interface embedded in the binary — there is
+One Go module in `clients/`, one binary. About 217,000 lines of Go, 58,000 of
+them tests, and 30,000 lines of interface embedded in the binary — there is
 nothing to serve from disk and nothing to install beside the program.
 
 ```
@@ -11,7 +11,7 @@ clients/cmd/pn-scripts-assistant   the program
 clients/internal/brain/…           everything it is
 clients/internal/setup/…           the first-run wizard
 scripts/build-packages.sh          the packaging
-packaging/                         the manual page
+packaging/                         the manual page and the Windows installer script
 docs/decisions/                    why things are the way they are
 docs/audit/                        what was measured, and when
 ```
@@ -27,7 +27,9 @@ CGO_ENABLED=1 go build -C clients -o ../build/pn-scripts-assistant ./cmd/pn-scri
 double-click does nothing you can see. That has cost an afternoon more than
 once.
 
-Needs `libgtk-3-dev` and `libwebkit2gtk-4.1-dev`.
+Needs `libgtk-3-dev` and `libwebkit2gtk-4.1-dev`. The Windows build is plain
+Go (`GOOS=windows CGO_ENABLED=0`); its window is checked only on Windows,
+by CI's "The Windows window opens" (`pn-scripts-assistant.exe window-check`).
 
 ## Tests
 
@@ -36,7 +38,7 @@ make test        # every package
 cd clients && go test ./internal/brain/tasks/ -run TestSomething -v
 ```
 
-Sixty-one packages have them. They are written against the real thing wherever
+Eighty-four packages have them. They are written against the real thing wherever
 that is possible: real files with real permissions, a real database, a real
 HTTP server. A test that asserts against a simulation tests the simulation.
 
@@ -58,6 +60,7 @@ On every push and every pull request, in
 | The package | the `.deb` built, put through `lintian`, then **built again and compared** |
 | The package installs | it is installed, upgraded over and removed, in a root of dpkg's own |
 | Shell scripts | `shellcheck --severity=error` |
+| The Windows window opens | on a Windows runner: the Windows folder built, then `window-check` opens the real window, hands over to a second page, brings it forward and closes it, with its icon |
 
 `make ci` runs the same things here, in the same order. It is slow — several
 minutes against `make check`'s few seconds — and it is the difference between

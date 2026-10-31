@@ -63,6 +63,14 @@ fixed, each with a test.
   readable and nothing stored in the clear. `scripts/upgrade-check.sh` repeats
   the check for any earlier release.
 
+### Documentation
+
+- **Known limits**, written down: [docs/guide/known-limits.md](docs/guide/known-limits.md)
+  says what this version does not do or has not been seen doing — per system,
+  for models and providers, safety, mail, devices and languages.
+- The roadmap and the developer guide say where things stand on 31 October
+  2026 (two systems, the Windows window, current size of the code).
+
 ### Fixed
 
 - The Learning page no longer says "1 topics · 1 questions".
