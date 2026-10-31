@@ -1,9 +1,10 @@
 # Installing it
 
-Three systems, one program, but not the same on each. The native window is
-Linux-only, so on macOS and Windows the assistant runs and shows its interface
-in your browser. Memory, typed conversation and most tools work the same
-everywhere. These parts are Linux-only:
+Three systems, one program, but not the same on each. Ubuntu and Windows get
+the assistant in its own window (WebKitGTK on Linux, Microsoft Edge WebView2
+on Windows); on macOS it shows its interface in your browser. Memory, typed
+conversation and most tools work the same everywhere. These parts are
+Linux-only:
 
 - **Listening.** Microphone capture uses PipeWire (`pw-record`) or ALSA
   (`arecord`).
@@ -22,7 +23,7 @@ everywhere. These parts are Linux-only:
 |---|---|---|
 | Ubuntu / Debian | `pn-scripts-assistant_<version>_amd64.deb` | installs with `apt`, native window, menu entry |
 | macOS 11 or newer | `...-macos-<arch>.dmg` | drag to Applications; opens in your browser |
-| Windows 10 or newer, 64-bit | `...-windows-setup.exe` | installs for your account; opens in your browser |
+| Windows 10 or newer, 64-bit | `...-windows-setup.exe` | installs for your account, Start menu entry, its own window |
 
 Every file has its SHA-256 in the `SHA256SUMS` published beside it.
 
@@ -158,9 +159,16 @@ SmartScreen will stop the first run with "Windows protected your PC". That is
 the missing signature, not a verdict on the program: click **More info**, then
 **Run anyway**. Once only.
 
-There is no separate window on Windows either; it opens your browser. As on a
-Mac, listening, echo cancellation, desktop control and Landlock confinement are
-Linux-only.
+It opens in its own window, drawn by Microsoft Edge WebView2 — part of
+Windows 11, and already installed on almost every Windows 10. The window needs
+`WebView2Loader.dll`, which is in both downloads beside the program. On a
+machine without the WebView2 runtime the assistant opens in your browser
+instead and works the same; installing the *Evergreen WebView2 Runtime* from
+Microsoft's WebView2 download page gives it its window at the next start.
+Links that open a new window (sources, downloads) open in your usual browser.
+
+As on a Mac, listening, echo cancellation, desktop control and Landlock
+confinement are Linux-only.
 
 Ollama is the same as on a Mac: install it from
 [ollama.com/download](https://ollama.com/download) first, and setup does

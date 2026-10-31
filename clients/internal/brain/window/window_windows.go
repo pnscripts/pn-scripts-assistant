@@ -402,6 +402,10 @@ func dataFolder() string {
 		return filepath.Join(filepath.Dir(root), "PN-SCRIPTS-ASSISTANT-WEBVIEW")
 	}
 
+	if local, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(local, paths.Name, "webview") // %LOCALAPPDATA%
+	}
+
 	return filepath.Join(paths.MachineFolder(), "webview")
 }
 

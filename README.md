@@ -197,10 +197,10 @@ network, which undoes the careful part.
 
 ## Installing it
 
-On Ubuntu it installs as a package and draws its own window. On macOS and
-Windows it installs the way those systems expect and shows its interface in
-your browser — the native window is Linux-only so far, and that is the only
-difference between them.
+On Ubuntu it installs as a package and draws its own window; on Windows it
+installs for your account and opens in its own window too (Microsoft Edge
+WebView2, falling back to your browser where WebView2 is missing). On macOS it
+shows its interface in your browser.
 
 | System | Download | |
 |---|---|---|

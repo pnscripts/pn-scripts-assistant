@@ -8,6 +8,15 @@ number is 0, the second one changes when something visible changes.
 
 ## Unreleased
 
+### Added
+
+- **Its own window on Windows.** The assistant no longer opens as a browser
+  tab on Windows: it has a window of its own, drawn by Microsoft Edge
+  WebView2, which Windows 11 includes and almost every Windows 10 has. Links
+  to sources and downloads open in your usual browser. Where WebView2 is
+  missing it opens in the browser as before. Both Windows downloads carry
+  Microsoft's `WebView2Loader.dll` beside the program, with its licence.
+
 ### Fixed
 
 - **The proofreader leaves code alone.** Fenced code blocks and `inline

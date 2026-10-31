@@ -149,6 +149,12 @@ gate is what makes a badly behaved model annoying rather than dangerous.
 
 - **The native window**, on Linux. GTK3 and WebKitGTK 4.1, built with cgo, and
   the `.deb` declares the libraries so `apt` brings them in.
+- **The native window on Windows** (October 2026). A Win32 window holding
+  Microsoft Edge WebView2, reached through syscall and the COM interfaces —
+  still no cgo in the Windows build. The loader ships beside the program,
+  taken from Microsoft's NuGet package at a pinned version and checked against
+  its SHA-256; where the runtime is missing it falls back to the browser. A
+  Windows runner opens a real window on every push (`window-check`).
 - **Voice**, both halves. It hears the room until you stop talking, answers,
   reads the answer aloud and listens again. The voice it answers in is
   chosen in the program from every one the machine can speak in.
@@ -158,10 +164,10 @@ gate is what makes a badly behaved model annoying rather than dangerous.
 
 ## Still to do
 
-- **Windows and macOS windows.** WebView2 and WKWebView, each needing
-  platform-native code — which is where another language genuinely earns its
-  place. On both systems today it runs and serves its interface to the
-  browser. A mobile client would talk to the same HTTP API.
+- **The macOS window.** WKWebView, platform-native code. Not planned for
+  1.0, which ships for Linux and Windows only; on macOS the assistant keeps
+  serving its interface to the browser. A mobile client would talk to the
+  same HTTP API.
 - **Multi-drive expansion.** A drive registry in the data root, so the brain can
   grow across several disks instead of being rebuilt when one fills.
 - **More ingestion.** Browser history and email are the obvious next sources.
