@@ -1,6 +1,6 @@
 # Roadmap
 
-**Where this actually is, as of 31 October 2026.** The program is released
+**Where this actually is, as of 8 November 2026.** The program is released
 for two systems: an Ubuntu/Debian package, installable with `apt`, in the
 applications menu, with a manual page; and a Windows installer and zip, with a
 window of its own. What each release contains is in the
@@ -173,14 +173,20 @@ gate is what makes a badly behaved model annoying rather than dangerous.
 - **Updating keeps everything.** `scripts/upgrade-check.sh` builds an earlier
   release, fills a sealed scratch brain through it, opens it with the current
   code and reads every record back.
+- **Moving the Windows window between screens of different scaling** (0.11),
+  proved on a Windows runner with the messages Windows sends.
+- **Light on the machine** (0.11). Untouched for a minute, the window rests at
+  about 2 % of one core instead of more than a whole one; minimised, about
+  0.5 %. `scripts/load-check.sh` measures it and CI holds it there.
+- **A stranger's install, proved on the published files** (0.11): a clean
+  Ubuntu runner installs the released `.deb` with `apt`, a clean Windows runner
+  the released installer, after every release.
 
 ## Still to do
 
 - **macOS.** Not planned: releases are Linux and Windows only. The source
   still compiles for macOS and serves its interface to the browser there,
   untested. A mobile client would talk to the same HTTP API.
-- **Windows: moving the window between screens of different scaling.** The
-  window does not yet redraw for the new screen's scaling (WM_DPICHANGED).
 - **Multi-drive expansion.** A drive registry in the data root, so the brain can
   grow across several disks instead of being rebuilt when one fills.
 - **More ingestion.** Browser history is the obvious next source. Mail is read
@@ -189,6 +195,28 @@ gate is what makes a badly behaved model annoying rather than dangerous.
   is tested against a fake. Nobody has watched one answer.
 - **The tunnel and paired devices, across the internet.** Both work on one
   network. Neither has been used the way they are meant to be used.
+
+## After 1.0: working the way its user works
+
+The first wave after 1.0 is planned, not started. It is about general
+abilities, for whoever uses the assistant, following their requirements and
+goals — nothing in it belongs to one person or one company:
+
+- **Standing rules learned from conversation.** "From now on, always…" is
+  kept as a rule of the user's own, shown in one list, and followed until it is
+  changed or removed.
+- **An approval policy the user sets**, per channel and per kind of action:
+  what it may do on its own, what it does and then shows, and what waits for an
+  explicit yes on the exact words.
+- **Always showing what it did**, including the exact text of anything it sent
+  or posted, after the fact where the policy allows acting first.
+- **The user's own skills**, written or taught, used alongside the built-in
+  ones.
+- **Looking after the machine it runs on**, as sensible defaults: noticing
+  work and processes it started that were left behind, picking up after a
+  power cut, being ready for a restart, keeping its own load low, scheduling
+  heavy work for quiet hours and pacing a usage allowance, checking incoming
+  messages for scams.
 
 ## Two things measurement changed
 
