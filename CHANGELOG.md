@@ -6,6 +6,23 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+### Fixed
+
+- **Proofreading leaves correct Bulgarian alone in more places.** It no
+  longer asks for a comma inside „който и да е“, „в случай че“ or
+  „включително когато“; keeps the full article on the subject of a „да“
+  clause („без кандидатът да знае“); reads „по точно една причина“ as the
+  preposition; knows „цит.“ as an abbreviation; lets questions listed inside
+  brackets run on in small letters; does not take a spreadsheet error such as
+  `#REF!` for the end of a sentence; does not judge „в“ and „във“ across code;
+  and pairs quotation marks across paragraphs, so a quoted letter is not
+  reported as unclosed.
+- **The built-in skills' Bulgarian reads clean.** One real slip was corrected
+  („с `NULL`“), examples that show mistakes on purpose are marked as such, and
+  a test now keeps every Bulgarian skill free of findings.
+
 ## 0.10.0 — 2026-11-01
 
 ### Security

@@ -32,7 +32,7 @@ Fix what is wrong, not what is merely different from your taste. The author's me
 - [ ] Final read from start to end after all fixes.
 
 ## Example
-Original: "Our team have reviewed the the proposal and we beleive its ready, however we need the budget by Friday 14 March."
+Original (with its mistakes, on purpose): `Our team have reviewed the the proposal and we beleive its ready, however we need the budget by Friday 14 March.`
 Edited: "Our team has reviewed the proposal and we believe it is ready. However, we need the budget by Friday, 14 March."
 Notes: fixed doubled "the", spelling of "believe", its -> it is, comma splice split into two sentences. Query: is 14 March really a Friday this year?
 

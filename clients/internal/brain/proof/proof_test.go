@@ -386,3 +386,48 @@ func TestUntickedBoxesAreNotSlips(t *testing.T) {
 		t.Errorf("a real space before a bracket was not fixed: %q", got)
 	}
 }
+
+/*
+ * The false alarms the built-in skill pack raised (31.10): each was correct
+ * Bulgarian, and each is left alone now — while the slip next to it, in the
+ * same shape, is still found.
+ */
+func TestPackFalseAlarmsAreLeftAlone(t *testing.T) {
+	for _, text := range []string{
+		"Реши критериите, преди да прочетеш която и да е кандидатура.",
+		"Обади се, когато и да било.",
+		"Не трениран модел с данните, без кандидатът да знае.",
+		"Вторичните цитати са отбелязани с „цит. по“, когато оригиналът не е четен.",
+		"Провери кое е дубликат (същият номер? същото име и дата?). Прегледай ги.",
+		"Формула, която връща #N/A, #VALUE!, #REF! или грешен сбор, иска поправка.",
+		"Пиши ясно: „в случай че“ стига.",
+		"Казваш всички доказателства, включително когато не са категорични.",
+		"Добрият тест пада по точно една причина.",
+		"Условие в `WHERE` върху дясната таблица.",
+		"Писмото:\n„Здравейте, Мария,\n\nСъжалявам за забавянето.\n\nПоздрави,\nАлекс“",
+	} {
+		if fs := Check(text, "bg"); len(fs) > 0 {
+			t.Errorf("%q: found %v (%q)", text, rules(fs), fs[0].Found)
+		}
+	}
+
+	for _, c := range []struct{ wrong, right string }{
+		{"Тръгна без кандидатът.", "Тръгна без кандидата."},
+		{"Мисля че който и да е ще дойде.", "Мисля, че който и да е ще дойде."},
+		{"Това е по точно от онова.", "Това е по-точно от онова."},
+		{"Готово. после ще видим (и тогава!) какво.", "Готово. После ще видим (и тогава!) какво."},
+		{"Живея в Варна, а не в `Sofia`.", "Живея във Варна, а не в `Sofia`."},
+	} {
+		if got := fixed(c.wrong, "bg"); got != c.right {
+			t.Errorf("%q\n got %q\nwant %q\nfound %v", c.wrong, got, c.right, rules(Check(c.wrong, "bg")))
+		}
+	}
+
+	// A quotation still open at the end, or a « with no », is still found.
+	for _, text := range []string{"Тя каза „добре и излезе.\n\nПосле се върна.", "Книгата «Тютюн е тук."} {
+		fs := Check(text, "bg")
+		if len(fs) != 1 || fs[0].Rule != "unbalanced" {
+			t.Errorf("%q: found %v", text, rules(fs))
+		}
+	}
+}

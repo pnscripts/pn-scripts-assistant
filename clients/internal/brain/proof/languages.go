@@ -11,20 +11,28 @@ import (
  * The Bulgarian rules: the ones a careful reader notices first and a spell
  * checker does not, because every word in them is spelled correctly.
  */
-func bulgarian(text string) []Finding {
+func bulgarian(text string, code []span) []Finding {
 	var out []Finding
 
 	list := words(text)
 
+	// Neighbours are words with only space between them — and no code: in
+	// "в `WHERE` върху" the word after "в" is WHERE, not "върху".
+	near := func(a, b word) bool { return onlySpace(between(text, a, b)) && !codeIn(code, a.end, b.at) }
+
 	for i, w := range list {
 		lower := strings.ToLower(w.text)
 
-		var next, prev *word
-		if i+1 < len(list) && onlySpace(between(text, w, list[i+1])) {
+		var next, prev, after *word
+		if i+1 < len(list) && near(w, list[i+1]) {
 			next = &list[i+1]
+
+			if i+2 < len(list) && near(list[i+1], list[i+2]) {
+				after = &list[i+2]
+			}
 		}
 
-		if i > 0 && onlySpace(between(text, list[i-1], w)) {
+		if i > 0 && near(list[i-1], w) {
 			prev = &list[i-1]
 		}
 
@@ -58,7 +66,9 @@ func bulgarian(text string) []Finding {
 		}
 
 		// "най" and "по" for comparison are joined with a hyphen.
-		if next != nil && (lower == "най" || (lower == "по" && comparable[strings.ToLower(next.text)])) {
+		// "пада по точно една причина" is "по" the preposition: a number
+		// follows the word, not a comparison.
+		if next != nil && (lower == "най" || (lower == "по" && comparable[strings.ToLower(next.text)] && !aNumber(after))) {
 			span := text[w.at:next.end]
 
 			out = append(out, Finding{
@@ -72,14 +82,16 @@ func bulgarian(text string) []Finding {
 
 		// The full article after a preposition: the noun is not the subject,
 		// so it takes the short article.
-		if prev != nil && prepositions[strings.ToLower(prev.text)] {
+		// "без кандидатът да знае": the word is the subject of the clause
+		// that follows, so the full article is right.
+		if prev != nil && prepositions[strings.ToLower(prev.text)] && !(next != nil && strings.ToLower(next.text) == "да") {
 			if f, ok := fullArticle(w, lower); ok {
 				out = append(out, f)
 			}
 		}
 
 		// A comma before "че", "защото", "но", "който" and the like.
-		if f, ok := commaBefore(text, list, i, lower); ok {
+		if f, ok := commaBefore(text, list, i, lower); ok && !indefinite(lower, next, after) {
 			out = append(out, f)
 		}
 	}
@@ -87,6 +99,38 @@ func bulgarian(text string) []Finding {
 	out = append(out, bulgarianQuotes(text)...)
 
 	return out
+}
+
+// codeIn is whether any code span lies between from and to.
+func codeIn(code []span, from, to int) bool {
+	for _, s := range code {
+		if s.at < to && s.end > from {
+			return true
+		}
+	}
+
+	return false
+}
+
+var numerals = map[string]bool{
+	"един": true, "една": true, "едно": true, "два": true, "две": true, "три": true, "четири": true,
+	"пет": true, "шест": true, "седем": true, "осем": true, "девет": true, "десет": true, "двама": true,
+	"трима": true, "половин": true, "сто": true, "хиляда": true,
+}
+
+// aNumber is whether w is a number: "по точно една причина", "по точно 3 дни".
+func aNumber(w *word) bool {
+	return w != nil && (numerals[strings.ToLower(w.text)] || isNumber(w.text))
+}
+
+// indefinite is "който и да е", "когато и да било": a pronoun of any one,
+// not the start of a clause, so it takes no comma before it.
+func indefinite(lower string, next, after *word) bool {
+	if next == nil || after == nil || strings.ToLower(next.text) != "и" || strings.ToLower(after.text) != "да" {
+		return false
+	}
+
+	return lower != "че" && lower != "но" && lower != "защото" && lower != "понеже"
 }
 
 func vavSas(w word, lower string, next word) (Finding, bool) {
@@ -206,8 +250,9 @@ func keepTail(word, ending string) string {
 /*
  * Commas before the words that start a clause. The rule is firm for these;
  * the exceptions are when the word follows another that already joins the
- * clause ("така че", "въпреки че", "и който") or a preposition ("на който",
- * "от когато"), or starts the sentence.
+ * clause ("така че", "въпреки че", "в случай че", "включително когато", "и
+ * който") or a preposition ("на който", "от когато"), starts the sentence,
+ * or is the pronoun "който и да е".
  */
 var clauseWords = map[string]bool{
 	"че": true, "защото": true, "но": true, "който": true, "която": true, "което": true, "които": true,
@@ -222,6 +267,7 @@ var joinsAlready = map[string]bool{
 	"когато": true, "където": true, "нито": true, "та": true, "пък": true, "именно": true, "сякаш": true,
 	"като": true, "да": true, "все": true, "едва": true, "вместо": true, "не": true, "чак": true,
 	"още": true, "точно": true, "тъкмо": true, "поне": true, "даже": true, "особено": true,
+	"включително": true, "случай": true,
 }
 
 func commaBefore(text string, list []word, i int, lower string) (Finding, bool) {

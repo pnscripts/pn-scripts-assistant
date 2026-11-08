@@ -92,7 +92,7 @@ func Check(text, lang string) []Finding {
 	out = append(out, unbalanced(text)...)
 
 	if lang == "bg" {
-		out = append(out, bulgarian(text)...)
+		out = append(out, bulgarian(text, code)...)
 	} else {
 		out = append(out, english(text)...)
 	}
@@ -487,6 +487,7 @@ var abbreviations = map[string]bool{
 	"св": true, "др": true, "вкл": true, "мин": true, "стр": true, "проф": true, "доц": true, "с": true,
 	"лв": true, "хил": true, "млн": true, "млрд": true, "чл": true, "ал": true, "т.нар": true,
 	"вж": true, "изд": true, "пр": true, "сл": true, "хр": true, "англ": true, "лат": true, "бел": true, "прев": true, "год": true, "сек": true, "акад": true, "инж": true, "кв": true, "ж.к": true, "р": true, "ч": true,
+	"цит": true, "ориг": true,
 }
 
 var sentenceStart = regexp.MustCompile(`([\p{L}\p{N}.]+)([.!?])[ \t]+(\p{Ll})`)
@@ -500,6 +501,18 @@ func capitals(text string) []Finding {
 
 		if mark == "." && (abbreviations[before] || strings.Contains(before, ".") ||
 			utf8.RuneCountInString(before) == 1 || isNumber(before)) {
+			continue
+		}
+
+		// "#REF!", "#VALUE!": a spreadsheet's error is a name, not the end
+		// of a sentence.
+		if m[2] > 0 && text[m[2]-1] == '#' {
+			continue
+		}
+
+		// "(същият номер? същото име?)": questions listed inside brackets
+		// run on in small letters.
+		if mark != "." && insideBrackets(text, m[4]) {
 			continue
 		}
 
@@ -524,6 +537,14 @@ func capitals(text string) []Finding {
 	return out
 }
 
+// insideBrackets is whether a bracket opened earlier on the same line is
+// still open at i.
+func insideBrackets(text string, i int) bool {
+	line := text[strings.LastIndexByte(text[:i], '\n')+1 : i]
+
+	return strings.Count(line, "(") > strings.Count(line, ")")
+}
+
 func isNumber(s string) bool {
 	if s == "" {
 		return false
@@ -539,9 +560,12 @@ func isNumber(s string) bool {
 }
 
 /*
- * unbalanced is a bracket or a quotation mark opened and never closed, or the
- * other way round, within one paragraph. Nothing is suggested: where the
- * missing one belongs is the writer's to say.
+ * unbalanced is a bracket opened and never closed, or the other way round,
+ * within one line; or a quotation mark with no partner anywhere. Nothing is
+ * suggested: where the missing one belongs is the writer's to say.
+ *
+ * Quotation marks are paired across lines, because a quoted letter or
+ * speech runs over several paragraphs and closes only at its end.
  */
 func unbalanced(text string) []Finding {
 	var out []Finding
@@ -549,54 +573,67 @@ func unbalanced(text string) []Finding {
 	at := 0
 
 	for _, para := range strings.Split(text, "\n") {
-		pairs := [][2]rune{{'(', ')'}, {'„', '“'}, {'«', '»'}}
+		open, closed := strings.Count(para, "("), strings.Count(para, ")")
 
-		for _, p := range pairs {
-			open, closed := strings.Count(para, string(p[0])), strings.Count(para, string(p[1]))
-
-			// “ also opens English quotations; only Bulgarian „ counts it as
-			// a closing mark.
-			if p[0] == '„' && open == 0 {
-				continue
-			}
-
-			if open == closed {
-				continue
-			}
-
-			// A list numbered "1)" or "a)" closes what was never opened.
-			if p[0] == '(' && open < closed && listNumbered(para) {
-				continue
-			}
-
-			mark := p[0]
+		// A list numbered "1)" or "a)" closes what was never opened.
+		if open != closed && (open > closed || !listNumbered(para)) {
+			mark := '('
 			if closed > open {
-				mark = p[1]
+				mark = ')'
 			}
 
-			i := strings.IndexRune(para, mark)
-
-			out = append(out, Finding{
-				Rule: "unbalanced", At: at + i, Length: utf8.RuneLen(mark), Found: string(mark),
-				Why:   "A bracket or quotation mark here has no partner in the same paragraph.",
-				WhyBG: "Скоба или кавичка тук няма своята двойка в същия абзац.",
-			})
+			out = append(out, unpartnered(at+strings.IndexRune(para, mark), mark))
 		}
 
 		if strings.Count(para, `"`)%2 == 1 {
-			i := strings.Index(para, `"`)
-
-			out = append(out, Finding{
-				Rule: "unbalanced", At: at + i, Length: 1, Found: `"`,
-				Why:   "A quotation mark here has no partner in the same paragraph.",
-				WhyBG: "Кавичка тук няма своята двойка в същия абзац.",
-			})
+			out = append(out, unpartnered(at+strings.Index(para, `"`), '"'))
 		}
 
 		at += len(para) + 1
 	}
 
+	out = append(out, unpairedQuotes(text, '„', '“', false)...)
+	out = append(out, unpairedQuotes(text, '«', '»', true)...)
+
 	return out
+}
+
+/*
+ * unpairedQuotes pairs each opening mark with the next closing one. A closing
+ * mark with nothing open is reported only when strict: “ also opens English
+ * quotations, so on its own it is not a Bulgarian closing mark.
+ */
+func unpairedQuotes(text string, open, closing rune, strict bool) []Finding {
+	var out []Finding
+
+	var opened []int
+
+	for i, r := range text {
+		switch r {
+		case open:
+			opened = append(opened, i)
+		case closing:
+			if len(opened) > 0 {
+				opened = opened[:len(opened)-1]
+			} else if strict {
+				out = append(out, unpartnered(i, r))
+			}
+		}
+	}
+
+	for _, i := range opened {
+		out = append(out, unpartnered(i, open))
+	}
+
+	return out
+}
+
+func unpartnered(at int, mark rune) Finding {
+	return Finding{
+		Rule: "unbalanced", At: at, Length: utf8.RuneLen(mark), Found: string(mark),
+		Why:   "A bracket or quotation mark here has no partner.",
+		WhyBG: "Скоба или кавичка тук няма своята двойка.",
+	}
 }
 
 var numberedItem = regexp.MustCompile(`(^|\s)(\d{1,2}|[a-zа-я])\)`)
