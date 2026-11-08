@@ -6,6 +6,16 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+### Fixed
+
+- **An update on Windows that cannot finish gives you your assistant back.**
+  When something else still holds the program file (a virus scanner, a copy
+  opened by hand while the update runs), the installer waits a minute,
+  changes nothing if the file is still held, and opens the copy that is
+  installed, instead of leaving the program closed.
+
 ## 0.13.0 — 2026-11-08
 
 ### Your rules

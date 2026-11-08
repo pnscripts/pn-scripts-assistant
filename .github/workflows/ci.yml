@@ -589,33 +589,84 @@ jobs:
           Invoke-RestMethod -Method Post -ContentType 'application/json' -Body (@{ text = $todo } | ConvertTo-Json) http://127.0.0.1:8897/api/todos | Out-Null
           Invoke-RestMethod -Method Post -ContentType 'application/json' -Body '{"on":false}' http://127.0.0.1:8897/api/upkeep/notice | Out-Null
 
-          # The button.
-          $out = Invoke-RestMethod -Method Post -ContentType 'application/json' -Body '{}' http://127.0.0.1:8897/api/upkeep/self
-          $out | Format-List | Out-String | Write-Output
-          if (-not $out.started) { throw 'the update did not start' }
+          # The installer is waited for without running the program it is
+          # replacing: a pn-scripts-assistant.exe that runs cannot be deleted, and
+          # this step once asked the installed copy for its `version` every second
+          # while Setup replaced it, so Setup met a running copy, retried four
+          # times and gave up ("DeleteFile failed; code 5"). Setup's own log says
+          # when it is done; the processes are only looked at, never started.
+          function Wait-Installer([datetime]$Since) {
+            for ($i = 0; $i -lt 240; $i++) {
+              Start-Sleep 1
+              $busy = Get-Process | Where-Object { $_.ProcessName -like 'pn-scripts-assistant-*-windows-setup' }
+              $log = Get-ChildItem $env:TEMP -Filter 'Setup Log*' -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $Since } | Sort-Object LastWriteTime | Select-Object -Last 1
+              if (-not $busy -and $log -and ((Get-Content $log.FullName -Raw) -match 'Log closed')) { return $log.FullName }
+            }
+            Get-Process | Where-Object { $_.ProcessName -like 'pn-scripts-assistant*' } | Format-Table Id, ProcessName, Path | Out-String | Write-Output
+            throw 'the installer did not finish within four minutes'
+          }
+          function Wait-Reopened {
+            $seen = $null
+            for ($i = 0; $i -lt 60 -and -not $seen; $i++) {
+              Start-Sleep 1
+              $seen = Get-Process pn-scripts-assistant -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe }
+            }
+            return $seen
+          }
+          function Press-Update($Program) {
+            $out = Invoke-RestMethod -Method Post -ContentType 'application/json' -Body '{}' http://127.0.0.1:8897/api/upkeep/self
+            $out | Format-List | Out-String | Write-Output
+            if (-not $out.started) { throw 'the update did not start' }
+            if (-not $Program.WaitForExit(120000)) { throw 'the program did not close for the installer' }
+            Write-Output 'the program closed itself'
+          }
+          function Start-Serving {
+            $s = Start-Process $exe -ArgumentList 'serve','-addr','127.0.0.1:8897' -PassThru
+            $ok = $false
+            for ($i = 0; $i -lt 90 -and -not $ok; $i++) {
+              try { $ok = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8897/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
+            }
+            if (-not $ok) { throw 'the installed program did not answer' }
+            return $s
+          }
 
-          # The program gets out of the way...
-          if (-not $p.WaitForExit(120000)) { throw 'the program did not close for the installer' }
-          Write-Output 'the program closed itself'
+          # An update that cannot finish gives the person their program back.
+          # Something else holds the program file (read, sharing only reads, as a
+          # virus scanner or a second copy starting would): the installer waits a
+          # minute for it, touches nothing, and opens the copy that is still there.
+          $hold = [System.IO.File]::Open($exe, 'Open', 'Read', 'Read')
+          $pressed = Get-Date
+          Press-Update $p
+          $log = Wait-Installer $pressed
+          $hold.Close()
+          $text = Get-Content $log -Raw
+          if ($text -notmatch 'Waited 60000 ms' -or $text -notmatch 'The update did not finish; opening the copy that is still installed') {
+            $text | Write-Output
+            throw 'the held update did not stop and reopen the old copy'
+          }
+          $back = Wait-Reopened
+          if (-not $back) { throw 'the old copy was not opened again after the update could not finish' }
+          Write-Output "a held update stopped and reopened the old copy: pid $($back.Id -join ',')"
+          $back | Stop-Process -Force
+          Start-Sleep 2
+          $have = Run-It @('version')
+          if ($have -notmatch '0\.98\.0') { throw "the held update changed the program: $have" }
+
+          # The button, with nothing in the way.
+          $p = Start-Serving
+          $pressed = Get-Date
+          Press-Update $p
 
           # ...the installer puts the new one in place and opens it again.
-          $now = ''
-          for ($i = 0; $i -lt 180 -and $now -notmatch '0\.99\.0'; $i++) {
-            Start-Sleep 1
-            try { $now = Run-It @('version') } catch { $now = '' }
-          }
+          $log = Wait-Installer $pressed
+          $now = Run-It @('version')
           Write-Output "installed now: $now"
           if ($now -notmatch '0\.99\.0') {
-            Get-Process | Where-Object { $_.ProcessName -like 'pn-scripts-assistant*' } | Format-Table Id, ProcessName, Path | Out-String | Write-Output
-            Get-ChildItem $env:TEMP -Filter 'Setup Log*' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 60
+            Get-Content $log -Tail 60
             throw 'the new version was not installed'
           }
 
-          $again = $null
-          for ($i = 0; $i -lt 60 -and -not $again; $i++) {
-            Start-Sleep 1
-            $again = Get-Process pn-scripts-assistant -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe }
-          }
+          $again = Wait-Reopened
           if (-not $again) { throw 'the new version was not opened again' }
           Write-Output "opened again: pid $($again.Id -join ',')"
           $again | Stop-Process -Force
