@@ -56,7 +56,8 @@ func TestTheChannelFollowsHowItWasInstalled(t *testing.T) {
 		}
 	}
 
-	dpkg := "/var/lib/dpkg/info/pn-scripts-assistant.list"
+	// Stands for "dpkg-query says the package is installed".
+	dpkg := "dpkg-query"
 
 	cases := []struct {
 		name, version, goos, exe, snap string
@@ -75,7 +76,9 @@ func TestTheChannelFollowsHowItWasInstalled(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := how(c.version, c.goos, c.exe, c.snap, present(c.files...)); got != c.want {
+		has := present(c.files...)
+
+		if got := how(c.version, c.goos, c.exe, c.snap, has, func() bool { return has(dpkg) }); got != c.want {
 			t.Errorf("%s: got %s, want %s", c.name, got, c.want)
 		}
 	}

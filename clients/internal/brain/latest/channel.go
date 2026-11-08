@@ -50,10 +50,21 @@ func How(version string) Channel {
 		exe = resolved
 	}
 
-	return how(version, runtime.GOOS, exe, os.Getenv("SNAP_NAME"), exists)
+	return how(version, runtime.GOOS, exe, os.Getenv("SNAP_NAME"), exists, dpkgHasIt)
 }
 
-func how(version, goos, exe, snapName string, present func(string) bool) Channel {
+/*
+ * dpkgHasIt asks dpkg whether the package is installed — through
+ * dpkg-query, the interface dpkg offers for that, rather than reading its
+ * database files, which are dpkg's own business.
+ */
+func dpkgHasIt() bool {
+	out, err := exec.Command("dpkg-query", "-W", "-f=${Status}", Repo).Output()
+
+	return err == nil && strings.HasSuffix(strings.TrimSpace(string(out)), " installed")
+}
+
+func how(version, goos, exe, snapName string, present func(string) bool, packaged func() bool) Channel {
 	if strings.TrimSpace(version) == "" {
 		return Source
 	}
@@ -73,7 +84,7 @@ func how(version, goos, exe, snapName string, present func(string) bool) Channel
 		return Portable
 
 	case "linux":
-		if exe == "/usr/bin/"+Repo && present("/var/lib/dpkg/info/"+Repo+".list") {
+		if exe == "/usr/bin/"+Repo && packaged() {
 			if present(AptSources) {
 				return Apt
 			}

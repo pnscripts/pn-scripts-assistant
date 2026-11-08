@@ -72,14 +72,16 @@ Filename: "{app}\pn-scripts-assistant.exe"; Description: "Open it now"; Flags: n
 ; silent install by anything else — winget, an administrator — leaves it closed.
 Filename: "{app}\pn-scripts-assistant.exe"; Flags: nowait; Check: RelaunchAfterUpdate
 
-[Code]
-function RelaunchAfterUpdate: Boolean;
-begin
-  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
-end;
-
 ; Nothing is removed from the user's own folders on uninstall. The brain — the
 ; conversations, everything learned — lives in their profile, and an
 ; uninstaller that deletes years of somebody's memory because they removed a
 ; program is an uninstaller nobody asked for. The documentation says where it
 ; is and how to remove it deliberately.
+
+[Code]
+// Last, because a line starting with ";" is a comment everywhere above
+// and Pascal below.
+function RelaunchAfterUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
