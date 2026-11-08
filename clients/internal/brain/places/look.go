@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/learning"
@@ -99,7 +101,7 @@ func Look(ctx context.Context, learner Reads, seen Seen, owner string, p Place) 
 		return out, err
 	}
 
-	already, err := seen.SourcesSeenAt(p.Path)
+	already, err := seen.SourcesSeenAt(rememberedAs(p.Path))
 	if err != nil {
 		return out, err
 	}
@@ -179,10 +181,29 @@ func scan(p Place, owner string) (learning.Observations, error) {
 			return nil, fmt.Errorf("reading the documents in %s: %w", p.Path, err)
 		}
 
-		out = append(out, learning.FromDocuments(found, owner)...)
+		out = append(out, learning.FromDocuments(withoutTheBuiltInSkills(p, found), owner)...)
 	}
 
 	return out, nil
+}
+
+// withoutTheBuiltInSkills leaves out the program's own skills when p is the
+// brain's knowledge folder. See PackSkillsFolder.
+func withoutTheBuiltInSkills(p Place, docs []learning.Document) []learning.Document {
+	if learning.Portable(p.Path) != learning.BrainPrefix+KnowledgeFolder {
+		return docs
+	}
+
+	pack := filepath.Join(p.Path, PackSkillsFolder) + string(filepath.Separator)
+	kept := docs[:0:0]
+
+	for _, d := range docs {
+		if !strings.HasPrefix(filepath.Clean(d.Path), pack) {
+			kept = append(kept, d)
+		}
+	}
+
+	return kept
 }
 
 /*
@@ -198,7 +219,7 @@ func Count(seen Seen, owner string, p Place) (int, error) {
 		return 0, err
 	}
 
-	already, err := seen.SourcesSeenAt(p.Path)
+	already, err := seen.SourcesSeenAt(rememberedAs(p.Path))
 	if err != nil {
 		return 0, err
 	}
@@ -207,6 +228,21 @@ func Count(seen Seen, owner string, p Place) (int, error) {
 	// then reads are the same set. Two functions deciding this separately is
 	// how a place reports nothing to do and then does something.
 	return len(worthReading(observations, already)), nil
+}
+
+/*
+ * rememberedAs is a place's folder as the sources read from it are written.
+ *
+ * A folder inside the brain, which is what the knowledge folder is, is
+ * remembered relative to the brain ("@brain/knowledge/…", learning.Portable),
+ * so that it is the same folder wherever the brain is plugged in. Asking for
+ * what was seen under its absolute path found nothing, every time: the brain
+ * read its own guides again every ninety seconds, sixty at a pass, for as
+ * long as it ran, never getting past the first bite and competing with every
+ * question for the processor while it did.
+ */
+func rememberedAs(path string) string {
+	return learning.Portable(path)
 }
 
 /*

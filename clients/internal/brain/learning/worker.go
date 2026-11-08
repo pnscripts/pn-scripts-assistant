@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"pn-scripts-assistant/internal/brain/progress"
-	"pn-scripts-assistant/internal/brain/speech"
 	"strings"
 	"sync"
 	"time"
@@ -92,6 +91,9 @@ func (w *Worker) Stop() {
 func (w *Worker) run(ctx context.Context) {
 	defer w.wg.Done()
 
+	// Nobody is waiting on any of this.
+	ctx = InBackground(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -106,8 +108,9 @@ func (w *Worker) run(ctx context.Context) {
 			// the instant a reply is finished — which is the instant the
 			// microphone reopens for the next thing said. The two were
 			// competing for four cores, and the one that lost was the
-			// transcription somebody was waiting on.
-			waitForQuiet(ctx)
+			// transcription somebody was waiting on. See yield.go: it waits
+			// for a question to finish, and stops for one that starts.
+			GiveWay(ctx)
 
 			// Said out loud, because it was not.
 			//
@@ -115,11 +118,11 @@ func (w *Worker) run(ctx context.Context) {
 			// the interface showed an idle brain on a machine that was clearly
 			// working — which reads as stuck. Anything that takes a minute of
 			// this machine has to say it is happening.
-			progress.SetBackground("learning", "Learning from the last conversation")
+			progress.Aside("learning", "Learning from the last conversation")
 
 			err := w.process(ctx, id)
 
-			progress.Done()
+			progress.BackgroundDone()
 
 			if err != nil {
 				// A failure to learn is not a failure of the brain. It is
@@ -134,9 +137,6 @@ func (w *Worker) run(ctx context.Context) {
 
 // process runs one conversation through Extractor, Validator and Curator.
 func (w *Worker) process(ctx context.Context, conversationID int64) error {
-	ctx, cancel := context.WithTimeout(ctx, w.Timeout)
-	defer cancel()
-
 	transcript, err := w.transcript(conversationID)
 	if err != nil {
 		return err
@@ -146,7 +146,14 @@ func (w *Worker) process(ctx context.Context, conversationID int64) error {
 		return nil
 	}
 
-	proposal, err := w.Extractor.Extract(ctx, transcript)
+	// The timeout is for one attempt: time spent giving way to a question is
+	// not time the model spent hanging.
+	proposal, err := yielding(ctx, func(ctx context.Context) (*Proposal, error) {
+		ctx, cancel := context.WithTimeout(ctx, w.Timeout)
+		defer cancel()
+
+		return w.Extractor.Extract(ctx, transcript)
+	})
 	if err != nil {
 		return err
 	}
@@ -238,22 +245,7 @@ func (w *Worker) PromoteValidated(ctx context.Context, limit int) (promoted, dup
 // HoldOff is how long learning will wait for the microphone to close.
 //
 // Bounded rather than indefinite: a stuck recorder must not mean the brain
-// silently stops learning altogether, and a minute of waiting is already far
-// longer than any turn.
-const HoldOff = 60 * time.Second
-
-// waitForQuiet holds until nothing is being recorded, or the wait runs out.
-func waitForQuiet(ctx context.Context) {
-	deadline := time.Now().Add(HoldOff)
-
-	// Gives way to a microphone that is open and to a reply being worked on.
-	// Neither is something the learner should be competing with: one is
-	// somebody speaking and the other is somebody waiting.
-	for (speech.Recording() || progress.Answering()) && time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
-}
+// silently stops learning altogether, and a minute is already far longer than
+// anybody speaks without a pause. A question being answered is waited for
+// longer; see GiveWayAtMost.
+var HoldOff = 60 * time.Second

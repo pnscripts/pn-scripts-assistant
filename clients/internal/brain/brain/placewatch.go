@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/learning"
 	"pn-scripts-assistant/internal/brain/places"
 	"pn-scripts-assistant/internal/brain/progress"
 )
@@ -151,17 +152,19 @@ func (b *Brain) lookAtOnePlace(ctx context.Context) bool {
 		 * has to account for itself on the screen. As background, so the core
 		 * does not turn the colour it uses for answering a question.
 		 */
-		progress.SetBackground("learning", "Reading "+p.Name)
+		progress.Aside("learning", "Reading "+p.Name)
 
-		pass, err := places.Look(ctx, b.Learner, b.DB, b.Cfg.Owner, p)
+		// Nobody asked for this bite now, so it gives way to anybody who
+		// asks something meanwhile (learning/yield.go).
+		pass, err := places.Look(learning.InBackground(ctx), b.Learner, b.DB, b.Cfg.Owner, p)
 
 		// Written back whatever happened: a pass that ended early still saw
 		// things, and what is left to read is still worth keeping.
 		places.Note(b.Root, pass.Place)
 
 		if err != nil {
-			progress.SetBackground("learning", "Could not read "+p.Name)
-			progress.Done()
+			progress.Aside("learning", "Could not read "+p.Name)
+			progress.BackgroundDone()
 
 			b.Log.Warn("could not read a place", "place", p.Path, "error", err)
 
@@ -169,13 +172,13 @@ func (b *Brain) lookAtOnePlace(ctx context.Context) bool {
 		}
 
 		if pass.Took == 0 {
-			progress.Done()
+			progress.BackgroundDone()
 
 			continue
 		}
 
-		progress.SetBackground("learning", describePass(p.Name, pass))
-		progress.Done()
+		progress.Aside("learning", describePass(p.Name, pass))
+		progress.BackgroundDone()
 
 		b.Log.Info("read some of a place",
 			"place", p.Path, "took", pass.Took,
@@ -243,7 +246,9 @@ func describePass(name string, pass places.Pass) string {
  * because that is the only part that is now their job rather than the brain's.
  */
 func (b *Brain) finishedReading(p places.Place, pass places.Pass) string {
-	waiting, err := b.DB.CountPendingUnder(p.Path)
+	// Under the folder as its sources are written: relative to the brain for
+	// the knowledge folder (learning.Portable), or it counts nothing there.
+	waiting, err := b.DB.CountPendingUnder(learning.Portable(p.Path))
 	if err != nil {
 		b.Log.Debug("could not count what is waiting from a place", "error", err)
 	}

@@ -131,8 +131,10 @@ func TestOnlyScannedClaimsAreMachineVerifiable(t *testing.T) {
 
 func TestCategoryFollowsTheSource(t *testing.T) {
 	cases := map[string]string{
-		"project:/a":      "project",
-		"document:/b":     "document",
+		"project:/a":  "project",
+		"document:/b": "document",
+		"reading:/b":  "document",
+		"reading:" + BrainPrefix + "knowledge/guides/mail.md": "document",
 		"conversation:14": "conversation",
 		"":                "conversation",
 	}

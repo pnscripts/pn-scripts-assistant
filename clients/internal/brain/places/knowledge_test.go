@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/learning"
 )
 
 func TestTheKnowledgeFolderIsAPlaceDespiteBeingInsideTheBrain(t *testing.T) {
@@ -75,5 +77,81 @@ func TestTheKnowledgeFolderTravelsWithTheBrain(t *testing.T) {
 
 	if list[0].Path != Knowledge(moved) || !list[0].Reachable || list[0].Learned != 7 {
 		t.Fatalf("after the move: %+v", list[0])
+	}
+}
+
+// The two packages spell the knowledge folder the same way, or readings from
+// it go back to waiting for a person.
+func TestTheKnowledgeFolderIsSpelledOnce(t *testing.T) {
+	if learning.OwnKnowledge != learning.BrainPrefix+KnowledgeFolder+"/" {
+		t.Errorf("learning.OwnKnowledge %q does not match KnowledgeFolder %q",
+			learning.OwnKnowledge, KnowledgeFolder)
+	}
+}
+
+/*
+ * The built-in skills are left out of the knowledge folder's reading, and
+ * nothing else is.
+ *
+ * Only in the brain's own knowledge folder: somebody's own drive with a folder
+ * that happens to be called pack-skills is read like any other.
+ */
+func TestTheBuiltInSkillsAreNotReadIntoMemory(t *testing.T) {
+	root := t.TempDir()
+
+	learning.SetBrainRoot(root)
+	t.Cleanup(func() { learning.SetBrainRoot("") })
+
+	write := func(path string) {
+		t.Helper()
+
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+
+		body := "# Notes\n\nThe greenhouse door sticks in wet weather and needs oiling every spring.\n"
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	knowledge := Knowledge(root)
+	write(filepath.Join(knowledge, "guides", "garden.md"))
+	write(filepath.Join(knowledge, PackSkillsFolder, "bookkeeping", "SKILL.md"))
+	write(filepath.Join(knowledge, "imported", "my-skill", "SKILL.md"))
+
+	elsewhere := t.TempDir()
+	write(filepath.Join(elsewhere, PackSkillsFolder, "notes.md"))
+
+	sources := func(p Place) string {
+		t.Helper()
+
+		obs, err := scan(p, "Alex")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var all []string
+		for _, o := range obs {
+			all = append(all, o.Source)
+		}
+
+		return strings.Join(all, "\n")
+	}
+
+	inBrain := sources(Place{Path: knowledge, Kind: Documents})
+
+	if strings.Contains(inBrain, PackSkillsFolder) {
+		t.Errorf("the built-in skills are read into memory:\n%s", inBrain)
+	}
+
+	for _, want := range []string{"guides/garden.md", "imported/my-skill/SKILL.md"} {
+		if !strings.Contains(inBrain, want) {
+			t.Errorf("%s was left out of the knowledge folder:\n%s", want, inBrain)
+		}
+	}
+
+	if outside := sources(Place{Path: elsewhere, Kind: Documents}); !strings.Contains(outside, PackSkillsFolder+"/notes.md") {
+		t.Errorf("a folder of somebody's own called %s was skipped:\n%s", PackSkillsFolder, outside)
 	}
 }

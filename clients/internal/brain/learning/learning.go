@@ -195,8 +195,27 @@ func observedPath(source string) (string, bool) {
 		}
 	}
 
+	// What a document in the brain's own knowledge folder says. See
+	// OwnKnowledge.
+	if rest, ok := strings.CutPrefix(source, "reading:"); ok && strings.HasPrefix(rest, OwnKnowledge) {
+		return Resolve(rest), true
+	}
+
 	return "", false
 }
+
+/*
+ * OwnKnowledge is the brain's knowledge folder as its sources are written
+ * (places.KnowledgeFolder, relative to the brain).
+ *
+ * What a document says waits for a person, because a document on a disk may be
+ * anybody's writing and "the file says so" is not "this is true about you".
+ * The knowledge folder is the exception: it holds the guides the program
+ * carries and what its owner put there on purpose for it to know. Sending
+ * that to the review queue filled the queue with the program's own guides on
+ * the first day, and a full queue stops all reading, of every drive.
+ */
+const OwnKnowledge = BrainPrefix + "knowledge/"
 
 // DuplicateThreshold is the cosine similarity above which two facts are treated
 // as the same thing.
@@ -278,7 +297,7 @@ func (c Curator) Promote(ctx context.Context, lesson store.Lesson) (int64, error
 // plainSource is where something came from, without the prefix the scanner
 // uses to tell one kind of place from another.
 func plainSource(source string) string {
-	for _, prefix := range []string{"project:", "document:", "browser:"} {
+	for _, prefix := range []string{"project:", "document:", "reading:", "browser:"} {
 		if rest, found := strings.CutPrefix(source, prefix); found {
 			return Resolve(rest)
 		}
@@ -291,7 +310,10 @@ func categoryFor(source string) string {
 	switch {
 	case strings.HasPrefix(source, "project:"):
 		return "project"
-	case strings.HasPrefix(source, "document:"):
+	// What a document says is as much a document as its listing. Before the
+	// knowledge folder's readings were trusted, they only became memories
+	// through a person, and were filed as conversation.
+	case strings.HasPrefix(source, "document:"), strings.HasPrefix(source, "reading:"):
 		return "document"
 	case strings.HasPrefix(source, "browser:"):
 		return "website"

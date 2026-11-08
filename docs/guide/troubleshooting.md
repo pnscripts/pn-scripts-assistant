@@ -86,6 +86,13 @@ rests after ten seconds. A graphics card makes every row lower.
 Documents read in the background (PDFs) are read at low priority, so they
 never compete with what you are doing.
 
+Reading folders in the background and learning from the last conversation
+step aside for a question. While the assistant answers, or while you speak,
+nothing new is read; a long piece of learning that is already running is
+stopped and done again afterwards, so nothing is lost. In 0.13.0 and
+earlier a question asked while a new brain was reading its own guides could
+wait about fourteen minutes on a four-core computer without a graphics card.
+
 If an untouched window still costs more than a few percent, something on the
 page is not resting: `scripts/load-check.sh` measures it the way CI does.
 
