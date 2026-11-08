@@ -6,6 +6,48 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## 0.12.0 — 2026-11-08
+
+### Installing and updating, with the least effort
+
+- **Ubuntu: one line, then updates come by themselves.** The assistant has its
+  own apt repository, signed with its own key and published with every
+  release (`https://pnscripts.github.io/pn-scripts-assistant/apt`). One line
+  adds it, `sudo apt install pn-scripts-assistant` installs, and from then on
+  **Software Updater** brings each new version with your other updates
+  (`sudo apt upgrade` does the same). The `.deb` adds the same repository when
+  installed by hand, as Chrome and VS Code do; delete
+  `/etc/apt/sources.list.d/pn-scripts-assistant.sources` to stop it, and
+  `apt purge` removes it.
+- **A new version is announced in the window.** A line across the top and the
+  *What it runs on* page say when one is out, with both version numbers. The
+  check is one request a day to GitHub's public releases page with nothing
+  about you in it; it can be switched off there, and it says so plainly when
+  there is no network.
+- **Windows: one click updates it.** *Update now* downloads the new installer
+  from the release, accepts it only if its SHA-256 matches the release's
+  `SHA256SUMS`, closes the assistant, installs over it and opens it again.
+  Nothing it learned is touched. The portable zip is never replaced by itself:
+  its button opens the release page.
+- **`pn-scripts-assistant update`** does the same from a terminal on Linux,
+  and `update --check` only asks.
+- Installing and updating are explained first in the guides, in English and
+  Bulgarian.
+
+### Proved like a user
+
+- A clean Ubuntu 24.04 adds the repository with the documented line, installs
+  the previous version from it and updates with `apt upgrade`, after every
+  release.
+- On a Windows runner an older installed copy is told a new version is out,
+  and the same request the button sends downloads, checks and installs it; the
+  program closes, the new version opens, the brain stays.
+- winget manifests are written from every published release, checked with
+  `winget validate`, and the previous and newest versions are installed the
+  way winget installs them (its download, hash check and switches); the
+  manifests are attached to the release, ready for the winget community
+  repository.
+
 ## 0.11.0 — 2026-11-08
 
 ### Changed

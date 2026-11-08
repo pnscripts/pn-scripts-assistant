@@ -48,6 +48,12 @@ A binary built by hand, outside the release script, says `built from source
 1. Put the new number in `VERSION`, commit it.
 2. `make release`, and read what `validate` printed.
 3. Tag it `v<version>` and push the tag.
+4. After *Release* finishes, three workflows follow by themselves: *Apt
+   repository* republishes the signed apt repository with the new `.deb` and
+   updates a clean Ubuntu from the previous version with `apt upgrade`;
+   *winget* writes, validates and installs the winget manifests and attaches
+   them to the release; *A stranger installs it* installs the published files
+   on clean machines. All three must be green.
 
 Anybody can check a published release rather than trusting its checksum: check
 out the commit it was built from, run `make package`, and compare with the
