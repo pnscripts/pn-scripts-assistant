@@ -217,3 +217,54 @@ func TestAnOutgoingMessageIsPolishedBeforeTheQuestion(t *testing.T) {
 		t.Errorf("what runs after the yes is not what was shown: %+v", inv)
 	}
 }
+
+type agentsHere struct{ asked *[]string }
+
+func (agentsHere) CodingAgents() []tools.CodingAgent {
+	return []tools.CodingAgent{{ID: "claude-code", Title: "Claude Code", Ready: true}}
+}
+
+func (a agentsHere) AskCodingAgent(_ context.Context, id, folder, task, access string) (tools.AgentAnswer, error) {
+	*a.asked = append(*a.asked, access)
+
+	return tools.AgentAnswer{Agent: "Claude Code", Said: "Done."}, nil
+}
+
+/*
+ * A coding agent given full access is put to its user every time, even with
+ * everything allowed and nothing asked; one only reading runs as allowed.
+ */
+func TestFullAccessForACodingAgentIsAlwaysAsked(t *testing.T) {
+	var asked []string
+
+	loop, db := newLoop(t, tools.AskCodingAgent{Agents: agentsHere{asked: &asked}})
+	everythingAllowed(loop)
+
+	conv, _ := db.NewConversation("t")
+
+	ask := func(access string) Result {
+		model := &scripted{replies: []llm.Response{{
+			Content: "Asking it.",
+			ToolCalls: []llm.ToolCall{{ID: "c1", Name: "ask_coding_agent", Arguments: json.RawMessage(
+				`{"task":"Tidy the tests.","folder":"/tmp/project","access":"` + access + `"}`)}},
+		}}}
+
+		res, err := loop.RunBrief(context.Background(), conv, model, nil, Brief{WithTools: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return res
+	}
+
+	res := ask("full")
+	if len(asked) != 0 || len(res.Pending) != 1 ||
+		!strings.Contains(res.Pending[0].Summary, "Always asked — full access for a coding agent") ||
+		!strings.Contains(res.Pending[0].Summary, "FULL ACCESS") || !strings.Contains(res.Pending[0].Summary, "Tidy the tests.") {
+		t.Fatalf("full access was not put to the user: ran %v, %+v", asked, res.Pending)
+	}
+
+	if res := ask("read"); len(asked) != 1 || asked[0] != "read" || len(res.Pending) != 0 {
+		t.Errorf("reading did not run as allowed: %v %+v", asked, res.Pending)
+	}
+}

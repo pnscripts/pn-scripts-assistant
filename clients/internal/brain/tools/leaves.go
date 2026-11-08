@@ -69,6 +69,9 @@ func Reaches(t Tool, args json.RawMessage) string {
 	case "send_draft":
 		return "mail"
 
+	case "ask_coding_agent":
+		return "the coding agent's own service"
+
 	case "read_calendar", "write_calendar":
 		return "your calendar server"
 	}
@@ -94,6 +97,8 @@ func Leaves(t Tool) (bool, string) {
 		return true, "a request for each web page it is given as a source; files stay here"
 	case "send_email", "send_draft":
 		return true, "the message, to the people it is addressed to"
+	case "ask_coding_agent":
+		return true, "the task and what the agent reads, to the agent's own service, under your sign-in"
 	case "drive_browser":
 		return true, "what the page you open is sent"
 	case "read_calendar":

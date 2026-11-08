@@ -1223,6 +1223,16 @@ func (l *Loop) RunBrief(
 				answer = permits.Ask
 			}
 
+			// And a call its tool says is always asked, the same way: see
+			// tools.AlwaysAsking (a coding agent given full access).
+			if a, ok := tool.(tools.AlwaysAsking); ok {
+				if why := a.AlwaysAsks(call.Arguments); why != "" {
+					ask = true
+					answer = permits.Ask
+					summary = "Always asked — " + why + ": " + summary
+				}
+			}
+
 			if lines := RuleLines(verdict.Ask, verdict.Remind) + polished; lines != "" && (ask || answer == permits.Ask) {
 				summary = lines + "\n" + summary
 			}

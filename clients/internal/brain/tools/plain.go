@@ -20,6 +20,8 @@ var plainWords = map[string][2]string{
 		"Включва интеграция, която вече е добавена."},
 	"ask_one_question": {"A built-in procedure: how to ask you one question at a time, with options.",
 		"Вградена процедура: как да ви задава по един въпрос с възможни отговори."},
+	"ask_coding_agent": {"Hands one task to Claude Code, Codex or Cursor's agent on this computer, in a folder you choose, and shows what it changed.",
+		"Възлага една задача на Claude Code, Codex или агента на Cursor на този компютър в избрана от вас папка и показва какво е променил."},
 	"ask_first": {"Asks you one question, with options, when only you can decide.",
 		"Задава ви един въпрос с възможни отговори, когато решението е само ваше."},
 	"audit_originality": {"Checks a whole folder of work for names, pictures, melodies and rules that are too close to existing works.",

@@ -55,6 +55,12 @@ against the code on 8 November 2026.
   answering with a real key. If one misbehaves, the error it returns is shown
   as it came.
 
+- **Coding agents** that can be asked are Claude Code, Codex and Cursor's
+  agent. Gemini CLI is not one yet: Google replaced it with Antigravity CLI for
+  most accounts in June 2026, and its event stream is not documented well
+  enough to read what it changed. Whether Cursor's agent is signed in is only
+  known when it is asked, because asking starts its login.
+
 ## Safety and privacy
 
 - **Goal mode** works on its own and asks only before paying, sending or

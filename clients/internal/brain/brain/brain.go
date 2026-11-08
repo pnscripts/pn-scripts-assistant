@@ -491,6 +491,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.MyRules{Brain: b},
 		tools.PolishText{},
 
+		// The coding agents on this machine — Claude Code, Codex, Cursor's
+		// agent — asked for one task in a folder. See codingagents.go.
+		tools.AskCodingAgent{Agents: b},
+
 		tools.InBackground{Jobs: backgroundOf{b}, Registry: func() *tools.Registry {
 			return b.Agent.Registry
 		}},
