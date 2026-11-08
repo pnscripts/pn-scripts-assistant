@@ -98,4 +98,14 @@ func TestThePulseSpeaksOnlyOfChanges(t *testing.T) {
 	if e, ok := next(2 * time.Second); !ok || !strings.Contains(e, `"busy":false`) {
 		t.Fatalf("a turn ending: %q", e)
 	}
+
+	// Something learned is told at the next count (sixty looks later), as
+	// a change in memory alone.
+	if _, err := db.AddFact("note", "the pulse counts this", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if e, ok := next(3 * time.Second); !ok || !strings.Contains(e, `"memory":1`) || !strings.Contains(e, `"busy":false`) {
+		t.Fatalf("something learned: %q", e)
+	}
 }

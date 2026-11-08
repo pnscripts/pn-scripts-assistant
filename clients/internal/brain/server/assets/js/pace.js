@@ -19,7 +19,9 @@
  *     assistant is doing something (the server says so through /api/pulse).
  *   - resting: nothing for a minute. Every interval and animation frame is
  *     held, CSS animation is paused, and one server-sent stream is the only
- *     thing open. Anything that happens — a key, the mouse, a turn starting, a
+ *     thing open. While it learns in the background, the stream says once a
+ *     minute that it knows more, and the numbers are refreshed once without
+ *     waking anything else. Anything that happens — a key, the mouse, a turn starting, a
  *     voice in the room, something waiting for a decision — wakes it, and the
  *     held timers run at once so nothing on the screen is stale.
  *   - hidden: minimised or behind another window. As resting, and the stream
@@ -60,6 +62,7 @@
     let busy = false;
     let pulse = null;
     let lastPulse = null;
+    let lastSaid = {};
 
     function holding() { return state !== 'awake'; }
 
@@ -199,15 +202,51 @@
 
             const first = lastPulse === null;
             const changed = event.data !== lastPulse;
+            const before = lastSaid;
 
             lastPulse = event.data;
+            lastSaid = said;
 
-            if ((first && busy) || (!first && changed)) wake();
+            if (first) {
+                if (busy) wake();
+
+                return;
+            }
+
+            if (!changed) return;
+
+            // Only what it knows has grown (it is learning in the
+            // background): the numbers on the screen are brought up to date
+            // once, and the page goes on resting.
+            if (state !== 'awake' && sameApartFromMemory(before, said)) {
+                refreshOnce();
+
+                return;
+            }
+
+            wake();
         });
 
         // The browser reconnects by itself; an error while resting is not a
         // reason to wake everything up.
         pulse.onerror = () => {};
+    }
+
+    function sameApartFromMemory(a, b) {
+        const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+
+        for (const key of keys) {
+            if (key !== 'memory' && (a || {})[key] !== (b || {})[key]) return false;
+        }
+
+        return true;
+    }
+
+    // Every held poller runs once; the timers stay held.
+    function refreshOnce() {
+        for (const entry of intervals.values()) {
+            try { entry.run(); } catch (error) { console.error(error); }
+        }
     }
 
     function closePulse() {

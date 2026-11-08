@@ -1241,6 +1241,26 @@ async function refreshLessons() {
         card.append(content, actions);
         list.appendChild(card);
     });
+
+    syncWaitingEmpty();
+}
+
+/*
+ * "Nothing needs a decision" agrees with the cards under it the moment they
+ * are drawn. It used to be set only by the status poll, so when the cards
+ * arrived after the status — and with the page resting there is no next
+ * poll to correct it — the panel said nothing was waiting above a list of
+ * things waiting.
+ */
+function syncWaitingEmpty() {
+    const empty = el('waiting-empty');
+
+    if (!empty) return;
+
+    const approvals = el('approvals');
+    const lessons = el('lessons');
+
+    empty.hidden = (approvals ? approvals.children.length : 0) + (lessons ? lessons.children.length : 0) > 0;
 }
 
 async function decideLesson(id, decision) {
@@ -1425,6 +1445,8 @@ async function refreshApprovals() {
         card.append(summary, actions);
         list.appendChild(card);
     });
+
+    syncWaitingEmpty();
 }
 
 async function decide(id, decision) {

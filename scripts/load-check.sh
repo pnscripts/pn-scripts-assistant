@@ -50,7 +50,8 @@ trap stop_all EXIT
 
 # A display of its own; -displayfd says which number it took.
 exec 9> "$WORK/display"
-Xvfb -displayfd 9 -screen 0 1366x768x24 -nolisten tcp > "$WORK/xvfb.log" 2>&1 &
+# shellcheck disable=SC2086 # extra Xvfb arguments are words on purpose
+Xvfb -displayfd 9 -screen 0 1366x768x24 -nolisten tcp ${LOAD_CHECK_XVFB_ARGS:-} > "$WORK/xvfb.log" 2>&1 &
 XVFB_PID=$!
 for _ in $(seq 1 50); do [ -s "$WORK/display" ] && break; sleep 0.1; done
 DISPLAY_NUMBER="$(head -1 "$WORK/display")"
@@ -95,20 +96,42 @@ def cpu(p):
         s = open(f'/proc/{p}/stat').read(); f = s[s.rindex(')') + 2:].split()
         return s[s.index('(') + 1:s.rindex(')')], int(f[11]) + int(f[12])
     except OSError: return None, None
+def threads(p):
+    out = {}
+    for t in os.listdir(f'/proc/{p}/task') if os.path.isdir(f'/proc/{p}/task') else []:
+        try:
+            s = open(f'/proc/{p}/task/{t}/stat').read(); f = s[s.rindex(')') + 2:].split()
+            out[t] = (s[s.index('(') + 1:s.rindex(')')], int(f[11]) + int(f[12]))
+        except OSError: pass
+    return out
 app, xvfb, secs = int(sys.argv[1]), int(sys.argv[2]), float(sys.argv[3])
 pids = tree(app) + [xvfb]
+ta = {p: threads(p) for p in pids}
 a = {p: cpu(p) for p in pids}; t0 = time.time(); time.sleep(secs); dt = time.time() - t0
+tb = {p: threads(p) for p in pids}
 total = 0.0
 for p in pids:
     name, c = cpu(p)
     if c is None or a[p][1] is None: continue
     used = (c - a[p][1]) / HZ / dt * 100; total += used
     print(f'    {name:<18} {used:6.2f} %', file=sys.stderr)
+    # The busiest threads of anything that costs more than a trace, so a
+    # failure says where the time went (a JavaScript timer, the garbage
+    # collector, the compositor, software GL) without another run.
+    if used >= 0.5:
+        busy = sorted(((tb[p][t][1] - ta[p][t][1]) / HZ / dt * 100, tb[p][t][0]) for t in tb[p] if t in ta.get(p, {}))
+        for share, thread in reversed(busy[-4:]):
+            if share >= 0.2:
+                print(f'        thread {thread:<22} {share:6.2f} %', file=sys.stderr)
 print(f'{total:.2f}')
 PY
 }
 
 over() { python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) else 1)" "$1" "$2"; }
+
+# What the page is told: busy keeps it awake, by design.
+echo "  pulse: $(curl -sN -m 2 "http://127.0.0.1:$PORT/api/pulse" 2> /dev/null | grep -m1 '^data:' || echo none)"
+echo "  doing: $(curl -s -m 2 "http://127.0.0.1:$PORT/api/progress" 2> /dev/null | head -c 300)"
 
 echo "→ resting, ${SECONDS_SAMPLED}s:"
 resting="$(measure "$SECONDS_SAMPLED")"

@@ -6304,3 +6304,12 @@ html[data-pace="hidden"] *::before,
 html[data-pace="hidden"] *::after {
     animation-play-state: paused !important;
 }
+
+/* The monitor's note is one line: the panel is as tall as its dials, and a
+   wrapped second line was cut in half at its edge. The whole sentence is the
+   note's title (dashboard.js). */
+#machine-note {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

@@ -855,6 +855,11 @@
                 note.textContent = load.available
                     ? 'The model runs on this processor, which is why an answer takes as long as it does.'
                     : 'This platform does not report its load, so no figure is shown rather than a guessed one.';
+
+                // One line in the panel, the whole sentence on hover: the
+                // panel is as tall as the dials, and a second line was cut
+                // in half at the panel's edge.
+                note.title = note.textContent;
             }
         } catch {
             setGauge('gauge-cpu', 'cpu-value', -1);

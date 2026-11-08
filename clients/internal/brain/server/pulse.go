@@ -50,9 +50,19 @@ func (s *Server) handlePulse(w http.ResponseWriter, r *http.Request) {
 	defer tick.Stop()
 
 	last := ""
+	memory, looked := -1, 0
 
 	for {
-		now := s.pulseNow()
+		// What it knows is counted once a minute, not every second: it
+		// changes all the time while it learns, and a page that rests only
+		// needs its numbers brought up to date now and then.
+		if looked%pulseMemoryEvery == 0 {
+			memory = s.pulseMemory()
+		}
+
+		looked++
+
+		now := s.pulseNow(memory)
 
 		if now != last {
 			if _, err := fmt.Fprintf(w, "event: pulse\ndata: %s\n\n", now); err != nil {
@@ -86,10 +96,30 @@ type pulse struct {
 	// Jobs is how many background jobs are running: a job starting or
 	// finishing wakes the page, a job running does not keep it awake.
 	Jobs int `json:"jobs"`
+	// Memory is how many things it knows, counted once a minute. A change
+	// in this alone does not wake the page; it refreshes its numbers once
+	// and goes on resting.
+	Memory int `json:"memory"`
 }
 
-func (s *Server) pulseNow() string {
-	var p pulse
+// pulseMemoryEvery is how many looks pass between counts of what it knows.
+const pulseMemoryEvery = 60
+
+func (s *Server) pulseMemory() int {
+	if s.brain == nil || s.brain.DB == nil {
+		return 0
+	}
+
+	n, err := s.brain.DB.CountFacts()
+	if err != nil {
+		return 0
+	}
+
+	return n
+}
+
+func (s *Server) pulseNow(memory int) string {
+	p := pulse{Memory: memory}
 
 	step := progress.Now()
 
