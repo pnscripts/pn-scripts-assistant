@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"pn-scripts-assistant/internal/brain/places"
 )
 
 /*
@@ -52,7 +54,7 @@ var packFS embed.FS
 var packSource fs.FS = packFS
 
 // PackFolder is where the built-in pack is written in a brain.
-var PackFolder = filepath.Join("knowledge", "pack-skills")
+var PackFolder = filepath.Join(places.KnowledgeFolder, places.PackSkillsFolder)
 
 // Pack is every skill of the built-in pack, with its Bulgarian words when it
 // has them, sorted by name. A folder whose SKILL.md cannot be read as a

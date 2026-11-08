@@ -195,8 +195,27 @@ func observedPath(source string) (string, bool) {
 		}
 	}
 
+	// What a document in the brain's own knowledge folder says. See
+	// OwnKnowledge.
+	if rest, ok := strings.CutPrefix(source, "reading:"); ok && strings.HasPrefix(rest, OwnKnowledge) {
+		return Resolve(rest), true
+	}
+
 	return "", false
 }
+
+/*
+ * OwnKnowledge is the brain's knowledge folder as its sources are written
+ * (places.KnowledgeFolder, relative to the brain).
+ *
+ * What a document says waits for a person, because a document on a disk may be
+ * anybody's writing and "the file says so" is not "this is true about you".
+ * The knowledge folder is the exception: it holds the guides the program
+ * carries and what its owner put there on purpose for it to know. Sending
+ * that to the review queue filled the queue with the program's own guides on
+ * the first day, and a full queue stops all reading, of every drive.
+ */
+const OwnKnowledge = BrainPrefix + "knowledge/"
 
 // DuplicateThreshold is the cosine similarity above which two facts are treated
 // as the same thing.

@@ -54,6 +54,19 @@ const KnowledgeFolder = "knowledge"
 // Knowledge is the knowledge folder of a given brain.
 func Knowledge(root string) string { return filepath.Join(root, KnowledgeFolder) }
 
+/*
+ * PackSkillsFolder, inside the knowledge folder, holds the program's built-in
+ * skills (skills.PackFolder), written there so a skill's references and
+ * scripts can be opened like any file.
+ *
+ * It is not read into memory. The skills are already the brain's, chosen by
+ * what a message is about; remembering every line of them as well cost about
+ * six hundred embeddings on a new brain (half an hour of a four-core
+ * processor, competing with every question) and put manual pages among the
+ * memories a question is answered from.
+ */
+const PackSkillsFolder = "pack-skills"
+
 // KnowledgeName is what the knowledge folder is called when it was never
 // named by anybody.
 const KnowledgeName = "Knowledge carried with the brain"

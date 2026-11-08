@@ -18,6 +18,24 @@ number is 0, the second one changes when something visible changes.
 
 ### Fixed
 
+- **A question no longer waits behind background learning.** Reading folders
+  and learning from the last conversation now step aside while the assistant
+  answers or while you speak, and a long piece of learning that is already
+  running is stopped and done again afterwards, so nothing is lost. On a
+  four-core computer without a graphics card a question asked while a new
+  brain read its own guides used to wait about fourteen minutes.
+
+- **A new brain reads its own guides once.** The knowledge folder inside the
+  brain was never marked as read, so its first sixty guides were read again
+  every ninety seconds for as long as the program ran. It is now read to the
+  end and left alone; what the guides say is known at once instead of waiting
+  for you in the review queue, and the built-in skills stay skills rather
+  than being copied into memory line by line.
+
+- **The answer on screen stays while background reading finishes.** A folder
+  bite that ended during an answer used to clear the "Thinking" line or write
+  its own note over it.
+
 - **Telling voices apart keeps working after an update.** The program now
   uses ONNX Runtime 1.31.0 (with onnxruntime_go 1.38.0). If you turned the
   feature on in an earlier version, the old runtime is recognised when the

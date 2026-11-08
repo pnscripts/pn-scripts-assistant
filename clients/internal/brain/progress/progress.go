@@ -228,7 +228,14 @@ func SetTool(name, note string) {
  */
 func SetBackground(kind, note string) {
 	current.mu.Lock()
+	model := setBackgroundLocked(kind, note)
+	current.mu.Unlock()
 
+	remember(kind, note, "", model, true)
+}
+
+// setBackgroundLocked is SetBackground's change; the caller holds current.mu.
+func setBackgroundLocked(kind, note string) (model string) {
 	if !current.busy {
 		current.busy = true
 		current.started = time.Now()
@@ -238,10 +245,8 @@ func SetBackground(kind, note string) {
 	current.note = note
 	current.tool = ""
 	current.background = true
-	model := current.model
-	current.mu.Unlock()
 
-	remember(kind, note, "", model, true)
+	return current.model
 }
 
 // Round counts a model call.
@@ -254,14 +259,72 @@ func Round(n int) {
 // Done marks the end of a turn.
 func Done() {
 	current.mu.Lock()
+	clearLocked()
+	current.mu.Unlock()
+
+	finish()
+}
+
+// clearLocked empties the current step; the caller holds current.mu.
+func clearLocked() {
 	current.busy = false
 	current.kind = ""
 	current.note = ""
 	current.tool = ""
 	current.soFar = ""
+}
+
+/*
+ * Aside says what work the brain gave itself is doing, unless something
+ * somebody asked for is on screen.
+ *
+ * SetBackground writes over whatever is current, which the listening loop
+ * relies on. Reading a folder must not: a bite finishing in the middle of an
+ * answer wrote "3 new things from Documents" over "Thinking", and the person
+ * waiting saw the brain busy with something else.
+ */
+func Aside(kind, note string) {
+	current.mu.Lock()
+
+	// Decided and written under one lock, so a question that begins in
+	// between is never the step written over.
+	theirs := current.busy && !current.background
+
+	var model string
+	if !theirs {
+		model = setBackgroundLocked(kind, note)
+	}
+
 	current.mu.Unlock()
 
-	finish()
+	if !theirs {
+		remember(kind, note, "", model, true)
+	}
+}
+
+/*
+ * BackgroundDone ends work the brain gave itself, and nothing else.
+ *
+ * Done clears whatever is current, and background work that finishes while a
+ * question is being answered would clear the answer's step with it: the page
+ * then showed an idle brain halfway through somebody's question. A step that
+ * is no longer background belongs to whoever set it since, and is left alone.
+ */
+func BackgroundDone() {
+	current.mu.Lock()
+
+	// Decided and cleared under one lock, so a turn that begins in between
+	// cannot be the thing cleared.
+	mine := current.busy && current.background
+	if mine {
+		clearLocked()
+	}
+
+	current.mu.Unlock()
+
+	if mine {
+		finish()
+	}
 }
 
 // Answering reports whether a reply is being worked on.

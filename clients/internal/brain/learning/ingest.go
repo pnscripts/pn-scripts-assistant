@@ -113,7 +113,11 @@ func (w *Worker) Ingest(ctx context.Context, observations Observations, progress
 			continue
 		}
 
-		factID, err := w.Curator.Promote(ctx, *lesson)
+		// Background reading gives way to a question here, before the one
+		// thing in the loop that costs seconds: see yield.go.
+		factID, err := yielding(ctx, func(ctx context.Context) (int64, error) {
+			return w.Curator.Promote(ctx, *lesson)
+		})
 		if err != nil {
 			// One unembeddable observation must not end a scan of thousands.
 			w.Log.Warn("could not promote an observation", "lesson", id, "error", err)
