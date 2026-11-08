@@ -208,10 +208,19 @@ a package and draws its own window; on Windows it installs for your account
 and opens in its own window too (Microsoft Edge WebView2, falling back to your
 browser where WebView2 is missing). There is no macOS download.
 
-| System | Download | |
+| System | Install (once) | Updates |
 |---|---|---|
-| Ubuntu / Debian | `pn-scripts-assistant_<version>_amd64.deb` | `sudo apt install ./…deb` |
-| Windows 10+ | `…-windows-setup.exe` | run it; no administrator password |
+| Ubuntu 24.04+ | the one line below, or `sudo apt install ./pn-scripts-assistant_<version>_amd64.deb` | Software Updater, with everything else |
+| Windows 10+ | run `…-windows-setup.exe`; no administrator password | the assistant says when one is out; **Update now** installs it |
+
+Ubuntu, the one line (adds the assistant's signed apt repository, then installs):
+
+```bash
+sudo wget -qO /etc/apt/sources.list.d/pn-scripts-assistant.sources https://pnscripts.github.io/pn-scripts-assistant/apt/pn-scripts-assistant.sources && sudo apt update && sudo apt install pn-scripts-assistant
+```
+
+The `.deb` adds the same repository when installed by hand (from 0.12.0).
+Both: [installing.md](docs/guide/installing.md) · [на български](docs/guide/installing.bg.md).
 
 Nothing is signed — there is no Windows certificate behind this — so Windows
 refuses the first open and takes one extra click to pass.
@@ -310,17 +319,19 @@ Everything else is in the window. The terminal is for people who prefer one.
 
 ## Updating and removing it
 
-A newer package installs over the old one and keeps everything learned:
-
-```bash
-sudo apt install ./pn-scripts-assistant_<newer>_amd64.deb
-```
+On Ubuntu new versions come through Software Updater (`sudo apt update &&
+sudo apt upgrade` does the same). On Windows the assistant says when a new
+version is out, and **Update now** downloads the installer, checks it against
+the release's `SHA256SUMS`, installs it and opens the assistant again. It asks
+GitHub's public releases page once a day and sends nothing about you; the
+switch is on the *What it runs on* page, and `pn-scripts-assistant update
+--check` asks from a terminal. Updates keep everything learned.
 
 Removing the program leaves the brain alone, deliberately — years of somebody's
 memory should not go with an `apt remove`:
 
 ```bash
-sudo apt remove pn-scripts-assistant          # the program
+sudo apt purge pn-scripts-assistant           # the program and its apt repository file
 rm -rf ~/.local/share/pn-scripts-assistant    # and the memory, if you mean it
 rm -rf ~/.config/pn-scripts-assistant ~/.local/state/pn-scripts-assistant
 ```

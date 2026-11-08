@@ -33,12 +33,40 @@ which costs money every year and identifies a company. Windows says so when
 you first open it, and the way past it is written below. That is the honest
 state of it rather than something to work around.
 
+## The easiest way
+
+| System | Install (once) | Updates |
+|---|---|---|
+| Ubuntu 24.04+ | the one line below, or open the `.deb` from the [releases](https://github.com/pnscripts/pn-scripts-assistant/releases/latest) | arrive in **Software Updater** with everything else (`sudo apt upgrade` does the same) |
+| Windows 10/11 | run `pn-scripts-assistant-<version>-windows-setup.exe` from the [releases](https://github.com/pnscripts/pn-scripts-assistant/releases/latest) | the assistant says when a new version is out; **Update now** downloads it, checks it and installs it, then opens it again |
+
+Ubuntu, in a terminal:
+
+```bash
+sudo wget -qO /etc/apt/sources.list.d/pn-scripts-assistant.sources https://pnscripts.github.io/pn-scripts-assistant/apt/pn-scripts-assistant.sources
+sudo apt update && sudo apt install pn-scripts-assistant
+```
+
+The first line adds the assistant's own apt repository, signed with its own
+key (fingerprint `E7D0 F5EF B64A E571 F126 AAEE 03EC 93CE C2C8 52F1`), and
+trusts that key for that repository only. Installing the `.deb` by hand does
+the same from version 0.12.0 on, so either way later versions come through
+Software Updater.
+
+On both systems the *What it runs on* page (and a line across the top of the window)
+says when a new version is out. It asks the public releases page on GitHub
+once a day and sends nothing about you; switch it off on that page.
+From a terminal, `pn-scripts-assistant update --check` asks the same.
+
 ## On Ubuntu
 
 Ubuntu 24.04 or newer, 64-bit. Nothing else has to be installed first — `apt`
 brings in what the window needs.
 
 ### From the package
+
+With the repository (the one line above), `sudo apt install pn-scripts-assistant`.
+Or download the `.deb` and:
 
 ```bash
 sudo apt install ./pn-scripts-assistant_*_amd64.deb
@@ -61,6 +89,7 @@ What that puts on the machine, and nothing else:
 | `/usr/share/icons/hicolor/*/apps/pn-scripts-assistant.png` | the icon, five sizes |
 | `/usr/share/man/man1/pn-scripts-assistant.1.gz` | `man pn-scripts-assistant` |
 | `/usr/share/doc/pn-scripts-assistant/` | the licence and the changelog |
+| `/etc/apt/sources.list.d/pn-scripts-assistant.sources` | where updates come from, with the repository's key |
 
 It writes nothing into your home directory until you run it.
 
@@ -91,11 +120,16 @@ The package lands in `build/packages` with its `SHA256SUMS`. See
 
 ### Updating
 
-A newer package installs over the older one:
+Nothing to do: Software Updater offers each new version, or
 
 ```bash
-sudo apt install ./pn-scripts-assistant_<newer>_amd64.deb
+sudo apt update && sudo apt upgrade
 ```
+
+The assistant's **Update** button opens Software Updater. To stop updates
+through apt, delete `/etc/apt/sources.list.d/pn-scripts-assistant.sources`;
+the package respects that on every later install. A downloaded `.deb` still
+installs over the older one: `sudo apt install ./pn-scripts-assistant_<newer>_amd64.deb`.
 
 Nothing that was learned is touched: the brain lives in your home directory (or
 on whichever drive you moved it to), and the package only replaces the program.
@@ -120,6 +154,9 @@ rm -rf ~/.local/state/pn-scripts-assistant
 
 If the brain was moved to another drive, `status` names that folder and the
 first path above will not be it.
+
+`apt remove` also keeps the repository file, so reinstalling still gets
+updates; `sudo apt purge pn-scripts-assistant` removes that too.
 
 ## On Windows
 
@@ -149,6 +186,15 @@ confinement are Linux-only.
 Ollama it cannot install for you on Windows: install it from
 [ollama.com/download](https://ollama.com/download) first, and setup does
 everything after that.
+
+**Updating.** When a new version is out the assistant says so at the top of
+its window and on the *What it runs on* page. **Update now** downloads the new
+installer from the release, checks it against the release's `SHA256SUMS`,
+closes the assistant, installs over it and opens it again; nothing it learned
+is touched. The portable folder is never replaced by itself: its button opens
+the release page, and you unzip the new folder over the old one (the brain in
+`PN-SCRIPTS-ASSISTANT-DATA` stays). In a terminal:
+`pn-scripts-assistant update` does the same as the button.
 
 Removing the program leaves what it learned, in
 `%USERPROFILE%\.local\share\pn-scripts-assistant` (the same place as on Linux,

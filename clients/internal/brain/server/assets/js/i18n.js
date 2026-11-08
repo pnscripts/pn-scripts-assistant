@@ -15,6 +15,7 @@
 (function () {
     const STRINGS = {
         // Updates: is a newer version out, and getting it.
+        'nav.updates': ['What it runs on', 'На какво работи'],
         'upd.title': ['Up to date', 'Актуалност'],
         'upd.checking': ['Checking…', 'Проверявам…'],
         'upd.checkingNow': ['checking…', 'проверявам…'],

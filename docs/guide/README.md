@@ -4,7 +4,7 @@
 [когато нещо не е наред](troubleshooting.bg.md),
 [известни ограничения](known-limits.bg.md).
 
-- [Installing it](installing.md) — the package, what it puts where, updating, removing
+- [Installing it](installing.md) — the easiest way per system (one line on Ubuntu, one installer on Windows), updates that arrive by themselves, what it puts where, removing
 - [Setting it up](configuring.md) — the first run, privacy, the settings that live in the environment
 - [Models, and which one answers](how-it-thinks.md) — local and hosted, and why the second question is faster than the first
 - [When something is wrong](troubleshooting.md) — the log first, then the usual causes
