@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PN Scripts Assistant apt repository</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.55 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 16px; }
+  pre { overflow-x: auto; padding: .8rem 1rem; border-radius: 6px; background: rgba(127,127,127,.12); }
+  code { font-family: ui-monospace, monospace; font-size: .9em; }
+</style>
+</head>
+<body>
+<h1>PN Scripts Assistant for Ubuntu</h1>
+<p>This is the apt repository of
+<a href="https://github.com/pnscripts/pn-scripts-assistant">PN Scripts Assistant</a>,
+a private assistant that runs on your own computer. Add it once and every new
+version arrives through Software Updater, like any other update.</p>
+<h2>Install</h2>
+<pre><code>sudo wget -qO /etc/apt/sources.list.d/pn-scripts-assistant.sources https://pnscripts.github.io/pn-scripts-assistant/apt/pn-scripts-assistant.sources
+sudo apt update &amp;&amp; sudo apt install pn-scripts-assistant</code></pre>
+<p>Installing the <code>.deb</code> from the
+<a href="https://github.com/pnscripts/pn-scripts-assistant/releases/latest">releases page</a>
+adds this repository too (from version 0.12.0).</p>
+<h2>Update</h2>
+<p>Nothing to do: Software Updater shows new versions. Or: <code>sudo apt update &amp;&amp; sudo apt upgrade</code></p>
+<p>Signing key: <a href="apt/pn-scripts-assistant-archive-keyring.asc">pn-scripts-assistant-archive-keyring.asc</a>
+(fingerprint E7D0 F5EF B64A E571 F126 AAEE 03EC 93CE C2C8 52F1).</p>
+<p>Ubuntu 24.04 and newer, 64-bit PCs. Made by PN Scripts.</p>
+</body>
+</html>

@@ -117,7 +117,8 @@ validate:
 		usr/share/applications/pn-scripts-assistant.desktop \
 		usr/share/doc/pn-scripts-assistant/copyright \
 		usr/share/doc/pn-scripts-assistant/changelog.gz \
-		usr/share/man/man1/pn-scripts-assistant.1.gz; do \
+		usr/share/man/man1/pn-scripts-assistant.1.gz \
+		etc/apt/sources.list.d/pn-scripts-assistant.sources; do \
 		echo "$$carried" | grep -q "$$required" || { echo "missing: $$required"; exit 1; }; \
 	done; \
 	if command -v lintian >/dev/null; then \

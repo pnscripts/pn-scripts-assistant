@@ -1,0 +1,23 @@
+# PN Scripts Assistant updates, through apt.
+#
+# Installed by the pn-scripts-assistant package, or by hand with the one line
+# in docs/guide/installing.md. With it, Software Updater (or `sudo apt upgrade`)
+# brings every new version like any other update. The key below is the
+# repository's own signing key, so this file trusts it for this repository
+# only. Delete this file to stop the updates; the program keeps working.
+Types: deb
+URIs: https://pnscripts.github.io/pn-scripts-assistant/apt
+Suites: stable
+Components: main
+Architectures: amd64
+Signed-By:
+ -----BEGIN PGP PUBLIC KEY BLOCK-----
+ .
+ mDMEavByKRYJKwYBBAHaRw8BAQdA9npb8qmkHVogPsd8Snv/94s/2KBwsOPGp3Rk
+ SET4Vi60MVBOIFNjcmlwdHMgQVBUIHNpZ25pbmcga2V5IDxvZmZpY2VAcG5zY3Jp
+ cHRzLmNvbT6IkwQTFgoAOxYhBOfQ9e+2SuVx8Saq7gPsk87CyFLxBQJq8HIpAhsD
+ BQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJEAPsk87CyFLxN1EBAINzcl3y
+ i2TI7H2o4okQxH/Ncv/UNLQyHye0We4H4vE8AQCG8nDz/Se9BXYkXV/mzCZQS/YE
+ J7e27ozr6KHSPb+nBw==
+ =YPWw
+ -----END PGP PUBLIC KEY BLOCK-----

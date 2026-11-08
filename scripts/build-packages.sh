@@ -358,9 +358,34 @@ DESKTOP
         > "$stage/usr/share/man/man1/pn-scripts-assistant.1.gz"
     chmod 644 "$stage/usr/share/man/man1/pn-scripts-assistant.1.gz"
 
+    # Updates through apt: the repository and its key, as one deb822 file.
+    #
+    # The same arrangement Chrome and VS Code use, so somebody who installed
+    # the .deb once gets every later version from Software Updater with
+    # everything else, instead of having to remember to come back. A conffile:
+    # a person who deletes it has said "no updates", and dpkg respects that on
+    # every upgrade; `apt purge` takes it away with the package.
+    mkdir -p "$stage/etc/apt/sources.list.d"
+    install -m 644 "$ROOT/packaging/apt/pn-scripts-assistant.sources" \
+        "$stage/etc/apt/sources.list.d/pn-scripts-assistant.sources"
+    printf '%s\n' /etc/apt/sources.list.d/pn-scripts-assistant.sources > "$stage/DEBIAN/conffiles"
+    chmod 644 "$stage/DEBIAN/conffiles"
+
+    # lintian calls a package that installs an apt source an error, and for a
+    # package in Debian's own archive it is one: the archive is the source.
+    # This package is published outside it, and its own repository is the only
+    # way its users are told about a new version — the reason Chrome, VS Code
+    # and Signal do the same. Said once, here, with the reason beside it.
+    mkdir -p "$stage/usr/share/lintian/overrides"
+    printf '%s\n' \
+        '# Third-party package: its own repository is how its users get updates.' \
+        'pn-scripts-assistant: package-installs-apt-sources [etc/apt/sources.list.d/pn-scripts-assistant.sources]' \
+        > "$stage/usr/share/lintian/overrides/pn-scripts-assistant"
+    chmod 644 "$stage/usr/share/lintian/overrides/pn-scripts-assistant"
+
     # The umask on this machine leaves directories group-writable, and what
     # the archive carries is what lands on somebody else's machine.
-    find "$stage/usr" -type d -exec chmod 755 {} +
+    find "$stage/usr" "$stage/etc" -type d -exec chmod 755 {} +
 
     # md5sums, so dpkg can say afterwards which installed file has been
     # changed. Every package built by the usual tools has one; this was built

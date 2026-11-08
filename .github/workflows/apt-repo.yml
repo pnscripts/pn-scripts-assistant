@@ -1,0 +1,130 @@
+name: Apt repository
+
+# The repository `sudo apt upgrade` and Software Updater take new versions
+# from: https://pnscripts.github.io/pn-scripts-assistant/apt
+#
+# Rebuilt from the PUBLISHED releases every time — the newest and the two
+# before it — and published on GitHub Pages, so it holds nothing that is not
+# also on the releases page and has no state of its own to lose. Signed with
+# the repository key (secret APT_SIGNING_KEY); the public half is
+# packaging/apt, and every installed copy trusts exactly that key.
+#
+# Then a stranger uses it: a clean Ubuntu 24.04 adds the repository with the
+# one documented line, installs the version before the newest, and updates
+# with `apt upgrade` — the way every user after 0.12.0 gets new versions.
+on:
+  # After every release (a release published with the workflow's own token
+  # starts nothing by itself, so the end of the Release workflow does).
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publication at a time; a second waits rather than racing the first.
+concurrency:
+  group: apt-repository
+  cancel-in-progress: false
+
+env:
+  REPO: pnscripts/pn-scripts-assistant
+  APT_URL: https://pnscripts.github.io/pn-scripts-assistant/apt
+
+jobs:
+  publish:
+    name: Build, sign and publish
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: The three newest released packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir debs
+          gh release list -R "$REPO" --exclude-drafts --exclude-pre-releases --limit 3 \
+            --json tagName --jq '.[].tagName' > tags.txt
+          cat tags.txt
+          while read -r tag; do
+            gh release download "$tag" -R "$REPO" -p 'pn-scripts-assistant_*_amd64.deb' -p SHA256SUMS -D "dl-$tag"
+            (cd "dl-$tag" && sha256sum --ignore-missing -c SHA256SUMS)
+            mv "dl-$tag"/*.deb debs/
+          done < tags.txt
+          ls -l debs
+
+      - name: Build and sign the repository
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          bash scripts/build-apt-repo.sh debs site/apt
+          cp packaging/apt/index.html site/index.html
+          touch site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  stranger:
+    name: A stranger adds it, installs the previous version and updates
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # The documented line, exactly as docs/guide/installing.md has it.
+      - name: Add the repository (one line)
+        run: |
+          sudo wget -qO /etc/apt/sources.list.d/pn-scripts-assistant.sources "$APT_URL/pn-scripts-assistant.sources"
+          sudo apt-get update 2>&1 | tee update.log
+          ! grep -E '^(W|E):.*pnscripts' update.log
+          apt-cache policy pn-scripts-assistant
+
+      - name: Install the version before the newest
+        timeout-minutes: 10
+        run: |
+          versions="$(apt-cache madison pn-scripts-assistant | awk '{ print $3 }')"
+          echo "$versions"
+          newest="$(echo "$versions" | head -1)"
+          previous="$(echo "$versions" | sed -n 2p)"
+          [ -n "$previous" ] || { echo "the repository holds only one version"; exit 1; }
+          echo "NEWEST=$newest" >> "$GITHUB_ENV"
+          sudo apt-get install -y "pn-scripts-assistant=$previous"
+          dpkg -s pn-scripts-assistant | grep -E '^(Status|Version):'
+
+      - name: sudo apt upgrade brings the newest
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update
+          apt list --upgradable 2>/dev/null | tee upgradable.txt
+          grep -q '^pn-scripts-assistant/' upgradable.txt
+          sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y </dev/null
+          have="$(dpkg-query -W -f='${Version}' pn-scripts-assistant)"
+          echo "installed now: $have, newest: $NEWEST"
+          [ "$have" = "$NEWEST" ]
+          pn-scripts-assistant version
+
+      # The package owns the repository file now, byte for byte the one the
+      # documented line fetched, so nothing asked about it and an update to the
+      # file arrives with the package.
+      - name: The package keeps the repository
+        run: |
+          if dpkg --compare-versions "$NEWEST" lt 0.12.0; then
+            echo "$NEWEST is older than 0.12.0, the first version that carries the file"
+            exit 0
+          fi
+          dpkg -S /etc/apt/sources.list.d/pn-scripts-assistant.sources
+          sudo apt-get update 2>&1 | tee again.log
+          ! grep -E '^(W|E):' again.log
