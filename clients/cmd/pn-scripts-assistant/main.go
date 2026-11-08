@@ -508,6 +508,10 @@ func runServe(args []string) error {
 	b.WarmIntroduction()
 	srv := server.New(b, logger)
 
+	// Served without a window, an update still has to get this copy out of
+	// the installer's way: it stops serving, as on Ctrl+C.
+	srv.OnQuit(stop)
+
 	// The same two things the windowed start records: what the last run left
 	// unfinished, and whether the drive has been carried here from another
 	// machine, where it sat at a different path.

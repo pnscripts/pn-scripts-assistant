@@ -1,0 +1,140 @@
+name: winget
+
+# The winget manifests for the published releases, proved the way winget
+# itself uses them, on a real Windows:
+#
+#   - written by scripts/winget-manifests.sh from the PUBLISHED setup.exe and
+#     its SHA256SUMS (nothing from this commit's build);
+#   - `winget validate` on each;
+#   - the version before the newest installed with `winget install
+#     --manifest`, then the newest installed over it — what `winget upgrade`
+#     does once the package is in the community repository — and the brain
+#     made by the first is still there after the second;
+#   - after a release, the newest version's manifests attached to it, ready
+#     for the pull request to microsoft/winget-pkgs.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/winget.yml'
+      - 'scripts/winget-manifests.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REPO: pnscripts/pn-scripts-assistant
+
+jobs:
+  winget:
+    name: winget validate, install the previous version, upgrade to the newest
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRAIN_SETUP_DONE: 'true'
+      OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+      PN_SCRIPTS_ASSISTANT_SILENT: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: The newest two releases, and their manifests
+        shell: bash
+        run: |
+          gh release list -R "$REPO" --exclude-drafts --exclude-pre-releases --limit 2 \
+            --json tagName --jq '.[].tagName' > tags.txt
+          newest="$(sed -n 1p tags.txt)"; previous="$(sed -n 2p tags.txt)"
+          echo "NEWEST=${newest#v}" >> "$GITHUB_ENV"
+          echo "PREVIOUS=${previous#v}" >> "$GITHUB_ENV"
+          bash scripts/winget-manifests.sh "$newest" winget
+          bash scripts/winget-manifests.sh "$previous" winget
+
+      - name: winget is here
+        shell: pwsh
+        run: |
+          if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            Install-PackageProvider -Name NuGet -Force -Scope CurrentUser | Out-Null
+            Install-Module Microsoft.WinGet.Client -Force -Scope CurrentUser -Repository PSGallery
+            Repair-WinGetPackageManager -AllUsers -Latest
+          }
+          winget --version
+
+      - name: winget validate
+        shell: pwsh
+        run: |
+          foreach ($v in $env:PREVIOUS, $env:NEWEST) {
+            $dir = "winget\manifests\p\PNScripts\PNScriptsAssistant\$v"
+            winget validate --manifest $dir --disable-interactivity
+            if ($LASTEXITCODE -ne 0) { throw "winget validate refused $v" }
+          }
+
+      - name: Install the previous version with winget, then the newest over it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          winget settings --enable LocalManifestFiles | Out-Null
+          $flags = '--accept-package-agreements','--accept-source-agreements','--disable-interactivity','--silent'
+          $exe = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant\pn-scripts-assistant.exe"
+
+          winget install --manifest "winget\manifests\p\PNScripts\PNScriptsAssistant\$env:PREVIOUS" @flags
+          if ($LASTEXITCODE -ne 0) { throw "winget could not install $env:PREVIOUS" }
+          $have = & $exe version
+          Write-Output "installed by winget: $have"
+          if ($have -notmatch [regex]::Escape($env:PREVIOUS)) { throw 'not the previous version' }
+
+          # Used once, so there is a brain for the update to keep.
+          $p = Start-Process $exe -ArgumentList 'serve','-addr','127.0.0.1:8896' -PassThru
+          $up = $false
+          for ($i = 0; $i -lt 90 -and -not $up; $i++) {
+            try { $up = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8896/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
+          }
+          if (-not $up) { throw 'the program did not answer' }
+          Stop-Process -Id $p.Id
+          $p.WaitForExit(20000) | Out-Null
+          $brain = "$env:USERPROFILE\.local\share\pn-scripts-assistant\data\brain.sqlite"
+          if (-not (Test-Path $brain)) { throw 'no brain was made' }
+
+          winget install --manifest "winget\manifests\p\PNScripts\PNScriptsAssistant\$env:NEWEST" @flags
+          if ($LASTEXITCODE -ne 0) { throw "winget could not install $env:NEWEST over $env:PREVIOUS" }
+          $now = & $exe version
+          Write-Output "after the upgrade: $now"
+          if ($now -notmatch [regex]::Escape($env:NEWEST)) { throw 'the upgrade did not take' }
+          if (-not (Test-Path $brain)) { throw 'the upgrade lost the brain' }
+
+          winget list --id PNScripts.PNScriptsAssistant --disable-interactivity
+          Write-Output 'installed, upgraded, the brain kept'
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: winget-manifests
+          path: winget/manifests
+          if-no-files-found: error
+
+  # The newest release carries its manifests, so the pull request to
+  # microsoft/winget-pkgs is a copy of one folder.
+  attach:
+    name: Attach the manifests to the release
+    needs: winget
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: winget-manifests
+          path: manifests
+
+      - name: Upload
+        run: |
+          tag="$(gh release view -R "$REPO" --json tagName --jq .tagName)"
+          v="${tag#v}"
+          (cd manifests/p/PNScripts/PNScriptsAssistant && zip -r "$GITHUB_WORKSPACE/pn-scripts-assistant-${v}-winget-manifests.zip" "$v")
+          gh release upload "$tag" -R "$REPO" --clobber "pn-scripts-assistant-${v}-winget-manifests.zip"

@@ -480,6 +480,125 @@ jobs:
           if (-not (Test-Path "$dir\PN-SCRIPTS-ASSISTANT-DATA\brain.sqlite")) { throw 'the portable brain is not beside the program' }
           Write-Output 'the portable copy keeps its brain beside it'
 
+  # G15: an older installed copy is told a new version is out, and the
+  # Update button replaces it — the real path, end to end, on a real Windows.
+  #
+  # Two installers from this commit, 0.98.0 and 0.99.0; the older installed
+  # the way a person installs it; the newer served as a "release" on this
+  # machine (PN_SCRIPTS_ASSISTANT_RELEASES_URL, honoured only for loopback)
+  # with its SHA256SUMS. Then: `update --check` says so, the running
+  # program's Updates row says so, and POST /api/upkeep/self — what the
+  # button sends — downloads, checks, starts the installer and closes the
+  # program; the installer puts 0.99.0 in place and opens it again; the brain
+  # is still there.
+  windows-update:
+    name: An older Windows copy updates itself
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: clients/go.mod
+          cache-dependency-path: clients/go.sum
+
+      - name: Make sure Inno Setup is here
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
+
+      - name: Build 0.99.0 (the "new release") and 0.98.0 (the installed one)
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rel" "$RUNNER_TEMP/old"
+          VERSION=0.99.0 bash scripts/build-packages.sh windows
+          mv build/packages/pn-scripts-assistant-0.99.0-windows-setup.exe "$RUNNER_TEMP/rel/"
+          VERSION=0.98.0 bash scripts/build-packages.sh windows
+          mv build/packages/pn-scripts-assistant-0.98.0-windows-setup.exe "$RUNNER_TEMP/old/"
+          cd "$RUNNER_TEMP/rel"
+          sha256sum pn-scripts-assistant-0.99.0-windows-setup.exe > SHA256SUMS
+          size=$(stat -c %s pn-scripts-assistant-0.99.0-windows-setup.exe)
+          cat > latest <<JSON
+          {"tag_name":"v0.99.0","html_url":"https://github.com/pnscripts/pn-scripts-assistant/releases/tag/v0.99.0","assets":[
+           {"name":"pn-scripts-assistant-0.99.0-windows-setup.exe","browser_download_url":"http://127.0.0.1:8799/pn-scripts-assistant-0.99.0-windows-setup.exe","size":$size},
+           {"name":"SHA256SUMS","browser_download_url":"http://127.0.0.1:8799/SHA256SUMS","size":100}]}
+          JSON
+          cat latest SHA256SUMS
+
+      - name: An older copy, installed and told a new version is out, updates itself
+        shell: pwsh
+        env:
+          BRAIN_SETUP_DONE: 'true'
+          OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+          PN_SCRIPTS_ASSISTANT_SILENT: '1'
+          PN_SCRIPTS_ASSISTANT_RELEASES_URL: 'http://127.0.0.1:8799/latest'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $web = Start-Process python -ArgumentList '-m','http.server','8799','--bind','127.0.0.1','--directory',"$env:RUNNER_TEMP\rel" -PassThru
+          Start-Sleep 2
+
+          $old = Get-ChildItem "$env:RUNNER_TEMP\old\*-windows-setup.exe" | Select-Object -First 1
+          Start-Process $old.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait
+          $app = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant"
+          $exe = "$app\pn-scripts-assistant.exe"
+          $have = & $exe version
+          Write-Output "installed: $have"
+          if ($have -notmatch '0\.98\.0') { throw 'the old version is not what was installed' }
+
+          # The terminal says so.
+          $said = (& $exe update --check) -join "`n"
+          Write-Output $said
+          if ($said -notmatch 'installed as: installer' -or $said -notmatch 'A newer version is out: 0\.99\.0') { throw 'update --check did not see the new version' }
+
+          # The running program says so, on its Updates page.
+          $p = Start-Process $exe -ArgumentList 'serve','-addr','127.0.0.1:8897' -PassThru
+          $up = $false
+          for ($i = 0; $i -lt 90 -and -not $up; $i++) {
+            try { $up = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8897/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
+          }
+          if (-not $up) { throw 'the installed program did not answer' }
+          $upkeep = Invoke-RestMethod http://127.0.0.1:8897/api/upkeep
+          $row = $upkeep.items | Where-Object { $_.channel } | Select-Object -First 1
+          $row | Format-List | Out-String | Write-Output
+          if (-not $row.newer -or $row.latest -ne '0.99.0' -or $row.channel -ne 'installer') { throw 'the Updates row did not offer 0.99.0 through the installer' }
+
+          # The button.
+          $out = Invoke-RestMethod -Method Post -ContentType 'application/json' -Body '{}' http://127.0.0.1:8897/api/upkeep/self
+          $out | Format-List | Out-String | Write-Output
+          if (-not $out.started) { throw 'the update did not start' }
+
+          # The program gets out of the way...
+          if (-not $p.WaitForExit(120000)) { throw 'the program did not close for the installer' }
+          Write-Output 'the program closed itself'
+
+          # ...the installer puts the new one in place and opens it again.
+          $now = ''
+          for ($i = 0; $i -lt 180 -and $now -notmatch '0\.99\.0'; $i++) {
+            Start-Sleep 1
+            try { $now = & $exe version } catch { $now = '' }
+          }
+          Write-Output "installed now: $now"
+          if ($now -notmatch '0\.99\.0') { throw 'the new version was not installed' }
+
+          $again = $null
+          for ($i = 0; $i -lt 60 -and -not $again; $i++) {
+            Start-Sleep 1
+            $again = Get-Process pn-scripts-assistant -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe }
+          }
+          if (-not $again) { throw 'the new version was not opened again' }
+          Write-Output "opened again: pid $($again.Id -join ',')"
+          $again | Stop-Process -Force
+
+          $brain = "$env:USERPROFILE\.local\share\pn-scripts-assistant\data\brain.sqlite"
+          if (-not (Test-Path $brain)) { throw 'the update lost the brain' }
+          Write-Output 'updated, reopened, and the brain is where it was'
+          Stop-Process -Id $web.Id
+
   scripts:
     name: Shell scripts
     runs-on: ubuntu-latest
