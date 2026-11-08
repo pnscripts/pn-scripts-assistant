@@ -297,7 +297,7 @@ func (c Curator) Promote(ctx context.Context, lesson store.Lesson) (int64, error
 // plainSource is where something came from, without the prefix the scanner
 // uses to tell one kind of place from another.
 func plainSource(source string) string {
-	for _, prefix := range []string{"project:", "document:", "browser:"} {
+	for _, prefix := range []string{"project:", "document:", "reading:", "browser:"} {
 		if rest, found := strings.CutPrefix(source, prefix); found {
 			return Resolve(rest)
 		}
@@ -310,7 +310,10 @@ func categoryFor(source string) string {
 	switch {
 	case strings.HasPrefix(source, "project:"):
 		return "project"
-	case strings.HasPrefix(source, "document:"):
+	// What a document says is as much a document as its listing. Before the
+	// knowledge folder's readings were trusted, they only became memories
+	// through a person, and were filed as conversation.
+	case strings.HasPrefix(source, "document:"), strings.HasPrefix(source, "reading:"):
 		return "document"
 	case strings.HasPrefix(source, "browser:"):
 		return "website"
