@@ -42,10 +42,12 @@ brings in what the window needs.
 sudo apt install ./pn-scripts-assistant_*_amd64.deb
 ```
 
-Check first, if you like, that the file is the one that was built:
+Check first, if you like, that the file is the one that was built
+(`--ignore-missing` because `SHA256SUMS` lists every download and you have
+one):
 
 ```bash
-sha256sum -c SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
 ```
 
 What that puts on the machine, and nothing else:
@@ -147,8 +149,10 @@ Ollama it cannot install for you on Windows: install it from
 everything after that.
 
 Removing the program leaves what it learned, in
-`%LOCALAPPDATA%\pn-scripts-assistant`, for the same reason it does on Linux.
-Delete that folder when you actually mean it.
+`%USERPROFILE%\.local\share\pn-scripts-assistant` (the same place as on Linux,
+under your user folder), for the same reason it does on Linux.
+`pn-scripts-assistant status` names the folder. Delete it when you actually
+mean it.
 
 ## Building the packages yourself
 

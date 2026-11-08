@@ -1,0 +1,197 @@
+name: A stranger installs it
+
+# What somebody who has never seen this repository does: downloads the
+# PUBLISHED release, checks it, installs it by the steps in
+# docs/guide/installing.md, starts it, and removes it again — on machines
+# that have never had it, with nothing from this repository checked out.
+#
+# ci.yml proves the packages this commit builds; this proves the files people
+# actually download, after they are published. It runs when a release is
+# published and on the button, for any tag.
+on:
+  release:
+    types: [published]
+  # And when this file changes on dev, against the latest release, so a
+  # change to the proof is proved before it is relied on.
+  push:
+    branches: [dev]
+    paths: ['.github/workflows/stranger-install.yml']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to install (empty = the latest release)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  REPO: pnscripts/pn-scripts-assistant
+  # Nothing here makes a sound, and nothing waits for a model that is not
+  # there; setup is taken as done so the program serves its page.
+  PN_SCRIPTS_ASSISTANT_SILENT: '1'
+  BRAIN_SETUP_DONE: 'true'
+  OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+
+jobs:
+  ubuntu:
+    name: Ubuntu 24.04, apt install of the published .deb
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      # A runner has no keyring service; the key is kept in a file, as the
+      # program does by itself on such a machine.
+      PN_SCRIPTS_ASSISTANT_KEYRING: file
+    steps:
+      - name: Download the release and its checksums
+        run: |
+          [ -n "$TAG" ] || TAG="$(gh release view -R "$REPO" --json tagName --jq .tagName)"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          mkdir dl && cd dl
+          gh release download "$TAG" -R "$REPO" -p '*_amd64.deb' -p 'SHA256SUMS'
+          ls -l
+          sha256sum --ignore-missing -c SHA256SUMS
+
+      - name: The machine has never had it, nor the window's libraries
+        run: |
+          ! command -v pn-scripts-assistant
+          dpkg -s libwebkit2gtk-4.1-0 2>/dev/null | grep -q '^Status: install ok installed' \
+            && echo "libwebkit2gtk-4.1-0 was already here" \
+            || echo "libwebkit2gtk-4.1-0 is not installed: apt must bring it"
+
+      - name: sudo apt install ./the.deb (the documented step)
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update
+          cd dl
+          sudo apt install -y ./pn-scripts-assistant_*_amd64.deb
+          dpkg -s pn-scripts-assistant | grep -E '^(Status|Version):'
+          dpkg -s libwebkit2gtk-4.1-0 | grep '^Status: install ok installed'
+
+      - name: It put on the machine what the guide says, and nothing is missing
+        run: |
+          for f in /usr/bin/pn-scripts-assistant \
+                   /usr/share/applications/pn-scripts-assistant.desktop \
+                   /usr/share/man/man1/pn-scripts-assistant.1.gz \
+                   /usr/share/doc/pn-scripts-assistant; do
+            test -e "$f" || { echo "missing: $f"; exit 1; }
+          done
+          ls /usr/share/icons/hicolor/*/apps/pn-scripts-assistant.png
+          ! ldd /usr/bin/pn-scripts-assistant | grep 'not found'
+          ldd /usr/bin/pn-scripts-assistant | grep -q webkit2gtk-4.1
+          pn-scripts-assistant version
+          test ! -e "$HOME/.local/share/pn-scripts-assistant" || { echo "it wrote into the home folder before being run"; exit 1; }
+
+      - name: It starts, answers and serves its page
+        run: |
+          pn-scripts-assistant serve > serve.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 90); do curl -fsS -m 2 http://127.0.0.1:8790/health && break; sleep 1; done
+          curl -fsS -m 5 http://127.0.0.1:8790/health | grep -q '"ok"' || { cat serve.log; exit 1; }
+          curl -fsS -m 5 http://127.0.0.1:8790/ | grep -q 'PN Scripts Assistant'
+          kill "$pid"; wait "$pid" || true
+          pn-scripts-assistant status
+          test -e "$HOME/.local/share/pn-scripts-assistant/data/brain.sqlite"
+          echo "the installed program answered on 127.0.0.1:8790 and served its page"
+
+      - name: Its window opens (on a virtual display)
+        timeout-minutes: 8
+        run: |
+          sudo apt-get install -y xvfb > /dev/null
+          xvfb-run -a -s '-screen 0 1366x768x24' pn-scripts-assistant app --skip-setup > app.log 2>&1 &
+          for i in $(seq 1 90); do curl -fsS -m 2 http://127.0.0.1:8790/health > /dev/null && break; sleep 1; done
+          curl -fsS -m 5 http://127.0.0.1:8790/health > /dev/null || { cat app.log; exit 1; }
+          sleep 10
+          pid="$(ss -ltnpH 'sport = :8790' | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)"
+          test -n "$pid"
+          ps -o pid,args --ppid "$pid" | grep -q WebKitWebProcess || { cat app.log; ps -ef; exit 1; }
+          echo "the window is up: WebKitWebProcess runs under the program"
+          kill "$pid"
+          for i in $(seq 1 20); do kill -0 "$pid" 2> /dev/null || break; sleep 1; done
+
+      - name: sudo apt remove takes the program and leaves the brain
+        run: |
+          sudo apt remove -y pn-scripts-assistant
+          ! test -e /usr/bin/pn-scripts-assistant
+          ! test -e /usr/share/applications/pn-scripts-assistant.desktop
+          test -e "$HOME/.local/share/pn-scripts-assistant/data/brain.sqlite"
+          echo "removed $TAG; the brain is still there"
+
+  windows:
+    name: Windows, the published installer
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Download the installer and its checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:TAG
+          if (-not $tag) { $tag = gh release view -R $env:REPO --json tagName --jq .tagName }
+          "TAG=$tag" | Out-File -Append $env:GITHUB_ENV
+          New-Item -ItemType Directory dl | Out-Null
+          gh release download $tag -R $env:REPO -D dl -p '*-windows-setup.exe' -p 'SHA256SUMS'
+          $setup = Get-ChildItem dl/*-windows-setup.exe | Select-Object -First 1
+          $want = (Select-String -Path dl/SHA256SUMS -Pattern ([regex]::Escape($setup.Name))).Line.Split(' ')[0]
+          $got = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
+          if ($want -ne $got) { throw "checksum: $got, published $want" }
+          Write-Output "$($setup.Name): checksum matches"
+
+      - name: The installer installs into the account, without an administrator
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Get-ChildItem dl/*-windows-setup.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/LOG=$env:RUNNER_TEMP\install.log" -Wait
+          $app = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant"
+          foreach ($f in 'pn-scripts-assistant.exe','WebView2Loader.dll','pn-scripts-assistant.ico') {
+            if (-not (Test-Path "$app\$f")) { Get-Content "$env:RUNNER_TEMP\install.log" -Tail 30; throw "the installer did not put $f in $app" }
+          }
+          $lnk = Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter '*.lnk' | Where-Object { $_.Name -like 'PN Scripts Assistant*' }
+          if (-not $lnk) { throw 'no Start menu entry' }
+          Write-Output "installed in $app; Start menu: $($lnk.FullName)"
+
+      - name: Its window opens and shows a page
+        shell: pwsh
+        run: |
+          $app = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant"
+          & "$app\pn-scripts-assistant.exe" window-check 120s | Tee-Object -Variable out
+          if (-not ($out -match 'window check OK')) { throw 'the window did not open' }
+
+      - name: It starts, answers and serves its page
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant"
+          $p = Start-Process "$app\pn-scripts-assistant.exe" -ArgumentList 'serve' -PassThru
+          $up = $false
+          for ($i = 0; $i -lt 90 -and -not $up; $i++) {
+            try { $up = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8790/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
+          }
+          if (-not $up) { throw 'the installed program did not answer within 90 s' }
+          $page = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8790/
+          if ($page.StatusCode -ne 200 -or $page.Content -notmatch 'PN Scripts Assistant') { throw 'the page did not come back' }
+          Stop-Process -Id $p.Id
+          $p.WaitForExit(20000) | Out-Null
+          & "$app\pn-scripts-assistant.exe" status
+          Write-Output 'the installed program answered on 127.0.0.1:8790 and served its page'
+
+      - name: Removing it takes the program and leaves the brain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant"
+          $brain = "$env:USERPROFILE\.local\share\pn-scripts-assistant\data\brain.sqlite"
+          if (-not (Test-Path $brain)) { throw "the brain is not where the guide says: $brain" }
+          $un = Get-ChildItem "$app\unins*.exe" | Select-Object -First 1
+          Start-Process $un.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          for ($i = 0; $i -lt 60 -and (Test-Path "$app\pn-scripts-assistant.exe"); $i++) { Start-Sleep 1 }
+          if (Test-Path "$app\pn-scripts-assistant.exe") { throw 'removing it left the program behind' }
+          if (-not (Test-Path $brain)) { throw 'removing the program took the brain with it' }
+          Write-Output "removed $env:TAG; the brain is still there"

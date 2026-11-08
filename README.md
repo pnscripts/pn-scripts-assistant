@@ -230,7 +230,7 @@ Assistant** in the applications menu with its icon.
 To check what you downloaded is what was built:
 
 ```bash
-sha256sum -c SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
 ```
 
 ### Checking that a download is genuinely ours
