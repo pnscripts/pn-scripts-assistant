@@ -124,4 +124,43 @@ begin
   end;
   if Tries > 0 then
     Log(Format('Waited %d ms for the previous program file to be free.', [Tries * 500]));
+  // Still held after a minute: something has it open, and replacing it now
+  // would only fail halfway. Stop before touching anything.
+  if FileExists(Exe) and (not ProgramFileIsFree(Exe)) then
+    Result := 'The previous copy of PN Scripts Assistant is still in use, so it was left as it is.';
+end;
+
+// An update the program started itself (RELAUNCH) that did not finish, for
+// whatever reason (the program file held by something else, a full disk),
+// must not leave the person with no assistant at all: the old copy is still
+// in place, so it is opened again. A finished install opens the new one
+// through [Run] instead.
+var
+  Installed: Boolean;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssDone then
+    Installed := True;
+end;
+
+procedure DeinitializeSetup();
+var
+  Exe: String;
+  Code: Integer;
+begin
+  if (not RelaunchAfterUpdate) or Installed then
+    exit;
+  // {app} cannot be expanded if Setup ended before it knew the folder;
+  // then there is nothing to reopen anyway.
+  try
+    Exe := ExpandConstant('{app}\pn-scripts-assistant.exe');
+  except
+    exit;
+  end;
+  if FileExists(Exe) then
+  begin
+    Log('The update did not finish; opening the copy that is still installed.');
+    Exec(Exe, '', ExpandConstant('{app}'), SW_SHOWNORMAL, ewNoWait, Code);
+  end;
 end;
