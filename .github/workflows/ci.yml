@@ -539,6 +539,7 @@ jobs:
           cat latest SHA256SUMS
 
       - name: An older copy, installed and told a new version is out, updates itself
+        timeout-minutes: 15
         shell: pwsh
         env:
           BRAIN_SETUP_DONE: 'true'
@@ -594,8 +595,14 @@ jobs:
           if (Test-Path $edge) {
             $shot = "$env:RUNNER_TEMP\shots"
             New-Item -ItemType Directory -Force $shot | Out-Null
-            Start-Process $edge -ArgumentList '--headless=new','--disable-gpu','--mute-audio',"--user-data-dir=$env:RUNNER_TEMP\edge",'--window-size=1366,860','--virtual-time-budget=10000',"--screenshot=$shot\notice-1366.png",'http://127.0.0.1:8897/' -Wait
-            Start-Process $edge -ArgumentList '--headless=new','--disable-gpu','--mute-audio',"--user-data-dir=$env:RUNNER_TEMP\edge",'--window-size=390,844','--virtual-time-budget=10000',"--screenshot=$shot\notice-390.png",'http://127.0.0.1:8897/' -Wait
+            # Edge leaves helper processes behind, so Start-Process -Wait
+            # (which waits for those too) never returns: wait for the one
+            # process, a minute at most, and stop it.
+            foreach ($size in '1366,860', '390,844') {
+              $wide = $size.Split(',')[0]
+              $e = Start-Process $edge -PassThru -ArgumentList '--headless=new','--disable-gpu','--mute-audio',"--user-data-dir=$env:RUNNER_TEMP\edge-$wide","--window-size=$size",'--virtual-time-budget=10000',"--screenshot=$shot\notice-$wide.png",'http://127.0.0.1:8897/'
+              if (-not $e.WaitForExit(60000)) { Stop-Process -Id $e.Id -Force -ErrorAction SilentlyContinue }
+            }
             Get-ChildItem $shot | Format-Table Name, Length | Out-String | Write-Output
           }
 
