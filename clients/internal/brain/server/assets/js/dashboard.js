@@ -858,8 +858,18 @@
 
                 // One line in the panel, the whole sentence on hover: the
                 // panel is as tall as the dials, and a second line was cut
-                // in half at the panel's edge.
+                // in half at the panel's edge. Where even one line has no
+                // room (1440 by 900 and smaller) it is not drawn half
+                // visible: the sentence is the dials' tooltip instead.
                 note.title = note.textContent;
+
+                const card = note.closest('.card');
+                const dials = card && card.querySelector('.gauges');
+
+                if (dials) dials.title = note.textContent;
+
+                note.hidden = false;
+                note.hidden = Boolean(card) && note.offsetTop + note.offsetHeight > card.clientHeight - 6;
             }
         } catch {
             setGauge('gauge-cpu', 'cpu-value', -1);

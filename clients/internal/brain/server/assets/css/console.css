@@ -3794,7 +3794,6 @@ select { font-size: 13.5px; }
 .ops-table tr.ours td { color: var(--text); }
 .ops-table tr.ours td.command { color: var(--accent); }
 
-.monitor-more { margin: 10px 0 0; width: 100%; }
 
 /* A link that is down is still worth listing — a machine with a cable in the
    wrong socket looks exactly like one with no cable — but it should not read
@@ -6312,4 +6311,48 @@ html[data-pace="hidden"] *::after {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+#machine-note[hidden] { display: none; }
+
+/* Names on the memory map (memorymap3d.js): the projects and the memories
+   most joined to others, beside their points, so the picture says what it is
+   of without hovering. */
+.map-names {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.map-name {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: -1.6em 0 0 8px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    line-height: 1.4;
+    white-space: nowrap;
+    color: var(--text);
+    background: rgba(6, 10, 16, 0.62);
+    will-change: transform;
+}
+
+.map-name.far { opacity: 0.55; }
+.map-name[hidden] { display: none; }
+
+/* A panel's way through to its detail sits in its top corner, beside the
+   heading, where it takes no height: below the dials the system monitor's
+   button was cut in half at 1440 by 900 and not there at all at 1366 by 768,
+   and What it knows has no height to spare either. */
+.card > .card-corner {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    margin: 0;
+    width: auto;
+    padding: 3px 9px;
+    font-size: 11px;
 }

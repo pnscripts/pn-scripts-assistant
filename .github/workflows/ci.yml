@@ -340,8 +340,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ./package/*.deb xvfb xdotool
 
+      # A runner draws the resting page through software GL (llvmpipe), which
+      # costs about 10 % there against 1 % on a desktop, so its CPU budget is
+      # wider; the request count is the same everywhere and is the exact
+      # check. The old build measured over 100 % here.
       - name: Resting and hidden, measured
-        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3
 
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting

@@ -4,6 +4,11 @@
 #
 #   scripts/load-check.sh [program] [budget-resting-%] [budget-hidden-%]
 #
+# The CPU budgets depend on the machine; the third check does not: while the
+# page rests, WebKit's network process (every request goes through it) makes
+# almost no system calls (LOAD_CHECK_CALLS, default 200 in 30 s; one poller
+# alone makes thousands).
+#
 # Opens the real window (WebKitGTK) on a scratch brain, on its own virtual
 # display, leaves it untouched until the page rests (pace.js: a minute), then
 # measures the program, its page and network processes AND the display server
@@ -24,6 +29,7 @@ set -euo pipefail
 PROGRAM="${1:-build/pn-scripts-assistant}"
 BUDGET_RESTING="${2:-6}"
 BUDGET_HIDDEN="${3:-3}"
+BUDGET_CALLS="${LOAD_CHECK_CALLS:-200}"
 PORT="${LOAD_CHECK_PORT:-8871}"
 SETTLE="${LOAD_CHECK_SETTLE:-80}"
 SECONDS_SAMPLED="${LOAD_CHECK_SECONDS:-30}"
@@ -133,8 +139,17 @@ over() { python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.ar
 echo "  pulse: $(curl -sN -m 2 "http://127.0.0.1:$PORT/api/pulse" 2> /dev/null | grep -m1 '^data:' || echo none)"
 echo "  doing: $(curl -s -m 2 "http://127.0.0.1:$PORT/api/progress" 2> /dev/null | head -c 300)"
 
+# Every request the page makes passes through WebKit's network process, so
+# the system calls it makes while the page rests count them, exactly and
+# without depending on how fast the machine is: a resting page makes none.
+network="$(pgrep -P "$APP_PID" WebKitNetworkPr | head -1)"
+calls() { awk '/^sysc[rw]:/ { n += $2 } END { print n + 0 }' "/proc/$network/io"; }
+calls_before="$(calls)"
+
 echo "→ resting, ${SECONDS_SAMPLED}s:"
 resting="$(measure "$SECONDS_SAMPLED")"
+network_calls=$(( $(calls) - calls_before ))
+echo "  page requests while resting: $network_calls network system calls (budget $BUDGET_CALLS)"
 echo "  resting: $resting % of one core (budget $BUDGET_RESTING %)"
 
 window="$(xdotool search --pid "$APP_PID" 2> /dev/null | tail -1 || true)"
@@ -150,6 +165,7 @@ echo "  hidden: $hidden % of one core (budget $BUDGET_HIDDEN %)"
 failed=0
 if over "$resting" "$BUDGET_RESTING"; then echo "FAIL: the resting window costs $resting %, over $BUDGET_RESTING %"; failed=1; fi
 if over "$hidden" "$BUDGET_HIDDEN"; then echo "FAIL: the hidden window costs $hidden %, over $BUDGET_HIDDEN %"; failed=1; fi
+if [ "$network_calls" -gt "$BUDGET_CALLS" ]; then echo "FAIL: the resting page is still asking the program for things ($network_calls system calls in ${SECONDS_SAMPLED}s)"; failed=1; fi
 
 [ "$failed" -eq 0 ] && echo "→ load check OK: resting $resting %, hidden $hidden % of one core"
 exit "$failed"

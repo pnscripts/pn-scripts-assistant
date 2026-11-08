@@ -199,7 +199,12 @@ export function startMemoryMap() {
     // the panel, with a margin. Worked out rather than guessed, because a
     // guessed distance framed a hundred memories and sat inside a hundred and
     // thirty.
-    const fitted = (LAYOUT_RADIUS / Math.tan((45 * Math.PI) / 360)) * 1.25;
+    //
+    // The margin was a quarter, which with the panel grown to the whole
+    // screen left the graph a small knot in the middle third of it — at the
+    // size of a thumbnail, an empty dark rectangle. A tenth keeps every node
+    // in frame as it turns and lets the network fill the panel.
+    const fitted = (LAYOUT_RADIUS / Math.tan((45 * Math.PI) / 360)) * 1.1;
 
     const view = { yaw: 0, pitch: 0.25, distance: fitted, spin: true };
     const pointer = new THREE.Vector2(-10, -10);
@@ -344,7 +349,9 @@ export function startMemoryMap() {
             tints[i * 3 + 1] = base.g;
             tints[i * 3 + 2] = base.b;
 
-            const size = 0.115 + Math.min(0.11, node.degree * 0.007);
+            // Larger than they were: at 0.115 a memory was a four-pixel dot,
+            // and the map read as lines with nothing at their ends.
+            const size = 0.2 + Math.min(0.16, node.degree * 0.01);
 
             sizes[i] = i === selected ? size * 2.2
                 : i === hovered ? size * 1.6
@@ -355,7 +362,7 @@ export function startMemoryMap() {
         cloud.geometry.attributes.size.needsUpdate = true;
 
         if (wires) {
-            wires.material.opacity = selected >= 0 ? 0.08 : 0.16;
+            wires.material.opacity = selected >= 0 ? 0.1 : 0.34;
         }
     }
 
@@ -430,14 +437,17 @@ export function startMemoryMap() {
         // matter here: a memory joined to many others is drawn larger, which is
         // a real property of the graph rather than decoration.
         const material = new THREE.ShaderMaterial({
-            uniforms: { map: { value: dotTexture() } },
+            // ratio: gl_PointSize is in device pixels, so without it every
+            // memory was drawn at half its size on a high-density screen.
+            uniforms: { map: { value: dotTexture() }, ratio: { value: renderer.getPixelRatio() } },
             vertexShader: `
                 attribute float size;
+                uniform float ratio;
                 varying vec3 tint;
                 void main() {
                     tint = color;
                     vec4 seen = modelViewMatrix * vec4(position, 1.0);
-                    gl_PointSize = size * 380.0 / -seen.z;
+                    gl_PointSize = size * ratio * 380.0 / -seen.z;
                     gl_Position = projectionMatrix * seen;
                 }`,
             fragmentShader: `
@@ -473,13 +483,106 @@ export function startMemoryMap() {
         wireGeometry.setAttribute('position', new THREE.BufferAttribute(wire, 3));
 
         wires = new THREE.LineSegments(wireGeometry, new THREE.LineBasicMaterial({
-            color: 0x4dd0e1,
+            color: 0x6fe3f0,
             transparent: true,
-            opacity: 0.22,
+            opacity: 0.34,
             depthWrite: false,
         }));
 
         world.add(wires);
+
+        nameMemories();
+    }
+
+    /* ---------- names ---------- */
+
+    /*
+     * The best-connected memories carry their names on the map.
+     *
+     * Without them the map was a network of anonymous points, and only
+     * hovering said what any of them was. A dozen names — every project, then
+     * the memories most joined to others — say what the picture is of at a
+     * glance, and stay few enough not to bury it. Text, never markup: a label
+     * is something a model or a file wrote.
+     */
+    const MOST_NAMED = 12;
+    const names = document.createElement('div');
+
+    names.className = 'map-names';
+    names.setAttribute('aria-hidden', 'true');
+    canvas.after(names);
+
+    let named = [];
+
+    function shortName(label) {
+        // The name in quotes — "called "pn-shop" at …" — even when the label
+        // was shortened before its closing quote.
+        const quoted = /"([^"…]{2,40})("?)/.exec(label || '');
+
+        // Cut before its closing quote, the name is shown as cut.
+        if (quoted) return quoted[2] ? quoted[1] : `${quoted[1]}…`;
+
+        const words = String(label || '').replace(/…$/, '').trim();
+
+        return words.length > 28 ? `${words.slice(0, 27)}…` : words;
+    }
+
+    function nameMemories() {
+        names.textContent = '';
+
+        const order = nodes
+            .map((node, i) => ({ i, rank: (node.category === 'project' ? 1000 : 0) + node.degree }))
+            .sort((a, b) => b.rank - a.rank)
+            .slice(0, MOST_NAMED);
+
+        const seen = new Set();
+
+        named = [];
+
+        for (const { i } of order) {
+            const text = shortName(nodes[i].label);
+
+            if (!text || seen.has(text)) continue;
+
+            seen.add(text);
+
+            const tag = document.createElement('span');
+
+            tag.className = 'map-name';
+            tag.textContent = text;
+            names.appendChild(tag);
+            named.push({ i, tag });
+        }
+    }
+
+    const at = new THREE.Vector3();
+
+    function placeNames(rect) {
+        // In order of rank: where two names would cover each other, the
+        // project or the better-connected memory keeps its name.
+        const placed = [];
+
+        for (const { i, tag } of named) {
+            at.set(nodes[i].x, nodes[i].y, nodes[i].z).applyMatrix4(world.matrixWorld).project(camera);
+
+            const behind = at.z > 1;
+
+            // Measured from the card the names sit in, which is where the
+            // canvas sits too, below the panel's heading.
+            const x = canvas.offsetLeft + ((at.x + 1) / 2) * rect.width;
+            const y = canvas.offsetTop + ((1 - at.y) / 2) * rect.height;
+
+            tag.style.transform = `translate(${x}px, ${y}px)`;
+
+            const box = { x, y, w: tag.offsetWidth || 80, h: tag.offsetHeight || 18 };
+            const covered = placed.some((b) => x < b.x + b.w + 6 && b.x < x + box.w + 6
+                && y < b.y + b.h && b.y < y + box.h);
+
+            tag.hidden = behind || covered;
+            tag.classList.toggle('far', at.z > 0.985);
+
+            if (!tag.hidden) placed.push(box);
+        }
     }
 
     /* ---------- the loop ---------- */
@@ -491,6 +594,8 @@ export function startMemoryMap() {
 
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(rect.width, rect.height, false);
+
+        if (cloud) cloud.material.uniforms.ratio.value = renderer.getPixelRatio();
         camera.aspect = rect.width / rect.height;
         camera.updateProjectionMatrix();
 
@@ -545,6 +650,7 @@ export function startMemoryMap() {
         if (fading) paint();
 
         renderer.render(scene, camera);
+        placeNames(canvas.getBoundingClientRect());
     }
 
     // A reply lights up the memories it used, and so does a search.
