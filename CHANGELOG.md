@@ -30,7 +30,8 @@ number is 0, the second one changes when something visible changes.
   every ninety seconds for as long as the program ran. It is now read to the
   end and left alone; what the guides say is known at once instead of waiting
   for you in the review queue, and the built-in skills stay skills rather
-  than being copied into memory line by line.
+  than being copied into memory line by line. What a document says is now
+  counted under documents in What it knows, not under conversation.
 
 - **The answer on screen stays while background reading finishes.** A folder
   bite that ended during an answer used to clear the "Thinking" line or write
