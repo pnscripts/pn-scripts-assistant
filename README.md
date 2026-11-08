@@ -96,6 +96,10 @@ remembers what it learns about you, and what it learns stays here.
 - **Integrations, gated.** MCP servers, approved one by one, granted per agent
   and per project, confined to their own folders, with every call recorded. See
   [ADR 0004](docs/decisions/0004-hire-equip-and-confine.md).
+- **Stays out of the way.** A minute after you stop using the window it rests:
+  no timers, no animation, one quiet connection that wakes it when something
+  happens. Untouched, it costs about 2 % of one core, minimised about 0.5 %
+  (four cores, no graphics card); CI fails if that grows.
 
 ## Privacy
 
