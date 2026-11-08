@@ -1101,6 +1101,28 @@ var migrations = []string{
 		value TEXT NOT NULL DEFAULT ''
 	);
 	`,
+
+	// 27: the rules its user has told it always or never to follow (see
+	// package rules). Text, words and the message a rule came from are the
+	// user's own and sealed; kind, actions, days and status are what the
+	// checks read and say nothing about anybody.
+	`
+	CREATE TABLE rules (
+		id              INTEGER PRIMARY KEY AUTOINCREMENT,
+		text            TEXT NOT NULL,
+		kind            TEXT NOT NULL,
+		actions         TEXT NOT NULL DEFAULT '',
+		words           TEXT NOT NULL DEFAULT '',
+		days            TEXT NOT NULL DEFAULT '',
+		is_on           INTEGER NOT NULL DEFAULT 0,
+		status          TEXT NOT NULL,
+		source          TEXT NOT NULL DEFAULT '',
+		conversation_id INTEGER,
+		created_at      TEXT NOT NULL,
+		updated_at      TEXT NOT NULL
+	);
+	CREATE INDEX idx_rules_status ON rules(status);
+	`,
 }
 
 /*
