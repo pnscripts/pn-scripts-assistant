@@ -93,6 +93,20 @@ remembers what it learns about you, and what it learns stays here.
   says. Checking, running and building are this program's own work with the
   engine, never a model's word. See
   [ADR 0005](docs/decisions/0005-choose-how-work-is-done.md).
+- **Follows your rules.** Say "always…", "never…" or "ask me before…" and it
+  proposes a rule in your words, kept only when you say yes. Rules are read
+  before every answer and checked before anything is sent, posted, committed,
+  changed, paid or deleted; a rule that forbids an action stops it and says
+  which. Every email it sends gets a last look first — what the reader
+  already sees, filler, repetition, slips, a placeholder left in.
+- **Asks other coding agents.** Claude Code, Codex or Cursor's agent, signed
+  in with your account, can be given one task in a folder you choose — only
+  reading, changing files there, or full access, which is asked every time —
+  and the answer comes back with every file it changed.
+- **Looks after the computer.** "Can I restart?" is answered from the machine
+  (a waiting kernel and its DKMS drivers, installs, running and unpushed
+  work); processes left running whose job is over are listed and stopped on
+  your yes; after a power cut it says so and parks what it was doing.
 - **Integrations, gated.** MCP servers, approved one by one, granted per agent
   and per project, confined to their own folders, with every call recorded. See
   [ADR 0004](docs/decisions/0004-hire-equip-and-confine.md).

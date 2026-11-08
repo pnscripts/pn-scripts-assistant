@@ -6,7 +6,61 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
-## Unreleased
+## 0.13.0 — 2026-11-08
+
+### Your rules
+
+- **Say it once and it becomes a rule — if you say yes.** "From now on,
+  always ask me before you send anything", „никога не трий без да ме питаш",
+  "it's pointless to write who is writing at the top of an email": a card
+  under the answer proposes it in your own words, with the message it came
+  from. Keep it, change it first, or say it is not a rule; nothing becomes a
+  rule by itself, and a declined sentence is not proposed again.
+- **Rules are followed, not only remembered.** They are read before every
+  answer and every step of a goal, and checked before anything goes out or
+  stays — sending, posting, commits, changing files, paying, deleting — and
+  again afterwards. A rule that plainly forbids an action stops it and says
+  which rule, whatever else is allowed; one whose words go further than can
+  be checked ("never email clients") asks you instead, with the rule beside
+  the question.
+- **A Rules page** lists them with where and when each came from and what it
+  does to an action, with a switch, an editor and a delete each.
+
+### The last look before anything goes out
+
+- **Every email the assistant sends is polished before you are asked**: what
+  the reader already sees (who is writing, the subject again), sentences that
+  say nothing, anything said twice and sure spelling slips are taken out, and
+  placeholders such as "[Name]", a wrong weekday or a machine talking about
+  itself are pointed at. The question shows the words as they will go and
+  what was changed; a message with a placeholder left in is not sent; after
+  sending it is shown again with where it went, from which address and when.
+  The Writing page has the same **Last look before sending**.
+
+### Claude Code, Codex and Cursor's agent as helpers
+
+- **Ask a coding agent on this computer** — signed in with your own account —
+  to do one task in a folder you choose: only read (the default), change
+  files in that folder without running commands, or full access, which is
+  asked about every time even when everything else is allowed. Your rules go
+  with the task, the answer comes back with every file the folder shows it
+  added, changed or removed and the commands it ran, and the question says
+  how its allowance is being spent. No sign-in is read or kept, and no API
+  key is passed to it.
+
+### Looking after this computer
+
+- **"Can I restart?"** — answered from the machine: a newer kernel waiting and
+  whether its drivers built by DKMS (a USB Wi-Fi adapter's, a graphics
+  card's) are ready for it, software being installed, the assistant's own
+  work still running, work not committed or not pushed. On the System page
+  and in conversation. Linux.
+- **Leftovers**: a headless browser, a virtual display, a waiting command, a
+  log follower or a small web server whose job is over, started by the
+  assistant or orphaned — never your own programs or services — listed and
+  stopped only with your yes.
+- **After a power cut** the assistant says so and when it was last seen
+  working; a task it was running is parked with that reason.
 
 ### Fixed
 
