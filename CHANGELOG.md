@@ -46,6 +46,17 @@ number is 0, the second one changes when something visible changes.
 
 ### Fixed
 
+- **The memory map can be reached again, and reads at a glance.** With the
+  panels standing in their world, the memory map had no way in; *What it
+  knows* now has a button for it. Memories are drawn larger (and at full
+  size on high-density screens), the lines brighter, the network fills the
+  panel, and the projects and best-connected memories carry their names.
+- **A resting window keeps its numbers current** while the assistant learns
+  in the background: they are refreshed once a minute without waking the
+  page.
+- **"Nothing needs a decision" no longer sits above things waiting for a
+  decision**, and the system monitor's button and note are no longer cut off
+  at the panel's edge on 1366×768 and 1440×900 screens.
 - **Proofreading leaves correct Bulgarian alone in more places.** It no
   longer asks for a comma inside „който и да е“, „в случай че“ or
   „включително когато“; keeps the full article on the subject of a „да“
