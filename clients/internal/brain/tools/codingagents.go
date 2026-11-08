@@ -31,6 +31,10 @@ type CodingAgent struct {
 	Title string `json:"title"`
 	Ready bool   `json:"ready"`
 	Why   string `json:"why,omitempty"`
+
+	// Pace is how its allowance is being spent, in a sentence, when the
+	// agent has said: see orchestrator.PaceOf.
+	Pace string `json:"pace,omitempty"`
 }
 
 // AgentChange is one file an agent added, changed or removed.
@@ -162,9 +166,9 @@ func (t AskCodingAgent) chosen(name string) (CodingAgent, bool) {
 func (t AskCodingAgent) Summarize(raw json.RawMessage) string {
 	a := readAgentArgs(raw)
 
-	title := a.Agent
+	title, pace := a.Agent, ""
 	if agent, ok := t.chosen(a.Agent); ok {
-		title = agent.Title
+		title, pace = agent.Title, agent.Pace
 	}
 
 	if title == "" {
@@ -184,7 +188,14 @@ func (t AskCodingAgent) Summarize(raw json.RawMessage) string {
 		reach = "unknown access " + a.Access
 	}
 
-	return fmt.Sprintf("Ask %s — %s:\n%s", title, reach, strings.TrimSpace(a.Task))
+	out := fmt.Sprintf("Ask %s — %s:\n%s", title, reach, strings.TrimSpace(a.Task))
+
+	// Its allowance, so whoever says yes knows what the work spends.
+	if pace != "" {
+		out += "\n\n" + title + ": " + pace + "."
+	}
+
+	return out
 }
 
 /*

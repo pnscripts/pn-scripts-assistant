@@ -12,7 +12,7 @@ type twoAgents struct{}
 func (twoAgents) CodingAgents() []CodingAgent {
 	return []CodingAgent{
 		{ID: "claude-code", Title: "Claude Code", Ready: false, Why: "not signed in"},
-		{ID: "codex", Title: "Codex", Ready: true},
+		{ID: "codex", Title: "Codex", Ready: true, Pace: "60 % of its allowance used with 30 % of its 7-day window gone — ahead of pace"},
 	}
 }
 
@@ -25,7 +25,8 @@ func TestTheCodingAgentToolSaysWhoWhereAndHowFar(t *testing.T) {
 
 	raw := json.RawMessage(`{"task":"Explain main.go","folder":"/p"}`)
 
-	if s := tool.Summarize(raw); s != "Ask Codex — only reads /p and answers:\nExplain main.go" {
+	if s := tool.Summarize(raw); s != "Ask Codex — only reads /p and answers:\nExplain main.go\n\n"+
+		"Codex: 60 % of its allowance used with 30 % of its 7-day window gone — ahead of pace." {
 		t.Errorf("%q", s)
 	}
 

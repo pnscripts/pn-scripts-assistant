@@ -50,6 +50,10 @@ func (b *Brain) CodingAgents() []tools.CodingAgent {
 
 			a := tools.CodingAgent{ID: r.ID, Title: r.Title, Why: r.Why}
 
+			if u, err := b.DB.UsageOf(r.ID); err == nil {
+				a.Pace = orchestrator.PaceOf(u, time.Now()).Say()
+			}
+
 			switch {
 			case r.State == orchestrator.Available:
 				a.Ready = true
