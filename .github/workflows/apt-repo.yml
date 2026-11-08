@@ -112,6 +112,20 @@ jobs:
           sudo apt-get install -y "pn-scripts-assistant=$previous"
           dpkg -s pn-scripts-assistant | grep -E '^(Status|Version):'
 
+      # Something of the user's in the old version, to find again after.
+      - name: The previous version keeps a to-do
+        env:
+          PN_SCRIPTS_ASSISTANT_SILENT: '1'
+          PN_SCRIPTS_ASSISTANT_KEYRING: file
+          BRAIN_SETUP_DONE: 'true'
+          OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+        run: |
+          pn-scripts-assistant serve -addr 127.0.0.1:8894 > old.log 2>&1 &
+          pid=$!
+          timeout 90 bash -c 'until curl -fs http://127.0.0.1:8894/health >/dev/null; do sleep 1; done'
+          curl -fs -X POST -H 'Content-Type: application/json' -d '{"text":"Water the plants before the update"}' http://127.0.0.1:8894/api/todos
+          kill "$pid"; wait "$pid" || true
+
       - name: sudo apt upgrade brings the newest
         timeout-minutes: 10
         run: |
@@ -123,6 +137,20 @@ jobs:
           echo "installed now: $have, newest: $NEWEST"
           [ "$have" = "$NEWEST" ]
           pn-scripts-assistant version
+
+      - name: The newest reads what the previous one kept
+        env:
+          PN_SCRIPTS_ASSISTANT_SILENT: '1'
+          PN_SCRIPTS_ASSISTANT_KEYRING: file
+          BRAIN_SETUP_DONE: 'true'
+          OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+        run: |
+          pn-scripts-assistant serve -addr 127.0.0.1:8894 > new.log 2>&1 &
+          pid=$!
+          timeout 90 bash -c 'until curl -fs http://127.0.0.1:8894/health >/dev/null; do sleep 1; done'
+          curl -fs http://127.0.0.1:8894/api/todos | tee todos.json
+          grep -q 'Water the plants before the update' todos.json
+          kill "$pid"; wait "$pid" || true
 
       # The package owns the repository file now, byte for byte the one the
       # documented line fetched, so nothing asked about it and an update to the

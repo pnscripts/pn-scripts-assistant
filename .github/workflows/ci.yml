@@ -582,6 +582,23 @@ jobs:
           $row | Format-List | Out-String | Write-Output
           if (-not $row.newer -or $row.latest -ne '0.99.0' -or $row.channel -ne 'installer') { throw 'the Updates row did not offer 0.99.0 through the installer' }
 
+          # Something of the user's, so the update is proved to keep it: a
+          # to-do in the (sealed) brain and a changed setting.
+          $todo = 'Water the plants before the update'
+          Invoke-RestMethod -Method Post -ContentType 'application/json' -Body (@{ text = $todo } | ConvertTo-Json) http://127.0.0.1:8897/api/todos | Out-Null
+          Invoke-RestMethod -Method Post -ContentType 'application/json' -Body '{"on":false}' http://127.0.0.1:8897/api/upkeep/notice | Out-Null
+
+          # What the person sees: the old copy's own page with the banner,
+          # drawn by Edge with no profile of anybody's.
+          $edge = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+          if (Test-Path $edge) {
+            $shot = "$env:RUNNER_TEMP\shots"
+            New-Item -ItemType Directory -Force $shot | Out-Null
+            Start-Process $edge -ArgumentList '--headless=new','--disable-gpu','--mute-audio',"--user-data-dir=$env:RUNNER_TEMP\edge",'--window-size=1366,860','--virtual-time-budget=10000',"--screenshot=$shot\notice-1366.png",'http://127.0.0.1:8897/' -Wait
+            Start-Process $edge -ArgumentList '--headless=new','--disable-gpu','--mute-audio',"--user-data-dir=$env:RUNNER_TEMP\edge",'--window-size=390,844','--virtual-time-budget=10000',"--screenshot=$shot\notice-390.png",'http://127.0.0.1:8897/' -Wait
+            Get-ChildItem $shot | Format-Table Name, Length | Out-String | Write-Output
+          }
+
           # The button.
           $out = Invoke-RestMethod -Method Post -ContentType 'application/json' -Body '{}' http://127.0.0.1:8897/api/upkeep/self
           $out | Format-List | Out-String | Write-Output
@@ -612,11 +629,32 @@ jobs:
           if (-not $again) { throw 'the new version was not opened again' }
           Write-Output "opened again: pid $($again.Id -join ',')"
           $again | Stop-Process -Force
+          Start-Sleep 2
 
           $brain = "$env:USERPROFILE\.local\share\pn-scripts-assistant\data\brain.sqlite"
           if (-not (Test-Path $brain)) { throw 'the update lost the brain' }
-          Write-Output 'updated, reopened, and the brain is where it was'
+
+          # The new version reads what the old one kept.
+          $q = Start-Process $exe -ArgumentList 'serve','-addr','127.0.0.1:8895' -PassThru
+          $up = $false
+          for ($i = 0; $i -lt 90 -and -not $up; $i++) {
+            try { $up = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8895/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
+          }
+          if (-not $up) { throw 'the updated program did not answer' }
+          $todos = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8895/api/todos
+          if ($todos.Content -notmatch [regex]::Escape($todo)) { throw "the update lost the to-do: $($todos.Content)" }
+          $kept = Invoke-RestMethod "http://127.0.0.1:8895/api/upkeep"
+          if ($kept.notice -ne $false) { throw 'the update lost the setting' }
+          Stop-Process -Id $q.Id
+          Write-Output 'updated, reopened; the brain, the to-do and the setting are all there'
           Stop-Process -Id $web.Id
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: windows-update-notice
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: ignore
 
   scripts:
     name: Shell scripts
