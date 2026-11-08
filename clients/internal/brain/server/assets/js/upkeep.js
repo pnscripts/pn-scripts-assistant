@@ -79,6 +79,10 @@
         if (note) {
             if (data.why) {
                 note.textContent = data.why_key ? T(data.why_key) : data.why;
+            } else if (waiting === 0 && (data.items || []).some((i) => i.why)) {
+                // "Everything is current" would be a claim about what was not
+                // looked at — offline, say, or checks switched off.
+                note.textContent = T('upd.partly');
             } else if (waiting === 0) {
                 note.textContent = T('upd.allCurrent');
             } else {

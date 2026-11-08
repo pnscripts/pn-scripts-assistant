@@ -6,6 +6,15 @@ in the commits; this is the part worth reading before updating.
 Versions follow [semantic versioning](https://semver.org). While the first
 number is 0, the second one changes when something visible changes.
 
+## Unreleased
+
+### Fixed
+
+- **Offline, the Updates card no longer says "Everything is current".** When
+  a check could not be made (no network, or the daily check switched off) it
+  says that nothing it could check is out of date and points to the row that
+  explains why.
+
 ## 0.12.0 — 2026-11-08
 
 ### Installing and updating, with the least effort

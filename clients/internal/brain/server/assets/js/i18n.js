@@ -31,6 +31,10 @@
         'upd.later': ['Later', 'По-късно'],
         'upd.banner': ['{name} {latest} is out — you have {have}.', 'Излезе {name} {latest} — вашата версия е {have}.'],
         'upd.allCurrent': ['Everything is current.', 'Всичко е актуално.'],
+        'upd.partly': [
+            'Nothing I could check is out of date; one check could not be made (below).',
+            'Нищо от проверените не е остаряло; една проверка не можа да се направи (по-долу).',
+        ],
         'upd.oneWaiting': ['One thing is out of date.', 'Едно нещо не е актуално.'],
         'upd.manyWaiting': ['{n} things are out of date.', '{n} неща не са актуални.'],
         'upd.isCurrent': ['current', 'актуално'],
