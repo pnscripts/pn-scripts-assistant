@@ -30,8 +30,10 @@ against the code on 31 October 2026.
 - **The window needs Microsoft Edge WebView2**, which Windows 11 has and almost
   every Windows 10 has. Without it the assistant opens in your browser and
   works the same.
-- **Moving the window to a screen with different scaling** does not adapt it
-  to that screen's scaling yet.
+- **Moving the window to a screen with different scaling** resizes it to what
+  Windows suggests for that screen, and minimising it tells the page it is not
+  seen. Both are proved on a Windows runner by sending the window the messages
+  Windows sends; neither has yet been watched by a person on two real monitors.
 
 ## Models and providers
 

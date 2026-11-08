@@ -50,17 +50,22 @@ import (
 const LoaderName = "WebView2Loader.dll"
 
 const (
-	wmDestroy  = 0x0002
-	wmSize     = 0x0005
-	wmClose    = 0x0010
-	wmNavigate = 0x8000 + 1 // WM_APP + 1
-	wmPresent  = 0x8000 + 2
+	wmDestroy    = 0x0002
+	wmSize       = 0x0005
+	wmDPIChanged = 0x02E0
+	wmClose      = 0x0010
+	wmNavigate   = 0x8000 + 1 // WM_APP + 1
+	wmPresent    = 0x8000 + 2
 
 	wsOverlappedWindow = 0x00CF0000
 	cwUseDefault       = 0x80000000
 	swShow             = 5
 	swRestore          = 9
+	swMinimize         = 6
 	idcArrow           = 32512
+	sizeMinimized      = 1
+	swpNoZOrder        = 0x0004
+	swpNoActivate      = 0x0010
 	colorWindow        = 5
 )
 
@@ -80,6 +85,10 @@ var (
 	procShowWindow           = user32.NewProc("ShowWindow")
 	procUpdateWindow         = user32.NewProc("UpdateWindow")
 	procSetForegroundWindow  = user32.NewProc("SetForegroundWindow")
+	procSetWindowPos         = user32.NewProc("SetWindowPos")
+	procCopyRect             = user32.NewProc("CopyRect")
+	procSendMessageW         = user32.NewProc("SendMessageW")
+	procGetWindowRect        = user32.NewProc("GetWindowRect")
 	procIsIconic             = user32.NewProc("IsIconic")
 	procGetClientRect        = user32.NewProc("GetClientRect")
 	procLoadCursorW          = user32.NewProc("LoadCursorW")
@@ -133,6 +142,7 @@ func failed(hr uintptr) bool { return int32(hr) < 0 }
 const (
 	envCreateController = 3
 
+	ctlGetIsVisible = 3
 	ctlPutIsVisible = 4
 	ctlPutBounds    = 6
 	ctlClose        = 24
@@ -392,11 +402,16 @@ var iconLoaded atomic.Bool
 
 // Icon says, for window-check, whether the window wears its own icon.
 func Icon() string {
-	if iconLoaded.Load() {
-		return ", with its icon"
+	screen := ""
+	if followed.Load() {
+		screen = ", follows a DPI change and hides its page when minimised"
 	}
 
-	return ", without its icon (" + paths.Name + ".ico is not beside the program)"
+	if iconLoaded.Load() {
+		return ", with its icon" + screen
+	}
+
+	return ", without its icon (" + paths.Name + ".ico is not beside the program)" + screen
 }
 
 // iconPath is pn-scripts-assistant.ico beside the program, or "".
@@ -739,6 +754,14 @@ func navigate(url string) {
 	runtime.KeepAlive(u)
 }
 
+func boolArg(b bool) uintptr {
+	if b {
+		return 1
+	}
+
+	return 0
+}
+
 // fit makes the view fill the window's client area.
 func fit(h uintptr) {
 	if current.controller == nil {
@@ -754,7 +777,33 @@ func fit(h uintptr) {
 func wndProc(h, message, wParam, lParam uintptr) uintptr {
 	switch message {
 	case wmSize:
+		// Minimised, the page is told it is not seen: WebView2 does not
+		// notice by itself, and a page that thinks it is on screen goes on
+		// polling and animating for nobody (pace.js holds everything while
+		// it is hidden). Any other size shows it again.
+		if current.controller != nil {
+			current.controller.call(ctlPutIsVisible, boolArg(wParam != sizeMinimized))
+		}
+
 		fit(h)
+
+		return 0
+	case wmDPIChanged:
+		// Moved to a monitor with another scale: Windows suggests the rect
+		// that keeps the window the same size to the eye, and taking it is
+		// what a per-monitor aware window must do, or it stays at the old
+		// monitor's size — tiny or huge. WM_SIZE follows and fits the view.
+		// Read through CopyRect: lParam is the address of Windows' RECT, and
+		// letting user32 copy it keeps a uintptr from being turned back
+		// into a Go pointer.
+		var suggested rect
+
+		if copied, _, _ := procCopyRect.Call(uintptr(unsafe.Pointer(&suggested)), lParam); copied != 0 {
+			procSetWindowPos.Call(h, 0,
+				uintptr(suggested.left), uintptr(suggested.top),
+				uintptr(suggested.right-suggested.left), uintptr(suggested.bottom-suggested.top),
+				swpNoZOrder|swpNoActivate)
+		}
 
 		return 0
 	case wmNavigate:
@@ -858,6 +907,12 @@ func Check(url string, within time.Duration) error {
 		case !ok:
 			finish(fmt.Errorf("WebView2 %s opened the window but page %d did not load", version, pages))
 		case pages == 1:
+			if err := followsTheScreen(hwnd.Load()); err != nil {
+				finish(fmt.Errorf("WebView2 %s: %w", version, err))
+
+				return
+			}
+
 			pendingMu.Lock()
 			pendingURL = second
 			pendingMu.Unlock()
@@ -884,6 +939,61 @@ func Check(url string, within time.Duration) error {
 		return fmt.Errorf("WebView2 %s: %d of 2 pages loaded within %s", version, pages, within)
 	}
 }
+
+/*
+ * followsTheScreen is the part of the check a person would otherwise have to
+ * do by hand with two monitors and a minimise button: told the scale has
+ * changed, the window takes the size Windows suggests; minimised, its page
+ * is told it is not seen; restored, it is seen again.
+ *
+ * Run on the window's own thread (from the loaded callback), so the messages
+ * are handled before SendMessage returns.
+ */
+func followsTheScreen(h uintptr) error {
+	want := rect{left: 40, top: 30, right: 40 + 960, bottom: 30 + 720}
+
+	// 144 dpi, 150 %, in both halves of wParam, as Windows sends it.
+	procSendMessageW.Call(h, wmDPIChanged, 144|144<<16, uintptr(unsafe.Pointer(&want)))
+
+	var got rect
+
+	procGetWindowRect.Call(h, uintptr(unsafe.Pointer(&got)))
+
+	if got != want {
+		return fmt.Errorf("after a DPI change the window is %v, not the suggested %v", got, want)
+	}
+
+	if current.controller == nil {
+		return errors.New("no view to hide when minimised")
+	}
+
+	visible := func() bool {
+		var v int32
+
+		current.controller.call(ctlGetIsVisible, uintptr(unsafe.Pointer(&v)))
+
+		return v != 0
+	}
+
+	procShowWindow.Call(h, swMinimize)
+
+	if visible() {
+		return errors.New("minimised, the page is still told it is seen")
+	}
+
+	procShowWindow.Call(h, swRestore)
+
+	if !visible() {
+		return errors.New("restored, the page is still told it is hidden")
+	}
+
+	followed.Store(true)
+
+	return nil
+}
+
+// followed is whether followsTheScreen passed, for the check's report.
+var followed atomic.Bool
 
 // Engine names what draws the window, for the check's report.
 func Engine() string {

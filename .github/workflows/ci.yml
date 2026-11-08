@@ -378,6 +378,7 @@ jobs:
           cat window-check.txt
           grep -q "window check OK" window-check.txt
           grep -q "with its icon" window-check.txt
+          grep -q "follows a DPI change and hides its page when minimised" window-check.txt
 
       # What somebody does with the download (G3): the installer, silently,
       # for this account only; the program it installed starts and serves its
