@@ -74,11 +74,12 @@ jobs:
           }
 
       - name: Install the previous version with winget, then the newest over it
+        timeout-minutes: 15
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           winget settings --enable LocalManifestFiles | Out-Null
-          $flags = '--accept-package-agreements','--accept-source-agreements','--disable-interactivity','--silent'
+          $flags = '--accept-package-agreements','--accept-source-agreements','--disable-interactivity','--silent','--log',"$env:RUNNER_TEMP\winget.log"
           $exe = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant\pn-scripts-assistant.exe"
           # The program is a windowed (GUI) program: PowerShell neither waits
           # for it nor shows what it prints unless its output is redirected.
@@ -115,6 +116,13 @@ jobs:
 
           winget list --id PNScripts.PNScriptsAssistant --disable-interactivity
           Write-Output 'installed, upgraded, the brain kept'
+
+      - name: What winget and the installer said
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-Content "$env:RUNNER_TEMP\winget.log" -Tail 60 -ErrorAction SilentlyContinue
+          Get-ChildItem $env:TEMP -Filter 'Setup Log*' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 60
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

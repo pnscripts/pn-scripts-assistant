@@ -328,3 +328,20 @@ func TestAPackageManagerCopyIsLeftToThePackageManager(t *testing.T) {
 		t.Fatal("a copy built by hand was 'updated' from a release")
 	}
 }
+
+func TestAnUpdateStaysWhereTheFirstInstallPutIt(t *testing.T) {
+	local := filepath.Join("/c", "Users", "you", "AppData", "Local")
+
+	if got := scopeArg(filepath.Join(local, "Programs", "PN Scripts Assistant", "pn-scripts-assistant.exe"), local); got != "/CURRENTUSER" {
+		t.Errorf("per-user install: %s", got)
+	}
+
+	if got := scopeArg(filepath.Join("/c", "Program Files", "PN Scripts Assistant", "pn-scripts-assistant.exe"), local); got != "/ALLUSERS" {
+		t.Errorf("machine-wide install: %s", got)
+	}
+
+	// A folder merely starting with the same letters is not inside it.
+	if got := scopeArg(local+"Other"+string(filepath.Separator)+"x.exe", local); got != "/ALLUSERS" {
+		t.Errorf("look-alike folder: %s", got)
+	}
+}

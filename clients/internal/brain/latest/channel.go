@@ -148,11 +148,12 @@ type Outcome struct {
 // pressed "Update": a progress window and no questions, the running copy
 // closed, and the new one opened again at the end (RELAUNCH, read by the
 // installer's own script). winget and silent installs leave RELAUNCH out.
-var InstallerArgs = []string{"/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/RELAUNCH=1"}
+// /LOG leaves "Setup Log <date>.txt" in %TEMP%, for when somebody asks why.
+var InstallerArgs = []string{"/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/LOG", "/RELAUNCH=1"}
 
 // QuietArgs install with no window at all and leave the program closed: the
 // command line's `update`, which is what an unattended machine runs.
-var QuietArgs = []string{"/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"}
+var QuietArgs = []string{"/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/LOG"}
 
 // InstallQuietly fetches the Windows installer of rel, checks it and starts it
 // with QuietArgs, without waiting: the program that started it has to be gone
@@ -167,11 +168,37 @@ func runInstaller(ctx context.Context, rel Release, dir string, args []string) e
 		return err
 	}
 
+	// Installed for this account or for everyone, said outright: with neither,
+	// the installer may stop to ask, and a silent install that asks waits for
+	// ever (winget's did, on a Windows runner).
+	args = append(append([]string{}, args...), scopeArg(exePath(), os.Getenv("LOCALAPPDATA")))
+
 	if err := start(path, args...); err != nil {
 		return fmt.Errorf("the installer could not be started: %w", err)
 	}
 
 	return nil
+}
+
+// exePath is the running program, resolved. A variable for the tests.
+var exePath = func() string {
+	exe, _ := os.Executable()
+
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		return resolved
+	}
+
+	return exe
+}
+
+// scopeArg keeps an update where the first install put it: under the
+// account's own folder it is /CURRENTUSER, anywhere else /ALLUSERS.
+func scopeArg(exe, localAppData string) string {
+	if localAppData != "" && strings.HasPrefix(strings.ToLower(filepath.Clean(exe)), strings.ToLower(filepath.Clean(localAppData))+string(filepath.Separator)) {
+		return "/CURRENTUSER"
+	}
+
+	return "/ALLUSERS"
 }
 
 // start runs a program without waiting for it. A variable for the tests.

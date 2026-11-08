@@ -63,6 +63,8 @@ Installers:
 - Architecture: x64
   InstallerUrl: $url
   InstallerSha256: $sha
+  InstallerSwitches:
+    Custom: /CURRENTUSER
 ManifestType: installer
 ManifestVersion: 1.10.0
 EOF
