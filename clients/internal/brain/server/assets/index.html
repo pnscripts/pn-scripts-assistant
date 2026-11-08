@@ -577,6 +577,18 @@
 
     <main class="main">
 
+        <!-- A new version of the program, said once where it is seen.
+
+             The Updates page has said so all along, behind a number on the
+             rail; most people never open it. One line here, with the button
+             that updates the way this copy was installed, and "Later", which
+             is remembered for that version. -->
+        <div class="update-banner" id="update-banner" role="status" aria-live="polite" hidden>
+            <span class="update-banner-text" id="update-banner-text"></span>
+            <button type="button" class="model-action" id="update-banner-go" data-i18n="upd.updateNow">Update now</button>
+            <button type="button" class="model-action quiet" id="update-banner-later" data-i18n="upd.later">Later</button>
+        </div>
+
         <!-- The command centre.
 
              Three columns of cards, the subject in the middle. Every tile is
@@ -1403,12 +1415,19 @@
                     four places and no way to ask it once.
                 -->
                 <div class="card" id="upkeep-card">
-                    <h2>Up to date <span class="badge" id="upkeep-count" hidden>0</span></h2>
-                    <p class="insight-note" id="upkeep-note">Checking…</p>
+                    <h2><span data-i18n="upd.title">Up to date</span> <span class="badge" id="upkeep-count" hidden>0</span></h2>
+                    <p class="insight-note" id="upkeep-note" data-i18n="upd.checking">Checking…</p>
                     <div id="upkeep-list"></div>
+                    <p class="note upkeep-said" id="upkeep-said" role="status" aria-live="polite" hidden></p>
+                    <code class="upkeep-command" id="upkeep-command" hidden></code>
                     <div class="provider-actions">
-                        <button type="button" class="model-action quiet" id="upkeep-again">Check again</button>
+                        <button type="button" class="model-action quiet" id="upkeep-again" data-i18n="upd.again">Check again</button>
+                        <label class="switch">
+                            <input type="checkbox" id="upkeep-notice" checked>
+                            <span data-i18n="upd.notice">Look for a new version once a day</span>
+                        </label>
                     </div>
+                    <p class="note tiny" data-i18n="upd.privacy">One request a day to the public releases page on GitHub, carrying nothing about you. Downloads are checked against the release's SHA-256 sums before anything is installed.</p>
                 </div>
 
                 <div class="card">

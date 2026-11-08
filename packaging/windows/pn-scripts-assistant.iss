@@ -67,6 +67,16 @@ Name: "{autodesktop}\PN Scripts Assistant"; Filename: "{app}\pn-scripts-assistan
 
 [Run]
 Filename: "{app}\pn-scripts-assistant.exe"; Description: "Open it now"; Flags: nowait postinstall skipifsilent
+; The program's own "Update" button closes it and runs this installer with
+; /SILENT /RELAUNCH=1, so the new version opens where the old one was. A
+; silent install by anything else — winget, an administrator — leaves it closed.
+Filename: "{app}\pn-scripts-assistant.exe"; Flags: nowait; Check: RelaunchAfterUpdate
+
+[Code]
+function RelaunchAfterUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
 
 ; Nothing is removed from the user's own folders on uninstall. The brain — the
 ; conversations, everything learned — lives in their profile, and an

@@ -139,6 +139,30 @@ type Outcome struct {
 // installer's own script). winget and silent installs leave RELAUNCH out.
 var InstallerArgs = []string{"/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/RELAUNCH=1"}
 
+// QuietArgs install with no window at all and leave the program closed: the
+// command line's `update`, which is what an unattended machine runs.
+var QuietArgs = []string{"/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"}
+
+// InstallQuietly fetches the Windows installer of rel, checks it and starts it
+// with QuietArgs, without waiting: the program that started it has to be gone
+// before the installer can replace it.
+func InstallQuietly(ctx context.Context, rel Release, dir string) error {
+	return runInstaller(ctx, rel, dir, QuietArgs)
+}
+
+func runInstaller(ctx context.Context, rel Release, dir string, args []string) error {
+	path, err := Fetch(ctx, nil, rel, AssetFor(Installer, "windows", rel.Version), dir)
+	if err != nil {
+		return err
+	}
+
+	if err := start(path, args...); err != nil {
+		return fmt.Errorf("the installer could not be started: %w", err)
+	}
+
+	return nil
+}
+
 // start runs a program without waiting for it. A variable for the tests.
 var start = func(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
@@ -163,13 +187,8 @@ var lookPath = exec.LookPath
 func Apply(ctx context.Context, c Channel, rel Release, dir string) (Outcome, error) {
 	switch c {
 	case Installer:
-		path, err := Fetch(ctx, nil, rel, AssetFor(c, "windows", rel.Version), dir)
-		if err != nil {
+		if err := runInstaller(ctx, rel, dir, InstallerArgs); err != nil {
 			return Outcome{}, err
-		}
-
-		if err := start(path, InstallerArgs...); err != nil {
-			return Outcome{}, fmt.Errorf("the installer could not be started: %w", err)
 		}
 
 		return Outcome{
@@ -206,7 +225,7 @@ func Apply(ctx context.Context, c Channel, rel Release, dir string) (Outcome, er
 		return Outcome{
 			Open: rel.Page,
 			Key:  "upd.download",
-			Say:  "This copy is updated by hand: the release page is open. Download the new version there.",
+			Say:  "Nothing installed this copy, so nothing replaces it by itself: download the new version from the release page.",
 		}, nil
 	}
 

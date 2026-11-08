@@ -121,9 +121,10 @@ var atTheDeskOnly = []string{
 	"/api/provision/",
 	"/api/projects/",
 	"/api/integrations/",
-	"/api/resources/",  // how work is done: the policy, what may be installed and spent
-	"/api/models/",     // changing which model answers
-	"/api/upkeep/self", // updating the program
+	"/api/resources/",    // how work is done: the policy, what may be installed and spent
+	"/api/models/",       // changing which model answers
+	"/api/upkeep/self",   // updating the program
+	"/api/upkeep/notice", // whether it looks for new versions by itself
 
 	// Writing a translated file into somebody's folders.
 	"/api/translate/file",

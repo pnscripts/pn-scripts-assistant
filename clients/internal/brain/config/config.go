@@ -101,6 +101,15 @@ type Config struct {
 	LookOnline bool
 
 	/*
+	 * UpdateNotice is whether the program looks, once a day, for a newer
+	 * version of itself and says so. One request to the public releases page,
+	 * carrying nothing about anybody; off means it only looks when asked
+	 * ("Check again" on the Updates page). Inside LookOnline: with that off,
+	 * nothing is looked up at all.
+	 */
+	UpdateNotice bool
+
+	/*
 	 * TurnedOff is what this machine has and its owner would rather it did
 	 * not use.
 	 *
@@ -573,6 +582,10 @@ func Default() Config {
 		// about anybody, so it is on. See LookOnline.
 		LookOnline: true,
 
+		// Told when a new version is out, which is the whole of keeping a
+		// program up to date for most people. See UpdateNotice.
+		UpdateNotice: true,
+
 		DefaultProvider: "ollama",
 		OllamaURL:       "http://127.0.0.1:11434",
 		WakeWord:        DefaultWakeWord,
@@ -739,6 +752,10 @@ func LoadFrom(path string) (Config, error) {
 
 	if v := get("BRAIN_LOOK_ONLINE"); v != "" {
 		cfg.LookOnline = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+
+	if v := get("BRAIN_UPDATE_NOTICE"); v != "" {
+		cfg.UpdateNotice = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
 	if v := get("BRAIN_REACH"); v != "" {
@@ -939,7 +956,10 @@ func (c Config) Save(root string) error {
 	b.WriteString("# Whether it may look things up about itself — updates, the\n")
 	b.WriteString("# list of models, documentation. Sends nothing about you, and is\n")
 	b.WriteString("# a different question from privacy, which is where your words go.\n")
-	b.WriteString("BRAIN_LOOK_ONLINE=" + boolText(c.LookOnline) + "\n\n")
+	b.WriteString("BRAIN_LOOK_ONLINE=" + boolText(c.LookOnline) + "\n")
+	b.WriteString("# Whether it looks once a day for a newer version of itself and says\n")
+	b.WriteString("# so. One request to the public releases page; nothing about you.\n")
+	b.WriteString("BRAIN_UPDATE_NOTICE=" + boolText(c.UpdateNotice) + "\n\n")
 
 	b.WriteString("# Whether what you wrote about yourself in profile.md may be sent to a\n")
 	b.WriteString("# paid service. Off: it is only ever given to the model on this machine.\n")

@@ -71,10 +71,21 @@ type Server struct {
 	// pulseEvery is how often /api/pulse looks for a change; a second when
 	// zero. Shorter in tests.
 	pulseEvery time.Duration
+
+	// quit closes the program, set by whatever owns the window: the Windows
+	// update closes it so its installer can replace the file. Nil means
+	// nothing may close it from here.
+	quit func()
+
+	// newest is the last answer about the newest release. See upkeep.go.
+	newest newestCache
 }
 
 // OnPresent sets what to do when another copy asks this one to come forward.
 func (s *Server) OnPresent(show func()) { s.present = show }
+
+// OnQuit sets how the program is closed when an update needs it out of the way.
+func (s *Server) OnQuit(quit func()) { s.quit = quit }
 
 // New builds the server and registers its routes.
 func New(b *brain.Brain, logger *slog.Logger) *Server {
@@ -405,6 +416,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	 */
 	s.mux.HandleFunc("GET /api/upkeep", s.handleUpkeep)
 	s.mux.HandleFunc("POST /api/upkeep/self", s.handleSelfUpdate)
+	s.mux.HandleFunc("POST /api/upkeep/notice", s.handleUpdateNotice)
 
 	s.mux.HandleFunc("GET /api/parts", s.handleParts)
 	s.mux.HandleFunc("POST /api/parts/install", s.handleInstallPart)

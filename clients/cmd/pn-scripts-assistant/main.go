@@ -131,6 +131,14 @@ func main() {
 		err = runWindowCheck(os.Args[2:])
 	// Which copy is this. The first question anybody is asked when they
 	// report something, and until now there was no way to answer it.
+	case "update":
+		if err := runUpdate(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
+		return
+
 	case "version", "-v", "--version":
 		fmt.Println(release.Full(config.Product))
 
@@ -257,6 +265,7 @@ func usage() {
   pn-scripts-assistant unlock             open an encrypted brain on a new machine with its recovery key
   pn-scripts-assistant read-log           this program's log, its sealed lines opened
   pn-scripts-assistant version            which copy of the program this is
+  pn-scripts-assistant update [--check]   look for a newer version and install it the way this copy was installed
 
 `)
 }
@@ -1041,6 +1050,13 @@ func runApp(args []string) error {
 	// So a second copy can ask this one to show itself rather than opening
 	// another window onto the same brain.
 	srv.OnPresent(window.Present)
+
+	// And so an update can close it: the Windows installer cannot replace a
+	// program that is still running, and opens the new one when it is done.
+	srv.OnQuit(func() {
+		window.Close()
+		stop()
+	})
 
 	// Make sure there is something to run on, at every start rather than only
 	// the first. On a machine that has never had this before there is nothing

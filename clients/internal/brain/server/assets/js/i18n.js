@@ -14,6 +14,73 @@
  */
 (function () {
     const STRINGS = {
+        // Updates: is a newer version out, and getting it.
+        'upd.title': ['Up to date', 'Актуалност'],
+        'upd.checking': ['Checking…', 'Проверявам…'],
+        'upd.checkingNow': ['checking…', 'проверявам…'],
+        'upd.again': ['Check again', 'Провери отново'],
+        'upd.notice': ['Look for a new version once a day', 'Проверявай веднъж дневно за нова версия'],
+        'upd.privacy': [
+            'One request a day to the public releases page on GitHub, carrying nothing about you. '
+                + 'Downloads are checked against the release\'s SHA-256 sums before anything is installed.',
+            'Една заявка на ден до публичната страница с версиите в GitHub, без никакви данни за вас. '
+                + 'Всеки изтеглен файл се сверява със SHA-256 сумите на версията, преди да се инсталира.',
+        ],
+        'upd.updateNow': ['Update now', 'Обнови сега'],
+        'upd.later': ['Later', 'По-късно'],
+        'upd.banner': ['{name} {latest} is out — you have {have}.', 'Излезе {name} {latest} — вашата версия е {have}.'],
+        'upd.allCurrent': ['Everything is current.', 'Всичко е актуално.'],
+        'upd.oneWaiting': ['One thing is out of date.', 'Едно нещо не е актуално.'],
+        'upd.manyWaiting': ['{n} things are out of date.', '{n} неща не са актуални.'],
+        'upd.isCurrent': ['current', 'актуално'],
+        'upd.rowCurrent': ['{have} — current', '{have} — актуално'],
+        'upd.rowNewer': ['{have} → {latest}', '{have} → {latest}'],
+        'upd.cannotTellShort': ['cannot tell', 'не е ясно'],
+        'upd.update': ['Update', 'Обнови'],
+        'upd.updating': ['updating…', 'обновявам…'],
+        'upd.started': ['started', 'започна'],
+        'upd.openUpdater': ['Open Software Updater', 'Отвори обновяването на софтуера'],
+        'upd.how': ['How to update', 'Как да обновя'],
+        'upd.getIt': ['Download', 'Изтегли'],
+        'upd.installing': [
+            'Installing {v}. The assistant closes now and opens again when it is done.',
+            'Инсталирам {v}. Асистентът се затваря и ще се отвори отново, когато приключи.',
+        ],
+        'upd.downloading': [
+            'Downloading {v} and checking it. The assistant closes when the installer starts and opens again when it is done.',
+            'Изтеглям {v} и го проверявам. Асистентът ще се затвори, когато инсталаторът тръгне, и ще се отвори отново след края.',
+        ],
+        'upd.updater': [
+            'Software Updater is open: choose Install Now there.',
+            'Обновяването на софтуера е отворено: изберете „Инсталиране сега“.',
+        ],
+        'upd.aptCommand': ['Run this in a terminal to update:', 'За да обновите, изпълнете това в терминал:'],
+        'upd.snap': [
+            'The Snap Store updates it by itself. To update now, run:',
+            'Snap Store го обновява сам. За да обновите веднага, изпълнете:',
+        ],
+        'upd.download': [
+            'Nothing installed this copy, so nothing replaces it by itself: download the new version from the release page.',
+            'Това копие не е инсталирано от пакет и нищо не го подменя само: изтеглете новата версия от страницата ѝ.',
+        ],
+        'upd.current': ['This is already the newest version.', 'Това вече е най-новата версия.'],
+        'upd.noticeOff': [
+            'Checking for new versions by itself is off. Check again asks now.',
+            'Самостоятелната проверка за нова версия е изключена. „Провери отново“ проверява веднага.',
+        ],
+        'upd.offline': [
+            'Could not reach GitHub to see whether a new version is out. It asks again later.',
+            'Няма връзка с GitHub, за да проверя за нова версия. Ще опитам отново по-късно.',
+        ],
+        'upd.cannotTell': ['Could not find out whether a new version is out.', 'Не успях да разбера дали има нова версия.'],
+        'upd.lookOff': [
+            'Looking things up online is switched off, so I cannot tell whether anything is out of date. '
+                + 'It is on the Permissions page, separate from privacy: asking whether a newer version exists says nothing about you.',
+            'Търсенето онлайн е изключено, затова не мога да кажа дали нещо е остаряло. '
+                + 'Включва се от страницата „Разрешения“, отделно от поверителността: въпросът за нова версия не казва нищо за вас.',
+        ],
+        'upd.failed': ['That did not work: {why}', 'Не се получи: {why}'],
+
         // Sources under an answer.
         'sources.title': ['Sources', 'Източници'],
         'sources.cited': ['cited', 'цитиран'],
