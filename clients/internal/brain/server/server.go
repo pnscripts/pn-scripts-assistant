@@ -604,6 +604,9 @@ func (s *Server) Serve(ctx context.Context, listeners ...net.Listener) error {
 		return fmt.Errorf("nothing to listen on")
 	}
 
+	// A runtime from before an update, replaced while the page loads.
+	go s.refreshVoiceprint(ctx)
+
 	/*
 	 * The extra ones in the background, the first on this goroutine.
 	 *

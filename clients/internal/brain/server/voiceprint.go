@@ -173,3 +173,53 @@ func (s *Server) handleInstallVoiceprint(w http.ResponseWriter, r *http.Request)
 
 	ok(w, map[string]any{"started": true, "megabytes": voiceprint.AboutMegabytes})
 }
+
+// refreshRuntime is voiceprint.Refresh; a variable so a test can stand in for
+// the download.
+var refreshRuntime = voiceprint.Refresh
+
+/*
+ * refreshVoiceprint replaces a voiceprint runtime left by an older release.
+ *
+ * Run once when the server starts. Each release of the program speaks to one
+ * release of the runtime, and the runtime is a download rather than part of
+ * the program, so updating the program alone would leave somebody who taught
+ * it their voice with a library it can no longer load. Their choice to fetch
+ * it was made once already; this only keeps it matching.
+ *
+ * Not while looking things up online is switched off: then the page says the
+ * part is missing and offers the button, which asks first.
+ */
+func (s *Server) refreshVoiceprint(ctx context.Context) {
+	if !s.brain.Cfg.LookOnline {
+		if voiceprint.RuntimeStale() {
+			s.log.Info("the voiceprint runtime is from an older release and looking online is off; " +
+				"it will be fetched when asked for on the Privacy page")
+		}
+
+		return
+	}
+
+	started := false
+
+	replaced, err := refreshRuntime(ctx, func(said string) {
+		started = true
+
+		progress.SetBackground("learning", said)
+	})
+
+	if started {
+		defer progress.Done()
+	}
+
+	if err != nil {
+		// The page reads the part as missing and offers the button again.
+		s.log.Warn("could not update the voiceprint runtime", "error", err)
+
+		return
+	}
+
+	if replaced {
+		s.log.Info("updated the voiceprint runtime", "version", voiceprint.RuntimeVersion)
+	}
+}

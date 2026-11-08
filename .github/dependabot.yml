@@ -17,8 +17,10 @@
 # exactly one onnxruntime release (1.36 to 1.29, 1.38 to 1.31), and the
 # voiceprint feature downloads that runtime itself (voiceprint.RuntimeVersion).
 # Its pull request comes on its own and is merged only together with that
-# constant, never as it is, even when CI is green: CI does not load the
-# runtime. It is not ignored, so a security update for it still arrives.
+# constant and its RuntimeSHA256, never as it is. CI does not load the
+# runtime, but TestTheRuntimeMatchesTheBinding (voiceprint) reads the
+# binding's ORT_API_VERSION and fails while the two disagree. It is not
+# ignored, so a security update for it still arrives.
 version: 2
 updates:
   - package-ecosystem: gomod

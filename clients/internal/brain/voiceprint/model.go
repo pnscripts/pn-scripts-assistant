@@ -64,16 +64,21 @@ func Parts() string {
 // Folder is where this brain keeps the voice it knows.
 func Folder(root string) string { return filepath.Join(root, FolderName) }
 
-// Installed reports whether the model and the runtime are both on this
-// machine.
+/*
+ * Installed reports whether the model and the runtime are both on this
+ * machine, and the runtime is the release this copy was built for.
+ *
+ * A runtime from another release counts as missing rather than as present:
+ * loading it would mean talking to a library through a table of functions it
+ * does not have. Refresh replaces it; until then voices are not told apart,
+ * which is a feature briefly absent rather than one quietly wrong.
+ */
 func Installed() bool {
-	for _, part := range []string{ModelName, RuntimeName} {
-		if _, err := os.Stat(filepath.Join(Parts(), part)); err != nil {
-			return false
-		}
+	if _, err := os.Stat(filepath.Join(Parts(), ModelName)); err != nil {
+		return false
 	}
 
-	return true
+	return RuntimeCurrent()
 }
 
 /*
@@ -92,13 +97,14 @@ func open() (*ort.DynamicAdvancedSession, error) {
 		return loaded.session, loaded.err
 	}
 
-	loaded.started = true
-
+	// Not remembered: the parts can arrive while the program runs (installed
+	// from the page, or refreshed after an update), and a refusal kept from
+	// before would outlive the reason for it.
 	if !Installed() {
-		loaded.err = fmt.Errorf("no voiceprint model on this machine; nothing to tell voices apart with")
-
-		return nil, loaded.err
+		return nil, fmt.Errorf("no voiceprint model on this machine; nothing to tell voices apart with")
 	}
+
+	loaded.started = true
 
 	ort.SetSharedLibraryPath(filepath.Join(Parts(), RuntimeName))
 

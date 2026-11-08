@@ -8,7 +8,23 @@ number is 0, the second one changes when something visible changes.
 
 ## Unreleased
 
+### Security
+
+- **The voice recognition runtime is checked before it is used.** The
+  library that tells voices apart is downloaded the first time you turn the
+  feature on. It is now refused unless it is byte for byte the file
+  Microsoft published (its SHA-256 is fixed in the program), so a changed or
+  damaged download never ends up on your computer.
+
 ### Fixed
+
+- **Telling voices apart keeps working after an update.** The program now
+  uses ONNX Runtime 1.31.0 (with onnxruntime_go 1.38.0). If you turned the
+  feature on in an earlier version, the old runtime is recognised when the
+  program starts and replaced with the matching one in the background, about
+  11 MB, without asking again and without teaching it your voice again. With
+  looking things up online switched off, the Privacy page shows the part as
+  missing and its button fetches it.
 
 - **An update on Windows that cannot finish gives you your assistant back.**
   When something else still holds the program file (a virus scanner, a copy
