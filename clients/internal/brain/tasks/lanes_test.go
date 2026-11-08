@@ -145,8 +145,16 @@ func TestAMachineAllowingOneJobStillHandsWorkOn(t *testing.T) {
 		t.Fatalf("a specialist's task was refused while its parent ran: %v", err)
 	}
 
-	// Ordinary background work is still held to the machine's limit.
+	// Ordinary background work is still held to the machine's limit. The
+	// first one stays running until the second has been refused: one that
+	// finished at once freed its place first, and the test failed when the
+	// runner was quick (seen on CI under -race, 08.11.2026).
+	reading := make(chan struct{})
+	defer close(reading)
+
 	if _, err := runner.Start("reading a folder", func(context.Context) (string, error) {
+		<-reading
+
 		return "", nil
 	}); err != nil {
 		t.Fatalf("queued work counted against the ordinary limit: %v", err)
