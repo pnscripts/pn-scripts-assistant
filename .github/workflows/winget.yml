@@ -80,10 +80,17 @@ jobs:
           winget settings --enable LocalManifestFiles | Out-Null
           $flags = '--accept-package-agreements','--accept-source-agreements','--disable-interactivity','--silent'
           $exe = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant\pn-scripts-assistant.exe"
+          # The program is a windowed (GUI) program: PowerShell neither waits
+          # for it nor shows what it prints unless its output is redirected.
+          function Run-It([string[]]$Arguments) {
+            $out = Join-Path $env:RUNNER_TEMP ("out-" + [guid]::NewGuid() + ".txt")
+            Start-Process -FilePath $exe -ArgumentList $Arguments -Wait -NoNewWindow -RedirectStandardOutput $out -RedirectStandardError "$out.err" | Out-Null
+            ((Get-Content $out -Raw -ErrorAction SilentlyContinue) + (Get-Content "$out.err" -Raw -ErrorAction SilentlyContinue)).Trim()
+          }
 
           winget install --manifest "winget\manifests\p\PNScripts\PNScriptsAssistant\$env:PREVIOUS" @flags
           if ($LASTEXITCODE -ne 0) { throw "winget could not install $env:PREVIOUS" }
-          $have = & $exe version
+          $have = Run-It @('version')
           Write-Output "installed by winget: $have"
           if ($have -notmatch [regex]::Escape($env:PREVIOUS)) { throw 'not the previous version' }
 
@@ -101,7 +108,7 @@ jobs:
 
           winget install --manifest "winget\manifests\p\PNScripts\PNScriptsAssistant\$env:NEWEST" @flags
           if ($LASTEXITCODE -ne 0) { throw "winget could not install $env:NEWEST over $env:PREVIOUS" }
-          $now = & $exe version
+          $now = Run-It @('version')
           Write-Output "after the upgrade: $now"
           if ($now -notmatch [regex]::Escape($env:NEWEST)) { throw 'the upgrade did not take' }
           if (-not (Test-Path $brain)) { throw 'the upgrade lost the brain' }

@@ -324,8 +324,8 @@ sudo apt upgrade` does the same). On Windows the assistant says when a new
 version is out, and **Update now** downloads the installer, checks it against
 the release's `SHA256SUMS`, installs it and opens the assistant again. It asks
 GitHub's public releases page once a day and sends nothing about you; the
-switch is on the *What it runs on* page, and `pn-scripts-assistant update
---check` asks from a terminal. Updates keep everything learned.
+switch is on the *What it runs on* page, and on Ubuntu `pn-scripts-assistant
+update --check` asks from a terminal. Updates keep everything learned.
 
 Removing the program leaves the brain alone, deliberately — years of somebody's
 memory should not go with an `apt remove`:

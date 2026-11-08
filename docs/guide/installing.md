@@ -56,7 +56,7 @@ Software Updater.
 On both systems the *What it runs on* page (and a line across the top of the window)
 says when a new version is out. It asks the public releases page on GitHub
 once a day and sends nothing about you; switch it off on that page.
-From a terminal, `pn-scripts-assistant update --check` asks the same.
+On Ubuntu, `pn-scripts-assistant update --check` asks the same from a terminal.
 
 ## On Ubuntu
 
@@ -193,8 +193,7 @@ installer from the release, checks it against the release's `SHA256SUMS`,
 closes the assistant, installs over it and opens it again; nothing it learned
 is touched. The portable folder is never replaced by itself: its button opens
 the release page, and you unzip the new folder over the old one (the brain in
-`PN-SCRIPTS-ASSISTANT-DATA` stays). In a terminal:
-`pn-scripts-assistant update` does the same as the button.
+`PN-SCRIPTS-ASSISTANT-DATA` stays).
 
 Removing the program leaves what it learned, in
 `%USERPROFILE%\.local\share\pn-scripts-assistant` (the same place as on Linux,

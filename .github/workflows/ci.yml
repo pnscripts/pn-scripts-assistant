@@ -554,12 +554,19 @@ jobs:
           Start-Process $old.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait
           $app = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant"
           $exe = "$app\pn-scripts-assistant.exe"
-          $have = & $exe version
+          # The program is a windowed (GUI) program: PowerShell neither waits
+          # for it nor shows what it prints unless its output is redirected.
+          function Run-It([string[]]$Arguments) {
+            $out = Join-Path $env:RUNNER_TEMP ("out-" + [guid]::NewGuid() + ".txt")
+            Start-Process -FilePath $exe -ArgumentList $Arguments -Wait -NoNewWindow -RedirectStandardOutput $out -RedirectStandardError "$out.err" | Out-Null
+            ((Get-Content $out -Raw -ErrorAction SilentlyContinue) + (Get-Content "$out.err" -Raw -ErrorAction SilentlyContinue)).Trim()
+          }
+          $have = Run-It @('version')
           Write-Output "installed: $have"
           if ($have -notmatch '0\.98\.0') { throw 'the old version is not what was installed' }
 
           # The terminal says so.
-          $said = (& $exe update --check) -join "`n"
+          $said = Run-It @('update', '--check')
           Write-Output $said
           if ($said -notmatch 'installed as: installer' -or $said -notmatch 'A newer version is out: 0\.99\.0') { throw 'update --check did not see the new version' }
 
@@ -588,7 +595,7 @@ jobs:
           $now = ''
           for ($i = 0; $i -lt 180 -and $now -notmatch '0\.99\.0'; $i++) {
             Start-Sleep 1
-            try { $now = & $exe version } catch { $now = '' }
+            try { $now = Run-It @('version') } catch { $now = '' }
           }
           Write-Output "installed now: $now"
           if ($now -notmatch '0\.99\.0') { throw 'the new version was not installed' }
