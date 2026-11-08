@@ -85,3 +85,43 @@ function RelaunchAfterUpdate: Boolean;
 begin
   Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
 end;
+
+// Updating over a copy that has only just closed: Windows (or the virus
+// scanner looking at a program that just ran) can hold its file for a few
+// seconds more, longer than Setup's own four retries, and with message boxes
+// suppressed Setup then gives up (seen on a Windows runner: "DeleteFile
+// failed; code 5"). So before installing, wait — up to a minute — until the
+// old program file can be opened for writing by nobody else.
+function CreateFile(lpFileName: String; dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+  dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile: LongWord): THandle;
+  external 'CreateFileW@kernel32.dll stdcall';
+function CloseHandle(hObject: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+function ProgramFileIsFree(const Path: String): Boolean;
+var
+  H: THandle;
+begin
+  // GENERIC_WRITE, no sharing, OPEN_EXISTING.
+  H := CreateFile(Path, $40000000, 0, 0, 3, 0, 0);
+  Result := H <> THandle(-1);
+  if Result then
+    CloseHandle(H);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Exe: String;
+  Tries: Integer;
+begin
+  Result := '';
+  Exe := ExpandConstant('{app}\pn-scripts-assistant.exe');
+  Tries := 0;
+  while FileExists(Exe) and (not ProgramFileIsFree(Exe)) and (Tries < 120) do
+  begin
+    Sleep(500);
+    Tries := Tries + 1;
+  end;
+  if Tries > 0 then
+    Log(Format('Waited %d ms for the previous program file to be free.', [Tries * 500]));
+end;
