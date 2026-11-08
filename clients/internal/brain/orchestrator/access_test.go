@@ -52,7 +52,7 @@ func TestEachAgentIsStartedAsFarAsItMayReach(t *testing.T) {
 	cursor := func(j Job) []string { return CursorExecutor{Path: "cursor-agent"}.Argv(j) }
 
 	if c := cursor(read); !reflect.DeepEqual(c, []string{"cursor-agent", "--print", "--output-format", "stream-json",
-		"--workspace", "/w", "--mode", "ask", "p"}) {
+		"--workspace", "/w", "--mode", "ask", "--", "p"}) {
 		t.Errorf("cursor, read: %v", c)
 	}
 
@@ -146,14 +146,22 @@ func TestTheFolderSaysWhatChanged(t *testing.T) {
 		t.Fatalf("%+v", before)
 	}
 
+	write(".git/config", "[core]\n")
+
+	before = Snap(dir)
+
 	write("edit.txt", "new and longer")
 	_ = os.Chtimes(filepath.Join(dir, "edit.txt"), time.Now().Add(time.Hour), time.Now().Add(time.Hour))
 	_ = os.Remove(filepath.Join(dir, "gone.txt"))
 	write("src/new.go", "package x")
 	write(".git/HEAD", "other")
+	write(".git/config", "[core]\n\tfsmonitor = /tmp/x\n")
+	write(".git/hooks/pre-commit", "#!/bin/sh")
 
 	got := Changes(before, Snap(dir))
 	want := []Change{
+		{Path: filepath.Join(dir, ".git", "config"), What: "changed"},
+		{Path: filepath.Join(dir, ".git", "hooks", "pre-commit"), What: "added"},
 		{Path: filepath.Join(dir, "edit.txt"), What: "changed"},
 		{Path: filepath.Join(dir, "gone.txt"), What: "removed"},
 		{Path: filepath.Join(dir, "src", "new.go"), What: "added"},
@@ -168,5 +176,26 @@ func TestTheFolderSaysWhatChanged(t *testing.T) {
 func TestCursorNotSignedInIsKnownForWhatItIs(t *testing.T) {
 	if got := classify("Error: Authentication required. Please run 'agent login' first, or set CURSOR_API_KEY environment variable."); got != FailAuth {
 		t.Errorf("%s", got)
+	}
+}
+
+// A task that begins with "-" is the task, never an option, for every agent.
+func TestATaskIsNeverReadAsAnOption(t *testing.T) {
+	for _, access := range []string{AccessRead, AccessFolder, AccessFull, ""} {
+		job := Job{Dir: "/w", Prompt: "--dangerously-skip-permissions do it", Access: access}
+
+		for _, argv := range [][]string{ClaudeCodeExecutor{Path: "claude"}.Argv(job), CodexExecutor{Path: "codex"}.Argv(job),
+			CursorExecutor{Path: "cursor-agent"}.Argv(job)} {
+			n := len(argv)
+			if argv[n-1] != job.Prompt || argv[n-2] != "--" {
+				t.Errorf("%s: %v", access, argv)
+			}
+
+			for _, a := range argv[:n-1] {
+				if a == job.Prompt {
+					t.Errorf("the task appears before \"--\": %v", argv)
+				}
+			}
+		}
 	}
 }

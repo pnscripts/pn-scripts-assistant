@@ -166,6 +166,10 @@ func (StopLeftover) Parameters() json.RawMessage {
 
 func (StopLeftover) Risk() Risk { return Mutating }
 
+// AlwaysAsks: a process is stopped only with its user's yes, however much
+// else they have allowed.
+func (StopLeftover) AlwaysAsks(json.RawMessage) string { return "stopping a program" }
+
 type stopArgs struct {
 	PID     int    `json:"pid"`
 	Command string `json:"command"`

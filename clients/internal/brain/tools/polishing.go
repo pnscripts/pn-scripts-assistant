@@ -145,10 +145,10 @@ func (t SendEmail) Polish(raw json.RawMessage) (json.RawMessage, polish.Result) 
 }
 
 /*
- * Polish gives a waiting draft the last look and keeps the polished words
- * in the draft itself, so the question, the pin and the Mail page all show
- * what will go. Nothing is sent by this; what was taken out is listed in the
- * question, so nothing is lost without its user seeing it.
+ * Polish gives a waiting draft the last look. The polished words travel in
+ * the call — the question shows them, the pin keeps them — and are written
+ * into the draft only when it is sent after the yes; a draft that is not
+ * sent keeps its own words.
  */
 func (t SendDraft) Polish(raw json.RawMessage) (json.RawMessage, polish.Result) {
 	var a draftArgs
@@ -167,17 +167,18 @@ func (t SendDraft) Polish(raw json.RawMessage) (json.RawMessage, polish.Result) 
 		address = t.Desk.Account().From
 	}
 
-	from := senderName(address, t.Desk.Owner)
+	r := polish.Polish(polish.Draft{Text: dr.Body, Subject: dr.Subject, From: senderName(address, t.Desk.Owner)}, time.Now())
 
-	r := polish.Polish(polish.Draft{Text: dr.Body, Subject: dr.Subject, From: from}, time.Now())
-
-	if r.Changed && r.Text != "" {
-		if _, err := t.Desk.Drafts.ChangeDraft(a.ID, dr.To, dr.Subject, r.Text); err != nil {
-			return raw, polish.Result{}
-		}
+	if !r.Changed || r.Text == "" {
+		return raw, r
 	}
 
-	return raw, r
+	out, err := json.Marshal(map[string]any{"id": a.ID, "polished": r.Text})
+	if err != nil {
+		return raw, r
+	}
+
+	return out, r
 }
 
 // SentAs is what a sent message is shown as afterwards: where it went, from

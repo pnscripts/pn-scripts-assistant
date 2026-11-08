@@ -39,8 +39,8 @@ type DraftBook interface {
 	SentDraft(id int64, note string) error
 	FailedDraft(id int64, note string) error
 
-	// ChangeDraft rewrites a waiting draft: the last look before sending
-	// keeps its polished words in it (see SendDraft.Polish).
+	// ChangeDraft rewrites a waiting draft: the polished words the owner
+	// approved are written into it as it is sent (see sendDraft).
 	ChangeDraft(id int64, to, subject, body string) (store.Draft, error)
 }
 
@@ -393,6 +393,10 @@ type draftArgs struct {
 	// Seen is the fingerprint of the draft as the owner was shown it when
 	// asked; see SendDraft.Pin.
 	Seen string `json:"seen,omitempty"`
+
+	// Polished is the draft's words after the last look (SendDraft.Polish),
+	// shown in the question and written into the draft only when it is sent.
+	Polished string `json:"polished,omitempty"`
 }
 
 func (DraftReply) Summarize(raw json.RawMessage) string {
@@ -533,7 +537,12 @@ func (t SendDraft) Summarize(raw json.RawMessage) string {
 		return fmt.Sprintf("Send draft %d (it could not be read: %v)", a.ID, err)
 	}
 
-	head := fmt.Sprintf("Send to %s\nSubject: %s\n\n%s", dr.To, dr.Subject, dr.Body)
+	body := dr.Body
+	if a.Polished != "" {
+		body = a.Polished
+	}
+
+	head := fmt.Sprintf("Send to %s\nSubject: %s\n\n%s", dr.To, dr.Subject, body)
 
 	if dr.Warning != "" {
 		head = "WARNING — the message this answers: " + dr.Warning + "\n\n" + head
@@ -563,7 +572,12 @@ func (t SendDraft) Pin(raw json.RawMessage) json.RawMessage {
 		return raw
 	}
 
-	pinned, err := json.Marshal(map[string]any{"id": a.ID, "seen": fingerprint(dr)})
+	pin := map[string]any{"id": a.ID, "seen": fingerprint(dr)}
+	if a.Polished != "" {
+		pin["polished"] = a.Polished
+	}
+
+	pinned, err := json.Marshal(pin)
 	if err != nil {
 		return raw
 	}
@@ -584,7 +598,7 @@ func (t SendDraft) Execute(ctx context.Context, raw json.RawMessage) (string, er
 		return "", err
 	}
 
-	return sendDraft(t.Desk, a.ID, a.Seen)
+	return sendDraft(t.Desk, a.ID, a.Seen, a.Polished)
 }
 
 /*
@@ -593,13 +607,13 @@ func (t SendDraft) Execute(ctx context.Context, raw json.RawMessage) (string, er
  * on it. Shared by the tool and the Mail page's Send button.
  */
 func SendWaitingDraft(desk MailDesk, id int64) (string, error) {
-	return sendDraft(desk, id, "")
+	return sendDraft(desk, id, "", "")
 }
 
 // errDraftChanged is a draft edited after the owner was asked about it.
 var errDraftChanged = errors.New("it was changed after you were asked; ask me to send it again so you see the new words")
 
-func sendDraft(desk MailDesk, id int64, seen string) (string, error) {
+func sendDraft(desk MailDesk, id int64, seen, polished string) (string, error) {
 	if desk.Drafts == nil {
 		return "", fmt.Errorf("drafts cannot be kept here")
 	}
@@ -618,6 +632,27 @@ func sendDraft(desk MailDesk, id int64, seen string) (string, error) {
 	if desk.Account == nil || !desk.Account().Configured() {
 		return "", fmt.Errorf("sending needs your mail account set up under Settings; the draft is kept, " +
 			"and its text can be copied into your mail program")
+	}
+
+	/*
+	 * The polished words the owner approved go into the draft now, as it is
+	 * sent — never before the yes, so a draft that is not sent keeps its
+	 * own words. Only onto the draft they were shown (seen, above).
+	 */
+	if polished != "" {
+		waiting, err := desk.Drafts.Draft(id)
+		if err != nil {
+			return "", fmt.Errorf("draft %d: %w", id, err)
+		}
+
+		changed, err := desk.Drafts.ChangeDraft(id, waiting.To, waiting.Subject, polished)
+		if err != nil {
+			return "", fmt.Errorf("draft %d was not sent: %w", id, err)
+		}
+
+		if seen != "" {
+			seen = fingerprint(changed)
+		}
 	}
 
 	dr, err := desk.Drafts.ClaimDraft(id)

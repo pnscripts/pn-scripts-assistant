@@ -43,7 +43,7 @@ func TestTheMachineCareCardIsSaidInBothLanguages(t *testing.T) {
 
 	keys := []string{"mcare.why.ours", "mcare.why.orphan", "mcare.unclean", "mcare.ready", "mcare.notReady", "mcare.unknown"}
 
-	for _, k := range []string{"kernel_waiting", "dkms_missing", "reboot_wanted", "installing", "busy", "uncommitted", "unpushed"} {
+	for _, k := range []string{"kernel_waiting", "dkms_missing", "reboot_wanted", "installing", "busy", "uncommitted", "unpushed", "repo_unchecked"} {
 		keys = append(keys, "mcare.r."+k)
 	}
 

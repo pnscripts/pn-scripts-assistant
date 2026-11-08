@@ -47,6 +47,10 @@ type Repo struct {
 	Uncommitted int
 	Unpushed    int
 	NoUpstream  bool
+
+	// Unchecked is a repository whose settings would run programs, which
+	// is therefore not asked: see repoState.
+	Unchecked bool
 }
 
 // Inputs is everything the answer is made from.
@@ -92,6 +96,9 @@ func Judge(in Inputs) Readiness {
 
 	for _, r := range in.Repos {
 		switch {
+		case r.Unchecked:
+			add("repo_unchecked", "Not checked: the git settings in "+r.Dir+" would run programs.", false,
+				map[string]string{"dir": r.Dir})
 		case r.Uncommitted > 0:
 			add("uncommitted", "Changed files not committed in "+r.Dir+": "+strconv.Itoa(r.Uncommitted)+".", false,
 				map[string]string{"n": strconv.Itoa(r.Uncommitted), "dir": r.Dir})
@@ -283,32 +290,119 @@ func output(ctx context.Context, program string, args ...string) string {
 	return string(out)
 }
 
-// repoState is a folder's uncommitted files and unpushed commits, when it is
-// a git working tree.
+/*
+ * repoState is a folder's uncommitted files and unpushed commits, when it is
+ * a git working tree.
+ *
+ * Git reads the folder's own settings, and some of them run programs (a file
+ * system monitor, filters, hooks, includes): a folder an agent or a download
+ * wrote into must not get to run anything because somebody asked whether it
+ * is safe to restart. A repository whose settings name any of them is not
+ * asked at all, and git is started with the monitor and hooks off and no
+ * locks taken, whatever the settings say.
+ */
 func repoState(ctx context.Context, dir string) (Repo, bool) {
 	git, err := exec.LookPath("git")
 	if err != nil {
 		return Repo{}, false
 	}
 
-	if strings.TrimSpace(output(ctx, git, "-C", dir, "rev-parse", "--is-inside-work-tree")) != "true" {
+	config, found := gitConfig(dir)
+	if !found {
+		return Repo{}, false
+	}
+
+	if RunsPrograms(config) {
+		return Repo{Dir: dir, Unchecked: true}, true
+	}
+
+	run := func(args ...string) string {
+		return output(ctx, git, append([]string{"-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
+			"--no-optional-locks", "-C", dir}, args...)...)
+	}
+
+	if strings.TrimSpace(run("rev-parse", "--is-inside-work-tree")) != "true" {
 		return Repo{}, false
 	}
 
 	r := Repo{Dir: dir}
 
-	scanner := bufio.NewScanner(strings.NewReader(output(ctx, git, "-C", dir, "status", "--porcelain")))
+	scanner := bufio.NewScanner(strings.NewReader(run("status", "--porcelain")))
 	for scanner.Scan() {
 		if strings.TrimSpace(scanner.Text()) != "" {
 			r.Uncommitted++
 		}
 	}
 
-	if ahead := strings.TrimSpace(output(ctx, git, "-C", dir, "rev-list", "--count", "@{upstream}..HEAD")); ahead != "" {
+	if ahead := strings.TrimSpace(run("rev-list", "--count", "@{upstream}..HEAD")); ahead != "" {
 		r.Unpushed, _ = strconv.Atoi(ahead)
 	} else {
 		r.NoUpstream = true
 	}
 
 	return r, true
+}
+
+// gitConfig is the text of a folder's own git settings — .git/config, or for
+// a worktree the config of the repository it belongs to — and whether the
+// folder is a git working tree at its top.
+func gitConfig(dir string) (string, bool) {
+	gitPath := filepath.Join(dir, ".git")
+
+	info, err := os.Lstat(gitPath)
+	if err != nil {
+		return "", false
+	}
+
+	var configs []string
+
+	if info.IsDir() {
+		configs = append(configs, filepath.Join(gitPath, "config"))
+	} else if raw, err := os.ReadFile(gitPath); err == nil && strings.HasPrefix(string(raw), "gitdir:") {
+		gitdir := strings.TrimSpace(strings.TrimPrefix(string(raw), "gitdir:"))
+		if !filepath.IsAbs(gitdir) {
+			gitdir = filepath.Join(dir, gitdir)
+		}
+
+		configs = append(configs, filepath.Join(gitdir, "config.worktree"))
+
+		common := gitdir
+		if c, err := os.ReadFile(filepath.Join(gitdir, "commondir")); err == nil {
+			common = strings.TrimSpace(string(c))
+			if !filepath.IsAbs(common) {
+				common = filepath.Join(gitdir, common)
+			}
+		}
+
+		configs = append(configs, filepath.Join(common, "config"))
+	} else {
+		return "", false
+	}
+
+	var text strings.Builder
+
+	for _, c := range configs {
+		if raw, err := os.ReadFile(c); err == nil {
+			text.Write(raw)
+			text.WriteString("\n")
+		}
+	}
+
+	return text.String(), true
+}
+
+// RunsPrograms is whether git settings name anything that makes git run a
+// program while it only looks: a file system monitor, hooks elsewhere,
+// filters, text conversion, external diffs, includes of other settings.
+func RunsPrograms(config string) bool {
+	low := strings.ToLower(config)
+
+	for _, word := range []string{"fsmonitor", "hookspath", "[filter", "textconv", "[include", "external",
+		"sshcommand", "askpass", "pager", "editor", "[credential", "untrackedcache"} {
+		if strings.Contains(low, word) {
+			return true
+		}
+	}
+
+	return false
 }

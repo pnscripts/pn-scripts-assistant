@@ -138,6 +138,8 @@ func TestTheAgentsFolderIsChecked(t *testing.T) {
 		{b.Root, tools.ReachRead},
 		{filepath.Dir(b.Root), tools.ReachRead},
 		{home, tools.ReachFolder},
+		{filepath.Dir(home), tools.ReachFolder},
+		{"/media", tools.ReachFull},
 		{"/etc", tools.ReachFull},
 		{"/usr/share", tools.ReachFolder},
 	} {

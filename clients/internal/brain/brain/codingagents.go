@@ -185,8 +185,22 @@ func (b *Brain) agentFolder(folder, access string) (string, error) {
 		return dir, nil
 	}
 
-	if home != "" && dir == filepath.Clean(home) {
-		return "", errors.New("not the whole home folder for an agent that may write: choose the project's folder")
+	if home != "" {
+		if real, err := filepath.EvalSymlinks(home); err == nil {
+			home = real
+		}
+
+		// The home folder, or a folder that holds it ("/home"): "the folder"
+		// would then be the user's whole home.
+		if dir == filepath.Clean(home) || strings.HasPrefix(home, dir+string(filepath.Separator)) {
+			return "", errors.New("not the whole home folder for an agent that may write: choose the project's folder")
+		}
+	}
+
+	for _, mounts := range []string{"/media", "/mnt", "/run", "/srv"} {
+		if dir == mounts {
+			return "", fmt.Errorf("not %s as a whole for an agent that may write: choose the project's folder", mounts)
+		}
 	}
 
 	for _, system := range []string{"/etc", "/usr", "/bin", "/sbin", "/lib", "/boot", "/var", "/opt", "/sys", "/proc", "/dev", "/root"} {

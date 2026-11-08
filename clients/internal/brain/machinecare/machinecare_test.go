@@ -1,6 +1,7 @@
 package machinecare
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,6 +57,7 @@ func TestLeftoversAreOnlyFinishedJobsOfThisUser(t *testing.T) {
 		{PID: 17, PPID: 1, UID: me, TTY: true, Age: hour, Command: "tail -f /tmp/x.log"},
 		{PID: 18, PPID: 12, UID: me, Age: hour, Command: "timeout 60 sleep 30"},
 		{PID: self, PPID: 1, UID: me, Age: hour, Command: "pn-scripts-assistant serve --headless"},
+		{PID: 19, PPID: 2000, UID: me, Age: hour, Command: "python3 -m http.server 9000", Parent: "systemd", Service: true},
 	}
 
 	var got []int
@@ -69,8 +71,8 @@ func TestLeftoversAreOnlyFinishedJobsOfThisUser(t *testing.T) {
 	}
 
 	// The browser with a window (14), root's process (15), a young one (16),
-	// one in a terminal (17), one whose parent is alive (13) and the
-	// assistant itself are left alone.
+	// one in a terminal (17), one whose parent is alive (13), a user service
+	// (19) and the assistant itself are left alone.
 	if !reflect.DeepEqual(got, []int{10, 11, 12, 18}) {
 		t.Errorf("%v", got)
 	}
@@ -157,5 +159,51 @@ func TestRestartReadiness(t *testing.T) {
 
 	if Newest([]string{"6.8.0-94-generic", "6.8.0-149-generic", "6.8.0-100-generic"}) != "6.8.0-149-generic" {
 		t.Error("versions are compared as text")
+	}
+}
+
+func TestAServiceIsKnownByItsControlGroup(t *testing.T) {
+	for cgroup, want := range map[string]bool{
+		"0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-com.example.Editor-3721.scope": false,
+		"0::/user.slice/user-1000.slice/user@1000.service/session.slice/org.gnome.Shell@x11.service":   true,
+		"0::/user.slice/user-1000.slice/user@1000.service/app.slice/pn-timer.service\n":                true,
+		"0::/user.slice/user-1000.slice/session-2.scope":                                               false,
+		"12:pids:/system.slice/cron.service\n0::/system.slice/cron.service":                            true,
+	} {
+		if ServiceGroup(cgroup) != want {
+			t.Errorf("%q: want %v", cgroup, want)
+		}
+	}
+}
+
+// A repository whose own settings would make git run a program is not asked.
+func TestGitSettingsThatRunProgramsAreNotRun(t *testing.T) {
+	for config, want := range map[string]bool{
+		"[core]\n\trepositoryformatversion = 0\n[remote \"origin\"]\n\turl = git@example.org:x.git\n": false,
+		"[core]\n\tfsmonitor = /tmp/run-me\n":               true,
+		"[filter \"lfs\"]\n\tclean = git-lfs clean -- %f\n": true,
+		"[include]\n\tpath = /tmp/other\n":                  true,
+		"[core]\n\thooksPath = .githooks\n":                 true,
+	} {
+		if RunsPrograms(config) != want {
+			t.Errorf("%q: want %v", config, want)
+		}
+	}
+
+	dir := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(dir, ".git"), 0o755)
+	_ = os.WriteFile(filepath.Join(dir, ".git", "config"), []byte("[core]\n\tfsmonitor = touch "+filepath.Join(dir, "ran")+"\n"), 0o644)
+
+	r, ok := repoState(context.Background(), dir)
+	if !ok || !r.Unchecked {
+		t.Fatalf("%+v %v", r, ok)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "ran")); err == nil {
+		t.Fatal("the folder's git settings ran a program")
+	}
+
+	if got := Judge(Inputs{Repos: []Repo{r}}); got.Items[0].Key != "repo_unchecked" || got.Items[0].Blocking {
+		t.Errorf("%+v", got)
 	}
 }

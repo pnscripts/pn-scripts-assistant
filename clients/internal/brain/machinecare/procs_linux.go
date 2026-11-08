@@ -110,7 +110,13 @@ func readProc(pid int, uptime float64) (Proc, string, bool) {
 
 	age := time.Duration((uptime - start/clockTicks) * float64(time.Second))
 
-	return Proc{PID: pid, PPID: ppid, UID: uid, TTY: tty != 0, Age: age, Command: command}, comm, true
+	// A unit a service manager runs ("…/pn-timer.service") is a service,
+	// started and stopped by it; an app launched from the desktop lives in an
+	// "app-….scope" and is not. The last element of its control group says.
+	cgroup, _ := os.ReadFile(dir + "/cgroup")
+	service := ServiceGroup(string(cgroup))
+
+	return Proc{PID: pid, PPID: ppid, UID: uid, TTY: tty != 0, Age: age, Command: command, Service: service}, comm, true
 }
 
 // ErrNotALeftover is a process that is not, or no longer, on the list.

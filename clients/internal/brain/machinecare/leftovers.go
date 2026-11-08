@@ -32,6 +32,10 @@ type Proc struct {
 	Age     time.Duration
 	Command string // the full command line
 	Parent  string // the parent's program name
+
+	// Service is whether it is a service the user's service manager runs
+	// (its control group is a .service): never a leftover, whatever it is.
+	Service bool
 }
 
 // Leftover is one process whose job looks over, and why.
@@ -71,7 +75,7 @@ func Find(procs []Proc, uid, self int) []Leftover {
 	var out []Leftover
 
 	for _, p := range procs {
-		if p.UID != uid || p.TTY || p.Age < MinAge || p.PID == self {
+		if p.UID != uid || p.TTY || p.Service || p.Age < MinAge || p.PID == self {
 			continue
 		}
 
@@ -162,4 +166,16 @@ func Kinds() []string {
 	}
 
 	return out
+}
+
+// ServiceGroup is whether a /proc/<pid>/cgroup text puts the process in a
+// unit a service manager runs: the group it is in ends in ".service".
+func ServiceGroup(cgroup string) bool {
+	for _, line := range strings.Split(strings.TrimSpace(cgroup), "\n") {
+		if strings.HasSuffix(strings.TrimSpace(line), ".service") {
+			return true
+		}
+	}
+
+	return false
 }

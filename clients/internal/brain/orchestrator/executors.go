@@ -174,14 +174,14 @@ func (e ClaudeCodeExecutor) Argv(job Job) []string {
 		 * the owner's own settings and MCP servers loaded as they would be
 		 * in his terminal.
 		 */
-		argv := []string{e.Path, "-p", job.Prompt, "--output-format", "stream-json", "--verbose",
+		argv := []string{e.Path, "-p", "--output-format", "stream-json", "--verbose",
 			"--dangerously-skip-permissions"}
 
 		if job.Model != "" {
 			argv = append(argv, "--model", job.Model)
 		}
 
-		return argv
+		return append(argv, "--", job.Prompt)
 	}
 
 	/*
@@ -190,7 +190,7 @@ func (e ClaudeCodeExecutor) Argv(job Job) []string {
 	 * refuses anything it was not given rather than asking nobody.
 	 */
 	if job.readOnly() {
-		argv := []string{e.Path, "-p", job.Prompt, "--output-format", "stream-json", "--verbose",
+		argv := []string{e.Path, "-p", "--output-format", "stream-json", "--verbose",
 			"--permission-mode", "default", "--allowedTools", claudeReads,
 			"--disallowedTools", "Write,Edit,MultiEdit," + claudeRefuse,
 			"--strict-mcp-config", "--setting-sources", "project"}
@@ -199,10 +199,10 @@ func (e ClaudeCodeExecutor) Argv(job Job) []string {
 			argv = append(argv, "--model", job.Model)
 		}
 
-		return argv
+		return append(argv, "--", job.Prompt)
 	}
 
-	argv := []string{e.Path, "-p", job.Prompt, "--output-format", "stream-json", "--verbose",
+	argv := []string{e.Path, "-p", "--output-format", "stream-json", "--verbose",
 		"--permission-mode", "acceptEdits", "--allowedTools", claudeTools, "--disallowedTools", claudeRefuse,
 		"--strict-mcp-config", "--setting-sources", "project"}
 
@@ -210,7 +210,9 @@ func (e ClaudeCodeExecutor) Argv(job Job) []string {
 		argv = append(argv, "--model", job.Model)
 	}
 
-	return argv
+	// After "--", so a task that begins with "-" is the task, never an
+	// option.
+	return append(argv, "--", job.Prompt)
 }
 
 // CodexExecutor runs Codex headless in its own sandbox.
@@ -243,7 +245,7 @@ func (e CodexExecutor) Argv(job Job) []string {
 		argv = append(argv, "-m", job.Model)
 	}
 
-	return append(argv, job.Prompt)
+	return append(argv, "--", job.Prompt)
 }
 
 // parser reads one event line into the outcome.

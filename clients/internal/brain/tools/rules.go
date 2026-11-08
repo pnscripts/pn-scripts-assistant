@@ -51,6 +51,15 @@ func (KeepARule) Parameters() json.RawMessage {
 
 func (KeepARule) Risk() Risk { return Mutating }
 
+/*
+ * AlwaysAsks: a rule is kept only with its user's yes, whatever else they
+ * have allowed. A page the model read could otherwise have it write a rule
+ * that every later prompt and every coding agent's brief would carry.
+ */
+func (KeepARule) AlwaysAsks(json.RawMessage) string {
+	return "keeping a rule, which is followed from now on"
+}
+
 func (KeepARule) Cues() []string {
 	return []string{"rule", "rules", "правило", "правила"}
 }

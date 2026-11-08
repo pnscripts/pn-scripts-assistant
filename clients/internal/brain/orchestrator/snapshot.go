@@ -47,6 +47,21 @@ func Snap(dir string) Snapshot {
 		}
 
 		if d.IsDir() {
+			// Version control's own folder is skipped, but not the two
+			// files in it that make git run programs: a changed
+			// .git/config or hook is a change an agent made, and is said.
+			if path != dir && d.Name() == ".git" {
+				s.add(filepath.Join(path, "config"))
+
+				if hooks, err := os.ReadDir(filepath.Join(path, "hooks")); err == nil {
+					for _, h := range hooks {
+						s.add(filepath.Join(path, "hooks", h.Name()))
+					}
+				}
+
+				return filepath.SkipDir
+			}
+
 			if path != dir && skipped[d.Name()] {
 				return filepath.SkipDir
 			}
@@ -71,6 +86,13 @@ func Snap(dir string) Snapshot {
 	})
 
 	return s
+}
+
+// add keeps one file by its path, when it is a regular file.
+func (s *Snapshot) add(path string) {
+	if info, err := os.Lstat(path); err == nil && info.Mode().IsRegular() {
+		s.Files[path] = fileState{size: info.Size(), mod: info.ModTime()}
+	}
 }
 
 // Change is one file an agent added, changed or removed.

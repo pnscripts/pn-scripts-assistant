@@ -789,6 +789,7 @@
         'mcare.r.busy': ['In the way: the assistant is still working on “{what}”.', 'Пречи: асистентът все още работи по „{what}“.'],
         'mcare.r.uncommitted': ['Changed files not committed in {dir}: {n}.', 'Некъмитнати промени във файлове в {dir}: {n}.'],
         'mcare.r.unpushed': ['Commits not pushed in {dir}: {n}.', 'Некачени къмити в {dir}: {n}.'],
+        'mcare.r.repo_unchecked': ['Not checked: the git settings in {dir} would run programs.', 'Не е проверено: настройките на git в {dir} биха стартирали програми.'],
         'mcare.leftTitle': ['Left running', 'Оставени да работят'],
         'mcare.leftNote': [
             'Processes whose job looks over: a headless browser, a virtual display, a waiting command, a log follower, a small web server — started by this assistant, or whose starter has gone. Your own programs are never listed.',

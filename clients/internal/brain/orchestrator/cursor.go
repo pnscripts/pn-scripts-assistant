@@ -42,7 +42,7 @@ func (e CursorExecutor) Argv(job Job) []string {
 		argv = append(argv, "--model", job.Model)
 	}
 
-	return append(argv, job.Prompt)
+	return append(argv, "--", job.Prompt)
 }
 
 // The tools of Cursor's agent that change a file, by the name of their call.
