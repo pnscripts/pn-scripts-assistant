@@ -1,5 +1,7 @@
 # Setting it up
 
+Български: [configuring.bg.md](configuring.bg.md)
+
 Everything is in the window. The terminal is for people who prefer one, and
 nothing here is a step you are required to take at a prompt.
 

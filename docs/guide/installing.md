@@ -1,5 +1,7 @@
 # Installing it
 
+Български: [installing.bg.md](installing.bg.md)
+
 Two systems: Linux (Ubuntu and Debian) and Windows. Both get the assistant in
 its own window (WebKitGTK on Linux, Microsoft Edge WebView2 on Windows).
 Memory, typed conversation and most tools work the same on both. These parts

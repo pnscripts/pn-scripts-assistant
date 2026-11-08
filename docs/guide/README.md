@@ -1,5 +1,9 @@
 # The guide
 
+На български: [инсталиране](installing.bg.md), [настройка](configuring.bg.md),
+[когато нещо не е наред](troubleshooting.bg.md),
+[известни ограничения](known-limits.bg.md).
+
 - [Installing it](installing.md) — the package, what it puts where, updating, removing
 - [Setting it up](configuring.md) — the first run, privacy, the settings that live in the environment
 - [Models, and which one answers](how-it-thinks.md) — local and hosted, and why the second question is faster than the first

@@ -1,8 +1,10 @@
 # Known limits
 
+Български: [known-limits.bg.md](known-limits.bg.md)
+
 What this version does not do, or has not been seen doing, written down so
 nobody has to find it out. Each item says what happens instead. Checked
-against the code on 31 October 2026.
+against the code on 8 November 2026.
 
 ## Systems
 
@@ -34,6 +36,14 @@ against the code on 31 October 2026.
   Windows suggests for that screen, and minimising it tells the page it is not
   seen. Both are proved on a Windows runner by sending the window the messages
   Windows sends; neither has yet been watched by a person on two real monitors.
+
+## Processor
+
+- **While you are using it**, the window animates and keeps itself current:
+  on four cores without a graphics card that is about half a core for the
+  program and its page, and a third of one more in the display server. A
+  minute after you stop it rests at about 2 %, and minimised at about 0.5 %
+  ([troubleshooting.md](troubleshooting.md) has the measurements).
 
 ## Models and providers
 
@@ -76,5 +86,6 @@ against the code on 31 October 2026.
 
 ## Languages
 
-- The program and its built-in guides are in English and Bulgarian. These
-  guides (installing, configuring, troubleshooting) are in English.
+- The program and its built-in guides are in English and Bulgarian. Of these
+  guides, installing, setting up, troubleshooting and this list are in both;
+  the guides for developers and for making a release are in English only.

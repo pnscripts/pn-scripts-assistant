@@ -416,13 +416,18 @@ whichever model you point it at. How it came to be built this way is in
 
 ## The rest of it
 
+На български: [инсталиране](docs/guide/installing.bg.md),
+[настройка](docs/guide/configuring.bg.md),
+[когато нещо не е наред](docs/guide/troubleshooting.bg.md),
+[известни ограничения](docs/guide/known-limits.bg.md).
+
 | | |
 |---|---|
-| [Installing, updating, removing](docs/guide/installing.md) | the package and what it puts where |
-| [Setting it up](docs/guide/configuring.md) | the first run, privacy, environment |
+| [Installing, updating, removing](docs/guide/installing.md) | the package and what it puts where ([на български](docs/guide/installing.bg.md)) |
+| [Setting it up](docs/guide/configuring.md) | the first run, privacy, environment ([на български](docs/guide/configuring.bg.md)) |
 | [Models](docs/guide/how-it-thinks.md) | which one answers, and why the second question is faster |
-| [When something is wrong](docs/guide/troubleshooting.md) | the log first |
-| [Known limits](docs/guide/known-limits.md) | what it does not do yet, written down |
+| [When something is wrong](docs/guide/troubleshooting.md) | the log first ([на български](docs/guide/troubleshooting.bg.md)) |
+| [Known limits](docs/guide/known-limits.md) | what it does not do yet, written down ([на български](docs/guide/known-limits.bg.md)) |
 | [Working on it](docs/guide/developing.md) | building, tests, expectations |
 | [Making a release](docs/guide/releasing.md) | `make release` |
 | [What changed](CHANGELOG.md) | between versions, in the terms you would notice |
