@@ -326,6 +326,10 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/rules/{id}/decide", s.handleRuleDecide)
 	s.mux.HandleFunc("POST /api/rules/{id}/switch", s.handleRuleSwitch)
 	s.mux.HandleFunc("DELETE /api/rules/{id}", s.handleRuleRemove)
+
+	// Looking after the machine. See machinecare.go.
+	s.mux.HandleFunc("GET /api/machine/care", s.handleMachineCare)
+	s.mux.HandleFunc("POST /api/machine/care/stop", s.handleStopLeftover)
 	s.mux.HandleFunc("POST /api/settings/skills/{name}", s.handleSkillEnabled)
 	s.mux.HandleFunc("POST /api/settings/skill-folders", s.handleSkillFolders)
 	s.mux.HandleFunc("DELETE /api/skills/{name}", s.handleForgetSkill)

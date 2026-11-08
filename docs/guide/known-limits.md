@@ -90,6 +90,11 @@ against the code on 8 November 2026.
   sends. A draft you send yourself with the Send button on the Mail page goes
   as you see it; use *Last look before sending* on the Writing page first.
 
+- **Looking after the computer** — leftover processes, stopping them, and
+  whether a restart is safe — reads Linux's own records; on Windows the card
+  says it does not look yet. Work is not yet moved to quiet hours by itself:
+  the allowance of a paid coding agent is shown before each task instead.
+
 ## Mail, devices, storage
 
 - **Mail** is read over IMAP with TLS (port 993) and sent over SMTP, with an

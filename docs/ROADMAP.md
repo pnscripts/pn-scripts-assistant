@@ -198,25 +198,55 @@ gate is what makes a badly behaved model annoying rather than dangerous.
 
 ## After 1.0: working the way its user works
 
-The first wave after 1.0 is planned, not started. It is about general
-abilities, for whoever uses the assistant, following their requirements and
-goals — nothing in it belongs to one person or one company:
+General abilities, for whoever uses the assistant, following their
+requirements and goals — nothing in them belongs to one person or one
+company. Three waves were built on 8 November 2026 (unreleased at the time
+of writing); the rest is specified below and not started.
 
-- **Standing rules learned from conversation.** "From now on, always…" is
-  kept as a rule of the user's own, shown in one list, and followed until it is
-  changed or removed.
-- **An approval policy the user sets**, per channel and per kind of action:
-  what it may do on its own, what it does and then shows, and what waits for an
-  explicit yes on the exact words.
-- **Always showing what it did**, including the exact text of anything it sent
-  or posted, after the fact where the policy allows acting first.
-- **The user's own skills**, written or taught, used alongside the built-in
-  ones.
-- **Looking after the machine it runs on**, as sensible defaults: noticing
-  work and processes it started that were left behind, picking up after a
-  power cut, being ready for a restart, keeping its own load low, scheduling
-  heavy work for quiet hours and pacing a usage allowance, checking incoming
-  messages for scams.
+**Built:**
+
+- **Standing rules learned from conversation.** "Always…", "never…", "from
+  now on…", "ask me before…" and complaints that mean "stop doing that" are
+  proposed as rules in the user's own words, with the message they came from,
+  and kept only with a yes (package `rules`, the Rules page). Kept rules are
+  read into every turn and every step of a goal, and checked before and after
+  every outward or lasting action — sending, posting, commits, files, paying,
+  deleting: a precise "never" stops the action and names itself, whatever
+  else is allowed.
+- **The last look before anything goes out** (package `polish`): what the
+  reader already sees, filler, repetition, sure slips, placeholders, wrong
+  weekdays — applied to every email before the user is asked, and on the
+  Writing page; a sent message is shown again with where it went.
+- **Other coding agents as tools.** Claude Code, Codex and Cursor's agent,
+  signed in by the user, asked for one task in a chosen folder: read, folder
+  or full (always asked); what changed is read from the folder; the user's
+  rules travel with the task; the allowance's pace is shown before each task.
+  MCP servers the user adds were already tools under the same approval; the
+  rules now apply to them too.
+- **Looking after the machine**: leftover processes (listed, stopped only on
+  a yes, never the user's programs), how the last session ended (a power cut
+  is noticed, interrupted work is parked with the reason), and "can I
+  restart?" (a waiting kernel and its DKMS drivers, installs, running work,
+  unpushed work). Linux first.
+
+**Next, specified:**
+
+- **Work moved to quiet hours.** A user-set window for heavy work (goals,
+  coding agents, learning), with each paid allowance paced to its renewal:
+  work that would run an allowance out early waits for the window, says so,
+  and can be started anyway with one press.
+- **Replies on the user's own channels.** Comments on pages the user connects
+  (through the official API where there is one, else a browser the user signs
+  in), each checked for scams and answered from facts the assistant can show;
+  a policy per channel and kind of message: answer alone and show afterwards
+  (the exact text, where and to whom, translated if needed), or show the
+  exact text first and wait. Personal messages, prices, offers and new
+  promises always wait.
+- **Promises kept.** Anything said publicly that commits to doing something
+  becomes a task with the words quoted, and a follow-up reply when it is done.
+- **An approval policy per channel and kind of action**, beyond today's per
+  tool permissions: what it may do alone, what it does and then shows, what
+  waits for an explicit yes on the exact words.
 
 ## Two things measurement changed
 

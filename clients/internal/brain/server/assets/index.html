@@ -909,6 +909,27 @@
 
         <section class="view" data-view="system" hidden>
             <div class="view-inner view-grid">
+                <!--
+                    Looking after the machine (machinecare.js): can it be
+                    restarted now, what was left running whose job is over,
+                    and how the last session ended. Looks only; a leftover is
+                    stopped by its own button, confirmed on the page.
+                -->
+                <div class="card card-wide" id="mcare-card">
+                    <div class="study-head">
+                        <h2 data-i18n="mcare.title">Looking after this computer</h2>
+                        <button type="button" class="model-action" id="mcare-look" data-i18n="mcare.look">Look again</button>
+                    </div>
+                    <p class="note" id="mcare-last" hidden></p>
+                    <h3 data-i18n="mcare.restartTitle">Can it be restarted now?</h3>
+                    <p class="care-verdict" id="mcare-verdict" role="status" aria-live="polite"></p>
+                    <ul id="mcare-items" class="books-rule-list care-items"></ul>
+                    <h3 data-i18n="mcare.leftTitle">Left running</h3>
+                    <p class="note" data-i18n="mcare.leftNote"></p>
+                    <ul id="mcare-left" class="writing-list study-list care-left"></ul>
+                    <p class="activity-empty" id="mcare-none" hidden data-i18n="mcare.none"></p>
+                    <p class="note" id="mcare-said" role="status" aria-live="polite"></p>
+                </div>
                 <div class="card">
                     <h2>Settings</h2>
                     <form id="settings-form">
@@ -3558,6 +3579,7 @@
 <script src="/js/skills.js"></script>
 <script src="/js/rules.js"></script>
 <script src="/js/polish.js"></script>
+<script src="/js/machinecare.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/install.js"></script>
 <script src="/js/upkeep.js"></script>

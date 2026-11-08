@@ -32,6 +32,7 @@ import (
 	"pn-scripts-assistant/internal/brain/learning"
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/machine"
+	"pn-scripts-assistant/internal/brain/machinecare"
 	"pn-scripts-assistant/internal/brain/mail"
 	"pn-scripts-assistant/internal/brain/mcp"
 	"pn-scripts-assistant/internal/brain/models"
@@ -55,6 +56,10 @@ import (
 
 // Brain is a running assistant.
 type Brain struct {
+	// LastStop is how the previous session ended, set by whoever started
+	// this one (see machinecare.Begin). The zero value knows nothing.
+	LastStop machinecare.LastStop
+
 	DB     *store.DB
 	Router *llm.Router
 	Cfg    config.Config
@@ -494,6 +499,12 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// The coding agents on this machine — Claude Code, Codex, Cursor's
 		// agent — asked for one task in a folder. See codingagents.go.
 		tools.AskCodingAgent{Agents: b},
+
+		// Looking after the machine: restart readiness, leftovers. See
+		// machinecare.go.
+		tools.CanIRestart{Care: b},
+		tools.LeftoverProcesses{Care: b},
+		tools.StopLeftover{Care: b},
 
 		tools.InBackground{Jobs: backgroundOf{b}, Registry: func() *tools.Registry {
 			return b.Agent.Registry

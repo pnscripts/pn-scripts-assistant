@@ -34,6 +34,7 @@ import (
 	"pn-scripts-assistant/internal/brain/desktop"
 	"pn-scripts-assistant/internal/brain/learning"
 	"pn-scripts-assistant/internal/brain/logs"
+	"pn-scripts-assistant/internal/brain/machinecare"
 	"pn-scripts-assistant/internal/brain/models"
 	"pn-scripts-assistant/internal/brain/pair"
 	"pn-scripts-assistant/internal/brain/paths"
@@ -483,7 +484,15 @@ func runServe(args []string) error {
 		logger.Warn("could not close off imports that were cut short", "error", err)
 	}
 
-	interrupted, err := db.InterruptWorkingTasks("PN Scripts Assistant was closed while this was running")
+	/*
+	 * How the last session ended: closed, or cut off by a power cut or a
+	 * crash. A task it was running is parked either way; the reason says
+	 * which, and the System page says when it was last seen working.
+	 */
+	lastStop, endSession := beginSession(root.Path, logger)
+	defer endSession()
+
+	interrupted, err := db.InterruptWorkingTasks(parkedBecause(lastStop))
 	if err != nil {
 		logger.Warn("could not park tasks left running", "error", err)
 	} else if interrupted > 0 {
@@ -505,6 +514,7 @@ func runServe(args []string) error {
 	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
+	b.LastStop = lastStop
 
 	// Whatever job classification setup downloaded that this brain has not
 	// read yet, in the background. Only here, where the program actually runs,
@@ -983,7 +993,18 @@ func runApp(args []string) error {
 		logger.Warn("could not close off imports that were cut short", "error", err)
 	}
 
-	interrupted, err := db.InterruptWorkingTasks("PN Scripts Assistant was closed while this was running")
+	// How the last session ended (see runServe). Only when this copy holds
+	// the data root: another copy's session is not this one's to judge.
+	var lastStop machinecare.LastStop
+
+	if lock != nil {
+		var endSession func()
+
+		lastStop, endSession = beginSession(root.Path, logger)
+		defer endSession()
+	}
+
+	interrupted, err := db.InterruptWorkingTasks(parkedBecause(lastStop))
 	if err != nil {
 		logger.Warn("could not park tasks left running", "error", err)
 	} else if interrupted > 0 {
@@ -997,6 +1018,7 @@ func runApp(args []string) error {
 	}
 
 	b := brain.New(db, cfg, root.Path, root.DatabasePath(), logger)
+	b.LastStop = lastStop
 
 	// Whatever job classification setup downloaded that this brain has not
 	// read yet, in the background. Only here, where the program actually runs,
@@ -2622,4 +2644,35 @@ func whereToOpen(cfg config.Config, ln net.Listener) string {
 	}
 
 	return here
+}
+
+// beginSession starts this session's record on root and says how the last
+// one ended; the function it returns marks this one closed properly.
+func beginSession(root string, logger *slog.Logger) (machinecare.LastStop, func()) {
+	last, err := machinecare.Begin(root, time.Now())
+	if err != nil {
+		logger.Warn("could not note the start of this session", "error", err)
+
+		return last, func() {}
+	}
+
+	if last.Unclean {
+		logger.Warn("the last session did not close properly", "started", last.Started, "last_seen", last.LastSeen)
+	}
+
+	return last, func() {
+		if err := machinecare.End(root, time.Now()); err != nil {
+			logger.Warn("could not note that this session closed", "error", err)
+		}
+	}
+}
+
+// parkedBecause is the reason a task left running is given when it is parked.
+func parkedBecause(last machinecare.LastStop) string {
+	if last.Unclean {
+		return "PN Scripts Assistant stopped without being closed — a power cut or a crash; it was last seen working at " +
+			last.LastSeen.Local().Format("15:04 on 2 January") + " — while this was running"
+	}
+
+	return "PN Scripts Assistant was closed while this was running"
 }

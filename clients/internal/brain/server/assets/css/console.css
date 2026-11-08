@@ -6437,3 +6437,13 @@ html[data-pace="hidden"] *::after {
 .rules-item .study-item-main { display: block; }
 .rules-item .writing-actions { margin-top: 6px; }
 .rules-editor .field input[type="text"] { width: 100%; height: auto; margin: 0; flex: initial; }
+
+/* ---------- looking after this computer (machinecare.js) ---------- */
+#mcare-last[hidden], #mcare-none[hidden] { display: none; }
+#mcare-last { color: var(--warn); }
+.care-verdict { font-size: 14px; font-weight: 600; margin: 4px 0; }
+.care-verdict.is-bad { color: var(--warn); }
+.care-items li { overflow-wrap: anywhere; }
+.care-items li.care-blocking { color: var(--warn); }
+.care-leftover { align-items: flex-start; }
+.care-command { display: block; flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; color: var(--text-dim); }
