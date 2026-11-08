@@ -69,7 +69,12 @@ func Restrict(dirs []string) error {
 
 	rights := writeRights(abi)
 
-	attr := unix.LandlockRulesetAttr{Access_fs: rights}
+	// golang.org/x/sys 0.49 named the field after the kernel's own
+	// handled_access_fs and grew the struct with the net, scope and quiet
+	// fields. Those stay zero, and the kernel accepts a larger struct as long
+	// as everything it does not know is zero, so older kernels see the same
+	// ruleset they always did.
+	attr := unix.LandlockRulesetAttr{Handled_access_fs: rights}
 
 	fd, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
 		uintptr(unsafe.Pointer(&attr)), unsafe.Sizeof(attr), 0)

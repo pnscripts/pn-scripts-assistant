@@ -3,23 +3,58 @@
 # Two ecosystems and they matter for different reasons. The Go modules are
 # three direct dependencies and their own dependencies, which is what
 # govulncheck scans; the actions are code that runs in CI holding this
-# repository's token, pinned to commit hashes in the workflow files — which is
+# repository's token, pinned to commit hashes in the workflow files, which is
 # right for security and means nothing updates them unless something proposes
 # it. That is this file.
+#
+# Once a week, one pull request per ecosystem carries every minor and patch
+# update, so go.sum changes once and no sibling pull request has to be
+# rebased. Major updates still come one at a time. Security updates do not
+# wait for the schedule: Dependabot raises them as soon as an advisory is
+# published, grouped apart from the weekly updates.
+#
+# onnxruntime_go stays out of the weekly group: each of its versions speaks to
+# exactly one onnxruntime release (1.36 to 1.29, 1.38 to 1.31), and the
+# voiceprint feature downloads that runtime itself (voiceprint.RuntimeVersion).
+# Its pull request comes on its own and is merged only together with that
+# constant, never as it is, even when CI is green: CI does not load the
+# runtime. It is not ignored, so a security update for it still arrives.
 version: 2
 updates:
   - package-ecosystem: gomod
     directory: /clients
     schedule:
       interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Sofia
     open-pull-requests-limit: 5
     commit-message:
       prefix: deps
+    groups:
+      go:
+        applies-to: version-updates
+        update-types: [minor, patch]
+        exclude-patterns:
+          - github.com/yalue/onnxruntime_go
+      go-security:
+        applies-to: security-updates
+        patterns: ['*']
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Sofia
     open-pull-requests-limit: 5
     commit-message:
       prefix: ci
+    groups:
+      actions:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      actions-security:
+        applies-to: security-updates
+        patterns: ['*']
