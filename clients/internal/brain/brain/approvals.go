@@ -3,10 +3,13 @@ package brain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"pn-scripts-assistant/internal/brain/agent"
 	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/rules"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 	"pn-scripts-assistant/internal/brain/workspace"
@@ -118,7 +121,28 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 		ctx = tools.WithEverythingAllowed(ctx)
 	}
 
-	output, evidence, execErr := tools.Perform(ctx, tool, json.RawMessage(invocation.Arguments))
+	/*
+	 * Its user's rules, again: a rule kept, or switched on, while this was
+	 * waiting still counts, and a yes given to a question asked before it
+	 * existed is not a yes to breaking it. Judged on what the tool says of
+	 * the call now, not on the stored question, whose rule lines would
+	 * otherwise be read as part of the action.
+	 */
+	args := json.RawMessage(invocation.Arguments)
+	act := agent.ActOf(tool, args, tool.Summarize(args), time.Now())
+
+	if len(act.Actions) > 0 {
+		if v := rules.Check(b.LiveRules(), act); v.Stop != nil {
+			why := agent.StoppedBy(*v.Stop)
+
+			b.DB.CompleteInvocation(id, store.InvocationFailed, why)
+			invocation.Status, invocation.Result = store.InvocationFailed, why
+
+			return *invocation, errors.New(why)
+		}
+	}
+
+	output, evidence, execErr := tools.Perform(ctx, tool, args)
 
 	status := store.InvocationDone
 	result := output
@@ -126,6 +150,9 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 	if execErr != nil {
 		status = store.InvocationFailed
 		result = execErr.Error()
+	} else if len(act.Actions) > 0 {
+		act.Text += "\n" + output
+		result += agent.BrokeAfterwards(rules.After(b.LiveRules(), act))
 	}
 
 	if err := b.DB.CompleteInvocation(id, status, result); err != nil {

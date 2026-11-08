@@ -367,6 +367,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Local:   tools.ReadMailbox{Lookup: b.scamLookup},
 		Drafts:  db,
 		Lookup:  b.scamLookup,
+		Owner:   func() string { return b.Cfg.Owner },
 	}
 
 	available = append(available, tools.MailDigest{Desk: desk}, tools.DraftReply{Desk: desk})
@@ -376,7 +377,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		available = append(available,
 			tools.ReadEmail{Account: read, Lookup: b.scamLookup},
-			tools.SendEmail{Account: read},
+			tools.SendEmail{Account: read, Owner: func() string { return b.Cfg.Owner }},
 			tools.SendDraft{Desk: desk},
 		)
 	}
@@ -483,6 +484,12 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.RememberHowToDoThis{Brain: teachingOf{b}},
 		tools.ForgetHowToDoThis{Brain: teachingOf{b}},
 		tools.WhatIveBeenTaught{Brain: teachingOf{b}},
+
+		// Its user's rules, kept only with a yes (see rules.go), and the
+		// last look at any text before it goes out (package polish).
+		tools.KeepARule{Brain: b},
+		tools.MyRules{Brain: b},
+		tools.PolishText{},
 
 		tools.InBackground{Jobs: backgroundOf{b}, Registry: func() *tools.Registry {
 			return b.Agent.Registry
@@ -790,6 +797,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Unbounded:   b.Unbounded,
 		GoalMode:    func() bool { return b.Cfg.GoalMode },
 
+		// Its user's rules, read at the moment of acting. See rules.go.
+		Rules: b.LiveRules,
+
 		/*
 		 * What is on this machine, for deciding which tools are worth
 		 * offering this turn.
@@ -906,6 +916,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Unbounded:   b.Agent.Unbounded,
 		GoalMode:    b.Agent.GoalMode,
 		OffLimits:   b.Agent.OffLimits,
+		Rules:       b.Agent.Rules,
 		Did:         b.recordDeed,
 		Quietly:     true,
 	}
@@ -1852,16 +1863,24 @@ func (b *Brain) whereThingsAre() string {
 func (b *Brain) personaFor(provider string, spoken bool) string {
 	persona := b.SystemPrompt()
 
-	most := 0
+	most, rulesMost := 0, RulesInPrompt
 
 	if spoken {
 		persona = b.spokenSystemPrompt()
-		most = profile.SpokenRunes
+		most, rulesMost = profile.SpokenRunes, RulesInSpokenPrompt
 	}
 
 	if !b.mayReadProfileTo(provider) {
 		return persona
 	}
+
+	/*
+	 * The rules go where the profile goes, and only there: they are its
+	 * user's words about themselves, under the same privacy setting. A
+	 * hosted model that is not given them is still held to them — the
+	 * checks before every outward call are made here, not by the model.
+	 */
+	persona = b.withRules(persona, rulesMost)
 
 	block := profile.Block(b.Root, most)
 	if block == "" {
@@ -1895,6 +1914,9 @@ func (b *Brain) taskPersonaFor(provider string) string {
 	if !b.mayReadProfileTo(provider) {
 		return persona
 	}
+
+	// Every step of a goal plans with its user's rules. See personaFor.
+	persona = b.withRules(persona, RulesInPrompt)
 
 	if block := profile.Block(b.Root, profile.SpokenRunes); block != "" {
 		return persona + "\n\n" + block
@@ -2041,10 +2063,32 @@ type ChatReply struct {
 	// Sources is what the answer was built from, numbered as it cites them.
 	// See the cite package.
 	Sources []cite.Source `json:"sources,omitempty"`
+
+	// RuleProposal is a standing instruction noticed in the message, waiting
+	// for its user to keep, edit or decline it. See rules.go.
+	RuleProposal *RuleProposal `json:"rule_proposal,omitempty"`
 }
 
 // Chat answers a message and records the exchange.
+//
+// A standing instruction in the message — "from now on, always…" — is
+// proposed as a rule beside the answer, in the user's words, and kept only
+// when they say so (see rules.go). Proposed after the turn, so the turn
+// itself is not held to a rule nobody has agreed to yet.
 func (b *Brain) Chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
+	said := req.Message
+
+	reply, err := b.chat(ctx, req)
+	if err != nil || reply.ConversationID == 0 {
+		return reply, err
+	}
+
+	reply.RuleProposal = b.noticeRule(said, reply.ConversationID)
+
+	return reply, nil
+}
+
+func (b *Brain) chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 	if strings.TrimSpace(req.Message) == "" {
 		return ChatReply{}, fmt.Errorf("a message is required")
 	}

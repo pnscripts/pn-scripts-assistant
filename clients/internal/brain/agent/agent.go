@@ -26,9 +26,11 @@ import (
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/pace"
 	"pn-scripts-assistant/internal/brain/permits"
+	"pn-scripts-assistant/internal/brain/polish"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/brain/risk"
+	"pn-scripts-assistant/internal/brain/rules"
 	"pn-scripts-assistant/internal/brain/sandbox"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
@@ -199,7 +201,15 @@ type Loop struct {
 	 * nothing about the machine: a tool withheld because nobody asked is
 	 * worse than one that tries and explains itself.
 	 */
-	Have        func(id string) bool
+	Have func(id string) bool
+
+	/*
+	 * Rules is its user's live rules, asked for at the moment of acting so a
+	 * rule kept or switched off a second ago already counts. Nil is none.
+	 * See rules.go.
+	 */
+	Rules func() []rules.Rule
+
 	cachedSpecs []llm.ToolSpec
 	specsFor    int64
 }
@@ -981,6 +991,20 @@ func (l *Loop) RunBrief(
 				continue
 			}
 
+			/*
+			 * Words going out in its user's name get the last look first
+			 * (package polish), so the rules are judged on — and the person
+			 * asked reads — the text as it will actually go.
+			 */
+			polished := ""
+
+			if p, ok := tool.(tools.Polishing); ok {
+				var result polish.Result
+
+				call.Arguments, result = p.Polish(call.Arguments)
+				polished = tools.PolishNote(result)
+			}
+
 			summary := tool.Summarize(call.Arguments)
 
 			/*
@@ -1005,6 +1029,37 @@ func (l *Loop) RunBrief(
 
 			if ask && tool.Risk() != tools.Mutating {
 				summary = protect.Explain(summary, held, rule)
+			}
+
+			/*
+			 * The user's rules, read from the call itself. A rule that
+			 * plainly forbids it stops it here and is named — refused like a
+			 * standing decision, so no approval can be asked for (and so
+			 * given) for what its user has said never to do.
+			 */
+			act := ActOf(tool, call.Arguments, summary, time.Now())
+
+			var verdict rules.Verdict
+			if len(act.Actions) > 0 {
+				verdict = rules.Check(l.liveRules(), act)
+			}
+
+			if verdict.Stop != nil {
+				refused := StoppedBy(*verdict.Stop)
+
+				l.Log.Info("stopped by a rule", "tool", tool.Name(), "rule", verdict.Stop.ID)
+
+				messages = append(messages, toolResult(call, refused))
+
+				l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+summary+"]\n"+refused)
+
+				step := Step{Tool: tool.Name(), Summary: summary, Asked: askedFor(call.Arguments),
+					Result: refused, Failed: true}
+				steps = append(steps, step)
+
+				l.did(conversationID, brief, step, call.Arguments, messages, model, choice.Why, DeedRefused)
+
+				continue
 			}
 
 			/*
@@ -1156,6 +1211,22 @@ func (l *Loop) RunBrief(
 			 * would be a word people learn to skip, and the point is the two
 			 * that should not be skipped.
 			 */
+			/*
+			 * And a rule that wants its user asked is asked, whatever was
+			 * settled above: after goal mode and "never stop", so neither can
+			 * clear it. The rule goes with the question, word for word, and
+			 * so do the "always" rules about this kind of action — the person
+			 * saying yes is the one who can check them.
+			 */
+			if len(verdict.Ask) > 0 {
+				ask = true
+				answer = permits.Ask
+			}
+
+			if lines := RuleLines(verdict.Ask, verdict.Remind) + polished; lines != "" && (ask || answer == permits.Ask) {
+				summary = lines + "\n" + summary
+			}
+
 			asked := summary
 
 			if level.AtLeast(risk.High) {
@@ -1223,6 +1294,12 @@ func (l *Loop) RunBrief(
 
 				l.detail("failed: " + truncate(err.Error(), 120))
 			} else {
+				// Judged again on what it did: see rules.After.
+				if len(act.Actions) > 0 {
+					act.Text += "\n" + output
+					output += BrokeAfterwards(rules.After(l.liveRules(), act))
+				}
+
 				actions = append(actions, summary)
 				step.Result = truncate(output, 4000)
 

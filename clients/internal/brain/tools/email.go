@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"pn-scripts-assistant/internal/brain/mail"
+	"pn-scripts-assistant/internal/brain/polish"
 )
 
 /*
@@ -134,8 +136,11 @@ func (t ReadEmail) Execute(_ context.Context, raw json.RawMessage) (string, erro
 	return strings.TrimRight(b.String(), "\n"), nil
 }
 
-// SendEmail sends one.
-type SendEmail struct{ Account func() mail.Account }
+// SendEmail sends one. Owner is as in MailDesk.
+type SendEmail struct {
+	Account func() mail.Account
+	Owner   func() string
+}
 
 func (SendEmail) Name() string { return "send_email" }
 
@@ -200,5 +205,16 @@ func (t SendEmail) Execute(_ context.Context, raw json.RawMessage) (string, erro
 		}
 	}
 
-	return mail.Send(t.Account(), to, a.Subject, a.Body)
+	// A placeholder left in ("[Name]") never reaches a reader.
+	if r := polish.Polish(polish.Draft{Text: a.Body}, time.Now()); r.Blocking {
+		return "", fmt.Errorf("not sent: %s", blockingWords(r))
+	}
+
+	said, err := mail.Send(t.Account(), to, a.Subject, a.Body)
+	if err != nil {
+		return "", err
+	}
+
+	// Shown again as it went: to whom, from where, when, and the words.
+	return SentAs(said, t.Account().From, to, a.Subject, a.Body, time.Now()), nil
 }

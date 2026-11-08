@@ -14,6 +14,7 @@ import (
 	"pn-scripts-assistant/internal/brain/care"
 	"pn-scripts-assistant/internal/brain/mail"
 	"pn-scripts-assistant/internal/brain/maildesk"
+	"pn-scripts-assistant/internal/brain/polish"
 	"pn-scripts-assistant/internal/brain/scam"
 	"pn-scripts-assistant/internal/brain/store"
 )
@@ -37,6 +38,10 @@ type DraftBook interface {
 	ClaimDraft(id int64) (store.Draft, error)
 	SentDraft(id int64, note string) error
 	FailedDraft(id int64, note string) error
+
+	// ChangeDraft rewrites a waiting draft: the last look before sending
+	// keeps its polished words in it (see SendDraft.Polish).
+	ChangeDraft(id int64, to, subject, body string) (store.Draft, error)
 }
 
 // MailDesk is where mail is read from and drafts are kept.
@@ -50,6 +55,11 @@ type MailDesk struct {
 
 	Drafts DraftBook
 	Lookup func() scam.Lookup
+
+	// Owner is the name of the person the assistant works for: who a reader
+	// sees a message as coming from when the address does not say. Nil is
+	// not known.
+	Owner func() string
 }
 
 func (m MailDesk) look() scam.Lookup {
@@ -630,12 +640,21 @@ func sendDraft(desk MailDesk, id int64, seen string) (string, error) {
 		}
 	}
 
+	// A placeholder left in ("[Name]") never reaches a reader.
+	if r := polish.Polish(polish.Draft{Text: dr.Body}, time.Now()); r.Blocking {
+		_ = desk.Drafts.FailedDraft(id, "not sent: "+blockingWords(r))
+
+		return "", fmt.Errorf("draft %d was not sent: %s", id, blockingWords(r))
+	}
+
 	said, err := mail.Send(desk.Account(), to, dr.Subject, dr.Body)
 	if err != nil {
 		_ = desk.Drafts.FailedDraft(id, err.Error())
 
 		return "", fmt.Errorf("draft %d was not sent: %w", id, err)
 	}
+
+	said = SentAs(said, desk.Account().From, to, dr.Subject, dr.Body, time.Now())
 
 	_ = desk.Drafts.SentDraft(id, said)
 
