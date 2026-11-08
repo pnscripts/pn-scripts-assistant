@@ -311,6 +311,14 @@ jobs:
 
           echo "--- remove"
           run_dpkg -r pn-scripts-assistant
+          # Remove keeps the configuration files, as dpkg always does: here
+          # the apt repository file, so updates still work if it comes back.
+          left="$(find "$root/root" -type f | sort)"
+          echo "    left: ${left:-nothing}"
+          test "$left" = "$root/root/etc/apt/sources.list.d/pn-scripts-assistant.sources"
+
+          echo "--- purge"
+          run_dpkg -P pn-scripts-assistant
           left="$(find "$root/root" -type f | wc -l)"
           echo "    $left files left"
           test "$left" -eq 0
