@@ -50,7 +50,32 @@ type Job struct {
 	 * recorded rather than stopping the work. False keeps ADR 0005's limits.
 	 */
 	Unbounded bool
+
+	/*
+	 * Access is how far a job asked for from a conversation may reach (see
+	 * the ask_coding_agent tool): AccessRead only reads, AccessFolder writes
+	 * files in Dir and runs nothing, AccessFull is Unbounded. Empty is the
+	 * goal executors' own: files in Dir, or everything when Unbounded.
+	 */
+	Access string
+
+	// Progress, when set, is told what the agent is doing as it says it — a
+	// sentence of its answer, a file it wrote — for the panel to show.
+	Progress func(string)
 }
+
+// How far a job may reach.
+const (
+	AccessRead   = "read"
+	AccessFolder = "folder"
+	AccessFull   = "full"
+)
+
+// full is whether a job may do everything its agent can.
+func (j Job) full() bool { return j.Unbounded || j.Access == AccessFull }
+
+// readOnly is whether a job may only read.
+func (j Job) readOnly() bool { return j.Access == AccessRead && !j.Unbounded }
 
 // Failures, for failing over.
 const (
@@ -84,6 +109,22 @@ type Outcome struct {
 	// CostEquivalent is what the agent reported the work would have cost at
 	// API prices; on a subscription nothing was paid.
 	CostEquivalent float64 `json:"cost_equivalent_usd,omitempty"`
+
+	// note is the latest thing worth telling Job.Progress, set by a parser.
+	note string
+}
+
+// noted keeps a line for Job.Progress: one line, at most 200 characters.
+func (o *Outcome) noted(text string) {
+	text = strings.Join(strings.Fields(text), " ")
+
+	if r := []rune(text); len(r) > 200 {
+		text = string(r[:199]) + "…"
+	}
+
+	if text != "" {
+		o.note = text
+	}
 }
 
 // Executor is a coding agent this program can hand work to.
@@ -99,6 +140,8 @@ func ExecutorFor(r Resource) (Executor, bool) {
 		return ClaudeCodeExecutor{Path: r.Path}, r.Path != ""
 	case "codex":
 		return CodexExecutor{Path: r.Path}, r.Path != ""
+	case "cursor-agent":
+		return CursorExecutor{Path: r.Path}, r.Path != ""
 	}
 
 	return nil, false
@@ -110,7 +153,9 @@ type ClaudeCodeExecutor struct{ Path string }
 func (ClaudeCodeExecutor) ID() string { return "claude-code" }
 
 // claudeTools is what Claude Code is given: files, nothing else.
+// claudeReads is what it is given to only read.
 var (
+	claudeReads  = "Read,Glob,Grep,LS,TodoWrite"
 	claudeTools  = "Read,Write,Edit,MultiEdit,Glob,Grep,LS,TodoWrite"
 	claudeRefuse = "Bash,WebFetch,WebSearch,Task,NotebookEdit,CronCreate,CronDelete,RemoteTrigger," +
 		"ScheduleWakeup,PushNotification,SendMessage,Monitor,EnterWorktree,ExitWorktree,Skill"
@@ -122,7 +167,7 @@ func (e ClaudeCodeExecutor) Run(ctx context.Context, job Job) Outcome {
 
 // Argv is exactly what Claude Code is started with for this job.
 func (e ClaudeCodeExecutor) Argv(job Job) []string {
-	if job.Unbounded {
+	if job.full() {
 		/*
 		 * Everything, as its owner asked (ADR 0007): every tool Claude Code
 		 * has, the shell included, its own permission prompts skipped, and
@@ -131,6 +176,24 @@ func (e ClaudeCodeExecutor) Argv(job Job) []string {
 		 */
 		argv := []string{e.Path, "-p", job.Prompt, "--output-format", "stream-json", "--verbose",
 			"--dangerously-skip-permissions"}
+
+		if job.Model != "" {
+			argv = append(argv, "--model", job.Model)
+		}
+
+		return argv
+	}
+
+	/*
+	 * Only reading: the tools that read, the ones that write refused by name
+	 * as well, and the default permission mode, in which a headless run
+	 * refuses anything it was not given rather than asking nobody.
+	 */
+	if job.readOnly() {
+		argv := []string{e.Path, "-p", job.Prompt, "--output-format", "stream-json", "--verbose",
+			"--permission-mode", "default", "--allowedTools", claudeReads,
+			"--disallowedTools", "Write,Edit,MultiEdit," + claudeRefuse,
+			"--strict-mcp-config", "--setting-sources", "project"}
 
 		if job.Model != "" {
 			argv = append(argv, "--model", job.Model)
@@ -161,12 +224,17 @@ func (e CodexExecutor) Run(ctx context.Context, job Job) Outcome {
 
 // Argv is exactly what Codex is started with for this job.
 func (e CodexExecutor) Argv(job Job) []string {
-	argv := []string{e.Path, "exec", "--json", "--sandbox", "workspace-write", "--skip-git-repo-check",
+	sandbox := "workspace-write"
+	if job.readOnly() {
+		sandbox = "read-only"
+	}
+
+	argv := []string{e.Path, "exec", "--json", "--sandbox", sandbox, "--skip-git-repo-check",
 		"-C", job.Dir}
 
 	// Everything (ADR 0007): no approvals and no sandbox, the full-access
 	// form of --full-auto.
-	if job.Unbounded {
+	if job.full() {
 		argv = []string{e.Path, "exec", "--json", "--dangerously-bypass-approvals-and-sandbox",
 			"--skip-git-repo-check", "-C", job.Dir}
 	}
@@ -224,9 +292,14 @@ func run(ctx context.Context, job Job, argv []string, parse parser) Outcome {
 	for lines.Scan() {
 		parse(lines.Bytes(), &o, job.Dir)
 
+		if job.Progress != nil && o.note != "" {
+			job.Progress(o.note)
+			o.note = ""
+		}
+
 		// Outside the project is the end of it, whatever it meant to do next —
 		// unless everything is allowed, when it is recorded and goes on.
-		if len(o.Outside) > 0 && o.Failure == "" && !job.Unbounded {
+		if len(o.Outside) > 0 && o.Failure == "" && !job.full() {
 			o.Failure = FailOutside
 			o.Detail = "it wrote outside the project: " + strings.Join(o.Outside, ", ")
 
@@ -253,7 +326,7 @@ func run(ctx context.Context, job Job, argv []string, parse parser) Outcome {
 }
 
 var (
-	authWords    = regexp.MustCompile(`(?i)failed to authenticate|not logged in|please run /login|oauth|unauthori[sz]ed|401|authentication_failed|invalid api key`)
+	authWords    = regexp.MustCompile(`(?i)failed to authenticate|not logged in|please run /login|oauth|unauthori[sz]ed|401|authentication_failed|authentication required|invalid api key`)
 	limitWords   = regexp.MustCompile(`(?i)usage limit|rate limit|limit reached|quota|too many requests|429|out of credits`)
 	offlineWords = regexp.MustCompile(`(?i)enotfound|econnrefused|network|could not resolve|fetch failed|timed out connecting|offline`)
 )
@@ -329,11 +402,13 @@ func parseClaude(line []byte, o *Outcome, dir string) {
 			case "Write", "Edit", "MultiEdit", "NotebookEdit":
 				path, _ := input["file_path"].(string)
 				written(o, dir, path)
+				o.noted("writes " + path)
 			case "Bash":
 				command, _ := input["command"].(string)
 				o.Commands = append(o.Commands, command)
 			}
 		}
+		o.noted(textOf(event))
 	case "rate_limit_event":
 		o.Usage = claudeUsage(event)
 	case "result":

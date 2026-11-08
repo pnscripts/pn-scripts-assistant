@@ -201,8 +201,9 @@ func Codex(db *store.DB) Resource {
 }
 
 // CursorAgent is Cursor's command-line agent. Its sign-in is not asked:
-// asking it starts a login and rewrites its settings. And this program has
-// no adapter to hand it work yet, which is said rather than hidden.
+// asking it starts a login and rewrites its settings. So goals are not
+// handed to it — a goal cannot stop to find out — but it can be asked in a
+// conversation (ask_coding_agent), where not being signed in is said.
 func CursorAgent() Resource {
 	home, _ := os.UserHomeDir()
 
@@ -218,8 +219,8 @@ func CursorAgent() Resource {
 
 	r.Version = versionOf(r.Path)
 	r.State = NotSupported
-	r.Why = "this program cannot hand work to Cursor's agent yet; whether it is signed in is not checked, " +
-		"because checking starts its login"
+	r.Why = "not given goals: whether it is signed in is not checked, because checking starts its login; " +
+		"it can be asked in a conversation"
 
 	return r
 }
