@@ -315,6 +315,34 @@ jobs:
           echo "    $left files left"
           test "$left" -eq 0
 
+  # What it costs the machine while nobody uses it (owner 08.11.2026: as
+  # little as it possibly can). The packaged program opens its real window on
+  # a virtual display, is left alone until its page rests, and the program,
+  # its page and the display server together must stay under budget — and
+  # under a smaller one with the window hidden. Before pace.js the resting
+  # window cost over a whole core; see scripts/load-check.sh.
+  load:
+    needs: package
+    name: Idle load stays under budget
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-from-ci
+          path: package
+
+      - name: Install the package, a virtual display and xdotool
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ./package/*.deb xvfb xdotool
+
+      - name: Resting and hidden, measured
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant
+
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting
   # preferences is a gate people start ignoring.

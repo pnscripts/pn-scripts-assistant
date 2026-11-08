@@ -67,6 +67,10 @@ type Server struct {
 	// that a second copy of the program can ask this one to show itself rather
 	// than opening another.
 	present func()
+
+	// pulseEvery is how often /api/pulse looks for a change; a second when
+	// zero. Shorter in tests.
+	pulseEvery time.Duration
 }
 
 // OnPresent sets what to do when another copy asks this one to come forward.
@@ -278,6 +282,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/listen", s.handleListen)
 	s.mux.HandleFunc("GET /api/microphones", s.handleMicrophones)
 	s.mux.HandleFunc("GET /api/level", s.handleLevel)
+	s.mux.HandleFunc("GET /api/pulse", s.handlePulse)
 	s.mux.HandleFunc("GET /api/machine", s.handleMachine)
 	s.mux.HandleFunc("GET /api/operations", s.handleOperations)
 	s.mux.HandleFunc("GET /api/search", s.handleSearch)

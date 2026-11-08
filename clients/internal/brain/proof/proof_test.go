@@ -405,6 +405,7 @@ func TestPackFalseAlarmsAreLeftAlone(t *testing.T) {
 		"Добрият тест пада по точно една причина.",
 		"Условие в `WHERE` върху дясната таблица.",
 		"Писмото:\n„Здравейте, Мария,\n\nСъжалявам за забавянето.\n\nПоздрави,\nАлекс“",
+		"Текст, пренесен от редактора (както\nпише Markdown) на два реда.",
 	} {
 		if fs := Check(text, "bg"); len(fs) > 0 {
 			t.Errorf("%q: found %v (%q)", text, rules(fs), fs[0].Found)
@@ -424,7 +425,7 @@ func TestPackFalseAlarmsAreLeftAlone(t *testing.T) {
 	}
 
 	// A quotation still open at the end, or a « with no », is still found.
-	for _, text := range []string{"Тя каза „добре и излезе.\n\nПосле се върна.", "Книгата «Тютюн е тук."} {
+	for _, text := range []string{"Тя каза „добре и излезе.\n\nПосле се върна.", "Книгата «Тютюн е тук.", "Скобата (остана\n\nотворена."} {
 		fs := Check(text, "bg")
 		if len(fs) != 1 || fs[0].Rule != "unbalanced" {
 			t.Errorf("%q: found %v", text, rules(fs))

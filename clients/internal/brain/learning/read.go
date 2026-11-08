@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/lowpriority"
 	"strings"
 	"time"
 	"unicode"
@@ -320,9 +321,10 @@ func fromPDF(ctx context.Context, path string) (string, error) {
 	}
 
 	// -layout keeps columns apart; a two-column paper read without it
-	// interleaves the columns line by line into nonsense.
-	out, err := exec.CommandContext(ctx, "pdftotext", "-layout", "-q",
-		"-enc", "UTF-8", path, "-").Output()
+	// interleaves the columns line by line into nonsense. Below everything
+	// else on the machine: nobody is waiting for this one.
+	out, err := lowpriority.Output(exec.CommandContext(ctx, "pdftotext", "-layout", "-q",
+		"-enc", "UTF-8", path, "-"))
 	if err != nil {
 		return "", fmt.Errorf("could not read %s: %w", filepath.Base(path), err)
 	}

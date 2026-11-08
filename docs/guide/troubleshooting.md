@@ -1,5 +1,7 @@
 # When something is wrong
 
+Български: [troubleshooting.bg.md](troubleshooting.bg.md)
+
 Start here: **the log**.
 
 ```
@@ -60,6 +62,32 @@ says which copy you have.
 `pn-scripts-assistant mic-test` listens once and says what it heard. The
 microphone is **off** until you turn it on in the interface — a fresh install
 does not open it.
+
+## It keeps the processor busy while nobody uses it
+
+It should not. Measured on 8 November 2026 on four cores without a graphics
+card, the program, its page and the display server together, in percent of
+one core:
+
+| State | Program and page | Display server |
+|---|---|---|
+| Window open, touched in the last minute | about 47 % | about 37 % |
+| Window open, untouched for a minute (it rests) | about 2 % | about 1 % |
+| Window minimised or hidden | about 0.5 % | 0 % |
+| No window (`serve`) | about 0.1 % | — |
+
+Before 0.11.0 the untouched window cost 45 % and the display server up to
+86 %, all the time. Now, a minute after the last key or mouse movement, the
+page holds every timer and animation and keeps one quiet connection open;
+the assistant starting to answer, speaking, hearing somebody or wanting a
+decision wakes it at once. With *reduce motion* switched on in the system it
+rests after ten seconds. A graphics card makes every row lower.
+
+Documents read in the background (PDFs) are read at low priority, so they
+never compete with what you are doing.
+
+If an untouched window still costs more than a few percent, something on the
+page is not resting: `scripts/load-check.sh` measures it the way CI does.
 
 ## A web page cannot reach it, and should not
 

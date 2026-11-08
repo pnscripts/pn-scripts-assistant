@@ -6290,3 +6290,17 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 .sk-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); }
 .sk-toggle input { width: auto; }
 .sk-folders li { overflow-wrap: anywhere; }
+
+/* ---------- resting (pace.js) ----------
+ * A page nobody has touched for a minute, or that is minimised, holds every
+ * endless animation where it is: each frame of a pulse or a spin is drawn by
+ * the processor and put on the screen by the display, for nobody. It moves
+ * again the moment somebody does. */
+html[data-pace="resting"] *,
+html[data-pace="resting"] *::before,
+html[data-pace="resting"] *::after,
+html[data-pace="hidden"] *,
+html[data-pace="hidden"] *::before,
+html[data-pace="hidden"] *::after {
+    animation-play-state: paused !important;
+}

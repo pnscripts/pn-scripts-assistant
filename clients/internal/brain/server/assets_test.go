@@ -546,3 +546,40 @@ func TestTheLiveStatusLinesTakeTheirColourFromTheStatus(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * pace.js holds the page's timers and animation frames while nobody is using
+ * it, which works only for what is created after it: it must be the first
+ * script. And no script is loaded twice — devices.js was, for weeks, which ran
+ * every one of its pollers and listeners twice over.
+ */
+func TestPaceComesFirstAndNothingLoadsTwice(t *testing.T) {
+	page, err := os.ReadFile("assets/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scripts := regexp.MustCompile(`<script[^>]*\ssrc="([^"]+)"`).FindAllStringSubmatch(string(page), -1)
+	if len(scripts) == 0 || scripts[0][1] != "/js/pace.js" {
+		t.Fatalf("the first script is not pace.js: %v", scripts[:min(1, len(scripts))])
+	}
+
+	seen := map[string]bool{}
+
+	for _, s := range scripts {
+		if seen[s[1]] {
+			t.Errorf("%s is loaded twice", s[1])
+		}
+
+		seen[s[1]] = true
+	}
+
+	css, err := os.ReadFile("assets/css/console.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(css), `html[data-pace="resting"] *`) {
+		t.Error("console.css does not pause animation while the page rests")
+	}
+}

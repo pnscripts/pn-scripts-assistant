@@ -8,6 +8,42 @@ number is 0, the second one changes when something visible changes.
 
 ## Unreleased
 
+### Changed
+
+- **An idle window no longer keeps the processor busy.** A minute after the
+  last key or mouse movement the page rests: every poller and animation is
+  held and one quiet connection (`/api/pulse`) stays open, which wakes it the
+  moment the assistant starts answering, speaks, hears somebody or wants a
+  decision. Minimised or hidden, even that connection closes. Measured on
+  four cores without a graphics card, the untouched window went from 45 % of
+  a core (and up to 86 % more in the display server) to about 2 % (and 1 %);
+  hidden, about 0.5 %. With *reduce motion* on, it rests after ten seconds.
+  CI now fails if the resting or hidden window costs more than its budget.
+- **Background reading stays out of the way.** PDFs read while learning are
+  read at low priority (nice 10 and idle I/O on Linux, below-normal on
+  Windows).
+- **The microphone level is asked for once a second, not eleven times, while
+  no microphone is open.** One script that was loaded twice (two copies of
+  every poller on the Devices page) is loaded once.
+
+### Windows
+
+- **Moving the window to a screen with different scaling** resizes it to what
+  Windows suggests, and **minimising it** tells the page it is not seen, so
+  the page rests. Both are proved on a Windows runner.
+
+### Documents
+
+- **Installing, setting up and troubleshooting are now in Bulgarian too**, as
+  is the list of known limits.
+- **A stranger's install is proved on the published files**: on every release
+  a clean Ubuntu 24.04 runner installs the published `.deb` with `sudo apt
+  install`, starts it, opens its window and removes it; a clean Windows runner
+  installs, opens and removes the published installer. Following the guide to
+  the letter found two faults, both fixed: `sha256sum -c SHA256SUMS` failed
+  for anyone who downloaded one file (now `--ignore-missing`), and the guide
+  named the wrong folder for the brain on Windows.
+
 ### Fixed
 
 - **Proofreading leaves correct Bulgarian alone in more places.** It no
@@ -17,8 +53,9 @@ number is 0, the second one changes when something visible changes.
   preposition; knows „цит.“ as an abbreviation; lets questions listed inside
   brackets run on in small letters; does not take a spreadsheet error such as
   `#REF!` for the end of a sentence; does not judge „в“ and „във“ across code;
-  and pairs quotation marks across paragraphs, so a quoted letter is not
-  reported as unclosed.
+  pairs quotation marks across paragraphs, so a quoted letter is not
+  reported as unclosed; and pairs brackets across the lines of one
+  paragraph, so text wrapped by an editor is not either.
 - **The built-in skills' Bulgarian reads clean.** One real slip was corrected
   („с `NULL`“), examples that show mistakes on purpose are marked as such, and
   a test now keeps every Bulgarian skill free of findings.

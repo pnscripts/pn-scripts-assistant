@@ -561,7 +561,7 @@ func isNumber(s string) bool {
 
 /*
  * unbalanced is a bracket opened and never closed, or the other way round,
- * within one line; or a quotation mark with no partner anywhere. Nothing is
+ * within one paragraph; or a quotation mark with no partner anywhere. Nothing is
  * suggested: where the missing one belongs is the writer's to say.
  *
  * Quotation marks are paired across lines, because a quoted letter or
@@ -570,30 +570,74 @@ func isNumber(s string) bool {
 func unbalanced(text string) []Finding {
 	var out []Finding
 
-	at := 0
-
-	for _, para := range strings.Split(text, "\n") {
-		open, closed := strings.Count(para, "("), strings.Count(para, ")")
+	for _, para := range paragraphs(text) {
+		body := text[para.at:para.end]
+		open, closed := strings.Count(body, "("), strings.Count(body, ")")
 
 		// A list numbered "1)" or "a)" closes what was never opened.
-		if open != closed && (open > closed || !listNumbered(para)) {
+		if open != closed && (open > closed || !listNumbered(body)) {
 			mark := '('
 			if closed > open {
 				mark = ')'
 			}
 
-			out = append(out, unpartnered(at+strings.IndexRune(para, mark), mark))
+			out = append(out, unpartnered(para.at+strings.IndexRune(body, mark), mark))
 		}
 
-		if strings.Count(para, `"`)%2 == 1 {
-			out = append(out, unpartnered(at+strings.Index(para, `"`), '"'))
+		if strings.Count(body, `"`)%2 == 1 {
+			out = append(out, unpartnered(para.at+strings.Index(body, `"`), '"'))
 		}
-
-		at += len(para) + 1
 	}
 
 	out = append(out, unpairedQuotes(text, '„', '“', false)...)
 	out = append(out, unpairedQuotes(text, '«', '»', true)...)
+
+	return out
+}
+
+/*
+ * paragraphs are the stretches of text between blank lines. A line break
+ * inside one is only where the writer's editor wrapped it — Markdown and
+ * plain-text mail both wrap — so a bracket opened on one line and closed on
+ * the next is one pair.
+ */
+func paragraphs(text string) []span {
+	var out []span
+
+	at := 0
+
+	for at < len(text) {
+		end := at
+
+		for end < len(text) {
+			nl := strings.IndexByte(text[end:], '\n')
+			if nl < 0 {
+				end = len(text)
+
+				break
+			}
+
+			end += nl
+
+			// A blank line (only spaces before the next break or the end)
+			// ends the paragraph.
+			rest := text[end+1:]
+			next := strings.IndexByte(rest, '\n')
+
+			if next < 0 {
+				next = len(rest)
+			}
+
+			if strings.TrimSpace(rest[:next]) == "" {
+				break
+			}
+
+			end++
+		}
+
+		out = append(out, span{at: at, end: end})
+		at = end + 1
+	}
 
 	return out
 }

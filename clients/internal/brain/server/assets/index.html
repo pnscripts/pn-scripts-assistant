@@ -3416,6 +3416,9 @@
 
 <!-- One status vocabulary and one palette, before anything that colours a
      status. See status.js. -->
+<!-- Before every other script, so every timer and animation on the page rests
+     while nobody is using it. See pace.js. -->
+<script src="/js/pace.js"></script>
 <!-- First, so brainBooted exists before anything can report finishing. -->
 <script src="/js/i18n.js"></script>
 <script src="/js/boot.js"></script>
@@ -3455,7 +3458,6 @@
 <script src="/js/forms.js"></script>
 <script src="/js/skills.js"></script>
 <script src="/js/providers.js"></script>
-<script src="/js/devices.js"></script>
 <script src="/js/install.js"></script>
 <script src="/js/upkeep.js"></script>
 <script src="/js/history.js"></script>

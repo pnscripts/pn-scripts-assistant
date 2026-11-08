@@ -89,11 +89,31 @@ function audible(level, floor, speech) {
     return (level - start) / Math.max(0.05, 1 - start);
 }
 
+/*
+ * With no microphone open and nothing being said, there is no level to show,
+ * and asking eleven times a second for a zero was the largest single cost of
+ * an idle window (measured 08.11.2026). Then it asks once a second, which is
+ * soon enough to notice a microphone opening; a voice starting is also pushed
+ * by /api/pulse, which wakes everything at once.
+ */
+const QUIET_EVERY = 11;
+let quietSkips = 0;
+
 async function poll() {
     if (document.hidden) return;
 
+    if (!signals.source && quietSkips > 0) {
+        quietSkips--;
+        signals.wave[signals.position] = 0;
+        signals.position = (signals.position + 1) % WAVE_POINTS;
+
+        return;
+    }
+
     try {
         const reading = await fetch('/api/level').then((r) => r.json());
+
+        if (!reading.source) quietSkips = QUIET_EVERY - 1;
 
         signals.source = reading.source || '';
         signals.level = signals.source
