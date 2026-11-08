@@ -18,6 +18,14 @@ on:
   workflow_run:
     workflows: [Release]
     types: [completed]
+  # And when the repository's own recipe changes on dev. Safe to publish from
+  # there: what goes in is only ever the released packages, never a dev build.
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/apt-repo.yml'
+      - 'scripts/build-apt-repo.sh'
+      - 'packaging/apt/**'
   workflow_dispatch:
 
 permissions:
