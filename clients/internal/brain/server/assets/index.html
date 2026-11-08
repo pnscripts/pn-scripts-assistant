@@ -362,6 +362,19 @@
             <span data-i18n="nav.skills">Skills</span>
         </button>
         <!--
+            Rules: what its user has told it always or never to do —
+            proposals waiting for an answer, and kept rules with a switch
+            each. After Skills: a skill is how to do something, a rule is
+            what must or must not be done.
+        -->
+        <button type="button" class="nav-item" data-view="rules">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M9 12h6M9 15h4M9 9h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <span data-i18n="nav.rules">Rules</span>
+        </button>
+        <!--
             Who works here, and what work there is in the world to be done.
 
             Its own entry because it is a thing to sit and read rather than
@@ -1909,6 +1922,49 @@
             </div>
         </section>
 
+        <section class="view" data-view="rules" hidden>
+            <div class="view-inner">
+                <!--
+                    Rules: proposals noticed in conversation wait at the top to
+                    be kept, edited or declined; kept rules have a switch, an
+                    editor and a delete, with where each came from and what it
+                    does to an action. Drawn by rules.js with textContent: the
+                    words are the user's.
+                -->
+                <div class="card card-wide">
+                    <div class="study-head">
+                        <h2 data-i18n="rules.title">Your rules</h2>
+                        <span class="study-meta" id="rules-count"></span>
+                    </div>
+                    <p class="note" data-i18n="rules.intro"></p>
+                    <p class="note" id="rules-said" role="status" aria-live="polite"></p>
+
+                    <div id="rules-waiting-box" hidden>
+                        <h3 data-i18n="rules.waiting">Waiting for your answer</h3>
+                        <p class="note" data-i18n="rules.waitingNote"></p>
+                        <ul id="rules-waiting" class="writing-list study-list rules-list"></ul>
+                    </div>
+
+                    <h3 data-i18n="rules.followed">Followed now</h3>
+                    <ul id="rules-list" class="writing-list study-list rules-list"></ul>
+                    <p class="activity-empty" id="rules-empty" hidden data-i18n="rules.none"></p>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="rules.addTitle">Add a rule</h2>
+                    <p class="note" data-i18n="rules.addNote"></p>
+                    <label class="field">
+                        <span data-i18n="rules.text">The rule, in your words</span>
+                        <textarea id="rules-new" class="writing-text" rows="2" maxlength="400" data-i18n-placeholder="rules.addHint"></textarea>
+                    </label>
+                    <div class="writing-actions">
+                        <button type="button" class="model-action" id="rules-add" data-i18n="rules.add">Add</button>
+                    </div>
+                    <p class="note" id="rules-add-said" role="status" aria-live="polite"></p>
+                </div>
+            </div>
+        </section>
+
         <section class="view" data-view="organisation" hidden>
             <div class="view-inner">
                 <div class="card card-wide">
@@ -2749,6 +2805,8 @@
                     <div class="writing-actions">
                         <button type="button" class="model-action" id="writing-check"
                                 data-i18n="writing.check">Proofread</button>
+                        <button type="button" class="model-action" id="writing-polish"
+                                data-i18n="writing.polish">Last look before sending</button>
                         <button type="button" class="model-action" id="writing-rewrite"
                                 data-i18n="writing.rewrite">Rewrite in this tone</button>
                         <button type="button" class="model-action" id="writing-copy"
@@ -2765,6 +2823,18 @@
                                 data-i18n="writing.apply">Make the ticked corrections</button>
                         <h3 id="writing-tone-title" data-i18n="writing.toneNotes" hidden>Tone and length</h3>
                         <ol id="writing-notes" class="writing-list"></ol>
+                    </div>
+
+                    <!-- The last look before sending (polish.js): the text as it should go. -->
+                    <div id="writing-polished" class="writing-found" hidden>
+                        <h3 data-i18n="polish.title">As it should go</h3>
+                        <p class="note" id="polish-state"></p>
+                        <ol id="polish-findings" class="writing-list"></ol>
+                        <pre id="polish-text" class="polish-text"></pre>
+                        <div class="writing-actions">
+                            <button type="button" class="model-action" id="polish-use"
+                                    data-i18n="polish.use">Use this text</button>
+                        </div>
                     </div>
 
                     <div id="writing-new" class="writing-new" hidden>
@@ -3486,6 +3556,8 @@
 <script src="/js/invoices.js"></script>
 <script src="/js/forms.js"></script>
 <script src="/js/skills.js"></script>
+<script src="/js/rules.js"></script>
+<script src="/js/polish.js"></script>
 <script src="/js/providers.js"></script>
 <script src="/js/install.js"></script>
 <script src="/js/upkeep.js"></script>

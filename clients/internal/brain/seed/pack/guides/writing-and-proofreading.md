@@ -46,3 +46,17 @@ not described from memory.
 I can proofread a .txt, .md, .docx, .odt or .pdf file and put the corrections
 into a Word or OpenDocument file without losing its layout. The original is
 only changed when you say so.
+
+## The last look before sending
+**Last look before sending** reads the text as the person receiving it will:
+it takes out what they already see (who is writing, the subject said again),
+sentences that say nothing ("I hope this email finds you well"), anything
+said twice and the slips it is sure of, and points at what only you can
+settle — a placeholder such as "[Name]" left in, a date whose weekday is
+wrong, a sentence that sounds like a machine talking about itself.
+**Use this text** puts the polished version back in the box.
+
+Every email the assistant sends gets the same last look before you are asked:
+the approval shows the polished words with what was changed above them, and a
+message with a placeholder left in is not sent. After sending, the message is
+shown again with where it went, from which address and when.

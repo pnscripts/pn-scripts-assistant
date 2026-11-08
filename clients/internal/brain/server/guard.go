@@ -154,6 +154,7 @@ var changedAtTheDeskOnly = []string{
 	"/api/glossary/import", // the same, into the glossary
 	"/api/goals",           // a goal, and unattended work towards it
 	"/api/skills",          // what it is taught and may load
+	"/api/rules",           // what it must always or never do
 	"/api/open-source",     // opening a file or folder on this computer
 	"/api/desktop",         // the applications menu entry
 	"/api/environment/",    // what it may notice around it

@@ -141,6 +141,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/writing/apply", s.handleWritingApply)
 	s.mux.HandleFunc("POST /api/writing/compare", s.handleWritingCompare)
 	s.mux.HandleFunc("POST /api/writing/rewrite", s.handleWritingRewrite)
+	s.mux.HandleFunc("POST /api/writing/polish", s.handlePolish)
 
 	// Translation and the glossary. See translation.go.
 	s.mux.HandleFunc("GET /api/glossary", s.handleGlossary)
@@ -316,6 +317,15 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/skills", s.handleSaveSkill)
 	s.mux.HandleFunc("POST /api/skills/reload", s.handleReloadSkills)
 	s.mux.HandleFunc("GET /api/skills/catalogue", s.handleSkillCatalogue)
+
+	// Its user's rules: proposals to keep, edit or decline, and the kept ones
+	// with a switch each. See rules.go.
+	s.mux.HandleFunc("GET /api/rules", s.handleRules)
+	s.mux.HandleFunc("POST /api/rules", s.handleRuleAdd)
+	s.mux.HandleFunc("POST /api/rules/{id}", s.handleRuleChange)
+	s.mux.HandleFunc("POST /api/rules/{id}/decide", s.handleRuleDecide)
+	s.mux.HandleFunc("POST /api/rules/{id}/switch", s.handleRuleSwitch)
+	s.mux.HandleFunc("DELETE /api/rules/{id}", s.handleRuleRemove)
 	s.mux.HandleFunc("POST /api/settings/skills/{name}", s.handleSkillEnabled)
 	s.mux.HandleFunc("POST /api/settings/skill-folders", s.handleSkillFolders)
 	s.mux.HandleFunc("DELETE /api/skills/{name}", s.handleForgetSkill)

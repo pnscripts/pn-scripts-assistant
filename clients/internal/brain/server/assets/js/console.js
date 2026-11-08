@@ -497,6 +497,10 @@ async function send(text) {
             sources: data.sources || [],
         });
 
+        // A standing instruction noticed in what was said: kept only with a
+        // yes, on the card under the answer (rules.js).
+        if (data.rule_proposal && window.pnRuleCard) window.pnRuleCard(data.rule_proposal);
+
         // A pause for approval is the interesting case, so surface it
         // immediately instead of waiting for the next poll.
         // Show which memories the brain actually reached for.

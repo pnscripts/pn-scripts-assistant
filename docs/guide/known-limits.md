@@ -73,6 +73,17 @@ against the code on 8 November 2026.
   address in between is not caught there. Plain page fetching checks the
   address it actually connects to.
 
+- **Rules are checked by what an action is and the words it carries**:
+  sending, posting, commits, changing files, paying and deleting, the names,
+  addresses and words a rule lists, and the days it names. A condition it
+  cannot see — "clients", "late at night" — makes a "never" rule ask you
+  instead of stopping on its own. Clicks and typing in other programs are
+  read from their words only. Standing instructions are noticed in English and
+  Bulgarian.
+- **The last look before sending** is applied to every email the assistant
+  sends. A draft you send yourself with the Send button on the Mail page goes
+  as you see it; use *Last look before sending* on the Writing page first.
+
 ## Mail, devices, storage
 
 - **Mail** is read over IMAP with TLS (port 993) and sent over SMTP, with an

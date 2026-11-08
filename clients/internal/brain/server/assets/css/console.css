@@ -6392,3 +6392,48 @@ html[data-pace="hidden"] *::after {
 }
 .upkeep-command[hidden] { display: none; }
 #upkeep-card .provider-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* ---------- rules (rules.js) and the last look before sending (polish.js) ----------
+ * A rule is a sentence of its user's, so it reads as one: the words first,
+ * what it does and where it came from in the quieter lines under it. */
+#rules-waiting-box[hidden], #writing-polished[hidden], #polish-use[hidden] { display: none; }
+.rules-list { margin-top: 6px; }
+.rules-item { align-items: flex-start; }
+.rules-item.is-off { opacity: 0.6; }
+.rules-item.is-proposed { border-left: 2px solid var(--accent); padding-left: 10px; }
+.rules-item strong { overflow-wrap: anywhere; }
+.rules-line, .rules-origin { display: block; }
+.rules-quote {
+    margin: 4px 0 6px;
+    padding: 6px 10px;
+    border-left: 2px solid var(--line);
+    color: var(--text-dim);
+    font-size: 13px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 9em;
+    overflow: auto;
+}
+.rules-kind { margin-left: 8px; vertical-align: 1px; }
+.rules-editor { margin-top: 8px; display: grid; gap: 8px; }
+.rules-checks { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.rules-checks legend { font-size: 12px; color: var(--text-dim); padding: 0 4px; }
+.rules-checks label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.rules-checks input { width: auto; }
+.rules-card .writing-actions { margin-top: 8px; }
+.rules-card-said:empty { display: none; }
+.polish-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: var(--bg-raised);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 14px;
+}
+.polish-open strong { color: var(--warn); }
+/* A rule reads top to bottom: its words, what it does, where it came from,
+   then its buttons on a line of their own. */
+.rules-item .study-item-main { display: block; }
+.rules-item .writing-actions { margin-top: 6px; }
+.rules-editor .field input[type="text"] { width: 100%; height: auto; margin: 0; flex: initial; }
