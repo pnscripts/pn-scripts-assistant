@@ -11,6 +11,12 @@ name: A stranger installs it
 on:
   release:
     types: [published]
+  # A release published by release.yml with its own token does not start
+  # other workflows (GitHub's rule against loops), so "published" never fired
+  # for v0.11.0. The end of the Release workflow does.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   # And when this file changes on dev, against the latest release, so a
   # change to the proof is proved before it is relied on.
   push:
@@ -37,11 +43,12 @@ env:
 jobs:
   ubuntu:
     name: Ubuntu 24.04, apt install of the published .deb
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ github.event.release.tag_name || github.event.workflow_run.head_branch || inputs.tag }}
       # A runner has no keyring service; the key is kept in a file, as the
       # program does by itself on such a machine.
       PN_SCRIPTS_ASSISTANT_KEYRING: file
@@ -122,11 +129,12 @@ jobs:
 
   windows:
     name: Windows, the published installer
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: windows-latest
     timeout-minutes: 25
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ github.event.release.tag_name || github.event.workflow_run.head_branch || inputs.tag }}
     steps:
       - name: Download the installer and its checksums
         shell: pwsh
