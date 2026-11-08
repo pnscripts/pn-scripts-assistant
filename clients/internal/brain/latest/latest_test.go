@@ -272,6 +272,18 @@ func TestTheInstallerIsStartedOnlyAfterItsCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Nothing runs while the program is still here...
+	if ran != nil || !Pending() {
+		t.Fatalf("the installer started before the program closed: %v", ran)
+	}
+
+	// ...and it starts as the program's last act.
+	RunPending()
+
+	if Pending() {
+		t.Fatal("the installer was left waiting after it started")
+	}
+
 	if !out.Started || len(ran) == 0 || filepath.Base(ran[0]) != "pn-scripts-assistant-0.99.0-windows-setup.exe" {
 		t.Fatalf("outcome %+v, ran %v", out, ran)
 	}
@@ -287,7 +299,10 @@ func TestTheInstallerIsStartedOnlyAfterItsCheck(t *testing.T) {
 
 	rel, _ = Newest(context.Background(), nil)
 
-	if _, err := Apply(context.Background(), Installer, rel, t.TempDir()); err == nil || ran != nil {
+	_, err = Apply(context.Background(), Installer, rel, t.TempDir())
+	RunPending()
+
+	if err == nil || ran != nil {
 		t.Fatalf("a file that failed its check was started: %v %v", err, ran)
 	}
 }

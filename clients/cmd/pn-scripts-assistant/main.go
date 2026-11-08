@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/latest"
 	"sort"
 
 	"context"
@@ -62,7 +63,13 @@ func main() {
 	// No arguments means "run the app". Double-clicking an icon passes none,
 	// and that is the path most people will take.
 	if len(os.Args) < 2 {
-		if err := runApp(nil); err != nil {
+		err := runApp(nil)
+
+		// An update waiting for this program to be gone starts now, as the
+		// last thing it does. See latest.RunPending.
+		latest.RunPending()
+
+		if err != nil {
 			report(err)
 		}
 
@@ -152,6 +159,8 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
+
+	latest.RunPending()
 
 	if err != nil {
 		report(err)

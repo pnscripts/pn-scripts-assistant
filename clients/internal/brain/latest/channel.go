@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 // Channel is how this copy was installed, which decides how it is updated.
@@ -155,8 +156,8 @@ var InstallerArgs = []string{"/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLO
 // command line's `update`, which is what an unattended machine runs.
 var QuietArgs = []string{"/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/LOG"}
 
-// InstallQuietly fetches the Windows installer of rel, checks it and starts it
-// with QuietArgs, without waiting: the program that started it has to be gone
+// InstallQuietly fetches the Windows installer of rel, checks it and leaves it
+// to RunPending with QuietArgs: the program that fetched it has to be gone
 // before the installer can replace it.
 func InstallQuietly(ctx context.Context, rel Release, dir string) error {
 	return runInstaller(ctx, rel, dir, QuietArgs)
@@ -173,11 +174,52 @@ func runInstaller(ctx context.Context, rel Release, dir string, args []string) e
 	// ever (winget's did, on a Windows runner).
 	args = append(append([]string{}, args...), scopeArg(exePath(), os.Getenv("LOCALAPPDATA")))
 
-	if err := start(path, args...); err != nil {
-		return fmt.Errorf("the installer could not be started: %w", err)
-	}
+	pendingMu.Lock()
+	pending = append([]string{path}, args...)
+	pendingMu.Unlock()
 
 	return nil
+}
+
+/*
+ * The installer waits for the program to be gone.
+ *
+ * Started while the program still ran, Inno's Restart Manager found the
+ * program holding its own file, could not close it, and — every message box
+ * suppressed — chose Abort (seen on a Windows runner: "Some applications
+ * could not be shut down … User canceled the installation process"). So the
+ * checked installer is only remembered here, the program closes, and
+ * RunPending starts it as the very last thing main does, milliseconds before
+ * the process ends and well before the installer looks.
+ */
+var (
+	pendingMu sync.Mutex
+	pending   []string
+)
+
+// RunPending starts the installer an update left waiting, if there is one.
+// main calls it after everything else has closed.
+func RunPending() {
+	pendingMu.Lock()
+	next := pending
+	pending = nil
+	pendingMu.Unlock()
+
+	if len(next) == 0 {
+		return
+	}
+
+	if err := start(next[0], next[1:]...); err != nil {
+		fmt.Fprintf(os.Stderr, "the update could not start its installer: %v\n", err)
+	}
+}
+
+// Pending reports whether an installer is waiting for the program to close.
+func Pending() bool {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+
+	return len(pending) > 0
 }
 
 // exePath is the running program, resolved. A variable for the tests.

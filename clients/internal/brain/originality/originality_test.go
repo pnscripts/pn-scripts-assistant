@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -303,10 +304,17 @@ func TestTheCatalogueAuditChecksEachItemForTheAspectsItHasOnly(t *testing.T) {
 	refs := filepath.Join(t.TempDir(), "ref.png")
 	save(t, refs, pattern(300, 300, 3))
 
-	var asked []string
+	var (
+		askedMu sync.Mutex
+		asked   []string
+	)
 
+	// Two workers search at once, so the record of what was asked is shared.
 	search := func(q string) ([]Hit, error) {
+		askedMu.Lock()
 		asked = append(asked, q)
+		askedMu.Unlock()
+
 		if strings.Contains(q, "Tetriz") || strings.Contains(q, "Tetris") {
 			return []Hit{{Title: "Tetris® - Apps on Google Play", URL: "https://play.google.com/store/apps/details?id=x", Snippet: "falling blocks with colours"}}, nil
 		}

@@ -65,7 +65,7 @@ func runUpdate(args []string) error {
 			return err
 		}
 
-		fmt.Println("Downloaded, checked against SHA256SUMS, and the installer is running.")
+		fmt.Println("Downloaded and checked against SHA256SUMS; the installer starts as this closes.")
 
 		return nil
 	}
