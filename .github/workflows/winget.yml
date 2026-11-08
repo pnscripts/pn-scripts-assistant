@@ -79,7 +79,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           winget settings --enable LocalManifestFiles | Out-Null
-          $flags = '--accept-package-agreements','--accept-source-agreements','--disable-interactivity','--silent','--log',"$env:RUNNER_TEMP\winget.log"
           $exe = "$env:LOCALAPPDATA\Programs\PN Scripts Assistant\pn-scripts-assistant.exe"
           # The program is a windowed (GUI) program: PowerShell neither waits
           # for it nor shows what it prints unless its output is redirected.
@@ -88,9 +87,22 @@ jobs:
             Start-Process -FilePath $exe -ArgumentList $Arguments -Wait -NoNewWindow -RedirectStandardOutput $out -RedirectStandardError "$out.err" | Out-Null
             ((Get-Content $out -Raw -ErrorAction SilentlyContinue) + (Get-Content "$out.err" -Raw -ErrorAction SilentlyContinue)).Trim()
           }
+          # winget with a limit: a silent install that waits for an answer
+          # waits for ever, and then what was running is the thing to know.
+          function Install-With-Winget([string]$Version) {
+            $args = @('install', '--manifest', "winget\manifests\p\PNScripts\PNScriptsAssistant\$Version",
+              '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity', '--silent',
+              '--verbose-logs', '--log', "$env:RUNNER_TEMP\winget-$Version.log")
+            $w = Start-Process winget -ArgumentList $args -PassThru -NoNewWindow
+            if (-not $w.WaitForExit(300000)) {
+              Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'pn-scripts-assistant|\.tmp|setup' } |
+                Format-List ProcessId, Name, CommandLine | Out-String | Write-Output
+              throw "winget install $Version did not finish in 5 minutes"
+            }
+            if ($w.ExitCode -ne 0) { throw "winget install $Version exited $($w.ExitCode)" }
+          }
 
-          winget install --manifest "winget\manifests\p\PNScripts\PNScriptsAssistant\$env:PREVIOUS" @flags
-          if ($LASTEXITCODE -ne 0) { throw "winget could not install $env:PREVIOUS" }
+          Install-With-Winget $env:PREVIOUS
           $have = Run-It @('version')
           Write-Output "installed by winget: $have"
           if ($have -notmatch [regex]::Escape($env:PREVIOUS)) { throw 'not the previous version' }
@@ -107,8 +119,7 @@ jobs:
           $brain = "$env:USERPROFILE\.local\share\pn-scripts-assistant\data\brain.sqlite"
           if (-not (Test-Path $brain)) { throw 'no brain was made' }
 
-          winget install --manifest "winget\manifests\p\PNScripts\PNScriptsAssistant\$env:NEWEST" @flags
-          if ($LASTEXITCODE -ne 0) { throw "winget could not install $env:NEWEST over $env:PREVIOUS" }
+          Install-With-Winget $env:NEWEST
           $now = Run-It @('version')
           Write-Output "after the upgrade: $now"
           if ($now -notmatch [regex]::Escape($env:NEWEST)) { throw 'the upgrade did not take' }
@@ -121,7 +132,8 @@ jobs:
         if: failure()
         shell: pwsh
         run: |
-          Get-Content "$env:RUNNER_TEMP\winget.log" -Tail 60 -ErrorAction SilentlyContinue
+          Get-ChildItem "$env:RUNNER_TEMP" -Filter 'winget-*.log' -ErrorAction SilentlyContinue | ForEach-Object { "== $($_.Name)"; Get-Content $_.FullName -Tail 60 }
+          Get-ChildItem "$env:LOCALAPPDATA\Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState\DiagOutputDir" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 3 | ForEach-Object { "== $($_.Name)"; Get-Content $_.FullName -Tail 40 }
           Get-ChildItem $env:TEMP -Filter 'Setup Log*' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 60
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
