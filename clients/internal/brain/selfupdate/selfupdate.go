@@ -301,7 +301,7 @@ func Update(ctx context.Context, note func(string)) (string, error) {
 
 	if dirty(ctx, where) {
 		return "", fmt.Errorf(
-			"there are uncommitted changes in %s. I will not pull over them — "+
+			"there are uncommitted changes in %s. I will not pull over them; "+
 				"commit or put them aside first", where)
 	}
 
@@ -311,7 +311,7 @@ func Update(ctx context.Context, note func(string)) (string, error) {
 		return "", fmt.Errorf("could not pull: %w\n%s", err, out)
 	}
 
-	note("building — this takes a minute")
+	note("building, this takes a minute")
 
 	/*
 	 * Built beside the running binary and moved into place.

@@ -25,7 +25,7 @@ Translate meaning, not words. The result must read as if a careful Bulgarian wri
 - Full and short definite article: full „-ът/-ят“ for the subject (Клиентът плати), short „-а/-я“ otherwise (на клиента).
 - Register: Вие with capital В in letters to one person; вие in general texts; never mix ти and Вие in one text.
 - Capitals: only the first word in titles and headings (Как да започнем, not Как Да Започнем).
-- Dash with spaces – for a pause; hyphen without spaces in compounds (онлайн-магазин or онлайн магазин, follow current spelling rules and be consistent).
+- A dash with spaces is for a pause; hyphen without spaces in compounds (онлайн-магазин or онлайн магазин, follow current spelling rules and be consistent).
 - Commas before „че“, „който“, „за да“, „но“, „ако“ clauses.
 
 ## False friends and traps
@@ -42,7 +42,7 @@ Translate meaning, not words. The result must read as if a careful Bulgarian wri
 ## Example
 Source: "Your order has been shipped and will arrive in 2-3 business days. Track it here."
 Bad: „Вашата поръчка е била изпратена и ще пристигне в 2-3 бизнес дни. Проследете я тук.“
-Good: „Поръчката Ви е изпратена и ще пристигне до 2–3 работни дни. Можете да я проследите тук.“
+Good: „Поръчката Ви е изпратена и ще пристигне в рамките на 2 до 3 работни дни. Можете да я проследите тук.“
 
 ## Pitfalls
 - Passive chains („беше извършено от“) where Bulgarian uses an active verb or „се“.

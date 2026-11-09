@@ -9,7 +9,7 @@ Give a few well-matched ideas with clear instructions rather than a long generic
 
 ## Steps
 1. **Collect the facts.** Ages, number of children, indoors or outdoors, time available, space, energy level wanted (calm or burn energy), materials at home, budget, any special needs or allergies, and whether an adult can join.
-2. **Pick 3–5 ideas across types**: active, creative, building, pretend play, learning, helping at home.
+2. **Pick 3 to 5 ideas across types**: active, creative, building, pretend play, learning, helping at home.
 3. **Write each idea briefly**: name, age range, time, materials, steps, how to make it easier or harder, cleanup.
 4. **Add safety notes** where relevant: supervision, choking hazards, heat, water, tools, allergens.
 5. **Offer a mini plan** if the child needs structure: a calm activity after an active one, a snack break, a clear ending.
@@ -51,4 +51,4 @@ Cleanup: remove tape slowly; keep tubes in a box for next time.
 - Over-scheduling; free unstructured play is valuable too.
 
 ## Output
-Hand back: 3–5 matched idea cards (age, time, materials, steps, easier/harder, safety, cleanup), and if asked a short schedule for the day or party.
+Hand back: 3 to 5 matched idea cards (age, time, materials, steps, easier/harder, safety, cleanup), and if asked a short schedule for the day or party.

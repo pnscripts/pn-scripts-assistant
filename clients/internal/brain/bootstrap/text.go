@@ -33,7 +33,7 @@ func (p Proposal) Text() string {
 	}
 
 	if p.Package != nil {
-		fmt.Fprintf(&b, "Under: %s %s — %s (%s work)\n", p.Package.ID, p.Package.Version, p.Package.Title, p.Package.Work)
+		fmt.Fprintf(&b, "Under: %s %s, %s (%s work)\n", p.Package.ID, p.Package.Version, p.Package.Title, p.Package.Work)
 	}
 
 	if p.Engine != "" {
@@ -86,7 +86,7 @@ func (p Proposal) Text() string {
 	section("How it will be done", p.Stack)
 
 	if p.Minutes > 0 {
-		section("Time it is given", []string{fmt.Sprintf("%d minutes — %s", p.Minutes, p.MinutesWhy)})
+		section("Time it is given", []string{fmt.Sprintf("%d minutes: %s", p.Minutes, p.MinutesWhy)})
 	}
 
 	scope := []string{"write only inside " + p.Dir}
@@ -105,17 +105,17 @@ func (p Proposal) Text() string {
 
 		switch {
 		case s.Ready():
-			line += " " + s.Version + " — here"
+			line += " " + s.Version + ": here"
 		case s.Present && s.Compatible && s.LicenceState != "":
-			line += " " + s.Version + " — " + s.Problem
+			line += " " + s.Version + ": " + s.Problem
 		case s.Blocked:
-			line += " — " + s.Problem
+			line += ": " + s.Problem
 		case s.Installable && !n.Optional:
-			line += fmt.Sprintf(" — will be installed first: %s, %s, licence %s, cost %s", orSize(s.Size), s.Source, s.Licence, s.Cost)
+			line += fmt.Sprintf(": will be installed first (%s, %s, licence %s, cost %s)", orSize(s.Size), s.Source, s.Licence, s.Cost)
 		case n.Optional:
-			line += " — not here (optional: " + n.Why + ")"
+			line += ": not here (optional: " + n.Why + ")"
 		default:
-			line += " — not here, and not installable from here: " + s.Manual
+			line += ": not here, and not installable from here. " + s.Manual
 		}
 
 		needs = append(needs, line)

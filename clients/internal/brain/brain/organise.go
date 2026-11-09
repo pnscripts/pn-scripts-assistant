@@ -300,7 +300,7 @@ func (b *Brain) ShowHire(id int64, permanence, goal string) (string, bool) {
 		how = "for one task"
 	}
 
-	return fmt.Sprintf("Hire %s (%s) %s — proposal %d\n%s", p.Agent.Title, p.Agent.Name, how, id, p.Text()), true
+	return fmt.Sprintf("Hire %s (%s) %s, proposal %d\n%s", p.Agent.Title, p.Agent.Name, how, id, p.Text()), true
 }
 
 /*
@@ -393,7 +393,7 @@ func (b *Brain) ConfirmHire(ctx context.Context, id int64, permanence, goal stri
 
 	team.Forget()
 
-	line := fmt.Sprintf("%s — hired for this task from proposal %d, as its owner approved", agent.Title, id)
+	line := fmt.Sprintf("%s: hired for this task from proposal %d, as its owner approved", agent.Title, id)
 
 	if err := b.DB.RecordHire(task.ID, line); err != nil {
 		b.Log.Warn("could not record a hire on its task", "task", task.ID, "error", err)

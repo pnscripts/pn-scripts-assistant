@@ -257,7 +257,7 @@ func (s *Server) handleTunnelRun(w http.ResponseWriter, r *http.Request) {
 
 	ok(w, map[string]any{
 		"up": true,
-		"said": "The tunnel is up. It stays up until this computer restarts — " +
+		"said": "The tunnel is up. It stays up until this computer restarts; " +
 			"there is a command in the panel to make it start on its own.",
 	})
 }

@@ -9,13 +9,13 @@ A good plan fits the hours the learner actually has, puts recall practice before
 
 ## Steps
 1. **Collect the inputs.** Ask for: goal (exam, grade, skill), deadline, hours available per weekday and weekend, the syllabus or topic list, current level per topic, and fixed commitments. If there is a past paper or official exam outline, use it as the master list.
-2. **Inventory the topics.** List every topic and rate it: weight in the exam (high/medium/low) and confidence (1–5). Priority = high weight and low confidence first.
-3. **Count the real hours.** Total available hours × 0.8 (life happens). Reserve the last 10–15 % for full mock exams and review only.
+2. **Inventory the topics.** List every topic and rate it: weight in the exam (high/medium/low) and confidence (1 to 5). Priority = high weight and low confidence first.
+3. **Count the real hours.** Total available hours × 0.8 (life happens). Reserve the last 10 to 15 % for full mock exams and review only.
 4. **Allocate time.** Give weak, heavy topics roughly twice the time of strong ones. A rough split per topic: 40 % learning, 40 % practice problems or recall, 20 % review.
-5. **Schedule spaced review.** After first study of a topic, revisit it after about 1 day, 3 days, 1 week and 2–3 weeks. Put these short reviews into the calendar explicitly.
-6. **Mix sessions.** Use 25–50 minute blocks with short breaks; alternate two related topics in one day instead of one topic all day (interleaving).
+5. **Schedule spaced review.** After first study of a topic, revisit it after about 1 day, 3 days, 1 week and 2 to 3 weeks. Put these short reviews into the calendar explicitly.
+6. **Mix sessions.** Use 25 to 50 minute blocks with short breaks; alternate two related topics in one day instead of one topic all day (interleaving).
 7. **Add checkpoints.** One self-test per week; adjust the plan if a topic scores under about 70 %.
-8. **Plan the final days.** No new material in the last 2–3 days; do timed practice, review mistakes, sleep normally.
+8. **Plan the final days.** No new material in the last 2 to 3 days; do timed practice, review mistakes, sleep normally.
 
 ## Template
 ```
@@ -24,7 +24,7 @@ Week 1  Mon  Probability basics (learn) | Tue  Probability (problems) + review M
         Wed  Distributions (learn)      | Thu  Distributions (problems)
         Fri  Mixed recall quiz 30 min   | Sat  Past paper section A, mark errors
 Week 2  ... repeat pattern, new topics + spaced reviews of week 1
-Final week  Mon–Wed full timed mocks | Thu–Fri error log review | Sat rest | Sun exam
+Final week  Mon to Wed full timed mocks | Thu and Fri error log review | Sat rest | Sun exam
 ```
 
 ## Techniques to build in

@@ -159,7 +159,7 @@ func (b *Brain) askToApprove(conversationID int64, name string, args json.RawMes
 	summary := tool.Summarize(args)
 
 	if why := tools.ConsentFor(tool, args); why != "" && !b.Unbounded() {
-		summary = "Always asked — " + why + ": " + summary
+		summary = "Always asked (" + why + "): " + summary
 	}
 
 	id, err := b.DB.RecordInvocation(conversationID, name, string(args), summary, string(tools.Mutating))
@@ -190,7 +190,7 @@ func (b *Brain) doneAlready(ctx context.Context, pending []agent.Pending) (strin
 
 		line := "Done: " + p.Summary
 		if err != nil {
-			line = "Tried, and it failed: " + p.Summary + " — " + err.Error()
+			line = "Tried, and it failed: " + p.Summary + ": " + err.Error()
 		} else if strings.TrimSpace(done.Result) != "" {
 			line += "\n" + done.Result
 		}

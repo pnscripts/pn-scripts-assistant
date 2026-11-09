@@ -82,7 +82,7 @@ func polishLine(f polish.Finding) string {
 		return "there is no text"
 	}
 
-	line := fmt.Sprintf("%q — %s", f.Found, what)
+	line := fmt.Sprintf("%q: %s", f.Found, what)
 
 	if f.Hint != "" && f.Key != polish.Slip {
 		line += " (" + f.Hint + "?)"
@@ -211,8 +211,8 @@ type PolishText struct{}
 func (PolishText) Name() string { return "polish_text" }
 
 func (PolishText) Description() string {
-	return "Give a text the last look before it goes out in the user's name — a post, a comment, a message, " +
-		"a reply: takes out what the reader already sees (who is writing), filler and repetition, fixes sure " +
+	return "Give a text the last look before it goes out in the user's name (a post, a comment, a message, " +
+		"a reply): takes out what the reader already sees (who is writing), filler and repetition, fixes sure " +
 		"spelling slips in English or Bulgarian, and points at placeholders, wrong weekdays and a machine " +
 		"talking about itself. Use before posting or sending any text that the send tools do not polish."
 }

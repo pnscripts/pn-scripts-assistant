@@ -15,7 +15,7 @@ are Linux-only:
   `xdotool`.
 - **Confining project work by the kernel**, with Landlock. On Windows a command
   still gets a cleaned environment and no shell, but the folder limit is not
-  enforced by the kernel — so project work does not run commands written into
+  enforced by the kernel, so project work does not run commands written into
   `cmd /c` or PowerShell there; it writes them to a script first.
 - **Telling your voice from others, and opening full web pages.** Both need
   the cgo build, and the Windows build is made without cgo. Plain page
@@ -60,7 +60,7 @@ On Ubuntu, `pn-scripts-assistant update --check` asks the same from a terminal.
 
 ## On Ubuntu
 
-Ubuntu 24.04 or newer, 64-bit. Nothing else has to be installed first — `apt`
+Ubuntu 24.04 or newer, 64-bit. Nothing else has to be installed first: `apt`
 brings in what the window needs.
 
 ### From the package
@@ -98,7 +98,7 @@ It writes nothing into your home directory until you run it.
 The package depends on the GTK and WebKit libraries, so `apt` installs those
 with it. Everything else is optional and checked on the first run:
 
-- **[Ollama](https://ollama.com)** with a chat model and `nomic-embed-text` —
+- **[Ollama](https://ollama.com)** with a chat model and `nomic-embed-text`:
   without it the assistant starts, says it has no model, and offers to install
   one.
 - **`espeak-ng`** or `speech-dispatcher` to read answers aloud.
@@ -162,17 +162,17 @@ updates; `sudo apt purge pn-scripts-assistant` removes that too.
 
 Windows 10 or newer, 64-bit. Two downloads, the same program inside:
 
-- **`...-windows-setup.exe`** — the installer. It installs into your own
+- **`...-windows-setup.exe`**: the installer. It installs into your own
   account, so it never asks for an administrator password, puts the assistant
   in the Start menu, and can be removed again from *Settings → Apps*.
-- **`...-windows-amd64.zip`** — the folder. Unzip it anywhere and run
+- **`...-windows-amd64.zip`**: the folder. Unzip it anywhere and run
   `pn-scripts-assistant.exe`. Nothing is installed.
 
 SmartScreen will stop the first run with "Windows protected your PC". That is
 the missing signature, not a verdict on the program: click **More info**, then
 **Run anyway**. Once only.
 
-It opens in its own window, drawn by Microsoft Edge WebView2 — part of
+It opens in its own window, drawn by Microsoft Edge WebView2, part of
 Windows 11, and already installed on almost every Windows 10. The window needs
 `WebView2Loader.dll`, which is in both downloads beside the program. On a
 machine without the WebView2 runtime the assistant opens in your browser

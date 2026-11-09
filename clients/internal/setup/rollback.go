@@ -144,7 +144,7 @@ func (s *Server) RollBack(w io.Writer) {
 			}
 
 			if !removed {
-				fmt.Fprintf(w, "  %s was left in place — it is not mine to remove\n",
+				fmt.Fprintf(w, "  %s was left in place: it is not mine to remove\n",
 					item.name)
 			}
 		}

@@ -5,7 +5,7 @@ something in here is wrong.
 
 ## Before a pull request
 
-Read [docs/guide/developing.md](docs/guide/developing.md) — it is the real
+Read [docs/guide/developing.md](docs/guide/developing.md). It is the real
 document, and it says how to build, how to run the tests, and what a change is
 expected to carry. The short version:
 
@@ -16,7 +16,7 @@ make test     # every package
 ```
 
 **Build with `CGO_ENABLED=1`.** With cgo off it compiles a program with no
-native window — it still serves its interface and a browser still works, so
+native window: it still serves its interface and a browser still works, so
 nothing fails and nothing is visibly wrong. That has cost an afternoon more
 than once.
 
@@ -28,7 +28,7 @@ upgraded over and removed. If it is red, it is red for a reason.
 ## What a change should carry
 
 - **A test, where there is something to test.** Written against the real thing
-  where that is possible — real files with real permissions, a real database, a
+  where that is possible: real files with real permissions, a real database, a
   real HTTP server. A test that asserts against a simulation tests the
   simulation.
 - **A comment saying why, not what.** The code in here explains its reasoning,
@@ -36,10 +36,10 @@ upgraded over and removed. If it is red, it is red for a reason.
   sounded reasonable is the thing a later change will reach for again.
 - **Honesty about what was checked.** If you measured it, say so. If you did
   not, say that instead. The audit documents in `docs/audit/` use a fixed
-  vocabulary for exactly this: VERIFIED, IMPLEMENTED — NOT VERIFIED, BROKEN.
+  vocabulary for exactly this: VERIFIED, IMPLEMENTED, NOT VERIFIED, BROKEN.
   "It should work" is not one of them.
 - **A decision record**, in `docs/decisions/`, for anything somebody will
-  wonder about later — including the decisions that turn out to be wrong.
+  wonder about later, including the decisions that turn out to be wrong.
 - **A line in `clients/internal/outside/outside.go`** if it makes the program
   connect somewhere new, saying what the host is for and when it is reached.
   The test there reads the whole source and will fail until you do; that is

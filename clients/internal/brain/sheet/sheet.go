@@ -343,10 +343,10 @@ type Finding struct {
 var findings = map[string]string{
 	"unread":         "{col}: {n} cells are not numbers and are left out of its sums (rows {rows})",
 	"ambiguous":      "{col}: numbers like 1,250 could be a thousand or one and a quarter, and nothing in the column says which; they are not counted until written unambiguously",
-	"duplicate":      "rows {rows} are the same in every cell — counted twice?",
+	"duplicate":      "rows {rows} are the same in every cell. Counted twice?",
 	"clean":          "Every number could be read; no repeated rows; no total rows to compare.",
 	"totalOK":        "row {row}, {col}: the sheet's total {value} matches its rows",
-	"totalWrong":     "row {row}, {col}: the sheet says {stated} but rows {from}–{to} add up to {sum} (a difference of {diff})",
+	"totalWrong":     "row {row}, {col}: the sheet says {stated} but rows {from} to {to} add up to {sum} (a difference of {diff})",
 	"skipped":        "rows {rows} are the sheet's own totals and were left out, so nothing is counted twice",
 	"filterMismatch": "the filter kept {kept} rows, but {again} rows match it when checked again",
 	"filterOK":       "{n} of {of} rows match the filter, checked twice",

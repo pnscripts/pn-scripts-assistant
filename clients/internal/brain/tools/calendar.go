@@ -133,10 +133,10 @@ func line(e store.Event) string {
 	if e.AllDay {
 		when += ", all day"
 	} else {
-		when += " " + e.Starts.Format("15:04") + "–" + e.Ends.Format("15:04")
+		when += " " + e.Starts.Format("15:04") + " to " + e.Ends.Format("15:04")
 	}
 
-	out := fmt.Sprintf("[%d] %s — %s", e.ID, when, e.Title)
+	out := fmt.Sprintf("[%d] %s: %s", e.ID, when, e.Title)
 
 	if e.Place != "" {
 		out += " (" + e.Place + ")"
@@ -253,11 +253,11 @@ func (PutInTheDiary) Summarize(raw json.RawMessage) string {
 		if a.AllDay {
 			when = at.Format("Mon 2 Jan") + ", all day"
 		} else if a.Minutes > 0 {
-			when += "–" + at.Add(time.Duration(a.Minutes)*time.Minute).Format("15:04")
+			when += " to " + at.Add(time.Duration(a.Minutes)*time.Minute).Format("15:04")
 		}
 	}
 
-	out := "Put in the diary: " + when + " — " + a.Title
+	out := "Put in the diary: " + when + ", " + a.Title
 
 	if a.Place != "" {
 		out += " (" + a.Place + ")"

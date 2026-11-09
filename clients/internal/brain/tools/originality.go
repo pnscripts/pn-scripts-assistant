@@ -350,8 +350,8 @@ func (AuditOriginality) Cues() []string {
 
 func (AuditOriginality) Description() string {
 	return "Originality audit of a whole folder or catalogue: each item (each subfolder) is checked only for " +
-		"what it has — its name against registers and stores, a game's core rule against the closest titles, " +
-		"pictures against reference pictures, melodies against known themes, placeholder text — items in " +
+		"what it has (its name against registers and stores, a game's core rule against the closest titles, " +
+		"pictures against reference pictures, melodies against known themes, placeholder text), items in " +
 		"parallel. Saves the report as a file and returns the findings. Changes nothing it audits."
 }
 

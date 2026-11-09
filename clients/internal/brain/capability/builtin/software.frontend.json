@@ -2,7 +2,7 @@
   "id": "software.frontend",
   "version": "1.0.0",
   "title": "Frontend development",
-  "summary": "Builds what runs in the browser — pages, components, styles — and builds it with the project's own tooling.",
+  "summary": "Builds what runs in the browser (pages, components, styles) and builds it with the project's own tooling.",
   "work": "project",
   "jobs": ["software.frontend_engineer", "software.full_stack_engineer", "design.ui_designer"],
   "cues": ["frontend", "front-end", "website", "web page", "react", "vue", "svelte", "css", "html", "landing page"],

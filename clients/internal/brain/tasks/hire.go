@@ -44,7 +44,7 @@ func hiresOn(task *store.Task) int {
 
 // hireLine is how a hire is written on a task and read in its account.
 func hireLine(hired team.Hired) string {
-	return fmt.Sprintf("%s — %s", hired.Agent.Title, hired.Why)
+	return fmt.Sprintf("%s: %s", hired.Agent.Title, hired.Why)
 }
 
 /*

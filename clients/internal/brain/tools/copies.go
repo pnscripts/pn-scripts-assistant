@@ -41,7 +41,7 @@ func (Copies) Name() string { return "brain_copies" }
 
 func (Copies) Description() string {
 	return "Report where copies of this brain's own memory are kept, how old each one " +
-		"is and how much is in it, and — when asked — refresh them now. Use this for " +
+		"is and how much is in it, and (when asked) refresh them now. Use this for " +
 		"any question about backups of the brain itself: whether it is backed up, when " +
 		"it last was, whether it is safe to unplug a drive, or a request to back up now."
 }
@@ -106,7 +106,7 @@ func (t Copies) Execute(ctx context.Context, raw json.RawMessage) (string, error
 	}
 
 	for _, c := range made {
-		fmt.Fprintf(&b, "%s — ", copies.Short(c.Path))
+		fmt.Fprintf(&b, "%s: ", copies.Short(c.Path))
 
 		switch {
 		case c.Never() && c.Trouble != "":

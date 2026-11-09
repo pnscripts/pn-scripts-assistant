@@ -203,7 +203,7 @@ func (s *Stdio) died() error {
 	}
 
 	if said := s.said.last(6); said != "" {
-		why += " — it said: " + said
+		why += "; it said: " + said
 	}
 
 	return errors.New("the server is not running: " + why)

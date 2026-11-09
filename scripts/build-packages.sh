@@ -442,8 +442,8 @@ then Open again in the dialog. You only do this once.
 What happens when it starts
 ---------------------------
 PN Scripts Assistant checks what your machine has and opens setup in your browser. It
-will ask you to install Ollama, which it cannot install for you on macOS —
-get it from https://ollama.com/download, then continue. Everything after
+will ask you to install Ollama, which it cannot install for you on macOS.
+Get it from https://ollama.com/download, then continue. Everything after
 that, including the language model, it does itself.
 
 There is no separate window on macOS yet. PN Scripts Assistant runs and shows its

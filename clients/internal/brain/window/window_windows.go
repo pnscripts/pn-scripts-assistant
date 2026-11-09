@@ -928,7 +928,7 @@ func Check(url string, within time.Duration) error {
 	timer := time.AfterFunc(within, Close)
 	defer timer.Stop()
 
-	if err := openWindow(url, "PN Scripts Assistant — window check", 640, 480); err != nil {
+	if err := openWindow(url, "PN Scripts Assistant: window check", 640, 480); err != nil {
 		return err
 	}
 

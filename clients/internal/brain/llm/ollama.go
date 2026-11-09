@@ -744,6 +744,6 @@ func notAnswering(baseURL string, err error) error {
 		return fmt.Errorf("the model at %s did not answer in time: %w", baseURL, err)
 	}
 
-	return fmt.Errorf("Ollama is not answering at %s — start it (ollama serve), or point this at "+
+	return fmt.Errorf("Ollama is not answering at %s: start it (ollama serve), or point this at "+
 		"another one with OLLAMA_BASE_URL: %w", baseURL, err)
 }

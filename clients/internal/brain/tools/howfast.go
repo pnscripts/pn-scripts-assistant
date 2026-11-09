@@ -62,8 +62,8 @@ func (HowFast) Name() string { return "how_fast_can_you_answer" }
 
 func (HowFast) Description() string {
 	return "Report how long answering actually takes on this machine, broken into the four " +
-		"waits — making out the words, the model thinking, writing the first sentence, and " +
-		"producing the first sound — and say what would make it quicker here. Use this for " +
+		"waits (making out the words, the model thinking, writing the first sentence, and " +
+		"producing the first sound) and say what would make it quicker here. Use this for " +
 		"\"why are you so slow\", \"how fast are you\", \"is this real time\", \"what is taking " +
 		"so long\", or any question about speed or performance."
 }
@@ -85,7 +85,7 @@ func (t HowFast) Execute(context.Context, json.RawMessage) (string, error) {
 	s := t.Reading()
 
 	if s.Over == 0 {
-		return "Nothing has been timed yet. Say something to me and ask again — the " +
+		return "Nothing has been timed yet. Say something to me and ask again: the " +
 			"measurement starts at your last word, so it needs a turn to have happened.", nil
 	}
 
@@ -115,7 +115,7 @@ func (t HowFast) Execute(context.Context, json.RawMessage) (string, error) {
 			continue
 		}
 
-		fmt.Fprintf(&b, "\n· %s — %s", stage.what, milliseconds(stage.cost))
+		fmt.Fprintf(&b, "\n· %s: %s", stage.what, milliseconds(stage.cost))
 	}
 
 	if s.Model != "" {

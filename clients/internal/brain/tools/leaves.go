@@ -108,7 +108,7 @@ func Leaves(t Tool) (bool, string) {
 	case "read_email", "read_mailbox", "mail_digest":
 		return true, "your login, to your own mail server"
 	case "install_a_model", "install_a_part", "install_requirement", "check_for_updates":
-		return true, "a request for the download — nothing about you"
+		return true, "a request for the download, nothing about you"
 	}
 
 	if leaves, ok := t.(interface{ LeavesTheMachine() bool }); ok && leaves.LeavesTheMachine() {

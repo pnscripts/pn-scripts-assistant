@@ -51,7 +51,7 @@ var topics = []Topic{
 	},
 	{
 		Keys: []string{"how long", "how much time", "take long", "wait", "download size", "how big"},
-		Answer: "The setup itself takes a minute or two. The language model is the slow part — " +
+		Answer: "The setup itself takes a minute or two. The language model is the slow part: " +
 			"roughly 2GB to download, so anywhere from two minutes to twenty depending on your " +
 			"connection.\n\n" +
 			"You only do this once. After that, starting PN Scripts Assistant takes a few seconds.",
@@ -69,7 +69,7 @@ var topics = []Topic{
 		Keys: []string{"cost", "pay", "free", "subscription", "price", "api key"},
 		Answer: "Nothing here costs money. The model runs on your own hardware.\n\n" +
 			"You can optionally add an Anthropic API key for stronger answers, which is paid " +
-			"per use — but it is entirely optional and PN Scripts Assistant works fully without one.",
+			"per use, but it is entirely optional and PN Scripts Assistant works fully without one.",
 	},
 	{
 		Keys: []string{"internet", "offline", "no connection", "without internet"},
@@ -86,7 +86,7 @@ var topics = []Topic{
 	},
 	{
 		Keys: []string{"delete", "uninstall", "remove", "get rid"},
-		Answer: "Delete the data folder and the brain is gone — there is no account and nothing " +
+		Answer: "Delete the data folder and the brain is gone. There is no account and nothing " +
 			"stored elsewhere.\n\n" +
 			"Removing Ollama and the speech models is separate, if you want those gone too.",
 	},
@@ -99,26 +99,26 @@ var topics = []Topic{
 	{
 		Keys: []string{"gpu", "graphics card", "slow", "speed", "fast", "performance"},
 		Answer: "A graphics card makes replies much faster, but is not required.\n\n" +
-			"Without one, a small model still works — expect a few seconds per reply. " +
+			"Without one, a small model still works; expect a few seconds per reply. " +
 			"PN Scripts Assistant picks a model size that suits the machine it finds.",
 	},
 	{
 		Keys: []string{"what can it do", "capabilities", "features", "what will it", "tools"},
 		Answer: "It answers questions, remembers what matters across conversations, and can read " +
 			"files and folders you point it at.\n\n" +
-			"It can also write files, run searches and control smart-home devices — but anything " +
+			"It can also write files, run searches and control smart-home devices, but anything " +
 			"that changes something asks your permission first, every time.",
 	},
 	{
 		Keys: []string{"stuck", "not working", "failed", "error", "broken", "help"},
-		Answer: "If a step failed, the details are written to a log file rather than shown here — " +
+		Answer: "If a step failed, the details are written to a log file rather than shown here; " +
 			"the message under the failure points at it.\n\n" +
 			"The most common cause by far is the model download: it is several gigabytes, " +
 			"and a connection that drops part-way leaves it unfinished.",
 	},
 }
 
-const unmatched = "I only know about setting up PN Scripts Assistant — I am a short list of written " +
+const unmatched = "I only know about setting up PN Scripts Assistant. I am a short list of written " +
 	"answers, not the assistant itself. That comes once setup finishes.\n\n" +
 	"Try asking about privacy, what this needs, how long it takes, or what it can do."
 

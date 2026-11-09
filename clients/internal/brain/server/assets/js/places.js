@@ -152,7 +152,7 @@ function actions(p) {
                     ? `${p.name}: ${done.learned} new, ${done.known} already known`
                         + (done.waiting
                             ? `, ${done.waiting.toLocaleString()} still to read.`
-                            : ' — that is all of it.')
+                            : ', and that is all of it.')
                     : `Nothing new in ${p.name}.`, 'ok');
             } catch (err) {
                 say(String(err.message || err), 'bad');
@@ -266,10 +266,10 @@ function wire() {
             if (!done.counted) {
                 say(`Looking after ${done.name}. ${done.note || ''}`.trim(), 'ok');
             } else if (done.waiting) {
-                say(`Looking after ${done.name} — ${done.waiting.toLocaleString()} things to read,`
+                say(`Looking after ${done.name}: ${done.waiting.toLocaleString()} things to read,`
                     + ` about ${Math.max(1, done.minutes)} minutes of work. It starts on its own.`, 'ok');
             } else {
-                say(`Looking after ${done.name} — nothing new in it to read.`, 'ok');
+                say(`Looking after ${done.name}. Nothing new in it to read.`, 'ok');
             }
 
             el('place-path').value = '';

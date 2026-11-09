@@ -125,7 +125,7 @@ func RecommendModel(hw Hardware) ModelChoice {
 		return ModelChoice{
 			Model:     "qwen2.5-coder:7b",
 			SizeNote:  "~4.7GB",
-			SpeedNote: "usable on CPU — several seconds per reply",
+			SpeedNote: "usable on CPU, several seconds per reply",
 		}
 	case hw.RAMGB >= 8:
 		return ModelChoice{

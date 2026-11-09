@@ -81,7 +81,7 @@ var grades = map[string]Grade{
 	"scholarly":  {Kind: "scholarly", Score: 5, EN: "scholarly", BG: "научен източник"},
 	"standards":  {Kind: "standards", Score: 4, EN: "standards or documentation", BG: "стандарт или документация"},
 	"news":       {Kind: "news", Score: 4, EN: "news organisation", BG: "новинарска медия"},
-	"reference":  {Kind: "reference", Score: 3, EN: "reference work — check its sources", BG: "справочник — проверете източниците му"},
+	"reference":  {Kind: "reference", Score: 3, EN: "reference work, check its sources", BG: "справочник, проверете източниците му"},
 	"other":      {Kind: "other", Score: 2, EN: "other site", BG: "друг сайт"},
 	"commercial": {Kind: "commercial", Score: 2, EN: "seller or company page", BG: "страница на търговец или фирма"},
 	"forum":      {Kind: "forum", Score: 1, EN: "forum or social media", BG: "форум или социална мрежа"},
@@ -1159,7 +1159,7 @@ func noteIn(c Claim, lang string) string {
 	case Number:
 		return "число, което го няма в посочения източник: " + strings.TrimPrefix(c.Note, "figure not in the cited source: ")
 	case Weak:
-		return "слабо подкрепено — малко от думите му са в посочения източник"
+		return "слабо подкрепено: малко от думите му са в посочения източник"
 	case Unread:
 		return "посоченият източник не можа да бъде прочетен"
 	}
@@ -1200,7 +1200,7 @@ func Render(question, body, lang string, sources []Source, claims []Claim, sum S
 
 		flagged++
 
-		fmt.Fprintf(&b, "- „%s“ — %s\n", strings.TrimSpace(c.Text), noteIn(c, lang))
+		fmt.Fprintf(&b, "- „%s“: %s\n", strings.TrimSpace(c.Text), noteIn(c, lang))
 	}
 
 	switch {
@@ -1234,7 +1234,7 @@ func Render(question, body, lang string, sources []Source, claims []Claim, sum S
 			kind = s.Grade.BG
 		}
 
-		fmt.Fprintf(&b, "%d. [%s](%s) — %s", s.N, mdEscape(s.Title), s.URL, kind)
+		fmt.Fprintf(&b, "%d. [%s](%s), %s", s.N, mdEscape(s.Title), s.URL, kind)
 
 		if s.Date != "" {
 			if lang == "bg" {

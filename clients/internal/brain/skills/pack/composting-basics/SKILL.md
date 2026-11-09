@@ -11,16 +11,16 @@ Compost needs four things: a mix of nitrogen-rich "greens" and carbon-rich "brow
 1. **Collect the facts.** Space (garden, small yard, balcony, indoors), amount and type of waste (kitchen scraps, grass, leaves), time and effort available, local rules (some municipalities collect food waste or provide bins), and pests in the area.
 2. **Choose a method.**
    - Open heap or bay: large gardens, cheap, slower unless turned.
-   - Closed bin on soil: tidy, suits most gardens; takes 6–12 months.
+   - Closed bin on soil: tidy, suits most gardens; takes 6 to 12 months.
    - Tumbler: easier turning, faster, smaller batches.
    - Worm bin (vermicomposting): flats or small spaces, kitchen scraps, kept out of frost and heat.
    - Bokashi: fermenting all kitchen waste in a sealed bucket indoors; the result must then be buried or added to a compost bin to finish.
 3. **Site it.** Level, well-drained spot, partly shaded, easy to reach from the kitchen; bins on bare soil let worms in.
-4. **Balance greens and browns.** Roughly 2–3 parts browns to 1 part greens by volume. Add in layers or mix each addition.
-5. **Manage moisture and air.** Squeeze test: a few drops of water, not a stream. Turn or poke holes every 2–4 weeks for faster results.
+4. **Balance greens and browns.** Roughly 2 to 3 parts browns to 1 part greens by volume. Add in layers or mix each addition.
+5. **Manage moisture and air.** Squeeze test: a few drops of water, not a stream. Turn or poke holes every 2 to 4 weeks for faster results.
 6. **Chop and keep adding.** Smaller pieces break down faster.
 7. **Harvest.** Ready when dark, crumbly, smells earthy and the original materials are unrecognisable; sieve out lumps and return them to the bin.
-8. **Use it.** Spread 2–5 cm on beds, mix into planting holes, or blend with potting mix (about a quarter to a third compost).
+8. **Use it.** Spread 2 to 5 cm on beds, mix into planting holes, or blend with potting mix (about a quarter to a third compost).
 
 ## What goes in
 | Greens (nitrogen) | Browns (carbon) | Keep out |

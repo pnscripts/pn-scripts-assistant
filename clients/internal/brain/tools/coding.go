@@ -112,7 +112,7 @@ func (EditFile) Execute(ctx context.Context, raw json.RawMessage) (string, error
 	case 0:
 		if line, n := nearest(string(body), a.Old); n > 0 {
 			return "", fmt.Errorf("that text is not in %s exactly; line %d is nearly it, and reads, "+
-				"exactly: %s — copy that, quotes and spaces as they are", a.Path, n, line)
+				"exactly: %s. Copy that, quotes and spaces as they are", a.Path, n, line)
 		}
 
 		return "", fmt.Errorf("that text is not in %s; read the file and copy the "+

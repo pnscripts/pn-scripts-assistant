@@ -72,7 +72,7 @@ func (t GodotStatus) Execute(ctx context.Context, _ json.RawMessage) (string, er
 		 * always wants to know what to do about it.
 		 */
 		b.WriteString("Godot is not installed on this machine. " +
-			"It is a single file — download the Linux build from godotengine.org, " +
+			"It is a single file: download the Linux build from godotengine.org, " +
 			"make it executable, and put it in ~/.local/bin. I will find it there.")
 
 		return b.String(), nil
@@ -94,7 +94,7 @@ func (t GodotStatus) Execute(ctx context.Context, _ json.RawMessage) (string, er
 			fmt.Fprintf(&b, "\n\nI could not check for a newer one: %v", err)
 		}
 	} else {
-		b.WriteString("\n\nI have not checked for a newer version — that needs " +
+		b.WriteString("\n\nI have not checked for a newer version; that needs " +
 			"the network, and your privacy setting keeps this machine to itself.")
 	}
 
@@ -204,7 +204,7 @@ func (t GodotDocs) Execute(ctx context.Context, args json.RawMessage) (string, e
 	if t.Online != nil && !t.Online() {
 		return "", fmt.Errorf(
 			"the class reference is on the internet and looking things up is " +
-				"switched off. It is under Permissions — a separate switch from " +
+				"switched off. It is under Permissions, a separate switch from " +
 				"privacy, because a class name says nothing about anybody. Or " +
 				"open the reference in the Godot editor, which ships with it offline")
 	}
@@ -353,7 +353,7 @@ func (GodotBuild) ExecuteShowing(ctx context.Context, args json.RawMessage) (str
 
 	p, ok := adapter.Detect(a.Project)
 	if !ok {
-		return "", nil, fmt.Errorf("%s is not a Godot project — there is no project.godot in it", a.Project)
+		return "", nil, fmt.Errorf("%s is not a Godot project: there is no project.godot in it", a.Project)
 	}
 
 	if _, installed := adapter.Engine(); !installed {

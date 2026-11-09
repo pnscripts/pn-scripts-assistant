@@ -156,7 +156,7 @@
         for (const r of pack.rates || []) {
             const li = document.createElement('li');
             const b = document.createElement('strong');
-            b.textContent = `${r.value} % — ${i ? r.bg : r.en}`;
+            b.textContent = `${r.value} % (${i ? r.bg : r.en})`;
             li.append(b, document.createTextNode(`: ${r.covers[i]} (${r.rule})`));
             ul.append(li);
         }
@@ -200,7 +200,7 @@
             a.textContent = s.title;
             a.addEventListener('click', (e) => { e.preventDefault(); openWhere(s.url); });
 
-            li.append(a, document.createTextNode(` — ${T('books.sourceChecked', { date: s.checked })}${s.in_force ? `, ${T('books.inForce', { date: s.in_force })}` : ''}`));
+            li.append(a, document.createTextNode(`, ${T('books.sourceChecked', { date: s.checked })}${s.in_force ? `, ${T('books.inForce', { date: s.in_force })}` : ''}`));
             src.append(li);
         }
 

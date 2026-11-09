@@ -9,7 +9,7 @@ and I work with the file itself.
 - Spreadsheets (.xlsx) as rows, each sheet under its name, with the numbers
   where they belong.
 - Older formats (.doc, .xls, .ppt, .rtf) when LibreOffice is installed.
-- **Scans and photos** — a scanned contract, a photo of a receipt, a PDF from
+- **Scans and photos**: a scanned contract, a photo of a receipt, a PDF from
   a copier with no text in it. The text is recognised on this computer:
   by Tesseract when it is installed (with its Bulgarian and English data), or
   otherwise by a local model that can see. Recognised text can be wrong, so I
@@ -25,7 +25,7 @@ can see. With your permission I can install them myself.
 - PDF, Word (.docx), plain text and Markdown.
 - **Spreadsheets (.xlsx)** from a table: the first row becomes a bold header
   that stays in view, columns get a sensible width, and numbers become numbers
-  you can add up — 1 200,50 as well as 1200.50. Codes with a leading zero, and
+  you can add up, 1 200,50 as well as 1200.50. Codes with a leading zero, and
   a number like 1,250 that means different things in different countries, are
   kept as text rather than guessed.
 

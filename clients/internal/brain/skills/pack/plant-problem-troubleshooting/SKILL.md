@@ -9,7 +9,7 @@ Most plant problems come from growing conditions (water, light, temperature, soi
 
 ## Steps
 1. **Collect the facts.** Plant name (or a photo), indoor or outdoor, age, where it grows (pot, bed, sun hours), watering habit, recent changes (repotting, moving, weather, fertiliser), which leaves are affected (old/lower or new/upper), pattern of symptoms, and how fast it spread.
-2. **Check water first.** Push a finger 3–5 cm into the soil. Wet and smelly soil, yellow lower leaves and wilting despite moisture point to overwatering or poor drainage. Dry, crispy edges and drooping that recovers after watering point to underwatering.
+2. **Check water first.** Push a finger 3 to 5 cm into the soil. Wet and smelly soil, yellow lower leaves and wilting despite moisture point to overwatering or poor drainage. Dry, crispy edges and drooping that recovers after watering point to underwatering.
 3. **Check light and temperature.** Leggy pale growth: too little light. Bleached or scorched patches on the sunny side: sunburn. Sudden leaf drop: cold draught, heat or a recent move.
 4. **Check soil and nutrients.** Old leaves yellow evenly: often nitrogen shortage. Yellow between veins on new leaves: often iron shortage or alkaline soil (high pH). Blossom-end rot on tomatoes or peppers: usually uneven watering affecting calcium uptake. White crust on pots: salt build-up from fertiliser or hard water.
 5. **Look for pests.** Check under leaves and at growing tips with a magnifier: aphids (clusters of small soft insects), spider mites (fine webbing, speckled leaves), whitefly (tiny white flies when disturbed), scale (brown bumps), slugs and snails (irregular holes, slime trails, mostly at night), caterpillars (holes and droppings).

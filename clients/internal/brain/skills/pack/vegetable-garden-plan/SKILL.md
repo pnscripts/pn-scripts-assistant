@@ -11,14 +11,14 @@ Start small and in the sunniest spot. A well-tended 3 × 3 m bed gives more than
 1. **Collect the facts.** Location and climate (or nearest town), space and size (beds, ground, balcony, containers), hours of direct sun, soil type if known, water access, time available per week, what the household likes to eat, and experience level.
 2. **Find the local frost dates.** Ask the user to look up average last spring and first autumn frost dates for their area (local weather service or gardening association). All timing hangs on these.
 3. **Choose crops for the conditions.**
-   - Full sun (6–8 h+): tomatoes, peppers, aubergines, courgettes, beans, cucumbers.
-   - Partial sun (3–5 h): lettuce, spinach, chard, peas, radishes, herbs such as parsley and mint.
+   - Full sun (6 to 8 h+): tomatoes, peppers, aubergines, courgettes, beans, cucumbers.
+   - Partial sun (3 to 5 h): lettuce, spinach, chard, peas, radishes, herbs such as parsley and mint.
    - Beginners: courgettes, bush beans, lettuce, radishes, cherry tomatoes, herbs.
-   - Containers: choose compact or bush varieties; at least 20–30 litres for a tomato plant.
-4. **Prepare the soil.** Remove weeds, add well-rotted compost (about 3–5 cm on top), avoid digging when soil is wet. A simple soil test helps if growth problems are expected.
-5. **Lay out beds.** Beds about 1–1.2 m wide so the centre is reachable; paths between; tall crops on the side where they will not shade others.
+   - Containers: choose compact or bush varieties; at least 20 to 30 litres for a tomato plant.
+4. **Prepare the soil.** Remove weeds, add well-rotted compost (about 3 to 5 cm on top), avoid digging when soil is wet. A simple soil test helps if growth problems are expected.
+5. **Lay out beds.** Beds about 1 to 1.2 m wide so the centre is reachable; paths between; tall crops on the side where they will not shade others.
 6. **Make a calendar.** For each crop: sow indoors, sow outdoors or plant out, relative to the last frost date. Frost-tender crops (tomatoes, peppers, beans, cucurbits) go out after the last frost when soil has warmed.
-7. **Plan succession and rotation.** Sow quick crops (lettuce, radish) every 2–3 weeks. Rotate families yearly (tomato family, cabbage family, legumes, roots) to reduce pests and disease.
+7. **Plan succession and rotation.** Sow quick crops (lettuce, radish) every 2 to 3 weeks. Rotate families yearly (tomato family, cabbage family, legumes, roots) to reduce pests and disease.
 8. **Plan watering and mulch.** Deep watering at the base, early morning; mulch to keep moisture; containers may need daily water in heat.
 
 ## Example layout (3 × 1.2 m bed, full sun)

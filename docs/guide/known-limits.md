@@ -23,8 +23,8 @@ against the code on 9 November 2026.
   kernel confinement are Linux-only.** Typed conversation, memory, documents,
   mail, research and the other tools work the same.
 - **Confinement.** Without Landlock, work on a project may not run a command
-  written into `cmd /c` or PowerShell — nothing below the program could hold
-  what it writes to the project's folder — so it writes a script into the
+  written into `cmd /c` or PowerShell (nothing below the program could hold
+  what it writes to the project's folder), so it writes a script into the
   project and runs that. Deleting through `cmd` or PowerShell is asked about
   like any deletion.
 - **Telling your voice from others' and reading full web pages in a browser**
@@ -70,7 +70,7 @@ against the code on 9 November 2026.
 
 - **Goal mode** works on its own and asks only before paying, sending or
   publishing in your name, deleting outside the goal's folder, changing the
-  whole system — and before opening a protected file (keys, passwords, the
+  whole system, and before opening a protected file (keys, passwords, the
   vault). While it is on, that applies to conversation turns too, not only to
   goal work.
 - **Everything allowed** ("never stop") means exactly that: nothing is asked,
@@ -87,7 +87,7 @@ against the code on 9 November 2026.
 - **Rules are checked by what an action is and the words it carries**:
   sending, posting, commits, changing files, paying and deleting, the names,
   addresses and words a rule lists, and the days it names. A condition it
-  cannot see — "clients", "late at night" — makes a "never" rule ask you
+  cannot see ("clients", "late at night") makes a "never" rule ask you
   instead of stopping on its own. Clicks and typing in other programs are
   read from their words only. Standing instructions are noticed in English and
   Bulgarian.
@@ -95,8 +95,8 @@ against the code on 9 November 2026.
   sends. A draft you send yourself with the Send button on the Mail page goes
   as you see it; use *Last look before sending* on the Writing page first.
 
-- **Looking after the computer** — leftover processes, stopping them, and
-  whether a restart is safe — reads Linux's own records; on Windows the card
+- **Looking after the computer** (leftover processes, stopping them, and
+  whether a restart is safe) reads Linux's own records; on Windows the card
   says it does not look yet. Work is not yet moved to quiet hours by itself:
   the allowance of a paid coding agent is shown before each task instead.
 
@@ -169,3 +169,12 @@ against the code on 9 November 2026.
 - The *Your voice* card on the Privacy page is still in English on a
   Bulgarian page, apart from what it says when "Answer only me" cannot
   recognise your voice.
+- With the page in Bulgarian, these pages and their names in the menu are
+  still partly in English: Models, System, Operations, The room, Teaching,
+  Organisation, Tasks, Reaching it and Privacy, as are the descriptions of
+  the parts on What it runs on, the one-time recovery key notice, some
+  status lines in the conversation and the names of the built-in skills.
+  Conversation, memory, mail, writing, translation, learning, research,
+  tables, invoices, forms, plans, customers, devices and rules are in
+  Bulgarian. Model descriptions come from the model library as published
+  there.

@@ -134,7 +134,7 @@
 
         if (!quiet && !el('tab-out').value) {
             const path = el('tab-path').value.trim();
-            el('tab-out').value = path.replace(/\.[^./\\]+$/, '') + ` — ${T('tab.resultName')}.xlsx`;
+            el('tab-out').value = path.replace(/\.[^./\\]+$/, '') + ` (${T('tab.resultName')}).xlsx`;
         }
     }
 

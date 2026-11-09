@@ -152,7 +152,7 @@ func TestACriticalStepAsksThroughAGrant(t *testing.T) {
 
 	waiting, _ := db.PendingInvocations()
 
-	if len(waiting) != 1 || !strings.HasPrefix(waiting[0].Summary, "Critical risk — ") {
+	if len(waiting) != 1 || !strings.HasPrefix(waiting[0].Summary, "Critical risk: ") {
 		t.Fatalf("the question does not say how serious it is: %+v", waiting)
 	}
 }
@@ -204,11 +204,11 @@ func TestNeverStopNamesWhatItDidWithoutAsking(t *testing.T) {
 
 	steps, _ := db.Steps(task.ID)
 
-	if !strings.Contains(steps[0].Acted, "Critical — ") {
+	if !strings.Contains(steps[0].Acted, "Critical: ") {
 		t.Errorf("the step does not record what ran unasked: %q", steps[0].Acted)
 	}
 
-	for _, want := range []string{"Done without asking", "Critical — ", "payment.csv"} {
+	for _, want := range []string{"Done without asking", "Critical: ", "payment.csv"} {
 		if !strings.Contains(done.Report, want) || !strings.Contains(spoken.whole(), want) {
 			t.Errorf("the account of the task does not say %q:\n%s", want, done.Report)
 		}

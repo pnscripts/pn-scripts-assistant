@@ -124,7 +124,7 @@ func (t ReadEmail) Execute(_ context.Context, raw json.RawMessage) (string, erro
 	var b strings.Builder
 
 	for _, m := range messages {
-		fmt.Fprintf(&b, "%d. %s — %s (%s)", m.Number, m.From, m.Subject, m.Date)
+		fmt.Fprintf(&b, "%d. %s: %s (%s)", m.Number, m.From, m.Subject, m.Date)
 
 		if v := scam.Check(scam.Message{From: m.From, ReplyTo: m.ReplyTo, Subject: m.Subject}, nil); v.Warns() {
 			b.WriteString(" [scam check: " + v.Level + "]")

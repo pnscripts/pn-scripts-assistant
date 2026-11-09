@@ -26,7 +26,7 @@ Cooking scales well; baking is chemistry and needs more care. Always say which c
 | 1 US cup liquid | 240 ml |
 | 1 tablespoon / teaspoon | 15 ml / 5 ml |
 | 1 oz / 1 lb | 28 g / 454 g |
-| 1 cup plain flour | about 120–130 g |
+| 1 cup plain flour | about 120 to 130 g |
 | 1 cup granulated sugar | about 200 g |
 | 1 cup butter | about 225 g |
 | 180 °C | 350 °F, gas mark 4; fan oven about 160 °C |

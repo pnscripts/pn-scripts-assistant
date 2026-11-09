@@ -768,7 +768,7 @@ func (b *Brain) waitingLine() string {
 func (b *Brain) knowledgeLine() string {
 	facts, err := b.DB.CountFacts()
 	if err != nil || facts == 0 {
-		return "I do not know anything about your work yet — point me at a folder and I will learn it."
+		return "I do not know anything about your work yet. Point me at a folder and I will learn it."
 	}
 
 	return fmt.Sprintf("I know %d things about your work. Ask me anything.", facts)

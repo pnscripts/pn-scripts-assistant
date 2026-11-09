@@ -54,7 +54,7 @@ func (LookAtScreen) Description() string {
 	 */
 	return "Take a picture of the screen and describe what is on it. " +
 		"Slow: it reads an image, so only use it when the answer really is on " +
-		"the screen right now — what a window is showing, what an error says, " +
+		"the screen right now: what a window is showing, what an error says, " +
 		"what the owner is looking at. " +
 		"Never use it to find facts, news, weather, prices or anything from " +
 		"the internet: use web_search for those."

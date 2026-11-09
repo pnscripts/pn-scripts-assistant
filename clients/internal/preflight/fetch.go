@@ -408,6 +408,10 @@ func extractTar(from io.Reader, into string, strip int, w io.Writer) error {
 			return err
 		}
 
+		if err := reallyInside(into, target); err != nil {
+			return err
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0o755); err != nil {
@@ -420,7 +424,13 @@ func extractTar(from io.Reader, into string, strip int, w io.Writer) error {
 
 			files++
 		case tar.TypeSymlink:
-			// Only within the destination, for the same reason as above.
+			// Only within the destination, for the same reason as above. An
+			// absolute target joined to a folder looks inside on paper, so it
+			// is never made at all.
+			if filepath.IsAbs(header.Linkname) {
+				continue
+			}
+
 			if _, err := safeJoin(into, filepath.Join(filepath.Dir(name), header.Linkname)); err != nil {
 				continue
 			}
@@ -444,6 +454,10 @@ func unpackZip(archive, into string, strip int, w io.Writer) error {
 
 	defer r.Close()
 
+	if err := os.MkdirAll(into, 0o755); err != nil {
+		return err
+	}
+
 	files := 0
 
 	for _, entry := range r.File {
@@ -454,6 +468,10 @@ func unpackZip(archive, into string, strip int, w io.Writer) error {
 
 		target, err := safeJoin(into, name)
 		if err != nil {
+			return err
+		}
+
+		if err := reallyInside(into, target); err != nil {
 			return err
 		}
 
@@ -511,6 +529,56 @@ func safeJoin(into, name string) (string, error) {
 	}
 
 	return target, nil
+}
+
+/*
+ * reallyInside is safeJoin for the disk as it is now, links included.
+ *
+ * safeJoin looks at the name alone. A link unpacked earlier can still point a
+ * later name elsewhere: "x" a link to ".", "x/y" a link to "..", then
+ * "x/y/file" is one level above the destination although every name is
+ * inside on paper. So the deepest part of the target's path that already
+ * exists is resolved, links and all, and must still be inside; and a link
+ * already standing where a file or folder goes is removed rather than
+ * written through.
+ */
+func reallyInside(into, target string) error {
+	root, err := filepath.EvalSymlinks(into)
+	if err != nil {
+		return err
+	}
+
+	if info, err := os.Lstat(target); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		if err := os.Remove(target); err != nil {
+			return err
+		}
+	}
+
+	existing := filepath.Dir(target)
+	for {
+		if _, err := os.Lstat(existing); err == nil {
+			break
+		}
+
+		parent := filepath.Dir(existing)
+		if parent == existing {
+			break
+		}
+
+		existing = parent
+	}
+
+	real, err := filepath.EvalSymlinks(existing)
+	if err != nil {
+		return fmt.Errorf("archive entry %s: %w", target, err)
+	}
+
+	rel, err := filepath.Rel(root, real)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return fmt.Errorf("archive entry %s would write outside %s through a link", target, into)
+	}
+
+	return nil
 }
 
 // stripLeading removes the first n path components, which is how these archives

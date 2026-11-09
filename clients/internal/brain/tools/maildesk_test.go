@@ -38,7 +38,7 @@ func TestTheDigestSortsThunderbirdsInbox(t *testing.T) {
 	}
 
 	for _, want := range []string{"From Thunderbird on this computer: 2 messages", "From people (1)",
-		"[local:ImapMail/imap.example.com/INBOX:3] Plugin Review — Проверка of your plugin",
+		"[local:ImapMail/imap.example.com/INBOX:3] Plugin Review: Проверка of your plugin",
 		"Newsletters and notifications (1): Grid Operator"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in\n%s", want, out)

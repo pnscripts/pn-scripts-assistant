@@ -152,7 +152,7 @@
             const strong = document.createElement('strong');
             strong.textContent = T(`sk.kind.${f.kind}`);
 
-            li.append(strong, document.createTextNode(`: ${f.path} — ${f.exists ? T('sk.found', { n: f.skills }) : T('sk.missing')}`));
+            li.append(strong, document.createTextNode(`: ${f.path}, ${f.exists ? T('sk.found', { n: f.skills }) : T('sk.missing')}`));
             ul.append(li);
         }
 

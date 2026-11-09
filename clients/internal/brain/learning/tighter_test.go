@@ -247,6 +247,8 @@ func TestThePathIsFoundInWhatItWrote(t *testing.T) {
 			"/home/alex/cv.pdf"},
 		{`Alex has a PDF at /home/alex/scan.pdf and there is nothing in it worth remembering — it holds no readable text.`,
 			"/home/alex/scan.pdf"},
+		{`Alex has a PDF at /home/alex/scan.pdf and there is nothing in it worth remembering: it holds no readable text.`,
+			"/home/alex/scan.pdf"},
 		{`Alex prefers Laravel over Python.`, ""},
 		{`He works at home, mostly in the evening.`, ""},
 	}

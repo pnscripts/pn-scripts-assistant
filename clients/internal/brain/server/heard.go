@@ -122,7 +122,7 @@ func why(h Overheard, addressed bool, wakeWord string) string {
 		 * two problems, two fixes, and one of them is not the microphone.
 		 */
 		if near := wake.NearMiss(h.Text, wakeWord); near != "" {
-			return fmt.Sprintf("no name in it — %q was close but not close enough", near)
+			return fmt.Sprintf("no name in it: %q was close but not close enough", near)
 		}
 
 		return "no name in it"

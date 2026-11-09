@@ -40,7 +40,7 @@
 
         const clock = (d) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-        return day + ' ' + clock(starts) + '–' + clock(ends);
+        return day + ' ' + clock(starts) + ' to ' + clock(ends);
     }
 
     function eventRow(event) {

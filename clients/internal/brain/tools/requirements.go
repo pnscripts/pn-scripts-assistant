@@ -38,7 +38,7 @@ type CheckRequirements struct {
 func (CheckRequirements) Name() string { return "check_requirements" }
 
 func (CheckRequirements) Description() string {
-	return "Say what a capability package needs on this machine — engines, runtimes, tools — " +
+	return "Say what a capability package needs on this machine (engines, runtimes, tools) " +
 		"and whether each is here in a version that will do. Give a package id " +
 		"(software.game.godot) or one recipe (godot, node)."
 }
@@ -133,7 +133,7 @@ func StatusLine(s provision.Status, optional bool, why string) string {
 	}
 
 	if why != "" {
-		line += " — " + why
+		line += "; " + why
 	}
 
 	if optional {
@@ -221,7 +221,7 @@ func (t InstallRequirement) Summarize(args json.RawMessage) string {
 
 	r, ok := t.Provisioning.Recipes().Get(a.Recipe)
 	if !ok {
-		return "Install " + a.Recipe + " (no such recipe — this will fail)"
+		return "Install " + a.Recipe + " (no such recipe, so this will fail)"
 	}
 
 	s := r.Check(a.Versions)
@@ -242,7 +242,7 @@ func (t InstallRequirement) Summarize(args json.RawMessage) string {
 		parts = append(parts, "asks for your password")
 	}
 
-	return strings.Join(parts, " — ")
+	return strings.Join(parts, "; ")
 }
 
 func (t InstallRequirement) Execute(_ context.Context, args json.RawMessage) (string, error) {

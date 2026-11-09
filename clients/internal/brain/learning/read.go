@@ -677,7 +677,7 @@ func NothingInside(path, owner, why string) Observation {
 
 	return Observation{
 		Content: fmt.Sprintf("%s has a %s at %s and there is nothing in it worth "+
-			"remembering — %s.", owner, KindOf(path), path, why),
+			"remembering: %s.", owner, KindOf(path), path, why),
 		Source: ReadingSource(path),
 	}
 }

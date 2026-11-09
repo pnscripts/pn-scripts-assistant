@@ -141,11 +141,11 @@
         let text = s.title + (s.wanted ? ' ' + s.wanted : '');
 
         if (s.present && s.compatible) {
-            text += ' — here' + (s.version ? ' (' + s.version + ')' : '');
+            text += ': here' + (s.version ? ' (' + s.version + ')' : '');
         } else if (s.present) {
-            text += ' — ' + s.problem;
+            text += ': ' + s.problem;
         } else {
-            text += ' — not here';
+            text += ': not here';
         }
 
         if (need.optional) text += ' · optional';
@@ -178,11 +178,11 @@
                 const role = p.role || {};
 
                 item.appendChild(node('p', 'note', 'Hires a ' + (role.title || '').toLowerCase() + ' who may use: '
-                    + ((role.tools || []).join(', ') || 'nothing — judgement only')
+                    + ((role.tools || []).join(', ') || 'nothing, judgement only')
                     + ((role.never || []).length ? '; never ' + role.never.join(', ') : '')));
 
                 for (const need of p.requires || []) {
-                    item.appendChild(node('p', 'note tiny', 'needs ' + statusLine(need) + ' — ' + need.why));
+                    item.appendChild(node('p', 'note tiny', 'needs ' + statusLine(need) + ', ' + need.why));
                 }
 
                 for (const limit of p.limits || []) {
@@ -228,8 +228,8 @@
 
                 // Installed is not usable: a licence that will not let it work
                 // unattended is said, not hidden behind "here".
-                if (s.present && s.licence_state === 'inactive') here += ' — installed, not licensed to work unattended';
-                if (s.present && s.licence_state === 'unknown') here += ' — whether it is licensed is not known';
+                if (s.present && s.licence_state === 'inactive') here += ', installed, not licensed to work unattended';
+                if (s.present && s.licence_state === 'unknown') here += ', whether it is licensed is not known';
 
                 row.appendChild(node('span', 'equip-title', s.title));
                 row.appendChild(node('span', 'note tiny', here + ' · ' + s.kind));
@@ -315,7 +315,7 @@
 
                 for (const t of v.tools || []) {
                     item.appendChild(node('p', 'note tiny', (t.read_only ? 'reads only · ' : 'asks first · ') + t.as
-                        + (t.description ? ' — ' + t.description : '') + (t.hint ? ' (' + t.hint + ')' : '')));
+                        + (t.description ? ': ' + t.description : '') + (t.hint ? ' (' + t.hint + ')' : '')));
                 }
 
                 const actions = node('div', 'org-actions');
@@ -379,7 +379,7 @@
                 }
 
                 const line = node('p', 'note tiny' + (e.ok ? '' : ' equip-limit'),
-                    e.kind + ': ' + e.subject + (e.detail ? ' — ' + e.detail.split('\n')[0] : ''));
+                    e.kind + ': ' + e.subject + (e.detail ? ', ' + e.detail.split('\n')[0] : ''));
 
                 box.appendChild(line);
             }

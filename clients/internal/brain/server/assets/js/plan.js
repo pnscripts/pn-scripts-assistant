@@ -132,7 +132,7 @@
             const when = document.createElement('span');
             when.className = 'plan-when';
             when.textContent = c.kind === 'todo' || c.all_day ? T('plan.allDay')
-                : c.kind === 'reminder' ? clock(at) : `${clock(at)}–${clock(new Date(c.ends))}`;
+                : c.kind === 'reminder' ? clock(at) : T('plan.range', { from: clock(at), to: clock(new Date(c.ends)) });
 
             const what = document.createElement('span');
             what.className = 'plan-what';

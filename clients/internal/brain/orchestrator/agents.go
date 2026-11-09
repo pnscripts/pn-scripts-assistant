@@ -109,7 +109,7 @@ func ClaudeCode(db *store.DB) Resource {
 	}
 
 	if !status.LoggedIn {
-		r.State, r.Why = AuthRequired, "not signed in — its owner runs claude and signs in (it asks in the browser)"
+		r.State, r.Why = AuthRequired, "not signed in: its owner runs claude and signs in (it asks in the browser)"
 		r.Evidence = Verified
 
 		return r
@@ -176,7 +176,7 @@ func Codex(db *store.DB) Resource {
 	case strings.Contains(out, "Logged in"):
 		r.State, r.Evidence = Available, Verified
 	case strings.Contains(strings.ToLower(out), "not logged in"):
-		r.State, r.Why, r.Evidence = AuthRequired, "not signed in — its owner signs in to Codex", Verified
+		r.State, r.Why, r.Evidence = AuthRequired, "not signed in: its owner signs in to Codex", Verified
 
 		return r
 	default:
@@ -311,7 +311,7 @@ func applyUsage(r *Resource, u *store.Usage) {
 		r.State, r.Why = State(u.State), u.Detail
 
 		if !u.ResetsAt.IsZero() {
-			r.Why += " — until " + u.ResetsAt.Local().Format("2 Jan 15:04")
+			r.Why += ", until " + u.ResetsAt.Local().Format("2 Jan 15:04")
 		}
 	}
 }

@@ -249,7 +249,7 @@ func ChooseEngine(options []EngineOption, request string, strongCoder bool) Engi
 	c.Reasons = append([]string{"asked for: " + w.String()}, c.Reasons...)
 
 	if w.HighEnd && !chosen.HighEnd {
-		c.Reasons = append(c.Reasons, "nothing usable here is built for high-end graphics, so this is the nearest — not the same")
+		c.Reasons = append(c.Reasons, "nothing usable here is built for high-end graphics, so this is the nearest, not the same")
 	}
 
 	return c

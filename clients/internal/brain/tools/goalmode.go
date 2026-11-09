@@ -50,19 +50,19 @@ const UnusedForDays = 30
  */
 func GoalModeConsent(bulgarian bool) string {
 	if bulgarian {
-		return "Работя по целите ви сам — планирам, избирам специалисти и модели, изтеглям нужните модели, " +
+		return "Работя по целите ви сам: планирам, избирам специалисти и модели, изтеглям нужните модели, " +
 			"инструменти и интеграции от доверени източници с проверка, работя в отделна папка за всяка цел и ви " +
 			"давам отчет. За това изтеглям от интернет дори когато поверителността е „нищо не напуска този " +
-			"компютър“; при тези изтегляния не изпращам нищо за вас — нито разговори, нито файлове, нито лични " +
+			"компютър“; при тези изтегляния не изпращам нищо за вас: нито разговори, нито файлове, нито лични " +
 			"данни. Всичко останало следва настройката ви за поверителност. Изтегленото от мен, което не е " +
 			"ползвано 30 дни, премахвам сам. Питам ви само преди плащане или платена услуга, изпращане или " +
 			"публикуване от ваше име, изтриване на файлове извън папката на целта и промяна на цялата система."
 	}
 
-	return "I work on your goals on my own — I plan, choose specialists and models, download the models, tools " +
+	return "I work on your goals on my own: I plan, choose specialists and models, download the models, tools " +
 		"and integrations I need from trusted sources with checks, work in a separate folder for each goal and " +
 		"report to you. For this I download from the internet even when privacy is set to \"nothing leaves " +
-		"this machine\"; these downloads send nothing about you — no conversations, files or personal data. " +
+		"this machine\"; these downloads send nothing about you: no conversations, files or personal data. " +
 		"Everything else follows your privacy setting. What I downloaded and have not used for 30 days I " +
 		"remove on my own. I ask you only before a payment or a paid service, sending or publishing in your " +
 		"name, deleting files outside the goal's folder, and changing the whole system."

@@ -32,7 +32,7 @@
             case 'planning': return 'working out what to do';
             case 'working': return 'working';
             case 'waiting': return task.blocked_because || 'waiting for you';
-            case 'blocked': return 'stopped — ' + (task.blocked_because || 'it could not go on');
+            case 'blocked': return 'stopped: ' + (task.blocked_because || 'it could not go on');
             case 'stopped': return 'you stopped it';
             case 'done': return 'finished';
             default: return task.state;
@@ -66,7 +66,7 @@
             return 'checked against what the tools returned'
                 + (step.checked_by ? ' · ' + step.checked_by : '');
         }
-        if (step.verdict === 'claimed') return 'its own word for it — nothing was looked up';
+        if (step.verdict === 'claimed') return 'its own word for it, nothing was looked up';
         if (step.verdict === 'unmet') return step.why || 'it did not do what the step was for';
         return '';
     }
@@ -302,7 +302,7 @@
                 open_.textContent = child ? child.name : 'task ' + step.handed_to;
                 open_.addEventListener('click', () => { open = step.handed_to; refresh(); });
 
-                link.append('handed on: ', open_, child ? ' — ' + stateOf(child) : '');
+                link.append('handed on: ', open_, child ? ' (' + stateOf(child) + ')' : '');
                 body.appendChild(link);
             }
 
@@ -393,7 +393,7 @@
             const row = document.createElement('button');
             row.type = 'button';
             row.className = 'tasks-now-row';
-            row.textContent = task.name + ' — ' + stateOf(task);
+            row.textContent = task.name + ': ' + stateOf(task);
             row.addEventListener('click', () => {
                 open = task.id;
                 document.querySelector('.nav-item[data-view="tasks"]')?.click();
@@ -435,7 +435,7 @@
                 if (!seat.key) return;
                 const holders = inIt.map((s) => s.who.toLowerCase()).join(' and ');
                 waitingFor[seat.key] = 'waiting for ' + lane.name +
-                    (holders ? ' — the ' + holders + (inIt.length > 1 ? ' have' : ' has') + ' it' : '') +
+                    (holders ? ', the ' + holders + (inIt.length > 1 ? ' have' : ' has') + ' it' : '') +
                     (i > 0 ? ', ' + i + ' ahead' : '');
             });
 
@@ -450,7 +450,7 @@
             row.appendChild(name);
 
             row.append(': ' + (inIt.length
-                ? inIt.map((s) => s.who + ' — ' + s.what).join('; ')
+                ? inIt.map((s) => s.who + ': ' + s.what).join('; ')
                 : 'free'));
 
             if (behind.length) {

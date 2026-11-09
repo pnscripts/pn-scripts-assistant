@@ -58,8 +58,8 @@ type WhatItNeeds struct {
 func (WhatItNeeds) Name() string { return "what_this_machine_needs" }
 
 func (WhatItNeeds) Description() string {
-	return "List every piece this assistant runs on — Ollama, the models, the voice, " +
-		"the recogniser, Godot — with whether each is installed, what it is for, what " +
+	return "List every piece this assistant runs on (Ollama, the models, the voice, " +
+		"the recogniser, Godot) with whether each is installed, what it is for, what " +
 		"stops working without it and how large the download is. Use when asked what is " +
 		"missing, what is installed, why something does not work, or before installing " +
 		"anything, so the answer names what is actually on this machine."
@@ -89,7 +89,7 @@ func (t WhatItNeeds) Execute(context.Context, json.RawMessage) (string, error) {
 			missing++
 		}
 
-		fmt.Fprintf(&b, "%s — %s\n", p.Name, p.State)
+		fmt.Fprintf(&b, "%s: %s\n", p.Name, p.State)
 		fmt.Fprintf(&b, "  what it is for: %s\n", p.Why)
 
 		if p.Detail != "" {
@@ -144,7 +144,7 @@ func (InstallPart) Name() string { return "install_a_part" }
 
 func (InstallPart) Description() string {
 	return "Install one of the pieces this assistant runs on, by its exact name from " +
-		"what_this_machine_needs — for example \"Voice (listening)\" or \"Godot (making " +
+		"what_this_machine_needs, for example \"Voice (listening)\" or \"Godot (making " +
 		"games)\". It downloads in the background and appears under Activity. Check " +
 		"what_this_machine_needs first, so you install the right name and can say what " +
 		"it costs."
@@ -352,7 +352,7 @@ func (RemovePart) Name() string { return "remove_a_part" }
 
 func (RemovePart) Description() string {
 	return "Take one of the pieces this assistant installed back off the machine, by " +
-		"its exact name from what_this_machine_needs — for example \"Godot (making " +
+		"its exact name from what_this_machine_needs, for example \"Godot (making " +
 		"games)\". Only works for pieces this program installed; the ones that came " +
 		"with the system are not ours to remove. Say what will stop working first."
 }
@@ -382,7 +382,7 @@ func (t RemovePart) Summarize(raw json.RawMessage) string {
 	if t.Parts != nil {
 		for _, p := range t.Parts() {
 			if p.Name == a.Name && p.Consequence != "" {
-				return "remove " + a.Name + " — then " + p.Consequence
+				return "remove " + a.Name + "; then " + p.Consequence
 			}
 		}
 	}

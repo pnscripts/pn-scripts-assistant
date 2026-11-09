@@ -26,9 +26,9 @@ Edit in a fixed order so later steps do not undo earlier ones. Keep the original
 ## Export presets
 | Destination | Format | Size | Colour |
 |---|---|---|---|
-| Web and email | JPEG quality 80–85 | long edge 2048 px | sRGB |
-| Social feed | JPEG quality 85–90 | 1080 px wide (4:5 → 1080×1350) | sRGB |
-| Print lab | JPEG quality 95–100 or TIFF | print size × 300 ppi | sRGB or the lab's profile |
+| Web and email | JPEG quality 80 to 85 | long edge 2048 px | sRGB |
+| Social feed | JPEG quality 85 to 90 | 1080 px wide (4:5 → 1080×1350) | sRGB |
+| Print lab | JPEG quality 95 to 100 or TIFF | print size × 300 ppi | sRGB or the lab's profile |
 | Archive or further editing | TIFF 16-bit or original RAW | full | Adobe RGB or ProPhoto |
 
 ## Example

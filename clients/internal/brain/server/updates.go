@@ -166,7 +166,7 @@ func cloudPart(configured bool, model string) Part {
 
 	return Part{
 		Name: model, Status: "configured", Cost: "billed by usage",
-		Note: "The one paid part. Charged per token by the provider — see their pricing " +
+		Note: "The one paid part. Charged per token by the provider: see their pricing " +
 			"page for current rates; a rate printed here would go out of date silently.",
 	}
 }

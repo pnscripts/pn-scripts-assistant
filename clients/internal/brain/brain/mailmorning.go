@@ -109,7 +109,7 @@ func morningWords(lang string, reply, suspicious, people, bulk, drafts, total in
 		}
 
 		if suspicious > 0 {
-			parts = append(parts, fmt.Sprintf("подозрителни: %d — не действайте по тях без проверка", suspicious))
+			parts = append(parts, fmt.Sprintf("подозрителни: %d (не действайте по тях без проверка)", suspicious))
 		}
 
 		if bulk > 0 {
@@ -119,7 +119,7 @@ func morningWords(lang string, reply, suspicious, people, bulk, drafts, total in
 		line := strings.Join(parts, "; ") + "."
 
 		if drafts > 0 {
-			line += fmt.Sprintf(" Подготвени отговори, които чакат вашето „да“: %d — на страницата „Поща“.", drafts)
+			line += fmt.Sprintf(" Подготвени отговори, които чакат вашето „да“: %d (на страницата „Поща“).", drafts)
 		}
 
 		return line
@@ -140,7 +140,7 @@ func morningWords(lang string, reply, suspicious, people, bulk, drafts, total in
 	}
 
 	if suspicious > 0 {
-		parts = append(parts, fmt.Sprintf("%d look suspicious — do not act on them without checking", suspicious))
+		parts = append(parts, fmt.Sprintf("%d look suspicious (do not act on them without checking)", suspicious))
 	}
 
 	if bulk > 0 {

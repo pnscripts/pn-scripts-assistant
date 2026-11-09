@@ -7,7 +7,7 @@ models are used for different things: one that answers and does the work, and a
 small one (`nomic-embed-text`) that turns text into vectors so that memory can
 be searched by meaning rather than by keyword.
 
-What it chooses depends on what it measured about the machine — cores, memory,
+What it chooses depends on what it measured about the machine: cores, memory,
 whether there is a graphics card. On four cores with no card it picks a 7B
 model and tells you it will be slow, rather than picking something large and
 leaving you to discover it.
@@ -19,13 +19,13 @@ may call, what it remembers that is relevant, and the conversation so far.
 Measured here: **6,338 tokens** for "say hello" with 39 tools offered.
 
 Ollama's own window is 4,096 tokens and it discards what does not fit, silently
-and from the beginning — which is where the instructions are. Until 0.1.0 that
+and from the beginning, which is where the instructions are. Until 0.1.0 that
 was happening on every turn: the model was handed the tail of a tool list and
 a question, and behaved exactly as something would that had never been told
 what it was.
 
 Each request now asks for a window sized to itself, rounded up to a step,
-capped by how much memory the machine has, and never shrunk back within a run —
+capped by how much memory the machine has, and never shrunk back within a run,
 because Ollama reloads the model whenever the window changes, and the reload
 throws away everything it had already read.
 
@@ -34,7 +34,7 @@ faster than the first.
 
 ## What it knows about your machine
 
-Every turn carries a short inventory — what is installed, what is here but not
+Every turn carries a short inventory: what is installed, what is here but not
 ready, and what is missing:
 
 ```
@@ -54,7 +54,7 @@ press **Look again** or switch something off.
 
 The tools it is offered for a given turn are chosen from the same reading: what
 every turn needs, what this conversation has already used, what your message
-plausibly needs, and a budget — because every tool description is read again on
+plausibly needs, and a budget, because every tool description is read again on
 every turn, and on a machine with no graphics card that is minutes.
 
 ## Hosted models
@@ -72,7 +72,7 @@ why it only leaves when privacy is set to `open`.
 
 ## Who writes code
 
-For real work — building a project, writing a game — the choice is made per
+For real work (building a project, writing a game) the choice is made per
 piece of work: Claude Code or Codex on your own subscription first, then a
 model on this machine. It switches before a limit is hit and falls back when a
 service is signed out, and every decision and switch is recorded as evidence

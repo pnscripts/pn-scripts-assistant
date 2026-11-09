@@ -13,7 +13,7 @@ Every unsolicited message is checked before anything is done because of it. The 
 ## Steps
 1. Name the trick if there is one. The common ones:
    - Pretending to be a known company: a display name or link that says PayPal, Apple, Microsoft, Google, Amazon, a bank, a courier or a store, on a domain that is not that company's own (paypa1-secure.com, apple.com.account-check.io, an address @gmail.com).
-   - Pressure: suspended, locked, expires today, final notice, act now — combined with a request for a password, a one-time code, a payment, gift cards, crypto, bank details, remote access or installing something.
+   - Pressure: suspended, locked, expires today, final notice, act now, combined with a request for a password, a one-time code, a payment, gift cards, crypto, bank details, remote access or installing something.
    - An unexpected invoice, delivery fee, customs fee, prize, refund, inheritance, job offer, buyer, partnership or acquisition offer that needs money, data, an install or a click first.
    - Replies that go somewhere other than the sender, or a request to continue on Telegram or WhatsApp.
    - Links that hide where they go: shorteners, bare IP addresses, look-alike letters (xn--), or user@host addresses.

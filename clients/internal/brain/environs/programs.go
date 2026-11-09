@@ -176,7 +176,7 @@ func find(p Program) (where, why string) {
 				return at, ""
 
 			case err == nil && !info.IsDir():
-				return "", "it is at " + at + " and is not executable — chmod +x " + at
+				return "", "it is at " + at + " and is not executable: chmod +x " + at
 
 			case os.IsPermission(err):
 				return "", "it may be at " + at + ", which this user may not read"

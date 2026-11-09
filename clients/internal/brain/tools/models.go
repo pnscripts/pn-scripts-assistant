@@ -88,7 +88,7 @@ func (t ListModels) Execute(ctx context.Context, _ json.RawMessage) (string, err
 		fmt.Fprintf(&b, "  %s (%s)", m.Name, m.Size)
 
 		if role, ok := job[m.Name]; ok {
-			fmt.Fprintf(&b, " — %s", role)
+			fmt.Fprintf(&b, " (%s)", role)
 		}
 
 		b.WriteString("\n")

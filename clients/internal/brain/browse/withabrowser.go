@@ -73,7 +73,7 @@ func shotWithABrowser(ctx context.Context, url string, seconds int, png string) 
 	browser := browserHere()
 	if browser == "" {
 		return Shot{}, fmt.Errorf("this build has no WebKit in it and there is no browser " +
-			"on this machine to use instead — install Chromium, or build with cgo")
+			"on this machine to use instead: install Chromium, or build with cgo")
 	}
 
 	if seconds <= 0 {

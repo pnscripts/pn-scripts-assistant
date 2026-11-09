@@ -16,7 +16,7 @@ Most seasonal breakdowns are predictable: weak batteries in the cold, overheatin
 
 ## Winter checklist
 - Tyres: winter or all-season tyres with adequate tread (many experts advise at least about 4 mm for winter; check the legal minimum locally); correct pressure, checked when cold, as pressure drops in the cold.
-- Battery: test if older than 3–4 years; clean terminals.
+- Battery: test if older than 3 to 4 years; clean terminals.
 - Coolant/antifreeze: correct mixture and level; have the freeze protection tested.
 - Screen wash: winter mix rated for local temperatures.
 - Wipers and lights: replace streaking blades; all bulbs and headlight lenses clean.

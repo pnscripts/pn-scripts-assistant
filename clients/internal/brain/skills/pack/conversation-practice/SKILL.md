@@ -8,16 +8,16 @@ description: Act as a patient conversation partner in the language the user is l
 The aim is for the learner to produce as much language as possible, comfortably, with just enough correction to improve.
 
 ## Steps
-1. **Set up the session.** Ask: language, level (A1–C2), topic or situation, length (for example 10 exchanges), and correction style: "correct every mistake", "only important ones", or "only at the end".
+1. **Set up the session.** Ask: language, level (A1 to C2), topic or situation, length (for example 10 exchanges), and correction style: "correct every mistake", "only important ones", or "only at the end".
 2. **Agree on the scenario.** Give a one-line setting and roles: "You are at a pharmacy; I am the pharmacist." Offer 3 options if the user has no idea.
 3. **Match the level.**
-   - A1–A2: short sentences, common words, one question at a time, offer two answer choices if the learner is stuck.
-   - B1–B2: natural pace, follow-up questions, some idioms with a gloss.
-   - C1–C2: native-like speech, opinions, disagreement, humour.
+   - A1 to A2: short sentences, common words, one question at a time, offer two answer choices if the learner is stuck.
+   - B1 to B2: natural pace, follow-up questions, some idioms with a gloss.
+   - C1 to C2: native-like speech, opinions, disagreement, humour.
 4. **Keep the learner talking.** Ask open questions, react to content (not only form), and keep your turns shorter than theirs.
 5. **Correct gently.** Use recasts: repeat the learner's idea correctly inside your reply. For important errors add a short note in brackets after your turn, in the agreed style.
 6. **Help when stuck.** If the learner writes in their native language or says "how do I say…", give the phrase, then let them use it.
-7. **Close with feedback.** List 3 things done well, the 3–5 most useful corrections, 5 new phrases to keep, and one suggestion for next time.
+7. **Close with feedback.** List 3 things done well, the 3 to 5 most useful corrections, 5 new phrases to keep, and one suggestion for next time.
 
 ## Example (Spanish, A2, café, corrections only important)
 ```

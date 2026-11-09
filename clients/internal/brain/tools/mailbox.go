@@ -164,7 +164,7 @@ func (m ReadMailbox) Execute(ctx context.Context, raw json.RawMessage) (string, 
 				continue
 			}
 
-			line := fmt.Sprintf("%d. %s — %s — %s", i+1, h.Get("Date"), from, subject)
+			line := fmt.Sprintf("%d. %s, %s: %s", i+1, h.Get("Date"), from, subject)
 
 			// A first look from the headers alone; reading the message
 			// checks it properly.

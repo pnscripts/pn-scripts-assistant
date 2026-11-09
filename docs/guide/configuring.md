@@ -11,7 +11,7 @@ Press the Ubuntu key, type the first letters of the name, press Return. Setup
 opens by itself and asks three things:
 
 1. **Where the brain lives.** Any folder, on any drive. A memory on an external
-   disk can be unplugged, carried to another machine and opened there — the
+   disk can be unplugged, carried to another machine and opened there: the
    program finds it by a marker file rather than by a remembered path.
 2. **Which model does the thinking.** It looks for Ollama, says what is
    installed, and offers to install one that suits this machine. What it
@@ -27,7 +27,7 @@ Nothing changes until the last screen.
 `pn-scripts-assistant setup` opens the same wizard. Or use the System tab in
 the window, which has the same settings one at a time, plus:
 
-- **Privacy** — `private` (nothing leaves), `research` (search queries only),
+- **Privacy**: `private` (nothing leaves), `research` (search queries only),
   `open` (hosted models allowed). In open mode, your messages and the memory
   recalled for that turn are sent to the hosted provider you chose; the memory
   database itself stays on your machine. In `private` and `research` no memory
@@ -36,7 +36,7 @@ the window, which has the same settings one at a time, plus:
   download its own parts, such as the voice recognition runtime after an
   update. Those downloads carry nothing about you; switch that setting off
   for a machine that must not reach the internet at all.
-- **Permissions** — *act freely* by default: it does what you ask without
+- **Permissions**: *act freely* by default: it does what you ask without
   stopping to confirm, and writes down everything it does. *Ask about what I
   have not allowed* and *ask every time* are the other two.
 
@@ -49,7 +49,7 @@ the window, which has the same settings one at a time, plus:
 - **The applications menu**, if you built the program yourself rather than
   installing the package. Installed from the package it is already there and
   the button says so.
-- **What is on this machine** — every language, engine, editor, coding agent,
+- **What is on this machine**: every language, engine, editor, coding agent,
   browser and tool it found, with its version and whether it is ready. This is
   the same list the assistant is given when it answers, so the panel and the
   program cannot disagree about whether Godot is installed.
@@ -58,8 +58,8 @@ the window, which has the same settings one at a time, plus:
 
 Everything found is available; nothing has to be enabled. If you would rather
 the assistant left something alone, press **Do not use** beside it in *What is
-on this machine*. That takes away the tools that depend on it too — switch off
-Godot and it stops offering to build Godot projects — and the permissions panel
+on this machine*. That takes away the tools that depend on it too (switch off
+Godot and it stops offering to build Godot projects), and the permissions panel
 says which decision put a capability out of reach, rather than leaving you to
 guess between a privacy setting and your own.
 
@@ -82,6 +82,6 @@ For the few things that have to be decided before the program starts:
 ## The settings file
 
 `brain.conf`, inside the brain's own folder rather than beside the program,
-because it describes *this brain* and not this installation — move the drive to
+because it describes *this brain* and not this installation: move the drive to
 another machine and the settings go with it. It is readable only by you, and so
 is the database beside it.

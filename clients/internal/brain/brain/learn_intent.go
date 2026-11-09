@@ -188,7 +188,7 @@ func (b *Brain) handleLearnInstruction(ctx context.Context, message string) (str
 	 */
 	if len(observations) > learning.ManyToLearn {
 		progress.Set("learning", fmt.Sprintf(
-			"Learning from %s — %d things, about %d minutes",
+			"Learning from %s: %d things, about %d minutes",
 			filepath.Base(target.Path), len(observations),
 			(len(observations)*learning.SecondsEachHere)/60))
 	}
@@ -206,7 +206,7 @@ func (b *Brain) handleLearnInstruction(ctx context.Context, message string) (str
 	 * so their sum is what has actually been dealt with.
 	 */
 	report, err := b.Learner.Ingest(ctx, observations, func(done learning.IngestReport) {
-		progress.Progressing("learning", fmt.Sprintf("Learning from %s — %d of %d",
+		progress.Progressing("learning", fmt.Sprintf("Learning from %s: %d of %d",
 			filepath.Base(target.Path),
 			done.Recorded+done.Rejected, len(observations)))
 	})
@@ -304,7 +304,7 @@ func describeLearning(path string, scanned int, report learning.IngestReport) st
 	}
 
 	if len(parts) == 0 {
-		return fmt.Sprintf("I read %s — %d things — and none of them were worth keeping.", path, scanned)
+		return fmt.Sprintf("I read %s (%d things) and none of them were worth keeping.", path, scanned)
 	}
 
 	return fmt.Sprintf("I read %s and found %d things. Of those, %s.",
@@ -343,13 +343,13 @@ func (b *Brain) learnFromPage(ctx context.Context, link string) (string, bool) {
 
 	if len(text) < 200 {
 		return fmt.Sprintf(
-			"I fetched %s but there was almost no readable text on it — "+
+			"I fetched %s but there was almost no readable text on it, "+
 				"probably a page that builds itself in the browser. "+
 				"If you can point me at a plain article or a file, I can read that.", link), true
 	}
 
 	report, err := b.Learner.LearnFromText(ctx, text, link, func(at, total int) {
-		progress.Set("learning", fmt.Sprintf("Reading %s — passage %d of %d", link, at, total))
+		progress.Set("learning", fmt.Sprintf("Reading %s: passage %d of %d", link, at, total))
 	})
 	if err != nil {
 		return fmt.Sprintf("I read %s but could not finish learning from it: %v", link, err), true
@@ -357,7 +357,7 @@ func (b *Brain) learnFromPage(ctx context.Context, link string) (string, bool) {
 
 	if report.Recorded == 0 {
 		return fmt.Sprintf(
-			"I read %s — %d passages — and found nothing worth keeping. "+
+			"I read %s (%d passages) and found nothing worth keeping. "+
 				"Is there something in particular on it you wanted me to take away?",
 			link, report.Seen), true
 	}
@@ -366,7 +366,7 @@ func (b *Brain) learnFromPage(ctx context.Context, link string) (string, bool) {
 	// writing, and which parts of it are worth the brain believing is a
 	// question with only one person who can answer it.
 	return fmt.Sprintf(
-		"I read %s and put %d things in your review queue — they are on the command centre "+
+		"I read %s and put %d things in your review queue. They are on the command centre "+
 			"under \"Waiting for you\". Would you like to go through them now, or shall I "+
 			"read more of the site first?",
 		link, report.Recorded), true

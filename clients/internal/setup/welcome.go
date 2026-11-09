@@ -104,8 +104,8 @@ func (s *Server) welcomeInWords(ctx context.Context) string {
 	provider := llm.NewOllama(cfg.OllamaURL, model, cfg.EmbedModel)
 
 	return wording.Say(ctx, provider, model, wording.Want{
-		Brief: "the opening of a setup wizard: what this program is — a private " +
-			"assistant that keeps everything on this computer — and what it will " +
+		Brief: "the opening of a setup wizard: what this program is (a private " +
+			"assistant that keeps everything on this computer) and what it will " +
 			"be able to work with here, naming two or three of the things found",
 		Facts: map[string]any{
 			"what is on this machine": here,

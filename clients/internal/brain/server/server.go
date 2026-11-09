@@ -2075,7 +2075,7 @@ func (s *Server) handleEmbeddingUse(w http.ResponseWriter, r *http.Request) {
 		defer progress.Done()
 
 		count, err := s.brain.ReEmbed(context.Background(), body.Name, func(done, total int) {
-			progress.Set("embedding", fmt.Sprintf("Re-indexing memories with %s — %d of %d",
+			progress.Set("embedding", fmt.Sprintf("Re-indexing memories with %s: %d of %d",
 				body.Name, done, total))
 		})
 		if err != nil {
@@ -2261,7 +2261,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if body.OnlyMe != nil {
 		if *body.OnlyMe && !voiceprint.Enrolled(s.brain.Root) {
 			fail(w, http.StatusBadRequest,
-				"Teach it your voice first — there is nothing to compare against yet.")
+				"Teach it your voice first: there is nothing to compare against yet.")
 
 			return
 		}

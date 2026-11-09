@@ -57,7 +57,7 @@ func (InBackground) Name() string { return "do_in_background" }
 
 func (InBackground) Description() string {
 	return "Run something that will take a while without making the owner wait " +
-		"for it — reading a folder, a long command, a big search. Say what you " +
+		"for it: reading a folder, a long command, a big search. Say what you " +
 		"are starting and carry on talking; the answer is announced when it is " +
 		"ready. Use only for work that takes minutes, never for a question that " +
 		"can be answered now."
@@ -128,7 +128,7 @@ func (t InBackground) Execute(_ context.Context, raw json.RawMessage) (string, e
 	 */
 	if tool.Risk() == Mutating {
 		return "", fmt.Errorf(
-			"%s changes something, so it is not started in the background — "+
+			"%s changes something, so it is not started in the background; "+
 				"ask for it directly and it will be shown for approval first", a.Tool)
 	}
 
@@ -191,14 +191,14 @@ func (t ListBackground) Execute(context.Context, json.RawMessage) (string, error
 	for _, j := range jobs {
 		switch j.State {
 		case "running":
-			fmt.Fprintf(&b, "%d. %s — still going, %s so far\n",
+			fmt.Fprintf(&b, "%d. %s, still going, %s so far\n",
 				j.ID, j.What, j.Took.Round(time.Second))
 		case "failed":
-			fmt.Fprintf(&b, "%d. %s — failed: %s\n", j.ID, j.What, j.Err)
+			fmt.Fprintf(&b, "%d. %s failed: %s\n", j.ID, j.What, j.Err)
 		case "stopped":
-			fmt.Fprintf(&b, "%d. %s — stopped\n", j.ID, j.What)
+			fmt.Fprintf(&b, "%d. %s, stopped\n", j.ID, j.What)
 		default:
-			fmt.Fprintf(&b, "%d. %s — done in %s: %s\n",
+			fmt.Fprintf(&b, "%d. %s, done in %s: %s\n",
 				j.ID, j.What, j.Took.Round(time.Second), first(j.Result, 200))
 		}
 	}

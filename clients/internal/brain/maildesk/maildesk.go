@@ -120,7 +120,7 @@ func Sort(items []Item, since time.Time, look scam.Lookup) Digest {
 			}
 
 			it.Why = "The scam check warned: " + strings.Join(it.verdict.Flags, "; ") + "."
-			it.WhyBG = "Проверката за измама предупреди — " + level + ". Не отваряйте връзки, " +
+			it.WhyBG = "Проверката за измама предупреди: " + level + ". Не отваряйте връзки, " +
 				"не плащайте и не отговаряйте, преди да проверите подателя по друг път."
 			d.Suspicious = append(d.Suspicious, it)
 		case it.Bulk:

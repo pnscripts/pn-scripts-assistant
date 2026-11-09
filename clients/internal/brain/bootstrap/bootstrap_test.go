@@ -287,7 +287,7 @@ func TestAnUnlicensedEngineIsNotOfferedAsReady(t *testing.T) {
 		t.Errorf("a Unity project could start without a licence: blockers %v", p.Blockers)
 	}
 
-	if strings.Contains(p.Text(), "— here") {
+	if strings.Contains(p.Text(), ": here") {
 		t.Errorf("the proposal says the unlicensed editor is simply here:\n%s", p.Text())
 	}
 }

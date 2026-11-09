@@ -70,7 +70,7 @@ func Command(root string) []string {
 func Start(ctx context.Context, root string, t *Tunnel, ask func(argv []string) ([]byte, error)) error {
 	if !Installed() {
 		return fmt.Errorf(
-			"WireGuard is not installed yet — it is in the list of parts this machine " +
+			"WireGuard is not installed yet. It is in the list of parts this machine " +
 				"needs, under What it runs on")
 	}
 

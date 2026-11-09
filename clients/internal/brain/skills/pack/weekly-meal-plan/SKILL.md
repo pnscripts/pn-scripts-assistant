@@ -9,7 +9,7 @@ A plan that is cooked beats a perfect plan that is not. Fit it to the household'
 
 ## Steps
 1. **Collect the facts.** Number of people and ages, which meals to plan (dinners only, or lunches too), diets and allergies, strong dislikes, cooking time per day, budget level, kitchen equipment (oven, slow cooker, air fryer), what is already in the fridge, freezer and pantry, and busy evenings.
-2. **Set the frame.** Mark busy days for 15–20 minute meals or leftovers, and one longer cooking slot (often the weekend) for batch cooking.
+2. **Set the frame.** Mark busy days for 15 to 20 minute meals or leftovers, and one longer cooking slot (often the weekend) for batch cooking.
 3. **Build balanced plates.** Aim for roughly half vegetables or salad, a quarter protein (beans, lentils, eggs, fish, poultry, meat), a quarter whole grains or starchy food, plus some fruit and dairy or alternatives through the day. Vary protein sources across the week.
 4. **Plan ingredient overlap.** Use the same base ingredient twice in different ways (roast chicken Monday → chicken wraps Tuesday; a pot of tomato sauce → pasta and shakshuka).
 5. **Use what is on hand first**, especially items close to their date.

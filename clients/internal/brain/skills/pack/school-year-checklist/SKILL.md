@@ -9,10 +9,10 @@ Start early, turn every school letter into a dated task, and keep one place for 
 
 ## Steps
 1. **Collect the facts.** Each child's age and grade, school or nursery, start date, any new school or first year, transport, after-school care, activities, special educational or health needs, and the official supply list if the school provided one.
-2. **Build the before-term list** (3–4 weeks ahead) from the template below.
+2. **Build the before-term list** (3 to 4 weeks ahead) from the template below.
 3. **Turn dates into calendar events**: term dates and holidays, parent meetings, trips, photo day, exam periods, payment deadlines. Ask the user to copy them from the official school calendar or letters.
 4. **Set up a paperwork system**: one folder or tray for "to sign", one for "keep"; scan or photograph important letters.
-5. **Plan routines**: shift bedtime gradually 1–2 weeks before start, practise the morning routine, do a trial run of the school route.
+5. **Plan routines**: shift bedtime gradually 1 to 2 weeks before start, practise the morning routine, do a trial run of the school route.
 6. **Plan communication**: how the school sends messages (app, email, diary), contact details of class teacher, how to report absence.
 7. **Add a term-by-term review**: what is working, upcoming deadlines, uniform sizes, supply refills.
 

@@ -1040,7 +1040,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 			var needs *team.NeedsApproval
 			if errors.As(err, &needs) {
 				if offer, perr := b.keepHireProposal(b.CurrentConversation(), w.Sentence, needs.Proposal); perr == nil {
-					return hired, fmt.Errorf("%w — proposal %d waits for its owner", err, offer.ID)
+					return hired, fmt.Errorf("%w; proposal %d waits for its owner", err, offer.ID)
 				}
 			}
 
@@ -2208,7 +2208,7 @@ func (b *Brain) chat(ctx context.Context, req ChatRequest) (ChatReply, error) {
 			return
 		}
 
-		note := "That turn did not finish — the answer was lost before it could be " +
+		note := "That turn did not finish: the answer was lost before it could be " +
 			"written. Ask again."
 
 		/*

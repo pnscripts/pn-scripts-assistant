@@ -18,7 +18,7 @@
 <div id="drive-lost" class="drive-lost" hidden role="alert">
     <strong>The drive holding PN Scripts Assistant's brain is not there.</strong>
     <span id="drive-lost-where"></span>
-    <span class="drive-lost-note">Nothing is being saved. Plug it back in — it
+    <span class="drive-lost-note">Nothing is being saved. Plug it back in and it
         picks up where it left off, and nothing already written is lost.</span>
 </div>
 <!--
@@ -98,8 +98,8 @@
 <div id="recovery" class="drive-lost recovery" hidden role="alert">
     <strong>Your brain is now encrypted.</strong>
     <span class="drive-lost-note">Only this program can read it, with a key this computer keeps in
-        <span id="recovery-keyring">its keyring</span>. To open it on another computer — the drive
-        travels, the key does not — you need this recovery key. Keep it somewhere safe, away from
+        <span id="recovery-keyring">its keyring</span>. To open it on another computer (the drive
+        travels, the key does not), you need this recovery key. Keep it somewhere safe, away from
         the drive. It is shown once.</span>
     <code id="recovery-key" style="display:block;margin:8px 0;font-size:15px;letter-spacing:1px;user-select:all"></code>
     <span class="drive-lost-note" id="recovery-warning"></span>
@@ -946,7 +946,7 @@
                             <span>What it answers to</span>
                             <input id="set-wake" type="text" autocomplete="off" placeholder="none">
                             <small class="field-note">Separate several with commas. Add whatever
-                                the microphone actually writes down — if it hears “Brain” as
+                                the microphone actually writes down: if it hears “Brain” as
                                 “Bryan”, put Bryan here too. Empty means it answers everything
                                 it hears, which suits a headset and not a room.</small>
                         </label>
@@ -955,7 +955,7 @@
                             <span>Call it by name every time</span>
                             <small class="field-note">On, it answers only sentences that carry
                                 its name. Off, it stays in the conversation for about a minute
-                                after being addressed, so follow-ups need no name — which is
+                                after being addressed, so follow-ups need no name, which is
                                 easier alone and wrong in a room with a television in it,
                                 because everything said in that minute is treated as yours.</small>
                         </label>
@@ -967,8 +967,8 @@
                                 <button type="button" class="model-action" data-sex="man">A man</button>
                             </div>
                             <small class="field-note">Picks the best installed voice of that
-                                kind and says a line so you can hear it. Every voice one by one
-                                — each robot, each woman, each man — is under Engine, in the
+                                kind and says a line so you can hear it. Every voice one by one,
+                                each robot, each woman, each man, is under Engine, in the
                                 Voice list.</small>
                         </label>
                         <label class="field field-check">
@@ -976,7 +976,7 @@
                             <span>Open the microphone when the window opens</span>
                             <small class="field-note">On, it starts hearing the room as soon
                                 as you open it, and waits for its name. Off, it stays quiet
-                                until you press the button — the microphone is free for
+                                until you press the button, and the microphone is free for
                                 anything else, and the processor is doing only what you asked
                                 for. Listening is not idle: it is voice detection and then
                                 transcription of whatever was said near it.</small>
@@ -993,12 +993,12 @@
                         <label class="field field-check">
                             <input id="set-goal-mode" type="checkbox">
                             <span>Work on goals on its own</span>
-                            <small class="field-note" id="goal-mode-consent">I work on your goals on my own — I plan, choose
+                            <small class="field-note" id="goal-mode-consent">I work on your goals on my own: I plan, choose
                                 specialists and models, download the models, tools and integrations I
                                 need from trusted sources with checks, work in a separate folder for each
                                 goal and report to you. For this I download from the internet even when
                                 privacy is set to "nothing leaves this machine"; these downloads send
-                                nothing about you — no conversations, files or personal data. Everything
+                                nothing about you: no conversations, files or personal data. Everything
                                 else follows your privacy setting. What I downloaded and have not used
                                 for 30 days I remove on my own. I ask you only before a payment or a paid
                                 service, sending or publishing in your name, deleting files outside the
@@ -1030,7 +1030,7 @@
                     <p class="note" id="models-roles">—</p>
                     <div id="models-warning" hidden>
                         <p class="storage-advice">Both models cannot be held in memory at
-                            once on this machine, so every switch between them reloads one —
+                            once on this machine, so every switch between them reloads one,
                             which costs more than choosing the smaller one saves. Ollama is
                             set to keep two models, and the memory used for remembering takes
                             one of those. Raising it to three fixes it; there is room.</p>
@@ -1041,7 +1041,7 @@
                     <h2>Mailbox</h2>
                     <p class="note">Fill these in yourself and the brain can read and write
                         your mail. Use an <strong>app password</strong>, not your account
-                        password — every provider worth using issues them, they can be
+                        password: every provider worth using issues them, they can be
                         revoked on their own, and they cannot be used to take the account
                         over. It is kept in the settings file beside the brain and sent
                         only to your own mail server. Mail is read from one server and
@@ -1079,7 +1079,7 @@
                     <h2>Set up again</h2>
                     <p class="note">Change which drive holds everything, which model does
                         the thinking, or the keys for a service. Opens the same wizard as
-                        the first run — nothing changes until you press Apply at the end,
+                        the first run. Nothing changes until you press Apply at the end,
                         and closing it changes nothing at all.</p>
                     <button type="button" class="model-action" id="setup-open">
                         Open setup</button>
@@ -1097,7 +1097,7 @@
                     <h2>What is on this machine</h2>
                     <p class="note">Everything found here is available to the assistant, and
                         this is the same list it is given when it answers. Switch one off and
-                        it stops being offered — including the tools that cannot work without
+                        it stops being offered, including the tools that cannot work without
                         it.</p>
                     <div id="environment-list" class="environment-list">—</div>
                 </div>
@@ -1105,7 +1105,7 @@
                     <h2>What it has been hearing</h2>
                     <p class="note">The last few things the microphone made of the room, so
                         that “I said its name and nothing happened” has an answer. Held in
-                        memory only — never written down, gone when the brain restarts.</p>
+                        memory only, never written down, gone when the brain restarts.</p>
                     <div id="heard-rows" class="rows"></div>
                     <p class="engine-meta" id="heard-note"></p>
                 </div>
@@ -1198,7 +1198,7 @@
                     <h2>Where it learns from</h2>
                     <p class="note">Drives and folders it looks after. When one
                         is attached and holds something it has not seen, it
-                        reads a little at a time on its own — so a drive you
+                        reads a little at a time on its own, so a drive you
                         plug in on Friday is learned by Saturday without you
                         asking.</p>
                     <div id="places" class="drives"></div>
@@ -1214,9 +1214,9 @@
                         <label class="field">
                             <span>Read it for</span>
                             <select id="place-kind">
-                                <option value="everything">Everything — projects and documents</option>
-                                <option value="projects">Projects — code and repositories</option>
-                                <option value="documents">Documents — text and papers</option>
+                                <option value="everything">Everything: projects and documents</option>
+                                <option value="projects">Projects: code and repositories</option>
+                                <option value="documents">Documents: text and papers</option>
                             </select>
                         </label>
                         <div class="copy-buttons">
@@ -1259,7 +1259,7 @@
                 <small class="field-note">Every voice this machine can speak in, one by one.
                     The first three are the best robot, woman and man it has; the rest are
                     named for what they are, so a particular one can be asked for again.
-                    Choosing one says a line immediately — a voice picked from a list of
+                    Choosing one says a line immediately: a voice picked from a list of
                     names without hearing it is picked blind.</small>
             </label>
             <label class="field" id="microphone-field" hidden>
@@ -1486,7 +1486,7 @@
                     <p class="insight-note">
                         Everything the brain can use. Each says what it is for,
                         what stops working without it, how big it is, and where
-                        it goes. Installing happens in the background — you can
+                        it goes. Installing happens in the background, so you can
                         carry on while it runs.
                     </p>
                     <div id="parts-list"></div>
@@ -1508,7 +1508,7 @@
                     <p class="insight-note">
                         Tick what you want taken off this machine. Nothing here
                         is ticked to begin with, and the things that came with
-                        your system are not listed — those belong to it, not to
+                        your system are not listed: those belong to it, not to
                         this program.
                     </p>
                     <div id="remove-list"></div>
@@ -1582,7 +1582,7 @@
                     <h2>What may reach this</h2>
                     <p class="note">
                         Until you pair something, this assistant answers only on this
-                        computer — not because of a setting, but because it refuses to
+                        computer, not because of a setting, but because it refuses to
                         listen anywhere else. Everything it knows sits behind that.
                     </p>
 
@@ -1645,7 +1645,7 @@
                         -->
                         <p class="note">
                             Your browser will warn that nobody has vouched for the
-                            connection. That is true — this computer signed it itself.
+                            connection. That is true: this computer signed it itself.
                             Check the fingerprint it shows matches this one, then accept it:
                         </p>
                         <pre class="task-evidence" id="reach-fingerprint"></pre>
@@ -1712,7 +1712,7 @@
                 <div class="card">
                     <h2>What it is for</h2>
                     <p class="note">
-                        A task finishes. A goal comes round again — so what matters about
+                        A task finishes. A goal comes round again, so what matters about
                         one is when it was last looked at and what happened that time.
                     </p>
                     <div id="goal-list"><p class="note">Nothing set yet.</p></div>
@@ -1810,7 +1810,7 @@
                         </div>
                         <p class="note">
                             Nothing here reaches a network. A file goes in when you say so and
-                            comes out when you ask — there is no account and nothing syncing.
+                            comes out when you ask. There is no account and nothing syncing.
                         </p>
                     </details>
 
@@ -1861,12 +1861,12 @@
                 <div class="card">
                     <h2>About you</h2>
                     <p class="note">
-                        What it should know about you before every conversation — what you
+                        What it should know about you before every conversation: what you
                         do, who you work with, how you want things handled. Write it in
                         your own words; it is not a form.
                     </p>
                     <textarea id="profile-text" rows="14" spellcheck="false"
-                              placeholder="I run a small studio in Sofia. Most of my work is Laravel and Godot.&#10;&#10;I bill in advance and I never chase late payments myself — ask me before writing to a client about money."></textarea>
+                              placeholder="I run a small studio in Sofia. Most of my work is Laravel and Godot.&#10;&#10;I bill in advance and I never chase late payments myself, so ask me before writing to a client about money."></textarea>
                     <p class="note" id="profile-count">—</p>
                     <button type="button" class="task-button" id="profile-save">Save</button>
                     <p class="note" id="profile-said"></p>
@@ -1884,8 +1884,8 @@
                 <div class="card">
                     <h2>What it has been taught</h2>
                     <p class="note">
-                        Ways of working it should follow. Tell it in conversation — "remember
-                        how I do this" — or write one here. Following a learned procedure still uses its
+                        Ways of working it should follow. Tell it in conversation ("remember
+                        how I do this") or write one here. Following a learned procedure still uses its
                         ordinary tools, so anything that changes something still waits for you.
                     </p>
                     <div id="skill-list"><p class="note">Nothing yet.</p></div>
@@ -2016,7 +2016,7 @@
                     <p class="note">
                         A job is a definition, a seat is a responsibility, and a specialist is
                         who actually turns up. Several specialists can hold the same seat, and a
-                        seat with nobody in it is not a gap — it is this saying there is a
+                        seat with nobody in it is not a gap: it is this saying there is a
                         place for somebody who does that here.
                     </p>
                     <p class="note" id="org-counts">—</p>
@@ -2029,7 +2029,7 @@
                     <h2>Hire someone</h2>
                     <p class="note">
                         Say who you need. It is matched against the jobs and what they are
-                        good at — somebody already here who does it is the answer when there
+                        good at. Somebody already here who does it is the answer when there
                         is one, and nobody is hired twice for the same thing.
                     </p>
                     <div class="field">
@@ -2106,7 +2106,7 @@
                     <h2>How work is done</h2>
                     <p class="note">
                         You say what you want; this decides who writes it, with which model, and
-                        what takes over if that fails — subscriptions you already pay for first,
+                        what takes over if that fails: subscriptions you already pay for first,
                         then this machine. How much of a subscription is left is shown only when
                         its service says; otherwise it is "unknown", never a guess.
                     </p>
@@ -2119,7 +2119,7 @@
                             <span>Where work may be done</span>
                             <select id="res-privacy">
                                 <option value="cloud_preferred">services first</option>
-                                <option value="balanced">balanced — best suited, subscriptions first</option>
+                                <option value="balanced">balanced: best suited, subscriptions first</option>
                                 <option value="local_preferred">this machine first</option>
                                 <option value="local_only">this machine only</option>
                             </select>
@@ -2140,7 +2140,7 @@
                             <input type="number" id="res-max-download" min="0" step="0.5"></div>
                         <div class="field"><span>Keep free on the disk (GB)</span>
                             <input type="number" id="res-min-free" min="0" step="1"></div>
-                        <div class="field"><span>Paid per use, a month (USD) — 0 means never; spending is not counted yet, so it is used only when a task names it</span>
+                        <div class="field"><span>Paid per use, a month (USD): 0 means never; spending is not counted yet, so it is used only when a task names it</span>
                             <input type="number" id="res-budget" min="0" step="1"></div>
                         <div class="field"><span>Capacity lines: warn, low, stop (% left)</span>
                             <span><input type="number" id="res-warn" min="0" max="100" class="res-pct">
@@ -2182,7 +2182,7 @@
                     <h2>Take somebody on</h2>
                     <p class="note">
                         Find the job first. What it is expected to know and be good at comes
-                        from the definition, so nothing here has to be typed twice — and a
+                        from the definition, so nothing here has to be typed twice, and a
                         seat fills in the rest.
                     </p>
                     <div class="field">
@@ -2227,8 +2227,8 @@
                     <p class="note">
                         The jobs included are a few hundred written by hand. The thousands
                         come from a real classification: ESCO (the European one, with
-                        Bulgarian names — from esco.ec.europa.eu, as CSV) or O*NET (the
-                        American one, with what each job does day to day — from
+                        Bulgarian names, from esco.ec.europa.eu, as CSV) or O*NET (the
+                        American one, with what each job does day to day, from
                         onetcenter.org, the text files). Point this at the folder or the zip
                         you downloaded. Nothing is fetched, and anything written by hand or
                         shipped keeps what it says.
@@ -2270,7 +2270,7 @@
                 <div class="card">
                     <h2>Tasks</h2>
                     <p class="note">
-                        A job it works through on its own — planned first, so you can
+                        A job it works through on its own, planned first, so you can
                         read what it intends to do before any of it happens. Anything
                         that changes something still waits for you.
                     </p>
@@ -2941,7 +2941,7 @@
                         <label class="field">
                             <span data-i18n="study.level">Level</span>
                             <select id="study-level">
-                                <option value="child" data-i18n="study.level.child">Child (8–12)</option>
+                                <option value="child" data-i18n="study.level.child">Child (8 to 12)</option>
                                 <option value="beginner" selected data-i18n="study.level.beginner">Beginner</option>
                                 <option value="intermediate" data-i18n="study.level.intermediate">Intermediate</option>
                                 <option value="advanced" data-i18n="study.level.advanced">Advanced</option>
@@ -3054,8 +3054,8 @@
                         <label class="field">
                             <span data-i18n="research.depth">Depth</span>
                             <select id="research-depth">
-                                <option value="quick" selected data-i18n="research.depth.quick">Quick — 4 sources</option>
-                                <option value="thorough" data-i18n="research.depth.thorough">Thorough — 8 sources</option>
+                                <option value="quick" selected data-i18n="research.depth.quick">Quick: 4 sources</option>
+                                <option value="thorough" data-i18n="research.depth.thorough">Thorough: 8 sources</option>
                             </select>
                         </label>
                         <label class="field">
@@ -3317,7 +3317,7 @@
                         <span>
                             <span data-i18n="control.lookOnline">May look things up about itself</span>
                             <span class="field-note" data-i18n="control.lookOnlineNote">Updates, the list
-                            of models it could install, documentation. Sends nothing about you — this is
+                            of models it could install, documentation. Sends nothing about you. This is
                             not your privacy setting.</span>
                         </span>
                     </label>
@@ -3454,7 +3454,7 @@
                                 <span class="note">Music, videos and calls playing on this
                                     machine go through the echo canceller, so the microphone
                                     stops hearing them mixed with your voice. Sound from
-                                    somewhere else in the room — a phone, a radio — is still
+                                    somewhere else in the room (a phone, a radio) is still
                                     sound in the room.</span></span>
                         </label>
 
@@ -3463,7 +3463,7 @@
                             <span><b>Turn the rest down while I talk</b><br>
                                 <span class="note">Music and videos on this machine drop to
                                     a fifth while I am speaking and come straight back
-                                    afterwards. Lowered, never paused — stopping your film
+                                    afterwards. Lowered, never paused: stopping your film
                                     every time I say a word would be worse than talking over
                                     it.</span></span>
                         </label>
@@ -3518,7 +3518,7 @@
             </section>
 
             <button type="button" class="focus-button" id="focus-button"
-                    title="The conversation and nothing else — press again to come back">
+                    title="The conversation and nothing else. Press again to come back">
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                     <path d="M13 2L5 14h6l-2 8 8-12h-6z" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 </svg>

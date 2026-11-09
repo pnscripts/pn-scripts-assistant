@@ -6,9 +6,9 @@ helps blood pressure", "check this paragraph against its sources".
 
 ## A question looked into properly
 Write the question and choose **Quick** (four sources) or **Thorough**
-(eight). I decide what to search for — the question itself first, then the
+(eight). I decide what to search for (the question itself first, then the
 parts that need their own search: figures, dates, the official source, the
-opposing view — and read the best of what is found. Official bodies and
+opposing view) and read the best of what is found. Official bodies and
 scholarly sources come first, news organisations and documentation next,
 forums and social media last, and never more than two pages from one site,
 because ten pages of one site are one opinion. A page that cannot be read is
@@ -38,7 +38,7 @@ Read those in their source before relying on them.
 
 ## Checking your own text
 **Check a text against its sources** takes a text that puts [1], [2] …
-after its claims — an essay, an article, an answer from anywhere — and its
+after its claims (an essay, an article, an answer from anywhere) and its
 sources in the same order, as web addresses or files on this computer, and
 says for every sentence whether its source supports it. Nothing is kept.
 

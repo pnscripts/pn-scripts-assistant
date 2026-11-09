@@ -112,7 +112,7 @@
     setTimeout(() => {
         if (gone) return;
 
-        say('taking longer than usual — carrying on');
+        say('taking longer than usual, carrying on');
         leave();
     }, 12000);
 

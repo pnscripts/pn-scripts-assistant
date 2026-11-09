@@ -11,7 +11,7 @@ Entry rules change and depend on nationality, destination, transit countries and
 1. **Collect the facts for each traveller.** Nationality (all passports held), residence permits, age, destination and every transit country, purpose (tourism, work, study), length of stay, dates, and transport (flight, car, cruise).
 2. **Check identity documents.**
    - Is a passport needed, or is a national ID card accepted (for example, within much of the EU/EEA for EU citizens)?
-   - Validity: many countries require the passport to be valid for 3–6 months beyond the stay and to have blank pages. Note the expiry date of each document.
+   - Validity: many countries require the passport to be valid for 3 to 6 months beyond the stay and to have blank pages. Note the expiry date of each document.
    - Name on tickets must match the document exactly.
 3. **Check entry permission.** Visa, visa on arrival, electronic travel authorisation (such as ESTA for the USA, eTA for Canada, ETA for the UK, ETIAS for the Schengen area once in force), or visa-free. Tell the user to confirm on the destination government's official site or embassy, and to beware of look-alike sites charging extra fees.
 4. **Check transit rules.** Some airports require a transit visa even without leaving the airport.

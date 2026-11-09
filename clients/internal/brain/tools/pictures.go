@@ -137,7 +137,7 @@ func (MakeAVideo) Name() string { return "make_a_video" }
 func (MakeAVideo) Description() string {
 	return "Put pictures together into a video file, each held for a few seconds, " +
 		"optionally with music. Use when asked to make a video, a film or a slideshow " +
-		"out of images. It does not generate moving footage — it assembles pictures " +
+		"out of images. It does not generate moving footage; it assembles pictures " +
 		"that already exist, so make them first if there are none."
 }
 

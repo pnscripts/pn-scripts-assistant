@@ -22,7 +22,7 @@ Concept: compound interest, for a 13-year-old.
 - Core: "Interest is extra money the bank pays you; with compound interest you also earn interest on the interest."
 - Analogy: a snowball rolling downhill picks up more snow because it is already bigger.
 - Example: 100 at 10 % a year → 110 after year 1 → 121 after year 2 (not 120), because year 2 pays 10 % of 110.
-- Misconception: "it is just 10 more each year" — that is simple interest.
+- Misconception: "it is just 10 more each year": that is simple interest.
 - Check: "How much after year 3, and why is it more than 130?"
 
 ## Formats that help

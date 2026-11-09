@@ -209,7 +209,7 @@ func (Glossary) Name() string   { return "glossary" }
 func (Glossary) Risk() Risk     { return Safe }
 func (Glossary) Cues() []string { return translationCues }
 func (Glossary) Description() string {
-	return "Show the owner's glossary — the agreed translation of each term — for one target language or " +
+	return "Show the owner's glossary (the agreed translation of each term) for one target language or " +
 		"all; or, given an original and its translation, check that every glossary term, number, address " +
 		"and link in the original was kept."
 }
@@ -294,7 +294,7 @@ func (g Glossary) Execute(_ context.Context, raw json.RawMessage) (string, error
 		fmt.Fprintf(&b, "- %s → %s (%s→%s)", t.Source, t.Target, from, t.To)
 
 		if t.Note != "" {
-			fmt.Fprintf(&b, " — %s", t.Note)
+			fmt.Fprintf(&b, " (%s)", t.Note)
 		}
 
 		b.WriteString("\n")
@@ -315,8 +315,8 @@ func (ChangeGlossary) Name() string   { return "change_glossary" }
 func (ChangeGlossary) Risk() Risk     { return Mutating }
 func (ChangeGlossary) Cues() []string { return translationCues }
 func (ChangeGlossary) Description() string {
-	return "Add a term to the owner's glossary — how a word or phrase is always translated into a " +
-		"language — or remove one with remove=true. A target equal to the source means the term is never " +
+	return "Add a term to the owner's glossary (how a word or phrase is always translated into a " +
+		"language), or remove one with remove=true. A target equal to the source means the term is never " +
 		"translated (a name, a brand). Use when the owner says how something should be translated."
 }
 

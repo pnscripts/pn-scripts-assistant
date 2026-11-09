@@ -267,7 +267,7 @@ func (r Recipe) blocked() (path, why string) {
 
 			switch {
 			case err == nil && !info.IsDir() && info.Mode()&0o111 == 0:
-				return at, "found at " + at + ", but it is not executable — chmod +x " + at
+				return at, "found at " + at + ", but it is not executable: chmod +x " + at
 
 			case errors.Is(err, fs.ErrPermission):
 				return at, "found at " + at + ", but this user may not read it"

@@ -35,7 +35,7 @@ func (RunAsAdmin) Name() string { return "run_as_admin" }
 
 func (RunAsAdmin) Description() string {
 	return "Run a command as the administrator (root). The operating system shows its own password " +
-		"dialog to the owner — polkit on Linux, UAC on Windows, the administrator prompt on macOS — " +
+		"dialog to the owner (polkit on Linux, UAC on Windows, the administrator prompt on macOS) " +
 		"and the command runs only if he answers it. Give argv as program then arguments; use this " +
 		"instead of sudo, which cannot ask from here."
 }

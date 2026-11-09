@@ -11,14 +11,14 @@ window of its own. What each release contains is in the
 
 The rest of this file is the reasoning: which tools were chosen and why, which
 choices were reversed, and what measurement changed. It is kept because the
-arguments are still the arguments — not as a statement of what is done. The
+arguments are still the arguments, not as a statement of what is done. The
 "what comes next" below predates the release and is read as a list of
 intentions rather than a plan with dates.
 
 ## Choosing tools
 
 Switch approach when one is genuinely blocked; keep it when it works. Both halves
-matter, and the second is the easier one to get wrong — churn feels like progress.
+matter, and the second is the easier one to get wrong: churn feels like progress.
 
 Switched, for reasons that were real:
 
@@ -30,13 +30,13 @@ Switched, for reasons that were real:
 | hand-written extension list | `spc dump-extensions` | the list rotted immediately, omitting ext-intl |
 
 **Replaced: the Laravel core, by Go and SQLite.** This entry used to argue the
-opposite — that the friction was in distribution rather than the application, and
+opposite: that the friction was in distribution rather than the application, and
 that rewriting a working brain would cost weeks and buy nothing. The reasoning was
 sound and the conclusion was still wrong, because it answered the wrong question.
 
 What it missed: the cost was never PHP, it was the four processes around it. The
 brain needed Docker running Postgres, pgvector and Redis alongside it, so it could
-not start on a machine without a container stack — and "install Docker first" is
+not start on a machine without a container stack, and "install Docker first" is
 not an answer for a personal assistant. Every distribution failure in the table
 above traces back to that. The static build existed only to escape it, and the
 static build is what kept failing.
@@ -57,14 +57,14 @@ it added up to could not be downloaded and run, which was the entire point.
 
 **Dropped along the way: the host agent.** It existed only because Laravel ran
 inside a container and could not see the real filesystem. Running natively, the
-brain simply has access — one less daemon, one less token to protect, and one less
+brain simply has access: one less daemon, one less token to protect, and one less
 process that can be left running when it should not be.
 
 **Found by the move: every memory held a container path.** All 79 facts recorded
 paths under `/mnt/scan`, which is where the owner's disk appeared *inside* the
 container. Outside it, those paths point nowhere, so the knowledge was accurate
 and unusable at the same time. `brain rewrite-paths` repairs them and re-embeds
-what it changed — rewriting the text alone would leave each vector describing the
+what it changed, because rewriting the text alone would leave each vector describing the
 old wording, and nothing would ever surface that mismatch.
 
 Where other languages still earn their place: none so far. The Windows window
@@ -84,7 +84,7 @@ One binary, one SQLite file. 217,000 lines of Go, 58,000 of them tests, across
 
 ## Capabilities today
 
-*A selection — the assistant now carries far more than this, and says so
+*A selection: the assistant now carries far more than this, and says so
 itself: ask it what it can do and the answer is built from what is actually
 installed rather than from a list written here. These are the ones whose
 guards are worth explaining.*
@@ -114,7 +114,7 @@ never do is worse than one that simply cannot.
 ### What the guards are actually for
 
 **Credential paths are refused, on read and on write.** Reading a file and
-fetching a URL are both Safe, and reasonably so — neither changes anything.
+fetching a URL are both Safe, and reasonably so: neither changes anything.
 Together they are an exfiltration route: a page can contain text telling the
 model to read a credentials file and fetch a URL with the contents attached, and
 because neither step needs approval, nobody sees it happen.
@@ -138,15 +138,15 @@ afterwards.
 **When a Mutating tool needs approval, the loop does not execute it.** It
 records the call, stops the turn, and reports what it is waiting for. Under the
 default *act freely* setting no approval is needed and the call runs, still
-recorded. Decisions are final — the update
+recorded. Decisions are final: the update
 is conditional on the row still being pending, so a replayed request cannot turn
 a denial into an approval or run something twice. Approval executes the *stored*
 arguments, never anything sent alongside the approval, or the summary the owner
 read would describe something that did not happen.
 
 This matters more than it sounds. Measured against `qwen2.5-coder:7b` and
-`llama3.2:3b`, small local models are unreliable at deciding when to use a tool
-— `llama3.2:3b` called `write_file` in response to "Hello, how are you?". The
+`llama3.2:3b`, small local models are unreliable at deciding when to use a tool:
+`llama3.2:3b` called `write_file` in response to "Hello, how are you?". The
 gate is what makes a badly behaved model annoying rather than dangerous.
 
 ## Done since this list was written
@@ -154,7 +154,7 @@ gate is what makes a badly behaved model annoying rather than dangerous.
 - **The native window**, on Linux. GTK3 and WebKitGTK 4.1, built with cgo, and
   the `.deb` declares the libraries so `apt` brings them in.
 - **The native window on Windows** (October 2026). A Win32 window holding
-  Microsoft Edge WebView2, reached through syscall and the COM interfaces —
+  Microsoft Edge WebView2, reached through syscall and the COM interfaces,
   still no cgo in the Windows build. The loader ships beside the program,
   taken from Microsoft's NuGet package at a pinned version and checked against
   its SHA-256; where the runtime is missing it falls back to the browser. A
@@ -199,7 +199,7 @@ gate is what makes a badly behaved model annoying rather than dangerous.
 ## After 1.0: working the way its user works
 
 General abilities, for whoever uses the assistant, following their
-requirements and goals — nothing in them belongs to one person or one
+requirements and goals; nothing in them belongs to one person or one
 company. Three waves were built on 8 November 2026 (unreleased at the time
 of writing); the rest is specified below and not started.
 
@@ -210,12 +210,12 @@ of writing); the rest is specified below and not started.
   proposed as rules in the user's own words, with the message they came from,
   and kept only with a yes (package `rules`, the Rules page). Kept rules are
   read into every turn and every step of a goal, and checked before and after
-  every outward or lasting action — sending, posting, commits, files, paying,
-  deleting: a precise "never" stops the action and names itself, whatever
+  every outward or lasting action (sending, posting, commits, files, paying,
+  deleting): a precise "never" stops the action and names itself, whatever
   else is allowed.
 - **The last look before anything goes out** (package `polish`): what the
   reader already sees, filler, repetition, sure slips, placeholders, wrong
-  weekdays — applied to every email before the user is asked, and on the
+  weekdays, applied to every email before the user is asked, and on the
   Writing page; a sent message is shown again with where it went.
 - **Other coding agents as tools.** Claude Code, Codex and Cursor's agent,
   signed in by the user, asked for one task in a chosen folder: read, folder
@@ -252,7 +252,7 @@ of writing); the rest is specified below and not started.
 
 **The model choice.** A benchmark that warmed each model with the same prompt it
 then timed was measuring cache hits, not performance. Corrected, `llama3.2:3b`
-is twice as fast as `qwen2.5-coder:7b` and equally accurate at recall — and
+is twice as fast as `qwen2.5-coder:7b` and equally accurate at recall, and
 scores 2/5 on deciding when to use a tool, against 4/5. Speed was the wrong axis;
 a fast wrong answer costs more than a slow right one.
 

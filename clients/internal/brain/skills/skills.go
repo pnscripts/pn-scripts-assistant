@@ -114,7 +114,7 @@ func CheckName(name string) error {
 	if !validName.MatchString(name) {
 		return fmt.Errorf(
 			"a skill's name must be three to forty lower-case letters, digits or " +
-				"underscores, starting with a letter — for example invoicing or new_client")
+				"underscores, starting with a letter, for example invoicing or new_client")
 	}
 
 	return nil
@@ -390,7 +390,7 @@ func (t asTool) Execute(_ context.Context, _ json.RawMessage) (string, error) {
 	}
 
 	return "How " + t.skill.Name + " is done here. Follow this, using your tools " +
-		"as usual — anything that changes something still needs approval.\n\n" +
+		"as usual; anything that changes something still needs approval.\n\n" +
 		t.skill.How, nil
 }
 

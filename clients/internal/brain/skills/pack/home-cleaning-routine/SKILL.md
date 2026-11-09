@@ -9,13 +9,13 @@ Small daily resets keep a home manageable; deep cleaning is then a rotation, not
 
 ## Steps
 1. **Collect the facts.** Home size and rooms, who lives there (children, pets, allergies), time available per day and per week, the worst problem areas, and who can share the work.
-2. **Set a daily reset (10–20 min).** Dishes done or in the dishwasher, kitchen counters and hob wiped, quick tidy of the main room, laundry moved on, rubbish out when full.
+2. **Set a daily reset (10 to 20 min).** Dishes done or in the dishwasher, kitchen counters and hob wiped, quick tidy of the main room, laundry moved on, rubbish out when full.
 3. **Make a weekly rotation.** One zone per day keeps each session short:
    - Mon: bathroom (toilet, sink, shower, mirror, floor)
    - Tue: kitchen (fronts, sink, microwave, floor)
    - Wed: dusting and surfaces, change towels
    - Thu: vacuum or mop all floors
-   - Fri: bedrooms, change bed linen (every 1–2 weeks)
+   - Fri: bedrooms, change bed linen (every 1 to 2 weeks)
    - Weekend: laundry catch-up, fridge check before shopping
 4. **Add a monthly list**: inside microwave and oven door, fridge shelves, skirting boards, light switches and door handles, washing machine seal and detergent drawer, dishwasher filter, extractor hood filter.
 5. **Add a seasonal list**: windows, curtains, under furniture, mattress vacuum and turn, wardrobe sort, gutters or balcony, descaling the kettle and shower head.

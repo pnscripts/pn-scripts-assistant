@@ -118,7 +118,7 @@ var bulgaria = Pack{
 	},
 	Sources: []Source{
 		{Title: "Закон за данъка върху добавената стойност (ЗДДС), изм. ДВ бр. 115/2025", URL: zddsURL, InForce: "2026-01-01", Checked: "2026-10-26"},
-		{Title: "PwC Worldwide Tax Summaries — Bulgaria, other taxes", URL: "https://taxsummaries.pwc.com/bulgaria/corporate/other-taxes", Checked: "2026-10-26"},
+		{Title: "PwC Worldwide Tax Summaries: Bulgaria, other taxes", URL: "https://taxsummaries.pwc.com/bulgaria/corporate/other-taxes", Checked: "2026-10-26"},
 	},
 	Checked: "2026-10-26",
 }

@@ -148,7 +148,7 @@ func (b *Brain) startRemoving(name string) (string, error) {
 
 		if !req.Removable() {
 			return "", fmt.Errorf("%s came with your system rather than from here, so "+
-				"removing it is your package manager's job — other things on this "+
+				"removing it is your package manager's job: other things on this "+
 				"machine may be using it", req.Name)
 		}
 

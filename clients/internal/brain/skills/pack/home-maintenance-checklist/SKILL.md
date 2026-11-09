@@ -34,7 +34,7 @@ Regular small checks prevent expensive failures. Separate what an owner can safe
 
 ## Monthly and yearly
 - Monthly: test smoke and carbon-monoxide alarms; test the residual-current device (RCD) with its test button; check under sinks for leaks; clean the dishwasher and washing machine filters.
-- Every 6–12 months: descale the water heater (or have it serviced), check the anode if applicable, check silicone seals in the bathroom and kitchen, check fire extinguisher pressure.
+- Every 6 to 12 months: descale the water heater (or have it serviced), check the anode if applicable, check silicone seals in the bathroom and kitchen, check fire extinguisher pressure.
 - Replace alarm batteries yearly or as stated; replace alarms at the end of their marked lifespan.
 
 ## Call a professional when

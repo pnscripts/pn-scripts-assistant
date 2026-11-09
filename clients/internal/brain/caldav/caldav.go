@@ -52,7 +52,7 @@ func (c Calendar) Configured() bool { return strings.TrimSpace(c.URL) != "" }
 var (
 	ErrNotSetUp  = errors.New("no online calendar is set up: give its CalDAV address, user and password under Plan")
 	ErrRefused   = errors.New("the calendar server refused the user name or password")
-	ErrNotHTTPS  = errors.New("the calendar address must start with https:// — over http the password would travel readable")
+	ErrNotHTTPS  = errors.New("the calendar address must start with https://, because over http the password would travel readable")
 	ErrNotFound  = errors.New("there is no calendar at that address; it should be the calendar's own CalDAV address")
 	ErrDuplicate = errors.New("an appointment with that identity is already in the calendar")
 )

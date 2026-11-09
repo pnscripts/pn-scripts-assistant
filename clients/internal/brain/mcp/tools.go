@@ -52,14 +52,14 @@ func (t ListIntegrations) Execute(context.Context, json.RawMessage) (string, err
 			state = "added, not approved"
 		}
 
-		fmt.Fprintf(&b, "%s (%s): %s — %s\n", v.Title, v.ID, state, v.Why)
+		fmt.Fprintf(&b, "%s (%s): %s; %s\n", v.Title, v.ID, state, v.Why)
 
 		for _, tool := range v.Tools {
 			fmt.Fprintf(&b, "  %s\n", tool.As)
 		}
 
 		for _, r := range v.Resources {
-			fmt.Fprintf(&b, "  resource %s — %s\n", r.URI, r.Name)
+			fmt.Fprintf(&b, "  resource %s: %s\n", r.URI, r.Name)
 		}
 	}
 
@@ -111,7 +111,7 @@ func (t ActivateIntegration) Summarize(raw json.RawMessage) string {
 	}
 
 	if !ok {
-		return "Switch on the integration " + id + " (not in the catalogue — this will fail)"
+		return "Switch on the integration " + id + " (not in the catalogue, so this will fail)"
 	}
 
 	line := fmt.Sprintf("Switch on %s: %s", s.Title, s.Where())
@@ -128,7 +128,7 @@ func (t ActivateIntegration) Summarize(raw json.RawMessage) string {
 		line += ", licence " + s.Licence
 	}
 
-	return line + " — for your own assistant only"
+	return line + ", for your own assistant only"
 }
 
 func (t ActivateIntegration) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -209,8 +209,8 @@ type AcquireIntegration struct{ Gateway *Gateway }
 func (AcquireIntegration) Name() string { return "acquire_integration" }
 
 func (AcquireIntegration) Description() string {
-	return "Find and add an integration (MCP server) of a kind a step needs — e.g. \"sqlite\", \"git\", " +
-		"\"time\" — from the built-in catalogue or the official MCP registry. Only trusted publishers, pinned " +
+	return "Find and add an integration (MCP server) of a kind a step needs (e.g. \"sqlite\", \"git\", " +
+		"\"time\") from the built-in catalogue or the official MCP registry. Only trusted publishers, pinned " +
 		"versions from npm or PyPI, programs on this machine that need no account; given to the named " +
 		"specialist only, tools that say they destroy left out. Give a short word for the kind, never the " +
 		"user's text."
@@ -279,7 +279,7 @@ func (t AcquireIntegration) Execute(ctx context.Context, raw json.RawMessage) (s
 		}
 	}
 
-	line := fmt.Sprintf("%s (%s) is added and running for %s only. Checked — %s. Its tools: %s.",
+	line := fmt.Sprintf("%s (%s) is added and running for %s only. Checked: %s. Its tools: %s.",
 		got.View.Title, got.View.Source, got.For, strings.Join(got.Review.Passed, "; "), strings.Join(names, ", "))
 
 	if len(got.Hidden) > 0 {

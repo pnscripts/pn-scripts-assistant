@@ -31,7 +31,7 @@ async function why(res, path) {
         said = '';
     }
 
-    return new Error(said || `that did not work (${path} — ${res.status})`);
+    return new Error(said || `that did not work (${path}, ${res.status})`);
 }
 
 const api = {
@@ -529,7 +529,7 @@ async function send(text) {
          * which needs a line above it saying why the answer is missing.
          */
         if (err.name === 'AbortError') {
-            markThread('Stopped — that answer was not finished');
+            markThread('Stopped: that answer was not finished');
         } else {
             addMessage('error', String(err.message || err), { cssClass: 'error' });
         }
@@ -886,7 +886,7 @@ async function talkLoop() {
                 }
 
                 setTalkButton('waiting');
-                setVoiceStatus('the microphone was busy — trying again');
+                setVoiceStatus('the microphone was busy, trying again');
 
                 await new Promise((again) => setTimeout(again, 1200));
 
@@ -913,7 +913,7 @@ async function talkLoop() {
             if (said && (heard.unfamiliar || []).length) {
                 addMessage(state.brainName,
                     `I heard \u201c${heard.unfamiliar.join('\u201d and \u201c')}\u201d ` +
-                    'but I do not know that name — is that right? ' +
+                    'but I do not know that name. Is that right? ' +
                     'Say it again or type it, and I will remember the spelling.',
                     { cssClass: 'note' });
 
@@ -1490,7 +1490,7 @@ async function decide(id, decision) {
         const note = decision === 'approve'
             ? (answer.error
                 ? `Failed: ${answer.error}`
-                : (said ? `Done — ${said}` : 'Done.'))
+                : (said ? `Done: ${said}` : 'Done.'))
             : 'Rejected. Nothing was changed.';
 
         addMessage('system', note, { cssClass: 'brain' });
@@ -1791,7 +1791,7 @@ async function openWhereWeLeftOff(canSpeak) {
         const restored = await restoreConversation();
 
         if (restored && greeting.last) {
-            markThread(`Carrying on — last said ${whenSaid(greeting.last.when)}`);
+            markThread(`Carrying on, last said ${whenSaid(greeting.last.when)}`);
         }
     } else {
         state.conversationId = null;
@@ -1800,7 +1800,7 @@ async function openWhereWeLeftOff(canSpeak) {
             const topic = (greeting.last.topic || '').trim();
 
             markThread(`New conversation. The last one was ${whenSaid(greeting.last.when)}`
-                + (topic ? ` — ${topic.length > 60 ? `${topic.slice(0, 60).trimEnd()}…` : topic}` : ''));
+                + (topic ? `: ${topic.length > 60 ? `${topic.slice(0, 60).trimEnd()}…` : topic}` : ''));
         }
     }
 

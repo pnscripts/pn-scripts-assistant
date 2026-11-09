@@ -199,7 +199,7 @@ func (s *Source) table(ctx context.Context, name string, comma rune, needs []str
 
 	for _, need := range needs {
 		if _, ok := at[strings.ToLower(need)]; !ok {
-			return fmt.Errorf("%s has no %q column — this is not the file it looks like, "+
+			return fmt.Errorf("%s has no %q column, so this is not the file it looks like, "+
 				"or its format has changed", filepath.Base(name), need)
 		}
 	}

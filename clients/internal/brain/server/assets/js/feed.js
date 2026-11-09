@@ -120,7 +120,7 @@ function sayWhetherItIsWorking(all, working) {
      */
     if (rounds > 0) what += ' · ' + rounds + (rounds === 1 ? ' step' : ' steps');
 
-    text.textContent = 'Working on your question — ' + what;
+    text.textContent = 'Working on your question: ' + what;
     clock.textContent = feedTime(step.seconds) || '';
     line.dataset.status = window.brainStatusOf
         ? window.brainStatusOf({ ...step, busy: true })

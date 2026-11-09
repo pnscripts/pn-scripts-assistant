@@ -18,7 +18,7 @@ Words are learned in chunks and contexts, revisited over time, and actively used
    - notes: register (formal, informal, slang), false friends, pronunciation tip if tricky
 4. **Group meaningfully.** By situation (at the doctor), by word family (decide, decision, decisive), or opposites; avoid teaching very similar words together on day one (left/right) as they get mixed up.
 5. **Make recall material.** Cards with the native word or a gapped sentence on the front, target word on the back. Include reverse cards for words the learner must produce.
-6. **Plan review.** Introduce 5–15 new words a day depending on time; review after 1 day, 3 days, a week and a month (or use an app's spaced-repetition scheduling).
+6. **Plan review.** Introduce 5 to 15 new words a day depending on time; review after 1 day, 3 days, a week and a month (or use an app's spaced-repetition scheduling).
 7. **Make them active.** Give a task: write 5 sentences, tell a short story using 6 of the words, use them in the next conversation practice.
 
 ## Example entry (German, B1, work)

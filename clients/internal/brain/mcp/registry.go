@@ -167,7 +167,7 @@ func (s Server) Check() error {
 func (s Server) Where() string {
 	switch {
 	case s.Transport == "http" && s.Remote():
-		return "a server elsewhere, at " + s.URL + " — what it is sent leaves this machine"
+		return "a server elsewhere, at " + s.URL + "; what it is sent leaves this machine"
 	case s.Transport == "http":
 		return "a server on this machine, at " + s.URL
 	case s.Network:
@@ -398,7 +398,7 @@ func Catalogue() []Server {
 
 	return []Server{
 		{ID: "everything", Title: "MCP test server", Transport: "stdio",
-			Why:     "the protocol's own reference server, with sample tools, resources and prompts — for checking that integrations work",
+			Why:     "the protocol's own reference server, with sample tools, resources and prompts, for checking that integrations work",
 			Command: npm("@modelcontextprotocol/server-everything", "2026.8.31"), Recipe: "node",
 			Version: "2026.8.31", Licence: "MIT", Source: "npm, @modelcontextprotocol/server-everything", FromCatalogue: true},
 		{ID: "memory", Title: "Knowledge graph memory", Transport: "stdio",

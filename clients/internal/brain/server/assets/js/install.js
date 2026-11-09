@@ -116,7 +116,7 @@
         // Why it exists when it is here; what is lost when it is not. Those
         // are different questions and only one of them is useful at a time.
         what.textContent = p.state === 'ok'
-            ? `${p.why}${p.detail ? ' — ' + p.detail : ''}`
+            ? `${p.why}${p.detail ? ' (' + p.detail + ')' : ''}`
             : `Without this: ${p.consequence}`;
 
         text.append(name, what);
@@ -446,7 +446,7 @@
 
         if (size) {
             size.textContent = failures.length
-                ? failures.join(' — ')
+                ? failures.join(' · ')
                 : 'Started. It appears under Activity while it runs.';
         }
 
@@ -583,7 +583,7 @@
             for (const each of variants) {
                 const option = document.createElement('option');
                 option.value = each.name;
-                option.textContent = (each.size || each.name) + (each.installed ? ' — installed' : '');
+                option.textContent = (each.size || each.name) + (each.installed ? ' (installed)' : '');
                 option.selected = each === v;
                 size.appendChild(option);
             }

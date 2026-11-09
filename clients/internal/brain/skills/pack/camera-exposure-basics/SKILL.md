@@ -19,28 +19,28 @@ One stop = double or half the light. Full aperture stops: f/1.4, 2, 2.8, 4, 5.6,
 ## Steps
 1. **Ask for the scene and the goal.** Subject, light (sun, shade, indoor, night), moving or still, tripod or handheld, camera or phone, and the look: sharp throughout, blurred background, frozen or blurred motion.
 2. **Set the priority control first.**
-   - Background blur or isolation: widest aperture (f/1.8–f/4), Aperture priority (A/Av).
-   - Landscape sharp front to back: f/8–f/11, focus about a third into the scene.
+   - Background blur or isolation: widest aperture (f/1.8 to f/4), Aperture priority (A/Av).
+   - Landscape sharp front to back: f/8 to f/11, focus about a third into the scene.
    - Freeze motion: 1/500 s for people running, 1/1000 s+ for sports, birds, splashes; Shutter priority (S/Tv).
    - Show motion (water, light trails): 1/2 s to 30 s on a tripod.
-3. **Check handheld safety.** Keep the shutter at least 1/(focal length × crop factor) s, e.g. 1/100 s at 50 mm full frame; image stabilisation buys 2–5 stops for still subjects only.
+3. **Check handheld safety.** Keep the shutter at least 1/(focal length × crop factor) s, e.g. 1/100 s at 50 mm full frame; image stabilisation buys 2 to 5 stops for still subjects only.
 4. **Fill the rest with ISO.** Lowest ISO that gives a safe shutter speed; Auto ISO with a minimum shutter speed is a good default.
 5. **Meter and correct.** Use evaluative/matrix metering; use spot metering for a small subject against a bright or dark background. Apply exposure compensation: +0.7 to +1 for snow, beaches and backlit faces; −0.7 to −1 for dark scenes and stage lights.
 6. **Verify with the histogram.** No important highlights clipped against the right edge (turn on highlight warnings, "blinkies"); shadows can be lifted later more safely than blown highlights recovered.
 7. **Set white balance.** Auto is fine for JPEG in mixed daylight; choose a preset or Kelvin (around 5500 K daylight, 3200 K tungsten) for consistency; shoot RAW to fix it later.
 
 ## Example
-"Kid's football match, cloudy afternoon, 70–200 mm lens": Shutter priority 1/1000 s, aperture f/4 or wider, Auto ISO up to 6400, continuous autofocus (AF-C/AI Servo) with burst mode, exposure compensation 0.
+"Kid's football match, cloudy afternoon, 70 to 200 mm lens": Shutter priority 1/1000 s, aperture f/4 or wider, Auto ISO up to 6400, continuous autofocus (AF-C/AI Servo) with burst mode, exposure compensation 0.
 
 ## Quick starting points
 - Sunny 16 rule: in bright sun, f/16 at 1/ISO s (ISO 100 → 1/100 s).
-- Indoor portrait by window: f/2.8, 1/125 s, ISO 400–1600.
-- City at night, tripod: f/8, 2–10 s, ISO 100, 2-second timer.
+- Indoor portrait by window: f/2.8, 1/125 s, ISO 400 to 1600.
+- City at night, tripod: f/8, 2 to 10 s, ISO 100, 2-second timer.
 - Phone: tap to focus, then drag the exposure slider; use night mode and hold still.
 
 ## Pitfalls
 - Blur from camera shake looks like missed focus; check whether everything or nothing is sharp.
-- A very small aperture (f/16–f/22) softens the whole image through diffraction.
+- A very small aperture (f/16 to f/22) softens the whole image through diffraction.
 - Raising ISO is better than an underexposed shot brightened later: same noise, worse colour.
 - Bright screens lie in the dark; trust the histogram, not the preview.
 - Flicker bands under LED or fluorescent light: use a shutter of 1/100 s (50 Hz mains) or the camera's anti-flicker mode.

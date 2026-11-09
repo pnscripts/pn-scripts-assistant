@@ -41,7 +41,7 @@ func ParseRule(written string) (Rule, error) {
 	for _, word := range strings.FieldsFunc(r.written, func(c rune) bool { return c == ',' || c == ' ' }) {
 		m := ruleWord.FindStringSubmatch(word)
 		if m == nil {
-			return Rule{}, fmt.Errorf("%q is not a version rule this reads — use forms like >=4.2 <5", word)
+			return Rule{}, fmt.Errorf("%q is not a version rule this reads; use forms like >=4.2 <5", word)
 		}
 
 		c := comparison{op: m[1], version: numbers(m[2])}

@@ -10,7 +10,7 @@ Start with plain, semantic HTML that works on its own, style it with CSS, and ad
 ## Steps
 1. **Clarify the goal and stack.** Static page, site with a CMS, or app? Any framework already in use? Who edits the content? Keep beginners on plain HTML/CSS/JS or a static-site generator until they need more.
 2. **Structure with semantic HTML.** One `<h1>`, then headings in order; `<header>`, `<nav>`, `<main>`, `<footer>`; `<button>` for actions, `<a href>` for navigation; `<label for>` on every input; `alt` text on meaningful images.
-3. **Lay out with modern CSS.** Flexbox for rows and columns of items, Grid for page layouts; mobile-first styles with `min-width` media queries; relative units (`rem`, `%`, `fr`), `max-width` on text (about 60–75 characters).
+3. **Lay out with modern CSS.** Flexbox for rows and columns of items, Grid for page layouts; mobile-first styles with `min-width` media queries; relative units (`rem`, `%`, `fr`), `max-width` on text (about 60 to 75 characters).
 4. **Add behaviour with JavaScript.** Load with `<script type="module" src="app.js"></script>` or `defer`; attach listeners with `addEventListener`; never put secrets (API keys with write access) in front-end code.
 5. **Fetch data safely.**
    ```js

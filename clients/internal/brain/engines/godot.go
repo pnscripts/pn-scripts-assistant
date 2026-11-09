@@ -416,7 +416,7 @@ func (g Godot) Build(ctx context.Context, p Project, into string) Run {
 
 	m := presetName.FindStringSubmatch(presets)
 	if m == nil {
-		r.Problem = "the project has no export preset — export_presets.cfg is missing or empty"
+		r.Problem = "the project has no export preset: export_presets.cfg is missing or empty"
 
 		return r
 	}
@@ -426,7 +426,7 @@ func (g Godot) Build(ctx context.Context, p Project, into string) Run {
 	}
 
 	if templates := templatesFor(engine.Version); !exists(templates) {
-		r.Problem = fmt.Sprintf("the export templates for Godot %s are not installed (%s) — "+
+		r.Problem = fmt.Sprintf("the export templates for Godot %s are not installed (%s); "+
 			"check_requirements godot-templates says what it would take", engine.Version, templates)
 
 		return r
@@ -544,7 +544,7 @@ func (g Godot) Smoke(ctx context.Context, p Project, pictures string) Run {
 			r.add(d)
 		}
 	} else {
-		r.Notes = append(r.Notes, "no picture: the engine wrote no frame — "+tail(shot.Output, 200))
+		r.Notes = append(r.Notes, "no picture: the engine wrote no frame. "+tail(shot.Output, 200))
 	}
 
 	r.withErrors(r.OK)

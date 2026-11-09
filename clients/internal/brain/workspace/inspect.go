@@ -84,7 +84,7 @@ func refused(dir string, own []string) string {
 		home = real(home)
 
 		if clean == home {
-			return "that is your whole home folder — a project needs a folder of its own inside it"
+			return "that is your whole home folder; a project needs a folder of its own inside it"
 		}
 
 		if rel, err := filepath.Rel(home, clean); err == nil && strings.HasPrefix(rel, ".") && !strings.HasPrefix(rel, "..") {
@@ -186,7 +186,7 @@ func Inspect(dir string, reg *engines.Registry, own ...string) Report {
 	r.commands(dir)
 
 	if !r.Empty && r.Engine == "" && len(r.Stacks) == 0 && r.Config == nil {
-		r.Risks = append(r.Risks, fmt.Sprintf("it already holds %d things that are not a project — a new "+
+		r.Risks = append(r.Risks, fmt.Sprintf("it already holds %d things that are not a project; a new "+
 			"project would go into a folder of its own inside it", r.Entries))
 	}
 
@@ -447,7 +447,7 @@ func Lay(dir string, files []engines.File, c Config, undoRoot string) ([]string,
 
 	if len(clashes) > 0 {
 		return nil, fmt.Errorf("nothing was written: these are already there and would have been "+
-			"overwritten — %s", strings.Join(clashes, ", "))
+			"overwritten: %s", strings.Join(clashes, ", "))
 	}
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {

@@ -68,7 +68,7 @@ func GuardSensitive(ctx context.Context, path string) error {
 	}
 
 	return fmt.Errorf(
-		"%s is protected (%s) and this was not asked about first — "+
+		"%s is protected (%s) and this was not asked about first; "+
 			"open it from a conversation, where the request comes to you for a decision",
 		path, strings.ToLower(rule.What))
 }

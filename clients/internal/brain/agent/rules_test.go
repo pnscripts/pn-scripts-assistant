@@ -259,7 +259,7 @@ func TestFullAccessForACodingAgentIsAlwaysAsked(t *testing.T) {
 
 	res := ask("full")
 	if len(asked) != 0 || len(res.Pending) != 1 ||
-		!strings.Contains(res.Pending[0].Summary, "Always asked — full access for a coding agent") ||
+		!strings.Contains(res.Pending[0].Summary, "Always asked (full access for a coding agent") ||
 		!strings.Contains(res.Pending[0].Summary, "FULL ACCESS") || !strings.Contains(res.Pending[0].Summary, "Tidy the tests.") {
 		t.Fatalf("full access was not put to the user: ran %v, %+v", asked, res.Pending)
 	}
@@ -303,7 +303,7 @@ func TestARuleIsNeverKeptWithoutAYes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(kept) != 0 || len(res.Pending) != 1 || !strings.Contains(res.Pending[0].Summary, "Always asked — keeping a rule") {
+	if len(kept) != 0 || len(res.Pending) != 1 || !strings.Contains(res.Pending[0].Summary, "Always asked (keeping a rule") {
 		t.Fatalf("kept without a yes: %v %+v", kept, res.Pending)
 	}
 }

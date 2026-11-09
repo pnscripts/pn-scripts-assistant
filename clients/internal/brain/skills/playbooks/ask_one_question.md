@@ -12,10 +12,10 @@ Ask instead of guessing, and ask well: one question at a time, with answers the 
 
 ## Steps
 1. Call ask_first with exactly one question, in the owner's language, one or two sentences long.
-2. Give 2 to 4 short answers in "options" — real choices that lead to different work, not "yes / no / maybe".
+2. Give 2 to 4 short answers in "options": real choices that lead to different work, not "yes / no / maybe".
 3. Put the answer you recommend in "recommended" (counting from 0). It is shown first and marked as recommended; recommend the one you would choose yourself and say why in "why" when it is not obvious.
 4. The owner can always answer in their own words ("Other"); treat that answer as seriously as a listed one.
-5. After the answer arrives, carry on with the work. If another question is needed, ask it now — again only one.
+5. After the answer arrives, carry on with the work. If another question is needed, ask it now, again only one.
 
 ## Verify
 - The message has one question mark, 2 to 4 answers and a recommended one.

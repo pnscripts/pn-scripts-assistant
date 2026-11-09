@@ -156,7 +156,7 @@ func (s *Server) handleMoveHome(w http.ResponseWriter, r *http.Request) {
 		"moved": destination,
 		"from":  s.brain.Root,
 		"note": "Restart PN Scripts Assistant to use it there. Everything is still in the old " +
-			"folder as well — delete it yourself once you are happy.",
+			"folder as well; delete it yourself once you are happy.",
 	})
 }
 

@@ -17,8 +17,8 @@ A trip budget is a set of estimates with ranges, checked against real quotes, pl
    - Activities: tickets, tours, equipment hire.
    - Fixed extras: travel insurance, visas or entry fees, roaming or eSIM, vaccinations if required.
    - Shopping and souvenirs.
-   - Buffer: 10–15 % of the total for surprises.
-3. **Estimate with real data.** Ask the user to check current prices on official or booking sites for big items; give daily food and transport as a low–high range and say they are rough.
+   - Buffer: 10 to 15 % of the total for surprises.
+3. **Estimate with real data.** Ask the user to check current prices on official or booking sites for big items; give daily food and transport as a range from low to high and say they are rough.
 4. **Compute totals**: per category, per person, per day and for the trip, in home currency, noting the exchange rate and date used.
 5. **Compare with the budget.** If over, suggest levers in order of impact: dates (off-season, midweek flights), accommodation type and location, fewer bases, self-catering some meals, city passes, free activities.
 6. **Plan payments.** Card fees abroad, cash needs, deposits and cancellation terms.

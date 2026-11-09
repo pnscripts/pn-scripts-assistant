@@ -62,8 +62,8 @@ type Ingests interface {
 func (LearnFolder) Name() string { return "learn_from_folder" }
 
 func (LearnFolder) Description() string {
-	return "Read a folder and remember what is in it — the projects or documents it " +
-		"holds, what they are and what they are written in — so it can be recalled in " +
+	return "Read a folder and remember what is in it (the projects or documents it " +
+		"holds, what they are and what they are written in) so it can be recalled in " +
 		"later conversations. This is what to use when asked to learn, study, index, " +
 		"take in or update yourself from a directory. Listing and reading files does " +
 		"not remember anything; this does."
@@ -177,7 +177,7 @@ func (t LearnFolder) Execute(ctx context.Context, args json.RawMessage) (string,
 	}
 
 	if len(observations) == 0 {
-		return "Nothing in " + path + " to learn — no projects or documents were found there. " +
+		return "Nothing in " + path + " to learn: no projects or documents were found there. " +
 			"Looked for " + strings.Join(counted, " and ") + ".", nil
 	}
 
@@ -195,7 +195,7 @@ func (t LearnFolder) Execute(ctx context.Context, args json.RawMessage) (string,
 	 */
 	if len(observations) > MostAtOnce {
 		return fmt.Sprintf(
-			"%s holds %s — %d things, which is more than can be taken in at once "+
+			"%s holds %s: %d things, which is more than can be taken in at once "+
 				"on this machine (roughly %d minutes of work). Nothing was stored. "+
 				"Learn a folder inside it, or ask for one kind at a time.",
 			path, strings.Join(counted, " and "), len(observations),
@@ -220,7 +220,7 @@ func (t LearnFolder) Execute(ctx context.Context, args json.RawMessage) (string,
 	 * a folder that holds both is the normal case. Naming the kinds is what
 	 * lets somebody notice that one of them came back zero.
 	 */
-	out := fmt.Sprintf("Learned %s — found %s. %d things seen, %d newly remembered, %d already known.",
+	out := fmt.Sprintf("Learned %s: found %s. %d things seen, %d newly remembered, %d already known.",
 		path, strings.Join(counted, " and "),
 		report.Seen, report.Promoted, report.Duplicates)
 

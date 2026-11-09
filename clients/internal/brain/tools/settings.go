@@ -73,8 +73,8 @@ func (Settings) Description() string {
 	return "Change how the assistant behaves: whether it speaks its answers aloud, " +
 		"whether it needs its name every time, whether it answers only its owner's " +
 		"voice, whether it turns other sound down while it talks, whether it stops " +
-		"hearing what this machine plays, and which voice it uses — robot, man or " +
-		"woman. Use this whenever asked to change, turn on, turn off, or stop any of " +
+		"hearing what this machine plays, and which voice it uses (robot, man or " +
+		"woman). Use this whenever asked to change, turn on, turn off, or stop any of " +
 		"those. It reports how they stand when asked without a change."
 }
 
@@ -122,7 +122,7 @@ func (Settings) Summarize(raw json.RawMessage) string {
 	}
 
 	if a.Loudness != "" {
-		return "Speak " + a.Loudness + " — its own voice only"
+		return "Speak " + a.Loudness + ", its own voice only"
 	}
 
 	if a.Setting == "" {
@@ -207,12 +207,12 @@ func (t Settings) howThingsStand() string {
 	}
 
 	if s.Loudness > 0 {
-		said += fmt.Sprintf(" My own voice is at %d%% — that is mine alone and "+
+		said += fmt.Sprintf(" My own voice is at %d%%; that is mine alone and "+
 			"nothing else on this machine.", int(s.Loudness*100))
 	}
 
 	return said + "\n\nAny of those can be changed by saying so. Privacy is the one " +
-		"thing I will not change from a conversation — that is set in the privacy panel."
+		"thing I will not change from a conversation: that is set in the privacy panel."
 }
 
 func yesNo(what string, on bool) string {

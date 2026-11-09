@@ -157,7 +157,7 @@ func TestTheDecisionSaysWhyNotTheOthers(t *testing.T) {
 		Need{Work: Code, Files: true}, Default(), nil)
 
 	said := d.Explain()
-	if !strings.Contains(said, "Not used: claude — auth_required") || strings.Contains(said, "nomic-embed-text") {
+	if !strings.Contains(said, "Not used: claude (auth_required)") || strings.Contains(said, "nomic-embed-text") {
 		t.Errorf("the rejections were not said, or the irrelevant ones were:\n%s", said)
 	}
 }

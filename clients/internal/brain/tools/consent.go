@@ -353,7 +353,7 @@ func windowsDestructive(program string, args []string) string {
 	case "net":
 		switch sub {
 		case "stop", "user", "localgroup":
-			return "it stops a service or changes accounts — a change to the whole system"
+			return "it stops a service or changes accounts, a change to the whole system"
 		}
 	case "stop-computer", "restart-computer":
 		return "it turns the machine off"

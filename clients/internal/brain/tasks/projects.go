@@ -440,7 +440,7 @@ func (c *Conductor) evidenceReport(task *store.Task) string {
 				files++
 			}
 		case store.EvidenceCommand:
-			lines = append(lines, fmt.Sprintf("• ran %s — %s", e.Subject, firstLine(e.Detail)))
+			lines = append(lines, fmt.Sprintf("• ran %s: %s", e.Subject, firstLine(e.Detail)))
 		case store.EvidenceCheck, store.EvidenceBuild, store.EvidenceExport, store.EvidenceSmoke, store.EvidenceTest:
 			state := "passed"
 			if !e.OK {
@@ -497,7 +497,7 @@ func (c *Conductor) rememberProject(task *store.Task, state, because string) {
 	line := task.Name + ": " + state
 
 	if because != "" {
-		line += " — " + because
+		line += ": " + because
 	}
 
 	if err := workspace.Remember(task.Project, line); err != nil {

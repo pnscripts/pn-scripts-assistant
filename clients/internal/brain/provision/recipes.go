@@ -46,7 +46,7 @@ func Standard() *Book {
 			Commands: []string{"npm"}, Places: []string{"~/.local/bin"},
 			VersionArgs: []string{"--version"},
 			Source:      "comes with Node.js", Licence: "Artistic 2.0", Cost: "free",
-			Manual: "npm comes with Node.js — install that, and npm arrives with it",
+			Manual: "npm comes with Node.js: install that, and npm arrives with it",
 		},
 		system("git", "Git", Tool, "keeps a project's history, so every change can be seen and undone",
 			"git", []string{"git"}, "GPL-2.0", []string{"--version"}),
@@ -237,7 +237,7 @@ func godotTemplates() Recipe {
 		Install: func(_ context.Context, w io.Writer) error {
 			if _, version, ok := godotRecipe().Find(); ok && version != wanted {
 				return fmt.Errorf("the templates must match the engine: Godot %s is installed, and "+
-					"these are for %s — install Godot %s first", version, wanted, wanted)
+					"these are for %s, so install Godot %s first", version, wanted, wanted)
 			}
 
 			temp, err := os.MkdirTemp("", "pn-scripts-assistant-templates-*")
@@ -373,7 +373,7 @@ func unityRecipe() Recipe {
 		Licence: "Unity's own terms, accepted by its owner in Unity Hub",
 		Cost: "Unity Personal is free below Unity's revenue threshold; above it a paid plan " +
 			"(Pro, Enterprise) is required",
-		Size: "5–15GB with one build platform",
+		Size: "5 to 15GB with one build platform",
 		Manual: "Install Unity Hub from unity.com, sign in with your Unity account, accept Unity's " +
 			"terms and choose a licence, then install an editor version from the Hub. This program " +
 			"will find it afterwards; it will not sign in or accept terms for you.",

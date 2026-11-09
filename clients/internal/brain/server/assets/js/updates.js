@@ -74,7 +74,7 @@ function render(parts) {
 
         const state = document.createElement('span');
         state.className = 'row-state';
-        state.textContent = `${part.status} — ${part.note}`;
+        state.textContent = `${part.status}: ${part.note}`;
 
         text.append(name, state);
         row.append(icon, text);

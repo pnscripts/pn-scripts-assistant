@@ -480,7 +480,7 @@ func (t ResearchTool) Execute(ctx context.Context, raw json.RawMessage) (string,
 		done.Report.ID, len(done.Sources), done.Summary.Supported, done.Summary.Claims)
 
 	if done.Summary.Flagged > 0 {
-		fmt.Fprintf(&b, ", %d flagged — say which and why", done.Summary.Flagged)
+		fmt.Fprintf(&b, ", %d flagged; say which and why", done.Summary.Flagged)
 	}
 
 	b.WriteString(". Give the short answer with its source numbers, and do not add facts the report does not have.\n\n")
@@ -587,7 +587,7 @@ func (t CheckClaimsTool) Execute(ctx context.Context, raw json.RawMessage) (stri
 		}
 
 		if note != "" {
-			note = " — " + note
+			note = ": " + note
 		}
 
 		fmt.Fprintf(&b, "\n%s: %s%s", mark, c.Text, note)

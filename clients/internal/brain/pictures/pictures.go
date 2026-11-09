@@ -96,7 +96,7 @@ func (l Local) Paint(ctx context.Context, what string, wide bool) ([]byte, error
 	resp, err := l.client().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"the image server on this machine is not answering at %s — start it, or "+
+			"the image server on this machine is not answering at %s; start it, or "+
 				"turn on a paid service in Privacy: %w", l.BaseURL, err)
 	}
 

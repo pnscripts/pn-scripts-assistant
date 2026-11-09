@@ -10,11 +10,11 @@ Routines reduce arguments because the list, not the parent, says what comes next
 ## Steps
 1. **Collect the facts.** Children's ages and abilities, the hardest times of day, school and activity schedule, current chores, what adults want help with, and what has been tried before.
 2. **Map the problem moments.** Usually mornings, after school, and bedtime. Fix one routine at a time, starting with the most stressful.
-3. **Write each routine as 4–7 steps** in order, with pictures for children who do not read yet.
+3. **Write each routine as 4 to 7 steps** in order, with pictures for children who do not read yet.
 4. **Choose age-suited chores** (examples, adjust to the child):
-   - 2–4: put toys in a box, put clothes in the laundry basket, help feed a pet.
-   - 5–7: make the bed, set and clear the table, match socks, water plants.
-   - 8–11: load or unload the dishwasher, vacuum a room, take out recycling, pack school bag, make a simple snack.
+   - 2 to 4: put toys in a box, put clothes in the laundry basket, help feed a pet.
+   - 5 to 7: make the bed, set and clear the table, match socks, water plants.
+   - 8 to 11: load or unload the dishwasher, vacuum a room, take out recycling, pack school bag, make a simple snack.
    - 12+: cook a simple meal, do own laundry, clean the bathroom, help with shopping lists.
 5. **Make it fair and visible.** A chart on the fridge or a shared checklist; rotate unpopular jobs weekly; adults appear on the chart too.
 6. **Teach, then step back.** Show the task, do it together, then let the child do it with a check, then alone. Accept "good enough" at first.

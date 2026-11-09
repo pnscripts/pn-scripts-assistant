@@ -84,7 +84,7 @@ func (t GameEngines) Execute(context.Context, json.RawMessage) (string, error) {
 		case ok && engine.Version != "":
 			line += "installed, " + engine.Version
 		case ok:
-			line += "available — " + engine.Where
+			line += "available, " + engine.Where
 		default:
 			line += "not installed"
 		}
@@ -115,7 +115,7 @@ func (t GameEngines) Execute(context.Context, json.RawMessage) (string, error) {
 					break
 				}
 
-				fmt.Fprintf(&b, "  %s (%s%s) — %s\n", p.Name, p.Engine, targets(p), p.Dir)
+				fmt.Fprintf(&b, "  %s (%s%s): %s\n", p.Name, p.Engine, targets(p), p.Dir)
 			}
 		}
 	}
@@ -213,7 +213,7 @@ func (t GameDocs) Execute(ctx context.Context, raw json.RawMessage) (string, err
 	fmt.Fprintf(&b, "%s documentation for version %s:\n", adapter.Title(), firstNonEmpty(version, "unknown"))
 
 	for _, d := range docs {
-		fmt.Fprintf(&b, "  %s — %s\n", d.Title, d.URL)
+		fmt.Fprintf(&b, "  %s: %s\n", d.Title, d.URL)
 	}
 
 	if a.Topic == "" || t.Online == nil || !t.Online() {

@@ -96,14 +96,14 @@ button:hover{border-color:var(--accent);color:var(--accent)}
 <div class="where">%s</div>
 
 <p><strong>If that is a drive, plug it in and start PN Scripts Assistant again.</strong>
-Nothing is lost — it is found by being there, not by being remembered.</p>
+Nothing is lost. It is found by being there, not by being remembered.</p>
 
 <p class="dim">PN Scripts Assistant will not make a new brain on its own while it knows about
 that one, because a new one would be empty and would look exactly like having
 forgotten you.</p>
 
 <div class="row">
-  <button id="again">That place is gone — begin again</button>
+  <button id="again">That place is gone, begin again</button>
   <span class="dim">or close this window and plug the drive in</span>
 </div>
 

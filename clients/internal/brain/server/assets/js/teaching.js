@@ -34,7 +34,7 @@
         const used = [...box.value].length;
 
         say('profile-count', used + ' of ' + most + ' letters'
-            + (used > most ? ' — the rest will not be kept' : ''));
+            + (used > most ? '. The rest will not be kept' : ''));
     }
 
     async function loadProfile() {
@@ -247,7 +247,7 @@
         }
 
         say('skill-folder', 'They are files in ' + (body.folder || '')
-            + ' — you can edit them there too.');
+            + '. You can edit them there too.');
     }
 
     function wire() {

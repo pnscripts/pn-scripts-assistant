@@ -98,8 +98,8 @@ func runUnlock(args []string) error {
 		return err
 	}
 
-	fmt.Printf("\n  This brain (%s) is encrypted. Type its recovery key — 52 letters and\n"+
-		"  digits in groups of four — and press Enter:\n\n  > ", root.Path)
+	fmt.Printf("\n  This brain (%s) is encrypted. Type its recovery key (52 letters and\n"+
+		"  digits in groups of four) and press Enter:\n\n  > ", root.Path)
 
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 
@@ -233,7 +233,7 @@ button{margin-top:12px;padding:10px 18px;font:inherit;background:#2e6bd6;color:#
 .problem{color:#ffb4a8}.where{color:#8aa0c0;font-size:14px}
 </style></head><body><main>
 <h1>This brain is encrypted</h1>
-<p>Everything it knows is sealed with a key that this computer does not have yet —
+<p>Everything it knows is sealed with a key that this computer does not have yet,
 which is what keeps it unreadable on a drive that has been lost or copied.
 It opens here with the recovery key you were shown when it was first sealed:
 52 letters and digits, in groups of four.</p>

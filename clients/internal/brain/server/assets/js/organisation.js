@@ -110,7 +110,7 @@
 
             if (agent.state && agent.state !== 'active') what.push(agent.state);
 
-            row.appendChild(line('org-agent', (agent.title || agent.name) + ' — ' + what.join(' · ')));
+            row.appendChild(line('org-agent', (agent.title || agent.name) + ': ' + what.join(' · ')));
             row.appendChild(agentLife(agent));
         }
 
@@ -182,7 +182,7 @@
 
                     for (const m of body.memories || []) {
                         memory.appendChild(line('note',
-                            (m.kind === 'learned' ? 'lesson — ' : '') + m.content));
+                            (m.kind === 'learned' ? 'lesson: ' : '') + m.content));
                     }
                 } catch {
                     memory.appendChild(line('note', 'could not read them'));
@@ -307,7 +307,7 @@
     // A proposal for somebody new, from any button: shown where hiring is
     // decided, and nothing written until it is confirmed there.
     function proposed(p, said) {
-        said.textContent = 'Proposal ' + p.id + ' — nothing is hired until you confirm it under “Hire someone”.';
+        said.textContent = 'Proposal ' + p.id + '. Nothing is hired until you confirm it under “Hire someone”.';
         showProposal(p);
         el('org-proposal').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -453,7 +453,7 @@
 
                 for (const agent of body.unseated) {
                     loose.appendChild(line('org-agent', (agent.title || agent.name)
-                        + ' — ' + (agent.for || '')));
+                        + ': ' + (agent.for || '')));
                     loose.appendChild(agentLife(agent));
                 }
 
@@ -486,7 +486,7 @@
         const none = document.createElement('option');
 
         none.value = '';
-        none.textContent = 'no seat — just somebody who does this';
+        none.textContent = 'no seat, just somebody who does this';
         picker.appendChild(none);
 
         for (const seat of seats) {
@@ -750,7 +750,7 @@
             const so = run.so_far || {};
             const what = run.source === 'onet' ? 'O*NET' : 'ESCO';
 
-            let said = what + ' — ' + run.state;
+            let said = what + ': ' + run.state;
 
             if (run.state === 'running') {
                 running = true;

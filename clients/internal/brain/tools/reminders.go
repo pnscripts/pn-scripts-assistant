@@ -152,7 +152,7 @@ func (t ListReminders) Execute(context.Context, json.RawMessage) (string, error)
 	var b strings.Builder
 
 	for _, it := range items {
-		fmt.Fprintf(&b, "%d. %s — %s\n", it.ID, it.At.Local().Format("Mon 2 Jan 15:04"), it.What)
+		fmt.Fprintf(&b, "%d. %s: %s\n", it.ID, it.At.Local().Format("Mon 2 Jan 15:04"), it.What)
 	}
 
 	return strings.TrimRight(b.String(), "\n"), nil

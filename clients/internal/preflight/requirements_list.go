@@ -154,7 +154,7 @@ func Requirements() []Requirement {
 
 					return Missing, ""
 				},
-				Where:      func() string { return "/usr/lib — system libraries, installed by apt" },
+				Where:      func() string { return "/usr/lib: system libraries, installed by apt" },
 				InstallCmd: func() []string { return aptInstall("libwebkit2gtk-4.1-0", "libgtk-3-0t64") },
 				NeedsRoot:  true,
 			},
@@ -170,7 +170,7 @@ func Requirements() []Requirement {
 
 					return Missing, ""
 				},
-				Where:      func() string { return "/usr/include — system headers, installed by apt" },
+				Where:      func() string { return "/usr/include: system headers, installed by apt" },
 				InstallCmd: func() []string { return aptInstall("libwebkit2gtk-4.1-dev", "libgtk-3-dev") },
 				NeedsRoot:  true,
 			},
@@ -185,26 +185,39 @@ func Requirements() []Requirement {
 					// where espeak-ng is formant synthesis and sounds like
 					// that. Reported by name so it is obvious which is in use.
 					if home, err := os.UserHomeDir(); err == nil {
+						var folders []string
 						for _, dir := range []string{
 							filepath.Join(home, ".local", "src", "piper"),
 							filepath.Join(home, ".local", "share", "piper"),
 						} {
-							voices := filepath.Join(dir, "voices")
+							folders = append(folders, filepath.Join(dir, "voices"))
+						}
 
-							/*
-							 * The voices an older release installed are on
-							 * the disk and no longer used, so a copy with
-							 * them and without the new ones is out of
-							 * date, with an Update button, rather than
-							 * installed and silent in the voices it offers.
-							 */
-							if hasWithdrawnVoice(voices) && !hasCurrentVoices(voices) {
-								return Outdated, "piper (neural), with voices an older version installed"
-							}
+						/*
+						 * The voices an older release installed are on the
+						 * disk and no longer used, so a copy with them and
+						 * without the new ones is out of date, with an
+						 * Update button, rather than installed and silent
+						 * in the voices it offers. Decided over every
+						 * folder at once: the voice looks in all of them,
+						 * and Update fetches into the last one.
+						 */
+						current, withdrawn, someVoice := false, false, false
+						for _, voices := range folders {
+							current = current || hasCurrentVoices(voices)
+							withdrawn = withdrawn || hasWithdrawnVoice(voices)
 
 							if models, _ := filepath.Glob(filepath.Join(voices, "*.onnx")); len(models) > 0 {
-								return OK, "piper (neural)"
+								someVoice = true
 							}
+						}
+
+						if withdrawn && !current {
+							return Outdated, "piper (neural), with voices an older version installed"
+						}
+
+						if someVoice {
+							return OK, "piper (neural)"
 						}
 					}
 
@@ -276,7 +289,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/xdotool — installed by apt"
+					return "/usr/bin/xdotool, installed by apt"
 				},
 				InstallCmd: func() []string { return aptInstall("xdotool") },
 				NeedsRoot:  true,
@@ -312,7 +325,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/pdftotext — installed by apt"
+					return "/usr/bin/pdftotext, installed by apt"
 				},
 				InstallCmd: func() []string { return aptInstall("poppler-utils") },
 				NeedsRoot:  true,
@@ -335,7 +348,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/ffmpeg — installed by apt"
+					return "/usr/bin/ffmpeg, installed by apt"
 				},
 				InstallCmd: func() []string { return aptInstall("ffmpeg") },
 				NeedsRoot:  true,
@@ -359,7 +372,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/wg-quick — installed by apt"
+					return "/usr/bin/wg-quick, installed by apt"
 				},
 
 				// The tunnel itself is in the kernel already; this is the tool
@@ -392,7 +405,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/wpctl — installed by apt"
+					return "/usr/bin/wpctl, installed by apt"
 				},
 				InstallCmd: func() []string {
 					return aptInstall("wireplumber", "pipewire-audio-client-libraries", "pipewire-bin")

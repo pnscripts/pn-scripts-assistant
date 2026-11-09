@@ -81,8 +81,8 @@ type PlanProject struct {
 func (PlanProject) Name() string { return "plan_project" }
 
 func (PlanProject) Description() string {
-	return "Work out a project the owner asked for — \"make me a Tetris game\", \"build an API " +
-		"in this folder\", \"plan the electrical work for this room\": where it goes, what it is " +
+	return "Work out a project the owner asked for (\"make me a Tetris game\", \"build an API " +
+		"in this folder\", \"plan the electrical work for this room\"): where it goes, what it is " +
 		"built with, who does it, what the machine needs, the steps and what finished means. " +
 		"Writes nothing. Never guess the folder: leave it out and the owner is asked."
 }
@@ -138,7 +138,7 @@ func NextAboutProject(offer ProjectOffer) string {
 		return "Tell the owner what stops it starting. Nothing can be done until they act."
 	default:
 		return fmt.Sprintf("Show the owner this proposal. To start it, call start_project with "+
-			"proposal %d — they will be asked to approve it before anything is written.", offer.ID)
+			"proposal %d; they will be asked to approve it before anything is written.", offer.ID)
 	}
 }
 

@@ -61,7 +61,7 @@ func ToolName(server, tool string) string {
 func (w *Wrapped) Name() string { return ToolName(w.server.ID, w.def.Name) }
 
 func (w *Wrapped) Description() string {
-	return "[" + w.server.Title + " integration — its own description, not this program's] " +
+	return "[" + w.server.Title + " integration: its own description, not this program's] " +
 		oneLine(w.def.Description, 280)
 }
 
@@ -116,7 +116,7 @@ func (w *Wrapped) Summarize(args json.RawMessage) string {
 		shown = shown[:300] + "…"
 	}
 
-	return fmt.Sprintf("%s — %s: %s %s", w.server.Title, w.server.Where(), w.def.Name, shown)
+	return fmt.Sprintf("%s (%s): %s %s", w.server.Title, w.server.Where(), w.def.Name, shown)
 }
 
 // GrantedTo: only the agents its owner named.

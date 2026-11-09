@@ -19,48 +19,48 @@ AMD). What it does not do yet is written down in
 ## What it does
 
 - **Answers with memory.** It recalls what it already knows about your projects
-  and documents, and uses that to answer — so "where does that project live"
+  and documents, and uses that to answer, so "where does that project live"
   gets a real path rather than a guess.
 - **Learns on its own.** It scans your code and documents, and proposes things
   worth remembering after conversations. Anything it inferred waits for you to
   approve; anything it can verify against the disk promotes itself.
 - **Acts.** It can read files, list directories, run commands, search and read
   the web, and control a smart home. Out of the box it does what you ask
-  without stopping to confirm each step — and everything it does is written
+  without stopping to confirm each step, and everything it does is written
   down, and a file it changed can be put back. If you would rather be asked,
   the Permissions panel has three settings: ask every time, ask about what you
   have not already allowed, or act freely.
 - **Writes, proofreads and translates, in English and Bulgarian.** Proofreading
   is done by rules, offline, each correction with its reason; a tone and a
   word limit are checked too, and a rewrite is shown as changes before it is
-  kept. Files are translated into new files with their layout — Word,
-  OpenDocument, subtitles, Markdown — following your own glossary, and
+  kept. Files are translated into new files with their layout (Word,
+  OpenDocument, subtitles, Markdown), following your own glossary, and
   checked for terms, numbers and links that did not survive.
 - **Reads scans and writes spreadsheets.** Text in scans and photos is read on
   this machine (Tesseract or a local model that can see); tables become real
   `.xlsx` files and workbooks are read with their numbers.
-- **Sorts your mail and drafts replies.** New mail is sorted from its headers —
-  suspicious, needs a reply, people, newsletters — and replies wait as drafts
+- **Sorts your mail and drafts replies.** New mail is sorted from its headers
+  (suspicious, needs a reply, people, newsletters), and replies wait as drafts
   until you press Send on each one.
 - **Plans.** To-do lists, the diary, reminders and your online calendar
   (CalDAV) in one "what is next", in time order.
-- **Teaches.** A lesson on any topic at your level — child, beginner,
-  intermediate or advanced — and practice questions marked by rules, the
+- **Teaches.** A lesson on any topic at your level (child, beginner,
+  intermediate or advanced) and practice questions marked by rules, the
   missed ones coming back until you know them.
 - **Looks things up properly.** A research report from the best sources it
   can find, with a number after every claim, and every sentence checked
   against the source it cites; any text with numbered sources can be checked
   the same way.
 - **Answers your customers from your own words.** Replies come from your
-  answer book and your business documents; what only you can decide — a
-  question your words do not answer, a refund, a price you never gave — is
+  answer book and your business documents; what only you can decide (a
+  question your words do not answer, a refund, a price you never gave) is
   marked, and nothing is sent until you say yes.
 - **Calculates with your tables, and checks every total.** Budgets and sales
-  in .csv, .xlsx or .ods are worked out with exact arithmetic — the model
-  never adds anything up — and every total is checked a second way, including
+  in .csv, .xlsx or .ods are worked out with exact arithmetic (the model
+  never adds anything up), and every total is checked a second way, including
   the sheet's own.
 - **Keeps an invoice register and works out the VAT.** Each invoice checked as
-  it is added, a month's VAT and its due date, the registration threshold —
+  it is added, a month's VAT and its due date, the registration threshold,
   under Bulgaria's VAT Act with the article and the date it was checked, or
   your own rates. Information, not tax advice; nothing is ever filed.
 - **Fills in PDF forms.** Into a new file beside the form, any language drawn
@@ -74,24 +74,24 @@ AMD). What it does not do yet is written down in
   why, and whether anything left the machine; every capability can be switched
   off under Control.
 - **Draws what it knows.** The interface renders a live map of memory, built
-  from real embedding similarity — not decoration.
+  from real embedding similarity, not decoration.
 - **Listens and speaks.** Conversation mode hears you until you stop talking,
   answers, reads the answer aloud, and listens again. Both halves are local.
 - **Hires and equips experts.** "Hire a game-development expert", "hire an
   electrician to help me plan this installation": it proposes who, what they
   may and may not touch, what the machine needs (with size, source, licence and
-  cost), and who else is needed — and hires nobody until you say so. Advisory
+  cost), and who else is needed, and hires nobody until you say so. Advisory
   and regulated work never touches anything, and says which licensed person
   takes over.
 - **Starts and builds projects.** "Make me a Tetris game" asks where, chooses
   the engine from what you asked and what this machine can really do, and shows
-  the whole plan. Once you approve, the work is confined to that folder — by the
-  kernel, not only by checking arguments — its settings live in `.pn-assistant/`
+  the whole plan. Once you approve, the work is confined to that folder (by the
+  kernel, not only by checking arguments), its settings live in `.pn-assistant/`
   beside the code, and it is finished only on fresh evidence: the latest check
   passed after the last change, a run that did not fail, a picture that shows
   something.
-- **Chooses how work is done.** Who writes the code — Claude Code or Codex on
-  your subscription, or a model on this machine — is decided per piece of work,
+- **Chooses how work is done.** Who writes the code (Claude Code or Codex on
+  your subscription, or a model on this machine) is decided per piece of work,
   subscriptions first, switching before a limit is hit and falling back when a
   service is signed out or out of allowance, with every decision and switch
   recorded. How much of a subscription is left is shown only when its service
@@ -102,11 +102,11 @@ AMD). What it does not do yet is written down in
   proposes a rule in your words, kept only when you say yes. Rules are read
   before every answer and checked before anything is sent, posted, committed,
   changed, paid or deleted; a rule that forbids an action stops it and says
-  which. Every email it sends gets a last look first — what the reader
+  which. Every email it sends gets a last look first: what the reader
   already sees, filler, repetition, slips, a placeholder left in.
 - **Asks other coding agents.** Claude Code, Codex or Cursor's agent, signed
-  in with your account, can be given one task in a folder you choose — only
-  reading, changing files there, or full access, which is asked every time —
+  in with your account, can be given one task in a folder you choose (only
+  reading, changing files there, or full access, which is asked every time),
   and the answer comes back with every file it changed.
 - **Looks after the computer.** "Can I restart?" is answered from the machine
   (a waiting kernel and its DKMS drivers, installs, running and unpushed
@@ -131,7 +131,7 @@ are still in the code and one line away in `brain.conf`.
 |---|---|
 | `open` (default) | your messages, the memory recalled for that turn and your profile go to the hosted provider you chose; the web may be read |
 | `research` | search queries only; conversations and memory stay here |
-| `private` | **nothing** — local model, local embeddings, no web |
+| `private` | **nothing**: local model, local embeddings, no web |
 
 | setting | default | what it does |
 |---|---|---|
@@ -164,7 +164,7 @@ machine where that matters.
 can read it ([ADR 0008](docs/decisions/0008-every-permission-and-sealed-at-rest.md)):
 conversations, memories and their embeddings, the record of every tool call,
 reminders, tasks, the profile, the voiceprint, integration credentials, the
-secrets and your name in `brain.conf`, and the log — AES-256-GCM with a key
+secrets and your name in `brain.conf`, and the log. It uses AES-256-GCM with a key
 kept in this computer's keyring (Secret Service, DPAPI or Keychain; a 0600 key
 file where there is none). The first time, you are shown a **recovery key**
 once: the brain's drive travels and the key does not, and on another computer
@@ -179,11 +179,11 @@ An unrecognised privacy value is still treated as `private`, because the safe
 reading of a typo is the strict one.
 
 **Everywhere it connects to on its own is written down**, with a reason beside
-each entry, in [`clients/internal/outside/outside.go`](clients/internal/outside/outside.go)
-— and a test reads the whole program and fails if an address is written into it
+each entry, in [`clients/internal/outside/outside.go`](clients/internal/outside/outside.go),
+and a test reads the whole program and fails if an address is written into it
 that is not on the list. That list documents; it blocks nothing at run time.
 There is no telemetry and nothing reporting to this project. Addresses its owner
-asks for — a page, a mail server, an integration — are his and are not listed.
+asks for (a page, a mail server, an integration) are his and are not listed.
 
 ## Requirements
 
@@ -197,21 +197,21 @@ asks for — a page, a mail server, an integration — are his and are not liste
 
 None of it is required. The assistant reports what it cannot do rather than
 refusing to start, and controls for capabilities that are missing are not shown
-at all. The first run checks for all of this and offers to install what it can
-— the package does not carry a separate checker, because the program is one.
+at all. The first run checks for all of this and offers to install what it can;
+the package does not carry a separate checker, because the program is one.
 
 ### Two Ollama settings worth checking
 
 Ollama's own defaults work against this, and both need root to change:
 
 ```
-OLLAMA_HOST=127.0.0.1:11434   # not 0.0.0.0 — see Privacy below
+OLLAMA_HOST=127.0.0.1:11434   # not 0.0.0.0, see Privacy below
 OLLAMA_MAX_LOADED_MODELS=2    # or every reply reloads the chat model
 ```
 
 The second is not a preference. Recall embeds your question before every reply,
 and with only one model permitted in memory, loading the embedder evicts the
-chat model — which is then read back from disk to answer. Measured on a 7B
+chat model, which is then read back from disk to answer. Measured on a 7B
 model: 6.8 seconds to reply when it is resident, 15.8 after an embedding
 evicted it.
 
@@ -241,7 +241,7 @@ sudo wget -qO /etc/apt/sources.list.d/pn-scripts-assistant.sources https://pnscr
 The `.deb` adds the same repository when installed by hand (from 0.12.0).
 Both: [installing.md](docs/guide/installing.md) · [на български](docs/guide/installing.bg.md).
 
-Nothing is signed — there is no Windows certificate behind this — so Windows
+Nothing is signed (there is no Windows certificate behind this), so Windows
 refuses the first open and takes one extra click to pass.
 [installing.md](docs/guide/installing.md) says exactly which click.
 
@@ -255,8 +255,8 @@ Ubuntu 24.04 or newer, on a 64-bit machine. Download
 sudo apt install ./pn-scripts-assistant_*.deb
 ```
 
-`apt` pulls in the libraries the window needs — the package says which ones,
-having been asked of the binary rather than remembered — and puts **PN Scripts
+`apt` pulls in the libraries the window needs (the package says which ones,
+having been asked of the binary rather than remembered) and puts **PN Scripts
 Assistant** in the applications menu with its icon.
 
 To check what you downloaded is what was built:
@@ -268,7 +268,7 @@ sha256sum --ignore-missing -c SHA256SUMS
 ### Checking that a download is genuinely ours
 
 A checksum proves a file matches a published number. It does not prove the
-number came from here — so every released file also carries a **provenance
+number came from here, so every released file also carries a **provenance
 attestation**: a statement, signed by GitHub with a key nobody here holds,
 binding that file to this repository, the workflow that built it and the commit
 it was built from. Check any download with nothing installed but the GitHub
@@ -278,7 +278,7 @@ CLI:
 gh attestation verify pn-scripts-assistant_*_amd64.deb --repo pnscripts/pn-scripts-assistant
 ```
 
-Nothing is signed with a code-signing certificate — an Apple one and a Windows
+Nothing is signed with a code-signing certificate: an Apple one and a Windows
 one cost money every year and identify a company, and this project has neither.
 That is why the attestation is here: it is free, it needs no secret, and it is
 the one form of "this really is the file that workflow built" that can honestly
@@ -302,7 +302,7 @@ Or just the binary, without a package:
 CGO_ENABLED=1 go build -C clients -trimpath -o ../build/pn-scripts-assistant ./cmd/pn-scripts-assistant
 ```
 
-`CGO_ENABLED=0` builds too — on Linux you get the assistant without a native
+`CGO_ENABLED=0` builds too: on Linux you get the assistant without a native
 window, reachable in any browser at `127.0.0.1:8790`. The Windows build needs
 no cgo for its window; `bash scripts/build-packages.sh windows` puts the
 WebView2 loader beside it.
@@ -320,7 +320,7 @@ pn-scripts-assistant
 ```
 
 If it is already running, that brings the existing window forward rather than
-starting a second copy — one assistant per brain, and the second says where the
+starting a second copy: one assistant per brain, and the second says where the
 first is answering. `pn-scripts-assistant serve` runs it without a window, for a
 machine with no desktop; the address is printed when it starts.
 
@@ -346,7 +346,7 @@ GitHub's public releases page once a day and sends nothing about you; the
 switch is on the *What it runs on* page, and on Ubuntu `pn-scripts-assistant
 update --check` asks from a terminal. Updates keep everything learned.
 
-Removing the program leaves the brain alone, deliberately — years of somebody's
+Removing the program leaves the brain alone, deliberately: years of somebody's
 memory should not go with an `apt remove`:
 
 ```bash
@@ -362,7 +362,7 @@ where it is before you remove anything.
 
 The brain finds itself. It looks for a `.brain-root.json` marker across mounted
 drives, so the data can live on an external disk, be unplugged, reattached at a
-different path, or moved to another computer — nothing is pinned to a machine.
+different path, or moved to another computer; nothing is pinned to a machine.
 With no marker anywhere, it creates one under
 `~/.local/share/pn-scripts-assistant/data`. A brain made before the program was
 renamed from PN Brain stays where it was, in `~/.local/share/pn-brain`, and is
@@ -376,10 +376,10 @@ they describe *this brain* rather than this installation.
 Type in the box, or use your voice. Three controls appear in the Engine panel,
 and only when the machine can actually do them:
 
-- **Microphone** — which input to listen through. Worth setting: the system
+- **Microphone**: which input to listen through. Worth setting: the system
   default is often an empty analog jack rather than the microphone you own.
-- **Read replies aloud** — answers are spoken as well as shown.
-- **Conversation mode** — listens until you stop talking, answers, speaks, and
+- **Read replies aloud**: answers are spoken as well as shown.
+- **Conversation mode**: listens until you stop talking, answers, speaks, and
   listens again, until you switch it off.
 
 Silence detection calibrates to your room at the start of every turn, because a
@@ -440,7 +440,7 @@ variables.
 ## How it is built
 
 Go, and a SQLite file. Vectors are stored as float32 blobs and similarity is
-computed in process — exact, and fast enough at this size that an index
+computed in process: exact, and fast enough at this size that an index
 would be a dependency bought for nothing.
 
 Nothing else has to be running for it to start: no database server, no
@@ -478,21 +478,21 @@ gets to say.
 
 - **Every push and every pull request** runs formatting, `go vet`, the whole
   test suite under the race detector, a build for each system it claims to
-  build for, `govulncheck`, and the `.deb` put through `lintian` —
+  build for, `govulncheck`, and the `.deb` put through `lintian`:
   [ci.yml](.github/workflows/ci.yml).
 - **Every released file** is built by a workflow on the system it is for, is
   published with its SHA-256, and carries a signed provenance attestation
   anybody can check.
 - **The package is reproducible.** The same commit built on a GitHub runner and
   on the maintainer's desktop produces a byte-identical `.deb`, so you can
-  check out that commit, run `make package`, and compare — rather than trusting
+  check out that commit, run `make package`, and compare, rather than trusting
   a published number.
 - **Every action in CI is pinned to a commit**, not to a tag somebody could
   move, and only the job that publishes a release can write anything.
 - **`main` requires those checks to have passed**, and refuses force-pushes and
   deletion.
-- **The audits in [docs/audit/](docs/audit/)** use a fixed vocabulary —
-  VERIFIED, IMPLEMENTED — NOT VERIFIED, BROKEN — so what was measured is
+- **The audits in [docs/audit/](docs/audit/)** use a fixed vocabulary
+  (VERIFIED, IMPLEMENTED, NOT VERIFIED, BROKEN), so what was measured is
   distinguishable from what was merely written. They are the maintainer's own;
   nobody independent has audited this, and that is said rather than left to be
   assumed.
@@ -501,4 +501,4 @@ gets to say.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE). Yours to read, run, fork and sell.
+MIT, see [LICENSE](LICENSE). Yours to read, run, fork and sell.

@@ -550,7 +550,7 @@ func outside(within Confine, tool tools.Tool, args json.RawMessage) string {
 
 	for _, dir := range runs {
 		if strings.TrimSpace(dir) == "" {
-			return "it does not say which folder to run in — give the project's folder as dir"
+			return "it does not say which folder to run in: give the project's folder as dir"
 		}
 
 		if !within.Allows(dir) {
@@ -1168,7 +1168,7 @@ func (l *Loop) RunBrief(
 			 */
 			if why := tools.ConsentFor(tool, call.Arguments); why != "" && !free {
 				ask = true
-				summary = "Always asked — " + why + ": " + summary
+				summary = "Always asked (" + why + "): " + summary
 			}
 
 			/*
@@ -1187,7 +1187,7 @@ func (l *Loop) RunBrief(
 				if why := tools.GoalModeAsks(tool, call.Arguments, inside); why != "" {
 					ask = true
 					answer = permits.Ask
-					summary = "Always asked — " + why + ": " + summary
+					summary = "Always asked (" + why + "): " + summary
 				} else if protected && !free && (l.NothingAsks == nil || !l.NothingAsks()) {
 					/*
 					 * Something protected — keys, passwords, the vault — is
@@ -1229,7 +1229,7 @@ func (l *Loop) RunBrief(
 				if why := a.AlwaysAsks(call.Arguments); why != "" {
 					ask = true
 					answer = permits.Ask
-					summary = "Always asked — " + why + ": " + summary
+					summary = "Always asked (" + why + "): " + summary
 				}
 			}
 
@@ -1240,7 +1240,7 @@ func (l *Loop) RunBrief(
 			asked := summary
 
 			if level.AtLeast(risk.High) {
-				asked = level.Title() + " risk — " + summary
+				asked = level.Title() + " risk: " + summary
 			}
 
 			if answer == permits.Ask || ask {

@@ -116,7 +116,7 @@
             'Всички компоненти и техните лицензи са изброени в THIRD-PARTY-NOTICES.md, публикуван заедно с изходния код на програмата.',
         ],
         'upd.later': ['Later', 'По-късно'],
-        'upd.banner': ['{name} {latest} is out — you have {have}.', 'Излезе {name} {latest} — вашата версия е {have}.'],
+        'upd.banner': ['{name} {latest} is out. You have {have}.', 'Излезе {name} {latest}, вашата версия е {have}.'],
         'upd.allCurrent': ['Everything is current.', 'Всичко е актуално.'],
         'upd.partly': [
             'Nothing I could check is out of date; one check could not be made (below).',
@@ -125,7 +125,7 @@
         'upd.oneWaiting': ['One thing is out of date.', 'Едно нещо не е актуално.'],
         'upd.manyWaiting': ['{n} things are out of date.', '{n} неща не са актуални.'],
         'upd.isCurrent': ['current', 'актуално'],
-        'upd.rowCurrent': ['{have} — current', '{have} — актуално'],
+        'upd.rowCurrent': ['{have} (current)', '{have} (актуално)'],
         'upd.rowNewer': ['{have} → {latest}', '{have} → {latest}'],
         'upd.cannotTellShort': ['cannot tell', 'не е ясно'],
         'upd.update': ['Update', 'Обнови'],
@@ -193,10 +193,10 @@
         'nav.deeds': ['What I did', 'Какво направих'],
         'deeds.title': ['What I did and why', 'Какво направих и защо'],
         'deeds.intro': [
-            'Every action I took, put to you or refused — with what was asked, who did it, '
+            'Every action I took, put to you or refused, with what was asked, who did it, '
                 + 'which model and why, and whether anything left this machine. The program keeps '
                 + 'this record itself; it is not the model\'s account of what it did.',
-            'Всяко действие, което извърших, предложих за одобрение или отказах — с това какво '
+            'Всяко действие, което извърших, предложих за одобрение или отказах, с това какво '
                 + 'беше поискано, кой специалист го изпълни, с кой модел и защо, и дали нещо е '
                 + 'напуснало този компютър. Записът се води от самата програма, а не от модела.',
         ],
@@ -268,10 +268,10 @@
         ],
         'control.lookOnline': ['May look things up about itself', 'Може да проверява информация за себе си'],
         'control.lookOnlineNote': [
-            'Updates, the list of models it could install, documentation. Sends nothing about you — '
-                + 'this is not your privacy setting.',
-            'Обновления, списъкът с модели за инсталиране, документация. Не изпраща нищо за вас — '
-                + 'това не е настройката за поверителност.',
+            'Updates, the list of models it could install, documentation. Sends nothing about you. '
+                + 'This is not your privacy setting.',
+            'Обновления, списъкът с модели за инсталиране, документация. Не изпраща нищо за вас. '
+                + 'Това не е настройката за поверителност.',
         ],
         'control.privacyNote': [
             'What may leave this machine is a separate setting, currently “{p}”. It is changed under '
@@ -282,11 +282,11 @@
         'control.answers': ['Answers', 'Отговори'],
         'control.cite': ['Say where answers come from', 'Посочвай откъде идват отговорите'],
         'control.citeNote': [
-            'Each answer lists what it was built from — your files, pages it read, things it '
-                + 'remembers — and ends a sentence with the number of its source. Spoken answers are '
+            'Each answer lists what it was built from (your files, pages it read, things it '
+                + 'remembers) and ends a sentence with the number of its source. Spoken answers are '
                 + 'listed without numbers. The list is kept either way.',
-            'Всеки отговор изрежда на какво се основава — ваши файлове, прочетени страници, '
-                + 'запомнени неща — и завършва изречението с номера на източника. Изговорените '
+            'Всеки отговор изрежда на какво се основава (ваши файлове, прочетени страници, '
+                + 'запомнени неща) и завършва изречението с номера на източника. Изговорените '
                 + 'отговори се изброяват без номера. Списъкът се пази и при изключена настройка.',
         ],
         'control.every': ['Every capability', 'Всички възможности'],
@@ -355,7 +355,7 @@
         'writing.empty': ['There is no text yet.', 'Все още няма текст.'],
         'writing.stats': [
             '{words} words · {sentences} sentences · longest {longest} words · about {minutes} min to read',
-            '{words} думи · {sentences} изречения · най-дългото — {longest} думи · около {minutes} мин. четене',
+            '{words} думи · {sentences} изречения · най-дългото: {longest} думи · около {minutes} мин. четене',
         ],
         'writing.slips': ['Corrections', 'Поправки'],
         'writing.toneNotes': ['Tone and length', 'Тон и дължина'],
@@ -369,7 +369,7 @@
         'writing.working': ['Rewriting… on a computer without a graphics card this can take a minute.',
             'Пренаписване… на компютър без графична карта това може да отнеме минута.'],
         'writing.rewritten': ['Rewritten by {model}: {removed} words taken out, {added} put in.',
-            'Пренаписано от {model}: премахнати думи — {removed}, добавени — {added}.'],
+            'Пренаписано от {model}: премахнати думи: {removed}, добавени: {added}.'],
         'writing.keep': ['Use this version', 'Използвай тази версия'],
         'writing.discard': ['Discard', 'Откажи'],
         'writing.kept': ['The new version is in the text box.', 'Новата версия е в полето за текст.'],
@@ -399,7 +399,7 @@
         'study.topic': ['What to learn', 'Какво да научите'],
         'study.topicHint': ['e.g. fractions, the water cycle, Python loops', 'напр. дроби, кръговратът на водата, цикли в Python'],
         'study.level': ['Level', 'Ниво'],
-        'study.level.child': ['Child (8–12)', 'Дете (8–12 г.)'],
+        'study.level.child': ['Child (8 to 12)', 'Дете (от 8 до 12 г.)'],
         'study.level.beginner': ['Beginner', 'Начинаещ'],
         'study.level.intermediate': ['Intermediate', 'Напреднал'],
         'study.level.advanced': ['Advanced', 'Експерт'],
@@ -435,7 +435,7 @@
             'Не мога да преценя със сигурност. Очакваният отговор е: {answer}. Вашият същият ли беше?'],
         'study.selfRight': ['I was right', 'Бях прав(а)'],
         'study.selfWrong': ['I was wrong', 'Сгреших'],
-        'study.learnt': ['Learnt — this question now rests for a month.', 'Научено — този въпрос почива един месец.'],
+        'study.learnt': ['Learnt. This question now rests for a month.', 'Научено. Този въпрос почива един месец.'],
         'study.again': ['It comes back {when}.', 'Ще се върне {when}.'],
         'study.soon': ['in a few minutes', 'след няколко минути'],
         'study.tomorrow': ['tomorrow', 'утре'],
@@ -450,7 +450,7 @@
         'study.done': ['Done: {right} of {n} right.', 'Готово: {right} от {n} верни.'],
         'study.doneMissed': ['The ones you missed come back in a few minutes; review them from the list below.',
             'Сгрешените се връщат след няколко минути; преговорете ги от списъка по-долу.'],
-        'study.doneAll': ['All right — well done.', 'Всичко е вярно — браво.'],
+        'study.doneAll': ['All right. Well done.', 'Всичко е вярно. Браво.'],
         'study.nothingDue': ['Nothing is due for review now.', 'В момента няма нищо за преговор.'],
         'study.topicsTitle': ['What you are learning', 'Какво учите'],
         'study.counts': ['Topics: {topics} · questions: {cards} · learnt: {learnt}', 'Теми: {topics} · въпроси: {cards} · научени: {learnt}'],
@@ -475,12 +475,12 @@
         'care.title': ['Answer a customer', 'Отговор на клиент'],
         'care.intro': [
             'Paste a customer\'s message and I write a reply from your own answer book and the documents in your '
-                + 'business folder — prices, terms, opening hours — in the customer\'s language. Before you see it, '
+                + 'business folder (prices, terms, opening hours) in the customer\'s language. Before you see it, '
                 + 'the reply is checked: a question your words cannot answer is left for you as [[ASK: …]], and a '
                 + 'promise of money or time, or a figure you never gave, is marked. Nothing is sent: a reply waits on '
                 + 'the Mail page for your yes, and one with a question still in it cannot be sent.',
             'Поставете съобщението на клиента и аз пиша отговор от вашата книга с отговори и документите в папката '
-                + 'на фирмата — цени, условия, работно време — на езика на клиента. Преди да го видите, отговорът се '
+                + 'на фирмата (цени, условия, работно време) на езика на клиента. Преди да го видите, отговорът се '
                 + 'проверява: въпрос, на който думите ви не отговарят, остава за вас като [[ASK: …]], а обещание за '
                 + 'пари или срок или число, което никога не сте давали, се отбелязва. Нищо не се изпраща: отговорът '
                 + 'чака одобрението ви в „Поща“, а отговор с неотговорен въпрос не може да бъде изпратен.',
@@ -516,7 +516,7 @@
         'care.keptGaps': ['Kept as draft {n}. Fill in the [[ASK: …]] gaps on the Mail page before sending it.',
             'Запазен като чернова {n}. Попълнете празните места [[ASK: …]] в „Поща“, преди да го изпратите.'],
         'care.copied': ['Copied.', 'Копирано.'],
-        'care.copyByHand': ['Selected — press Ctrl+C to copy.', 'Маркирано — натиснете Ctrl+C, за да копирате.'],
+        'care.copyByHand': ['Selected. Press Ctrl+C to copy.', 'Маркирано. Натиснете Ctrl+C, за да копирате.'],
         'care.bookTitle': ['Answer book', 'Книга с отговори'],
         'care.bookIntro': [
             'The questions customers ask, answered the way you want them answered. Replies use these first, word for word where they fit.',
@@ -552,15 +552,15 @@
         'nav.tables': ['Tables', 'Таблици'],
         'tab.title': ['Work with a table', 'Работа с таблица'],
         'tab.intro': [
-            'Give the path of a table — a budget, sales, expenses — as .csv, .xlsx or .ods. I look it over first: '
+            'Give the path of a table (a budget, sales, expenses) as .csv, .xlsx or .ods. I look it over first: '
                 + 'every column\'s sums, cells that are not numbers, repeated rows, and whether the sheet\'s own totals '
-                + 'are right. Then ask a question and the program works it out exactly — the language model only turns '
-                + 'your question into a recipe, it never adds anything up — and checks every total a second way from '
+                + 'are right. Then ask a question and the program works it out exactly (the language model only turns '
+                + 'your question into a recipe, it never adds anything up) and checks every total a second way from '
                 + 'the rows. Nothing in your file is changed, and nothing leaves this computer.',
-            'Въведете пътя до таблица — бюджет, продажби, разходи — във формат .csv, .xlsx или .ods. Първо я '
+            'Въведете пътя до таблица (бюджет, продажби, разходи) във формат .csv, .xlsx или .ods. Първо я '
                 + 'преглеждам: сумите на всяка колона, клетките, които не са числа, повтарящите се редове и дали '
-                + 'собствените суми на таблицата са верни. След това задайте въпрос и програмата го изчислява точно — '
-                + 'езиковият модел само превръща въпроса в рецепта и никога не събира сам — и проверява всяка сума по '
+                + 'собствените суми на таблицата са верни. След това задайте въпрос и програмата го изчислява точно ('
+                + 'езиковият модел само превръща въпроса в рецепта и никога не събира сам) и проверява всяка сума по '
                 + 'втори начин от редовете. Файлът ви не се променя и нищо не излиза от този компютър.',
         ],
         'tab.path': ['Table (.csv, .xlsx, .ods)', 'Таблица (.csv, .xlsx, .ods)'],
@@ -589,7 +589,7 @@
         'tab.run': ['Work it out', 'Изчисли'],
         'tab.working': ['Turning the question into a calculation and checking it…', 'Превръщам въпроса в изчисление и го проверявам…'],
         'tab.allChecked': ['Done. Every total was checked a second way.', 'Готово. Всяка сума е проверена по втори начин.'],
-        'tab.someToLook': ['Done, but {n} checks need a look — see below.', 'Готово, но {n} проверки изискват внимание — вижте по-долу.'],
+        'tab.someToLook': ['Done, but {n} checks need a look. See below.', 'Готово, но {n} проверки изискват внимание. Вижте по-долу.'],
         'tab.noModel': ['No language model is available to turn the question into a calculation. Looking the table over still works.',
             'Няма езиков модел, който да превърне въпроса в изчисление. Прегледът на таблицата работи и без него.'],
         'tab.forecast': ['Estimate', 'Прогноза'],
@@ -605,12 +605,12 @@
             '{col}: {n} клетки не са числа и не влизат в сумите (редове {rows})'],
         'tab.f.ambiguous': ['{col}: numbers like 1,250 could be a thousand or one and a quarter, and nothing in the column says which; they are not counted until written unambiguously',
             '{col}: числа като 1,250 може да са хиляда или едно цяло и четвърт и нищо в колоната не показва кое; не се броят, докато не се запишат еднозначно'],
-        'tab.f.duplicate': ['rows {rows} are the same in every cell — counted twice?', 'редове {rows} съвпадат във всяка клетка — броени два пъти?'],
+        'tab.f.duplicate': ['rows {rows} are the same in every cell: counted twice?', 'редове {rows} съвпадат във всяка клетка: броени два пъти?'],
         'tab.f.clean': ['Every number could be read; no repeated rows; no total rows to compare.',
             'Всички числа се прочетоха; няма повтарящи се редове; няма редове със суми за сравнение.'],
         'tab.f.totalOK': ['row {row}, {col}: the sheet\'s total {value} matches its rows', 'ред {row}, {col}: сумата в таблицата {value} съвпада с редовете ѝ'],
-        'tab.f.totalWrong': ['row {row}, {col}: the sheet says {stated} but rows {from}–{to} add up to {sum} (a difference of {diff})',
-            'ред {row}, {col}: в таблицата пише {stated}, а редове {from}–{to} дават {sum} (разлика {diff})'],
+        'tab.f.totalWrong': ['row {row}, {col}: the sheet says {stated} but rows {from} to {to} add up to {sum} (a difference of {diff})',
+            'ред {row}, {col}: в таблицата пише {stated}, а редове от {from} до {to} дават {sum} (разлика {diff})'],
         'tab.f.skipped': ['rows {rows} are the sheet\'s own totals and were left out, so nothing is counted twice',
             'редове {rows} са собствени суми на таблицата и са изключени, за да не се брои нищо два пъти'],
         'tab.f.filterMismatch': ['the filter kept {kept} rows, but {again} rows match it when checked again',
@@ -620,7 +620,7 @@
             '{col}: показаните групи дават {shown} от общо {total} (показани са само първите {limit} групи)'],
         'tab.f.sumOK': ['{col}: the groups add up to {total}, the same as the rows added one by one',
             '{col}: групите дават {total}, колкото и редовете, събрани един по един'],
-        'tab.f.sumMismatch': ['{col}: the groups add up to {shown} but the rows add up to {total}', '{col}: групите дават {shown}, а редовете — {total}'],
+        'tab.f.sumMismatch': ['{col}: the groups add up to {shown} but the rows add up to {total}', '{col}: групите дават {shown}, а редовете дават {total}'],
         'tab.f.sumUnread': ['{col}: {n} cells are not numbers and are not in the sum (rows {rows})',
             '{col}: {n} клетки не са числа и не са в сумата (редове {rows})'],
         'tab.f.groupsOK': ['all {n} rows are in exactly one of {groups} groups', 'всички {n} реда са в точно една от {groups} групи'],
@@ -631,13 +631,13 @@
         'nav.invoices': ['Invoices & VAT', 'Фактури и ДДС'],
         'books.title': ['Invoices and VAT', 'Фактури и ДДС'],
         'books.intro': [
-            'Keep a register of the invoices you issue and receive. Each one is checked as it is added — the VAT is the '
+            'Keep a register of the invoices you issue and receive. Each one is checked as it is added (the VAT is the '
                 + 'rate of the net to the cent, the total adds up, the rate is one the country has, an issued invoice has '
-                + 'the right kind of number and none is used twice — and a month\'s VAT is worked out from them, with the '
+                + 'the right kind of number and none is used twice) and a month\'s VAT is worked out from them, with the '
                 + 'date the return is due and how near your sales are to the registration threshold. Everything stays on this computer.',
-            'Водете регистър на издадените и получените фактури. Всяка се проверява при добавяне — ДДС е точно '
+            'Водете регистър на издадените и получените фактури. Всяка се проверява при добавяне (ДДС е точно '
                 + 'ставката от основата до стотинка, общата сума е вярна, ставката съществува в страната, издадената '
-                + 'фактура има правилен номер и никой номер не се повтаря, — а от тях се изчислява ДДС за месеца, '
+                + 'фактура има правилен номер и никой номер не се повтаря), а от тях се изчислява ДДС за месеца, '
                 + 'срокът за справка-декларацията и колко близо са продажбите ви до прага за регистрация. Всичко остава на този компютър.',
         ],
         'books.notAdvice': [
@@ -735,12 +735,12 @@
         'nav.forms': ['PDF forms', 'PDF формуляри'],
         'forms.title': ['Fill in a PDF form', 'Попълване на PDF формуляр'],
         'forms.intro': [
-            'Give the path of a fillable PDF form: its fields are laid out here by kind — text, checkboxes, choices. '
+            'Give the path of a fillable PDF form: its fields are laid out here by kind (text, checkboxes, choices). '
                 + 'The filled form is saved as a new file beside the original, which is never changed, and every value '
                 + 'is read back from the new file before it is saved. Letters of any language are drawn with a font that '
                 + 'has them. Encrypted and signed PDFs are left as they are. Everything stays on this computer.',
-            'Въведете пътя до PDF формуляр за попълване: полетата му се подреждат тук по вид — текст, отметки, '
-                + 'избор. Попълненият формуляр се запазва като нов файл до оригинала, който никога не се променя, и '
+            'Въведете пътя до PDF формуляр за попълване: полетата му се подреждат тук по вид (текст, отметки, '
+                + 'избор). Попълненият формуляр се запазва като нов файл до оригинала, който никога не се променя, и '
                 + 'всяка стойност се прочита отново от новия файл, преди да бъде запазен. Буквите на всеки език се '
                 + 'изписват с шрифт, който ги има. Шифрованите и подписаните PDF файлове не се пипат. Всичко остава на този компютър.',
         ],
@@ -749,7 +749,7 @@
         'forms.open': ['Open', 'Отвори'],
         'forms.fields': ['Fields', 'Полета'],
         'forms.count': ['{n} fields', 'полета: {n}'],
-        'forms.none': ['— none —', '— няма —'],
+        'forms.none': ['(none)', '(няма)'],
         'forms.max': ['at most {n}', 'до {n} знака'],
         'forms.readOnly': ['This field is read-only.', 'Това поле е само за четене.'],
         'forms.signature': ['A signature is added in a PDF program, not here.', 'Подписът се поставя в програма за PDF, не тук.'],
@@ -879,8 +879,8 @@
         'mcare.r.repo_unchecked': ['Not checked: the git settings in {dir} would run programs.', 'Не е проверено: настройките на git в {dir} биха стартирали програми.'],
         'mcare.leftTitle': ['Left running', 'Оставени да работят'],
         'mcare.leftNote': [
-            'Processes whose job looks over: a headless browser, a virtual display, a waiting command, a log follower, a small web server — started by this assistant, or whose starter has gone. Your own programs are never listed.',
-            'Процеси, чиято работа изглежда приключена: браузър без прозорец, виртуален екран, чакаща команда, следене на дневник, малък уеб сървър — стартирани от асистента или чийто стартиращ процес вече го няма. Вашите програми никога не се показват тук.',
+            'Processes whose job looks over: a headless browser, a virtual display, a waiting command, a log follower, a small web server, started by this assistant, or whose starter has gone. Your own programs are never listed.',
+            'Процеси, чиято работа изглежда приключена: браузър без прозорец, виртуален екран, чакаща команда, следене на дневник, малък уеб сървър, стартирани от асистента или чийто стартиращ процес вече го няма. Вашите програми никога не се показват тук.',
         ],
         'mcare.none': ['Nothing is left running whose job looks over.', 'Няма оставени процеси, чиято работа изглежда приключена.'],
         'mcare.notHere': ['Leftover processes are only looked for on Linux so far.', 'Засега останалите процеси се търсят само в Linux.'],
@@ -896,8 +896,8 @@
         'mcare.stopped': ['Stopped process {pid}.', 'Процес {pid} е спрян.'],
         'mcare.at': ['{time} on {day}', '{time} ч. на {day}'],
         'mcare.unclean': [
-            'The last session was not closed: it stopped — a power cut or a crash — after {when}. Anything it was doing was parked and waits under Tasks.',
-            'Последната сесия не е затворена: спряла е — спиране на тока или срив — след {when}. Каквото е вършела, е спряно и чака в „Задачи“.',
+            'The last session was not closed: it stopped (a power cut or a crash) after {when}. Anything it was doing was parked and waits under Tasks.',
+            'Последната сесия не е затворена: спряла е (спиране на тока или срив) след {when}. Каквото е вършела, е спряно и чака в „Задачи“.',
         ],
 
         // The last look before sending (polish.js).
@@ -924,12 +924,12 @@
         'sk.title': ['Skills', 'Умения'],
         'sk.intro': [
             'A skill is written instructions for one kind of work. The assistant offers a skill to the model only when '
-                + 'your request matches what the skill is for, and follows it with its own tools — anything that changes '
+                + 'your request matches what the skill is for, and follows it with its own tools. Anything that changes '
                 + 'something, including running a skill\'s scripts, still asks you first. Skills come built in, from the '
                 + 'skill folders of other agents on this computer (SKILL.md folders, as Claude Code keeps them), or from you. '
                 + 'Switch off any you do not want offered.',
             'Умението е писмени указания за един вид работа. Асистентът предлага умението на модела само когато '
-                + 'заявката ви отговаря на това, за което е умението, и го изпълнява със своите инструменти — всичко, '
+                + 'заявката ви отговаря на това, за което е умението, и го изпълнява със своите инструменти. Всичко, '
                 + 'което променя нещо, включително изпълнението на скриптове на умението, пак първо ви пита. Уменията '
                 + 'са вградени, от папките с умения на други агенти на този компютър (папки със SKILL.md, както ги пази '
                 + 'Claude Code) или ваши. Изключете всяко, което не искате да се предлага.',
@@ -974,13 +974,13 @@
         'research.title': ['Research a question', 'Проучете въпрос'],
         'research.intro': [
             'Ask a question and I look it up on the web: I choose what to search for, read the best sources I '
-                + 'find — official bodies and scholarly sources first, never one site over and over — and write a '
+                + 'find (official bodies and scholarly sources first, never one site over and over) and write a '
                 + 'report from them only, with a number after every claim. Then every sentence is checked against '
                 + 'the source it cites, and what the sources do not say is marked. Your question is sent to a search '
                 + 'engine and each page is requested from its site; the report is kept here. A language model writes '
                 + 'the report and can be wrong, so read the marked claims in their source before relying on them.',
             'Задайте въпрос и аз го проучвам в интернет: избирам какво да търся, чета най-добрите намерени източници '
-                + '— първо официални органи и научни източници, никога един и същ сайт отново и отново — и пиша '
+                + '(първо официални органи и научни източници, никога един и същ сайт отново и отново) и пиша '
                 + 'доклад само от тях, с номер след всяко твърдение. След това всяко изречение се проверява спрямо '
                 + 'източника, който посочва, и се отбелязва какво източниците не казват. Въпросът ви се изпраща на '
                 + 'търсачка и всяка страница се изисква от сайта ѝ; докладът се пази тук. Докладът се пише от езиков '
@@ -994,8 +994,8 @@
         'research.question': ['Question', 'Въпрос'],
         'research.questionHint': ['e.g. What changed in EU rules on online returns in 2025?', 'напр. Какво се промени в правилата на ЕС за връщане на онлайн покупки през 2025 г.?'],
         'research.depth': ['Depth', 'Дълбочина'],
-        'research.depth.quick': ['Quick — 4 sources', 'Бързо — 4 източника'],
-        'research.depth.thorough': ['Thorough — 8 sources', 'Задълбочено — 8 източника'],
+        'research.depth.quick': ['Quick: 4 sources', 'Бързо: 4 източника'],
+        'research.depth.thorough': ['Thorough: 8 sources', 'Задълбочено: 8 източника'],
         'research.depthName.quick': ['Quick', 'Бързо'],
         'research.depthName.thorough': ['Thorough', 'Задълбочено'],
         'research.language': ['Report in', 'Доклад на'],
@@ -1004,7 +1004,7 @@
         'research.working': ['Searching, reading and checking… {s} s. This usually takes one to three minutes.',
             'Търся, чета и проверявам… {s} сек. Обикновено отнема от една до три минути.'],
         'research.done': ['Done: {n} sources read. The report is below and kept in Your research.',
-            'Готово: прочетени източници — {n}. Докладът е по-долу и е запазен в „Вашите проучвания“.'],
+            'Готово, прочетени източници: {n}. Докладът е по-долу и е запазен в „Вашите проучвания“.'],
         'research.nSources': ['{n} sources', 'източници: {n}'],
         'research.supported': ['{n} of {of} claims supported', 'подкрепени твърдения: {n} от {of}'],
         'research.flagged': ['{n} to check', 'за проверка: {n}'],
@@ -1017,10 +1017,10 @@
             'Още няма нищо. Задайте въпрос горе и натиснете „Проучи“.'],
         'research.checkTitle': ['Check a text against its sources', 'Проверка на текст спрямо източниците му'],
         'research.checkIntro': [
-            'Paste a text that puts [1], [2] … after its claims — an essay, an article, an answer — and list its '
+            'Paste a text that puts [1], [2] … after its claims (an essay, an article, an answer) and list its '
                 + 'sources in the same order, as web addresses or full paths of files on this computer. Every sentence '
                 + 'is checked against the source it cites. Nothing is kept.',
-            'Поставете текст, в който след твърденията има [1], [2] … — есе, статия, отговор — и изброете '
+            'Поставете текст, в който след твърденията има [1], [2] … (есе, статия, отговор) и изброете '
                 + 'източниците му в същия ред като уеб адреси или пълни пътища до файлове на този компютър. Всяко '
                 + 'изречение се проверява спрямо източника, който посочва. Нищо не се запазва.',
         ],
@@ -1029,7 +1029,7 @@
         'research.checkSourcesHint': ['https://example.org/page\n/home/you/Documents/notes.pdf', 'https://example.org/page\n/home/you/Документи/бележки.pdf'],
         'research.checkRun': ['Check the claims', 'Провери твърденията'],
         'research.checking': ['Reading the sources and checking…', 'Чета източниците и проверявам…'],
-        'research.checked': ['{n} claims: {ok} supported, {bad} to check.', 'Твърдения: {n} — подкрепени: {ok}, за проверка: {bad}.'],
+        'research.checked': ['{n} claims: {ok} supported, {bad} to check.', 'Твърдения: {n}, подкрепени: {ok}, за проверка: {bad}.'],
         'research.removed': ['{n} citations pointed to no source and were removed.', 'Премахнати препратки към несъществуващ източник: {n}.'],
         'research.unread': ['Could not read {what}', 'Не можа да се прочете {what}'],
         'research.markOk': ['Supported', 'Подкрепено'],
@@ -1065,7 +1065,7 @@
             'Превеждане… на компютър без графична карта това може да отнеме минута.'],
         'tr.done': ['Translated. The glossary was followed and nothing was lost.',
             'Преведено. Речникът е спазен и нищо не е изгубено.'],
-        'tr.checkThese': ['Translated — check the lines below.', 'Преведено — проверете редовете по-долу.'],
+        'tr.checkThese': ['Translated. Check the lines below.', 'Преведено. Проверете редовете по-долу.'],
         'tr.used': ['Glossary terms used: {terms}', 'Използвани термини от речника: {terms}'],
         'tr.missTerm': ['"{source}" should be translated as "{want}", and that is not in the translation.',
             '„{source}“ трябва да се преведе като „{want}“, а това го няма в превода.'],
@@ -1083,9 +1083,9 @@
         'gl.title': ['Glossary', 'Речник'],
         'gl.intro': [
             'Your agreed translations: a word or phrase and how it is always translated into a language. A term '
-                + 'translated as itself is never translated — a name or a brand. Kept with your knowledge base.',
+                + 'translated as itself is never translated, such as a name or a brand. Kept with your knowledge base.',
             'Вашите уговорени преводи: дума или израз и как винаги се превежда на даден език. Термин, '
-                + 'преведен като себе си, никога не се превежда — име или марка. Пази се в базата ви знания.',
+                + 'преведен като себе си, никога не се превежда, например име или марка. Пази се в базата ви знания.',
         ],
         'gl.source': ['Term', 'Термин'],
         'gl.target': ['Always translated as', 'Винаги се превежда като'],
@@ -1109,16 +1109,16 @@
         'gl.removed': ['Removed {term}.', 'Премахнато: {term}.'],
         'gl.importTitle': ['Add many at once', 'Добавяне на много наведнъж'],
         'gl.importHelp': [
-            'One term per line: the term, then its translation, separated by a comma, a semicolon or a tab — '
+            'One term per line: the term, then its translation, separated by a comma, a semicolon or a tab, '
                 + 'as a spreadsheet saves them. Optional third to fifth columns: from, into, note. Lines without '
                 + 'languages use the ones chosen above.',
-            'По един термин на ред: терминът и преводът му, разделени със запетая, точка и запетая или табулация — '
+            'По един термин на ред: терминът и преводът му, разделени със запетая, точка и запетая или табулация, '
                 + 'както ги записва програма за таблици. По избор колони три до пет: от, на, бележка. Редовете без '
                 + 'езици използват избраните по-горе.',
         ],
         'gl.import': ['Add these', 'Добави ги'],
         'gl.imported': ['Terms added: {n}.', 'Добавени термини: {n}.'],
-        'gl.problems': ['Not added — {list}', 'Не са добавени — {list}'],
+        'gl.problems': ['Not added: {list}', 'Не са добавени: {list}'],
         // The mail desk.
         'nav.mail': ['Mail', 'Поща'],
         'mail.title': ['New mail', 'Нова поща'],
@@ -1127,7 +1127,7 @@
                 + 'what is from people, and newsletters and notifications by sender. Read from your mail server, '
                 + 'or from Thunderbird on this computer.',
             'Подредена само по заглавната информация, без да се отваря нищо: какво изглежда подозрително, какво '
-                + 'чака отговор, кое е от хора, а бюлетините и известията — по подател. Чете се от пощенския ви '
+                + 'чака отговор, кое е от хора, а бюлетините и известията се групират по подател. Чете се от пощенския ви '
                 + 'сървър или от Thunderbird на този компютър.',
         ],
         'mail.period': ['Since', 'От'],
@@ -1140,14 +1140,14 @@
         'mail.morning': ['A summary of new mail every morning, in the conversation',
             'Обобщение на новата поща всяка сутрин, в разговора'],
         'mail.morningOn': ['From tomorrow at eight, a summary of new mail every morning.',
-            'От утре в осем — обобщение на новата поща всяка сутрин.'],
+            'От утре в осем, обобщение на новата поща всяка сутрин.'],
         'mail.morningOff': ['No morning summary.', 'Без сутрешно обобщение.'],
         'mail.fromServer': ['your mail server', 'пощенския ви сървър'],
         'mail.fromLocal': ['Thunderbird on this computer', 'Thunderbird на този компютър'],
         'mail.nothing': ['Nothing new in this period.', 'Няма нищо ново за този период.'],
         'mail.none': ['There is no mailbox to read. Set up your mail account under Settings, or use Thunderbird on this computer.',
             'Няма пощенска кутия за четене. Настройте пощенския си акаунт в „Настройки“ или използвайте Thunderbird на този компютър.'],
-        'mail.suspicious': ['Suspicious — do not act on these without checking', 'Подозрителни — не действайте по тях без проверка'],
+        'mail.suspicious': ['Suspicious: do not act on these without checking', 'Подозрителни: не действайте по тях без проверка'],
         'mail.reply': ['Needs a reply', 'Чака отговор'],
         'mail.people': ['From people', 'От хора'],
         'mail.bulk': ['Newsletters and notifications', 'Бюлетини и известия'],
@@ -1158,17 +1158,17 @@
             'Прочети писмото {ref} от {who} и подготви чернова на отговор.'],
         'mail.draftsTitle': ['Waiting for your yes', 'Чакат вашето „да“'],
         'mail.draftsIntro': [
-            'Replies I have drafted. Nothing is sent until you press Send on that message — once, as it stands '
+            'Replies I have drafted. Nothing is sent until you press Send on that message, and then only once, as it stands '
                 + 'here. Change the text first if you like; it is saved when you send.',
             'Отговори, които съм подготвил. Нищо не се изпраща, докато не натиснете „Изпрати“ за съответното '
-                + 'писмо — веднъж и точно както е тук. Можете първо да промените текста; той се запазва при изпращане.',
+                + 'писмо, и то веднъж и точно както е тук. Можете първо да промените текста; той се запазва при изпращане.',
         ],
         'mail.noSend': ['Sending needs your mail account under Settings. Until then, copy the text into your mail program.',
             'За изпращане е нужен пощенският ви акаунт в „Настройки“. Дотогава копирайте текста в пощенската си програма.'],
         'mail.noDrafts': ['No drafts are waiting.', 'Няма чакащи чернови.'],
         'mail.draftHead': ['Draft {id} · {at}', 'Чернова {id} · {at}'],
         'mail.answers': ['answers {what}', 'отговор на {what}'],
-        'mail.warning': ['Careful — the message this answers: {what}', 'Внимание — писмото, на което отговаря: {what}'],
+        'mail.warning': ['Careful. The message this answers: {what}', 'Внимание. Писмото, на което отговаря: {what}'],
         'mail.failedNote': ['The last try did not send: {why}', 'Последният опит не беше изпратен: {why}'],
         'mail.to': ['To', 'До'],
         'mail.subject': ['Subject', 'Тема'],
@@ -1198,6 +1198,7 @@
         'plan.today': ['Today', 'Днес'],
         'plan.tomorrow': ['Tomorrow', 'Утре'],
         'plan.allDay': ['all day', 'цял ден'],
+        'plan.range': ['{from} to {to}', 'от {from} до {to}'],
         'plan.overdue': ['Overdue', 'Просрочени'],
         'plan.undated': ['To-dos with no date', 'Задачи без срок'],
         'plan.more': ['and {n} more', 'и още {n}'],
@@ -1227,10 +1228,10 @@
         'todo.dueOn': ['due {date}', 'срок {date}'],
         'cal.title': ['Online calendar', 'Онлайн календар'],
         'cal.intro': [
-            'Connect the calendar you keep on a server — Nextcloud, Fastmail, iCloud, a hosting company — through '
+            'Connect the calendar you keep on a server (Nextcloud, Fastmail, iCloud, a hosting company) through '
                 + 'its CalDAV address and an app password. Its appointments then appear under What is next, and you '
                 + 'can ask me to add one; I never change or delete anything there. The password goes only to that address.',
-            'Свържете календара, който поддържате на сървър — Nextcloud, Fastmail, iCloud, хостинг компания — чрез '
+            'Свържете календара, който поддържате на сървър (Nextcloud, Fastmail, iCloud, хостинг компания) чрез '
                 + 'неговия CalDAV адрес и парола за приложение. Срещите от него ще се показват в „Какво предстои“ и '
                 + 'можете да ме помолите да добавя среща; никога не променям и не изтривам нищо там. Паролата отива само на този адрес.',
         ],
@@ -1241,7 +1242,7 @@
         'cal.remove': ['Remove', 'Премахни'],
         'cal.on': ['Connected: {url}', 'Свързан: {url}'],
         'cal.off': ['No online calendar is connected.', 'Няма свързан онлайн календар.'],
-        'cal.keep': ['saved — leave empty to keep it', 'запазена — оставете празно, за да остане'],
+        'cal.keep': ['saved, leave empty to keep it', 'запазена, оставете празно, за да остане'],
         'cal.checking': ['Asking the calendar server…', 'Проверка при сървъра на календара…'],
         'cal.saved': ['Connected to the calendar "{name}".', 'Свързан с календара „{name}“.'],
         'cal.removed': ['The online calendar is no longer connected.', 'Онлайн календарът вече не е свързан.'],
@@ -1251,17 +1252,17 @@
     // What tools.Leaves says leaves, in both languages.
     const LEAVES = {
         'the address it is asked to read': 'адреса, който трябва да прочете',
-        'the search words, to a search engine': 'думите за търсене — към търсачка',
-        'the message, to the people it is addressed to': 'съобщението — към получателите му',
+        'the search words, to a search engine': 'думите за търсене, към търсачка',
+        'the message, to the people it is addressed to': 'съобщението, към получателите му',
         'what the page you open is sent': 'това, което се изпраща към отворената страница',
-        'your login, to your own mail server': 'данните за вход — към вашия пощенски сървър',
-        'a request for the download — nothing about you': 'заявка за изтегляне — нищо за вас',
+        'your login, to your own mail server': 'данните за вход, към вашия пощенски сървър',
+        'a request for the download, nothing about you': 'заявка за изтегляне, нищо за вас',
         'what the integration is given': 'това, което се подава на интеграцията',
         'web search': 'търсене в интернет',
         'mail': 'поща',
         'your calendar server': 'вашия сървър за календар',
-        'your login, to your own calendar server': 'данните за вход — към вашия сървър за календар',
-        'the appointment, to your own calendar server': 'срещата — към вашия сървър за календар',
+        'your login, to your own calendar server': 'данните за вход, към вашия сървър за календар',
+        'the appointment, to your own calendar server': 'срещата, към вашия сървър за календар',
         'your mail server': 'вашия пощенски сървър',
         'an integration off this machine': 'интеграция извън компютъра',
     };

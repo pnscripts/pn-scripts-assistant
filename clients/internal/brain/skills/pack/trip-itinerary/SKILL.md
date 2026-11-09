@@ -31,9 +31,9 @@ Rain plan: swap viewpoint for the covered food hall
 ```
 
 ## Pace guide
-- Relaxed: 1–2 sights a day, long meals, free afternoons.
-- Balanced: 2–3 sights, one rest break.
-- Packed: 4+ sights; not recommended for more than 2–3 days in a row or with young children.
+- Relaxed: 1 to 2 sights a day, long meals, free afternoons.
+- Balanced: 2 to 3 sights, one rest break.
+- Packed: 4+ sights; not recommended for more than 2 to 3 days in a row or with young children.
 
 ## Pitfalls
 - Ignoring opening days; many museums close one weekday.

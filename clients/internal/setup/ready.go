@@ -151,7 +151,7 @@ func (s *Server) quickTicks(cfg config.Config) []tick {
 	// Set to act freely, nothing asks — these included. Saying otherwise on
 	// the last step would be promising a question that setting has turned off.
 	if permits.Freedom(cfg.Asking()) == permits.Everything {
-		guard.State, guard.Note = "skip", "not while it is set to act freely — reading them is recorded instead"
+		guard.State, guard.Note = "skip", "not while it is set to act freely, so reading them is recorded instead"
 	} else if len(chosen.Off) < len(protect.BuiltIn) {
 		guard.State = "yes"
 		guard.Note = fmt.Sprintf("%d of %d places", len(protect.BuiltIn)-len(chosen.Off),
@@ -240,7 +240,7 @@ func (s *Server) probeMemory(cfg config.Config) tick {
 	t := tick{ID: "remember", What: slowNames["remember"]}
 
 	if strings.TrimSpace(cfg.EmbedModel) == "" {
-		t.State, t.Note = "skip", "no embedding model — it will answer but not remember"
+		t.State, t.Note = "skip", "no embedding model, so it will answer but not remember"
 
 		return t
 	}
@@ -257,7 +257,7 @@ func (s *Server) probeMemory(cfg config.Config) tick {
 	 * rather than like a fault, and so goes unreported for weeks.
 	 */
 	if _, err := llm.NewOllama(cfg.OllamaURL, "", cfg.EmbedModel).Embed(ctx, "a short line"); err != nil {
-		t.State, t.Note = "skip", "it will answer but not remember — "+plainly(err)
+		t.State, t.Note = "skip", "it will answer but not remember: "+plainly(err)
 
 		return t
 	}
@@ -282,7 +282,7 @@ func plainly(err error) string {
 
 	switch {
 	case strings.Contains(text, "connection refused"), strings.Contains(text, "dial tcp"):
-		return "Ollama is not running — it is what runs a model on this machine"
+		return "Ollama is not running, and it is what runs a model on this machine"
 	case strings.Contains(text, "context deadline exceeded"):
 		return "it did not answer in time, which on a processor can mean it is simply slow"
 	case strings.Contains(text, "not found"), strings.Contains(text, "404"):

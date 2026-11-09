@@ -134,7 +134,7 @@ func CheckTone(text, lang string, tone Tone, most int) []Finding {
 			out = append(out, Finding{
 				Rule: "long_sentence", At: s.At, Length: len(s.Text), Found: s.Text,
 				Why:   fmt.Sprintf("%d words in one sentence; a %s text keeps to about %d.", n, strings.ToLower(tone.Label), tone.Longest),
-				WhyBG: fmt.Sprintf("%d думи в едно изречение; за %s текст — до около %d.", n, adjectiveBG(tone), tone.Longest),
+				WhyBG: fmt.Sprintf("%d думи в едно изречение; за %s текст препоръката е до около %d.", n, adjectiveBG(tone), tone.Longest),
 			})
 		}
 	}
@@ -214,7 +214,7 @@ func CheckTone(text, lang string, tone Tone, most int) []Finding {
 			out = append(out, Finding{
 				Rule: "too_long", At: 0, Length: 0,
 				Why:   fmt.Sprintf("%d words, %d more than the %d asked for.", n, n-most, most),
-				WhyBG: fmt.Sprintf("%d думи — с %d повече от поисканите %d.", n, n-most, most),
+				WhyBG: fmt.Sprintf("%d думи, с %d повече от поисканите %d.", n, n-most, most),
 			})
 		}
 	}

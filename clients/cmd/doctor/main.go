@@ -62,7 +62,7 @@ func reportMachine() {
 	choice := preflight.RecommendModel(hw)
 
 	if preflight.CanRunLocalModels(hw) {
-		fmt.Printf("  %ssuggested local model: %s (%s) — %s%s\n\n",
+		fmt.Printf("  %ssuggested local model: %s (%s), %s%s\n\n",
 			dim, choice.Model, choice.SizeNote, choice.SpeedNote, reset)
 
 		return
@@ -72,7 +72,7 @@ func reportMachine() {
 }
 
 func report(results []preflight.Result) (blocking, fixable int) {
-	fmt.Printf("\n%sPN Scripts Assistant — system check%s\n\n", bold, reset)
+	fmt.Printf("\n%sPN Scripts Assistant: system check%s\n\n", bold, reset)
 	reportMachine()
 
 	for _, r := range results {

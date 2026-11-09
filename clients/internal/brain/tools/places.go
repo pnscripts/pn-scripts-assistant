@@ -170,7 +170,7 @@ func (t Places) Execute(ctx context.Context, raw json.RawMessage) (string, error
 	}
 
 	for _, p := range list {
-		fmt.Fprintf(&b, "%s (%s) — ", p.Name, places.Short(p.Path))
+		fmt.Fprintf(&b, "%s (%s): ", p.Name, places.Short(p.Path))
 
 		switch {
 		case !p.Reachable:
@@ -246,7 +246,7 @@ func (t Places) readSome(ctx context.Context, list []places.Place, want string) 
 	}
 
 	if pass.Took == 0 {
-		return fmt.Sprintf("Nothing new in %s — everything in it has been read.", found.Name), nil
+		return fmt.Sprintf("Nothing new in %s: everything in it has been read.", found.Name), nil
 	}
 
 	line := fmt.Sprintf("Read %d more things from %s: %d newly remembered, %d already known.",
@@ -272,7 +272,7 @@ func (t Places) nothingWatchedYet() string {
 	if len(found) == 0 {
 		return "There are no drives or folders on the list yet, so nothing is being " +
 			"read on its own, and I cannot see anywhere obvious to start. One can be " +
-			"added in the storage panel — any folder, on any drive."
+			"added in the storage panel: any folder, on any drive."
 	}
 
 	var b strings.Builder
@@ -284,7 +284,7 @@ func (t Places) nothingWatchedYet() string {
 		fmt.Fprintf(&b, "  · %s (%s)\n", c.Name, c.Path)
 	}
 
-	b.WriteString("\nSay which, or say everything, and I will start — it reads a " +
+	b.WriteString("\nSay which, or say everything, and I will start. It reads a " +
 		"little at a time in the background rather than all at once.")
 
 	return b.String()
@@ -373,7 +373,7 @@ func (t Places) startLearning(want string) (string, error) {
 		var b strings.Builder
 
 		if len(already) > 0 {
-			fmt.Fprintf(&b, "%s was already on the list — it is being read a little at "+
+			fmt.Fprintf(&b, "%s was already on the list; it is being read a little at "+
 				"a time whenever it is attached.", strings.Join(already, " and "))
 		}
 
