@@ -50,6 +50,10 @@ against the code on 9 November 2026.
 - **A local model needs Ollama.** Setup installs it on Linux; on Windows it is
   installed from ollama.com first. On a machine without a graphics card the
   first answer after a start can take minutes while the model loads.
+- **Ollama is the one program setup installs without a fixed checksum.** It is
+  the newest release from Ollama's own GitHub releases, over HTTPS, because
+  new models need a current Ollama. The voice, the listening parts, Godot and
+  Node.js are each one fixed release checked against its SHA-256.
 - **Hosted providers have only been tested against stand-ins.** All twelve
   are tested against fakes that answer like them; none has been watched
   answering with a real key. If one misbehaves, the error it returns is shown
@@ -103,6 +107,11 @@ against the code on 9 November 2026.
   With that setting off, or if the download fails, the Privacy page shows the
   part as missing and its button fetches it; pressed while a download runs,
   it says so and does not start another.
+- **A voice recognition model fetched by 0.13 or earlier is checked the
+  first time it is used after the update.** Those versions took it unchecked
+  from a branch. If it is the published file nothing changes; if it is not,
+  it is not used, voices are not told apart, and the Privacy page offers to
+  fetch the published one.
 - **"Answer only me" acts on nothing it cannot check.** While it is on and a
   voice cannot be recognised (the part above missing or being replaced, no
   voice taught yet, or a recording too short to judge), what it hears is not
@@ -114,6 +123,11 @@ against the code on 9 November 2026.
   changes: save it again (any change) to have the rest of it read. The review
   queue 0.13 filled with readings of its own guides is tidied by itself, once,
   on the first start.
+
+- **Two pieces of background work at once share one progress line.** When
+  one finishes (for example the voice recognition download while a folder is
+  being read), the line is cleared, and the other's progress shows again only
+  with its next step. The work itself is not affected.
 
 ## Mail, devices, storage
 
@@ -131,3 +145,6 @@ against the code on 9 November 2026.
 - The program and its built-in guides are in English and Bulgarian. Of these
   guides, installing, setting up, troubleshooting and this list are in both;
   the guides for developers and for making a release are in English only.
+- The *Your voice* card on the Privacy page is still in English on a
+  Bulgarian page, apart from what it says when "Answer only me" cannot
+  recognise your voice.
