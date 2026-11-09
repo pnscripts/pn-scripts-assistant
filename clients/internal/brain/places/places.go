@@ -67,6 +67,17 @@ func Knowledge(root string) string { return filepath.Join(root, KnowledgeFolder)
  */
 const PackSkillsFolder = "pack-skills"
 
+/*
+ * ImportedSkillsFolder, inside the knowledge folder, holds the copies of agent
+ * skills imported from elsewhere on the disk (skills.KnowledgeSkills), so they
+ * travel with the brain.
+ *
+ * Not read into memory either, for the pack's reason and one more: they are
+ * other people's writing, and reading them as documents put what any skill
+ * folder said into memory without anybody reviewing it.
+ */
+const ImportedSkillsFolder = "skills"
+
 // KnowledgeName is what the knowledge folder is called when it was never
 // named by anybody.
 const KnowledgeName = "Knowledge carried with the brain"

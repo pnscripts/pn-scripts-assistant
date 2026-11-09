@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"pn-scripts-assistant/internal/brain/places"
 )
 
 /*
@@ -341,8 +343,9 @@ func carry(root, dir string) (string, error) {
 }
 
 // KnowledgeSkills is where copies of imported skills are kept, inside the
-// brain's folder. The same "knowledge" folder as places.KnowledgeFolder.
-var KnowledgeSkills = filepath.Join("knowledge", "skills")
+// brain's folder: places.ImportedSkillsFolder in its knowledge folder, which
+// is not read into memory.
+var KnowledgeSkills = filepath.Join(places.KnowledgeFolder, places.ImportedSkillsFolder)
 
 // MostCopiedBytes bounds one file and one skill's copy.
 const (
