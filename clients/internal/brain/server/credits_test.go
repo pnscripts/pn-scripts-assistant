@@ -117,6 +117,7 @@ func TestTheNoticesFileCreditsEveryDownloadedPart(t *testing.T) {
 		preflight.SpeechModelRevision,
 		voiceprint.ModelRevision,
 		voiceprint.RuntimeVersion,
+		preflight.GodotVersion,
 	} {
 		if !strings.Contains(notices, want) {
 			t.Errorf("THIRD-PARTY-NOTICES.md does not name the pinned %s", want)
