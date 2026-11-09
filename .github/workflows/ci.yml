@@ -422,6 +422,106 @@ jobs:
           grep -q "with its icon" window-check.txt
           grep -q "follows a DPI change and hides its page when minimised" window-check.txt
 
+      # The picture of the Windows window for the product page: the program a
+      # person downloads, in its own window on a real Windows, photographed
+      # from the screen with its frame and title bar. A portable copy in a
+      # folder of its own, so nothing here touches the brain the installer
+      # steps below look for. It is started once to make its brain and
+      # dismiss the one-time recovery note the way a person does (the note
+      # shows a real key, which has no place in a picture), then opened as
+      # people open it (past the setup that asks for a local model, which this
+      # runner has none of). The step fails rather than keep a picture that is
+      # clipped by the screen or blank.
+      - name: A screenshot of the main window
+        shell: pwsh
+        env:
+          BRAIN_SETUP_DONE: 'true'
+          OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+          PN_SCRIPTS_ASSISTANT_SILENT: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          try { Set-DisplayResolution -Width 1920 -Height 1080 -Force } catch { Write-Output "the resolution stays as it is: $_" }
+
+          Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class Shot {
+            [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+            [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT rect, int size);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+            [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+          }
+          '@
+
+          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          Write-Output "screen: $($screen.Width) x $($screen.Height)"
+
+          $zip = Get-ChildItem build/packages/*-windows-amd64.zip | Select-Object -First 1
+          $to = "$env:RUNNER_TEMP\gallery"
+          Expand-Archive $zip.FullName -DestinationPath $to
+          $exe = "$to\PN-Scripts-Assistant\pn-scripts-assistant.exe"
+
+          function Wait-Up([string]$addr) {
+            for ($i = 0; $i -lt 90; $i++) {
+              try { if ((Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 "http://$addr/health").StatusCode -eq 200) { return } } catch { Start-Sleep 1 }
+            }
+            throw "nothing answered on $addr within 90 s"
+          }
+
+          $p = Start-Process $exe -ArgumentList 'serve','-addr','127.0.0.1:8896' -PassThru
+          Wait-Up '127.0.0.1:8896'
+          Invoke-RestMethod -Method Post -Headers @{ Origin = 'http://127.0.0.1:8896' } http://127.0.0.1:8896/api/vault/recovery/kept | Out-Null
+          Stop-Process -Id $p.Id
+          $p.WaitForExit(20000) | Out-Null
+
+          $p = Start-Process $exe -ArgumentList 'app','-addr','127.0.0.1:8896','-skip-setup' -PassThru
+          Wait-Up '127.0.0.1:8896'
+          $hwnd = [IntPtr]::Zero
+          for ($i = 0; $i -lt 60 -and $hwnd -eq [IntPtr]::Zero; $i++) { Start-Sleep 1; $p.Refresh(); $hwnd = $p.MainWindowHandle }
+          if ($hwnd -eq [IntPtr]::Zero) { throw 'the program did not open its window' }
+
+          # Top left of the screen, in front, then time for the page to draw
+          # and its opening animation to settle.
+          [Shot]::SetWindowPos($hwnd, [IntPtr]::Zero, 0, 0, 0, 0, 0x0001 -bor 0x0004) | Out-Null
+          [Shot]::SetForegroundWindow($hwnd) | Out-Null
+          Start-Sleep 12
+
+          # DWMWA_EXTENDED_FRAME_BOUNDS: the window as drawn, without the
+          # invisible resize border GetWindowRect counts.
+          $r = New-Object Shot+RECT
+          if ([Shot]::DwmGetWindowAttribute($hwnd, 9, [ref]$r, 16) -ne 0) { throw 'no frame bounds for the window' }
+          $w = $r.Right - $r.Left; $h = $r.Bottom - $r.Top
+          Write-Output "window: $w x $h at $($r.Left),$($r.Top)"
+          if ($w -lt 800 -or $h -lt 600) { throw "the window is too small for a picture: $w x $h" }
+          if ($r.Left -lt 0 -or $r.Top -lt 0 -or $r.Right -gt $screen.Width -or $r.Bottom -gt $screen.Height) { throw 'the window does not fit on the screen; the picture would be clipped' }
+
+          New-Item -ItemType Directory -Force -Path gallery | Out-Null
+          $bmp = New-Object System.Drawing.Bitmap $w, $h
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
+          $g.Dispose()
+
+          # A blank or black capture has a handful of colours; the page has
+          # thousands. Sampled on a grid, which is plenty to tell them apart.
+          $colours = @{}
+          for ($x = 0; $x -lt $w; $x += 7) { for ($y = 0; $y -lt $h; $y += 7) { $colours[$bmp.GetPixel($x, $y).ToArgb()] = $true } }
+          Write-Output "distinct colours on a 7 px grid: $($colours.Count)"
+          $bmp.Save("$PWD\gallery\windows-main-window.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          $bmp.Dispose()
+          if ($colours.Count -lt 200) { throw 'the picture is blank; the screen was not captured' }
+
+          $p.CloseMainWindow() | Out-Null
+          if (-not $p.WaitForExit(30000)) { Stop-Process -Id $p.Id; throw 'the program did not close with its window' }
+          Write-Output 'the main window is photographed'
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-main-window
+          path: gallery/windows-main-window.png
+          if-no-files-found: error
+          retention-days: 30
+
       # What somebody does with the download (G3): the installer, silently,
       # for this account only; the program it installed starts and serves its
       # page; removing it takes the program and leaves the brain.
