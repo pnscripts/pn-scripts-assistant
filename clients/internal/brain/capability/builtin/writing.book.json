@@ -2,7 +2,7 @@
   "id": "writing.book",
   "version": "1.0.0",
   "title": "Writing a book",
-  "summary": "Plans and drafts a book — outline, characters, chapters — as files its owner keeps, and exports it when asked.",
+  "summary": "Plans and drafts a book (outline, characters, chapters) as files its owner keeps, and exports it when asked.",
   "work": "advisory",
   "jobs": ["media.writer", "media.editor"],
   "cues": ["book", "novel", "novella", "manuscript", "chapter", "chapters", "story", "memoir", "роман", "книга"],

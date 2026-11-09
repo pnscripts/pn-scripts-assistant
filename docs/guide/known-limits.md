@@ -169,3 +169,12 @@ against the code on 9 November 2026.
 - The *Your voice* card on the Privacy page is still in English on a
   Bulgarian page, apart from what it says when "Answer only me" cannot
   recognise your voice.
+- With the page in Bulgarian, these pages and their names in the menu are
+  still partly in English: Models, System, Operations, The room, Teaching,
+  Organisation, Tasks, Reaching it and Privacy, as are the descriptions of
+  the parts on What it runs on, the one-time recovery key notice, some
+  status lines in the conversation and the names of the built-in skills.
+  Conversation, memory, mail, writing, translation, learning, research,
+  tables, invoices, forms, plans, customers, devices and rules are in
+  Bulgarian. Model descriptions come from the model library as published
+  there.

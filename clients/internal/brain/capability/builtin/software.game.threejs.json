@@ -31,7 +31,7 @@
   "workspace": {
     "template": "threejs",
     "outputs": ["dist"],
-    "conventions": ["No build step", "three.js vendored, never fetched: import it as `import * as THREE from 'three'`, which index.html maps to vendor/three.module.js — never by a path", "Game rules in their own module, src/game.js, imported from src/main.js as './game.js'"]
+    "conventions": ["No build step", "three.js vendored, never fetched: import it as `import * as THREE from 'three'`, which index.html maps to vendor/three.module.js, never by a path", "Game rules in their own module, src/game.js, imported from src/main.js as './game.js'"]
   },
   "evidence": ["files", "check", "smoke", "screenshot", "versions"],
   "risk": "medium"

@@ -2,7 +2,7 @@
   "id": "software.backend",
   "version": "1.0.0",
   "title": "Backend development",
-  "summary": "Builds and changes server-side code — APIs, data and background work — in the project's own language, with its tests run.",
+  "summary": "Builds and changes server-side code (APIs, data and background work) in the project's own language, with its tests run.",
   "work": "project",
   "jobs": ["software.backend_engineer", "software.api_engineer", "software.go_developer", "software.php_developer", "software.full_stack_engineer"],
   "cues": ["api", "backend", "server", "endpoint", "endpoints", "rest", "graphql", "database", "microservice", "service"],

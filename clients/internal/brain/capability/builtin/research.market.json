@@ -2,7 +2,7 @@
   "id": "research.market",
   "version": "1.0.0",
   "title": "Market research",
-  "summary": "Finds out who else is doing it, what it costs and what people say — with a source for every claim.",
+  "summary": "Finds out who else is doing it, what it costs and what people say, with a source for every claim.",
   "work": "advisory",
   "jobs": ["marketing.market_researcher", "product.business_analyst"],
   "cues": ["market", "competitors", "competitor", "pricing", "market research", "audience", "demand"],
@@ -15,7 +15,7 @@
     "never": ["send_email", "run_command"]
   },
   "skills": [
-    "Prefer primary sources — a company's own pricing page over an article about it.",
+    "Prefer primary sources: a company's own pricing page over an article about it.",
     "A market size without a method is a guess; say which it is."
   ],
   "evidence": ["document", "sources"],
