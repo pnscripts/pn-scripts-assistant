@@ -48,7 +48,7 @@ run_env() {
     env -i HOME="$WORK/home" XDG_CONFIG_HOME="$WORK/config" XDG_DATA_HOME="$WORK/home/.local/share" \
         XDG_CACHE_HOME="$WORK/home/.cache" PN_SCRIPTS_ASSISTANT_DATA_ROOT="$WORK/DATA" \
         PN_SCRIPTS_ASSISTANT_KEYRING=file PN_SCRIPTS_ASSISTANT_SILENT=1 BRAIN_CANCEL_ROOM=false \
-        BRAIN_ALWAYS_LISTEN=false BRAIN_ALWAYS_SPEAK=false BRAIN_SETUP_DONE=true \
+        BRAIN_ALWAYS_LISTEN=false BRAIN_ALWAYS_SPEAK=false BRAIN_SETUP_DONE=true BRAIN_LOOK_ONLINE=false \
         OLLAMA_BASE_URL=http://127.0.0.1:9 BRAIN_ADDR="127.0.0.1:$PORT" PATH="$WORK/pathbin" \
         DBUS_SESSION_BUS_ADDRESS=disabled: "$@"
 }
@@ -83,12 +83,24 @@ echo "→ $OLD fills it"
 run_env "$WORK/bin/seed"
 
 # A voice chosen from the three 0.13 installed, which this tree withdrew
-# (trained from research-only recordings): it must become the robot.
-if grep -q '^BRAIN_VOICE=' "$WORK/DATA/brain.conf"; then
+# (trained from research-only recordings): it must become the robot. The
+# old program may not have written its settings file in this run; then the
+# file is made as 0.13 would write that one line.
+if [ -f "$WORK/DATA/brain.conf" ] && grep -q '^BRAIN_VOICE=' "$WORK/DATA/brain.conf"; then
     sed -i 's/^BRAIN_VOICE=.*/BRAIN_VOICE=en_GB-alba-medium/' "$WORK/DATA/brain.conf"
 else
     echo 'BRAIN_VOICE=en_GB-alba-medium' >> "$WORK/DATA/brain.conf"
 fi
+
+# The voice files 0.13's setup put in place (stand-ins: nothing here speaks).
+# With looking online off this tree must not fetch anything and must report
+# the voice as out of date, offering Update.
+VOICES="$WORK/home/.local/share/piper/voices"
+mkdir -p "$VOICES"
+for v in en_GB-alba-medium en_GB-jenny_dioco-medium en_GB-northern_english_male-medium; do
+    echo stand-in > "$VOICES/$v.onnx"
+    echo '{}' > "$VOICES/$v.onnx.json"
+done
 
 echo "→ this tree opens it"
 serve "$WORK/bin/new" "$WORK/new.log"
@@ -102,6 +114,23 @@ for route in conversations conversations/1 mail/drafts todos study research care
         echo "  ok    /api/$route"
     fi
 done
+
+voice_state="$(curl -s -m 10 "http://127.0.0.1:$PORT/api/parts" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+parts = data if isinstance(data, list) else data.get("parts", [])
+print(next((p.get("state", "") for p in parts if p.get("name") == "Voice (speaking)"), "absent"))
+' 2>/dev/null || echo unreadable)"
+if [ "$voice_state" = outdated ]; then
+    echo "  ok    the voice 0.13 installed is out of date, with Update"
+else
+    echo "  FAIL  the voice part is '$voice_state', want outdated"
+    missing=$((missing + 1))
+fi
+if [ "$(ls "$VOICES" | wc -l)" -ne 6 ]; then
+    echo "  FAIL  something was fetched with looking online off: $(ls "$VOICES" | tr '\n' ' ')"
+    missing=$((missing + 1))
+fi
 stop
 
 if grep -qx 'BRAIN_VOICE=robot' "$WORK/DATA/brain.conf"; then

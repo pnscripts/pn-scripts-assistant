@@ -185,26 +185,39 @@ func Requirements() []Requirement {
 					// where espeak-ng is formant synthesis and sounds like
 					// that. Reported by name so it is obvious which is in use.
 					if home, err := os.UserHomeDir(); err == nil {
+						var folders []string
 						for _, dir := range []string{
 							filepath.Join(home, ".local", "src", "piper"),
 							filepath.Join(home, ".local", "share", "piper"),
 						} {
-							voices := filepath.Join(dir, "voices")
+							folders = append(folders, filepath.Join(dir, "voices"))
+						}
 
-							/*
-							 * The voices an older release installed are on
-							 * the disk and no longer used, so a copy with
-							 * them and without the new ones is out of
-							 * date, with an Update button, rather than
-							 * installed and silent in the voices it offers.
-							 */
-							if hasWithdrawnVoice(voices) && !hasCurrentVoices(voices) {
-								return Outdated, "piper (neural), with voices an older version installed"
-							}
+						/*
+						 * The voices an older release installed are on the
+						 * disk and no longer used, so a copy with them and
+						 * without the new ones is out of date, with an
+						 * Update button, rather than installed and silent
+						 * in the voices it offers. Decided over every
+						 * folder at once: the voice looks in all of them,
+						 * and Update fetches into the last one.
+						 */
+						current, withdrawn, someVoice := false, false, false
+						for _, voices := range folders {
+							current = current || hasCurrentVoices(voices)
+							withdrawn = withdrawn || hasWithdrawnVoice(voices)
 
 							if models, _ := filepath.Glob(filepath.Join(voices, "*.onnx")); len(models) > 0 {
-								return OK, "piper (neural)"
+								someVoice = true
 							}
+						}
+
+						if withdrawn && !current {
+							return Outdated, "piper (neural), with voices an older version installed"
+						}
+
+						if someVoice {
+							return OK, "piper (neural)"
 						}
 					}
 

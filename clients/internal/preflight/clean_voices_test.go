@@ -159,6 +159,34 @@ func TestAVoiceWithTheNewVoicesIsCurrentEvenWithTheOldOnesBeside(t *testing.T) {
 	}
 }
 
+/*
+ * Old voices in one folder do not hide the new voices in another.
+ *
+ * An older manual install keeps its voices under ~/.local/src/piper; Update
+ * fetches the new ones into ~/.local/share/piper, and the voice looks in
+ * both. Deciding folder by folder said "out of date" for ever, however often
+ * Update was pressed.
+ */
+func TestTheNewVoicesInOneFolderAreCurrentWithOldOnesInAnother(t *testing.T) {
+	share := voicesIn(t, "en_GB-cori-medium", "en_US-ljspeech-medium", "en_US-norman-medium")
+	home := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(share))))
+
+	src := filepath.Join(home, ".local", "src", "piper", "voices")
+	if err := os.MkdirAll(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, ext := range []string{".onnx", ".onnx.json"} {
+		if err := os.WriteFile(filepath.Join(src, "en_GB-alba-medium"+ext), []byte("old"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if state, detail := voiceCheck(t); state != OK || !strings.Contains(detail, "piper") {
+		t.Errorf("new voices in share and old ones in src gave %v (%s), want piper", state, detail)
+	}
+}
+
 // Somebody's own voice that was never ours is theirs: a piper with it is a
 // working voice, not an old release.
 func TestAVoiceSomebodyAddedThemselvesIsNotOutOfDate(t *testing.T) {
