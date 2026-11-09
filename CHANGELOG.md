@@ -9,7 +9,7 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
-## 1.0.0 (2026-11-09)
+## 1.0.0 (2026-11-10)
 
 The first version we call finished. Everything the 0.x releases added is
 here. Before it is published, every release is updated in our tests from the
@@ -63,8 +63,8 @@ queue 0.13.0 filled with its own guides (below).
   with its SHA-256 fixed in the program (the sums Ollama publishes with the
   release) and an exact size limit, checked before anything in your home
   folder is replaced. An Ollama you already have that is as new or newer is
-  kept and used as it is, never downgraded; an older one is replaced and
-  restarted.
+  kept and used as it is, never downgraded; an older one is replaced only
+  when you press Install for it.
 
 - **"Answer only me" no longer lets everybody through when it cannot
   recognise your voice.** If the part that tells voices apart was missing,
