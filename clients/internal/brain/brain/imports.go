@@ -91,11 +91,11 @@ func (b *Brain) installSeed() {
 	done, err := seed.Install(places.Knowledge(b.Root))
 	if err != nil {
 		b.Log.Warn("the starting knowledge could not be written", "error", err)
-
-		return
-	}
-
-	if done.Changed() {
+	} else if done.Changed() {
 		b.Log.Info("wrote the starting knowledge", "new", done.Written, "updated", done.Updated, "kept", done.Kept)
 	}
+
+	// After the guides are written, so a reading of one is checked against
+	// the guide that is there.
+	b.tidyTheQueueOlderVersionsFilled()
 }

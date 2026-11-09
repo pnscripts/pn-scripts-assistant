@@ -93,5 +93,24 @@ func main() {
 	_, err = db.AddReminder("Water the garden "+mark, time.Now().Add(time.Hour))
 	must(err)
 
+	// The review queue as 0.13 left it (1.0 review finding 1): the same
+	// readings of the knowledge folder stored again on every pass, readings
+	// of the built-in and imported skills, past the 200 at which reading
+	// stops. Plus a document's lesson, which is somebody's to decide.
+	for pass := 0; pass < 60; pass++ {
+		for _, l := range [][2]string{
+			{"Mail is read through IMAP " + mark, "reading:@brain/knowledge/guides/mail.md"},
+			{"Rules are kept as said " + mark, "reading:@brain/knowledge/guides/rules.md"},
+			{"A built-in skill says this " + mark, "reading:@brain/knowledge/pack-skills/bookkeeping/SKILL.md"},
+			{"An imported skill says this " + mark, "reading:@brain/knowledge/skills/someones-skill/SKILL.md"},
+		} {
+			_, err = db.AddLesson(0, l[0], "proposed", "high", l[1])
+			must(err)
+		}
+	}
+
+	_, err = db.AddLesson(0, "The lease ends in May "+mark, "proposed", "high", "document:/home/you/lease.md")
+	must(err)
+
 	fmt.Println("seeded", r.Path, "conversation", conv)
 }

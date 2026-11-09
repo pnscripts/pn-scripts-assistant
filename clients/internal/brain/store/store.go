@@ -1123,6 +1123,15 @@ var migrations = []string{
 	);
 	CREATE INDEX idx_rules_status ON rules(status);
 	`,
+
+	// 28: one-time tidies of what an older version left behind, by name, so
+	// each runs once per brain (see TidyLessonsOnce).
+	`
+	CREATE TABLE chores (
+		name    TEXT PRIMARY KEY,
+		done_at TEXT NOT NULL
+	);
+	`,
 }
 
 /*
