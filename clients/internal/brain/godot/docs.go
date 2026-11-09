@@ -123,7 +123,7 @@ func Lookup(ctx context.Context, client *http.Client, class, branch string) (Cla
 		// The likeliest reason by far, and worth saying: the class reference
 		// is case-sensitive and everything in it is CamelCase.
 		return Class{}, fmt.Errorf(
-			"there is no class called %q in Godot %s — names are case-sensitive "+
+			"there is no class called %q in Godot %s; names are case-sensitive "+
 				"and written like CharacterBody2D", class, branch)
 	}
 

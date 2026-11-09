@@ -186,14 +186,14 @@ func TestTheModelsViewShowsWhatTheCatalogueSends(t *testing.T) {
 	for _, want := range []string{
 		"This machine: 4 cores, 31GB memory",
 		"qwen3 · tools, thinking",
-		"8b — installed",
+		"8b (installed)",
 		"Update",
 		"usable on a processor",
 		"nomic-embed-text",
 		"mystery",
 		// Not installed, so it opens on the largest size that runs well
 		// here rather than the largest that fits.
-		"gemma3 · vision\nLightweight.\nwants about 4GB while running · usable on a processor — seconds, not instant\nchosen: 4b",
+		"gemma3 · vision\nLightweight.\nwants about 4GB while running · usable on a processor: seconds, not instant\nchosen: 4b",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the Models view does not show %q:\n%s", want, text)

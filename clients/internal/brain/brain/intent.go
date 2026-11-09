@@ -246,7 +246,7 @@ func (b *Brain) handleLessonInstruction(ctx context.Context, message string) (st
 	case kept == 0 && duplicates > 0:
 		return "I already knew all of that, so nothing was stored twice." + rest, true
 	case kept == 0:
-		return "I could not store those — the embedding model may not be running.", true
+		return "I could not store those. The embedding model may not be running.", true
 	case duplicates > 0:
 		return fmt.Sprintf("Remembered %d. The other %d I already knew.%s",
 			kept, duplicates, rest), true
@@ -276,7 +276,7 @@ func andTheRest(b *Brain) string {
 	}
 
 	if left == 1 {
-		return " One more is still waiting — say it again for that one."
+		return " One more is still waiting: say it again for that one."
 	}
 
 	// Only promise a hundred when there are a hundred to promise.
@@ -285,7 +285,7 @@ func andTheRest(b *Brain) string {
 		next = "the next hundred"
 	}
 
-	return fmt.Sprintf(" %d more are still waiting — say it again for %s.", left, next)
+	return fmt.Sprintf(" %d more are still waiting: say it again for %s.", left, next)
 }
 
 /*
@@ -323,7 +323,7 @@ func (b *Brain) startOnTheQueue(accept bool) (string, bool) {
 	if err != nil {
 		return fmt.Sprintf(
 			"I would have to do that in the background and there is already "+
-				"something running there — %v. Ask me again when it has finished, "+
+				"something running there (%v). Ask me again when it has finished, "+
 				"or stop it under \"Everything it is doing\".", err), true
 	}
 
@@ -333,8 +333,8 @@ func (b *Brain) startOnTheQueue(accept bool) (string, bool) {
 	}[accept]
 
 	return fmt.Sprintf(
-		"Started %s all %d, one at a time, in the background. It takes a while — "+
-			"each one has to be compared against everything I already know — so the "+
+		"Started %s all %d, one at a time, in the background. It takes a while, "+
+			"because each one has to be compared against everything I already know, so the "+
 			"count under \"Waiting for you\" will come down slowly rather than at once. "+
 			"You can carry on talking to me while it runs, and stop it under "+
 			"\"Everything it is doing\".", how, total), true
@@ -407,7 +407,7 @@ func (b *Brain) workThroughTheQueue(ctx context.Context, accept bool, total int)
 		}
 
 		progress.SetBackground("learning", fmt.Sprintf(
-			"Going through the waiting list — %d of %d", seen, total))
+			"Going through the waiting list: %d of %d", seen, total))
 	}
 
 	progress.Done()
@@ -440,7 +440,7 @@ func theQueueReport(kept, duplicates, dropped, failed int, stopped bool) string 
 	 */
 	if failed > 0 {
 		parts = append(parts, fmt.Sprintf(
-			"%d I could not store — the embedding model may not be running", failed))
+			"%d I could not store (the embedding model may not be running)", failed))
 	}
 
 	if len(parts) == 0 {

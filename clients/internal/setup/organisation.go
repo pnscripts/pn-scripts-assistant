@@ -149,7 +149,7 @@ func holdsTogether(chart []org.Unit, roster []team.Agent, jobs shippedJobs) tick
 	}
 
 	if working == 0 {
-		t.State, t.Note = "no", "nobody on the roster is working — every agent is suspended or retired"
+		t.State, t.Note = "no", "nobody on the roster is working: every agent is suspended or retired"
 
 		return t
 	}
@@ -158,7 +158,7 @@ func holdsTogether(chart []org.Unit, roster []team.Agent, jobs shippedJobs) tick
 		t.State, t.Note = "no", problems[0]
 
 		if len(problems) > 1 {
-			t.Note += fmt.Sprintf(" (and %d more — see Organisation)", len(problems)-1)
+			t.Note += fmt.Sprintf(" (and %d more, see Organisation)", len(problems)-1)
 		}
 
 		return t
@@ -341,7 +341,7 @@ func (s *Server) saveFreedom(level string) (permits.Freedom, error) {
 	f := permits.Freedom(strings.ToLower(strings.TrimSpace(level)))
 
 	if !permits.Known(f) {
-		return "", fmt.Errorf("%q is not a choice here — it is ask, granted or everything", level)
+		return "", fmt.Errorf("%q is not a choice here: it is ask, granted or everything", level)
 	}
 
 	err := s.writeSettings(0o600, [2]string{"BRAIN_FREEDOM", string(f)})
@@ -361,7 +361,7 @@ func (s *Server) savePrivacy(mode string) (llm.Mode, error) {
 	m := llm.Mode(strings.ToLower(strings.TrimSpace(mode)))
 
 	if m != llm.ModePrivate && m != llm.ModeResearch && m != llm.ModeOpen {
-		return "", fmt.Errorf("%q is not a choice here — it is private, research or open", mode)
+		return "", fmt.Errorf("%q is not a choice here: it is private, research or open", mode)
 	}
 
 	err := s.writeSettings(0o600, [2]string{"BRAIN_PRIVACY", string(m)})

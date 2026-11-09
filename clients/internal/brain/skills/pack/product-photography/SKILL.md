@@ -18,7 +18,7 @@ Buyers cannot touch the product, so the photos must answer their questions: what
 1. **Check the platform rules first.** Each marketplace sets its own: background colour, minimum size, how much of the frame the product fills, banned text, watermarks and borders. Read the current image requirements on the platform's help page.
 2. **Prepare the product.** Clean dust and fingerprints (gloves for metal and glass), steam clothes, remove tags and stickers unless they matter.
 3. **Set up the light.** Window or main lamp to one side, slightly behind the product; reflector on the other side to open shadows. Switch off ceiling lights to avoid mixed colours.
-4. **Set the camera.** Lowest ISO, f/8–f/11 on a camera for front-to-back sharpness, white balance set on the white paper (or custom), focus on the front of the product. On a phone use 2× instead of the wide lens to avoid distortion.
+4. **Set the camera.** Lowest ISO, f/8 to f/11 on a camera for front-to-back sharpness, white balance set on the white paper (or custom), focus on the front of the product. On a phone use 2× instead of the wide lens to avoid distortion.
 5. **Shoot a standard set** for every product in the same order:
    1. Hero shot: front three-quarter view on white.
    2. Front, back, side, top as needed.

@@ -149,7 +149,7 @@ func TestResearchReadsTheBestSourcesWritesAndChecks(t *testing.T) {
 	}
 
 	if len(book.list) != 1 || book.list[0].Model != "writer-model" || !strings.Contains(book.list[0].Report, "## Claims check") ||
-		!strings.Contains(book.list[0].Report, "1. [VAT rates — NRA](https://nra.bg/vat) — official body · dated 2025-02-01 · read 2026-10-26") {
+		!strings.Contains(book.list[0].Report, "1. [VAT rates — NRA](https://nra.bg/vat), official body · dated 2025-02-01 · read 2026-10-26") {
 		t.Fatalf("%+v", book.list)
 	}
 

@@ -284,7 +284,7 @@ func BuiltIn() []Agent {
 		{
 			Name: "researcher", Title: "Researcher", BuiltIn: true,
 			Position: "researcher",
-			For: "finding something out — from the web, from documents, or from what is " +
+			For: "finding something out, from the web, from documents, or from what is " +
 				"already on this machine",
 			Uses: UsesQuick,
 			Tools: []string{
@@ -345,7 +345,7 @@ func BuiltIn() []Agent {
 		{
 			Name: "designer", Title: "Designer", BuiltIn: true,
 			Position: "designer",
-			For: "anything to be looked at rather than read — a picture, a logo, an " +
+			For: "anything to be looked at rather than read, such as a picture, a logo, an " +
 				"illustration, a film made out of pictures, or how this program looks",
 			Uses: UsesBest,
 			Tools: []string{
@@ -359,8 +359,8 @@ func BuiltIn() []Agent {
 		{
 			Name: "writer", Title: "Writer", BuiltIn: true,
 			Position: "writer",
-			For: "writing, editing and proofreading something to be read by a person — a " +
-				"summary, a document, a letter, notes — in English or Bulgarian, in the tone asked for",
+			For: "writing, editing and proofreading something to be read by a person (a " +
+				"summary, a document, a letter, notes) in English or Bulgarian, in the tone asked for",
 			Uses: UsesBest,
 			Tools: []string{
 				// write_file as well as write_document: notes and a draft in

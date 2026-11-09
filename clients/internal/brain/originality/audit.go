@@ -284,7 +284,7 @@ func CheckItem(ctx context.Context, it Item, refs []string, search Search) []Fin
 					how = " (mirrored)"
 				}
 
-				add("look", fmt.Sprintf("%s looks like %s%s — %d of 64 differ", rel(it.Path, m.Ours), filepath.Base(m.Reference), how, m.Distance),
+				add("look", fmt.Sprintf("%s looks like %s%s (%d of 64 differ)", rel(it.Path, m.Ours), filepath.Base(m.Reference), how, m.Distance),
 					m.Risk, "redraw it so it no longer resembles the reference")
 			}
 

@@ -330,7 +330,7 @@ func ListenForTurn(ctx context.Context, device string, meantForIt bool) (Heard, 
 			break
 		}
 
-		progress.Detail("still talking — waiting for the rest")
+		progress.Detail("still talking, waiting for the rest")
 
 		more, err := listenAgain(ctx, device, meantForIt)
 		if err != nil {
@@ -455,7 +455,7 @@ func listenWaiting(
 		 */
 		if turn.WasSteadyNoise {
 			progress.SetBackground("listening", "Listening")
-			progress.Detail("steady noise, not a voice — ignored")
+			progress.Detail("steady noise, not a voice, so ignored")
 		}
 
 		progress.Done()
@@ -539,7 +539,7 @@ func listenWaiting(
 	transcribing := progress.Mark()
 
 	if cutIn {
-		progress.DetailOn(transcribing, "you cut in — dropped my own voice first")
+		progress.DetailOn(transcribing, "you cut in, so my own voice was dropped first")
 	}
 
 	/*
@@ -590,7 +590,7 @@ func listenWaiting(
 	 * eligible to be learned as something its owner said.
 	 */
 	if Ghost(text) {
-		progress.DetailOn(transcribing, "that was the film, not you — ignored")
+		progress.DetailOn(transcribing, "that was the film, not you, so ignored")
 
 		text = ""
 	}
@@ -605,7 +605,7 @@ func listenWaiting(
 	 * again — three rounds in a minute, each inventing the next name.
 	 */
 	if text != "" && SoundsLikeItself(text) {
-		progress.DetailOn(transcribing, "that was my own voice — ignored")
+		progress.DetailOn(transcribing, "that was my own voice, so ignored")
 
 		// Counted as well as discarded. A room that does this repeatedly is
 		// one where the microphone is next to the speaker, and there the

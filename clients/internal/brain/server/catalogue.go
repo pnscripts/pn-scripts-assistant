@@ -79,7 +79,7 @@ func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
 		ok(w, map[string]any{
 			"models": []Listed{},
 			"why": "The list of models lives on the internet and looking things " +
-				"up is switched off. Turn it on under Permissions — it is not " +
+				"up is switched off. Turn it on under Permissions: it is not " +
 				"your privacy setting, and asking what models exist sends " +
 				"nothing about you.",
 		})
@@ -233,10 +233,10 @@ func judge(needsGB float64, embedding bool, p models.Power) (fits, comfortable b
 
 		switch {
 		case needsGB <= card:
-			return true, true, "fits on your graphics card — this will be quick"
+			return true, true, "fits on your graphics card, so this will be quick"
 
 		case needsGB <= room:
-			return true, false, "too big for your graphics card, so it runs on the processor — slower"
+			return true, false, "too big for your graphics card, so it runs on the processor, slower"
 
 		default:
 			return false, false, "larger than this machine's memory"
@@ -245,15 +245,15 @@ func judge(needsGB float64, embedding bool, p models.Power) (fits, comfortable b
 
 	switch {
 	case needsGB > room:
-		return false, false, "larger than this machine's memory — it would swap and crawl"
+		return false, false, "larger than this machine's memory, so it would swap and crawl"
 
 	case needsGB <= 3.5:
 		return true, true, "quick enough on a processor"
 
 	case needsGB <= 6:
-		return true, true, "usable on a processor — seconds, not instant"
+		return true, true, "usable on a processor: seconds, not instant"
 
 	default:
-		return true, false, "slow without a graphics card — minutes per answer"
+		return true, false, "slow without a graphics card: minutes per answer"
 	}
 }

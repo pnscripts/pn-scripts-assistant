@@ -41,7 +41,7 @@ func (l ListDevices) Execute(ctx context.Context, _ json.RawMessage) (string, er
 	var b strings.Builder
 
 	for _, d := range devices {
-		fmt.Fprintf(&b, "%s — %s: %s", d.ID, d.Name, d.State)
+		fmt.Fprintf(&b, "%s (%s): %s", d.ID, d.Name, d.State)
 
 		if d.Unit != "" {
 			b.WriteString(" " + d.Unit)
@@ -102,7 +102,7 @@ func (SetDevice) Summarize(raw json.RawMessage) string {
 		case "off", "lock":
 			return "LOCK " + a.ID
 		case "on", "unlock":
-			return "UNLOCK " + a.ID + " — this physically unlocks a door"
+			return "UNLOCK " + a.ID + ": this physically unlocks a door"
 		}
 	}
 

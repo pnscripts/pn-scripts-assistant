@@ -48,7 +48,7 @@ func (Ask) Description() string {
 		"readings lead to different work; when something needed is missing; " +
 		"or when what you found while working changes what was asked for. " +
 		"Prefer this over picking an interpretation and hoping. It ends your " +
-		"turn — the answer comes back as their next message. Ask ONE question " +
+		"turn; the answer comes back as their next message. Ask ONE question " +
 		"per call, never a list, and offer 2 to 4 answers with the one you " +
 		"recommend as \"recommended\"."
 }

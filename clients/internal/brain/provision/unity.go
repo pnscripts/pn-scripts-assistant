@@ -257,7 +257,7 @@ func unityReason(said []string) string {
 		why = strings.Join(dedupe(parts), "; ")
 	}
 
-	return why + " — its owner signs in to Unity Hub, which renews the licence, and then this works"
+	return why + "; its owner signs in to Unity Hub, which renews the licence, and then this works"
 }
 
 func dedupe(list []string) []string {

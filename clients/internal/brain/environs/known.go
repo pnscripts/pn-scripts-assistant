@@ -60,7 +60,7 @@ func Known() []Program {
 			Names: []string{"php"}, Version: []string{"--version"}, Needs: "sudo apt install php-cli"},
 		{ID: "composer", Title: "Composer", Kind: Tool, Local: true,
 			Names: []string{"composer"}, Version: []string{"--version"},
-			Needs: "from getcomposer.org — Laravel needs it"},
+			Needs: "from getcomposer.org; Laravel needs it"},
 		{ID: "ruby", Title: "Ruby", Kind: Runtime, Local: true,
 			Names: []string{"ruby"}, Version: []string{"--version"}, Needs: "sudo apt install ruby"},
 		{ID: "rust", Title: "Rust", Kind: Runtime, Local: true,

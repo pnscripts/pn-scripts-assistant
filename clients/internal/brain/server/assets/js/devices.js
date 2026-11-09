@@ -248,7 +248,7 @@
         if (state) {
             if (!body.installed) {
                 state.textContent = 'WireGuard is not installed yet. It is in the list of '
-                    + 'parts this machine needs, under "What it runs on" — the tunnel itself '
+                    + 'parts this machine needs, under "What it runs on". The tunnel itself '
                     + 'is already in your system, this is the tool that configures it.';
             } else if (!body.started) {
                 state.textContent = 'Not set up. A tunnel puts a device on your home network '
@@ -309,7 +309,7 @@
                 row.appendChild(what);
                 row.appendChild(button('Give it one', () => giveWayIn(device.id)));
             } else if (!way.collected) {
-                what.textContent = 'ready at ' + way.address + ' — collect it on the device';
+                what.textContent = 'ready at ' + way.address + ', collect it on the device';
                 row.appendChild(what);
 
                 /*

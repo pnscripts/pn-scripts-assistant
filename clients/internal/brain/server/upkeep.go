@@ -182,7 +182,7 @@ func (s *Server) handleUpkeep(w http.ResponseWriter, r *http.Request) {
 			"why_key": "upd.lookOff",
 			"why": "Looking things up online is switched off, so I cannot tell " +
 				"you whether anything is out of date. It is on the Permissions " +
-				"page — and it is a separate switch from privacy, because " +
+				"page, and it is a separate switch from privacy, because " +
 				"asking whether a newer version exists says nothing about you.",
 		})
 

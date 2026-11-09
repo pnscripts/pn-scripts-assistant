@@ -33,7 +33,7 @@ func TestAQuestionIsOneQuestionWithTwoToFourAnswers(t *testing.T) {
 
 func TestTheRecommendedAnswerComesFirstAndOtherLast(t *testing.T) {
 	bg := Show(where, "bg")
-	want := "Where should the brain live?\n1. On this computer (Препоръчително)\n2. On a USB stick\n3. In a folder I choose\n4. Друго — кажете го с ваши думи"
+	want := "Where should the brain live?\n1. On this computer (Препоръчително)\n2. On a USB stick\n3. In a folder I choose\n4. Друго: кажете го с ваши думи"
 
 	if bg != want {
 		t.Fatalf("shown as\n%s\nwant\n%s", bg, want)

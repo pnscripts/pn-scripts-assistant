@@ -256,7 +256,7 @@ func (MailDigest) Cues() []string {
 
 func (MailDigest) Description() string {
 	return "Sum up new mail since a number of hours ago (default 24): what looks suspicious (scam check), " +
-		"what needs a reply, what is from people, and newsletters and notifications by sender — from the " +
+		"what needs a reply, what is from people, and newsletters and notifications by sender, from the " +
 		"headers, without opening anything. Each line has a reference (imap:INBOX:12, or local:<folder>:45 for " +
 		"Thunderbird) to " +
 		"read it or draft a reply. Also says how many drafted replies wait to be sent."
@@ -298,10 +298,10 @@ func (t MailDigest) Execute(ctx context.Context, raw json.RawMessage) (string, e
 		fmt.Fprintf(&b, "\n%s (%d):\n", title, len(list))
 
 		for _, it := range list {
-			fmt.Fprintf(&b, "- [%s] %s — %s", it.Ref, maildesk.Name(it.From), it.Subject)
+			fmt.Fprintf(&b, "- [%s] %s: %s", it.Ref, maildesk.Name(it.From), it.Subject)
 
 			if scams {
-				fmt.Fprintf(&b, " — %s", it.Scam)
+				fmt.Fprintf(&b, " (%s)", it.Scam)
 			}
 
 			b.WriteString("\n")
@@ -423,7 +423,7 @@ func (t DraftReply) Execute(ctx context.Context, raw json.RawMessage) (string, e
 		"for the owner's yes, or send_draft after they agree to this exact text.", dr.ID, dr.To, dr.Subject)
 
 	if warning != "" {
-		out += "\nWarning kept with the draft — the message it answers: " + warning
+		out += "\nWarning kept with the draft, about the message it answers: " + warning
 	}
 
 	return out, nil
@@ -468,7 +468,7 @@ func (m MailDesk) Keep(ctx context.Context, answers, to, subject, body string) (
 			subject = maildesk.ReplySubject(orig.Subject)
 		}
 
-		about = fmt.Sprintf("%s — %s, %s", orig.From, orig.Subject, orig.Date)
+		about = fmt.Sprintf("%s: %s, %s", orig.From, orig.Subject, orig.Date)
 
 		if verdict.Warns() {
 			warning = verdict.String()
@@ -545,7 +545,7 @@ func (t SendDraft) Summarize(raw json.RawMessage) string {
 	head := fmt.Sprintf("Send to %s\nSubject: %s\n\n%s", dr.To, dr.Subject, body)
 
 	if dr.Warning != "" {
-		head = "WARNING — the message this answers: " + dr.Warning + "\n\n" + head
+		head = "WARNING about the message this answers: " + dr.Warning + "\n\n" + head
 	}
 
 	return head

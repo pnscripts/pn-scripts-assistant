@@ -366,7 +366,7 @@ async function loadMenu() {
         note.textContent = status.installed
             ? `In the menu. Press the Ubuntu key and type its name. \u00b7 ${status.entry}`
             : 'Not in the menu yet. Adding it writes one file and a set of icons '
-                + 'into your own home directory — nothing else on the machine changes.';
+                + 'into your own home directory, and nothing else on the machine changes.';
     }
 
     add.hidden = status.installed;

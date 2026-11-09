@@ -416,8 +416,8 @@ func Means(f Freedom) string {
 			"Every action is recorded."
 
 	case Everything:
-		return "It does anything it can without asking — installing, sending, hiring and " +
-			"working outside a project included, unless BRAIN_CONFINE is on. Every action is " +
+		return "It does anything it can without asking (installing, sending, hiring and " +
+			"working outside a project included) unless BRAIN_CONFINE is on. Every action is " +
 			"recorded, and files it overwrites are kept so they can be put back."
 
 	default:

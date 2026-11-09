@@ -489,7 +489,7 @@ func (g *Gateway) Acquire(ctx context.Context, sources []Source, kind, forWhom s
 		return Acquired{}, fmt.Errorf("%w: nothing for %q", ErrNoneFit, word)
 	}
 
-	return Acquired{}, fmt.Errorf("%w for %q — %s", ErrNoneFit, word, strings.Join(refused, " | "))
+	return Acquired{}, fmt.Errorf("%w for %q: %s", ErrNoneFit, word, strings.Join(refused, " | "))
 }
 
 func (g *Gateway) take(ctx context.Context, c Candidate, forWhom string, provide func(recipe, forWhom string) error) (Acquired, error) {

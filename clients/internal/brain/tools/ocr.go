@@ -47,7 +47,7 @@ var seeable = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".webp"
 
 // ErrNoReader is a scan with nothing on this machine to read it.
 var ErrNoReader = errors.New("nothing on this machine can read text in pictures: install Tesseract " +
-	"(install_requirement tesseract — on Linux the packages tesseract-ocr and tesseract-ocr-bul), " +
+	"(install_requirement tesseract; on Linux the packages tesseract-ocr and tesseract-ocr-bul), " +
 	"or a local model that can see (install_a_model gemma3:4b)")
 
 // recognise reads the text in one picture: Tesseract, then a model that can
@@ -181,7 +181,7 @@ func scanNote(by string, pages int) string {
 		what = "scanned page"
 	}
 
-	return fmt.Sprintf("[Read from a %s by %s. Recognised text can be wrong — check names, numbers "+
+	return fmt.Sprintf("[Read from a %s by %s. Recognised text can be wrong: check names, numbers "+
 		"and amounts against the original.]\n\n", what, by)
 }
 

@@ -49,7 +49,7 @@ type HireAgent struct {
 func (HireAgent) Name() string { return "hire_agent" }
 
 func (HireAgent) Description() string {
-	return "Propose hiring an expert into the organisation — a game developer, an electrician, " +
+	return "Propose hiring an expert into the organisation: a game developer, an electrician, " +
 		"a book writer, a backend engineer. Works out the job, whether somebody here already " +
 		"does it, what they could use, what the machine would need, and what needs a " +
 		"professional. Writes nothing: it returns a numbered proposal to show the owner."
@@ -121,7 +121,7 @@ func NextAboutHire(offer HireOffer) string {
 			"what the one task is.", offer.ID)
 	default:
 		return fmt.Sprintf("Show the owner this proposal. To make the hire, call confirm_hire with "+
-			"proposal %d, permanence %q%s — they will be asked to approve it before anything is written.",
+			"proposal %d, permanence %q%s; they will be asked to approve it before anything is written.",
 			offer.ID, offer.Permanence, goalArg(offer.Goal))
 	}
 }
@@ -228,7 +228,7 @@ func (t ConfirmHire) Execute(ctx context.Context, args json.RawMessage) (string,
 	}
 
 	if a.Permanence == "task" && strings.TrimSpace(a.Goal) == "" {
-		return "", fmt.Errorf("a hire for one task needs the task — ask the owner what it is")
+		return "", fmt.Errorf("a hire for one task needs the task; ask the owner what it is")
 	}
 
 	return t.Hiring.ConfirmHire(ctx, a.Proposal, a.Permanence, a.Goal)

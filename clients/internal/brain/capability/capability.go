@@ -276,7 +276,7 @@ func Check(p Package, known Known) []error {
 	 * somebody with no limit at all.
 	 */
 	if p.Role.Tools == nil {
-		add("the role must list its tools — an empty list would mean all of them")
+		add("the role must list its tools, because an empty list would mean all of them")
 	}
 
 	/*
@@ -323,7 +323,7 @@ func Check(p Package, known Known) []error {
 
 	if p.NeedsProfessional {
 		if p.Work != Advisory {
-			add("work that needs a qualified professional is advisory here — the professional does the rest")
+			add("work that needs a qualified professional is advisory here; the professional does the rest")
 		}
 
 		if strings.TrimSpace(p.Escalation) == "" {

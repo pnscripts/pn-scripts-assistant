@@ -4,9 +4,9 @@ PN Scripts Assistant is an assistant that runs on your computer, remembers what
 it learns from your folders and does real work with its tools.
 
 ## Everything starts in the chat
-Type or say what you want. Short questions get an answer. Bigger requests —
-"make me a space strategy game", "write a business plan for a bakery", "sort my
-inbox" — become a job: a short plan of steps, each done by the expert whose
+Type or say what you want. Short questions get an answer. Bigger requests
+("make me a space strategy game", "write a business plan for a bakery", "sort my
+inbox") become a job: a short plan of steps, each done by the expert whose
 work it is, with progress and the result shown in the same chat.
 
 ## When it asks

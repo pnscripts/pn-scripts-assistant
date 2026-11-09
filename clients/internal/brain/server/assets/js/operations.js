@@ -834,7 +834,7 @@ async function pace() {
             // It carries on in the background and reports on the progress
             // line, which is where every other long fetch in this program
             // reports.
-            button.textContent = `Fetching ${name} — watch Doing now`;
+            button.textContent = `Fetching ${name}, watch Doing now`;
         };
     }
 }

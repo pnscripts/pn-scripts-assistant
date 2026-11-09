@@ -3,7 +3,7 @@
 ## What it is
 
 One Go module in `clients/`, one binary. About 217,000 lines of Go, 58,000 of
-them tests, and 30,000 lines of interface embedded in the binary — there is
+them tests, and 30,000 lines of interface embedded in the binary. There is
 nothing to serve from disk and nothing to install beside the program.
 
 ```
@@ -22,8 +22,8 @@ docs/audit/                        what was measured, and when
 CGO_ENABLED=1 go build -C clients -o ../build/pn-scripts-assistant ./cmd/pn-scripts-assistant
 ```
 
-**CGO matters.** With `CGO_ENABLED=0` it builds a program with no native window
-— it still serves its interface, and a browser still works, but the thing you
+**CGO matters.** With `CGO_ENABLED=0` it builds a program with no native window:
+it still serves its interface, and a browser still works, but the thing you
 double-click does nothing you can see. That has cost an afternoon more than
 once.
 
@@ -62,8 +62,8 @@ On every push and every pull request, in
 | Shell scripts | `shellcheck --severity=error` |
 | The Windows window opens | on a Windows runner: the Windows folder and installer built; `window-check` opens the real window, hands over to a second page, brings it forward and closes it, with its icon; the installer installs silently for the account, the installed program serves its page, removing it keeps the brain; the zip, unpacked, keeps its brain beside it |
 
-`make ci` runs the same things here, in the same order. It is slow — several
-minutes against `make check`'s few seconds — and it is the difference between
+`make ci` runs the same things here, in the same order. It is slow (several
+minutes against `make check`'s few seconds), and it is the difference between
 finding out now and finding out in a pull request.
 
 The reproducibility step is worth knowing about before it fails on you:
@@ -79,7 +79,7 @@ will say so.
   `docs/audit/` use a fixed vocabulary for this: VERIFIED, IMPLEMENTED — NOT
   VERIFIED, BROKEN, and so on. "It should work" is not one of them.
 - A decision that somebody will wonder about later goes in
-  `docs/decisions/`, including the ones that turn out to be wrong — ADR 0005
+  `docs/decisions/`, including the ones that turn out to be wrong: ADR 0005
   now carries the correction to its own context-window reasoning.
 - No new dependencies without a reason that survives being written down. There
   are three.

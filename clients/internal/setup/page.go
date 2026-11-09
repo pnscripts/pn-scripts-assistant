@@ -16,7 +16,7 @@ const setupPage = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>PN Scripts Assistant — Setup</title>
+<title>PN Scripts Assistant: Setup</title>
 <style>
 :root{--bg:#070a0f;--raised:#0d1219;--input:#111823;--line:#1b2634;--text:#d6dee8;
 --dim:#7d8b9c;--faint:#4a5769;--accent:#4dd0e1;--warn:#f0b26b;--danger:#e06c75;--ok:#7bc47f;
@@ -426,7 +426,7 @@ html.has-stage .wrap{position:relative;z-index:1}
          for. See welcome.go. -->
     <div id="welcome-said">
     <p class="sub">It listens, answers, remembers what you tell it, and reads
-      the files you point it at. All of that happens here — nothing you say
+      the files you point it at. All of that happens here. Nothing you say
       leaves this machine unless you choose to use a paid service, and it goes
       on working with the network unplugged.</p>
     <p class="sub">Setting it up takes a few minutes and one large download.
@@ -438,8 +438,8 @@ html.has-stage .wrap{position:relative;z-index:1}
 
   <div class="step" id="step-where" hidden>
     <h2>Where to keep it</h2>
-    <p class="sub">Everything the assistant learns — what you tell it, what it reads,
-      every conversation — lives in one folder. Nothing else on your computer is
+    <p class="sub">Everything the assistant learns (what you tell it, what it reads,
+      every conversation) lives in one folder. Nothing else on your computer is
       touched, and deleting that folder removes the brain completely.</p>
     <p class="sub">Choosing now is free. Moving it later copies the lot and
       deletes the original, which takes a while and is risky on a drive that
@@ -466,7 +466,7 @@ html.has-stage .wrap{position:relative;z-index:1}
     <h2>What it needs</h2>
     <p class="sub">These are the pieces the assistant runs on. Each one says what it
       is for, what stops working without it, and where it goes on this machine.
-      Setup installs them for you — nothing here needs a terminal.</p>
+      Setup installs them for you, and nothing here needs a terminal.</p>
     <div id="reqs"></div>
   </div>
 
@@ -641,7 +641,7 @@ function renderRequirements(state){
 
   heading("reqs", onPaid ? "For a brain on this machine" : "Needed to run",
     onPaid
-      ? "You chose a paid service, so none of these are required — it can "
+      ? "You chose a paid service, so none of these are required: it can "
         + "answer without them. Install them if you also want it to work "
         + "offline and to remember things: the embedding model is what "
         + "memory is made of."
@@ -664,7 +664,7 @@ function renderRequirements(state){
   if (extras.length){
     heading("reqs", "Add when you want them",
       "None of these are needed to start. Install any you want now, or add "
-      + "them later from inside the program — you will not have to come back "
+      + "them later from inside the program, and you will not have to come back "
       + "here.");
 
     installAllButton("reqs", extras, "Install the extras");
@@ -975,7 +975,7 @@ function renderDriveChoice(state){
     if (d.removable){
       // Worth saying plainly: a brain on a drive that gets unplugged is a
       // brain that is missing, and nothing else on this page would warn them.
-      name.textContent += " — removable";
+      name.textContent += " (removable)";
     }
     b.appendChild(name);
 
@@ -1059,7 +1059,7 @@ function renderLibrary(){
 
   const find = document.createElement("input");
   find.type = "text";
-  find.placeholder = "Search by name — llama, qwen, vision, code…";
+  find.placeholder = "Search by name: llama, qwen, vision, code…";
   find.value = librarySearch;
   find.oninput = () => { librarySearch = find.value; renderLibrary(); find.focus(); };
   box.appendChild(find);
@@ -1297,7 +1297,7 @@ function renderBrainChoice(state){
         ? "Free and private. Nothing you say leaves this computer, and it "
           + "keeps working with the network unplugged."
         : "Free and private, but this machine has " + state.hardware.ram_gb
-          + "GB of RAM — enough to work, slowly enough to be frustrating.",
+          + "GB of RAM: enough to work, slowly enough to be frustrating.",
     },
     {
       id: "paid", title: "Use a paid API",
@@ -1482,7 +1482,7 @@ function renderModelList(state){
    */
   const note = document.createElement("p");
   note.className = "sub group-note";
-  note.textContent = "Install as many as you like — you choose which one "
+  note.textContent = "Install as many as you like. You choose which one "
     + "answers later, and can add any of the others from inside the program.";
   box.appendChild(note);
 
@@ -1502,7 +1502,7 @@ function renderModelList(state){
     const where = document.createElement("p");
     where.className = "sub group-note models-room";
     where.textContent = "They go to " + (room.where || "ollama's own folder")
-      + (room.free_gb ? " — " + room.free_gb + "GB free there" : "");
+      + (room.free_gb ? ", " + room.free_gb + "GB free there" : "");
     box.appendChild(where);
   }
 
@@ -1661,14 +1661,14 @@ function renderSavedKeys(state){
   held.forEach(id => {
     const row = document.createElement("div");
     row.className = "api-held";
-    row.textContent = (names[id] || id) + " — key saved";
+    row.textContent = (names[id] || id) + ": key saved";
     box.appendChild(row);
   });
 
   const more = document.createElement("p");
   more.className = "sub";
   more.textContent = held.length === 1
-    ? "You can add another company below — it keeps one key for each."
+    ? "You can add another company below. It keeps one key for each."
     : "Choose which one answers in Settings, at any time.";
   box.appendChild(more);
 }
@@ -1813,7 +1813,7 @@ function renderApiChoice(state){
 
     where.textContent = sv.custom
       ? sv.note + " Give its address above; most need no key."
-      : "Get a key at " + sv.where + (sv.note ? " — " + sv.note : "");
+      : "Get a key at " + sv.where + (sv.note ? ". " + sv.note : "");
   };
 
   choose.onchange = describe;
@@ -2163,7 +2163,7 @@ function renderFreedomChoice(state){
         + "one is written down with the reason it would have asked, and nothing waits "
         + "for you."
       : "These are the files where it stops and puts the request to you first, "
-        + "whatever else you have allowed — and it remembers what you answer, so it "
+        + "whatever else you have allowed, and it remembers what you answer, so it "
         + "asks once rather than every time.";
   }
 }
@@ -2739,7 +2739,7 @@ function renderIdentity(state){
   const ln = document.createElement("p");
   ln.className = "sub group-note";
   ln.textContent = "Told rather than guessed. Left to guess at a language it "
-    + "is unsure of, it translates instead of writing down what you said — so "
+    + "is unsure of, it translates instead of writing down what you said, so "
     + "you get an answer in English about something you did not ask.";
   box.appendChild(ln);
 
@@ -2967,7 +2967,7 @@ async function refresh(){
   el("status").textContent = busy
     ? "Working…"
     : (state.apply_failed
-        ? "That did not finish — see the log above."
+        ? "That did not finish. See the log above."
         : (ready ? "Everything is ready." : (state.blocking + " requirement(s) still needed")));
 
   el("status").classList.toggle("bad", !busy && !!state.apply_failed);

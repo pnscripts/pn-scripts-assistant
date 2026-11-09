@@ -74,7 +74,7 @@ func MakeIt(ctx context.Context, folder string, film Film) (string, error) {
 	ffmpeg, err := exec.LookPath("ffmpeg")
 	if err != nil {
 		return "", fmt.Errorf(
-			"ffmpeg is not installed, and it is what puts the pictures together — " +
+			"ffmpeg is not installed, and it is what puts the pictures together; " +
 				"it is in the list of parts this machine needs")
 	}
 

@@ -86,7 +86,7 @@ func (p Pace) Say() string {
 	s := fmt.Sprintf("%.0f %% of its allowance used with %.0f %% of its %s window gone", p.Used, p.Elapsed, window)
 
 	if p.Ahead {
-		s += " — ahead of pace: at this rate it runs out before it renews"
+		s += "; ahead of pace: at this rate it runs out before it renews"
 	}
 
 	return s

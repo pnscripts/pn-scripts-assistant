@@ -135,7 +135,7 @@ func FindRecogniser() (*Recogniser, string) {
 		 * them one at a time is two rounds of the same disappointment.
 		 */
 		return nil, "No speech recogniser or model is installed yet. " +
-			"Open Setup and let it install whisper and a speech model — " +
+			"Open Setup and let it install whisper and a speech model; " +
 			"it downloads both and needs nothing from you but a moment."
 	}
 

@@ -406,8 +406,8 @@ func (QuizTool) Risk() Risk     { return Safe }
 func (QuizTool) Cues() []string { return studyCues }
 
 func (QuizTool) Description() string {
-	return "Practice questions on a topic at the learner's level — choices, numbers and short answers that " +
-		"can be marked — kept so missed ones come back later. With review true, no new questions are " +
+	return "Practice questions on a topic at the learner's level (choices, numbers and short answers that " +
+		"can be marked), kept so missed ones come back later. With review true, no new questions are " +
 		"written: the kept questions that are due again come back (of the topic, or of everything). Returns " +
 		"each question with its number and never the answers: ask the learner, then pass each reply to " +
 		"check_answer with that number."

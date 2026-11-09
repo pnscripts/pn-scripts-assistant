@@ -139,7 +139,7 @@ func (Proofread) Execute(ctx context.Context, raw json.RawMessage) (string, erro
 				sure = " (check it)"
 			}
 
-			fmt.Fprintf(&b, "%s — %s%s\n", line, why, sure)
+			fmt.Fprintf(&b, "%s: %s%s\n", line, why, sure)
 		}
 	}
 

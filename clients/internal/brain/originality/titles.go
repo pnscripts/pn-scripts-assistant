@@ -31,15 +31,15 @@ func UniquenessSentence(s string) error {
 	case n < 6:
 		return errors.New("the sentence is too short to say what only this game does")
 	case n > 45:
-		return errors.New("it takes more than one sentence to say what only this game does — find the one rule")
+		return errors.New("it takes more than one sentence to say what only this game does; find the one rule")
 	}
 
 	if len(sentences.FindAllStringIndex(strings.TrimRight(s, ".!? "), -1)) > 0 {
-		return errors.New("it takes more than one sentence to say what only this game does — find the one rule")
+		return errors.New("it takes more than one sentence to say what only this game does; find the one rule")
 	}
 
 	if m := reskin.FindString(s); m != "" {
-		return errors.New("the sentence defines the game by another one (\"" + m + "\") — say the rule only this game has")
+		return errors.New("the sentence defines the game by another one (\"" + m + "\"); say the rule only this game has")
 	}
 
 	return nil

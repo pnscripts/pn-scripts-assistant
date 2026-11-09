@@ -302,11 +302,11 @@ func (t CustomerReply) Execute(ctx context.Context, raw json.RawMessage) (string
 	}
 
 	for _, p := range w.Promises {
-		b.WriteString("\nPromise nobody has made yet — the owner decides: " + p)
+		b.WriteString("\nPromise nobody has made yet, the owner decides: " + p)
 	}
 
 	for _, u := range w.Unsupported {
-		b.WriteString("\nNot in the business's words — check it: " + u)
+		b.WriteString("\nNot in the business's words, check it: " + u)
 	}
 
 	for _, x := range w.Always {
@@ -343,7 +343,7 @@ func (BusinessAnswers) Risk() Risk     { return Safe }
 func (BusinessAnswers) Cues() []string { return careCues }
 
 func (BusinessAnswers) Description() string {
-	return "Show the business's answer book — the questions it has answered, as it wants them answered — and " +
+	return "Show the business's answer book (the questions it has answered, as it wants them answered) and " +
 		"how it wants to sound (name, tone, signature, documents folder). With query, only the entries that match."
 }
 
@@ -418,7 +418,7 @@ func (ChangeBusinessAnswers) Cues() []string { return careCues }
 
 func (ChangeBusinessAnswers) Description() string {
 	return "Add an entry to the business's answer book, change one, or remove one by its number. Only what " +
-		"the owner said the answer is — never an answer you made up."
+		"the owner said the answer is, never an answer you made up."
 }
 
 func (ChangeBusinessAnswers) Parameters() json.RawMessage {

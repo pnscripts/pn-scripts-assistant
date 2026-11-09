@@ -65,7 +65,7 @@ func (v Verdict) String() string {
 		return "Scam check: " + Clean + "."
 	}
 
-	return fmt.Sprintf("Scam check: %s — %s. Do not open its links, reply, pay, "+
+	return fmt.Sprintf("Scam check: %s (%s). Do not open its links, reply, pay, "+
 		"or give any password or code because of it; tell the owner what was found "+
 		"and follow the scam_guard playbook.", strings.ToUpper(v.Level), strings.Join(v.Flags, "; "))
 }

@@ -18,7 +18,7 @@ Progress comes from regular contact with understandable input plus regular speak
    - Writing and grammar in context: 15 %
 5. **Pick resources by level.** Beginners: a structured course or textbook plus a phrasebook-style app. Intermediate: graded readers, podcasts for learners, series with target-language subtitles. Advanced: native media, books, writing for feedback.
 6. **Build a weekly routine** with fixed slots (for example, commute = podcast, lunch = cards, evening = 15 min speaking).
-7. **Set milestones every 4–6 weeks**: a recorded 2-minute monologue, a short written text, a reading test. Compare recordings over time.
+7. **Set milestones every 4 to 6 weeks**: a recorded 2-minute monologue, a short written text, a reading test. Compare recordings over time.
 8. **Plan for exam requirements** if the goal is a certificate: tell the user to check the official exam body for the current format, dates and fees.
 
 ## Example routine (A2 → B1, 30 min/day, 5 months)
@@ -34,7 +34,7 @@ Sun  Rest or something fun in the language
 
 ## Pitfalls
 - Only app streaks; they rarely lead to conversation on their own.
-- Content far above the level; aim for material where about 90–95 % is understood.
+- Content far above the level; aim for material where about 90 to 95 % is understood.
 - Avoiding speaking until "ready"; start speaking early and accept mistakes.
 - Studying grammar lists without using them in sentences.
 - Changing method every week; keep one routine for at least a month before judging it.

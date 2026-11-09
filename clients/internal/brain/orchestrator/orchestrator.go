@@ -288,7 +288,7 @@ func (d Decision) Explain() string {
 	// kind of thing for this work — an embedding model for code — is left out.
 	for _, r := range d.Rejected {
 		if !strings.HasPrefix(r.Why, "it is not suited to") {
-			fmt.Fprintf(&b, "\nNot used: %s — %s", r.Title, r.Why)
+			fmt.Fprintf(&b, "\nNot used: %s (%s)", r.Title, r.Why)
 		}
 	}
 
@@ -500,7 +500,7 @@ func reasonsFor(r Resource, need Need, pol Policy, history History) []string {
 	if left, known := r.Remaining(); known {
 		out = append(out, fmt.Sprintf("%.0f%% of its capacity is left", left))
 	} else if r.Tier == Subscription {
-		out = append(out, "how much of it is left is not known — its service does not say, so nothing is assumed")
+		out = append(out, "how much of it is left is not known: its service does not say, so nothing is assumed")
 	}
 
 	if rate := history.Rate(r.ID); rate > 0 && history.Count(r.ID) >= 3 {
@@ -537,7 +537,7 @@ func summary(list []Rejection) string {
 			break
 		}
 
-		parts = append(parts, r.Title+" — "+r.Why)
+		parts = append(parts, r.Title+" ("+r.Why+")")
 	}
 
 	return strings.Join(parts, "; ")

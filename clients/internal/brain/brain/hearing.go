@@ -302,7 +302,7 @@ func (b *Brain) changeLoudness(_ context.Context, step string) (string, error) {
 
 	switch {
 	case at >= 100:
-		return "This is as loud as I go — and this is my voice only, nothing else " +
+		return "This is as loud as I go, and this is my voice only, nothing else " +
 			"on the machine.", nil
 
 	case speech.Loudness() <= speech.QuietestUseful:
@@ -344,8 +344,8 @@ func (b *Brain) changeSetting(ctx context.Context, what string, on bool) (string
 			b.Cfg.OnlyMe = false
 
 			return "I have not been taught your voice yet, so answering only you " +
-				"would mean answering nobody. Teach me in Privacy — three " +
-				"sentences — and ask me again.", nil
+				"would mean answering nobody. Teach me in Privacy (three " +
+				"sentences) and ask me again.", nil
 		}
 
 		if on {

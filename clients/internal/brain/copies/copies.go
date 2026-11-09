@@ -187,7 +187,7 @@ func checkDestination(root, dir string) error {
 	 * "keep a copy here" says that is wanted.
 	 */
 	if _, err := os.Stat(filepath.Join(dir, ".brain-root.json")); err == nil {
-		return errors.New("there is already a brain in that folder — pick somewhere else, or move that one first")
+		return errors.New("there is already a brain in that folder; pick somewhere else, or move that one first")
 	}
 
 	return nil
@@ -275,7 +275,7 @@ func describe(dir string) Copy {
 			return c
 		}
 
-		c.Trouble = "not there right now — the drive is probably not plugged in"
+		c.Trouble = "not there right now; the drive is probably not plugged in"
 
 		return c
 

@@ -9,8 +9,8 @@ Start here: **the log**.
 ```
 
 `pn-scripts-assistant status` prints that path along with where the data lives.
-The file holds the same lines the terminal would have shown, which is the point
-— started from the applications menu there is no terminal to show them. It is
+The file holds the same lines the terminal would have shown, which is the point:
+started from the applications menu, there is no terminal to show them. It is
 rotated at five megabytes and three are kept, it is readable only by you, and
 secrets are taken out of it before it is written.
 
@@ -20,7 +20,7 @@ secrets are taken out of it before it is written.
 |---|---|
 | `Assistant is already running on this brain (…) and answering on http://127.0.0.1:8790` | A second copy was asked to open the same brain. Use the one that is running, or serve a different brain with `PN_SCRIPTS_ASSISTANT_DATA_ROOT=<folder>`. |
 | `something is already answering on 127.0.0.1:8790` | Something else has the port. Open that address to see what it is, or start elsewhere with `BRAIN_ADDR=127.0.0.1:9000`. |
-| Nothing at all, launched from the menu | Read the log. If it is empty, run `pn-scripts-assistant` in a terminal — the reason will be on screen. |
+| Nothing at all, launched from the menu | Read the log. If it is empty, run `pn-scripts-assistant` in a terminal: the reason will be on screen. |
 | It waits for a drive | The brain is on a disk that is not plugged in. Plug it in, or `pn-scripts-assistant start-again` to stop waiting for one that is gone for good. |
 
 ## It answers slowly
@@ -47,7 +47,7 @@ Ollama is not running, or is answering somewhere else. The message names the
 address it tried:
 
 ```
-Ollama is not answering at http://127.0.0.1:11434 — start it (ollama serve),
+Ollama is not answering at http://127.0.0.1:11434: start it (ollama serve),
 or point this at another one with OLLAMA_BASE_URL
 ```
 
@@ -60,7 +60,7 @@ says which copy you have.
 ## The microphone hears nothing
 
 `pn-scripts-assistant mic-test` listens once and says what it heard. The
-microphone is **off** until you turn it on in the interface — a fresh install
+microphone is **off** until you turn it on in the interface; a fresh install
 does not open it.
 
 ## It keeps the processor busy while nobody uses it

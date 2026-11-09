@@ -202,7 +202,7 @@ func shownTools(fit team.Fit) any {
 	}
 
 	if len(fit.Tools) == 0 {
-		return []string{"none — its work is judgement"}
+		return []string{"none: its work is judgement"}
 	}
 
 	return fit.Tools
@@ -465,7 +465,7 @@ func (s *Server) handleHire(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.Tools != nil && len(body.Tools) == 0 {
-		fail(w, http.StatusBadRequest, "an empty tool list would mean every tool — name the tools, or say none")
+		fail(w, http.StatusBadRequest, "an empty tool list would mean every tool; name the tools, or say none")
 
 		return
 	}

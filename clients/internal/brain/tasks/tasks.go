@@ -1151,7 +1151,7 @@ func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool
 		// only claimed — a memory of something that never happened is worse
 		// than none.
 		if step.Verdict == store.Verified && step.ReviewOf == 0 {
-			c.remember(member.Name, store.Found, task, step, step.Instruction+" — "+step.Answer)
+			c.remember(member.Name, store.Found, task, step, step.Instruction+": "+step.Answer)
 		}
 
 		// A review says what it found about the step it reviewed; anything
@@ -1696,7 +1696,7 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 	case store.TaskDone:
 		plain = "Finished: " + task.Name + "."
 	case store.TaskBlocked:
-		plain = "Stopped on " + task.Name + " — " + because + "."
+		plain = "Stopped on " + task.Name + ": " + because + "."
 	}
 
 	sections = append(sections, c.inOwnWords(task.Provider, "the one opening line of a report on a job that has ended",
@@ -1761,7 +1761,7 @@ func (c *Conductor) report(task *store.Task, steps []store.TaskStep, state, beca
 		tail = append(tail, countOf(verified, "step")+" checked against what the tools returned.")
 	case verified == 0 && claimed > 0:
 		tail = append(tail, countOf(claimed, "step")+
-			" taken on its own word — nothing was looked up to confirm it.")
+			" taken on its own word; nothing was looked up to confirm it.")
 	case claimed > 0:
 		tail = append(tail, fmt.Sprintf("%s checked against what the tools returned, %d taken on its own word.",
 			countOf(verified, "step"), claimed))
@@ -2228,7 +2228,7 @@ func (c *Conductor) progress(task *store.Task, step *store.TaskStep) {
 		who = " (" + who + ")"
 	}
 
-	c.say(task, fmt.Sprintf("%s: step %d of %d done%s — %s", task.Name, done, len(steps), who, trimTo(step.Instruction, 100)))
+	c.say(task, fmt.Sprintf("%s: step %d of %d done%s: %s", task.Name, done, len(steps), who, trimTo(step.Instruction, 100)))
 }
 
 func nonEmpty(values ...string) []string {

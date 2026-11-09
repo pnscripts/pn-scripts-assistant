@@ -1,4 +1,4 @@
-# Invoices and VAT — information, not advice
+# Invoices and VAT: information, not advice
 
 Open **Invoices & VAT** in the menu, or ask: "add this invoice",
 "import my sales for September from sales.xlsx", "what is my VAT for
@@ -23,8 +23,8 @@ links to the sources. For **another country**, give your own rates and
 currency: nothing is then said about that country's law.
 
 ## Every invoice checked
-As an invoice is added — typed in, read from a PDF, Word file or scan, or
-imported from a table — the VAT is worked out when it is missing and checked
+As an invoice is added (typed in, read from a PDF, Word file or scan, or
+imported from a table), the VAT is worked out when it is missing and checked
 when it is given: it must be the rate of the net to the cent, and the total
 must be the net and the VAT. The rate must be one of the country's; a zero
 rate needs its legal basis; reverse charge shows no VAT; an issued invoice's

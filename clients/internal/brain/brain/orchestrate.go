@@ -234,7 +234,7 @@ func stackLines(d orchestrator.Decision, engine string) []string {
 
 	switch {
 	case d.Primary == nil && d.Install != nil && d.Install.Auto:
-		lines = append(lines, "Writes it: "+d.Install.Name+" (local), installed first — nothing here can do it now")
+		lines = append(lines, "Writes it: "+d.Install.Name+" (local), installed first, because nothing here can do it now")
 	case d.Primary == nil && d.Install != nil:
 		lines = append(lines, "Nobody here can write it now")
 	case d.Primary == nil:
@@ -245,7 +245,7 @@ func stackLines(d orchestrator.Decision, engine string) []string {
 			who += " (" + d.Primary.Model + ")"
 		}
 
-		lines = append(lines, "Writes it: "+who+" — "+strings.Join(d.Reasons, "; "))
+		lines = append(lines, "Writes it: "+who+"; "+strings.Join(d.Reasons, "; "))
 
 		var next []string
 
@@ -274,7 +274,7 @@ func stackLines(d orchestrator.Decision, engine string) []string {
 			how = "asked first: " + d.Install.Ask
 		}
 
-		lines = append(lines, fmt.Sprintf("Would install %s (%s, licence %q) — %s", d.Install.Name,
+		lines = append(lines, fmt.Sprintf("Would install %s (%s, licence %q): %s", d.Install.Name,
 			sizeText(d.Install.Size), d.Install.Licence, how))
 	}
 
@@ -287,12 +287,12 @@ func stackLines(d orchestrator.Decision, engine string) []string {
 			continue
 		}
 
-		lines = append(lines, "Not used: "+r.Title+" — "+r.Why)
+		lines = append(lines, "Not used: "+r.Title+" ("+r.Why+")")
 		said++
 	}
 
 	if engine != "" {
-		lines = append(lines, "Checked, run and built by this program itself with "+engine+" — what the writer says it did counts only once that passes")
+		lines = append(lines, "Checked, run and built by this program itself with "+engine+"; what the writer says it did counts only once that passes")
 	}
 
 	return lines
@@ -357,7 +357,7 @@ func (b *Brain) integrationResources() []orchestrator.Resource {
 
 		switch {
 		case !v.Approved:
-			r.State, r.Why = orchestrator.NotSupported, "not approved — nothing runs until you approve it"
+			r.State, r.Why = orchestrator.NotSupported, "not approved: nothing runs until you approve it"
 		case v.Missing != "":
 			r.State, r.Why = orchestrator.NotInstalled, v.Missing
 		case v.Running:

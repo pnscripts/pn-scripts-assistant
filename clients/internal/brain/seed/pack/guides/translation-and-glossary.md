@@ -6,8 +6,8 @@ offer in my Documents into English", "always translate 'invoice' as
 'фактура'".
 
 ## Files keep their layout
-A file is translated into a new file beside it — `offer.docx` becomes
-`offer.en.docx` — and the original is never changed or replaced. Only the
+A file is translated into a new file beside it (`offer.docx` becomes
+`offer.en.docx`), and the original is never changed or replaced. Only the
 words are sent to the model; everything else stays exactly as it was:
 
 - Word (.docx) and OpenDocument (.odt): styles, tables, headers and footers,
@@ -25,11 +25,11 @@ to do it in the background and carry on.
 ## Your glossary
 The glossary is your list of agreed translations: a word or phrase and how it
 is always translated into a language. Write a term as itself to keep it
-untranslated — a name, a brand, a product. Every translation is given the
+untranslated: a name, a brand, a product. Every translation is given the
 terms it uses, and checked afterwards:
 
 - a glossary term not translated as agreed (a Bulgarian or English ending on
-  the agreed word is fine — "договора" still counts as "договор");
+  the agreed word is fine: "договора" still counts as "договор");
 - a number, an e-mail address or a link that is in the original and not in
   the translation.
 

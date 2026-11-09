@@ -154,7 +154,7 @@ func Requirements() []Requirement {
 
 					return Missing, ""
 				},
-				Where:      func() string { return "/usr/lib — system libraries, installed by apt" },
+				Where:      func() string { return "/usr/lib: system libraries, installed by apt" },
 				InstallCmd: func() []string { return aptInstall("libwebkit2gtk-4.1-0", "libgtk-3-0t64") },
 				NeedsRoot:  true,
 			},
@@ -170,7 +170,7 @@ func Requirements() []Requirement {
 
 					return Missing, ""
 				},
-				Where:      func() string { return "/usr/include — system headers, installed by apt" },
+				Where:      func() string { return "/usr/include: system headers, installed by apt" },
 				InstallCmd: func() []string { return aptInstall("libwebkit2gtk-4.1-dev", "libgtk-3-dev") },
 				NeedsRoot:  true,
 			},
@@ -276,7 +276,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/xdotool — installed by apt"
+					return "/usr/bin/xdotool, installed by apt"
 				},
 				InstallCmd: func() []string { return aptInstall("xdotool") },
 				NeedsRoot:  true,
@@ -312,7 +312,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/pdftotext — installed by apt"
+					return "/usr/bin/pdftotext, installed by apt"
 				},
 				InstallCmd: func() []string { return aptInstall("poppler-utils") },
 				NeedsRoot:  true,
@@ -335,7 +335,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/ffmpeg — installed by apt"
+					return "/usr/bin/ffmpeg, installed by apt"
 				},
 				InstallCmd: func() []string { return aptInstall("ffmpeg") },
 				NeedsRoot:  true,
@@ -359,7 +359,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/wg-quick — installed by apt"
+					return "/usr/bin/wg-quick, installed by apt"
 				},
 
 				// The tunnel itself is in the kernel already; this is the tool
@@ -392,7 +392,7 @@ func Requirements() []Requirement {
 						return at
 					}
 
-					return "/usr/bin/wpctl — installed by apt"
+					return "/usr/bin/wpctl, installed by apt"
 				},
 				InstallCmd: func() []string {
 					return aptInstall("wireplumber", "pipewire-audio-client-libraries", "pipewire-bin")

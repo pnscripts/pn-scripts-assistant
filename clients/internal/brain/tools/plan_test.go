@@ -60,7 +60,7 @@ func TestToDosAreAddedTickedAndFoundByTheirWords(t *testing.T) {
 	}
 
 	list, _ := call(t, ListTodos{Plan: plan}, map[string]any{})
-	if !strings.Contains(list, "Work:\n- [3] Send the invoice — due tomorrow\n- [2] Send the offer — due Fri 30 Oct") ||
+	if !strings.Contains(list, "Work:\n- [3] Send the invoice, due tomorrow\n- [2] Send the offer, due Fri 30 Oct") ||
 		strings.Contains(list, "мляко") {
 		t.Errorf("%s", list)
 	}
@@ -111,9 +111,9 @@ func TestWhatIsNextOpensEveryDrawer(t *testing.T) {
 	}
 
 	want := []string{
-		"Overdue:\n- [1] Pay the tax — overdue since Sun 25 Oct (work)",
-		"Today, Mon 26 Oct:\n- 14:00–15:00 Dentist (Sofia)\n- 19:00 reminder: Take the bins out",
-		"Tomorrow, Tue 27 Oct:\n- due: Send the offer (work list)\n- 10:00–11:00 School meeting — online calendar",
+		"Overdue:\n- [1] Pay the tax, overdue since Sun 25 Oct (work)",
+		"Today, Mon 26 Oct:\n- 14:00 to 15:00 Dentist (Sofia)\n- 19:00 reminder: Take the bins out",
+		"Tomorrow, Tue 27 Oct:\n- due: Send the offer (work list)\n- 10:00 to 11:00 School meeting, online calendar",
 		"To-dos with no date (1):\n- [3] Call grandma (to do)",
 	}
 
@@ -140,7 +140,7 @@ func TestTheOnlineCalendarIsAskedBeforeItIsWritten(t *testing.T) {
 	raw, _ := json.Marshal(map[string]any{"title": "Parents' evening", "starts": "2026-11-03 18:00", "place": "School"})
 
 	w := WriteCalendar{}
-	if w.Risk() != Mutating || !strings.HasPrefix(w.Summarize(raw), "Put in your online calendar: Tue 3 Nov 18:00 — Parents' evening (School)") {
+	if w.Risk() != Mutating || !strings.HasPrefix(w.Summarize(raw), "Put in your online calendar: Tue 3 Nov 18:00, Parents' evening (School)") {
 		t.Errorf("%s", w.Summarize(raw))
 	}
 

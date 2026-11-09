@@ -26,7 +26,7 @@ that is usually right is still sometimes wrong. Clicking a correction shows
 where it is in the text. Meaning, style and facts stay yours to judge.
 
 ## Tones and length
-Choose a tone — formal, friendly, concise, persuasive, simple or polite — and
+Choose a tone (formal, friendly, concise, persuasive, simple or polite) and
 proofreading also notes what does not fit it: sentences that are too long,
 words that do not belong, contractions and exclamation marks in a formal
 letter, words in capitals. Give the most words and it says how far over the
@@ -34,7 +34,7 @@ text is.
 
 **Rewrite in this tone** asks the language model for a new version in the
 same language, keeping every fact, name, number and link. The new version is
-proofread and shown as changes — taken out in red, put in in green — and
+proofread and shown as changes (taken out in red, put in in green) and
 replaces your text only if you choose **Use this version**.
 
 ## Comparing two versions
@@ -52,7 +52,7 @@ only changed when you say so.
 it takes out what they already see (who is writing, the subject said again),
 sentences that say nothing ("I hope this email finds you well"), anything
 said twice and the slips it is sure of, and points at what only you can
-settle — a placeholder such as "[Name]" left in, a date whose weekday is
+settle: a placeholder such as "[Name]" left in, a date whose weekday is
 wrong, a sentence that sounds like a machine talking about itself.
 **Use this text** puts the polished version back in the box.
 

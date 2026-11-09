@@ -18,11 +18,11 @@ Light decides what grows; watering kills most houseplants. Match the plant to th
    - Direct sun: cacti, most succulents, citrus, some herbs.
    - Bright indirect: monstera, fiddle-leaf fig, rubber plant, many palms and orchids.
    - Medium to low: snake plant, ZZ plant, pothos, philodendron (heart-leaf), cast-iron plant.
-4. **Set watering by soil check.** Push a finger in: succulents and cacti when fully dry; most foliage plants when the top 2–5 cm are dry; ferns and calatheas when the surface just starts to dry. Water thoroughly until it drains, then empty the saucer.
+4. **Set watering by soil check.** Push a finger in: succulents and cacti when fully dry; most foliage plants when the top 2 to 5 cm are dry; ferns and calatheas when the surface just starts to dry. Water thoroughly until it drains, then empty the saucer.
 5. **Pot and soil.** Always use drainage holes; decorative pots without holes should hold a plastic inner pot. Use a mix suited to the plant (gritty for succulents, chunky for orchids and aroids).
 6. **Humidity and temperature.** Keep away from radiators and cold draughts; group humidity-loving plants or use a tray of pebbles and water.
 7. **Feeding.** Feed during active growth (usually spring and summer) at the label dose or weaker; little or none in winter.
-8. **Repotting.** When roots circle the pot or grow out of the holes, usually every 1–3 years in spring, into a pot only 2–5 cm wider.
+8. **Repotting.** When roots circle the pot or grow out of the holes, usually every 1 to 3 years in spring, into a pot only 2 to 5 cm wider.
 9. **Seasonal shifts.** Less water in winter, more light needed; rotate plants a quarter turn regularly for even growth.
 
 ## Care card template

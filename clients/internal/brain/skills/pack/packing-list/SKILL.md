@@ -10,7 +10,7 @@ Pack for the trip actually planned, not for every possibility. Essentials and do
 ## Steps
 1. **Collect the facts.** Destination and dates, expected weather (tell the user to check a forecast close to departure), trip type and activities, accommodation (hotel, apartment with washing machine, camping), luggage (carry-on only, checked bag, car), airline limits, and travellers (children, medical needs).
 2. **Start with the must-not-forget list** (documents, money, medicines, phone and charger).
-3. **Plan clothes by days and outfits.** For trips over a week, pack for 5–7 days and plan laundry. Choose a colour palette so pieces combine; layers beat bulky items.
+3. **Plan clothes by days and outfits.** For trips over a week, pack for 5 to 7 days and plan laundry. Choose a colour palette so pieces combine; layers beat bulky items.
 4. **Add activity-specific gear** (swimming, hiking, formal dinner, skiing, work).
 5. **Check transport rules.** Hand luggage liquids are usually limited (often 100 ml containers in one clear bag at many airports, but rules are changing with new scanners); power banks and spare lithium batteries normally must go in hand luggage. Tell the user to confirm the current rules of their airline and departure airport.
 6. **Cut down.** Remove anything "just in case" that is cheap and easy to buy at the destination.
@@ -21,7 +21,7 @@ Pack for the trip actually planned, not for every possibility. Essentials and do
 **Health**: personal medicines in original packaging with enough for the trip plus a few extra days (in hand luggage), copy of prescriptions, basic first-aid items, sunscreen, insect repellent if needed, glasses or contact lenses.
 **Electronics**: phone, charger, power bank, plug adapter for the destination, headphones.
 **Toiletries**: toothbrush and paste, deodorant, travel-size liquids, razor, hairbrush, menstrual products.
-**Clothes (7 days, mild weather)**: 5–7 underwear and socks, 4–5 tops, 2 trousers or skirts, 1 pair of shorts, 1 warm layer, 1 rain jacket, sleepwear, 2 pairs of shoes (one on your feet), swimwear.
+**Clothes (7 days, mild weather)**: 5 to 7 underwear and socks, 4 to 5 tops, 2 trousers or skirts, 1 pair of shorts, 1 warm layer, 1 rain jacket, sleepwear, 2 pairs of shoes (one on your feet), swimwear.
 **Extras**: reusable water bottle, day bag, small laundry bag, earplugs and eye mask, pen.
 
 ## Add-ons by trip type

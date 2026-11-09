@@ -146,7 +146,7 @@ func removeOllama(w io.Writer) error {
 	}
 
 	fmt.Fprintln(w, "Ollama is removed. The models it downloaded are still in "+
-		filepath.Join(home, ".ollama")+" — remove those separately if you want the space back.")
+		filepath.Join(home, ".ollama")+". Remove those separately if you want the space back.")
 
 	return nil
 }

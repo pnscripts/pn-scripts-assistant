@@ -81,7 +81,7 @@ func GodotEngine() (Pinned, error) {
 	return Pinned{
 		Name: "Godot " + strings.TrimSuffix(GodotVersion, "-stable"), Version: GodotVersion,
 		URL: godotReleases + build.asset, Sum: build.sum, Algorithm: "sha512", Size: build.size,
-		Licence: "MIT — free, no account, no fee",
+		Licence: "MIT: free, no account, no fee",
 	}, nil
 }
 
@@ -98,7 +98,7 @@ func GodotTemplates() Pinned {
 		URL:       godotReleases + "Godot_v4.7.2-stable_export_templates.tpz",
 		Sum:       "ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079",
 		Algorithm: "sha512", Size: 1281349702,
-		Licence: "MIT — free, no account, no fee",
+		Licence: "MIT: free, no account, no fee",
 	}
 }
 
@@ -127,7 +127,7 @@ func Node() (Pinned, error) {
 		Name: "Node.js " + NodeVersion, Version: NodeVersion,
 		URL: "https://nodejs.org/dist/" + NodeVersion + "/" + build.asset,
 		Sum: build.sum, Algorithm: "sha256", Size: build.size,
-		Licence: "MIT — free, no account, no fee",
+		Licence: "MIT: free, no account, no fee",
 	}, nil
 }
 

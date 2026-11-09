@@ -201,7 +201,7 @@ func catalogueRequirements() []Requirement {
 		{
 			Name: "Jobs to hire from (ESCO)",
 			Why: "3,000 occupations and 14,000 skills from the European classification, " +
-				"with their Bulgarian names — so somebody can be found or hired for almost any work",
+				"with their Bulgarian names, so somebody can be found or hired for almost any work",
 			Consequence: "it hires from the 427 jobs it ships with",
 			Size:        "20MB",
 			Optional:    true,

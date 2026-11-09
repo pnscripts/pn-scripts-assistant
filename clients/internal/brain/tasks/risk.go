@@ -113,7 +113,7 @@ func actedUnasked(res agent.Result) []string {
 			continue
 		}
 
-		out = append(out, s.Level.Title()+" — "+s.Summary)
+		out = append(out, s.Level.Title()+": "+s.Summary)
 	}
 
 	return out

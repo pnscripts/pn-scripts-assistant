@@ -194,13 +194,13 @@ func (c *Client) Pull(ctx context.Context, name string, onProgress func(string))
 		}
 
 		if update.Total > 0 && update.Completed > 0 {
-			onProgress(fmt.Sprintf("Downloading %s — %s of %s",
+			onProgress(fmt.Sprintf("Downloading %s: %s of %s",
 				name, readableSize(update.Completed), readableSize(update.Total)))
 
 			continue
 		}
 
-		onProgress(fmt.Sprintf("%s — %s", name, update.Status))
+		onProgress(fmt.Sprintf("%s: %s", name, update.Status))
 	}
 
 	return scanner.Err()
@@ -348,7 +348,7 @@ func EnsureAllowed(ctx context.Context, c *Client, chat, embed string, allow fun
 	// it comes first even though the chat model is the visible one.
 	if !has(installed, embed) {
 		if note != nil {
-			note("Fetching the memory model — the brain cannot recall anything without it")
+			note("Fetching the memory model; the brain cannot recall anything without it")
 		}
 
 		if err := pull(embed); err != nil {
@@ -383,7 +383,7 @@ func EnsureAllowed(ctx context.Context, c *Client, chat, embed string, allow fun
 	}
 
 	if note != nil {
-		note("No model installed — fetching " + Recommended)
+		note("No model installed, fetching " + Recommended)
 	}
 
 	if err := pull(Recommended); err != nil {

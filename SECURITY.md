@@ -1,7 +1,7 @@
 # Security
 
 This program reads its owner's files, holds what it learns about them in a
-database on their machine, and — with their permission — runs commands as
+database on their machine, and, with their permission, runs commands as
 them. A fault in it is a fault in somebody's private life, not only in a
 program. Reports are welcome and they are read.
 
@@ -19,7 +19,7 @@ If that is not available to you, write to **office@pnscripts.com** with
 
 What helps, in rough order of usefulness:
 
-- what an attacker gets, stated plainly — read a file, run a command, read the
+- what an attacker gets, stated plainly: read a file, run a command, read the
   database, reach it over the network;
 - how to reproduce it, ideally as a failing test or a `curl` command;
 - the version (`pn-scripts-assistant version`) and the system.
@@ -35,11 +35,11 @@ itself:
 
 | Claim | Where it is enforced |
 |---|---|
-| It listens on loopback unless its owner deliberately opens it | `internal/brain/server` — `TestListenRefusesNonLoopback` |
-| A web page the owner has open cannot reach it | `internal/brain/server/guard.go` — `Origin` and `Host` are both checked before routing |
+| It listens on loopback unless its owner deliberately opens it | `internal/brain/server`: `TestListenRefusesNonLoopback` |
+| A web page the owner has open cannot reach it | `internal/brain/server/guard.go`: `Origin` and `Host` are both checked before routing |
 | A model cannot act by itself: an approved action runs the arguments that were *stored and shown*, never anything supplied with the approval | `internal/brain/brain/approvals.go`, `internal/brain/store/proposals.go` |
-| Work on a project is confined to that project's folder, by the kernel | `internal/brain/sandbox/landlock_linux.go` — `Restrict` |
-| What may leave the machine follows the privacy mode, and a provider outside it is not even probed | `internal/brain/llm/privacy_test.go` — `TestRouterRefusesForbiddenProviderEvenWhenAskedDirectly`, `TestForbiddenProvidersAreNotProbed` |
+| Work on a project is confined to that project's folder, by the kernel | `internal/brain/sandbox/landlock_linux.go`: `Restrict` |
+| What may leave the machine follows the privacy mode, and a provider outside it is not even probed | `internal/brain/llm/privacy_test.go`: `TestRouterRefusesForbiddenProviderEvenWhenAskedDirectly`, `TestForbiddenProvidersAreNotProbed` |
 | Credentials are not written into logs, conversations, evidence or the database in the clear | `internal/brain/redact` |
 
 ## Everywhere it can connect to
@@ -66,8 +66,8 @@ Downloads are checked again at the moment they happen, not only in that list:
 and the first hop being allowed says nothing about the last.
 
 What that list does not cover, stated because it matters as much: addresses
-*you* type — your Ollama, your mail server, a paired device, an MCP server, a
-smart home — and web pages you ask it to read. Those are the program doing as
+*you* type (your Ollama, your mail server, a paired device, an MCP server, a
+smart home) and web pages you ask it to read. Those are the program doing as
 it is told.
 
 The trust model these come from is written out in
@@ -81,7 +81,7 @@ that is a report worth making too.
   single-user desktop program; it does not defend its owner against themselves
   or against a person at their keyboard.
 - The model being wrong, rude, or confidently mistaken. That is a bug, not a
-  vulnerability — open an issue.
+  vulnerability; open an issue.
 - Ollama, the models, and the hosted providers. Report those to them.
 - A setting that is dangerous and says so, used deliberately. "Act freely" runs
   commands without asking because somebody chose that; it is documented and it
@@ -112,13 +112,13 @@ Written here rather than discovered by somebody who assumed otherwise:
   Alongside it, `SHA256SUMS` is published with every release.
 - **Builds are reproducible, and that has been checked across two machines.**
   The same commit built on a GitHub Ubuntu runner and on the maintainer's
-  desktop produces a byte-identical `.deb` — same SHA-256, not merely the same
+  desktop produces a byte-identical `.deb`: same SHA-256, not merely the same
   contents. CI also builds it twice on every push and fails if those two ever
   differ, which is what catches a regression before anybody notices.
 
   So you do not have to take a published checksum on trust: check out the
   commit a release was built from, run `make package`, and compare with the
-  `SHA256SUMS` beside the download. Two things it does depend on — the
+  `SHA256SUMS` beside the download. Two things it does depend on, the
   toolchain (read from `go.mod`, so it is the same everywhere) and the Debian
   libraries installed on the build machine, which decide the `Depends` line. A
   different Ubuntu release will legitimately produce a different package.

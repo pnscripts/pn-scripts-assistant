@@ -507,8 +507,8 @@ func (CalculateTable) Risk() Risk     { return Safe }
 func (CalculateTable) Cues() []string { return tableCues }
 
 func (CalculateTable) Description() string {
-	return "Answer a question from a table (.csv, .tsv, .xlsx, .ods) — totals by category, filters, a new " +
-		"column from a formula, top N, averages, a forecast of the next months — without calculating anything " +
+	return "Answer a question from a table (.csv, .tsv, .xlsx, .ods): totals by category, filters, a new " +
+		"column from a formula, top N, averages, a forecast of the next months, without calculating anything " +
 		"yourself: the question becomes a recipe the program carries out exactly, and every total is checked " +
 		"a second way from the source rows. Rows that are the sheet's own totals are left out so nothing is " +
 		"counted twice. Report the result with its checks; never change the numbers it gives. Changes nothing."

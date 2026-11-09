@@ -214,7 +214,7 @@ func (s *Server) handleReach(w http.ResponseWriter, r *http.Request) {
 	if body.Reach == config.ReachNetwork {
 		if !s.paired.Any() {
 			fail(w, http.StatusBadRequest,
-				"pair a device first — opening this for nobody is all of the risk and "+
+				"pair a device first: opening this for nobody is all of the risk and "+
 					"none of the point")
 
 			return

@@ -149,7 +149,7 @@
         const tasks = goal.tasks || [];
 
         history.textContent = tasks.length
-            ? tasks.map((t) => t.name + ' — ' + t.state).join(' · ')
+            ? tasks.map((t) => t.name + ': ' + t.state).join(' · ')
             : 'nothing done towards it yet';
 
         row.appendChild(history);

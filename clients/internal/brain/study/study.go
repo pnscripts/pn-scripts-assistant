@@ -34,7 +34,7 @@ type Level struct {
 // Levels are the four a learner chooses from, simplest first.
 var Levels = []Level{
 	{
-		Name: "child", EN: "Child (8–12)", BG: "Дете (8–12 г.)",
+		Name: "child", EN: "Child (8 to 12)", BG: "Дете (8 до 12 г.)",
 		Brief: "The learner is a child of about 8 to 12. Use short sentences and everyday words, " +
 			"one idea at a time, examples from home, school and play, and no jargon. Be warm and " +
 			"encouraging. Keep everything suitable for a child.",

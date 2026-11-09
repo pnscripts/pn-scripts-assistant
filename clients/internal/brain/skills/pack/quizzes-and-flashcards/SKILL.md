@@ -13,7 +13,7 @@ Good cards are small, unambiguous and ask the learner to retrieve, not recognise
 3. **Write flashcards with the minimum-information rule.** One idea per card; the question must have a single correct answer.
 4. **Write quiz items in mixed types.**
    - Recall (short answer) for key facts.
-   - Multiple choice with 3–4 plausible distractors based on real misconceptions.
+   - Multiple choice with 3 to 4 plausible distractors based on real misconceptions.
    - Apply: a short scenario or a problem with new numbers.
    - Explain: "Why does…" or "What would happen if…".
 5. **Add an answer key with a one-line explanation** for every item, so wrong answers teach something.

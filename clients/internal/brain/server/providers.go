@@ -108,7 +108,7 @@ func (s *Server) handleProviders(w http.ResponseWriter, r *http.Request) {
 		},
 		{
 			Name: "openrouter",
-			What: "One key for many companies' models — which means the request " +
+			What: "One key for many companies' models, which means the request " +
 				"may be served by any of them.",
 			NeedsKey:  true,
 			HasKey:    cfg.OpenRouterKey != "",

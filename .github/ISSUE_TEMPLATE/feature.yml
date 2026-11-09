@@ -23,7 +23,7 @@ body:
     attributes:
       label: Does it fit what this program is?
       description: |
-        Not a test — a prompt. A "no" here is worth discussing, not hiding.
+        Not a test, a prompt. A "no" here is worth discussing, not hiding.
       options:
         - label: It works without sending anything off this machine, or it is honest about what it sends.
         - label: It is reachable from inside the program, not only from a terminal.

@@ -118,7 +118,7 @@ func (t Introduce) Execute(context.Context, json.RawMessage) (string, error) {
 	}
 
 	return "What I can do here, from what is actually loaded. " +
-		"Say it in your own words to whoever asked, about what they asked — " +
+		"Say it in your own words to whoever asked, about what they asked; " +
 		"do not read this list out.\n\n" + facts, nil
 }
 
@@ -163,7 +163,7 @@ func (t Introduce) Facts() (string, error) {
 	 */
 	behaves := t.Asks
 	if strings.TrimSpace(behaves) == "" {
-		behaves = "anything that changes something — a file, a setting, a whole drive — " +
+		behaves = "anything that changes something (a file, a setting, a whole drive) " +
 			"stops and asks first, and says exactly what it is about to do"
 	}
 

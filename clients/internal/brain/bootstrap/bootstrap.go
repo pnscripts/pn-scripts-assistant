@@ -345,7 +345,7 @@ func choosePackage(in Inputs, r Request, report workspace.Report) (capability.Pa
 
 	switch len(candidates) {
 	case 0:
-		return capability.Package{}, "What kind of project is it — a game, a book, a web page, an API, a plan? " +
+		return capability.Package{}, "What kind of project is it: a game, a book, a web page, an API, a plan? " +
 			"Say which, and what it should be built with if you know.", nil, nil
 	case 1:
 		return candidates[0], "", nil, []string{"it is the one way here to do this kind of work"}
@@ -399,7 +399,7 @@ func readiness(in Inputs, p capability.Package) string {
 
 		switch {
 		case s.Present && s.Compatible && s.LicenceState == provision.LicenceInactive:
-			missing = append(missing, s.Title+" is installed but not licensed to work unattended — "+
+			missing = append(missing, s.Title+" is installed but not licensed to work unattended: "+
 				"its owner signs in to "+hubFor(s.ID))
 		case s.Present && s.Compatible && s.LicenceState != "":
 			missing = append(missing, s.Title+" is installed; whether its licence lets it work unattended could not be told")
@@ -415,9 +415,9 @@ func readiness(in Inputs, p capability.Package) string {
 	if len(missing) == 0 {
 		switch p.Engine {
 		case "threejs":
-			return "ready now — it runs in a browser, and nothing needs installing"
+			return "ready now: it runs in a browser, and nothing needs installing"
 		default:
-			return "ready now — everything it needs is here"
+			return "ready now: everything it needs is here"
 		}
 	}
 
@@ -469,7 +469,7 @@ func (p *Proposal) requirements(in Inputs, pkg capability.Package) {
 			// out, and saying "update it" would send them the wrong way.
 			p.Blockers = append(p.Blockers, fmt.Sprintf("%s is %s", s.Title, s.Problem))
 		case s.Present:
-			p.Blockers = append(p.Blockers, fmt.Sprintf("%s is here but %s — update it first", s.Title, s.Problem))
+			p.Blockers = append(p.Blockers, fmt.Sprintf("%s is here but %s, so update it first", s.Title, s.Problem))
 		case s.Blocked:
 			// Here and unusable. Installing a second copy over it would not
 			// fix the permission and might not be allowed either.
@@ -652,7 +652,7 @@ func (p *Proposal) plan(pkg capability.Package) {
 
 	default:
 		p.Steps = []store.TaskStep{
-			step(fmt.Sprintf("Read what is in %s — drawings, documents, notes — and find out what the work "+
+			step(fmt.Sprintf("Read what is in %s (drawings, documents, notes) and find out what the work "+
 				"depends on: %s.", dir, what), "what the work depends on is known", store.StepLook, false),
 			step(fmt.Sprintf("Write the plan and a checklist in %s.", filepath.Join(dir, "plans", "plan.md")),
 				"the plan is written", store.StepWrite, true),

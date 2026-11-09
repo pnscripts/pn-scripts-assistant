@@ -29,7 +29,7 @@ func (ReadAPage) Name() string { return "read_a_page" }
 
 func (ReadAPage) Description() string {
 	return "Open a web page in a real browser, run its scripts, and read what a person " +
-		"would see. Slower than fetch_url and needs a screen — use it only when " +
+		"would see. Slower than fetch_url and needs a screen, so use it only when " +
 		"fetch_url came back empty, came back as a shell with no content, or when the " +
 		"page is known to build itself with scripts."
 }

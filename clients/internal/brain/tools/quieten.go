@@ -34,7 +34,7 @@ type Quieten struct {
 func (Quieten) Name() string { return "stop_hearing_this_machine" }
 
 func (Quieten) Description() string {
-	return "Route everything this machine plays — music, videos, calls — through the echo " +
+	return "Route everything this machine plays (music, videos, calls) through the echo " +
 		"canceller, so the microphone stops hearing it mixed with your voice. Use this " +
 		"when told that music is confusing it, that it keeps answering a video, or asked " +
 		"to stop listening to the machine's own sound. Pass off to put it back."
@@ -87,6 +87,6 @@ func (t Quieten) Execute(ctx context.Context, raw json.RawMessage) (string, erro
 	}
 
 	return "Everything this machine plays now goes through the canceller, so I no longer " +
-		"hear it. Anything playing from somewhere else — a phone, a radio — is still " +
+		"hear it. Anything playing from somewhere else (a phone, a radio) is still " +
 		"sound in the room and I cannot subtract that.", nil
 }

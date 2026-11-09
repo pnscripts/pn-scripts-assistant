@@ -272,5 +272,5 @@ type wrongBoxError struct {
 }
 
 func (e *wrongBoxError) Error() string {
-	return "that is a " + e.is.Name + " key — choose " + e.is.Name + " above"
+	return "that is a " + e.is.Name + " key; choose " + e.is.Name + " above"
 }

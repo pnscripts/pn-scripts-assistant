@@ -175,7 +175,7 @@ queue 0.13.0 filled with its own guides (below).
 
 ### Your rules
 
-- **Say it once and it becomes a rule — if you say yes.** "From now on,
+- **Say it once and it becomes a rule, if you say yes.** "From now on,
   always ask me before you send anything", „никога не трий без да ме питаш",
   "it's pointless to write who is writing at the top of an email": a card
   under the answer proposes it in your own words, with the message it came
@@ -183,7 +183,7 @@ queue 0.13.0 filled with its own guides (below).
   rule by itself, and a declined sentence is not proposed again.
 - **Rules are followed, not only remembered.** They are read before every
   answer and every step of a goal, and checked before anything goes out or
-  stays — sending, posting, commits, changing files, paying, deleting — and
+  stays (sending, posting, commits, changing files, paying, deleting), and
   again afterwards. A rule that plainly forbids an action stops it and says
   which rule, whatever else is allowed; one whose words go further than can
   be checked ("never email clients") asks you instead, with the rule beside
@@ -204,7 +204,7 @@ queue 0.13.0 filled with its own guides (below).
 
 ### Claude Code, Codex and Cursor's agent as helpers
 
-- **Ask a coding agent on this computer** — signed in with your own account —
+- **Ask a coding agent on this computer**, signed in with your own account,
   to do one task in a folder you choose: only read (the default), change
   files in that folder without running commands, or full access, which is
   asked about every time even when everything else is allowed. Your rules go
@@ -215,14 +215,14 @@ queue 0.13.0 filled with its own guides (below).
 
 ### Looking after this computer
 
-- **"Can I restart?"** — answered from the machine: a newer kernel waiting and
+- **"Can I restart?"**: answered from the machine: a newer kernel waiting and
   whether its drivers built by DKMS (a USB Wi-Fi adapter's, a graphics
   card's) are ready for it, software being installed, the assistant's own
   work still running, work not committed or not pushed. On the System page
   and in conversation. Linux.
 - **Leftovers**: a headless browser, a virtual display, a waiting command, a
   log follower or a small web server whose job is over, started by the
-  assistant or orphaned — never your own programs or services — listed and
+  assistant or orphaned (never your own programs or services), listed and
   stopped only with your yes.
 - **After a power cut** the assistant says so and when it was last seen
   working; a task it was running is parked with that reason.
@@ -391,17 +391,17 @@ fixed, each with a test.
 
 ### Checked
 
-- **Updating from 0.8 keeps everything.** A brain written by 0.8.1 —
-  conversations with their sources, memories, the record of what it did, mail
+- **Updating from 0.8 keeps everything.** A brain written by 0.8.1
+  (conversations with their sources, memories, the record of what it did, mail
   drafts, to-dos, lessons and questions, research reports, customer answers,
-  invoices, goals and reminders — opens in this version with every record
+  invoices, goals and reminders) opens in this version with every record
   readable and nothing stored in the clear. `scripts/upgrade-check.sh` repeats
   the check for any earlier release.
 
 ### Documentation
 
 - **Known limits**, written down: [docs/guide/known-limits.md](docs/guide/known-limits.md)
-  says what this version does not do or has not been seen doing — per system,
+  says what this version does not do or has not been seen doing, per system,
   for models and providers, safety, mail, devices and languages.
 - The roadmap and the developer guide say where things stand on 31 October
   2026 (two systems, the Windows window, current size of the code).
@@ -456,7 +456,7 @@ fixed, each with a test.
   screen is in Bulgarian), read from the skill folders of other agents on
   the computer (SKILL.md folders as Claude Code keeps them, and plain
   playbook files), from the assistant's own `my-skills` folder, or written
-  by its owner — whose own win over any of the same name. Search, a filter,
+  by its owner, whose own win over any of the same name. Search, a filter,
   a switch for each skill (a skill switched off is not offered at all), the
   folders skills are read from with how many each holds, folders of your
   own, and Reload, which reads every folder again; start and every learning
@@ -486,14 +486,14 @@ fixed, each with a test.
 
 - **Learning, with the assistant as a tutor.** A new Learning page, and the
   same in the chat ("teach me fractions for a ten-year-old", "quiz me",
-  "what should I revise?"). Name any topic and a level — child, beginner,
-  intermediate or advanced — for a lesson in one clear shape: the goal, what
+  "what should I revise?"). Name any topic and a level (child, beginner,
+  intermediate or advanced) for a lesson in one clear shape: the goal, what
   to know first, small steps each with a worked example, common mistakes,
   questions to check yourself with their answers folded away, and what to
   learn next. Practice questions (choices, numbers, short answers) come one
   at a time without their answers. Answers are marked by rules wherever a
-  rule can tell — a letter or the option's words, a number however it is
-  written (12,5, 1/3, "120 cm"), a short answer whatever its capitals — and
+  rule can tell (a letter or the option's words, a number however it is
+  written (12,5, 1/3, "120 cm"), a short answer whatever its capitals) and
   otherwise judged by the model against the expected answer, or by you when
   there is no model. Missed questions come back in minutes, right ones
   tomorrow, then in three days, a week and a month, until they count as
@@ -501,8 +501,8 @@ fixed, each with a test.
   tutor specialist teaches with only these tools and reading, never writing.
 - **Research with sources.** A new Research page, and the same in the chat
   ("research … with sources"). The assistant plans the searches, reads the
-  best sources it finds — official and scholarly first, forums last, never
-  more than two pages from one site — and writes a report from them only: a
+  best sources it finds (official and scholarly first, forums last, never
+  more than two pages from one site) and writes a report from them only: a
   short answer, what the sources say, where they disagree and what they do
   not settle, with a number after every claim and a list of sources saying
   what kind of place each is, its date and when it was read. Then every
@@ -537,15 +537,15 @@ fixed, each with a test.
   they are written (1 234,56 or 1,234.56, лв., €, %, a negative in
   brackets), each column deciding its decimal mark, and 1,250 is never
   guessed. A question becomes a recipe the model writes but never
-  calculates; the program carries it out exactly — filters, a new column
+  calculates; the program carries it out exactly (filters, a new column
   from a formula, groups, sums, averages, the largest first, a forecast by
-  average or trend — leaves the sheet's own totals out so nothing counts
+  average or trend), leaves the sheet's own totals out so nothing counts
   twice, and checks every total a second way from the source rows. The
   result saves as a new workbook with its checks on a sheet of their own,
   never over an existing file. The finance and accounting specialists use
   it instead of adding up themselves. The .xlsx writer now writes several
   sheets, and .ods tables are read cell by cell.
-- **Invoices and VAT — information, not advice.** A new Invoices & VAT page,
+- **Invoices and VAT: information, not advice.** A new Invoices & VAT page,
   and the same in the chat. An invoice register of sales and purchases,
   typed in, read from a PDF, Word file or scan, or imported from a table,
   every invoice checked as it is added: VAT exactly the rate of the net to
@@ -561,15 +561,15 @@ fixed, each with a test.
   the owner gives the rates and nothing is said about its law. Nothing is
   ever filed. The accountant specialist uses these tools.
 - **Filling in PDF forms.** A new PDF forms page, and the same in the chat
-  ("fill in this application"). A form's fields are read — text,
+  ("fill in this application"). A form's fields are read (text,
   checkboxes, radio buttons, lists, with their choices and whether they are
-  required or read-only — and the form is filled into a new file beside the
+  required or read-only) and the form is filled into a new file beside the
   original, which is never changed and never written over. Every value is
   read back from the new file before it is saved, and a value a field
   cannot take is said while the rest is filled. Every filled value is drawn
   into the form so it shows the same in every reader: Helvetica for plain
-  Latin text, otherwise a font from this computer that has the letters —
-  Cyrillic included — embedded with only the letters used. Works with old
+  Latin text, otherwise a font from this computer that has the letters
+  (Cyrillic included), embedded with only the letters used. Works with old
   and compressed (PDF 1.5+) files alike, and mends a damaged cross-reference
   table; encrypted and signed PDFs are left alone. No new library: the
   program reads and writes the PDF itself, as an incremental update.
@@ -580,8 +580,8 @@ fixed, each with a test.
 
 - **Writing and proofreading, in English and Bulgarian.** A new Writing page,
   and the same in the chat ("proofread this", "make it more formal"). The
-  proofreading uses rules rather than a model — instant, offline, nothing
-  leaves the computer — and every correction says why: doubled words,
+  proofreading uses rules rather than a model (instant, offline, nothing
+  leaves the computer), and every correction says why: doubled words,
   spacing, Latin letters hidden in Cyrillic words, в/във and с/със, ѝ, „не“
   apart from a verb, по-/най-, the full article after a preposition, the comma
   before че, защото, но and който, „…“ quotes; a/an, could of, more then, I.
@@ -594,21 +594,21 @@ fixed, each with a test.
   new file beside it with its layout kept: Word and OpenDocument (styles,
   tables, headers, pictures), subtitles (timings kept), Markdown (code left
   alone) and plain text; the original is never replaced. Keep a glossary of
-  agreed translations — add terms one by one, paste them from a spreadsheet,
-  or save them as one — and every translation follows it and is checked: a
+  agreed translations (add terms one by one, paste them from a spreadsheet,
+  or save them as one), and every translation follows it and is checked: a
   term not translated as agreed, or a number, address or link that went
   missing, is listed with the result. A new Translation page, in English and
   Bulgarian, and a translator specialist for longer jobs.
-- **Scans, photos and spreadsheets.** Scans and photos — a scanned contract,
-  a photo of a receipt, a PDF with no text in it — are read on this computer,
+- **Scans, photos and spreadsheets.** Scans and photos (a scanned contract,
+  a photo of a receipt, a PDF with no text in it) are read on this computer,
   by Tesseract or by a local model that can see, and say they came from a
   scan. Spreadsheets are written as real .xlsx files (bold frozen header,
   numbers as numbers) and read back as rows with their numbers, every sheet
   by name; OpenDocument files are read without LibreOffice. Tesseract and the
   PDF tools can be installed from the list of what a task needs.
 - **Mail, sorted, with replies that wait for your yes.** A new Mail page sorts
-  new mail from its headers — suspicious first, then what needs a reply, then
-  people, then newsletters and notifications by sender — from your mail
+  new mail from its headers (suspicious first, then what needs a reply, then
+  people, then newsletters and notifications by sender) from your mail
   server or from Thunderbird. Replies are drafted in the message's language
   and tone and kept waiting; each is sent only when you press Send on it, as
   it stands, and is recorded in What I did. Sending a draft from the chat
@@ -620,11 +620,11 @@ fixed, each with a test.
   day, ticked off in one click. Connect a CalDAV calendar (Nextcloud,
   Fastmail, iCloud and others) with an app password: the server is checked
   before anything is kept, its appointments appear under What is next, and
-  new ones can be added — never changed or deleted. Also in the chat: "what
+  new ones can be added, never changed or deleted. Also in the chat: "what
   is next?", "put milk on the shopping list".
-- **Answers say where they came from.** Each answer lists its sources — things
+- **Answers say where they came from.** Each answer lists its sources (things
   it remembers with the file they came from, files and web pages it read,
-  search results — numbered, and a written answer ends each sentence that
+  search results), numbered, and a written answer ends each sentence that
   relies on one with its number, like [2]. A number that points nowhere is
   taken out before the answer is shown. Open a web source in your browser or
   a file's folder from the list; the list stays with the conversation.
@@ -639,8 +639,8 @@ fixed, each with a test.
   language you speak to it in.
 
 - **Each step gets the model its work needs.** A job's steps are thought with
-  the model their expert's work calls for — code, hard thinking, speed,
-  pictures — chosen from what is installed at that moment, with the reason
+  the model their expert's work calls for (code, hard thinking, speed,
+  pictures), chosen from what is installed at that moment, with the reason
   shown; a model that keeps failing gives way to the next.
 - **One question at a time.** When it needs to ask, it asks one question with
   two to four answers to click, the recommended one first; reply with a
@@ -656,8 +656,8 @@ fixed, each with a test.
   finance analyst, accountant, legal specialist, marketing specialist and
   music producer join the developers, writer, designer and researcher, each
   with only the tools its work needs.
-- **Original and meaningful before finished.** Whatever a job produces — a
-  game, a logo, a jingle, a story, a strategy, a contract draft — is checked
+- **Original and meaningful before finished.** Whatever a job produces (a
+  game, a logo, a jingle, a story, a strategy, a contract draft) is checked
   by the specialists of the fields it touches (trademarks, look, sound, game
   rules, text and meaning, money, tax, law, business), side by side, and only
   for the sides it has; why each check was or was not used is in the task,
@@ -680,7 +680,7 @@ fixed, each with a test.
   downloads send nothing about you. Settings show the same words the program
   enforces.
 - **Integrations a goal needs are found and added on their own.** From the
-  built-in catalogue first, then the official MCP registry — only from
+  built-in catalogue first, then the official MCP registry, only from
   trusted publishers (add your own in integrations/trusted.json), pinned to
   one version from npm or PyPI, running on this computer and needing no
   account or secret, and only while privacy allows it. Each is reviewed
@@ -696,7 +696,7 @@ fixed, each with a test.
   strategy game", with goal mode on and privacy set to this computer only,
   runs on a brain of its own against a fake model library and tool source:
   the plan, the specialists, a model and a tool downloaded and checked, the
-  work in the goal's own folder, the originality checks and one report —
+  work in the goal's own folder, the originality checks and one report,
   with nobody asked anything.
 
 ### Fixed
@@ -722,8 +722,8 @@ fixed, each with a test.
   compared with the closest titles; pictures are compared with reference
   pictures you give (resized, recoloured and mirrored copies are found);
   melodies in MIDI files and code are compared, in any key, with well-known
-  public-domain themes. Findings go into a report — item, aspect, finding,
-  risk, action — saved as a table and a CSV sheet to download. "Audit the
+  public-domain themes. Findings go into a report (item, aspect, finding,
+  risk, action), saved as a table and a CSV sheet to download. "Audit the
   originality of <folder>" checks a whole catalogue, each item only for what
   it has, side by side; your own works are reported, never changed.
 - **Fixed by itself.** When a check finds something in what the assistant
@@ -759,7 +759,7 @@ looks twice at every message before you act on it.
   in `BRAIN_SKILL_FOLDERS`) becomes a playbook: its description says when,
   its text (up to 6,000 characters) says how, with a pointer to the full
   file. A changed skill is refreshed; a skill you wrote or taught yourself is
-  never overwritten — remove the `imported:` line from a playbook to make it
+  never overwritten: remove the `imported:` line from a playbook to make it
   yours.
 - **A knowledge folder inside the brain.** `knowledge/` in the brain's folder
   is always learned, and is stored relative to the brain, so a brain on a USB
@@ -774,9 +774,9 @@ looks twice at every message before you act on it.
   program for the same. The installer and the .deb keep the brain in your
   account, as before.
 - **A scam guard.** Every message `read_mailbox` and `read_email` read is
-  checked — a sender domain that does not exist, look-alike brands and links,
+  checked (a sender domain that does not exist, look-alike brands and links,
   replies that go elsewhere, pressure combined with a request for passwords,
-  money or access — and the verdict is written under it. Lists flag the
+  money or access), and the verdict is written under it. Lists flag the
   obvious ones from the headers. A new `scam_guard` playbook says what to do
   next. Domains are looked up only when privacy allows the web. Mail read
   over IMAP brings its Reply-To along, and the addresses behind the links of
@@ -794,7 +794,7 @@ Everything is allowed out of the box and still recorded, what it keeps about
 you is encrypted at rest, it already knows how the work here is done, and the
 first meeting is a conversation. See ADR 0007 and ADR 0008.
 
-### Before you update — read this
+### Before you update, read this
 
 - **The first start encrypts your brain, and shows a recovery key once.**
   Write it down or save it as a file before you press "I have kept it"; it is
@@ -864,7 +864,7 @@ something true about every model, and mail goes to the server that sends it.
   each one actually does: in open mode the memory recalled for a turn goes to
   the hosted provider with the messages; the database itself stays here.
 - **The Models view lists sizes, not "undefined".** Each model is one row with
-  every size it is published in — "270m", "8x7b" and "e2b" included — and what
+  every size it is published in ("270m", "8x7b" and "e2b" included) and what
   each wants in memory and how it will run on this machine. A model opens on
   the largest size that runs comfortably here rather than the largest that
   merely fits. Model names are shown as typed, not capitalised.
@@ -889,7 +889,7 @@ These four were held back on purpose: they run only in the job that publishes
 a release, which nothing but a real release can exercise, and merging an
 untested change into the path that signs and publishes downloads is how a
 release day goes wrong. They go in here because this release is the thing that
-tests them — `download-artifact`, `action-gh-release` and
+tests them: `download-artifact`, `action-gh-release` and
 `attest-build-provenance` all ran to produce the files beside this note.
 
 `main` also holds admins to its checks now. It did not, and the consequence
@@ -904,15 +904,15 @@ Six jobs had been uploading nothing and passing.
 The first release exposed it, which is the only thing that could have: the
 publish job went looking for five sets of artifacts and found three. The CLI
 and the doctor, for all five systems, and the Linux desktop binary, were built
-with `working-directory: clients` and written to `../dist` — the repository
-root — while the upload step looked in `clients/dist`. It found no files, said
+with `working-directory: clients` and written to `../dist`, the repository
+root, while the upload step looked in `clients/dist`. It found no files, said
 so in a line nobody reads, and reported success.
 
 `if-no-files-found: error` on every upload in the workflow now, which is the
 half of this fix that matters. The path was one wrong word; a step that can
 find nothing and call it a success is a shape that will be wrong again.
 
-0.2.0's downloads were complete for anybody installing it — the package, the
+0.2.0's downloads were complete for anybody installing it: the package, the
 disk images and the Windows installer were all there. What was missing is the
 command-line tools beside them.
 
@@ -921,7 +921,7 @@ command-line tools beside them.
 The first release anybody outside this machine can download.
 
 It is a large one, and the reason is in the version number below: 0.1.0 was
-prepared — it has notes, it has a package — and was never published. There was
+prepared (it has notes, it has a package) and was never published. There was
 no tag and no release, so the README pointed at an empty page. Everything
 built since then arrives here at once.
 
@@ -930,13 +930,13 @@ built since then arrives here at once.
 - **An organisation rather than a team.** Jobs, seats and agents who occupy
   them; work goes to a specialist, up to a manager, or past a reviewer. Hiring
   happens from a sentence, from a template, or because a task needed somebody.
-  The job catalogues behind it are the real ones — ESCO and O\*NET — fetched by
+  The job catalogues behind it are the real ones, ESCO and O\*NET, fetched by
   setup and read in by the brain itself.
 - **Tasks that finish**, with goals, a diary, and jobs that run in the
   background; every task and step says how serious it is, and a critical one
   asks through a grant rather than a prompt.
-- **It can see the machine it runs on** — one list of what is installed, what
-  is missing, what needs signing in to — and says what it can do from that
+- **It can see the machine it runs on**: one list of what is installed, what
+  is missing, what needs signing in to, and says what it can do from that
   list rather than from a paragraph written months ago.
 - **It hires, equips and confines**, and decides for itself how each piece of
   work is done: Claude Code or Codex on your subscription, or a model here.
@@ -945,7 +945,7 @@ built since then arrives here at once.
 - **A voice that knows when to speak**, how loud the room is, and who is
   speaking.
 - **Three voices that make three sounds**, and every system voice choosable by
-  name — a robot, a woman, a man, and each underlying variant behind them.
+  name: a robot, a woman, a man, and each underlying variant behind them.
 - **The interface stands in one scene** and goes round without a menu.
 
 ### It is more honest about itself
@@ -956,7 +956,7 @@ built since then arrives here at once.
 - **Everything is allowed by default**, and the switch that used to quietly
   change privacy when you changed permissions no longer does. They were one
   setting pretending to be two.
-- **The tools a turn is given are chosen**, not filtered — the model was being
+- **The tools a turn is given are chosen**, not filtered; the model was being
   sent more schema than it could read.
 
 ### Faults fixed
@@ -975,19 +975,19 @@ built since then arrives here at once.
 - **Turning the room down could leave a program quiet for good.**
 - **Twenty-eight vulnerabilities in the Go toolchain**, fixed by raising it;
   and requests to a model now retry rather than failing on the first refusal.
-- **A build without cgo chose a different game engine** — the same source
+- **A build without cgo chose a different game engine**: the same source
   behaving differently depending on how it was compiled.
 
 ### The product around the program
 
 - **Installers for every system**: the `.deb`, a macOS `.dmg`, and a Windows
   installer, each built on the system it is for.
-- **CI on every push and pull request** — formatting, vet, the suite under the
+- **CI on every push and pull request**: formatting, vet, the suite under the
   race detector, a build for each system, `govulncheck`, and the package put
   through `lintian`.
 - **The package is byte-for-byte reproducible**, checked between two machines:
   a GitHub runner and the maintainer's desktop build one commit into the same
-  file. Three things had leaked into it — the clock, the Go patch version and
+  file. Three things had leaked into it: the clock, the Go patch version and
   the builder's umask. CI builds it twice on every push and fails if they ever
   stop matching.
 - **Every released file carries a signed provenance attestation**, so a

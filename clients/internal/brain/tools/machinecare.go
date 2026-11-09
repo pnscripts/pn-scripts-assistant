@@ -95,8 +95,8 @@ type LeftoverProcesses struct{ Care MachineCaring }
 func (LeftoverProcesses) Name() string { return "leftover_processes" }
 
 func (LeftoverProcesses) Description() string {
-	return "List processes left running whose job looks over — a headless browser, a virtual display, " +
-		"a waiting sleep or timeout, a log follower, a small web server — that this assistant started or " +
+	return "List processes left running whose job looks over (a headless browser, a virtual display, " +
+		"a waiting sleep or timeout, a log follower, a small web server) that this assistant started or " +
 		"whose starter has gone. The user's own programs are never listed."
 }
 

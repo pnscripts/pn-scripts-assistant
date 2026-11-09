@@ -485,11 +485,11 @@ func Propose(in Inputs, wish Wish) (Proposal, error) {
 	}
 
 	if len(agent.Never) > 0 {
-		p.Limits = append(p.Limits, "Use "+strings.Join(agent.Never, ", ")+" — never, whatever else is allowed")
+		p.Limits = append(p.Limits, "Use "+strings.Join(agent.Never, ", ")+", never, whatever else is allowed")
 	}
 
 	if job.Oversight {
-		p.Limits = append(p.Limits, "Work without a person in the loop — this job keeps one whatever the settings say")
+		p.Limits = append(p.Limits, "Work without a person in the loop: this job keeps one whatever the settings say")
 	}
 
 	/*
@@ -509,7 +509,7 @@ func Propose(in Inputs, wish Wish) (Proposal, error) {
 			". You are not a " + title + " and never say or imply that you are. You inform, explain and prepare " +
 			"questions; for any diagnosis, decision, sign-off or work in person, say plainly that a qualified " +
 			title + " is needed.")
-		p.Professional = append(p.Professional, "A qualified "+title+" — for any diagnosis, decision, sign-off "+
+		p.Professional = append(p.Professional, "A qualified "+title+", for any diagnosis, decision, sign-off "+
 			"or work in person. This agent informs and prepares; it is not one.")
 		p.Limits = append(p.Limits, "Present itself as a "+title+", or give what only a "+title+" may give")
 	}
@@ -877,7 +877,7 @@ func canItself(tools []string) []string {
 	}
 
 	add("Read files in the folders it is given", "read_file", "search_files", "list_directory", "read_document")
-	add("Write and change files — every change is put to you unless you have allowed it", "write_file", "edit_file")
+	add("Write and change files; every change is put to you unless you have allowed it", "write_file", "edit_file")
 	add("Write documents", "write_document")
 	add("Run the project's own commands, each shown to you exactly as it will run", "run_command")
 	add("Check, run and build games headless, with the engine's own output kept", "game_check", "game_build", "godot_build")
@@ -887,7 +887,7 @@ func canItself(tools []string) []string {
 	add("Look at a project before touching it", "inspect_project")
 
 	if len(out) == 0 {
-		out = append(out, "Think and advise — it has no tools that act")
+		out = append(out, "Think and advise: it has no tools that act")
 	}
 
 	return out
@@ -916,7 +916,7 @@ func needsYou(p Proposal, packages []capability.Package) []string {
 				line += " (" + s.Size + ")"
 			}
 
-			out = append(out, line+" — "+s.Source)
+			out = append(out, line+": "+s.Source)
 		default:
 			out = append(out, s.Title+": "+s.Manual)
 		}
@@ -1140,7 +1140,7 @@ func (p Proposal) Text() string {
 			where = "a new seat in " + orElse(p.SeatUnit, p.SeatIn)
 		}
 
-		fmt.Fprintf(&b, " — sitting in %s (%s)", where, p.Seat)
+		fmt.Fprintf(&b, ", sitting in %s (%s)", where, p.Seat)
 	}
 
 	b.WriteString("\n")
@@ -1176,7 +1176,7 @@ func (p Proposal) Text() string {
 	var packages []string
 
 	for _, pkg := range p.Packages {
-		line := fmt.Sprintf("%s %s — %s (%s)", pkg.ID, pkg.Version, pkg.Title, pkg.Work)
+		line := fmt.Sprintf("%s %s: %s (%s)", pkg.ID, pkg.Version, pkg.Title, pkg.Work)
 
 		if len(pkg.Needs) > 0 {
 			line += "; relies on " + strings.Join(pkg.Needs, "; ")
@@ -1202,7 +1202,7 @@ func (p Proposal) Text() string {
 
 	tools := p.Tools
 	if len(tools) == 0 {
-		tools = []string{"none — its work is judgement"}
+		tools = []string{"none: its work is judgement"}
 	}
 
 	section("May use", []string{strings.Join(tools, ", ")})
@@ -1225,7 +1225,7 @@ func (p Proposal) Text() string {
 		case i.State.Approved:
 			state = "approved"
 		case i.State.Known:
-			state = "on the list, not approved — needs your approval"
+			state = "on the list, not approved, so it needs your approval"
 		}
 
 		where := "on this machine"
@@ -1233,7 +1233,7 @@ func (p Proposal) Text() string {
 			where = "outside this machine"
 		}
 
-		integrations = append(integrations, fmt.Sprintf("%s — %s; %s, %s", orElse(i.State.Title, i.ID), i.Why, where, state))
+		integrations = append(integrations, fmt.Sprintf("%s: %s; %s, %s", orElse(i.State.Title, i.ID), i.Why, where, state))
 	}
 
 	section("Integrations (MCP)", integrations)
@@ -1255,13 +1255,13 @@ func neededLine(n Needed) string {
 
 	switch {
 	case s.Ready():
-		line += fmt.Sprintf(" — here (%s)", orElse(s.Version, "version not said"))
+		line += fmt.Sprintf(": here (%s)", orElse(s.Version, "version not said"))
 	case s.Present:
-		line += " — here, but " + s.Problem
+		line += ": here, but " + s.Problem
 	case s.Blocked:
-		line += " — " + s.Problem
+		line += ": " + s.Problem
 	default:
-		line += " — missing"
+		line += ": missing"
 	}
 
 	if n.Optional {

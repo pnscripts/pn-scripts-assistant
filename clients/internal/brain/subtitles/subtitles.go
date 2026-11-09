@@ -155,7 +155,7 @@ func Make(ctx context.Context, film, recogniser, model, language string, note fu
 	if OnlyEnglish(model) && language != "" && !strings.HasPrefix(strings.ToLower(language), "en") {
 		return "", fmt.Errorf(
 			"the installed recogniser model is %s, which understands English and "+
-				"nothing else — given %s speech it would invent English rather than "+
+				"nothing else; given %s speech it would invent English rather than "+
 				"fail. A multilingual model (ggml-small.bin or ggml-medium.bin) is "+
 				"what this needs",
 			filepath.Base(model), language)
@@ -186,7 +186,7 @@ func Make(ctx context.Context, film, recogniser, model, language string, note fu
 		return "", fmt.Errorf("could not take the sound out: %w: %s", err, lastLine(string(out)))
 	}
 
-	note("making out the words — this is the slow part")
+	note("making out the words, this is the slow part")
 
 	/*
 	 * Written to its final name by whisper itself.

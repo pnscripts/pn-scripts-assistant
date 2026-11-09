@@ -19,16 +19,16 @@ The owner's manual (service booklet) is the authority. Use typical intervals onl
 ## Typical intervals (orientation only; the manual wins)
 | Item | Typical range |
 |---|---|
-| Engine oil and filter | every 10,000–30,000 km or 12 months (shorter for severe use) |
-| Air filter | 20,000–40,000 km |
-| Cabin (pollen) filter | 15,000–30,000 km or yearly |
+| Engine oil and filter | every 10,000 to 30,000 km or 12 months (shorter for severe use) |
+| Air filter | 20,000 to 40,000 km |
+| Cabin (pollen) filter | 15,000 to 30,000 km or yearly |
 | Brake fluid | every 2 years |
-| Coolant | per manual, often 4–5 years for long-life coolant |
-| Spark plugs (petrol) | 30,000–100,000 km depending on type |
-| Timing belt (if fitted) | per manual, often 60,000–160,000 km or 5–10 years; a failure can destroy the engine |
+| Coolant | per manual, often 4 to 5 years for long-life coolant |
+| Spark plugs (petrol) | 30,000 to 100,000 km depending on type |
+| Timing belt (if fitted) | per manual, often 60,000 to 160,000 km or 5 to 10 years; a failure can destroy the engine |
 | Brake pads and discs | inspect at every service; replace by wear |
 | Tyres | replace by tread depth or age (often checked after about 6 years); legal minimum depth varies by country |
-| 12 V battery | test yearly after 3–4 years |
+| 12 V battery | test yearly after 3 to 4 years |
 | Electric car | tyres, brakes, cabin filter, coolant for battery, brake fluid; fewer items but not none |
 
 ## Monthly owner checks

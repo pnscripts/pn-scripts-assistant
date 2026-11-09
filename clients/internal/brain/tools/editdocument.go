@@ -34,8 +34,8 @@ type EditDocument struct {
 func (EditDocument) Name() string { return "edit_document" }
 
 func (EditDocument) Description() string {
-	return "Change wording inside a document that already exists — .docx, .odt, .pptx, " +
-		".xlsx — keeping its layout, styling and everything else. Use when told to " +
+	return "Change wording inside a document that already exists (.docx, .odt, .pptx, " +
+		".xlsx) keeping its layout, styling and everything else. Use when told to " +
 		"correct, update or replace something in a document rather than write a new one."
 }
 
@@ -120,7 +120,7 @@ func (t EditDocument) Execute(_ context.Context, raw json.RawMessage) (string, e
 		 */
 		if kind == ".pdf" {
 			return "", fmt.Errorf(
-				"a PDF cannot be edited in place — its text is positioned marks rather " +
+				"a PDF cannot be edited in place: its text is positioned marks rather " +
 					"than words. Read it, change what it says, and write a new one with " +
 					"write_document")
 		}
@@ -136,7 +136,7 @@ func (t EditDocument) Execute(_ context.Context, raw json.RawMessage) (string, e
 
 	if count == 0 {
 		return "", fmt.Errorf(
-			"%q does not appear in that document. It may be split by formatting — "+
+			"%q does not appear in that document. It may be split by formatting; "+
 				"read the document first and use the wording exactly as it comes back", a.Find)
 	}
 

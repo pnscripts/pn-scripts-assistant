@@ -609,7 +609,7 @@ func (o Outcome) Evidence(agent string) []store.Evidence {
 
 	detail := fmt.Sprintf("%s in %s, %d files changed", orElse(o.Model, "its default model"), o.Took, len(o.Files))
 	if o.Failure != "" {
-		detail += " — stopped: " + o.Failure + ": " + o.Detail
+		detail += "; stopped: " + o.Failure + ": " + o.Detail
 	}
 
 	ev = append(ev, store.Evidence{Kind: store.EvidenceAgent, Subject: agent, Detail: detail, OK: o.OK})

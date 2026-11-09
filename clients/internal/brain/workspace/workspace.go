@@ -211,14 +211,14 @@ const note = `# .pn-assistant
 
 This project's settings for PN Scripts Assistant.
 
-- project.json — which folders work on this project may write in, where builds
+- project.json: which folders work on this project may write in, where builds
   go, its approved commands, and what finished means for it. Edit it by hand if
   you like; the assistant reads it before every step.
-- memory.md — what was learned working on this project, a line each. It is
+- memory.md: what was learned working on this project, a line each. It is
   this project's, and never mixed with anything the assistant knows about you.
-- skills/ — this project's own know-how, a Markdown file a piece. Every step
+- skills/: this project's own know-how, a Markdown file a piece. Every step
   of work on the project is told it.
-- evidence/ — pictures and reports from checks and builds. Safe to delete, and
+- evidence/: pictures and reports from checks and builds. Safe to delete, and
   usually not worth committing.
 `
 
@@ -382,7 +382,7 @@ func Remember(dir, line string) error {
 
 	defer f.Close()
 
-	_, err = fmt.Fprintf(f, "- %s — %s\n", time.Now().Format("2006-01-02"), line)
+	_, err = fmt.Fprintf(f, "- %s: %s\n", time.Now().Format("2006-01-02"), line)
 
 	return err
 }

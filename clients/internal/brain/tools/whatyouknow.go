@@ -48,7 +48,7 @@ type RecentFact struct {
 func (WhatYouKnow) Name() string { return "what_you_know" }
 
 func (WhatYouKnow) Description() string {
-	return "Report what is in your memory as a whole — how many things you have learned, " +
+	return "Report what is in your memory as a whole: how many things you have learned, " +
 		"what kinds they are, and a few examples. Use this when asked what you know or " +
 		"remember about the person in general, rather than about one particular subject. " +
 		"For a specific subject, recall finds it; this answers \"what have you got in there\"."

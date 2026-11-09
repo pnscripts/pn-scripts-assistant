@@ -228,7 +228,7 @@ func describePass(name string, pass places.Pass) string {
 		return fmt.Sprintf("%s from %s, %d still to read", learned, name, pass.Place.Waiting)
 	}
 
-	return learned + " from " + name + " — that is all of it"
+	return learned + " from " + name + ", and that is all of it"
 }
 
 /*
@@ -311,7 +311,7 @@ func (b *Brain) sayTheQueueIsFull(waiting int) {
 	b.sayWhenFinished(fmt.Sprintf(
 		"There are %d things waiting for you to keep or discard, which is as many "+
 			"as I will put in front of anybody at once. I have stopped reading until "+
-			"you have been through some of them — say \"remember everything in the "+
+			"you have been through some of them. Say \"remember everything in the "+
 			"waiting list\" and I will take them all, or go through them on the "+
 			"command centre.", waiting))
 }

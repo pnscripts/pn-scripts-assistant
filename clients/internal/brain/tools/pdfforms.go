@@ -234,7 +234,7 @@ func (FillPDFForm) Risk() Risk { return Mutating }
 
 func (FillPDFForm) Description() string {
 	return "Fill a PDF form and save it as a new file (beside the form, \"(filled)\" after its name, unless out " +
-		"says where): values by the field names pdf_form_fields gives — text as it should read, yes/no for a " +
+		"says where): values by the field names pdf_form_fields gives: text as it should read, yes/no for a " +
 		"checkbox, one of the choices for a radio group or a list. Letters of any language are drawn with a font " +
 		"that has them. Every value is read back from the new file before it is saved; a value a field cannot " +
 		"take is said and the rest filled. The original is never changed. Encrypted and signed PDFs are refused."

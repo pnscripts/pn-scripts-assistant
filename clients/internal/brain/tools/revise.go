@@ -140,14 +140,14 @@ func (r Revise) Execute(_ context.Context, raw json.RawMessage) (string, error) 
 			return "There was nothing in this conversation to forget.", nil
 		}
 
-		return "Forgotten — the last thing said and the answer to it are out of the record.", nil
+		return "Forgotten: the last thing said and the answer to it are out of the record.", nil
 
 	case "delete_this_conversation":
 		if err := r.Talk.DeleteConversation(id); err != nil {
 			return "", err
 		}
 
-		return "This conversation is deleted. Nothing it taught me is affected — " +
+		return "This conversation is deleted. Nothing it taught me is affected: " +
 			"what I learned from it is knowledge and stays.", nil
 
 	case "rename_this_conversation":

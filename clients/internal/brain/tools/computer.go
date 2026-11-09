@@ -42,7 +42,7 @@ func pointer(ctx context.Context, args ...string) (string, error) {
 	if !found {
 		return "", fmt.Errorf(
 			"this needs xdotool, which is not installed. It is one button in " +
-				"System — 'Using the computer' — or: sudo apt install xdotool")
+				"System, 'Using the computer', or: sudo apt install xdotool")
 	}
 
 	out, err := display(exec.CommandContext(ctx, tool, args...)).CombinedOutput()
@@ -99,7 +99,7 @@ func (ListWindows) Execute(ctx context.Context, _ json.RawMessage) (string, erro
 
 		geometry, _ := pointer(ctx, "getwindowgeometry", "--shell", id)
 
-		fmt.Fprintf(&b, "%s %s — %s\n", mark, name, oneLine(geometry))
+		fmt.Fprintf(&b, "%s %s: %s\n", mark, name, oneLine(geometry))
 
 		seen++
 

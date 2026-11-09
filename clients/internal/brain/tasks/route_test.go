@@ -126,7 +126,7 @@ func TestProgressIsSaidInTheChatThatAskedForTheWork(t *testing.T) {
 	task, _ := db.Task(id)
 	c.progress(task, &steps[0])
 
-	if got := spoken.whole(); got != "Space game: step 1 of 2 done (designer · qwen2.5:14b) — design the rules" {
+	if got := spoken.whole(); got != "Space game: step 1 of 2 done (designer · qwen2.5:14b): design the rules" {
 		t.Fatalf("said %q", got)
 	}
 

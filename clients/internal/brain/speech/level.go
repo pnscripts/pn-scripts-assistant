@@ -100,7 +100,7 @@ func Explain(level Level, transcript string) string {
 
 	switch {
 	case level.Silent:
-		return "That input is silent — nothing reached it at all. " +
+		return "That input is silent: nothing reached it at all. " +
 			"Pick a different microphone in the Engine panel."
 	case level.Peak < SpeechPeak:
 		return fmt.Sprintf(

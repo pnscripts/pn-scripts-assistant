@@ -5,7 +5,7 @@
 
 ## How it was checked
 
-<!-- What you actually ran. Not what should work — what you ran, and what it
+<!-- What you actually ran. Not what should work, but what you ran, and what it
      said. If you could not check part of it, say which part; that is a normal
      answer here and a useful one. -->
 

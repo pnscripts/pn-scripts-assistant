@@ -231,7 +231,7 @@ func (s *Server) handleRemovePart(w http.ResponseWriter, r *http.Request) {
 
 		if !req.Removable() {
 			fail(w, http.StatusBadRequest, req.Name+" came with your system rather than "+
-				"from here, so removing it is your package manager's job — other things "+
+				"from here, so removing it is your package manager's job: other things "+
 				"on this machine may be using it.")
 
 			return

@@ -115,7 +115,7 @@ func TestASummaryFindsWhatIsWrong(t *testing.T) {
 
 	found := false
 	for _, f := range CheckTotalRows(tab2) {
-		if !f.OK && strings.Contains(f.What, "the sheet says 1300 but rows 2–8 add up to 1230 (a difference of 70)") {
+		if !f.OK && strings.Contains(f.What, "the sheet says 1300 but rows 2 to 8 add up to 1230 (a difference of 70)") {
 			found = true
 		}
 	}

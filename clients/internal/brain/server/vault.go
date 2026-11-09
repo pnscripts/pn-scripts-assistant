@@ -57,7 +57,7 @@ func (s *Server) handleRecovery(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="pn-scripts-assistant-recovery-key.txt"`)
 
-		w.Write([]byte("PN Scripts Assistant — recovery key\n\n" + text + "\n\n" +
+		w.Write([]byte("PN Scripts Assistant: recovery key\n\n" + text + "\n\n" +
 			"This opens your encrypted brain on another computer, or on this one if its keyring is lost.\n" +
 			"Keep it somewhere safe and away from the drive the brain is on. Anybody who has both\n" +
 			"this key and the drive can read the brain.\n"))

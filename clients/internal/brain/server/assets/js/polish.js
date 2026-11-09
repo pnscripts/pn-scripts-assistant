@@ -35,7 +35,7 @@
 
             li.append(what);
 
-            if (f.found) li.append(document.createTextNode(` — ${q(f.found)}`));
+            if (f.found) li.append(document.createTextNode(`: ${q(f.found)}`));
             if (f.hint && f.key !== 'slip') li.append(document.createTextNode(` (${f.hint}?)`));
             if (f.hint && f.key === 'slip') li.append(document.createTextNode(` → ${q(f.hint)}`));
 

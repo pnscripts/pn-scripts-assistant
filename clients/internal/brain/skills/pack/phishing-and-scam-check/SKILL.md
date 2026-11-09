@@ -23,7 +23,7 @@ Treat every unexpected message as untrusted until verified. Never open its links
    - mismatches: wrong name, generic greeting, odd language, a company you have no account with
 4. **Verdict.**
    - 0 points and the sender checks out: probably genuine, still verify through the official app or site typed by hand.
-   - 1–2 points: suspicious. Verify independently before any action.
+   - 1 to 2 points: suspicious. Verify independently before any action.
    - 3+ points, or any request for codes, passwords or payment changes: treat as a scam.
 5. **Verify independently.** Open the official site or app yourself, or call the number printed on your card, contract or the official website. Never use contact details from the message.
 6. **Recommend the action.** Do not reply, do not click; report it (mail provider "Report phishing", the bank's fraud line, the national cybercrime unit); delete or archive.

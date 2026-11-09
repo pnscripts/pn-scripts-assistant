@@ -198,7 +198,7 @@ func missingLine(things []Thing) string {
 	sort.Strings(absent)
 
 	return "Not installed: " + strings.Join(absent, ", ") +
-		" — you can say so, and offer to install what this program installs."
+		". You can say so, and offer to install what this program installs."
 }
 
 /*

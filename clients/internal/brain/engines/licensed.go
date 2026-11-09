@@ -240,7 +240,7 @@ func (u Unity) unlicensed(engine Installed, what string) (Run, bool) {
 func licenceProblem(out string) string {
 	for _, mark := range []string{"No valid Unity Editor license", "'com.unity.editor.headless' was not found"} {
 		if strings.Contains(out, mark) {
-			return "the Unity editor has no licence to work unattended (" + mark + ") — " +
+			return "the Unity editor has no licence to work unattended (" + mark + "); " +
 				"its owner signs in to Unity Hub, which renews it"
 		}
 	}
@@ -327,7 +327,7 @@ func (u Unity) Smoke(ctx context.Context, p Project, pictures string) Run {
 	}
 
 	if len(players) == 0 {
-		r.Problem = "there is no built player to run — build it first"
+		r.Problem = "there is no built player to run; build it first"
 
 		return r
 	}
@@ -562,7 +562,7 @@ func (u Unreal) Smoke(ctx context.Context, p Project, pictures string) Run {
 
 	games, _ := filepath.Glob(filepath.Join(p.Dir, "Packaged", "Linux", "*.sh"))
 	if len(games) == 0 {
-		r.Problem = "there is no packaged game to run — build it first"
+		r.Problem = "there is no packaged game to run; build it first"
 
 		return r
 	}

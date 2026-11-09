@@ -167,7 +167,7 @@ func vavSas(w word, lower string, next word) (Finding, bool) {
 	return Finding{
 		Rule: "v_vav_s_sas", At: w.at, Length: w.end - w.at, Found: w.text, Suggest: keepCase(w.text, want),
 		Why:   "\"във\" and \"със\" go before a word starting with в/ф and с/з; \"в\" and \"с\" go everywhere else.",
-		WhyBG: "„Във“ и „със“ се пишат пред дума, започваща съответно с „в“/„ф“ и „с“/„з“; в останалите случаи — „в“ и „с“.",
+		WhyBG: "„Във“ и „със“ се пишат пред дума, започваща съответно с „в“/„ф“ и „с“/„з“; в останалите случаи се пишат „в“ и „с“.",
 		Sure:  true,
 	}, true
 }
@@ -345,7 +345,7 @@ func english(text string) []Finding {
 				out = append(out, Finding{
 					Rule: "a_an", At: w.at, Length: w.end - w.at, Found: w.text, Suggest: keepCase(w.text, want),
 					Why:   "\"an\" goes before a vowel sound and \"a\" before a consonant sound.",
-					WhyBG: "„An“ се пише пред гласен звук, а „a“ — пред съгласен.",
+					WhyBG: "„An“ се пише пред гласен звук, а „a“ се пише пред съгласен.",
 					Sure:  true,
 				})
 			}

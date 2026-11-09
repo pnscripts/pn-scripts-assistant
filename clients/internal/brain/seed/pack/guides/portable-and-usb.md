@@ -10,7 +10,7 @@
 ## Taking the brain with you
 Copy the portable folder to a USB stick and run it on any computer. The
 knowledge folder, the playbooks and the memory go with it. What it keeps about
-you is encrypted; on a new computer it may ask for your recovery key once —
+you is encrypted; on a new computer it may ask for your recovery key once;
 keep that key somewhere safe, away from the stick.
 
 ## Remote

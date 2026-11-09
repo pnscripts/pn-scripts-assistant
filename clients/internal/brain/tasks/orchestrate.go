@@ -145,12 +145,12 @@ func (c *Conductor) decided(task *store.Task, step *store.TaskStep, d orchestrat
 // loudly as the owner's policy asks.
 func (c *Conductor) switched(task *store.Task, step *store.TaskStep, from orchestrator.Resource,
 	to *orchestrator.Resource, why string) {
-	next := "nothing — every way to do this has failed"
+	next := "nothing, because every way to do this has failed"
 	if to != nil {
 		next = to.Title
 	}
 
-	detail := fmt.Sprintf("%s gave way: %s. Continuing with %s; the task's state is kept — "+
+	detail := fmt.Sprintf("%s gave way: %s. Continuing with %s; the task's state is kept: "+
 		"files already written stay, and the step carries on from them.", from.Title, why, next)
 
 	c.DB.Record(store.Evidence{TaskID: task.ID, StepID: step.ID, Kind: store.EvidenceSwitch,

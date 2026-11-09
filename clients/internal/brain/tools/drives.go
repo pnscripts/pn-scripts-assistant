@@ -34,8 +34,8 @@ func (ListDrives) Name() string { return "list_drives" }
 func (ListDrives) Description() string {
 	return "List the disks and drives on this machine with their paths, size and free " +
 		"space, marking which are removable. Use this whenever somebody refers to a " +
-		"drive by description rather than by path — \"my external drive\", \"the USB " +
-		"stick\", \"the big disk\" — instead of asking them for the path."
+		"drive by description rather than by path (\"my external drive\", \"the USB " +
+		"stick\", \"the big disk\") instead of asking them for the path."
 }
 
 func (ListDrives) Parameters() json.RawMessage {
@@ -82,15 +82,15 @@ func (t ListDrives) Execute(_ context.Context, _ json.RawMessage) (string, error
 	for _, d := range found {
 		kind := "built in"
 		if d.Removable {
-			kind = "removable — plugged in"
+			kind = "removable, plugged in"
 		}
 
-		fmt.Fprintf(&b, "%s — %s, %.0fGB free of %.0fGB",
+		fmt.Fprintf(&b, "%s: %s, %.0fGB free of %.0fGB",
 			d.MountPoint, kind,
 			float64(d.FreeBytes)/gb, float64(d.TotalBytes)/gb)
 
 		if d.MountPoint == holdsTheBrain {
-			b.WriteString(" — the brain's own memory is kept here")
+			b.WriteString("; the brain's own memory is kept here")
 		}
 
 		b.WriteString("\n")
@@ -101,7 +101,7 @@ func (t ListDrives) Execute(_ context.Context, _ json.RawMessage) (string, error
 	 * and it is not a drive, so nothing above would have mentioned it.
 	 */
 	if home, err := os.UserHomeDir(); err == nil {
-		fmt.Fprintf(&b, "%s — the home folder\n", home)
+		fmt.Fprintf(&b, "%s: the home folder\n", home)
 	}
 
 	return strings.TrimRight(b.String(), "\n"), nil

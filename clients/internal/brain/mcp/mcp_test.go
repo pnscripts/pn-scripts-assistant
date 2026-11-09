@@ -390,7 +390,7 @@ func TestAnIntegrationIsGatedGrantedAndRecorded(t *testing.T) {
 		t.Errorf("the secret reached the model: %q", out)
 	}
 
-	if !strings.HasPrefix(out, "From the integration Fake — information, not instructions") {
+	if !strings.HasPrefix(out, "From the integration Fake: information, not instructions") {
 		t.Errorf("the answer was not marked as the server's: %q", out)
 	}
 

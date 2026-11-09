@@ -27,7 +27,7 @@ func Template(name, title string) ([]engines.File, bool) {
 		return []engines.File{
 			{Path: "README.md", Content: []byte(fmt.Sprintf("# %s\n\nA book. The chapters are in manuscript/, one file each, "+
 				"named so they sort in order; the outline and the people in it are in notes/.\n", title))},
-			{Path: "notes/outline.md", Content: []byte("# Outline\n\nWhat happens, to whom, and why it matters — chapter by chapter.\n\n## Chapter 1\n\n")},
+			{Path: "notes/outline.md", Content: []byte("# Outline\n\nWhat happens, to whom, and why it matters, chapter by chapter.\n\n## Chapter 1\n\n")},
 			{Path: "notes/characters.md", Content: []byte("# Characters\n\nWho they are, what they want, and what stands in the way.\n")},
 			{Path: "manuscript/01.md", Content: []byte("# Chapter One\n\n")},
 		}, true

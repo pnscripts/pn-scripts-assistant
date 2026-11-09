@@ -160,7 +160,7 @@ func main() {
 	if err == nil {
 		fmt.Printf("%s online. How can I help, %s? (':new' for a fresh conversation, 'exit' to quit)\n", info.Name, info.Owner)
 	} else {
-		fmt.Println("Connected, but /api/brain didn't respond — is the brain running? (':new' for a fresh conversation, 'exit' to quit)")
+		fmt.Println("Connected, but /api/brain didn't respond. Is the brain running? (':new' for a fresh conversation, 'exit' to quit)")
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)

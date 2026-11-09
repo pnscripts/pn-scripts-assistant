@@ -283,7 +283,7 @@ func sensible(root, path string) error {
 	}
 
 	if path == clean || within(clean, path) || within(path, clean) {
-		return errors.New("that is the brain's own folder — it cannot learn from where it keeps itself")
+		return errors.New("that is the brain's own folder: it cannot learn from where it keeps itself")
 	}
 
 	if path == "/" {

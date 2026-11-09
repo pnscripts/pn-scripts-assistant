@@ -88,12 +88,12 @@ var BuiltIn = []Rule{
 	},
 	{
 		ID: "cloud", What: "Cloud accounts",
-		Why:   "Credentials for Amazon, Azure, Google and Kubernetes — enough to spend money in your name.",
+		Why:   "Credentials for Amazon, Azure, Google and Kubernetes: enough to spend money in your name.",
 		Paths: []string{"/.aws/", "/.azure/", "/.kube/", "/.config/gcloud/"},
 	},
 	{
 		ID: "registries", What: "Registry and package logins",
-		Why:   "Docker, npm and git store their logins unencrypted. Deleting the tool does not make the folder safe — it makes it empty, and empty is temporary.",
+		Why:   "Docker, npm and git store their logins unencrypted. Deleting the tool does not make the folder safe. It makes it empty, and empty is temporary.",
 		Paths: []string{"/.docker/"},
 		Names: []string{".npmrc", ".netrc", ".git-credentials", "auth.json", "credentials"},
 	},
@@ -120,7 +120,7 @@ var BuiltIn = []Rule{
 	{
 		ID: "brain", What: "The brain's own folder",
 		Why: "Its settings file holds the mail password and every API key it has been given, " +
-			"in plain text — and its memory is everything it has ever been told. The brain " +
+			"in plain text, and its memory is everything it has ever been told. The brain " +
 			"reads its own memory through its own tools, which is a different thing from " +
 			"opening the file and putting the contents in a conversation.",
 		Names: []string{"brain.conf", "brain.sqlite"},

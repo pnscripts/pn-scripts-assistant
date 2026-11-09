@@ -1,7 +1,7 @@
 # Experts, models and tools
 
-Every step of a job is done by an expert — a developer, a writer, a
-researcher, a designer — and each expert gets the model and the tools its work
+Every step of a job is done by an expert (a developer, a writer, a
+researcher, a designer), and each expert gets the model and the tools its work
 needs, chosen at that moment from what this computer has.
 
 ## How the model is chosen

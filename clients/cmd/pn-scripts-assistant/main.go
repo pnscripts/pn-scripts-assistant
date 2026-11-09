@@ -666,7 +666,7 @@ func runRewritePaths(args []string) error {
 	fmt.Printf("  re-embedded %d of %d", done, len(changed))
 
 	if failed > 0 {
-		fmt.Printf(" (%d failed — their text is new but their vector is stale)", failed)
+		fmt.Printf(" (%d failed: their text is new but their vector is stale)", failed)
 	}
 
 	fmt.Println()
@@ -807,7 +807,7 @@ func runApp(args []string) error {
 		}
 
 		if server.Raise(cfg.Addr) {
-			fmt.Fprintf(os.Stderr, "\n  %s is already running — brought it to the front.\n\n",
+			fmt.Fprintf(os.Stderr, "\n  %s is already running, so it was brought to the front.\n\n",
 				cfg.Name)
 
 			return nil
@@ -1193,7 +1193,7 @@ func runIngest(args []string) error {
 			return err
 		}
 
-		fmt.Printf("  browser history — %d sites you use regularly\n", len(sites))
+		fmt.Printf("  browser history: %d sites you use regularly\n", len(sites))
 		fmt.Printf("  (domains and visit counts only; no URLs are read or stored)\n")
 
 		observations = append(observations, learning.FromSites(sites, cfg.Owner)...)
@@ -1206,7 +1206,7 @@ func runIngest(args []string) error {
 				return err
 			}
 
-			fmt.Printf("  %s — %d documents\n", dir, len(found))
+			fmt.Printf("  %s: %d documents\n", dir, len(found))
 			observations = append(observations, learning.FromDocuments(found, cfg.Owner)...)
 
 			continue
@@ -1217,7 +1217,7 @@ func runIngest(args []string) error {
 			return err
 		}
 
-		fmt.Printf("  %s — %d projects\n", dir, len(found))
+		fmt.Printf("  %s: %d projects\n", dir, len(found))
 		observations = append(observations, learning.FromProjects(found, cfg.Owner)...)
 	}
 
@@ -1462,7 +1462,7 @@ func runFirstRunSetup(settingsPath, name string) (bool, error) {
 			 * would otherwise be a program that starts, shows nothing, and
 			 * exits — indistinguishable from one that does not work.
 			 */
-			window.Alert("PN Scripts Assistant — Setup",
+			window.Alert("PN Scripts Assistant: Setup",
 				"Setup is ready but the browser could not be opened.\n\n"+
 					"Open this address yourself to continue:\n"+srv.URL())
 		}
@@ -1486,7 +1486,7 @@ func runFirstRunSetup(settingsPath, name string) (bool, error) {
 		window.Close()
 	}()
 
-	if err := window.Open(srv.URL(), name+" — Setup", 900, 700); err != nil {
+	if err := window.Open(srv.URL(), name+": Setup", 900, 700); err != nil {
 		return false, err
 	}
 
@@ -1618,7 +1618,7 @@ func runSetup(args []string) error {
 func brainAway(elsewhere *paths.AwayError) error {
 	fmt.Fprintf(os.Stderr, "\n  PN Scripts Assistant keeps everything it knows at:\n    %s\n\n", elsewhere.Path)
 	fmt.Fprint(os.Stderr, "  That place is not available right now. If it is on a drive,\n")
-	fmt.Fprint(os.Stderr, "  plug the drive in and start PN Scripts Assistant again — nothing is lost.\n\n")
+	fmt.Fprint(os.Stderr, "  plug the drive in and start PN Scripts Assistant again. Nothing is lost.\n\n")
 	fmt.Fprint(os.Stderr, "  If it is gone for good and you want to begin again:\n")
 	fmt.Fprint(os.Stderr, "    brain start-again\n\n")
 
@@ -1655,7 +1655,7 @@ func runStartAgain(args []string) error {
 
 	away, ok := paths.LastKnown()
 	if !ok {
-		fmt.Print("\n  Nothing to forget — PN Scripts Assistant is not waiting on anywhere.\n\n")
+		fmt.Print("\n  Nothing to forget: PN Scripts Assistant is not waiting on anywhere.\n\n")
 
 		return nil
 	}
@@ -1664,7 +1664,7 @@ func runStartAgain(args []string) error {
 
 	fmt.Printf("\n  PN Scripts Assistant will no longer wait for %s.\n", away)
 	fmt.Print("  The next start makes a new, empty brain. Anything at that\n")
-	fmt.Print("  place is untouched, and plugging it back in still works —\n")
+	fmt.Print("  place is untouched, and plugging it back in still works:\n")
 	fmt.Print("  it is found again by being there, not by being remembered.\n\n")
 
 	return nil
@@ -1729,7 +1729,7 @@ func runPlaces(args []string) error {
 	fmt.Println()
 
 	for _, p := range list {
-		fmt.Printf("  %s  —  %s\n", p.Name, places.Short(p.Path))
+		fmt.Printf("  %s:  %s\n", p.Name, places.Short(p.Path))
 
 		switch {
 		case !p.Reachable:
@@ -1824,7 +1824,7 @@ func runCopies(args []string) error {
 
 	if len(held) == 0 {
 		fmt.Print("  No copies. Everything it knows is in one place.\n\n" +
-			"  Add one in the app, under Storage — or on any drive or folder you like.\n\n")
+			"  Add one in the app, under Storage, or on any drive or folder you like.\n\n")
 
 		return nil
 	}
@@ -1842,7 +1842,7 @@ func runCopies(args []string) error {
 		}
 
 		if c.Trouble != "" {
-			fmt.Printf("  —  %s", c.Trouble)
+			fmt.Printf("  (%s)", c.Trouble)
 		}
 
 		fmt.Print("\n\n")
@@ -1881,7 +1881,7 @@ func runDrives(args []string) error {
 
 	report := storage.Check(root.Path, root.DatabasePath())
 
-	fmt.Printf("\n  the brain is on %s — %.0fGB free of %.0fGB (%s)\n\n",
+	fmt.Printf("\n  the brain is on %s, %.0fGB free of %.0fGB (%s)\n\n",
 		root.Path,
 		float64(report.FreeBytes)/(1<<30), float64(report.TotalBytes)/(1<<30),
 		report.Level)
@@ -2019,7 +2019,7 @@ func runMicTest(args []string) error {
 
 	defer os.Remove(path)
 
-	fmt.Printf("\n  Speak now — it stops when you stop.\n\n")
+	fmt.Printf("\n  Speak now. It stops when you stop.\n\n")
 
 	turn, err := speech.RecordTurn(ctx, target, path)
 	if err != nil {
@@ -2557,7 +2557,7 @@ func bindProblem(cfg config.Config, err error) error {
 	}
 
 	if server.InUse(cfg.Addr) {
-		return fmt.Errorf("something is already answering on %s — if it is %s, open http://%s; "+
+		return fmt.Errorf("something is already answering on %s. If it is %s, open http://%s; "+
 			"otherwise start this one elsewhere with BRAIN_ADDR=127.0.0.1:<port>",
 			cfg.Addr, cfg.Name, cfg.Addr)
 	}
@@ -2670,8 +2670,8 @@ func beginSession(root string, logger *slog.Logger) (machinecare.LastStop, func(
 // parkedBecause is the reason a task left running is given when it is parked.
 func parkedBecause(last machinecare.LastStop) string {
 	if last.Unclean {
-		return "PN Scripts Assistant stopped without being closed — a power cut or a crash; it was last seen working at " +
-			last.LastSeen.Local().Format("15:04 on 2 January") + " — while this was running"
+		return "PN Scripts Assistant stopped without being closed (a power cut or a crash) while this was running; it was last seen working at " +
+			last.LastSeen.Local().Format("15:04 on 2 January")
 	}
 
 	return "PN Scripts Assistant was closed while this was running"

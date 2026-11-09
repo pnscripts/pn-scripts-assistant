@@ -119,7 +119,7 @@ func (s *Server) saveName(name string) error {
 	// Runes, not bytes. A name in Cyrillic is two bytes a letter, and a limit
 	// counted in bytes would refuse half the length it promised.
 	if utf8.RuneCountInString(name) > 40 {
-		return fmt.Errorf("that is a long name — keep it under 40 letters")
+		return fmt.Errorf("that is a long name, keep it under 40 letters")
 	}
 
 	cfg, _ := config.LoadFrom(s.envPath)

@@ -8,17 +8,17 @@ description: Explain a grammar point in any language the user is learning - the 
 Explain grammar as meaning and use, not only as a table. Learners remember a rule when they see it contrast with the form they would have used.
 
 ## Steps
-1. **Identify the point and the learner.** Which language, which structure, the learner's level (A1–C2) and native language. Interference from the native language often explains the mistake (for example, speakers of languages without articles struggle with "a/the").
+1. **Identify the point and the learner.** Which language, which structure, the learner's level (A1 to C2) and native language. Interference from the native language often explains the mistake (for example, speakers of languages without articles struggle with "a/the").
 2. **Say the rule in one or two plain sentences.** Meaning first, then form.
 3. **Show the form** compactly: a short pattern or a small table, not a full paradigm unless asked.
 4. **Give contrasting examples.** Pair the target form with the form it is confused with, and explain the difference in meaning.
 5. **List the common mistakes** with a correction and a reason.
 6. **Mention exceptions only if frequent.** Rare exceptions can wait.
-7. **Practise.** 5–8 short items, from controlled (fill in the gap) to freer (write your own sentence), with an answer key.
+7. **Practise.** 5 to 8 short items, from controlled (fill in the gap) to freer (write your own sentence), with an answer key.
 8. **When correcting the user's text**, show the original, the corrected version and a one-line reason per change; separate real errors from style preferences.
 
 ## Example
-Point: English present perfect vs past simple (learner level A2–B1).
+Point: English present perfect vs past simple (learner level A2 to B1).
 - Rule: use the present perfect for past actions connected to now (result, experience, unfinished time); use the past simple for finished actions at a stated past time.
 - Form: have/has + past participle → "I have seen", "She has gone".
 - Contrast:

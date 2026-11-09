@@ -76,9 +76,9 @@ func Ordered(q Question) []string {
 // Show is the question as chat text and as speech: numbered answers, the
 // first marked as recommended, and Other last.
 func Show(q Question, lang string) string {
-	recommended, other := " (Recommended)", "Other — say it in your own words"
+	recommended, other := " (Recommended)", "Other: say it in your own words"
 	if lang == "bg" {
-		recommended, other = " (Препоръчително)", "Друго — кажете го с ваши думи"
+		recommended, other = " (Препоръчително)", "Друго: кажете го с ваши думи"
 	}
 
 	var b strings.Builder

@@ -77,7 +77,7 @@ func TestAQuestionIsAskedOneAtATimeWithAnswersToPick(t *testing.T) {
 		t.Fatal("not read")
 	}
 
-	want := "Коя игрова машина да ползвам?\n1. Godot (Препоръчително)\n2. Three.js\n3. Друго — кажете го с ваши думи"
+	want := "Коя игрова машина да ползвам?\n1. Godot (Препоръчително)\n2. Three.js\n3. Друго: кажете го с ваши думи"
 	if got := q.Text(); got != want {
 		t.Fatalf("shown as\n%s\nwant\n%s", got, want)
 	}

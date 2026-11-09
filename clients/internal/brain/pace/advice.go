@@ -140,7 +140,7 @@ func modelFinding(typical Milestones, m Machine) Finding {
 	if m.HasGPU {
 		f.Because = fmt.Sprintf("%s is thinking for this long even with %s to run on",
 			short(typical.Model, m.Working), m.GPUName)
-		f.Change = "a smaller model, or fewer tools offered per turn — the tool " +
+		f.Change = "a smaller model, or fewer tools offered per turn: the tool " +
 			"descriptions are read before the first word of every answer"
 
 		return f
@@ -156,14 +156,14 @@ func modelFinding(typical Milestones, m Machine) Finding {
 	 * cannot be quick here however the program is written.
 	 */
 	if m.Quick == "" {
-		f.Change = "install a small model for conversation — a three-billion " +
+		f.Change = "install a small model for conversation: a three-billion " +
 			"one answers a greeting several times quicker, and anything that " +
 			"needs doing still goes to the larger one"
 		f.Doing = "install-quick-model"
 		f.Fetch = m.Suggest
 
 		if f.Fetch != "" {
-			f.Change = fmt.Sprintf("install %s for conversation — it answers a "+
+			f.Change = fmt.Sprintf("install %s for conversation: it answers a "+
 				"greeting several times quicker on a processor, and anything "+
 				"that needs doing still goes to %s", f.Fetch,
 				short("", m.Working))
@@ -174,7 +174,7 @@ func modelFinding(typical Milestones, m Machine) Finding {
 
 	f.Change = fmt.Sprintf("%s already answers the conversational turns; the "+
 		"rest need the larger model, and on a processor that is arithmetic "+
-		"rather than tuning — every word means reading the whole model out of "+
+		"rather than tuning: every word means reading the whole model out of "+
 		"memory", m.Quick)
 
 	return f
@@ -203,7 +203,7 @@ func short(measured, configured string) string {
  */
 func Verdict(typical Milestones, over int) string {
 	if over == 0 {
-		return "Nothing measured yet — say something to it and ask again."
+		return "Nothing measured yet. Say something to it and ask again."
 	}
 
 	switch {

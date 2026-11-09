@@ -123,7 +123,7 @@ func introductionLine(root string, loaded []string) string {
 		return ""
 	}
 
-	return "I can do something I could not last time — ask me what I can do, or " +
+	return "I can do something I could not last time. Ask me what I can do, or " +
 		"just say " + firstExample(fresh) + "."
 }
 
@@ -157,8 +157,8 @@ func firstExample(fresh []string) string {
 // SpokenIntroduction trims the line for saying out loud, where a list is worse
 // than a sentence.
 func SpokenIntroduction(line string) string {
-	if at := strings.Index(line, " — "); at > 0 {
-		return line[:at] + "."
+	if at := strings.Index(line, ". "); at > 0 {
+		return line[:at+1]
 	}
 
 	return line
@@ -280,7 +280,7 @@ func (b *Brain) Delivered(g Greeting) {
 func (b *Brain) howItAsks() string {
 	switch b.Freedom() {
 	case permits.Everything:
-		return "anything that changes something — a file, a setting, a whole drive — " +
+		return "anything that changes something (a file, a setting, a whole drive) " +
 			"is done when you ask for it, without stopping to confirm, because that " +
 			"is how this one is set; everything it does is written down, and a file " +
 			"it changed can be put back"
@@ -290,7 +290,7 @@ func (b *Brain) howItAsks() string {
 			"already allowed it, and stops to ask where you have not"
 
 	default:
-		return "anything that changes something — a file, a setting, a whole drive — " +
+		return "anything that changes something (a file, a setting, a whole drive) " +
 			"stops and asks first, and says exactly what it is about to do"
 	}
 }

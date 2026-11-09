@@ -18,7 +18,7 @@ anywhere. One binary: no database server, no container runtime, no account.
 ## What is in this release that was not working before
 
 **The model now reads all of its instructions.** A conversation turn is about
-6,300 tokens — who the assistant is, the tools it may use, what it remembers.
+6,300 tokens: who the assistant is, the tools it may use, what it remembers.
 Ollama's default window is 4,096 and it discards the overflow silently, from
 the beginning, which is where the instructions are. The visible symptom was a
 model that called the same tool over and over and never answered. Each request
@@ -26,7 +26,7 @@ now asks for a window that fits it, so "say hello" is answered rather than
 investigated.
 
 **A web page can no longer drive your assistant.** Any site you had open could
-post to the assistant on `127.0.0.1` and be obeyed — it looked like a request
+post to the assistant on `127.0.0.1` and be obeyed. It looked like a request
 from your own machine, because it was. Requests must now name this computer and
 come from the assistant's own page. Programs and the command line are
 unaffected.
@@ -57,8 +57,8 @@ on your PATH.
 ## Known, and not fixed in this release
 
 - **Slow on a machine with no graphics card.** Measured here, four cores: the
-  first question in a conversation takes about ten minutes, the next about one
-  — the model keeps what it has already read. Ask it *"why are you so slow"*
+  first question in a conversation takes about ten minutes, the next about one;
+  the model keeps what it has already read. Ask it *"why are you so slow"*
   and it answers with your own numbers.
 - **A greeting pays for every tool.** About 5,100 of those 6,300 tokens are
   tool descriptions.

@@ -168,7 +168,7 @@ func (b *Brain) abilitiesWaiting(ctx context.Context) []environs.Thing {
 			Title: "Speaking in the clear machine voice",
 			State: environs.WantsSetting, Local: true,
 			Why:   "it is speaking through espeak, which is formant synthesis from the 1980s",
-			Needs: "the neural voice (63MB) from Setup — the robot is built from it and is far clearer",
+			Needs: "the neural voice (63MB) from Setup; the robot is built from it and is far clearer",
 		})
 	}
 
@@ -184,7 +184,7 @@ func (b *Brain) abilitiesWaiting(ctx context.Context) []environs.Thing {
 		out = append(out, environs.Thing{
 			ID: "ability:web", Kind: environs.Ability, Title: "Searching and reading the web",
 			State: environs.WantsSetting, Local: false,
-			Needs: "privacy set to research or open — it is private, so nothing is asked of anybody",
+			Needs: "privacy set to research or open; it is private, so nothing is asked of anybody",
 		})
 	}
 

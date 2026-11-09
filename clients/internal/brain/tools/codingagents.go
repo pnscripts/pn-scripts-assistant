@@ -85,8 +85,8 @@ type AskCodingAgent struct{ Agents CodingAgents }
 func (AskCodingAgent) Name() string { return "ask_coding_agent" }
 
 func (AskCodingAgent) Description() string {
-	return "Hand one task to a coding agent on this computer — Claude Code, Codex or Cursor's agent, " +
-		"signed in by the user — working in a folder the user chose, and bring back its answer and every " +
+	return "Hand one task to a coding agent on this computer (Claude Code, Codex or Cursor's agent, " +
+		"signed in by the user) working in a folder the user chose, and bring back its answer and every " +
 		"file it changed. access: read (only reads and answers; the default), folder (may change files " +
 		"in the folder, runs no commands), full (may do anything; only when the user asked for it). " +
 		"Give the whole task and what it needs to know; it does not see this conversation."
@@ -183,12 +183,12 @@ func (t AskCodingAgent) Summarize(raw json.RawMessage) string {
 	case ReachFolder:
 		reach = "may change files in " + a.Folder + "; runs no commands"
 	case ReachFull:
-		reach = "FULL ACCESS — may run any command and change any file you can, starting in " + a.Folder
+		reach = "FULL ACCESS: may run any command and change any file you can, starting in " + a.Folder
 	default:
 		reach = "unknown access " + a.Access
 	}
 
-	out := fmt.Sprintf("Ask %s — %s:\n%s", title, reach, strings.TrimSpace(a.Task))
+	out := fmt.Sprintf("Ask %s (%s):\n%s", title, reach, strings.TrimSpace(a.Task))
 
 	// Its allowance, so whoever says yes knows what the work spends.
 	if pace != "" {

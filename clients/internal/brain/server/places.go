@@ -144,7 +144,7 @@ func (s *Server) handleWatchPlace(w http.ResponseWriter, r *http.Request) {
 			"watching": place.Path,
 			"name":     place.Name,
 			"counted":  false,
-			"note":     "Not attached right now — I will read it when it is.",
+			"note":     "Not attached right now. I will read it when it is.",
 		})
 
 		return

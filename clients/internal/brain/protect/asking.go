@@ -92,8 +92,8 @@ func Explain(what, path string, r Rule) string {
 	where := path
 
 	if home := strings.TrimSpace(r.What); home == "" {
-		return fmt.Sprintf("%s — %s", what, where)
+		return fmt.Sprintf("%s: %s", what, where)
 	}
 
-	return fmt.Sprintf("%s — %s (%s). %s", what, where, strings.ToLower(r.What), r.Why)
+	return fmt.Sprintf("%s: %s (%s). %s", what, where, strings.ToLower(r.What), r.Why)
 }

@@ -106,7 +106,7 @@ func (t Hearing) Execute(context.Context, json.RawMessage) (string, error) {
 			break
 		}
 
-		fmt.Fprintf(&b, "\n%q — %s", strings.TrimSpace(h.Text), acted(h))
+		fmt.Fprintf(&b, "\n%q: %s", strings.TrimSpace(h.Text), acted(h))
 
 		if h.KnownVoice {
 			whose := "not your voice"
@@ -167,7 +167,7 @@ func describeHearing(s HearingState) string {
 
 	switch {
 	case !s.VoiceModel:
-		lines = append(lines, "I cannot tell one voice from another — what does that "+
+		lines = append(lines, "I cannot tell one voice from another: what does that "+
 			"is not installed. It can be fetched in Privacy.")
 
 	case !s.VoiceTaught:
@@ -181,7 +181,7 @@ func describeHearing(s HearingState) string {
 
 	default:
 		lines = append(lines, fmt.Sprintf("I know your voice and can tell it from others, "+
-			"but I answer any voice — \"answer only me\" is switched off. "+
+			"but I answer any voice, because \"answer only me\" is switched off. "+
 			"The line would be at %.2f.", s.Match))
 	}
 
@@ -198,7 +198,7 @@ func describeHearing(s HearingState) string {
 	} else {
 		lines = append(lines, "Music and videos playing on this machine reach the "+
 			"microphone mixed with whoever is talking. Switching that off is one "+
-			"setting — ask me to stop hearing this machine.")
+			"setting: ask me to stop hearing this machine.")
 	}
 
 	return strings.Join(lines, " ")

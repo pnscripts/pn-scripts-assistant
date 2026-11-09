@@ -194,7 +194,7 @@ func (b *Book) Accept(code, name, from string) (Device, string, error) {
 
 	if offered == "" || time.Now().After(until) {
 		return Device{}, "", fmt.Errorf(
-			"no code is being offered — ask for one on the computer the assistant runs on")
+			"no code is being offered; ask for one on the computer the assistant runs on")
 	}
 
 	given := strings.ToUpper(strings.TrimSpace(strings.ReplaceAll(code, " ", "")))

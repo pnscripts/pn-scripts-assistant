@@ -80,7 +80,7 @@ function draw() {
          * blend of two voices.
          */
         lines.push(['how alike they were', `${state.agreement.toFixed(2)}${
-            state.agreement < 0.6 ? ' — low; teach it again somewhere quieter' : ''}`]);
+            state.agreement < 0.6 ? ' (low, teach it again somewhere quieter)' : ''}`]);
     }
 
     /*
@@ -137,7 +137,7 @@ function draw() {
 
 el('voice-get').onclick = async () => {
     el('voice-get').disabled = true;
-    say(`Fetching about ${state.megabytes}MB. It carries on in the background — watch Doing now.`);
+    say(`Fetching about ${state.megabytes}MB. It carries on in the background. Watch Doing now.`);
 
     try {
         await send('/api/voiceprint/install', {});
@@ -165,7 +165,7 @@ el('voice-teach').onclick = async () => {
     const button = el('voice-teach');
 
     button.disabled = true;
-    say('Say a sentence — anything, in your normal voice. Listening…');
+    say('Say a sentence, anything, in your normal voice. Listening…');
 
     try {
         const done = await send('/api/voiceprint/teach', {
@@ -173,8 +173,8 @@ el('voice-teach').onclick = async () => {
         });
 
         say(done.enough
-            ? `Got it — ${done.samples} recordings, and that is enough. You can add more any time.`
-            : `Got it — ${done.samples} of ${done.wanted}. Press again and say something else.`,
+            ? `Got it: ${done.samples} recordings, and that is enough. You can add more any time.`
+            : `Got it: ${done.samples} of ${done.wanted}. Press again and say something else.`,
             'ok');
     } catch (err) {
         say(String(err.message || err), 'bad');

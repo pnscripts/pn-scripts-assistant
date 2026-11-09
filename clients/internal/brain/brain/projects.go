@@ -317,7 +317,7 @@ func (b *Brain) setUp(ctx context.Context, conversationID int64, p bootstrap.Pro
 
 	if hiredName != "" {
 		if agent, ok := team.Find(team.Roster(b.Root), hiredName); ok {
-			hired = fmt.Sprintf("%s — hired for this project from proposal %d, as its owner approved", agent.Title, p.ID)
+			hired = fmt.Sprintf("%s: hired for this project from proposal %d, as its owner approved", agent.Title, p.ID)
 		}
 	}
 

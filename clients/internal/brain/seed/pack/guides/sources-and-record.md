@@ -21,7 +21,7 @@ Switch numbering off under Control → Answers. The list is still kept.
 
 ## What I did and why
 Every action I take is recorded: reading a file, searching the web, writing
-a document, sending a message — and also every action I put to you and every
+a document, sending a message, and also every action I put to you and every
 one that was refused. Each entry says what was asked that led to it, which
 specialist did it, which model and why that model was chosen, what it was
 given, what came back, how risky it was, and whether anything left this

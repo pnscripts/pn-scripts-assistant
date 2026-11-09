@@ -222,7 +222,7 @@ func (t TodoTool) find(a todoArgs) (store.Todo, error) {
 		names = append(names, fmt.Sprintf("[%d] %s", item.ID, item.Text))
 	}
 
-	return store.Todo{}, fmt.Errorf("%d items match %q — say which by number: %s", len(found), a.Text, strings.Join(names, "; "))
+	return store.Todo{}, fmt.Errorf("%d items match %q; say which by number: %s", len(found), a.Text, strings.Join(names, "; "))
 }
 
 // dayFrom reads a day: today, tomorrow, a weekday, a date.
@@ -268,13 +268,13 @@ func todoLine(item store.Todo, now time.Time) string {
 	if item.Due != nil {
 		switch days := int(startOfDay(*item.Due).Sub(startOfDay(now)).Hours() / 24); {
 		case days < 0:
-			out += fmt.Sprintf(" — overdue since %s", item.Due.Format("Mon 2 Jan"))
+			out += fmt.Sprintf(", overdue since %s", item.Due.Format("Mon 2 Jan"))
 		case days == 0:
-			out += " — due today"
+			out += ", due today"
 		case days == 1:
-			out += " — due tomorrow"
+			out += ", due tomorrow"
 		default:
-			out += " — due " + item.Due.Format("Mon 2 Jan")
+			out += ", due " + item.Due.Format("Mon 2 Jan")
 		}
 	}
 
@@ -373,7 +373,7 @@ func (WhatIsNext) Cues() []string { return planCues }
 
 func (WhatIsNext) Description() string {
 	return "Say what is coming up, in time order, from everything at once: appointments in the diary and " +
-		"in the online calendar, reminders, and to-dos that are due or overdue — then the to-dos with no " +
+		"in the online calendar, reminders, and to-dos that are due or overdue, then the to-dos with no " +
 		"date. Use for \"what is next\", \"what do I have today\", \"what is my week like\"."
 }
 
@@ -578,7 +578,7 @@ func comingLine(c Coming) string {
 		return fmt.Sprintf("due: %s (%s list)", c.What, c.Place)
 	}
 
-	when := c.At.Format("15:04") + "–" + c.Ends.Format("15:04")
+	when := c.At.Format("15:04") + " to " + c.Ends.Format("15:04")
 	if c.AllDay {
 		when = "all day"
 	}
@@ -590,7 +590,7 @@ func comingLine(c Coming) string {
 	}
 
 	if c.Kind == "online" {
-		out += " — online calendar"
+		out += ", online calendar"
 	}
 
 	return out
@@ -663,7 +663,7 @@ func (t ReadCalendar) Execute(ctx context.Context, raw json.RawMessage) (string,
 	for _, e := range events {
 		e.Starts, e.Ends = e.Starts.Local(), e.Ends.Local()
 
-		when := e.Starts.Format("Mon 2 Jan 15:04") + "–" + e.Ends.Format("15:04")
+		when := e.Starts.Format("Mon 2 Jan 15:04") + " to " + e.Ends.Format("15:04")
 		if e.AllDay {
 			when = e.Starts.Format("Mon 2 Jan") + ", all day"
 		}

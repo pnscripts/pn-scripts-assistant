@@ -110,7 +110,7 @@ func (t PutBack) Execute(_ context.Context, raw json.RawMessage) (string, error)
 	}
 
 	if done.New {
-		return fmt.Sprintf("Removed %s — I created it %s and it was not there before.",
+		return fmt.Sprintf("Removed %s. I created it %s and it was not there before.",
 			done.Path, howLongSince(done.At)), nil
 	}
 
@@ -143,7 +143,7 @@ func (t PutBack) whatCanBeUndone(root string) (string, error) {
 			what = "created (putting it back removes it)"
 		}
 
-		fmt.Fprintf(&b, "%s — %s %s\n", change.Path, what, howLongSince(change.At))
+		fmt.Fprintf(&b, "%s: %s %s\n", change.Path, what, howLongSince(change.At))
 	}
 
 	return strings.TrimRight(b.String(), "\n"), nil

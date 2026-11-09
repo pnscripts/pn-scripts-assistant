@@ -638,5 +638,5 @@ func (r *Run) withErrors(ok bool) {
 // notInstalled is the Run for an engine that is not here.
 func notInstalled(a Adapter, what string) Run {
 	return Run{What: what, Engine: a.ID(),
-		Problem: a.Title() + " is not installed on this machine — check_requirements says what it would take"}
+		Problem: a.Title() + " is not installed on this machine; check_requirements says what it would take"}
 }

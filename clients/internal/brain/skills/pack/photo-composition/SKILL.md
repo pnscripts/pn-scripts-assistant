@@ -33,7 +33,7 @@ Advice: take two steps closer and one step right so the pole leaves the head; pu
 
 ## Pitfalls
 - Rules are tools; breaking the thirds with a purpose (symmetry, tension) is fine, accidental tilt is not.
-- Wide-angle lenses close to faces enlarge noses; use 50–85 mm equivalent for portraits.
+- Wide-angle lenses close to faces enlarge noses; use 50 to 85 mm equivalent for portraits.
 - Heavy cropping costs resolution; check the final size is enough for print (about 300 pixels per inch at the print size).
 - Do not over-advise: give the two or three changes that matter most.
 

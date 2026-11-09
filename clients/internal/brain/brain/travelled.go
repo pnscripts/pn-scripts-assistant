@@ -309,7 +309,7 @@ func (b *Brain) journeyLine() string {
 	return fmt.Sprintf(
 		"I have been opened somewhere new: this drive was at %s and is now at %s. "+
 			"%d of the things I know still name the old place, so I cannot open those "+
-			"files until they are repaired — there is a button for it in the storage panel.",
+			"files until they are repaired. There is a button for it in the storage panel.",
 		short(j.OldPrefix), short(j.NewPrefix), j.Affected)
 }
 

@@ -203,7 +203,7 @@ func originalityLine(s store.TaskStep) string {
 
 	switch {
 	case s.State == store.StepDone && s.Verdict == store.Unmet:
-		return "• " + what + ": found wrong on review — " + trimTo(s.Answer, 300)
+		return "• " + what + ": found wrong on review: " + trimTo(s.Answer, 300)
 	case s.State == store.StepDone && s.Answer != "":
 		return "• " + what + ": " + trimTo(s.Answer, 300)
 	case s.State == store.StepDone:

@@ -57,8 +57,8 @@ func PrivateEnough(query string) (bool, string) {
 	}
 
 	if longNumber.MatchString(query) {
-		return false, "that search contains a long number — a telephone, card or " +
-			"account number. Search for the general question instead"
+		return false, "that search contains a long number (a telephone, card or " +
+			"account number). Search for the general question instead"
 	}
 
 	if secretish.MatchString(query) {
