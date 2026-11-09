@@ -130,6 +130,26 @@ against the code on 9 November 2026.
   being read), the line is cleared, and the other's progress shows again only
   with its next step. The work itself is not affected.
 
+## The voices it speaks in
+
+- **The neural voices are Cori (the robot, the default, a British woman), LJ
+  Speech (the woman, American) and Norman (the man, American).** Each was
+  trained from scratch on recordings in the public domain, so they may be
+  used for anything. There is no British man's voice with such a lineage
+  yet, so the woman and the man are both American, to match each other.
+- **The voices 0.13 installed are no longer used.** They were fine-tuned from
+  recordings licensed for research only. After the update the new voices are
+  fetched when the program first starts (about 190 MB, in the background,
+  only while *May look things up about itself* is on), and a voice chosen in
+  0.13 becomes the robot. Until they arrive it speaks in the system voice;
+  with that setting off, *Voice (speaking)* shows as out of date and its
+  Update button fetches them. The old files stay on the disk until you remove
+  the part, and are never spoken with.
+- **Bulgarian is spoken by espeak-ng**, the system's own voice, as before.
+  Piper's Bulgarian voice is not installed: it too was fine-tuned from the
+  research-only recordings. A Piper voice you add yourself is offered as you
+  add it, under its own licence.
+
 ## Mail, devices, storage
 
 - **Mail** is read over IMAP with TLS (port 993) and sent over SMTP, with an

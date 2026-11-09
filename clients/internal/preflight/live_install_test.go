@@ -32,7 +32,7 @@ func TestInstallingTheVoiceForReal(t *testing.T) {
 
 	for _, want := range []string{
 		filepath.Join(home, ".local", "share", "piper", "piper"),
-		filepath.Join(home, ".local", "share", "piper", "voices", "en_GB-alba-medium.onnx"),
+		filepath.Join(home, ".local", "share", "piper", "voices", "en_GB-cori-medium.onnx"),
 		filepath.Join(home, ".local", "bin", "piper"),
 	} {
 		info, err := os.Stat(want)

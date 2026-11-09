@@ -233,36 +233,77 @@ type voiceFile struct {
 	size      int64
 }
 
+/*
+ * The voices, each trained from scratch on recordings in the public domain.
+ *
+ * A voice is only as free to use as everything it was made from: its own
+ * recordings and the voice it was fine-tuned from, if any. The three voices
+ * 0.13 installed were each "Finetuned from U.S. English lessac voice" by
+ * their model cards, and the lessac recordings (Blizzard 2013) are licensed
+ * "exclusively for Research Purposes only"; they are withdrawn below. These
+ * three say "Trained from scratch" on their model cards and on the page of
+ * the person who trained them (brycebeattie.com/files/tts), and their
+ * recordings are in the public domain: LibriVox donates every recording to
+ * it, and the LJ Speech dataset is LibriVox recordings published "with no
+ * restrictions on its use". The whole lineage, read on 2026-11-09, is in the
+ * brain profile and in THIRD-PARTY-NOTICES.md.
+ */
 var piperVoiceFiles = []struct {
 	name    string
 	licence string
 	files   [2]voiceFile
 }{
-	{"en_GB-alba-medium", "CC BY 4.0 (the Alba dataset)", [2]voiceFile{
-		{"en/en_GB/alba/medium/en_GB-alba-medium.onnx",
-			"401369c4a81d09fdd86c32c5c864440811dbdcc66466cde2d64f7133a66ad03b", 63201294},
-		{"en/en_GB/alba/medium/en_GB-alba-medium.onnx.json",
-			"aa965a2f02ecced632c2694e1fc72bbff6d65f265fab567ca945918c73dd89f4", 4888},
-	}},
-	{"en_GB-northern_english_male-medium", "CC BY-SA 4.0 (OpenSLR 83)", [2]voiceFile{
-		{"en/en_GB/northern_english_male/medium/en_GB-northern_english_male-medium.onnx",
-			"57a219ae8e638873db7d18893304be5069c42868f392bb95c3ff17f0690d0689", 63201294},
-		{"en/en_GB/northern_english_male/medium/en_GB-northern_english_male-medium.onnx.json",
-			"69557ed3d974463453e9b0c09dd99a7ed0e52b8b87b64b357dbeeb2540a97d47", 4847},
-	}},
 	/*
-	 * And the one the robot is built out of: a neural voice with the machine
-	 * timbre put on afterwards, so its words are as clear as the others. A
-	 * woman's voice of its own rather than alba, because the model the robot
-	 * is made of is hidden from the list of voices, and building it out of
-	 * alba would have taken the woman's voice off the menu.
+	 * The one the robot is built out of, and so the voice the assistant
+	 * answers in until somebody chooses another: a British woman, Cori, read
+	 * from her LibriVox recordings. A voice of its own rather than the woman
+	 * offered in the list, because the model the robot is made of is hidden
+	 * from that list.
 	 */
-	{"en_GB-jenny_dioco-medium", "the Jenny (Dioco) dataset terms: free use, the voice credited as Jenny", [2]voiceFile{
-		{"en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx",
-			"469c630d209e139dd392a66bf4abde4ab86390a0269c1e47b4e5d7ce81526b01", 63201294},
-		{"en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx.json",
-			"a9a7a93a317c9a3cb6563e37eb057df9ef09c06188a8a4341b0fcb58cba54dd4", 4895},
+	{"en_GB-cori-medium", "public domain (LibriVox recordings, trained from scratch)", [2]voiceFile{
+		{"en/en_GB/cori/medium/en_GB-cori-medium.onnx",
+			"1899f98e5fb8310154f3c2973f4b8a929ba7245e722b3d3a85680b833d95f10d", 63531379},
+		{"en/en_GB/cori/medium/en_GB-cori-medium.onnx.json",
+			"e262c16d7f192f69d4edd6b4ef8a5915379e67495fcc402f1ab15eeb33da3d36", 4966},
 	}},
+	// The woman: LJ Speech, an American woman reading for LibriVox.
+	{"en_US-ljspeech-medium", "public domain (the LJ Speech dataset, trained from scratch)", [2]voiceFile{
+		{"en/en_US/ljspeech/medium/en_US-ljspeech-medium.onnx",
+			"6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22", 63531379},
+		{"en/en_US/ljspeech/medium/en_US-ljspeech-medium.onnx.json",
+			"141d612cc0a95ed7efc1ca936b845c2364967f2e9217c5dbfcf69fc4d6c65860", 4972},
+	}},
+	// The man: Norman, an American man, from his LibriVox recordings.
+	{"en_US-norman-medium", "public domain (LibriVox recordings, trained from scratch)", [2]voiceFile{
+		{"en/en_US/norman/medium/en_US-norman-medium.onnx",
+			"b9739443232a80a59c7d18810dd856899bf16a7964725f5ab81ea49b1351cb71", 63531379},
+		{"en/en_US/norman/medium/en_US-norman-medium.onnx.json",
+			"6c2db7f558a4a8deb9fe822583c1c5105f6c4e834dd0f9de8ad17a888ee9fe1d", 4968},
+	}},
+}
+
+/*
+ * withdrawnVoices are the voices older releases installed and this one no
+ * longer offers: the three fine-tuned from lessac, whose recordings may be
+ * used for research only.
+ *
+ * Their files are left where they are (removing a part is the person's own
+ * choice, under Remove a part), and nothing speaks with them: the list of
+ * voices, the robot and the check below all pass over them, and a setting
+ * that named one of them is moved to the default when the brain opens.
+ */
+var withdrawnVoices = map[string]bool{
+	"en_GB-jenny_dioco-medium":           true,
+	"en_GB-alba-medium":                  true,
+	"en_GB-northern_english_male-medium": true,
+}
+
+// Withdrawn reports whether a voice, by its name or the path of its model, is
+// one an older release installed and this one no longer uses.
+func Withdrawn(voice string) bool {
+	name := strings.TrimSuffix(path.Base(strings.ReplaceAll(voice, "\\", "/")), ".onnx")
+
+	return withdrawnVoices[name]
 }
 
 // PiperVoices is every voice file the neural voice is installed with, each

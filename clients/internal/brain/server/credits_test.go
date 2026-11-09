@@ -13,18 +13,19 @@ import (
 /*
  * The credits the downloaded parts' licences ask for are given.
  *
- * The Jenny (Dioco) dataset's licence asks software that speaks with the
- * voice to call it "Jenny", and where at all practical "Jenny (Dioco)"; alba
- * (CC BY 4.0) and northern_english_male (CC BY-SA 4.0) ask for attribution;
- * Piper, whisper.cpp, the Whisper model and Ollama are MIT. Each is credited
- * in the program, in English and in Bulgarian, and in THIRD-PARTY-NOTICES.md.
+ * The three voices were trained from scratch by Bryce Beattie on recordings
+ * in the public domain (LibriVox, and LJ Speech, which is LibriVox too):
+ * nothing is owed, and they are credited anyway, with who made them and from
+ * what. Piper, whisper.cpp, the Whisper model and Ollama are MIT. Each is
+ * credited in the program, in English and in Bulgarian, and in
+ * THIRD-PARTY-NOTICES.md.
  */
 
 // The credits every place must carry, by what they are about.
 var credits = map[string][]string{
-	"jenny":    {"Jenny (Dioco)", "en_GB-jenny_dioco-medium"},
-	"alba":     {"en_GB-alba-medium", "Alba", "Valentini-Botinhao", "Yamagishi", "University of Edinburgh", "CC BY 4.0"},
-	"northern": {"en_GB-northern_english_male-medium", "OpenSLR 83", "Google", "CC BY-SA 4.0"},
+	"cori":     {"Cori", "en_GB-cori-medium", "Bryce Beattie", "LibriVox", "public domain"},
+	"ljspeech": {"LJ Speech", "en_US-ljspeech-medium", "Bryce Beattie", "Keith Ito", "LibriVox", "public domain"},
+	"norman":   {"Norman", "en_US-norman-medium", "Bryce Beattie", "LibriVox", "public domain"},
 	"programs": {"Piper", "whisper.cpp", "Whisper", "OpenAI", "Ollama", "MIT"},
 }
 
@@ -32,7 +33,7 @@ func TestTheCreditsAreInThePageInBothLanguages(t *testing.T) {
 	page := readAsset(t, "index.html")
 	js := readAsset(t, filepath.Join("js", "i18n.js"))
 
-	for _, key := range []string{"title", "intro", "jenny", "alba", "northern", "programs", "more"} {
+	for _, key := range []string{"title", "intro", "cori", "ljspeech", "norman", "programs", "more"} {
 		name := "credits." + key
 
 		if !strings.Contains(page, `data-i18n="`+name+`"`) {
@@ -55,10 +56,10 @@ func TestTheCreditsAreInThePageInBothLanguages(t *testing.T) {
 				t.Errorf("%s in English does not say %q: %q", name, want, en)
 			}
 
-			// Names and licences stay as they are; the university's name
-			// is translated.
-			if want == "University of Edinburgh" {
-				want = "Единбургски университет"
+			// Names and licences stay as they are; "public domain" is
+			// said in Bulgarian.
+			if want == "public domain" {
+				want = "обществено достояние"
 			}
 
 			if !strings.Contains(bg, want) {
@@ -75,6 +76,14 @@ func TestTheCreditsAreInThePageInBothLanguages(t *testing.T) {
 
 	if !strings.Contains(page, `id="credits-card"`) {
 		t.Error("the credits card is not on the page")
+	}
+
+	// The voices 0.13 installed are no longer spoken with, so the page does
+	// not credit them as if they were.
+	for _, gone := range []string{"jenny_dioco", "en_GB-alba-medium", "northern_english_male"} {
+		if strings.Contains(page, gone) || strings.Contains(js, gone) {
+			t.Errorf("the page still credits %s, which is no longer used", gone)
+		}
 	}
 }
 

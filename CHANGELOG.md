@@ -83,16 +83,29 @@ queue 0.13.0 filled with its own guides (below).
   that folder are taken in without asking, and a path that climbs out of the
   folder is not trusted because of where it starts.
 
+### Voices
+
+- **New voices, free to use for anything.** The three voices 0.13 installed
+  (Jenny (Dioco), alba and northern_english_male) were each fine-tuned from a
+  voice whose recordings are licensed for research only. They are replaced by
+  three trained from scratch on recordings in the public domain: the robot,
+  still the default and still a woman's voice spoken as a machine, is now
+  made from Cori, a British woman; the woman is LJ Speech and the man is
+  Norman, both American. After the update the new voices arrive by
+  themselves the first time the program starts (while *May look things up
+  about itself* is on; otherwise *Voice (speaking)* shows an Update button),
+  a voice you had chosen from the old three becomes the robot, and the old
+  files are no longer used. Bulgarian is spoken by the system voice as
+  before.
+
 ### Credits
 
-- **The voices are credited the way their licences ask.** The robot speaks
-  with the voice of Jenny (Dioco), and its licence asks for that name where
-  the voice is used: the robot is now called "A robot, from the voice of
-  Jenny (Dioco)" in the list of voices. A new card in What it runs on,
-  *Credits and licences* (English and Bulgarian), credits the three voices'
-  datasets (Jenny (Dioco); the Alba corpus, CC BY 4.0; Google's OpenSLR 83,
-  CC BY-SA 4.0), Piper, whisper.cpp, OpenAI's Whisper model and Ollama.
-  THIRD-PARTY-NOTICES.md lists the same with the pinned releases.
+- **The voices and parts are credited.** A new card in What it runs on,
+  *Credits and licences* (English and Bulgarian), names who made each voice
+  and from what (Cori, LJ Speech and Norman, trained by Bryce Beattie from
+  LibriVox recordings in the public domain), and credits Piper, whisper.cpp,
+  OpenAI's Whisper model and Ollama. THIRD-PARTY-NOTICES.md lists the same
+  with the pinned releases.
 
 ### Fixed
 

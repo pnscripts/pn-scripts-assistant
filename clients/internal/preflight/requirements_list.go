@@ -189,7 +189,20 @@ func Requirements() []Requirement {
 							filepath.Join(home, ".local", "src", "piper"),
 							filepath.Join(home, ".local", "share", "piper"),
 						} {
-							if voices, _ := filepath.Glob(filepath.Join(dir, "voices", "*.onnx")); len(voices) > 0 {
+							voices := filepath.Join(dir, "voices")
+
+							/*
+							 * The voices an older release installed are on
+							 * the disk and no longer used, so a copy with
+							 * them and without the new ones is out of
+							 * date, with an Update button, rather than
+							 * installed and silent in the voices it offers.
+							 */
+							if hasWithdrawnVoice(voices) && !hasCurrentVoices(voices) {
+								return Outdated, "piper (neural), with voices an older version installed"
+							}
+
+							if models, _ := filepath.Glob(filepath.Join(voices, "*.onnx")); len(models) > 0 {
 								return OK, "piper (neural)"
 							}
 						}

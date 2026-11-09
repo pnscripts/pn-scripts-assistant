@@ -607,6 +607,9 @@ func (s *Server) Serve(ctx context.Context, listeners ...net.Listener) error {
 	// A runtime from before an update, replaced while the page loads.
 	go s.refreshVoiceprint(ctx)
 
+	// And the voices an older release installed, which this one withdrew.
+	go s.refreshVoices(ctx)
+
 	/*
 	 * The extra ones in the background, the first on this goroutine.
 	 *

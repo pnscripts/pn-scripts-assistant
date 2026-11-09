@@ -82,6 +82,14 @@ stop
 echo "→ $OLD fills it"
 run_env "$WORK/bin/seed"
 
+# A voice chosen from the three 0.13 installed, which this tree withdrew
+# (trained from research-only recordings): it must become the robot.
+if grep -q '^BRAIN_VOICE=' "$WORK/DATA/brain.conf"; then
+    sed -i 's/^BRAIN_VOICE=.*/BRAIN_VOICE=en_GB-alba-medium/' "$WORK/DATA/brain.conf"
+else
+    echo 'BRAIN_VOICE=en_GB-alba-medium' >> "$WORK/DATA/brain.conf"
+fi
+
 echo "→ this tree opens it"
 serve "$WORK/bin/new" "$WORK/new.log"
 
@@ -95,6 +103,13 @@ for route in conversations conversations/1 mail/drafts todos study research care
     fi
 done
 stop
+
+if grep -qx 'BRAIN_VOICE=robot' "$WORK/DATA/brain.conf"; then
+    echo "  ok    a voice 0.13 installed became the robot"
+else
+    echo "  FAIL  the voice setting is $(grep '^BRAIN_VOICE=' "$WORK/DATA/brain.conf")"
+    missing=$((missing + 1))
+fi
 
 echo "→ reading every record back"
 run_env "$WORK/bin/verify"
