@@ -8,6 +8,8 @@ import (
 
 // IngestReport says what a scan actually changed.
 type IngestReport struct {
+	// Seen is how many observations were gone through: all of them, or as
+	// far as it got when the context ended the run early.
 	Seen       int
 	Recorded   int
 	Rejected   int
@@ -55,8 +57,12 @@ func (w *Worker) Ingest(ctx context.Context, observations Observations, progress
 		}
 	}
 
-	for _, o := range observations {
+	for i, o := range observations {
 		if err := ctx.Err(); err != nil {
+			// Seen says how far it got, so a caller can tell what was taken
+			// in from what was never reached. See places.Look.
+			rep.Seen = i
+
 			return rep, err
 		}
 

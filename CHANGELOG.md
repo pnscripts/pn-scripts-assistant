@@ -33,6 +33,14 @@ number is 0, the second one changes when something visible changes.
   than being copied into memory line by line. What a document says is now
   counted under documents in What it knows, not under conversation.
 
+- **Every document in a folder is read whole, and you hear when the folder is
+  done.** Folders are read a bite at a time, and a bite could stop in the
+  middle of a document: its first sentences were remembered and the rest was
+  never read. Each bite now ends between documents. What is left to read is
+  counted in documents again, so "I have finished reading" is said once when
+  a folder is done, and a folder is no longer reported finished while most
+  of it is still unread.
+
 - **The answer on screen stays while background reading finishes.** A folder
   bite that ended during an answer used to clear the "Thinking" line or write
   its own note over it.

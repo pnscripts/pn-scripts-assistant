@@ -134,18 +134,19 @@ func Look(ctx context.Context, learner Reads, seen Seen, owner string, p Place) 
 	 * and not one question about what was inside any of them could be
 	 * answered.
 	 */
-	fresh = learning.ReadContents(ctx, fresh, owner)
+	things := readWhole(ctx, fresh, owner)
 
-	if len(fresh) > EachPass {
-		fresh = fresh[:EachPass]
+	var taking learning.Observations
+	for _, t := range things {
+		taking = append(taking, t...)
 	}
 
-	report, err := learner.Ingest(ctx, fresh, nil)
+	report, err := learner.Ingest(ctx, taking, nil)
 
 	// What was taken in counts even when the pass ended early — the drive was
 	// unplugged, the program is shutting down. Those observations are stored,
 	// and reporting zero would ask for them to be done again.
-	out.Took = report.Seen
+	out.Took = takenWhole(things, report.Seen)
 	out.Learned = report.Promoted
 	out.Known = report.Duplicates
 
@@ -154,12 +155,84 @@ func Look(ctx context.Context, learner Reads, seen Seen, owner string, p Place) 
 		out.Place.Learned = p.Learned + report.Promoted
 	}
 
-	if waiting := out.New - out.Took; waiting >= 0 {
-		out.Place.Waiting = waiting
-		out.Finished = waiting == 0
-	}
+	/*
+	 * Left is counted in the things that were found, and so is taken.
+	 *
+	 * A thing found is one observation; read, a document becomes several. Took
+	 * used to be the second and New the first, so "left" was a difference of
+	 * two units: negative and thrown away for a folder of documents, so the
+	 * pass that finished a place never said so (and the next one, which took
+	 * nothing, could not), or zero while most of the folder was still unread.
+	 */
+	out.Place.Waiting = out.New - out.Took
+	out.Finished = out.Place.Waiting == 0
 
 	return out, err
+}
+
+/*
+ * readWhole opens the documents among things and keeps each one whole.
+ *
+ * One entry per thing found, holding what it became: itself for a listing,
+ * the sentences a document says once it is read, nothing for a file that
+ * could not be opened this time (it comes round again). Things are taken in
+ * order until the next would go past EachPass observations; the first is
+ * always taken, however much it says, or a long document would stop a place
+ * for good.
+ *
+ * Whole because of what reading one is: its sentences are filed under one
+ * source, and a source on record counts as read. Cutting the pass in the
+ * middle of a document kept its first sentences and lost the rest for ever,
+ * which is what applying the cap after reading did.
+ */
+func readWhole(ctx context.Context, things learning.Observations, owner string) []learning.Observations {
+	var (
+		out   []learning.Observations
+		count int
+	)
+
+	for _, t := range things {
+		if ctx.Err() != nil {
+			break
+		}
+
+		became := learning.ReadContents(ctx, learning.Observations{t}, owner)
+
+		if len(out) > 0 && count+len(became) > EachPass {
+			break
+		}
+
+		out = append(out, became)
+		count += len(became)
+	}
+
+	return out
+}
+
+/*
+ * takenWhole is how many of things were taken in completely, given that the
+ * learner went through the first seen of their observations.
+ *
+ * A thing that became nothing (a file that would not open) is not taken: it
+ * was never recorded, so it is still there to read.
+ */
+func takenWhole(things []learning.Observations, seen int) int {
+	taken := 0
+
+	for _, t := range things {
+		if len(t) == 0 {
+			continue
+		}
+
+		if seen < len(t) {
+			break
+		}
+
+		seen -= len(t)
+		taken++
+	}
+
+	return taken
 }
 
 // scan reads a place for whichever kinds it was added for.
