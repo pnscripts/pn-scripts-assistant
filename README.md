@@ -11,6 +11,11 @@ A personal, self-learning AI assistant that runs entirely on your own machine.
 One binary. No database server, no container runtime, no cloud account. It
 remembers what it learns about you, and what it learns stays here.
 
+Version 1.0, for Ubuntu 24.04 or newer and Windows 10 or 11 (64-bit Intel or
+AMD). What it does not do yet is written down in
+[known limits](docs/guide/known-limits.md)
+([на български](docs/guide/known-limits.bg.md)).
+
 ## What it does
 
 - **Answers with memory.** It recalls what it already knows about your projects

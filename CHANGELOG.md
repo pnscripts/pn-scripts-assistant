@@ -3,10 +3,27 @@
 What changed, in the terms somebody using it would notice. The full history is
 in the commits; this is the part worth reading before updating.
 
-Versions follow [semantic versioning](https://semver.org). While the first
-number is 0, the second one changes when something visible changes.
+Versions follow [semantic versioning](https://semver.org). From 1.0.0 on, the
+first number changes only when something you rely on stops working the way it
+did (a setting, a command, where the data lives); the second when something
+new arrives; the third for fixes. Before 1.0.0 the second number changed
+whenever something visible changed.
 
-## Unreleased
+## 1.0.0 — 2026-11-09
+
+The first version we call finished. Everything the 0.x releases added is
+here, and every release, this one included, is checked the way a stranger
+meets it: installed from its published files on a clean Ubuntu 24.04 and a
+clean Windows by the written instructions alone, updated from the version
+before it without losing anything it had learned, and removed again. On Ubuntu new versions arrive
+through Software Updater; on Windows the assistant says when one is out and
+installs it with one button. What it does not do yet, or has not yet been
+seen doing, is written down in
+[docs/guide/known-limits.md](docs/guide/known-limits.md)
+([на български](docs/guide/known-limits.bg.md)).
+
+Nothing you have needs to change: a brain from 0.13.0 or earlier opens as it
+is, and your settings stay.
 
 ### Security
 
@@ -32,6 +49,14 @@ number is 0, the second one changes when something visible changes.
   for you in the review queue, and the built-in skills stay skills rather
   than being copied into memory line by line. What a document says is now
   counted under documents in What it knows, not under conversation.
+
+- **Every document in a folder is read whole, and you hear when the folder is
+  done.** Folders are read a bite at a time, and a bite could stop in the
+  middle of a document: its first sentences were remembered and the rest was
+  never read. Each bite now ends between documents. What is left to read is
+  counted in documents again, so "I have finished reading" is said once when
+  a folder is done, and a folder is no longer reported finished while most
+  of it is still unread.
 
 - **The answer on screen stays while background reading finishes.** A folder
   bite that ended during an answer used to clear the "Thinking" line or write

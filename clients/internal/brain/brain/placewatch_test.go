@@ -118,6 +118,32 @@ func TestTheKnowledgeFolderIsReadToTheEndOnce(t *testing.T) {
 		t.Errorf("the place still says things are waiting: %+v", status)
 	}
 
+	/*
+	 * And it said so, once.
+	 *
+	 * The sentence follows only a bite that took something and finished the
+	 * place. While what was left was found minus taken, with found counted in
+	 * files and taken in the sentences read out of them, the last bite of a
+	 * folder of documents never came out finished, and the empty bite after
+	 * it took nothing: the sentence was never said.
+	 */
+	said, err := whatItSaid(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	finished := 0
+
+	for _, m := range said {
+		if strings.Contains(m.Content, "I have finished reading") {
+			finished++
+		}
+	}
+
+	if finished != 1 {
+		t.Errorf("said it had finished reading the folder %d times, want once", finished)
+	}
+
 	// The program's own guides are not homework: nothing from them waits for
 	// a person, or the queue fills on the first day and all reading stops.
 	if pending, _ := b.DB.CountPendingLessons(); pending != 0 {
