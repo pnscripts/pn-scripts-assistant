@@ -155,3 +155,72 @@ func TestTheBuiltInSkillsAreNotReadIntoMemory(t *testing.T) {
 		t.Errorf("a folder of somebody's own called %s was skipped:\n%s", PackSkillsFolder, outside)
 	}
 }
+
+/*
+ * The copies of imported agent skills are not read into memory either.
+ *
+ * They sit in the knowledge folder (skills.KnowledgeSkills) so they travel
+ * with the brain, and they are other people's writing: a folder of skills from
+ * anywhere on the disk. Read as documents they went into memory unreviewed.
+ * They are already the brain's skills, chosen by what a message is about.
+ */
+func TestImportedSkillsAreNotReadIntoMemory(t *testing.T) {
+	root := t.TempDir()
+
+	learning.SetBrainRoot(root)
+	t.Cleanup(func() { learning.SetBrainRoot("") })
+
+	knowledge := Knowledge(root)
+
+	for _, path := range []string{
+		filepath.Join(knowledge, "guides", "garden.md"),
+		filepath.Join(knowledge, ImportedSkillsFolder, "someones-skill", "SKILL.md"),
+		filepath.Join(knowledge, ImportedSkillsFolder, "someones-skill", "references", "notes.md"),
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+
+		body := "# Notes\n\nThe greenhouse door sticks in wet weather and needs oiling every spring.\n"
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	obs, err := scan(Place{Path: knowledge, Kind: Documents}, "Alex")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var sources []string
+	for _, o := range obs {
+		sources = append(sources, o.Source)
+	}
+
+	all := strings.Join(sources, "\n")
+
+	if strings.Contains(all, "/"+ImportedSkillsFolder+"/") {
+		t.Errorf("an imported skill was read into memory:\n%s", all)
+	}
+
+	if !strings.Contains(all, "guides/garden.md") {
+		t.Errorf("the brain's own guide was left out:\n%s", all)
+	}
+
+	// The same folder as the skills package writes the copies to, and the
+	// same names the learning package refuses to trust.
+	if want := filepath.Join(KnowledgeFolder, ImportedSkillsFolder); want != filepath.Join("knowledge", "skills") {
+		t.Errorf("ImportedSkillsFolder is %q", ImportedSkillsFolder)
+	}
+
+	for _, folder := range []string{PackSkillsFolder, ImportedSkillsFolder} {
+		found := false
+		for _, theirs := range learning.NotOwnKnowledge {
+			found = found || theirs == folder+"/"
+		}
+
+		if !found {
+			t.Errorf("learning.NotOwnKnowledge %v does not name %s", learning.NotOwnKnowledge, folder)
+		}
+	}
+}

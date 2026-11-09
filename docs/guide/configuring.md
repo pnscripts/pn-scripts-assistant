@@ -31,7 +31,11 @@ the window, which has the same settings one at a time, plus:
   `open` (hosted models allowed). In open mode, your messages and the memory
   recalled for that turn are sent to the hosted provider you chose; the memory
   database itself stays on your machine. In `private` and `research` no memory
-  leaves.
+  leaves. `private` is about your words: with *May look things up about
+  itself* on (a separate setting, on by default), the program may still
+  download its own parts, such as the voice recognition runtime after an
+  update. Those downloads carry nothing about you; switch that setting off
+  for a machine that must not reach the internet at all.
 - **Permissions** — *act freely* by default: it does what you ask without
   stopping to confirm, and writes down everything it does. *Ask about what I
   have not allowed* and *ask every time* are the other two.

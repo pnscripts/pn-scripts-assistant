@@ -260,18 +260,28 @@ func scan(p Place, owner string) (learning.Observations, error) {
 	return out, nil
 }
 
-// withoutTheBuiltInSkills leaves out the program's own skills when p is the
-// brain's knowledge folder. See PackSkillsFolder.
+// withoutTheBuiltInSkills leaves out the skills, the program's own and the
+// imported ones, when p is the brain's knowledge folder. See PackSkillsFolder
+// and ImportedSkillsFolder.
 func withoutTheBuiltInSkills(p Place, docs []learning.Document) []learning.Document {
 	if learning.Portable(p.Path) != learning.BrainPrefix+KnowledgeFolder {
 		return docs
 	}
 
-	pack := filepath.Join(p.Path, PackSkillsFolder) + string(filepath.Separator)
+	var skills []string
+	for _, folder := range []string{PackSkillsFolder, ImportedSkillsFolder} {
+		skills = append(skills, filepath.Join(p.Path, folder)+string(filepath.Separator))
+	}
+
 	kept := docs[:0:0]
 
 	for _, d := range docs {
-		if !strings.HasPrefix(filepath.Clean(d.Path), pack) {
+		skill := false
+		for _, folder := range skills {
+			skill = skill || strings.HasPrefix(filepath.Clean(d.Path), folder)
+		}
+
+		if !skill {
 			kept = append(kept, d)
 		}
 	}

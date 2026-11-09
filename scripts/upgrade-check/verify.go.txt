@@ -117,6 +117,42 @@ func main() {
 	reminders, err := db.Reminders(true, 50)
 	check(err == nil && len(reminders) == 1 && has(reminders[0].What), "reminders: %d (%v)", len(reminders), err)
 
+	// The review queue 0.13 filled was tidied when this tree opened it: no
+	// reading of the knowledge folder waits for a person, one of each guide
+	// reading is left, the skills' readings are gone, the document's lesson
+	// still waits.
+	if lessons, err := db.LessonsAfter("proposed", 0, 10000); err == nil {
+		knowledge, document := 0, 0
+		for _, l := range lessons {
+			if strings.HasPrefix(l.Source, "reading:@brain/knowledge/") {
+				knowledge++
+			}
+			if l.Source == "document:/home/you/lease.md" && has(l.Content) {
+				document++
+			}
+		}
+
+		check(knowledge == 0, "no reading of the knowledge folder waits for a person (%d do)", knowledge)
+		check(document == 1, "the document's lesson still waits (%d)", document)
+
+		pending, _ := db.CountPendingLessons()
+		check(pending < 200, "the review queue is below the 200 at which reading stops (%d)", pending)
+	} else {
+		check(false, "lessons: %v", err)
+	}
+
+	all := 0
+	for _, status := range []string{"proposed", "validated", "promoted", "rejected"} {
+		if ls, err := db.LessonsAfter(status, 0, 10000); err == nil {
+			for _, l := range ls {
+				if strings.HasPrefix(l.Source, "reading:@brain/knowledge/") {
+					all++
+				}
+			}
+		}
+	}
+	check(all == 2, "one of each guide reading is kept and the skills' are removed (%d left)", all)
+
 	db.Close()
 
 	// The schema, read straight from the file.

@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,8 +31,26 @@ import (
 // Where the parts come from, and how big they are, so the interface can say
 // what it is about to download before it starts.
 const (
-	ModelFrom = "https://huggingface.co/csukuangfj/speaker-embedding-models/" +
-		"resolve/main/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"
+	/*
+	 * The model, from one commit of its repository rather than its main
+	 * branch.
+	 *
+	 * A branch is whatever its owner last pushed, so fetching from main meant
+	 * the program loaded whatever was there on the day, with nothing to say it
+	 * was the file this was tested with. The commit is the one main pointed at
+	 * on 2026-11-09 (last changed 2024-10-14), and the hash is the file's
+	 * SHA-256 as Hugging Face publishes it for that commit (its LFS object id),
+	 * confirmed by downloading it from this address and hashing it.
+	 */
+	ModelRevision = "0743f301363dec56491a490f6d6cbc9d67f9a3bf"
+	ModelFrom     = "https://huggingface.co/csukuangfj/speaker-embedding-models/" +
+		"resolve/" + ModelRevision + "/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"
+	ModelSHA256 = "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b"
+
+	// ModelBytes is that file's size, and mostModelBytes bounds the download
+	// the way mostRuntimeBytes bounds the runtime's.
+	ModelBytes     = 29596978
+	mostModelBytes = 64 << 20
 
 	/*
 	 * The runtime release, which is not a free choice.
@@ -74,16 +94,49 @@ const (
 // Fetching is how long the whole download may take before it is given up on.
 const Fetching = 20 * time.Minute
 
-// Where the runtime is fetched from and what it must hash to. Variables only
-// so the tests can serve their own archive from this machine; nothing else
+// Where the parts are fetched from and what they must hash to. Variables only
+// so the tests can serve their own files from this machine; nothing else
 // changes them.
 var (
 	runtimeFrom = RuntimeFrom
 	runtimeSum  = RuntimeSHA256
+	modelFrom   = ModelFrom
+	modelSum    = ModelSHA256
 )
 
 // ErrRuntimeTampered is a runtime archive that is not the one released.
 var ErrRuntimeTampered = errors.New("the downloaded runtime is not the published one")
+
+// ErrModelTampered is a model file that is not the one pinned above.
+var ErrModelTampered = errors.New("the downloaded voiceprint model is not the published one")
+
+/*
+ * One download at a time.
+ *
+ * The refresh at start and the Install button fetch into the same folder and
+ * replace the same library. Run side by side they used to share one temporary
+ * archive and one half-written library, so one of them truncated the file the
+ * other was hashing or renaming. Now the second waits for the first and then
+ * finds the work already done.
+ */
+var (
+	fetchingMu sync.Mutex
+	fetching   atomic.Bool
+)
+
+func startFetching() func() {
+	fetchingMu.Lock()
+	fetching.Store(true)
+
+	return func() {
+		fetching.Store(false)
+		fetchingMu.Unlock()
+	}
+}
+
+// Downloading reports whether a part is being fetched right now, so the page
+// can say so rather than start a second download.
+func Downloading() bool { return fetching.Load() }
 
 /*
  * RuntimeCurrent reports whether the runtime on this machine is the release
@@ -141,6 +194,15 @@ func Refresh(ctx context.Context, say func(string)) (bool, error) {
 		return false, nil
 	}
 
+	done := startFetching()
+	defer done()
+
+	// Asked again now that nobody else is fetching: an Install that held the
+	// lock first has already put the matching runtime here.
+	if !RuntimeStale() {
+		return false, nil
+	}
+
 	ctx, stop := context.WithTimeout(ctx, Fetching)
 	defer stop()
 
@@ -173,13 +235,18 @@ func Install(ctx context.Context, say func(string)) error {
 		return fmt.Errorf("making %s: %w", into, err)
 	}
 
+	// After whatever download is already running, which may be doing exactly
+	// this; what is still missing afterwards is decided below.
+	done := startFetching()
+	defer done()
+
 	ctx, stop := context.WithTimeout(ctx, Fetching)
 	defer stop()
 
 	if _, err := os.Stat(filepath.Join(into, ModelName)); err != nil {
 		say("Downloading the model that tells voices apart (about 28MB)…")
 
-		if err := download(ctx, ModelFrom, filepath.Join(into, ModelName)); err != nil {
+		if err := model(ctx, into); err != nil {
 			return err
 		}
 	}
@@ -198,45 +265,50 @@ func Install(ctx context.Context, say func(string)) error {
 	return nil
 }
 
-// download fetches one file, writing beside the destination and renaming, so
-// an interrupted download never looks like a finished one.
-func download(ctx context.Context, from, to string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, from, nil)
+/*
+ * model fetches the pinned model, proves it is the published file, and only
+ * then gives it its name, so an interrupted or refused download never looks
+ * like an installed model.
+ */
+func model(ctx context.Context, into string) error {
+	working, err := temporary(into, ModelName)
 	if err != nil {
 		return err
 	}
+	defer os.Remove(working)
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("fetching %s: %w", from, err)
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("fetching %s: the server said %s", from, res.Status)
-	}
-
-	working := to + ".part"
-
-	file, err := os.Create(working)
-	if err != nil {
+	if err := fetchVerified(ctx, "the voiceprint model", modelFrom, modelSum, working,
+		mostModelBytes, ErrModelTampered); err != nil {
 		return err
 	}
 
-	if _, err := io.Copy(file, res.Body); err != nil {
-		file.Close()
-		os.Remove(working)
-
-		return fmt.Errorf("writing %s: %w", to, err)
+	// CreateTemp makes it readable by this account only; the parts were
+	// always readable by everybody, like any other installed library.
+	if err := os.Chmod(working, 0o644); err != nil {
+		return err
 	}
+
+	return os.Rename(working, filepath.Join(into, ModelName))
+}
+
+// temporary makes an empty file of its own beside name in dir, for a download
+// or a write that is renamed into place when it is complete. Its own, so two
+// writers can never be halfway through the same file.
+func temporary(dir, name string) (string, error) {
+	file, err := os.CreateTemp(dir, "."+name+".*.part")
+	if err != nil {
+		return "", err
+	}
+
+	path := file.Name()
 
 	if err := file.Close(); err != nil {
-		os.Remove(working)
+		os.Remove(path)
 
-		return err
+		return "", err
 	}
 
-	return os.Rename(working, to)
+	return path, nil
 }
 
 /*
@@ -252,10 +324,14 @@ func download(ctx context.Context, from, to string) error {
  * rest is never written to disk.
  */
 func runtime(ctx context.Context, into string) error {
-	archivePath := filepath.Join(into, "onnxruntime.tgz.part")
+	archivePath, err := temporary(into, "onnxruntime.tgz")
+	if err != nil {
+		return err
+	}
 	defer os.Remove(archivePath)
 
-	if err := fetchVerified(ctx, runtimeFrom, runtimeSum, archivePath); err != nil {
+	if err := fetchVerified(ctx, "the runtime", runtimeFrom, runtimeSum, archivePath,
+		mostRuntimeBytes, ErrRuntimeTampered); err != nil {
 		return err
 	}
 
@@ -313,9 +389,9 @@ func runtime(ctx context.Context, into string) error {
 	return fmt.Errorf("the runtime archive did not contain libonnxruntime.so.%s", RuntimeVersion)
 }
 
-// fetchVerified downloads from into to and fails, removing it, unless its
-// SHA-256 is want.
-func fetchVerified(ctx context.Context, from, want, to string) error {
+// fetchVerified downloads from into to and fails, removing it, unless it is at
+// most most bytes and its SHA-256 is want. A refusal wraps tampered.
+func fetchVerified(ctx context.Context, what, from, want, to string, most int64, tampered error) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, from, nil)
 	if err != nil {
 		return err
@@ -323,12 +399,12 @@ func fetchVerified(ctx context.Context, from, want, to string) error {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("fetching the runtime: %w", err)
+		return fmt.Errorf("fetching %s: %w", what, err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("fetching the runtime: the server said %s", res.Status)
+		return fmt.Errorf("fetching %s: the server said %s", what, res.Status)
 	}
 
 	file, err := os.Create(to)
@@ -338,7 +414,7 @@ func fetchVerified(ctx context.Context, from, want, to string) error {
 
 	hash := sha256.New()
 
-	n, err := io.Copy(io.MultiWriter(file, hash), io.LimitReader(res.Body, mostRuntimeBytes+1))
+	n, err := io.Copy(io.MultiWriter(file, hash), io.LimitReader(res.Body, most+1))
 	if cerr := file.Close(); err == nil {
 		err = cerr
 	}
@@ -346,20 +422,20 @@ func fetchVerified(ctx context.Context, from, want, to string) error {
 	if err != nil {
 		os.Remove(to)
 
-		return fmt.Errorf("fetching the runtime: %w", err)
+		return fmt.Errorf("fetching %s: %w", what, err)
 	}
 
-	if n > mostRuntimeBytes {
+	if n > most {
 		os.Remove(to)
 
-		return fmt.Errorf("%w: it is larger than %d megabytes", ErrRuntimeTampered, mostRuntimeBytes>>20)
+		return fmt.Errorf("%w: it is larger than %d megabytes", tampered, most>>20)
 	}
 
 	if got := hex.EncodeToString(hash.Sum(nil)); got != want {
 		os.Remove(to)
 
-		return fmt.Errorf("%w: its SHA-256 is %s, the release's is %s; nothing was installed",
-			ErrRuntimeTampered, got, want)
+		return fmt.Errorf("%w: its SHA-256 is %s, the published one is %s; nothing was installed",
+			tampered, got, want)
 	}
 
 	return nil
@@ -368,12 +444,12 @@ func fetchVerified(ctx context.Context, from, want, to string) error {
 // writeAtomically writes beside the destination and renames, so an
 // interrupted write never looks like a finished one.
 func writeAtomically(to string, from io.Reader) error {
-	working := to + ".part"
-
-	file, err := os.Create(working)
+	file, err := os.CreateTemp(filepath.Dir(to), "."+filepath.Base(to)+".*.part")
 	if err != nil {
 		return err
 	}
+
+	working := file.Name()
 
 	if _, err := io.Copy(file, from); err != nil {
 		file.Close()
@@ -383,6 +459,12 @@ func writeAtomically(to string, from io.Reader) error {
 	}
 
 	if err := file.Close(); err != nil {
+		os.Remove(working)
+
+		return err
+	}
+
+	if err := os.Chmod(working, 0o644); err != nil {
 		os.Remove(working)
 
 		return err

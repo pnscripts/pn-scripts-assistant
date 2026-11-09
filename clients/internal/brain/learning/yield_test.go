@@ -729,3 +729,58 @@ func TestATaskOnScreenIsWaitedForOnlyBriefly(t *testing.T) {
 		t.Errorf("waited %s for a task on screen, want about HoldOff", took)
 	}
 }
+
+/*
+ * Inside the knowledge folder, only what is the brain's own is trusted.
+ *
+ * Copies of imported agent skills live there too (knowledge/skills), and
+ * those are somebody else's writing: a skill folder from anywhere on the
+ * disk, or from a download. And a source is a string, so one that climbs out
+ * of the folder with "../" must not be trusted because of how it starts.
+ */
+func TestOnlyTheBrainsOwnWritingInItsKnowledgeIsTrusted(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "brain")
+
+	SetBrainRoot(root)
+	t.Cleanup(func() { SetBrainRoot("") })
+
+	write := func(path string) {
+		t.Helper()
+
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := os.WriteFile(path, []byte("text"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write(filepath.Join(root, "knowledge", "guides", "mail.md"))
+	write(filepath.Join(root, "knowledge", "my-notes.md"))
+	write(filepath.Join(root, "knowledge", "skills", "someones-skill", "SKILL.md"))
+	write(filepath.Join(root, "knowledge", "pack-skills", "bookkeeping", "SKILL.md"))
+	write(filepath.Join(root, "memory", "notes.md"))
+	write(filepath.Join(filepath.Dir(root), "outside.md"))
+
+	var v Validator
+
+	for source, want := range map[string]string{
+		"reading:" + OwnKnowledge + "guides/mail.md": StatusValidated,
+		"reading:" + OwnKnowledge + "my-notes.md":    StatusValidated,
+
+		// Somebody else's skill, copied into the brain: a person decides.
+		"reading:" + OwnKnowledge + "skills/someones-skill/SKILL.md":   StatusProposed,
+		"reading:" + OwnKnowledge + "pack-skills/bookkeeping/SKILL.md": StatusProposed,
+
+		// Out of the folder by "..": not the brain's own knowledge.
+		"reading:" + OwnKnowledge + "../memory/notes.md":                       StatusProposed,
+		"reading:" + OwnKnowledge + "../../outside.md":                         StatusProposed,
+		"reading:" + OwnKnowledge + "guides/../../memory/notes.md":             StatusProposed,
+		"reading:" + OwnKnowledge + "guides/../skills/someones-skill/SKILL.md": StatusProposed,
+	} {
+		if got := v.StatusFor(source); got != want {
+			t.Errorf("%s: %s, want %s", source, got, want)
+		}
+	}
+}

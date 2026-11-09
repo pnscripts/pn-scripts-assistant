@@ -153,7 +153,10 @@ func (m Mode) Describe() Description {
 			Mode:    ModePrivate,
 			Summary: "Nothing leaves this machine.",
 			Detail: "Local model and local embeddings only. Web search and page fetching " +
-				"are switched off.",
+				"are switched off. Your conversations, memory and files stay here. With " +
+				"\"May look things up about itself\" on (a separate setting), the program may still " +
+				"download its own parts, such as the voice recognition runtime after an " +
+				"update; those downloads carry nothing about you.",
 		}
 	}
 }

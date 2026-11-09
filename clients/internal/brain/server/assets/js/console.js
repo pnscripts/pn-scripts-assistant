@@ -569,8 +569,16 @@ async function refreshStatus() {
                 queue: Math.min(1, (s.memory.pending_lessons || 0) / 10),
             });
         }
-        el('conn-dot').className = 'dot online';
-        el('conn-text').textContent = `online · ${s.capabilities.length} capabilities`;
+        // Online is this program; whether the model answers is shown beside
+        // it, with the way to why (connection.js).
+        const conn = window.pnConnection(s);
+
+        el('conn-dot').className = `dot ${conn.tone}`;
+        el('conn-text').textContent = conn.text;
+        el('status-pill').title = conn.title;
+        el('status-pill').classList.toggle('is-warn', conn.tone === 'warn');
+        el('conn-why').hidden = !conn.why;
+        el('conn-why').title = conn.title;
         // Only offer to speak when there is something that can. A control for
         // a capability the machine lacks is a promise the app cannot keep.
         // Talking needs both halves: hearing you and answering aloud.
@@ -615,7 +623,8 @@ async function refreshStatus() {
         document.title = s.name;
     } catch {
         el('conn-dot').className = 'dot offline';
-        el('conn-text').textContent = 'offline';
+        el('conn-text').textContent = window.pnT ? window.pnT('conn.offline') : 'offline';
+        el('conn-why').hidden = true;
     }
 }
 
@@ -945,6 +954,13 @@ async function talkLoop() {
                  * screen until the next thing is said, and then it is gone.
                  */
                 const ignored = (heard.heard || '').trim();
+
+                // "Answer only me" refused it: said, because the switch shows
+                // on and the brain would otherwise look deaf.
+                if (heard.refused) {
+                    setVoiceStatus(`Not acted on: ${heard.refused}`);
+                    continue;
+                }
 
                 setVoiceStatus(ignored
                     ? `Heard “${short(ignored)}” · say “${state.wakeWord}” to start`
@@ -1858,6 +1874,10 @@ async function openWhereWeLeftOff(canSpeak) {
     refreshActivity();
     el('talk').onclick = toggleTalking;
     el('input').focus();
+
+    // The status pill is written in the page's language, so a change of
+    // language redraws it rather than waiting for the next poll.
+    window.addEventListener('pn-language', () => refreshStatus());
 
     // Polling rather than websockets: approvals can be decided from the Filament
     // admin or another window, and a few seconds of staleness costs nothing here.

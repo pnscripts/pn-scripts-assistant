@@ -14,6 +14,24 @@
  */
 (function () {
     const STRINGS = {
+        // The status pill: this program, and whether its model answers.
+        'conn.online': ['online · {n} capabilities', 'на линия · {n} възможности'],
+        'conn.offline': ['offline', 'няма връзка'],
+        'conn.silent': ['online · the model is not answering', 'на линия · моделът не отговаря'],
+        'conn.silentWhy': [
+            '{name} does not answer, so questions cannot be answered. Models shows what is wrong and what to do.',
+            '{name} не отговаря и на въпросите не може да се отговори. Изгледът с моделите (Models) показва какво не е наред и какво да направите.',
+        ],
+        'conn.forbidden': [
+            'online · the model in use is not allowed in this privacy mode',
+            'на линия · използваният модел не е разрешен в този режим на поверителност',
+        ],
+        'conn.forbiddenWhy': [
+            '{name} is not allowed by the privacy setting, so questions cannot be answered. Models shows what can be used.',
+            '{name} не е разрешен от настройката за поверителност и на въпросите не може да се отговори. Изгледът с моделите (Models) показва какво може да се използва.',
+        ],
+        'conn.why': ['Why?', 'Защо?'],
+
         // Updates: is a newer version out, and getting it.
         'nav.updates': ['What it runs on', 'На какво работи'],
         'upd.title': ['Up to date', 'Актуалност'],

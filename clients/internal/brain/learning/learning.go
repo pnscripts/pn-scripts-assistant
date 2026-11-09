@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 
 	"pn-scripts-assistant/internal/brain/llm"
@@ -197,11 +198,45 @@ func observedPath(source string) (string, bool) {
 
 	// What a document in the brain's own knowledge folder says. See
 	// OwnKnowledge.
-	if rest, ok := strings.CutPrefix(source, "reading:"); ok && strings.HasPrefix(rest, OwnKnowledge) {
+	if rest, ok := strings.CutPrefix(source, "reading:"); ok && ownKnowledge(rest) {
 		return Resolve(rest), true
 	}
 
 	return "", false
+}
+
+/*
+ * NotOwnKnowledge are the folders inside the knowledge folder that hold other
+ * people's writing: the built-in skill pack (places.PackSkillsFolder) and the
+ * copies of imported agent skills (skills.KnowledgeSkills), which may come
+ * from anywhere on the disk or from a download. They are skills, not
+ * memories, and what they say is not trusted as the brain's own.
+ */
+var NotOwnKnowledge = []string{"pack-skills/", "skills/"}
+
+// ownKnowledge reports whether a remembered path is the brain's own knowledge:
+// inside the knowledge folder once cleaned (so "../" cannot climb out of it),
+// and not in one of the folders of other people's writing.
+func ownKnowledge(remembered string) bool {
+	rest, ok := strings.CutPrefix(remembered, BrainPrefix)
+	if !ok {
+		return false
+	}
+
+	clean := path.Clean("/" + strings.ReplaceAll(rest, "\\", "/"))
+
+	inside, ok := strings.CutPrefix(clean, "/"+strings.TrimPrefix(OwnKnowledge, BrainPrefix))
+	if !ok || inside == "" {
+		return false
+	}
+
+	for _, theirs := range NotOwnKnowledge {
+		if strings.HasPrefix(inside, theirs) {
+			return false
+		}
+	}
+
+	return true
 }
 
 /*

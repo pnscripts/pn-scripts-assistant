@@ -12,35 +12,70 @@ whenever something visible changed.
 ## 1.0.0 — 2026-11-09
 
 The first version we call finished. Everything the 0.x releases added is
-here, and every release, this one included, is checked the way a stranger
-meets it: installed from its published files on a clean Ubuntu 24.04 and a
-clean Windows by the written instructions alone, updated from the version
-before it without losing anything it had learned, and removed again. On Ubuntu new versions arrive
-through Software Updater; on Windows the assistant says when one is out and
-installs it with one button. What it does not do yet, or has not yet been
+here. Before it is published, every release is updated in our tests from the
+version before it (an old brain opened by the new program, nothing lost) and
+installed, updated and removed on Windows. Once it is published, its files
+are installed the way a stranger meets them: on a clean Ubuntu 24.04 and a
+clean Windows, by the written instructions alone, and removed again. That
+second check can only run after the release is out, so a problem it finds is
+fixed in the next version. On Ubuntu new versions arrive through Software
+Updater; on Windows the assistant says when one is out and installs it with
+one button. What it does not do yet, or has not yet been
 seen doing, is written down in
 [docs/guide/known-limits.md](docs/guide/known-limits.md)
 ([на български](docs/guide/known-limits.bg.md)).
 
 Nothing you have needs to change: a brain from 0.13.0 or earlier opens as it
-is, and your settings stay.
+is, and your settings stay. The one thing tidied on the way is the review
+queue 0.13.0 filled with its own guides (below).
 
 ### Security
 
-- **The voice recognition runtime is checked before it is used.** The
-  library that tells voices apart is downloaded the first time you turn the
-  feature on. It is now refused unless it is byte for byte the file
-  Microsoft published (its SHA-256 is fixed in the program), so a changed or
-  damaged download never ends up on your computer.
+- **Both parts of voice recognition are checked before they are used.** The
+  library that runs it and the model that tells voices apart are downloaded
+  the first time you turn the feature on. Each is now refused unless it is
+  byte for byte the published file: the library as Microsoft released ONNX
+  Runtime 1.31.0, the model as it is in one fixed commit of its Hugging Face
+  repository (until now it was taken from whatever that repository's main
+  branch held). Both SHA-256 sums are fixed in the program and both
+  downloads have a size limit, so a changed, damaged or endless download
+  never ends up on your computer.
+
+- **"Answer only me" no longer lets everybody through when it cannot
+  recognise your voice.** If the part that tells voices apart was missing,
+  or was the previous version's runtime right after an update, no voice was
+  checked and every voice was answered while the switch still showed on.
+  Now, with the switch on, what it hears is not acted on until your voice
+  can be recognised again; the command centre says why, the Privacy page
+  shows it beside the switch, and typing works as always.
+
+- **Imported skills are not taken into memory unreviewed.** Copies of agent
+  skills imported from your disk are kept in the brain's knowledge folder so
+  they travel with it, and were read into memory there as if they were the
+  program's own guides. They are skills, used when a message is about them,
+  and are no longer read as memories. Only the guides and your own files in
+  that folder are taken in without asking, and a path that climbs out of the
+  folder is not trusted because of where it starts.
 
 ### Fixed
 
 - **A question no longer waits behind background learning.** Reading folders
   and learning from the last conversation now step aside while the assistant
   answers or while you speak, and a long piece of learning that is already
-  running is stopped and done again afterwards, so nothing is lost. On a
-  four-core computer without a graphics card a question asked while a new
-  brain read its own guides used to wait about fourteen minutes.
+  running is stopped and started again afterwards. Stopped a fourth time in
+  a row, that piece is left for later: what a folder said is filed the next
+  time the program starts, and the conversation is looked at again after its
+  next answer. On a four-core computer without a graphics card a question
+  asked while a new brain read its own guides used to wait about fourteen
+  minutes.
+
+- **A brain from 0.13.0 reads again after the update.** 0.13.0 stored every
+  reading of its own guides again on each pass, so its review queue passed
+  the two hundred at which reading stops, on every drive. When this version
+  first opens such a brain it removes the repeats and the readings of
+  skills, files one copy of each guide's reading the way this version does,
+  and leaves everything else in the queue (what your documents and
+  conversations taught) waiting for you as before. This happens once.
 
 - **A new brain reads its own guides once.** The knowledge folder inside the
   brain was never marked as read, so its first sixty guides were read again
@@ -58,9 +93,15 @@ is, and your settings stay.
   a folder is done, and a folder is no longer reported finished while most
   of it is still unread.
 
-- **The answer on screen stays while background reading finishes.** A folder
-  bite that ended during an answer used to clear the "Thinking" line or write
-  its own note over it.
+- **The answer on screen stays while background work finishes.** A folder
+  bite, or the voice recognition download, that ended during an answer used
+  to clear the "Thinking" line or write its own note over it.
+
+- **The status shows when the model does not answer.** The top bar said
+  "online" and named the model whenever the program itself was running, even
+  with Ollama stopped and every question failing. It now says the model is
+  not answering (or is not allowed in your privacy mode), with a "Why?"
+  button to the Models view.
 
 - **Telling voices apart keeps working after an update.** The program now
   uses ONNX Runtime 1.31.0 (with onnxruntime_go 1.38.0). If you turned the
@@ -68,7 +109,9 @@ is, and your settings stay.
   program starts and replaced with the matching one in the background, about
   11 MB, without asking again and without teaching it your voice again. With
   looking things up online switched off, the Privacy page shows the part as
-  missing and its button fetches it.
+  missing and its button fetches it. The refresh and the button never
+  download at the same time: pressed while a download runs, the button says
+  so instead of starting another.
 
 - **An update on Windows that cannot finish gives you your assistant back.**
   When something else still holds the program file (a virus scanner, a copy

@@ -16,6 +16,8 @@ import (
  * nobody asked.
  */
 func TestBackgroundWorkIsMarkedAsSuch(t *testing.T) {
+	fresh(t)
+
 	Done()
 
 	SetBackground("learning", "Learning from the last conversation")
@@ -60,6 +62,8 @@ func TestBackgroundWorkIsMarkedAsSuch(t *testing.T) {
  * the line covering a slow tool never played once in the life of the program.
  */
 func TestARunningToolSaysWhichToolItIs(t *testing.T) {
+	fresh(t)
+
 	Done()
 	defer Done()
 
@@ -106,6 +110,8 @@ func TestARunningToolSaysWhichToolItIs(t *testing.T) {
  * a measurement of the wrong thing.
  */
 func TestLateDetailFindsItsOwnStep(t *testing.T) {
+	fresh(t)
+
 	Done()
 	defer Done()
 
@@ -150,6 +156,8 @@ func TestLateDetailFindsItsOwnStep(t *testing.T) {
  * turns read as the assistant hearing voices in an empty room.
  */
 func TestAStepCanBeQuietenedAfterTheFact(t *testing.T) {
+	fresh(t)
+
 	Begin()
 	Set("transcribing", "Making out the words")
 
@@ -195,6 +203,8 @@ func TestAStepCanBeQuietenedAfterTheFact(t *testing.T) {
  * done pushed off the screen by it.
  */
 func TestProgressRevisesOneStepRatherThanAddingMany(t *testing.T) {
+	fresh(t)
+
 	Begin()
 	Set("thinking", "Thinking")
 

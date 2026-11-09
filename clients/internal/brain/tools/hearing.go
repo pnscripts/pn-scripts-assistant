@@ -185,6 +185,13 @@ func describeHearing(s HearingState) string {
 			"The line would be at %.2f.", s.Match))
 	}
 
+	// The switch on with no way to recognise anybody holds every turn rather
+	// than letting every voice through (see the server's onlyMeRefuses).
+	if s.OnlyOwner && (!s.VoiceModel || !s.VoiceTaught) {
+		lines = append(lines, "\"Answer only me\" is on, so until I can recognise your voice "+
+			"I act on nothing I hear. Type to me instead, or fix it in Privacy.")
+	}
+
 	if s.CancellingUs {
 		lines = append(lines, "Anything this machine plays is subtracted from what I hear, "+
 			"so music and videos on it do not reach me.")

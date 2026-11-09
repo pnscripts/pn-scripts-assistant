@@ -100,6 +100,24 @@ func TestItSaysWhetherItIsAnsweringOnlyOneVoice(t *testing.T) {
 	}
 }
 
+/*
+ * "Answer only me" on with nothing to recognise a voice with: it acts on
+ * nothing it hears, and says so, rather than describing a protection that is
+ * not working (the state after an upgrade left the old runtime behind).
+ */
+func TestItSaysAnswerOnlyMeHoldsEverythingWhenItCannotRecognise(t *testing.T) {
+	for _, state := range []HearingState{
+		{WakeWord: "brain", OnlyOwner: true},
+		{VoiceModel: true, WakeWord: "brain", OnlyOwner: true},
+	} {
+		said := answer(t, state)
+
+		if !strings.Contains(said, "act on nothing I hear") {
+			t.Errorf("with only-me on and no way to recognise a voice it should say it acts on nothing:\n%s", said)
+		}
+	}
+}
+
 func TestItSaysWhetherThisMachinesOwnSoundReachesTheMicrophone(t *testing.T) {
 	state := ready()
 
