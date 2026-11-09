@@ -135,6 +135,47 @@ func untilAQuestion(ctx context.Context, next <-chan struct{}) (context.Context,
 	return inner, func() { cancel(context.Canceled) }
 }
 
+/*
+ * waitForQuestions gives way, and returns the NextTurn to watch during the
+ * call that follows.
+ *
+ * NextTurn is taken before each look at InATurn, so no question is missed;
+ * and taken again after the wait, because one that started during the wait
+ * has already closed the first. Watching that one would cancel the call the
+ * moment it began, spending an attempt on a question that was waited for, not
+ * one that interrupted. So: a question that started since the last look and
+ * is still being answered is waited for as well; one that has already been
+ * answered is simply past.
+ *
+ * A turn that was already running when the wait began and outlasted
+ * GiveWayAtMost does not close next, so it ends the loop rather than keeping
+ * the work waiting for ever (TestATurnThatNeverEndsDoesNotStopLearningForEver).
+ */
+func waitForQuestions(ctx context.Context) <-chan struct{} {
+	next := progress.NextTurn()
+
+	GiveWay(ctx)
+
+	for ctx.Err() == nil {
+		select {
+		case <-next:
+		default:
+			// Nothing started since the look before the wait.
+			return next
+		}
+
+		next = progress.NextTurn()
+
+		if !progress.InATurn() {
+			return next
+		}
+
+		GiveWay(ctx)
+	}
+
+	return next
+}
+
 // gaveWay reports whether a call under inner was stopped for a question,
 // rather than by its caller.
 func gaveWay(outer, inner context.Context) bool {
@@ -154,9 +195,7 @@ func yielding[T any](ctx context.Context, call func(context.Context) (T, error))
 	}
 
 	for restart := 0; ; restart++ {
-		next := progress.NextTurn()
-
-		GiveWay(ctx)
+		next := waitForQuestions(ctx)
 
 		inner, stop := untilAQuestion(ctx, next)
 		out, err := call(inner)

@@ -9,7 +9,7 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
-## 1.0.0 — 2026-11-09
+## 1.0.0 (2026-11-09)
 
 The first version we call finished. Everything the 0.x releases added is
 here. Before it is published, every release is updated in our tests from the
@@ -39,7 +39,23 @@ queue 0.13.0 filled with its own guides (below).
   repository (until now it was taken from whatever that repository's main
   branch held). Both SHA-256 sums are fixed in the program and both
   downloads have a size limit, so a changed, damaged or endless download
-  never ends up on your computer.
+  never ends up on your computer. A model fetched by an earlier version is
+  checked the same way the first time voice recognition is used after the
+  update; if it is not the published file it is not used, and the Privacy
+  page offers to fetch the right one.
+
+- **The voice and listening parts are fixed files too.** The neural voice
+  (Piper 2023.11.14-2 for 64-bit Intel and ARM computers), its three voices,
+  the speech model and whisper.cpp were all fetched from whatever their
+  projects held on the day; the Piper program, which runs on your computer,
+  had no check at all. Now each comes from one release or commit with its
+  SHA-256 fixed in the program, and whisper.cpp is built only from release
+  v1.9.5 after checking that its commit is the expected one. A copy installed
+  by an earlier version is brought to that release, keeping the speech model
+  you already downloaded. A file that is not the published one is never
+  written under its real name, every download has a size limit, and the
+  archive is fetched into a temporary file of its own instead of a fixed name
+  others could create first.
 
 - **"Answer only me" no longer lets everybody through when it cannot
   recognise your voice.** If the part that tells voices apart was missing,
@@ -47,7 +63,8 @@ queue 0.13.0 filled with its own guides (below).
   checked and every voice was answered while the switch still showed on.
   Now, with the switch on, what it hears is not acted on until your voice
   can be recognised again; the command centre says why, the Privacy page
-  shows it beside the switch, and typing works as always.
+  shows it beside the switch (in English or Bulgarian, as the page is), and
+  typing works as always.
 
 - **Imported skills are not taken into memory unreviewed.** Copies of agent
   skills imported from your disk are kept in the brain's knowledge folder so
@@ -62,8 +79,10 @@ queue 0.13.0 filled with its own guides (below).
 - **A question no longer waits behind background learning.** Reading folders
   and learning from the last conversation now step aside while the assistant
   answers or while you speak, and a long piece of learning that is already
-  running is stopped and started again afterwards. Stopped a fourth time in
-  a row, that piece is left for later: what a folder said is filed the next
+  running is stopped and started again afterwards. A question that begins
+  while learning is already waiting is waited for as well, rather than
+  costing it one of its tries. Stopped a fourth time in a row, that piece is
+  left for later: what a folder said is filed the next
   time the program starts, and the conversation is looked at again after its
   next answer. On a four-core computer without a graphics card a question
   asked while a new brain read its own guides used to wait about fourteen
@@ -119,7 +138,7 @@ queue 0.13.0 filled with its own guides (below).
   changes nothing if the file is still held, and opens the copy that is
   installed, instead of leaving the program closed.
 
-## 0.13.0 — 2026-11-08
+## 0.13.0 (2026-11-08)
 
 ### Your rules
 
@@ -182,7 +201,7 @@ queue 0.13.0 filled with its own guides (below).
   says that nothing it could check is out of date and points to the row that
   explains why.
 
-## 0.12.0 — 2026-11-08
+## 0.12.0 (2026-11-08)
 
 ### Installing and updating, with the least effort
 
@@ -224,7 +243,7 @@ queue 0.13.0 filled with its own guides (below).
   manifests are attached to the release, ready for the winget community
   repository.
 
-## 0.11.0 — 2026-11-08
+## 0.11.0 (2026-11-08)
 
 ### Changed
 
@@ -289,7 +308,7 @@ queue 0.13.0 filled with its own guides (below).
   („с `NULL`“), examples that show mistakes on purpose are marked as such, and
   a test now keeps every Bulgarian skill free of findings.
 
-## 0.10.0 — 2026-11-01
+## 0.10.0 (2026-11-01)
 
 ### Security
 
@@ -358,7 +377,7 @@ fixed, each with a test.
 
 - The Learning page no longer says "1 topics · 1 questions".
 
-## 0.9.0 — 2026-10-31
+## 0.9.0 (2026-10-31)
 
 ### Added
 
@@ -381,7 +400,7 @@ fixed, each with a test.
   task it started was still writing when its folder was removed, now stops
   and waits for the task first.
 
-## 0.8.1 — 2026-10-27
+## 0.8.1 (2026-10-27)
 
 ### Added
 
@@ -395,7 +414,7 @@ fixed, each with a test.
   Bulgarian VAT skill follows the VAT Act in force from 1 January 2026
   (registration when the turnover of a calendar year exceeds the threshold).
 
-## 0.8.0 — 2026-10-27
+## 0.8.0 (2026-10-27)
 
 ### Added
 
@@ -428,7 +447,7 @@ fixed, each with a test.
   crowd out the tools that do the work; a request in Bulgarian finds them
   by their Bulgarian description.
 
-## 0.7.0 — 2026-10-26
+## 0.7.0 (2026-10-26)
 
 ### Added
 
@@ -522,7 +541,7 @@ fixed, each with a test.
   table; encrypted and signed PDFs are left alone. No new library: the
   program reads and writes the PDF itself, as an incremental update.
 
-## 0.6.0 — 2026-10-26
+## 0.6.0 (2026-10-26)
 
 ### Added
 
@@ -695,7 +714,7 @@ fixed, each with a test.
   goal, mail, documents and the scam guard. Procedures specific to one
   business are no longer shipped in the program.
 
-## 0.5.0 — 2026-10-23
+## 0.5.0 (2026-10-23)
 
 It knows what your other agents know, carries its knowledge with it, and
 looks twice at every message before you act on it.
@@ -736,7 +755,7 @@ looks twice at every message before you act on it.
 - Built with Go 1.26.10, which fixes GO-2026-6809 in `crypto/x509`
   (found by govulncheck in CI on 2026-10-23).
 
-## 0.4.0 — 2026-10-11
+## 0.4.0 (2026-10-11)
 
 Everything is allowed out of the box and still recorded, what it keeps about
 you is encrypted at rest, it already knows how the work here is done, and the
@@ -797,7 +816,7 @@ first meeting is a conversation. See ADR 0007 and ADR 0008.
   found in the standard library of 1.26.6 (`net/http`, `net/textproto`,
   `crypto/tls`, `html/template`). Nothing in this code changed for it.
 
-## 0.3.0 — 2026-10-06
+## 0.3.0 (2026-10-06)
 
 Two settings that had quietly become one are two again, the Models view says
 something true about every model, and mail goes to the server that sends it.
@@ -829,7 +848,7 @@ something true about every model, and mail goes to the server that sends it.
 - The README and installing guide no longer name a version that was never
   published.
 
-## 0.2.2 — 2026-09-27
+## 0.2.2 (2026-09-27)
 
 Every action in both workflows on its current major, and pinned to a commit.
 
@@ -845,7 +864,7 @@ was not theoretical: a commit that failed CI reached `main` because the person
 pushing it could bypass the rule. A protection with a hole in it for whoever
 is most likely to be in a hurry is not much of a protection.
 
-## 0.2.1 — 2026-09-27
+## 0.2.1 (2026-09-27)
 
 Six jobs had been uploading nothing and passing.
 
@@ -864,7 +883,7 @@ find nothing and call it a success is a shape that will be wrong again.
 disk images and the Windows installer were all there. What was missing is the
 command-line tools beside them.
 
-## 0.2.0 — 2026-09-27
+## 0.2.0 (2026-09-27)
 
 The first release anybody outside this machine can download.
 
@@ -944,7 +963,7 @@ built since then arrives here at once.
   because a project that reads people's files should say how to report a fault
   in it before somebody has to ask.
 
-## 0.1.0 — prepared, never published
+## 0.1.0 (prepared, never published)
 
 The first version that could be installed rather than built: an Ubuntu
 package, a native window, and a brain that remembers. It was built and

@@ -60,3 +60,48 @@ func TestInstallingTheVoiceForReal(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * And listening: whisper.cpp from its pinned commit, built, and the pinned
+ * speech model beside it. Same switch; it compiles for a few minutes and
+ * downloads 488MB, which is the point of running it before a release.
+ */
+func TestInstallingListeningForReal(t *testing.T) {
+	if os.Getenv("PN_SCRIPTS_ASSISTANT_LIVE_INSTALL") == "" {
+		t.Skip("set PN_SCRIPTS_ASSISTANT_LIVE_INSTALL=1 to download, build and install for real")
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	var log strings.Builder
+
+	if err := installWhisper(&log); err != nil {
+		t.Fatalf("installing listening failed: %v\n%s", err, log.String())
+	}
+
+	src := filepath.Join(home, ".local", "src", "whisper.cpp")
+
+	if at, err := headOf(src); err != nil || at != WhisperCommit {
+		t.Errorf("whisper.cpp is at %q (%v), want the pinned %s", at, err, WhisperCommit)
+	}
+
+	if _, err := os.Stat(filepath.Join(home, ".local", "bin", "whisper-cli")); err != nil {
+		t.Errorf("whisper-cli is not on the path: %v", err)
+	}
+
+	if err := Matches(filepath.Join(src, "models", SpeechModel), "sha256", SpeechModelSHA256); err != nil {
+		t.Errorf("the speech model is not the pinned one: %v", err)
+	}
+
+	// Pressed again: nothing is downloaded or moved, everything is checked.
+	log.Reset()
+
+	if err := installWhisper(&log); err != nil {
+		t.Fatalf("installing a second time failed: %v\n%s", err, log.String())
+	}
+
+	if strings.Contains(log.String(), "Downloading "+SpeechModel) {
+		t.Errorf("the second install downloaded the model again:\n%s", log.String())
+	}
+}

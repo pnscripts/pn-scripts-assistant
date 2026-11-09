@@ -74,11 +74,16 @@ func Folder(root string) string { return filepath.Join(root, FolderName) }
  * which is a feature briefly absent rather than one quietly wrong.
  */
 func Installed() bool {
-	if _, err := os.Stat(filepath.Join(Parts(), ModelName)); err != nil {
+	into := Parts()
+
+	if _, err := os.Stat(filepath.Join(into, ModelName)); err != nil {
 		return false
 	}
 
-	return RuntimeCurrent()
+	// The runtime first: it is a stamp to read, and a stale one means not
+	// installed whatever the model is. Then the model, which is hashed once
+	// (modelVerifiedIn): one that is not the published file is never loaded.
+	return RuntimeCurrent() && modelVerifiedIn(into)
 }
 
 /*

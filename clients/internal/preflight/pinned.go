@@ -8,6 +8,7 @@ import (
 	"hash"
 	"io"
 	"os"
+	"path"
 	"runtime"
 	"strings"
 )
@@ -131,6 +132,151 @@ func Node() (Pinned, error) {
 }
 
 /*
+ * The speech parts: the neural voice, its voices, and the speech model.
+ *
+ * Until 1.0 these came from moving targets: the voices and the model from the
+ * main branch of their Hugging Face repositories, whatever was there on the
+ * day, and the Piper program, which is run, with no checksum at all. Now each
+ * is one file of one fixed commit or release, with its SHA-256 written down
+ * here.
+ *
+ * The Hugging Face digests are the files' LFS object ids at that commit (the
+ * API's tree listing, lfs.oid). The small .onnx.json files are not in LFS, so
+ * theirs were computed from a download, whose git blob ids matched the ones
+ * the API lists. Every value here was confirmed on 2026-11-09 by downloading
+ * the file from the address below and hashing it.
+ */
+
+// PiperRelease is the Piper program this installs: the last release of the
+// original project, whose archives contain the program and its libraries.
+const PiperRelease = "2023.11.14-2"
+
+var piperBuilds = map[string]struct {
+	asset string
+	sum   string
+	size  int64
+}{
+	"amd64": {"piper_linux_x86_64.tar.gz",
+		"a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992", 26460462},
+	"arm64": {"piper_linux_aarch64.tar.gz",
+		"fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb", 26004717},
+}
+
+// PiperProgram is the pinned Piper archive for this machine.
+func PiperProgram() (Pinned, error) {
+	build, ok := piperBuilds[runtime.GOARCH]
+	if !ok || runtime.GOOS != "linux" {
+		return Pinned{}, fmt.Errorf("there is no pinned build of the neural voice for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+
+	return Pinned{
+		Name: "Piper " + PiperRelease, Version: PiperRelease,
+		URL: "https://github.com/rhasspy/piper/releases/download/" + PiperRelease + "/" + build.asset,
+		Sum: build.sum, Algorithm: "sha256", Size: build.size,
+		Licence: "MIT, free, no account, no fee",
+	}, nil
+}
+
+// PiperVoicesRevision is the commit of rhasspy/piper-voices the voices come
+// from: main on 2026-10-20, the newest that was at least two weeks old on the
+// day it was pinned.
+const PiperVoicesRevision = "5041a7a49ae5b3a0f30e6837769eb03fdbb231bd"
+
+// A voice is a model and the settings file beside it; one without the other
+// says nothing.
+type voiceFile struct {
+	path, sum string
+	size      int64
+}
+
+var piperVoiceFiles = []struct {
+	name    string
+	licence string
+	files   [2]voiceFile
+}{
+	{"en_GB-alba-medium", "CC BY 4.0 (the Alba dataset)", [2]voiceFile{
+		{"en/en_GB/alba/medium/en_GB-alba-medium.onnx",
+			"401369c4a81d09fdd86c32c5c864440811dbdcc66466cde2d64f7133a66ad03b", 63201294},
+		{"en/en_GB/alba/medium/en_GB-alba-medium.onnx.json",
+			"aa965a2f02ecced632c2694e1fc72bbff6d65f265fab567ca945918c73dd89f4", 4888},
+	}},
+	{"en_GB-northern_english_male-medium", "CC BY-SA 4.0 (OpenSLR 83)", [2]voiceFile{
+		{"en/en_GB/northern_english_male/medium/en_GB-northern_english_male-medium.onnx",
+			"57a219ae8e638873db7d18893304be5069c42868f392bb95c3ff17f0690d0689", 63201294},
+		{"en/en_GB/northern_english_male/medium/en_GB-northern_english_male-medium.onnx.json",
+			"69557ed3d974463453e9b0c09dd99a7ed0e52b8b87b64b357dbeeb2540a97d47", 4847},
+	}},
+	/*
+	 * And the one the robot is built out of: a neural voice with the machine
+	 * timbre put on afterwards, so its words are as clear as the others. A
+	 * woman's voice of its own rather than alba, because the model the robot
+	 * is made of is hidden from the list of voices, and building it out of
+	 * alba would have taken the woman's voice off the menu.
+	 */
+	{"en_GB-jenny_dioco-medium", "the Jenny (Dioco) dataset terms: free use, the voice credited as Jenny", [2]voiceFile{
+		{"en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx",
+			"469c630d209e139dd392a66bf4abde4ab86390a0269c1e47b4e5d7ce81526b01", 63201294},
+		{"en/en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium.onnx.json",
+			"a9a7a93a317c9a3cb6563e37eb057df9ef09c06188a8a4341b0fcb58cba54dd4", 4895},
+	}},
+}
+
+// PiperVoices is every voice file the neural voice is installed with, each
+// pinned. The file name on disk is the last part of the path.
+func PiperVoices() []Pinned {
+	var out []Pinned
+
+	for _, v := range piperVoiceFiles {
+		for _, f := range v.files {
+			out = append(out, Pinned{
+				Name: path.Base(f.path), Version: PiperVoicesRevision,
+				URL: "https://huggingface.co/rhasspy/piper-voices/resolve/" + PiperVoicesRevision + "/" + f.path,
+				Sum: f.sum, Algorithm: "sha256", Size: f.size,
+				Licence: v.licence,
+			})
+		}
+	}
+
+	return out
+}
+
+/*
+ * The speech model whisper.cpp listens with, from one commit of
+ * ggerganov/whisper.cpp on Hugging Face (main on 2026-11-09, unchanged since
+ * 2024-10-29).
+ */
+const (
+	SpeechModelRevision = "5359861c739e955e79d9a303bcbc70fb988958b1"
+	SpeechModelSHA256   = "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b"
+	SpeechModelBytes    = 487601967
+)
+
+// SpeechModelPinned is the speech model as a pinned file.
+func SpeechModelPinned() Pinned {
+	return Pinned{
+		Name: SpeechModel, Version: SpeechModelRevision,
+		URL: SpeechModelFrom, Sum: SpeechModelSHA256, Algorithm: "sha256", Size: SpeechModelBytes,
+		Licence: "MIT, free, no account, no fee",
+	}
+}
+
+/*
+ * whisper.cpp itself is built from source, so what is pinned is the commit.
+ *
+ * The tag is how it is fetched (a shallow clone of one tag is a few
+ * megabytes; of a commit it is not something every git server allows), and
+ * the commit is what is checked afterwards with git rev-parse: a tag can be
+ * moved, a commit cannot be anything but itself. v1.9.5 was released on
+ * 2026-10-06; built and run on a sample with the speech model above on
+ * 2026-11-09.
+ */
+const (
+	WhisperTag    = "v1.9.5"
+	WhisperCommit = "d1be6fde11ac6e0407606b4e42fe72d34add8037"
+	WhisperRepo   = "https://github.com/ggml-org/whisper.cpp"
+)
+
+/*
  * Fetch downloads a pinned file and proves it is the one that was pinned.
  *
  * Through the same door as every other download — the allowed hosts, the size
@@ -143,14 +289,10 @@ func Fetch(p Pinned, to string, w io.Writer) error {
 		return fmt.Errorf("%s has no checksum written down, so it is not fetched", p.Name)
 	}
 
-	if err := download(p.URL, to, w); err != nil {
-		return err
-	}
-
-	if err := Matches(to, p.Algorithm, p.Sum); err != nil {
-		os.Remove(to)
-
-		return fmt.Errorf("%s: %w — the download was deleted", p.Name, err)
+	// Checked before it is given its name (downloadVia), so a file that is
+	// not the pinned one never replaces what was there.
+	if err := downloadExpecting(p.URL, to, expect{algorithm: p.Algorithm, sum: p.Sum, most: p.Size}, w); err != nil {
+		return fmt.Errorf("%s: %w", p.Name, err)
 	}
 
 	fmt.Fprintf(w, "Checked: the %s of %s matches the release\n", p.Algorithm, p.Name)
@@ -158,17 +300,30 @@ func Fetch(p Pinned, to string, w io.Writer) error {
 	return nil
 }
 
+// hasher is the digest named, nil for none, and an error for one this program
+// does not check (so a misspelt name cannot mean "unchecked").
+func hasher(algorithm string) (hash.Hash, error) {
+	switch strings.ToLower(algorithm) {
+	case "":
+		return nil, nil
+	case "sha256":
+		return sha256.New(), nil
+	case "sha512":
+		return sha512.New(), nil
+	default:
+		return nil, fmt.Errorf("%q is not a checksum this program checks", algorithm)
+	}
+}
+
 // Matches reports whether a file's digest is the one given.
 func Matches(path, algorithm, want string) error {
-	var h hash.Hash
+	h, err := hasher(algorithm)
+	if err != nil {
+		return err
+	}
 
-	switch strings.ToLower(algorithm) {
-	case "sha256":
-		h = sha256.New()
-	case "sha512":
-		h = sha512.New()
-	default:
-		return fmt.Errorf("%q is not a checksum this program checks", algorithm)
+	if h == nil {
+		return fmt.Errorf("no checksum was given to compare %s with", path)
 	}
 
 	f, err := os.Open(path)

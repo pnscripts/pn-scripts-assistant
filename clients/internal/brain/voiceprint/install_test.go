@@ -103,6 +103,16 @@ func machine(t *testing.T) string {
 
 	t.Setenv("HOME", t.TempDir())
 
+	/*
+	 * In these tests the bytes "model" are the published model, so a folder
+	 * a test lays out as already installed is one. A test about the model
+	 * download itself names its own (serveModel).
+	 */
+	oldSum := modelSum
+	modelSum = sumOf([]byte("model"))
+
+	t.Cleanup(func() { modelSum = oldSum })
+
 	into := Parts()
 
 	if err := os.MkdirAll(into, 0o755); err != nil {

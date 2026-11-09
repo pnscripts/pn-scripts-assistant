@@ -55,3 +55,17 @@ func TestOpenDoesNotRememberAMissingInstall(t *testing.T) {
 		t.Error("a refusal for missing parts was remembered for the life of the program")
 	}
 }
+
+// A model that is not the published file does not count as installed, so the
+// page offers to fetch it and nothing loads it.
+func TestAModelThatIsNotThePublishedOneIsNotInstalled(t *testing.T) {
+	into := machine(t)
+
+	os.WriteFile(filepath.Join(into, ModelName), []byte("whatever main held in 0.13"), 0o644)
+	os.WriteFile(filepath.Join(into, RuntimeName), []byte("lib"), 0o755)
+	os.WriteFile(filepath.Join(into, RuntimeStamp), []byte(RuntimeVersion+"\n"), 0o644)
+
+	if Installed() {
+		t.Error("a model that is not the published file counts as installed")
+	}
+}

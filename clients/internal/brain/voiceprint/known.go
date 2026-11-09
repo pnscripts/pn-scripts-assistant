@@ -188,6 +188,25 @@ type Verdict struct {
 
 	// Why explains a Judged of false, in words.
 	Why string
+
+	// Reason is Why as one of the Reason codes, so a page can say it in the
+	// reader's language (i18n key 'onlyme.why.<Reason>').
+	Reason string
+}
+
+// Why a voice could not be judged, as codes a page translates.
+const (
+	ReasonNotInstalled    = "notInstalled"
+	ReasonStale           = "stale"
+	ReasonNotTaught       = "notTaught"
+	ReasonNothingRecorded = "nothingRecorded"
+	ReasonUnreadable      = "unreadable"
+)
+
+// Reasons is every Reason code, for the test that each is said in every
+// language the pages speak.
+func Reasons() []string {
+	return []string{ReasonNotInstalled, ReasonStale, ReasonNotTaught, ReasonNothingRecorded, ReasonUnreadable}
 }
 
 /*
@@ -203,12 +222,12 @@ func Recognise(root string, samples []float64, atLeast float64) Verdict {
 	known, err := Load(root)
 
 	if err != nil || known == nil || len(known.Print) != Dimensions {
-		return Verdict{Why: "no voice has been taught to this brain yet"}
+		return Verdict{Why: "no voice has been taught to this brain yet", Reason: ReasonNotTaught}
 	}
 
 	print, err := Of(samples)
 	if err != nil {
-		return Verdict{Why: err.Error()}
+		return Verdict{Why: err.Error(), Reason: ReasonUnreadable}
 	}
 
 	alike := Alike(known.Print, print)

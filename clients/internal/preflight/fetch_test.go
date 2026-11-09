@@ -201,7 +201,7 @@ func TestAnInterruptedDownloadLeavesNothingWearingTheRealName(t *testing.T) {
 
 	into := filepath.Join(t.TempDir(), "ggml-small.bin")
 
-	err := downloadVia(server.Client(), server.URL+"/model.bin", into, io.Discard)
+	err := downloadVia(server.Client(), server.URL+"/model.bin", into, expect{}, io.Discard)
 	if err == nil {
 		t.Fatal("a download that stopped early was reported as finished")
 	}
@@ -218,8 +218,8 @@ func TestAnInterruptedDownloadLeavesNothingWearingTheRealName(t *testing.T) {
 		t.Error("a half download is sitting there under the real name")
 	}
 
-	if _, err := os.Stat(into + ".part"); err == nil {
-		t.Error("the part file was left behind")
+	if parts := partFiles(t, filepath.Dir(into)); len(parts) > 0 {
+		t.Errorf("the part file was left behind: %v", parts)
 	}
 }
 
@@ -235,7 +235,7 @@ func TestACompleteDownloadIsMovedIntoPlace(t *testing.T) {
 
 	into := filepath.Join(t.TempDir(), "thing.bin")
 
-	if err := downloadVia(server.Client(), server.URL+"/thing.bin", into, io.Discard); err != nil {
+	if err := downloadVia(server.Client(), server.URL+"/thing.bin", into, expect{}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -248,7 +248,20 @@ func TestACompleteDownloadIsMovedIntoPlace(t *testing.T) {
 		t.Errorf("%d bytes arrived, want %d", info.Size(), len(body))
 	}
 
-	if _, err := os.Stat(into + ".part"); err == nil {
-		t.Error("the part file was left beside it")
+	if parts := partFiles(t, filepath.Dir(into)); len(parts) > 0 {
+		t.Errorf("the part file was left beside it: %v", parts)
 	}
+}
+
+// partFiles lists the half-written downloads in dir: anything ending in .part,
+// whatever its own name is.
+func partFiles(t *testing.T, dir string) []string {
+	t.Helper()
+
+	found, err := filepath.Glob(filepath.Join(dir, "*.part"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return found
 }

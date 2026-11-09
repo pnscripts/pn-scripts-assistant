@@ -175,3 +175,88 @@ func TestTheModelIsInstalledOnlyWhenItIsThePublishedOne(t *testing.T) {
 		}
 	})
 }
+
+/*
+ * A model fetched by 0.13 or earlier is checked once before it is trusted.
+ *
+ * Those copies took the model from the repository's main branch with no check
+ * at all. Pinning the download does nothing for a file already on the disk:
+ * the next time the feature is turned on, Install saw a file with the right
+ * name and fetched only the runtime, so an unchecked model went on being
+ * loaded for good. Now a model already here is hashed before it counts, and
+ * one that is not the published file is replaced by one that is.
+ */
+func TestAModelFromAnOlderReleaseIsCheckedBeforeItIsTrusted(t *testing.T) {
+	published := []byte("the published model")
+
+	current := func(t *testing.T, into string) {
+		os.WriteFile(filepath.Join(into, RuntimeName), []byte("lib"), 0o755)
+		os.WriteFile(filepath.Join(into, RuntimeStamp), []byte(RuntimeVersion+"\n"), 0o644)
+	}
+
+	t.Run("the published one is kept and not fetched again", func(t *testing.T) {
+		into := machine(t)
+		current(t, into)
+		os.WriteFile(filepath.Join(into, ModelName), published, 0o644)
+
+		asked := serveModel(t, func(w http.ResponseWriter, r *http.Request) { w.Write(published) }, sumOf(published))
+
+		if !modelVerifiedIn(into) {
+			t.Error("the published model already here does not count as checked")
+		}
+
+		if err := Install(context.Background(), nil); err != nil {
+			t.Fatal(err)
+		}
+
+		if n := asked.Load(); n != 0 {
+			t.Errorf("the model was fetched %d times although it was the published one", n)
+		}
+	})
+
+	t.Run("one that is not the published file is replaced", func(t *testing.T) {
+		into := machine(t)
+		current(t, into)
+		os.WriteFile(filepath.Join(into, ModelName), []byte("whatever main held in 0.13"), 0o644)
+
+		asked := serveModel(t, func(w http.ResponseWriter, r *http.Request) { w.Write(published) }, sumOf(published))
+
+		if modelVerifiedIn(into) {
+			t.Fatal("a model that is not the published file counts as checked")
+		}
+
+		if err := Install(context.Background(), nil); err != nil {
+			t.Fatal(err)
+		}
+
+		if n := asked.Load(); n != 1 {
+			t.Errorf("the model was fetched %d times, want once", n)
+		}
+
+		if got := read(t, filepath.Join(into, ModelName)); got != string(published) {
+			t.Errorf("the model is still %q", got)
+		}
+
+		if !modelVerifiedIn(into) {
+			t.Error("the replaced model does not count as checked")
+		}
+	})
+
+	t.Run("a model changed after it was checked is noticed", func(t *testing.T) {
+		into := machine(t)
+		os.WriteFile(filepath.Join(into, ModelName), published, 0o644)
+
+		serveModel(t, func(w http.ResponseWriter, r *http.Request) {}, sumOf(published))
+
+		if !modelVerifiedIn(into) {
+			t.Fatal("the published model does not count as checked")
+		}
+
+		// Another size and another time: not the file that was checked.
+		os.WriteFile(filepath.Join(into, ModelName), []byte("changed afterwards"), 0o644)
+
+		if modelVerifiedIn(into) {
+			t.Error("a model changed after the check still counts as checked")
+		}
+	})
+}

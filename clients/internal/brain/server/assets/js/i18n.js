@@ -32,6 +32,39 @@
         ],
         'conn.why': ['Why?', 'Защо?'],
 
+        // "Answer only me": a turn it heard and did not act on, and the
+        // Privacy page while the switch is on and no voice can be recognised.
+        'onlyme.notActedOn': ['Not acted on: {why}', 'Без действие: {why}'],
+        'onlyme.notYou': [
+            'that is not your voice ({alike} alike, {match} needed)',
+            'това не е вашият глас (сходство {alike}, нужно е {match})',
+        ],
+        'onlyme.unrecognised': [
+            'answer only me is on, and your voice cannot be recognised now: {why}',
+            '„Отговаряй само на мен“ е включено, а гласът ви не може да бъде разпознат в момента: {why}',
+        ],
+        'onlyme.label': ['answer only me', 'отговаряй само на мен'],
+        'onlyme.blocked': [
+            'on, but your voice cannot be recognised now ({why}), so nothing it hears is acted on. '
+                + 'Type instead, or fetch what it needs again.',
+            'включено, но гласът ви не може да бъде разпознат в момента ({why}), затова не изпълнявам нищо '
+                + 'от чутото. Пишете вместо това или изтеглете отново нужното.',
+        ],
+        'onlyme.why.notInstalled': [
+            'the voiceprint model is not installed',
+            'моделът, който различава гласовете, не е инсталиран',
+        ],
+        'onlyme.why.stale': [
+            'the part that tells voices apart is from an older version and has not been updated yet',
+            'частта, която различава гласовете, е от по-стара версия и още не е обновена',
+        ],
+        'onlyme.why.notTaught': [
+            'no voice has been taught to this brain yet',
+            'на асистента още не е показан ваш глас',
+        ],
+        'onlyme.why.nothingRecorded': ['nothing was recorded', 'нищо не беше записано'],
+        'onlyme.why.unreadable': ['the recording could not be measured', 'записът не можа да бъде измерен'],
+
         // Updates: is a newer version out, and getting it.
         'nav.updates': ['What it runs on', 'На какво работи'],
         'upd.title': ['Up to date', 'Актуалност'],

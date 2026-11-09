@@ -784,3 +784,76 @@ func TestOnlyTheBrainsOwnWritingInItsKnowledgeIsTrusted(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * A question that starts while learning is already waiting is waited for too,
+ * and costs no attempt.
+ *
+ * The signal for "a new question started" was taken before the wait. A second
+ * question that began during the wait (while the first was still being
+ * answered) had therefore already fired it by the time the wait ended, so the
+ * call was cancelled the moment it started: an attempt spent on nothing, and
+ * three such conversations in a row and the work was dropped for the day.
+ */
+func TestAQuestionStartedDuringTheWaitDoesNotSpendAnAttempt(t *testing.T) {
+	noTurns(t)
+
+	progress.StartedATurn() // the question being answered when learning wants to run
+
+	var (
+		mu       sync.Mutex
+		attempts int
+		causes   []error
+	)
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		yielding(InBackground(context.Background()), func(ctx context.Context) (int, error) {
+			mu.Lock()
+			attempts++
+			mu.Unlock()
+
+			// A call that takes a moment, during which nobody asks anything.
+			select {
+			case <-ctx.Done():
+				mu.Lock()
+				causes = append(causes, context.Cause(ctx))
+				mu.Unlock()
+
+				return 0, ctx.Err()
+			case <-time.After(200 * time.Millisecond):
+				return 1, nil
+			}
+		})
+	}()
+
+	// Learning is waiting for the first question. A second one starts, then
+	// the first is answered, then the second.
+	time.Sleep(200 * time.Millisecond)
+	progress.StartedATurn()
+	time.Sleep(100 * time.Millisecond)
+	progress.FinishedATurn()
+	time.Sleep(100 * time.Millisecond)
+
+	mu.Lock()
+	early := attempts
+	mu.Unlock()
+
+	if early != 0 {
+		t.Fatalf("background work started while the second question was being answered")
+	}
+
+	progress.FinishedATurn()
+
+	within(t, done, 2*time.Second, "the work finishing after both questions")
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if attempts != 1 || len(causes) != 0 {
+		t.Errorf("%d attempts, stopped by %v; want one attempt that nothing stopped", attempts, causes)
+	}
+}

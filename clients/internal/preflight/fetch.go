@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -65,9 +66,34 @@ var allowedSuffixes = []string{
 	".hf.co",
 }
 
-// mostBytes bounds a download, so a wrong URL cannot fill the disk.
-// 64GB since ADR 0008: a large local model is more than three.
-const mostBytes = 64 << 30
+/*
+ * mostBytes bounds a download that has no size written down, so a wrong URL
+ * or a server that never stops sending cannot fill the disk.
+ *
+ * It was 64GB, sized for language models when they were going to be fetched
+ * through here (ADR 0008). They never were: Ollama fetches its own. What does
+ * come through here is Ollama itself (about 1.3GB), the job catalogues (tens
+ * of megabytes each) and the pinned parts, which carry their own exact size.
+ * Four gigabytes is three times the largest of those and still a bound.
+ */
+const mostBytes = 4 << 30
+
+// expect is what a download must turn out to be before it is given its name.
+// The zero value is a download with no checksum written down, bounded by
+// mostBytes; a pinned file names its digest and its exact size.
+type expect struct {
+	algorithm string
+	sum       string
+	most      int64
+}
+
+func (e expect) limit() int64 {
+	if e.most > 0 {
+		return e.most
+	}
+
+	return mostBytes
+}
 
 /*
  * download fetches one file, reporting progress as it goes.
@@ -77,6 +103,12 @@ const mostBytes = 64 << 30
  * is a button somebody presses again.
  */
 func download(from, to string, w io.Writer) error {
+	return downloadExpecting(from, to, expect{}, w)
+}
+
+// downloadExpecting is download for a file whose digest and size are known:
+// it is given its name only if it is exactly that file.
+func downloadExpecting(from, to string, want expect, w io.Writer) error {
 	// Where it is allowed to fetch from, decided before anything is opened.
 	// downloadVia does the work and does not repeat this check, which is why
 	// nothing outside this file may call it with an address from elsewhere.
@@ -94,7 +126,7 @@ func download(from, to string, w io.Writer) error {
 		},
 	}
 
-	return downloadVia(client, from, to, w)
+	return downloadVia(client, from, to, want, w)
 }
 
 /*
@@ -105,7 +137,16 @@ func download(from, to string, w io.Writer) error {
  * carries no opinion about which addresses are allowed; download does that
  * above, before this is reached.
  */
-func downloadVia(client *http.Client, from, to string, w io.Writer) error {
+func downloadVia(client *http.Client, from, to string, want expect, w io.Writer) error {
+	// The digest is decided to be checkable before a byte is fetched, so a
+	// misspelt algorithm cannot turn into an unchecked install.
+	sum, err := hasher(want.algorithm)
+	if err != nil {
+		return err
+	}
+
+	most := want.limit()
+
 	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
 		return err
 	}
@@ -119,6 +160,12 @@ func downloadVia(client *http.Client, from, to string, w io.Writer) error {
 
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s answered %s", from, res.Status)
+	}
+
+	// Said up front by the server: refused before anything is written.
+	if res.ContentLength > most {
+		return fmt.Errorf("%s is %s, more than the %s it may be; nothing was downloaded",
+			filepath.Base(from), readable(res.ContentLength), readable(most))
 	}
 
 	/*
@@ -135,12 +182,15 @@ func downloadVia(client *http.Client, from, to string, w io.Writer) error {
 	 * removed on the way out however this ends. The rename is the only moment
 	 * the install becomes true, and a rename is atomic.
 	 */
-	part := to + ".part"
-
-	file, err := os.Create(part)
+	// Ending in .part and starting with the destination's own name, which is
+	// what ClearHalfFinished looks for after an interruption.
+	file, err := os.CreateTemp(filepath.Dir(to), filepath.Base(to)+".*.part")
 	if err != nil {
 		return err
 	}
+
+	// Its own name, so two downloads of one file never write into each other.
+	part := file.Name()
 
 	// Removed unless the rename below has already taken it. Interruptions get
 	// here through the process dying rather than through this defer, which is
@@ -162,8 +212,24 @@ func downloadVia(client *http.Client, from, to string, w io.Writer) error {
 
 	counted := &progress{out: w, total: res.ContentLength, every: 4 * time.Second}
 
-	if _, err := io.Copy(file, io.TeeReader(io.LimitReader(res.Body, mostBytes), counted)); err != nil {
+	/*
+	 * One byte more than allowed is read, so that "exactly the limit" and
+	 * "more than the limit" can be told apart. A server that does not say how
+	 * big the file is, or says it wrongly, is stopped here rather than being
+	 * allowed to fill the disk.
+	 */
+	into := io.MultiWriter(file, counted)
+	if sum != nil {
+		into = io.MultiWriter(file, counted, sum)
+	}
+
+	if _, err := io.Copy(into, io.LimitReader(res.Body, most+1)); err != nil {
 		return fmt.Errorf("downloading %s: %w", from, err)
+	}
+
+	if counted.done > most {
+		return fmt.Errorf("%s is larger than the %s it may be; nothing was installed",
+			filepath.Base(from), readable(most))
 	}
 
 	/*
@@ -178,6 +244,21 @@ func downloadVia(client *http.Client, from, to string, w io.Writer) error {
 	if res.ContentLength > 0 && counted.done != res.ContentLength {
 		return fmt.Errorf("%s stopped early: %s of %s",
 			filepath.Base(from), readable(counted.done), readable(res.ContentLength))
+	}
+
+	/*
+	 * And the bytes the release published, checked while it is still a part
+	 * file. A file that is not the pinned one never wears the real name, not
+	 * even for the moment between writing it and checking it: whatever was
+	 * there before stays as it was.
+	 */
+	if sum != nil {
+		got := hex.EncodeToString(sum.Sum(nil))
+
+		if !strings.EqualFold(got, strings.TrimSpace(want.sum)) {
+			return fmt.Errorf("%s is not the published file: its %s is %s, the release says %s; nothing was installed",
+				name, want.algorithm, got, want.sum)
+		}
 	}
 
 	if err := file.Sync(); err != nil {

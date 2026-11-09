@@ -68,10 +68,21 @@ func installOllama(w io.Writer) error {
 	 * extractor here, which checks every entry's path. Letting tar do both
 	 * would give up that check to save a line.
 	 */
-	tmp := filepath.Join(os.TempDir(), "pn-scripts-assistant-ollama.tar.zst")
-	plain := strings.TrimSuffix(tmp, ".zst")
+	// Files of their own in the temporary folder, never a fixed name: on a
+	// shared machine a fixed name in /tmp is one somebody else can create
+	// first. The prefix is what ClearHalfFinished sweeps after a crash.
+	tmp, err := tempFile("pn-scripts-assistant-ollama-*.tar.zst")
+	if err != nil {
+		return err
+	}
 
 	defer os.Remove(tmp)
+
+	plain, err := tempFile("pn-scripts-assistant-ollama-*.tar")
+	if err != nil {
+		return err
+	}
+
 	defer os.Remove(plain)
 
 	const release = "https://github.com/ollama/ollama/releases/latest/download/" +
@@ -178,19 +189,23 @@ func startOllama(binary string, w io.Writer) error {
  * difference between a person using the voice and a person turning it off.
  */
 func installPiper(w io.Writer) error {
-	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
-		return fmt.Errorf("this installs the neural voice only on 64-bit Linux")
+	program, err := PiperProgram()
+	if err != nil {
+		return err
 	}
 
 	into := localShare("piper")
-	tmp := filepath.Join(os.TempDir(), "pn-scripts-assistant-piper.tgz")
+
+	// A file of its own, not a fixed name in /tmp that somebody else could
+	// have made first; the program in it is run.
+	tmp, err := tempFile("pn-scripts-assistant-piper-*.tgz")
+	if err != nil {
+		return err
+	}
 
 	defer os.Remove(tmp)
 
-	const release = "https://github.com/rhasspy/piper/releases/download/" +
-		"2023.11.14-2/piper_linux_x86_64.tar.gz"
-
-	if err := download(release, tmp, w); err != nil {
+	if err := Fetch(program, tmp, w); err != nil {
 		return err
 	}
 
@@ -218,39 +233,11 @@ func installPiper(w io.Writer) error {
 	 */
 	voices := filepath.Join(into, "voices")
 
-	const voiceBase = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/"
-
-	for _, voice := range []struct{ name, path string }{
-		{"en_GB-alba-medium", "en_GB/alba/medium/en_GB-alba-medium"},
-		{"en_GB-northern_english_male-medium",
-			"en_GB/northern_english_male/medium/en_GB-northern_english_male-medium"},
-
-		/*
-		 * And the one the robot is built out of.
-		 *
-		 * The robot used to be espeak, which is genuinely a machine talking
-		 * and is also the reason nobody could make out what it said. It is a
-		 * neural voice with the machine timbre put on afterwards now, so the
-		 * words are as clear as the voice and the character is still a
-		 * machine — which means the robot needs a model like the other two.
-		 *
-		 * Medium rather than high: this is synthesised on the same processor
-		 * the language model runs on, and high costs about twice as long to
-		 * speak for a difference nobody has asked for.
-		 *
-		 * A woman's voice, and one of its own rather than the one above. The
-		 * model the robot is made of is hidden from the list of voices, so
-		 * building it out of alba would have quietly taken the woman's voice
-		 * off the menu to put it behind an effect.
-		 */
-		{"en_GB-jenny_dioco-medium",
-			"en_GB/jenny_dioco/medium/en_GB-jenny_dioco-medium"},
-	} {
-		for _, part := range []string{".onnx", ".onnx.json"} {
-			if err := download(voiceBase+voice.path+part,
-				filepath.Join(voices, voice.name+part), w); err != nil {
-				return err
-			}
+	// The voices are the three in PiperVoices: alba, northern_english_male
+	// and jenny_dioco, each a model and its settings file.
+	for _, voice := range PiperVoices() {
+		if err := fetchUnlessHere(voice, filepath.Join(voices, voice.Name), w); err != nil {
+			return err
 		}
 	}
 
@@ -291,15 +278,8 @@ func installWhisper(w io.Writer) error {
 
 	src := filepath.Join(home, ".local", "src", "whisper.cpp")
 
-	if _, err := os.Stat(filepath.Join(src, "CMakeLists.txt")); err != nil {
-		fmt.Fprintln(w, "Fetching whisper.cpp.")
-
-		if err := run(w, []string{
-			"git", "clone", "--depth", "1",
-			"https://github.com/ggerganov/whisper.cpp", src,
-		}); err != nil {
-			return err
-		}
+	if err := fetchWhisperSource(w, src); err != nil {
+		return err
 	}
 
 	fmt.Fprintln(w, "Building it. This takes a few minutes.")
@@ -343,18 +323,156 @@ func installWhisper(w io.Writer) error {
 	 */
 	model := filepath.Join(src, "models", SpeechModel)
 
-	if info, err := os.Stat(model); err != nil || info.Size() < 50<<20 {
-		fmt.Fprintln(w, "Downloading the speech model — it understands 99 languages, "+
+	if Matches(model, "sha256", SpeechModelSHA256) != nil {
+		fmt.Fprintln(w, "Downloading the speech model. It understands 99 languages, "+
 			"which is why it is 488MB rather than 148.")
+	}
 
-		if err := download(SpeechModelFrom, model, w); err != nil {
-			return err
-		}
+	if err := fetchUnlessHere(SpeechModelPinned(), model, w); err != nil {
+		return err
 	}
 
 	fmt.Fprintln(w, "Listening is installed.")
 
 	return nil
+}
+
+/*
+ * fetchUnlessHere makes to be the pinned file p.
+ *
+ * A file already there is hashed first and kept when it is the pinned one:
+ * somebody pressing install again, or a copy from before 1.0 whose download
+ * came from a branch and happens to be the same bytes, is not sent hundreds of
+ * megabytes again. A file that is not the pinned one is replaced, and only by
+ * a download that is.
+ */
+func fetchUnlessHere(p Pinned, to string, w io.Writer) error {
+	if _, err := os.Stat(to); err == nil {
+		if Matches(to, p.Algorithm, p.Sum) == nil {
+			fmt.Fprintf(w, "%s is already here and is the published file\n", p.Name)
+
+			return nil
+		}
+
+		fmt.Fprintf(w, "%s is here but is not the published file; fetching the published one\n", p.Name)
+	}
+
+	return Fetch(p, to, w)
+}
+
+/*
+ * fetchWhisperSource puts the pinned release of whisper.cpp in src, and proves
+ * it is that commit before anything is built from it.
+ *
+ * It used to be a shallow clone of the main branch: whatever had been pushed
+ * that day, compiled and then run on every word somebody says. Now it is one
+ * tag, and the commit it resolves to is compared with the one written down
+ * (git rev-parse HEAD), so a tag moved upstream is refused rather than built.
+ *
+ * A clone left by an older copy of the program (which followed main) is
+ * brought to the pinned commit in place, keeping its models folder; one that
+ * is not a git checkout is somebody's own and is left alone.
+ */
+var whisperSource = struct{ repo, tag, commit string }{WhisperRepo, WhisperTag, WhisperCommit}
+
+func fetchWhisperSource(w io.Writer, src string) error {
+	fresh := false
+
+	if _, err := os.Stat(src); os.IsNotExist(err) {
+		fmt.Fprintf(w, "Fetching whisper.cpp %s.\n", whisperSource.tag)
+
+		if err := os.MkdirAll(filepath.Dir(src), 0o755); err != nil {
+			return err
+		}
+
+		if err := run(w, []string{
+			"git", "-c", "advice.detachedHead=false", "clone", "--depth", "1",
+			"--branch", whisperSource.tag, whisperSource.repo, src,
+		}); err != nil {
+			os.RemoveAll(src)
+
+			return fmt.Errorf("could not fetch whisper.cpp %s: %w", whisperSource.tag, err)
+		}
+
+		fresh = true
+	} else if err != nil {
+		return err
+	} else if at, _ := headOf(src); at != whisperSource.commit {
+		if _, err := os.Stat(filepath.Join(src, ".git")); err != nil {
+			return fmt.Errorf("%s is not a copy of whisper.cpp this program fetched, so it is left as it is "+
+				"and nothing was built; move it elsewhere and install again", src)
+		}
+
+		fmt.Fprintf(w, "Moving whisper.cpp to the release %s.\n", whisperSource.tag)
+
+		// From the address written here, not from whatever the copy calls
+		// its origin.
+		if err := runIn(w, src, []string{
+			"git", "fetch", "--depth", "1", "--no-tags", whisperSource.repo,
+			"+refs/tags/" + whisperSource.tag + ":refs/tags/" + whisperSource.tag,
+		}); err != nil {
+			return fmt.Errorf("could not fetch whisper.cpp %s: %w", whisperSource.tag, err)
+		}
+
+		if err := runIn(w, src, []string{
+			"git", "-c", "advice.detachedHead=false", "checkout", "--detach", "refs/tags/" + whisperSource.tag,
+		}); err != nil {
+			return fmt.Errorf("could not move %s to whisper.cpp %s (changed by hand?): %w", src, whisperSource.tag, err)
+		}
+	}
+
+	at, err := headOf(src)
+	if err != nil {
+		return fmt.Errorf("could not tell which commit %s is: %w", src, err)
+	}
+
+	if at != whisperSource.commit {
+		// A copy this call made is not left to be built by the next attempt.
+		if fresh {
+			os.RemoveAll(src)
+		}
+
+		return fmt.Errorf("whisper.cpp %s is commit %s, and the pinned release is %s; nothing was built",
+			whisperSource.tag, at, whisperSource.commit)
+	}
+
+	fmt.Fprintf(w, "Checked: whisper.cpp is the pinned commit %s.\n", at[:12])
+
+	return nil
+}
+
+// headOf is the commit a checkout is at. Only src itself is asked: git would
+// otherwise look upwards and answer for a repository src merely sits inside.
+func headOf(src string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = src
+	cmd.Env = append(os.Environ(), "GIT_CEILING_DIRECTORIES="+filepath.Dir(src))
+
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(out)), nil
+}
+
+// tempFile makes an empty file of its own in the temporary folder and returns
+// its name.
+func tempFile(pattern string) (string, error) {
+	file, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return "", err
+	}
+
+	name := file.Name()
+
+	if err := file.Close(); err != nil {
+		os.Remove(name)
+
+		return "", err
+	}
+
+	return name, nil
 }
 
 // link points a name in ~/.local/bin at something, replacing what was there.
@@ -396,7 +514,10 @@ const (
 	// why that rather than the English-only one, which is a third the size.
 	SpeechModel = "ggml-small.bin"
 
-	SpeechModelFrom = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
+	// SpeechModelFrom is one commit of the model's repository, never its
+	// main branch; the digest is SpeechModelSHA256 (pinned.go).
+	SpeechModelFrom = "https://huggingface.co/ggerganov/whisper.cpp/resolve/" +
+		SpeechModelRevision + "/" + SpeechModel
 
 	// SpeechModelSize is what it costs, for saying so before asking.
 	SpeechModelSize = "488MB"

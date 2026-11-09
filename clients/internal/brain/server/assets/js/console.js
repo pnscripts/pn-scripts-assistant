@@ -958,7 +958,9 @@ async function talkLoop() {
                 // "Answer only me" refused it: said, because the switch shows
                 // on and the brain would otherwise look deaf.
                 if (heard.refused) {
-                    setVoiceStatus(`Not acted on: ${heard.refused}`);
+                    setVoiceStatus(window.pnOnlyMe
+                        ? window.pnOnlyMe.notActedOn(heard)
+                        : `Not acted on: ${heard.refused}`);
                     continue;
                 }
 
