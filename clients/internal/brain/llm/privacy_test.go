@@ -225,3 +225,19 @@ func TestOpenSaysRecalledMemoryIsSent(t *testing.T) {
 		t.Errorf("open mode's description still says something is withheld: %q", d.Detail)
 	}
 }
+
+/*
+ * "Nothing leaves this machine" is about your words, and says so: with
+ * "May look things up about itself" on, the program may still fetch its own parts
+ * (the voice recognition runtime is refreshed after an update), and the
+ * description of private mode must not promise otherwise.
+ */
+func TestPrivateModeSaysWhatMayStillBeDownloaded(t *testing.T) {
+	d := ModePrivate.Describe()
+
+	for _, want := range []string{"May look things up about itself", "voice recognition runtime", "nothing about you"} {
+		if !strings.Contains(d.Detail, want) {
+			t.Errorf("private mode's description does not say %q: %s", want, d.Detail)
+		}
+	}
+}

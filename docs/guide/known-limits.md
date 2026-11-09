@@ -4,7 +4,7 @@
 
 What this version does not do, or has not been seen doing, written down so
 nobody has to find it out. Each item says what happens instead. Checked
-against the code on 8 November 2026.
+against the code on 9 November 2026.
 
 ## Systems
 
@@ -94,6 +94,26 @@ against the code on 8 November 2026.
   whether a restart is safe — reads Linux's own records; on Windows the card
   says it does not look yet. Work is not yet moved to quiet hours by itself:
   the allowance of a paid coding agent is shown before each task instead.
+
+## Telling voices apart, and updating from 0.13
+
+- **The voice recognition runtime is replaced when the program first starts
+  after an update**, in the background (about 11 MB), and only while *May look
+  things up about itself* is on. Until it is done, voices are not told apart.
+  With that setting off, or if the download fails, the Privacy page shows the
+  part as missing and its button fetches it; pressed while a download runs,
+  it says so and does not start another.
+- **"Answer only me" acts on nothing it cannot check.** While it is on and a
+  voice cannot be recognised (the part above missing or being replaced, no
+  voice taught yet, or a recording too short to judge), what it hears is not
+  acted on. The command centre says why, the Privacy page shows it beside the
+  switch, and typing works as always.
+- **Documents 0.13 read only in part stay that way until they change.** 0.13
+  could stop reading a long document in the middle. This version reads every
+  document whole, but a document already read is read again only when it
+  changes: save it again (any change) to have the rest of it read. The review
+  queue 0.13 filled with readings of its own guides is tidied by itself, once,
+  on the first start.
 
 ## Mail, devices, storage
 
