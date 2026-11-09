@@ -43,25 +43,59 @@ echo '{"id":"load-check","schema":1}' > "$WORK/DATA/.brain-root.json"
 XVFB_PID=""
 APP_PID=""
 
-stop_all() {
-    [ -n "$APP_PID" ] && kill "$APP_PID" 2> /dev/null || true
-    for _ in $(seq 1 20); do
-        [ -n "$APP_PID" ] && kill -0 "$APP_PID" 2> /dev/null || break
+# Asks a process to stop, waits up to the given seconds and kills it if it is
+# still there, so nothing outlives the check (an Xvfb still starting up when
+# the check gave up was left for the runner to clean up, 09.11.2026).
+# shellcheck disable=SC2317 # reached through stop_all, which the EXIT trap calls
+stop_pid() {
+    local pid="$1" seconds="$2"
+    [ -n "$pid" ] || return 0
+    kill "$pid" 2> /dev/null || return 0
+    for _ in $(seq 1 $((seconds * 2))); do
+        kill -0 "$pid" 2> /dev/null || return 0
         sleep 0.5
     done
-    [ -n "$XVFB_PID" ] && kill "$XVFB_PID" 2> /dev/null || true
+    kill -KILL "$pid" 2> /dev/null || true
+}
+
+# shellcheck disable=SC2317 # called by the EXIT trap
+stop_all() {
+    stop_pid "$APP_PID" 10
+    stop_pid "$XVFB_PID" 5
     rm -rf "$WORK"
 }
 trap stop_all EXIT
 
-# A display of its own; -displayfd says which number it took.
+# A display of its own; -displayfd says which number it took. On a busy CI
+# runner that took more than 5 s (dev run 42631481184, 09.11.2026), so wait
+# up to LOAD_CHECK_XVFB_WAIT seconds, and stop waiting at once if Xvfb died.
+XVFB_WAIT="${LOAD_CHECK_XVFB_WAIT:-30}"
 exec 9> "$WORK/display"
 # shellcheck disable=SC2086 # extra Xvfb arguments are words on purpose
 Xvfb -displayfd 9 -screen 0 1366x768x24 -nolisten tcp ${LOAD_CHECK_XVFB_ARGS:-} > "$WORK/xvfb.log" 2>&1 &
 XVFB_PID=$!
-for _ in $(seq 1 50); do [ -s "$WORK/display" ] && break; sleep 0.1; done
+waited=0
+for _ in $(seq 1 $((XVFB_WAIT * 10))); do
+    [ -s "$WORK/display" ] && break
+    kill -0 "$XVFB_PID" 2> /dev/null || break
+    sleep 0.1
+    waited=$((waited + 1))
+done
 DISPLAY_NUMBER="$(head -1 "$WORK/display")"
-[ -n "$DISPLAY_NUMBER" ] || { echo "Xvfb did not start"; cat "$WORK/xvfb.log"; exit 1; }
+if [ -z "$DISPLAY_NUMBER" ]; then
+    if kill -0 "$XVFB_PID" 2> /dev/null; then
+        echo "Xvfb did not report a display within ${XVFB_WAIT}s"
+    else
+        status=0
+        wait "$XVFB_PID" || status=$?
+        XVFB_PID=""
+        echo "Xvfb exited with status $status before reporting a display"
+    fi
+    echo "--- Xvfb's log ($WORK/xvfb.log):"
+    cat "$WORK/xvfb.log"
+    exit 1
+fi
+echo "→ Xvfb gave display :$DISPLAY_NUMBER after about $((waited / 10)).$((waited % 10))s"
 export DISPLAY=":$DISPLAY_NUMBER"
 
 env -i HOME="$WORK/home" XDG_CONFIG_HOME="$WORK/config" XDG_DATA_HOME="$WORK/home/.local/share" \
