@@ -72,7 +72,7 @@ func FromFile(path string) ([]float64, error) {
 func Judge(root, path string, atLeast float64) Verdict {
 	samples, err := FromFile(path)
 	if err != nil {
-		return Verdict{Why: err.Error()}
+		return Verdict{Why: err.Error(), Reason: ReasonUnreadable}
 	}
 
 	return Recognise(root, samples, atLeast)

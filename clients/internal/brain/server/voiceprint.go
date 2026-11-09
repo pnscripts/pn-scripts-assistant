@@ -24,7 +24,7 @@ import (
  */
 func (s *Server) whoseVoice(samples []float64) voiceprint.Verdict {
 	if len(samples) == 0 {
-		return voiceprint.Verdict{Why: "nothing was recorded"}
+		return voiceprint.Verdict{Why: "nothing was recorded", Reason: voiceprint.ReasonNothingRecorded}
 	}
 
 	if !voiceprint.Installed() {
@@ -32,10 +32,10 @@ func (s *Server) whoseVoice(samples []float64) voiceprint.Verdict {
 		// release's, which is a different fix from never having fetched it.
 		if voiceprint.RuntimeStale() {
 			return voiceprint.Verdict{Why: "the part that tells voices apart is from an older version " +
-				"and has not been updated yet"}
+				"and has not been updated yet", Reason: voiceprint.ReasonStale}
 		}
 
-		return voiceprint.Verdict{Why: "the voiceprint model is not installed"}
+		return voiceprint.Verdict{Why: "the voiceprint model is not installed", Reason: voiceprint.ReasonNotInstalled}
 	}
 
 	match := s.brain.Cfg.VoiceMatch
@@ -48,8 +48,30 @@ func (s *Server) whoseVoice(samples []float64) voiceprint.Verdict {
 }
 
 /*
+ * refusal is why "answer only me" did not let a turn through: the sentence,
+ * and the same as a key and values the page says in the reader's language
+ * (i18n.js 'onlyme.*', drawn by onlyme.js). Text alone was English on a
+ * Bulgarian page.
+ */
+type refusal struct {
+	Text string
+	Key  string
+	Vars map[string]any
+}
+
+// fields are what a turn's answer carries about the refusal, none when there
+// was none: the sentence, and its key and values for the page (onlyme.js).
+func (r refusal) fields() map[string]any {
+	if r.Text == "" {
+		return nil
+	}
+
+	return map[string]any{"refused": r.Text, "refused_key": r.Key, "refused_vars": r.Vars}
+}
+
+/*
  * onlyMeRefuses says why a turn is not acted on because of "answer only me",
- * or "" when that switch lets it through.
+ * or nothing (an empty Text) when that switch lets it through.
  *
  * Somebody else's voice is refused, and so is a voice that could not be
  * recognised at all. The second used to pass: after an upgrade the runtime of
@@ -57,13 +79,17 @@ func (s *Server) whoseVoice(samples []float64) voiceprint.Verdict {
  * was answered while the switch still showed on. A protection that turns off
  * by itself without saying so is worse than none, because it is relied on.
  */
-func (s *Server) onlyMeRefuses(whose voiceprint.Verdict) string {
+func (s *Server) onlyMeRefuses(whose voiceprint.Verdict) refusal {
 	if !s.brain.Cfg.OnlyMe {
-		return ""
+		return refusal{}
 	}
 
 	if !whose.Judged {
-		return "answer only me is on, and your voice cannot be recognised now: " + whose.Why
+		return refusal{
+			Text: "answer only me is on, and your voice cannot be recognised now: " + whose.Why,
+			Key:  "onlyme.unrecognised",
+			Vars: map[string]any{"why": whose.Reason},
+		}
 	}
 
 	if !whose.Owner {
@@ -72,29 +98,35 @@ func (s *Server) onlyMeRefuses(whose voiceprint.Verdict) string {
 			match = 0.5
 		}
 
-		return fmt.Sprintf("that is not your voice (%.2f alike, %.2f needed)", whose.Alike, match)
+		return refusal{
+			Text: fmt.Sprintf("that is not your voice (%.2f alike, %.2f needed)", whose.Alike, match),
+			Key:  "onlyme.notYou",
+			Vars: map[string]any{"alike": whose.Alike, "match": match},
+		}
 	}
 
-	return ""
+	return refusal{}
 }
 
-// onlyMeBlocked is why "answer only me" cannot recognise anybody now, or ""
-// when it can: for the Privacy page, while the switch shows on.
-func (s *Server) onlyMeBlocked() string {
+// onlyMeBlocked is why "answer only me" cannot recognise anybody now, as a
+// sentence and a Reason code, or "" when it can: for the Privacy page, while
+// the switch shows on.
+func (s *Server) onlyMeBlocked() (string, string) {
 	if !s.brain.Cfg.OnlyMe {
-		return ""
+		return "", ""
 	}
 
 	switch {
 	case voiceprint.RuntimeStale():
-		return "the part that tells voices apart is from an older version and has not been updated yet"
+		return "the part that tells voices apart is from an older version and has not been updated yet",
+			voiceprint.ReasonStale
 	case !voiceprint.Installed():
-		return "the voiceprint model is not installed"
+		return "the voiceprint model is not installed", voiceprint.ReasonNotInstalled
 	case !voiceprint.Enrolled(s.brain.Root):
-		return "no voice has been taught to this brain yet"
+		return "no voice has been taught to this brain yet", voiceprint.ReasonNotTaught
 	}
 
-	return ""
+	return "", ""
 }
 
 /*
@@ -123,8 +155,9 @@ func (s *Server) handleVoiceprint(w http.ResponseWriter, r *http.Request) {
 		"megabytes":   voiceprint.AboutMegabytes,
 	}
 
-	if blocked := s.onlyMeBlocked(); blocked != "" {
+	if blocked, why := s.onlyMeBlocked(); blocked != "" {
 		body["only_me_blocked"] = blocked
+		body["only_me_blocked_why"] = why
 	}
 
 	if known != nil {

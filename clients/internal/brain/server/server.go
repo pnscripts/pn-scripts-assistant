@@ -1268,7 +1268,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	 * the panel that shows this is the only way to tell them apart.
 	 */
 	refused := s.onlyMeRefuses(whose)
-	if refused != "" {
+	if refused.Text != "" {
 		addressed.Addressed = false
 	}
 
@@ -1298,8 +1298,8 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		turn.Owner = whose.Owner
 	}
 
-	if refused != "" && heard.Text != "" {
-		turn.Why = refused
+	if refused.Text != "" && heard.Text != "" {
+		turn.Why = refused.Text
 	}
 
 	s.heard.add(turn)
@@ -1322,8 +1322,8 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 
 	// Why it was not acted on when "answer only me" decided it, so the page
 	// can say so rather than look as if nothing was heard.
-	if refused != "" {
-		answer["refused"] = refused
+	for field, value := range refused.fields() {
+		answer[field] = value
 	}
 
 	ok(w, answer)

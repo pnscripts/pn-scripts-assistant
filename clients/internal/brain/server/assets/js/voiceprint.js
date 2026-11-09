@@ -90,8 +90,9 @@ function draw() {
      * still shows on, so it has to say here why the brain is not answering.
      */
     if (state.only_me && state.only_me_blocked) {
-        lines.push(['answer only me', `on, but your voice cannot be recognised now (${
-            state.only_me_blocked}), so nothing it hears is acted on. Type instead, or fetch what it needs again.`]);
+        lines.push(window.pnOnlyMe ? window.pnOnlyMe.blocked(state)
+            : ['answer only me', `on, but your voice cannot be recognised now (${
+                state.only_me_blocked}), so nothing it hears is acted on. Type instead, or fetch what it needs again.`]);
     }
 
     // Text, never markup: a reason the server gives is shown as it is written.
@@ -256,6 +257,9 @@ el('voice-only').onchange = async () => {
 
     load();
 };
+
+// The "answer only me" row follows the page's language when it changes.
+window.addEventListener('pn-language', () => draw());
 
 load();
 
