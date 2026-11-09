@@ -111,6 +111,12 @@
             'Говорене: Piper на Michael Hansen (MIT). Слушане: whisper.cpp на авторите на ggml (MIT) '
                 + 'с модела Whisper small на OpenAI (MIT). Локални модели: Ollama (MIT).',
         ],
+        'credits.voiceprint': [
+            'Answer only me: the CAM++ model from the 3D-Speaker project on ModelScope (Apache-2.0), '
+                + 'trained on VoxCeleb, run with ONNX Runtime by Microsoft (MIT).',
+            '„Answer only me“: моделът CAM++ от проекта 3D-Speaker в ModelScope (Apache-2.0), '
+                + 'обучен върху VoxCeleb, изпълняван с ONNX Runtime на Microsoft (MIT).',
+        ],
         'credits.more': [
             'Every component and its licence is listed in THIRD-PARTY-NOTICES.md, published with the program\'s source code.',
             'Всички компоненти и техните лицензи са изброени в THIRD-PARTY-NOTICES.md, публикуван заедно с изходния код на програмата.',

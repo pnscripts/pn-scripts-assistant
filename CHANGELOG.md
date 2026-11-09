@@ -104,8 +104,9 @@ queue 0.13.0 filled with its own guides (below).
   *Credits and licences* (English and Bulgarian), names who made each voice
   and from what (Cori, LJ Speech and Norman, trained by Bryce Beattie from
   LibriVox recordings in the public domain), and credits Piper, whisper.cpp,
-  OpenAI's Whisper model and Ollama. THIRD-PARTY-NOTICES.md lists the same
-  with the pinned releases.
+  OpenAI's Whisper model, Ollama, and the CAM++ model and ONNX Runtime behind
+  "Answer only me". THIRD-PARTY-NOTICES.md lists the same with the pinned
+  releases.
 
 ### Fixed
 
