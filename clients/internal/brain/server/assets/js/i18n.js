@@ -79,6 +79,42 @@
                 + 'Всеки изтеглен файл се сверява със SHA-256 сумите на версията, преди да се инсталира.',
         ],
         'upd.updateNow': ['Update now', 'Обнови сега'],
+
+        // Credits for the downloaded voices, speech model and Ollama
+        // (Updates view). The Jenny voice's licence asks for "Jenny (Dioco)".
+        'credits.title': ['Credits and licences', 'Признания и лицензи'],
+        'credits.intro': [
+            'These parts are downloaded from their publishers when you install them, and each keeps its own licence.',
+            'Тези части се изтеглят от техните издатели, когато ги инсталирате, и всяка запазва собствения си лиценз.',
+        ],
+        'credits.jenny': [
+            'The robot speaks with the voice of Jenny (Dioco): the Piper voice en_GB-jenny_dioco-medium, '
+                + 'trained on the Jenny (Dioco) dataset and used under its licence.',
+            'Роботът говори с гласа на Jenny (Dioco): гласът за Piper en_GB-jenny_dioco-medium, '
+                + 'обучен върху набора от записи Jenny (Dioco) и използван според неговия лиценз.',
+        ],
+        'credits.alba': [
+            'The woman is the Piper voice en_GB-alba-medium, trained on the Alba speech corpus by '
+                + 'Cassia Valentini-Botinhao and Junichi Yamagishi, University of Edinburgh (CC BY 4.0).',
+            'Жената е гласът за Piper en_GB-alba-medium, обучен върху речевия корпус Alba на '
+                + 'Cassia Valentini-Botinhao и Junichi Yamagishi, Единбургски университет (CC BY 4.0).',
+        ],
+        'credits.northern': [
+            'The man is the Piper voice en_GB-northern_english_male-medium, trained on Google\'s UK and Ireland '
+                + 'English Dialect speech data set, OpenSLR 83 (CC BY-SA 4.0).',
+            'Мъжът е гласът за Piper en_GB-northern_english_male-medium, обучен върху набора от записи '
+                + 'на Google с английски диалекти от Обединеното кралство и Ирландия, OpenSLR 83 (CC BY-SA 4.0).',
+        ],
+        'credits.programs': [
+            'Speaking: Piper by Michael Hansen (MIT). Listening: whisper.cpp by the ggml authors (MIT) '
+                + 'with the Whisper small model by OpenAI (MIT). Local models: Ollama (MIT).',
+            'Говорене: Piper на Michael Hansen (MIT). Слушане: whisper.cpp на авторите на ggml (MIT) '
+                + 'с модела Whisper small на OpenAI (MIT). Локални модели: Ollama (MIT).',
+        ],
+        'credits.more': [
+            'Every component and its licence is listed in THIRD-PARTY-NOTICES.md, published with the program\'s source code.',
+            'Всички компоненти и техните лицензи са изброени в THIRD-PARTY-NOTICES.md, публикуван заедно с изходния код на програмата.',
+        ],
         'upd.later': ['Later', 'По-късно'],
         'upd.banner': ['{name} {latest} is out — you have {have}.', 'Излезе {name} {latest} — вашата версия е {have}.'],
         'upd.allCurrent': ['Everything is current.', 'Всичко е актуално.'],
