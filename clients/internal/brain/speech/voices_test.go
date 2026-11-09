@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"pn-scripts-assistant/internal/preflight"
 )
 
 /*
@@ -15,9 +17,10 @@ import (
  */
 func TestPickingAVoiceByKind(t *testing.T) {
 	// The names carry no pattern, which is why this is a list and not a rule.
-	women := []string{"en_GB-alba-medium", "en_US-amy-medium", "it_IT-paola-medium"}
-	men := []string{"en_US-lessac-medium", "en_GB-northern_english_male-medium",
-		"de_DE-thorsten-medium", "bg_BG-dimitar-medium"}
+	women := []string{"en_GB-cori-medium", "en_US-ljspeech-medium", "en_US-kristin-medium",
+		"en_GB-alba-medium", "en_US-amy-medium", "it_IT-paola-medium"}
+	men := []string{"en_US-norman-medium", "en_US-john-medium", "en_US-lessac-medium",
+		"en_GB-northern_english_male-medium", "de_DE-thorsten-medium", "bg_BG-dimitar-medium"}
 
 	for _, id := range women {
 		if voiceSex[id] != "woman" {
@@ -175,17 +178,32 @@ func TestTheRobotIsBuiltFromAWomansVoice(t *testing.T) {
 }
 
 /*
- * The robot never takes the woman's voice that is offered in the list.
+ * The robot never takes a voice that is offered in the list.
  *
- * The model the robot is made of is hidden, so a robot built from alba would
- * silently remove the woman's voice somebody could otherwise have chosen —
- * leaving a list with a man and a robot on it and no way to say what happened.
+ * The model the robot is made of is hidden, so a robot built from the woman
+ * setup installs would silently remove the woman's voice somebody could
+ * otherwise have chosen, leaving a list with a man and a robot on it and no
+ * way to say what happened. Of the voices setup installs, exactly one is
+ * there for the robot.
  */
 func TestTheRobotDoesNotTakeAVoiceThatIsOffered(t *testing.T) {
-	for _, id := range RobotModels {
-		if id == "en_GB-alba-medium" {
-			t.Error("the robot would take the woman's voice out of the list")
+	var forTheRobot []string
+
+	for _, p := range preflight.PiperVoices() {
+		id, model := strings.CutSuffix(p.Name, ".onnx")
+		if !model {
+			continue
 		}
+
+		for _, r := range RobotModels {
+			if r == id {
+				forTheRobot = append(forTheRobot, id)
+			}
+		}
+	}
+
+	if len(forTheRobot) != 1 || forTheRobot[0] != RobotModels[0] {
+		t.Errorf("of the voices setup installs, the robot would be made of %v; want only %s", forTheRobot, RobotModels[0])
 	}
 }
 
@@ -197,49 +215,181 @@ func TestTheRobotUsesWhicheverModelIsThere(t *testing.T) {
 		t.Errorf("a machine with no voices gave %q", got)
 	}
 
-	only := map[string]string{"en_US-lessac-medium": "/somewhere/lessac.onnx"}
+	only := map[string]string{"en_US-kristin-medium": "/somewhere/kristin.onnx"}
 
-	if got := RobotModel(only); got != "en_US-lessac-medium" {
+	if got := RobotModel(only); got != "en_US-kristin-medium" {
 		t.Errorf("the only installed model gave %q", got)
 	}
 
 	both := map[string]string{
-		"en_US-lessac-medium":      "/somewhere/lessac.onnx",
-		"en_GB-jenny_dioco-medium": "/somewhere/jenny.onnx",
+		"en_US-kristin-medium": "/somewhere/kristin.onnx",
+		"en_GB-cori-medium":    "/somewhere/cori.onnx",
 	}
 
-	if got := RobotModel(both); got != "en_GB-jenny_dioco-medium" {
+	if got := RobotModel(both); got != "en_GB-cori-medium" {
 		t.Errorf("with both installed it chose %q", got)
 	}
 }
 
 /*
- * The Jenny voice is called Jenny (Dioco), as its licence asks.
+ * Nothing the robot is made of was trained from data that may only be used
+ * for research.
  *
- * The dataset's licence: software that speaks with it refers to the voice as
- * "Jenny", and where at all practical as "Jenny (Dioco)". The robot is made
- * from it, so the robot says so in the list somebody chooses from.
+ * Every voice on the list was trained from scratch on recordings in the
+ * public domain, or fine-tuned from one that was (john from kristin). The
+ * ones fine-tuned from lessac, whose recordings are licensed for research
+ * only, or trained on non-commercial data, were on it until 1.0.
  */
-func TestTheJennyVoiceIsCreditedWhereItIsChosen(t *testing.T) {
-	const jenny = "en_GB-jenny_dioco-medium"
-
-	if got := robotName(jenny); !strings.Contains(got, "Jenny (Dioco)") || !strings.HasPrefix(got, "A robot") {
-		t.Errorf("the robot made from Jenny is called %q", got)
+func TestTheRobotIsMadeOnlyOfVoicesFreeToUse(t *testing.T) {
+	free := map[string]bool{
+		"en_GB-cori-medium": true, "en_GB-cori-high": true,
+		"en_US-kristin-medium": true, "en_US-john-medium": true,
 	}
 
-	if got := humaniseVoice(jenny); !strings.HasPrefix(got, "Jenny (Dioco) · ") {
-		t.Errorf("the Jenny voice on its own is called %q", got)
+	for _, id := range RobotModels {
+		if !free[id] {
+			t.Errorf("the robot can be made of %s, whose lineage is not known to be free to use", id)
+		}
+	}
+}
+
+// The default the assistant answers in is a British woman's voice, Cori's,
+// with the machine timbre on it.
+func TestTheDefaultRobotIsMadeOfCori(t *testing.T) {
+	if RobotModels[0] != "en_GB-cori-medium" {
+		t.Errorf("the robot is made of %s first", RobotModels[0])
+	}
+}
+
+// pipersHome makes a home with a piper install holding the voices named, and
+// points the search at it for the rest of the test.
+func pipersHome(t *testing.T, names ...string) string {
+	t.Helper()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", t.TempDir())
+
+	dir := filepath.Join(home, ".local", "share", "piper")
+	voices := filepath.Join(dir, "voices")
+
+	if err := os.MkdirAll(voices, 0o755); err != nil {
+		t.Fatal(err)
 	}
 
-	// The others keep their plain names; nothing is credited that is not
-	// asked for.
-	if got := robotName("en_US-amy-medium"); got != "A robot" {
-		t.Errorf("a robot from amy is called %q", got)
+	if err := os.WriteFile(filepath.Join(dir, "piper"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
 	}
 
-	// Jenny is the first the robot is made from, so the credit is what a
-	// machine with the installed voices actually shows.
-	if RobotModels[0] != jenny {
-		t.Errorf("the robot is made from %s first; check its credit", RobotModels[0])
+	for _, name := range names {
+		for _, ext := range []string{".onnx", ".onnx.json"} {
+			if err := os.WriteFile(filepath.Join(voices, name+ext), []byte(name), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	ForgetPiper()
+	t.Cleanup(ForgetPiper)
+
+	SetVoice("")
+	t.Cleanup(func() { SetVoice("") })
+
+	return voices
+}
+
+/*
+ * A copy updated from 0.13 has the old voices and the new ones side by side,
+ * and only the new ones are offered.
+ *
+ * The old files are not deleted (that is the person's choice), so the list is
+ * what keeps them silent: not offered, not the robot, not the voice piper
+ * falls back to.
+ */
+func TestTheWithdrawnVoicesAreNeitherOfferedNorUsed(t *testing.T) {
+	voices := pipersHome(t,
+		"en_GB-alba-medium", "en_GB-jenny_dioco-medium", "en_GB-northern_english_male-medium",
+		"en_GB-cori-medium", "en_US-ljspeech-medium", "en_US-norman-medium")
+
+	if p := FindPiper(); p == nil || preflight.Withdrawn(p.Voice) {
+		t.Fatalf("piper was found as %+v", p)
+	}
+
+	kinds := map[string]Voice{}
+
+	for _, v := range Voices() {
+		if preflight.Withdrawn(v.ID) || preflight.Withdrawn(v.Path) {
+			t.Errorf("%s (%s) is offered", v.ID, v.Path)
+		}
+
+		if v.Engine == "piper" {
+			kinds[v.Sex] = v
+		}
+	}
+
+	if robot := kinds["robot"]; robot.ID != RobotID || robot.Path != filepath.Join(voices, "en_GB-cori-medium.onnx") {
+		t.Errorf("the robot is %+v, want it made of Cori", robot)
+	}
+
+	if woman := kinds["woman"]; woman.ID != "en_US-ljspeech-medium" || woman.Name != "LJ Speech · American" {
+		t.Errorf("the woman is %+v", woman)
+	}
+
+	if man := kinds["man"]; man.ID != "en_US-norman-medium" || man.Name != "Norman · American" {
+		t.Errorf("the man is %+v", man)
+	}
+
+	// And the default, with nothing chosen, is that robot.
+	if got := CurrentVoice(); got.ID != RobotID || got.Engine != "piper" {
+		t.Errorf("the default is %+v", got)
+	}
+}
+
+// A copy that has only the old voices (looking online off, the update not yet
+// pressed) speaks in the system voice rather than in a withdrawn one.
+func TestOnlyTheWithdrawnVoicesIsNoNeuralVoice(t *testing.T) {
+	pipersHome(t, "en_GB-alba-medium", "en_GB-jenny_dioco-medium", "en_GB-northern_english_male-medium")
+
+	if p := FindPiper(); p != nil {
+		t.Errorf("piper was found with only withdrawn voices: %+v", p)
+	}
+
+	for _, v := range Voices() {
+		if v.Engine == "piper" {
+			t.Errorf("%s is offered", v.ID)
+		}
+	}
+}
+
+/*
+ * A voice chosen in 0.13 that is withdrawn now becomes the default.
+ *
+ * The setting is moved when the brain opens (brain.New); this is the rule it
+ * asks. Everything else somebody chose is theirs and stays.
+ */
+func TestAVoiceFromAnOlderReleaseIsReplacedByTheDefault(t *testing.T) {
+	for _, old := range []string{
+		"en_GB-alba-medium", "en_GB-jenny_dioco-medium", "en_GB-northern_english_male-medium",
+		"/home/alex/.local/share/piper/voices/en_GB-alba-medium.onnx",
+	} {
+		if got := Replacing(old); got != RobotID {
+			t.Errorf("%s is replaced by %q, want the robot", old, got)
+		}
+	}
+
+	for _, kept := range []string{"", RobotID, RobotVoice, WomanVoice, ManVoice,
+		"en_US-ljspeech-medium", "de_DE-thorsten-medium", "system:klatt4"} {
+		if got := Replacing(kept); got != kept {
+			t.Errorf("%q was changed to %q", kept, got)
+		}
+	}
+
+	// And until it is moved, choosing one speaks in the default anyway.
+	pipersHome(t, "en_GB-alba-medium", "en_GB-cori-medium", "en_US-ljspeech-medium", "en_US-norman-medium")
+
+	SetVoice("en_GB-alba-medium")
+
+	if got := CurrentVoice(); got.ID != RobotID {
+		t.Errorf("a withdrawn voice still chosen speaks as %q", got.ID)
 	}
 }

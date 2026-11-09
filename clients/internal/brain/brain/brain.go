@@ -1072,6 +1072,24 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	// can be undone.
 	tools.Root = root
 
+	/*
+	 * A voice an older release installed and this one withdrew becomes the
+	 * default, in the settings file too: 0.13's three voices were fine-tuned
+	 * from recordings licensed for research only and are no longer spoken
+	 * with, so a setting naming one would name a voice that is never used.
+	 * Moved once; the next open finds the default and changes nothing.
+	 */
+	if now := speech.Replacing(cfg.Voice); now != cfg.Voice {
+		logger.Info("the voice chosen before is no longer offered; using the default", "was", cfg.Voice, "now", now)
+
+		cfg.Voice = now
+		b.Cfg.Voice = now
+
+		if err := b.Cfg.Save(root); err != nil {
+			logger.Warn("could not save the voice setting", "error", err)
+		}
+	}
+
 	// The owner's chosen voice and language, applied before anything speaks or
 	// listens.
 	speech.SetVoice(cfg.Voice)

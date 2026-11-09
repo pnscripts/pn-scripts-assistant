@@ -81,29 +81,29 @@
         'upd.updateNow': ['Update now', 'Обнови сега'],
 
         // Credits for the downloaded voices, speech model and Ollama
-        // (Updates view). The Jenny voice's licence asks for "Jenny (Dioco)".
+        // (Updates view). The voices are public domain; credited anyway.
         'credits.title': ['Credits and licences', 'Признания и лицензи'],
         'credits.intro': [
             'These parts are downloaded from their publishers when you install them, and each keeps its own licence.',
             'Тези части се изтеглят от техните издатели, когато ги инсталирате, и всяка запазва собствения си лиценз.',
         ],
-        'credits.jenny': [
-            'The robot speaks with the voice of Jenny (Dioco): the Piper voice en_GB-jenny_dioco-medium, '
-                + 'trained on the Jenny (Dioco) dataset and used under its licence.',
-            'Роботът говори с гласа на Jenny (Dioco): гласът за Piper en_GB-jenny_dioco-medium, '
-                + 'обучен върху набора от записи Jenny (Dioco) и използван според неговия лиценз.',
+        'credits.cori': [
+            'The robot is made from the voice of Cori: the Piper voice en_GB-cori-medium, '
+                + 'trained from scratch by Bryce Beattie on LibriVox recordings, which are in the public domain.',
+            'Роботът е създаден от гласа на Cori: гласът за Piper en_GB-cori-medium, '
+                + 'обучен от нулата от Bryce Beattie върху записи на LibriVox, които са обществено достояние.',
         ],
-        'credits.alba': [
-            'The woman is the Piper voice en_GB-alba-medium, trained on the Alba speech corpus by '
-                + 'Cassia Valentini-Botinhao and Junichi Yamagishi, University of Edinburgh (CC BY 4.0).',
-            'Жената е гласът за Piper en_GB-alba-medium, обучен върху речевия корпус Alba на '
-                + 'Cassia Valentini-Botinhao и Junichi Yamagishi, Единбургски университет (CC BY 4.0).',
+        'credits.ljspeech': [
+            'The woman is LJ Speech: the Piper voice en_US-ljspeech-medium, trained from scratch by Bryce Beattie '
+                + 'on Keith Ito\'s LJ Speech dataset of LibriVox recordings, which are in the public domain.',
+            'Жената е LJ Speech: гласът за Piper en_US-ljspeech-medium, обучен от нулата от Bryce Beattie '
+                + 'върху набора LJ Speech на Keith Ito със записи на LibriVox, които са обществено достояние.',
         ],
-        'credits.northern': [
-            'The man is the Piper voice en_GB-northern_english_male-medium, trained on Google\'s UK and Ireland '
-                + 'English Dialect speech data set, OpenSLR 83 (CC BY-SA 4.0).',
-            'Мъжът е гласът за Piper en_GB-northern_english_male-medium, обучен върху набора от записи '
-                + 'на Google с английски диалекти от Обединеното кралство и Ирландия, OpenSLR 83 (CC BY-SA 4.0).',
+        'credits.norman': [
+            'The man is Norman: the Piper voice en_US-norman-medium, trained from scratch by Bryce Beattie '
+                + 'on LibriVox recordings, which are in the public domain.',
+            'Мъжът е Norman: гласът за Piper en_US-norman-medium, обучен от нулата от Bryce Beattie '
+                + 'върху записи на LibriVox, които са обществено достояние.',
         ],
         'credits.programs': [
             'Speaking: Piper by Michael Hansen (MIT). Listening: whisper.cpp by the ggml authors (MIT) '

@@ -416,13 +416,11 @@ func TestScriptDetection(t *testing.T) {
 // A preference is a preference: it must only be overridden when the chosen
 // voice genuinely cannot carry the text.
 func TestChosenVoiceIsKeptWhenItCanSayTheText(t *testing.T) {
-	if FindPiper() == nil {
-		t.Skip("piper is not installed")
-	}
+	pipersHome(t, "en_GB-cori-medium", "en_US-ljspeech-medium", "en_US-norman-medium")
 
-	SetVoice("en_GB-alba-medium")
+	SetVoice("en_US-ljspeech-medium")
 
-	if got := voiceForText("An ordinary English sentence."); got.ID != "en_GB-alba-medium" {
+	if got := voiceForText("An ordinary English sentence."); got.ID != "en_US-ljspeech-medium" {
 		t.Errorf("overrode the chosen voice with %s for English text", got.ID)
 	}
 }

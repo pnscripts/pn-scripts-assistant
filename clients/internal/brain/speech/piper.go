@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"pn-scripts-assistant/internal/brain/exe"
 	"pn-scripts-assistant/internal/brain/pace"
+	"pn-scripts-assistant/internal/preflight"
 	"strings"
 	"sync"
 )
@@ -44,13 +45,35 @@ func piperSearch(home string) []string {
 var (
 	piperOnce  sync.Once
 	piperFound *Piper
+
+	// piperMu keeps a search and ForgetPiper from running at once.
+	piperMu sync.Mutex
 )
+
+/*
+ * ForgetPiper makes the next FindPiper look again.
+ *
+ * The search is done once, because it walks several folders on every
+ * sentence otherwise; after voices arrive while the program runs (the voices
+ * an update fetches at start) it has to be done again, or the new voices are
+ * on the disk and unused until a restart.
+ */
+func ForgetPiper() {
+	piperMu.Lock()
+	defer piperMu.Unlock()
+
+	piperOnce = sync.Once{}
+	piperFound = nil
+}
 
 // FindPiper locates a piper binary and a voice for it.
 //
 // Both are required. piper without a voice model exits with an error, which
 // would present as a broken installation rather than a missing download.
 func FindPiper() *Piper {
+	piperMu.Lock()
+	defer piperMu.Unlock()
+
 	piperOnce.Do(func() {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -94,6 +117,12 @@ func FindPiper() *Piper {
 					// The companion .json holds the sample rate; without it
 					// piper cannot load the voice.
 					if _, err := os.Stat(voice + ".json"); err != nil {
+						continue
+					}
+
+					// Nor a voice an older release installed and this one
+					// withdrew: with only those, there is no neural voice.
+					if preflight.Withdrawn(voice) {
 						continue
 					}
 

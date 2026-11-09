@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -251,8 +252,10 @@ func installPiper(w io.Writer) error {
 	 * downloaded voice makes two of those three do nothing. The robot needs no
 	 * download — it is the system engine — so what has to arrive here is one
 	 * woman, one man, and the one the robot is made of. The two human voices
-	 * are British to match each other rather than to have the assistant change
-	 * accent when somebody changes its sex.
+	 * are American to match each other rather than to have the assistant change
+	 * accent when somebody changes its sex; the robot, the default, is Cori, a
+	 * British woman. All three were trained from scratch on recordings in the
+	 * public domain (see PiperVoices).
 	 *
 	 * About 60MB each. Left out for a long time on the grounds that one
 	 * voice is enough to prove speech works, which is true and is not what the
@@ -260,10 +263,15 @@ func installPiper(w io.Writer) error {
 	 */
 	voices := filepath.Join(into, "voices")
 
-	// The voices are the three in PiperVoices: alba, northern_english_male
-	// and jenny_dioco, each a model and its settings file.
+	// One fetch of the voices at a time: the refresh at start and this
+	// button can meet, and the second then finds the files already here.
+	voicesMu.Lock()
+	defer voicesMu.Unlock()
+
+	// The voices are the three in PiperVoices: cori (the robot is made of
+	// her voice), ljspeech and norman, each a model and its settings file.
 	for _, voice := range PiperVoices() {
-		if err := fetchUnlessHere(voice, filepath.Join(voices, voice.Name), w); err != nil {
+		if err := voiceFetch(voice, filepath.Join(voices, voice.Name), w); err != nil {
 			return err
 		}
 	}
@@ -275,6 +283,86 @@ func installPiper(w io.Writer) error {
 	fmt.Fprintln(w, "The voice is installed.")
 
 	return nil
+}
+
+// voiceFetch is fetchUnlessHere for the voices; a variable so a test can
+// stand in for the download.
+var voiceFetch = fetchUnlessHere
+
+// voicesMu is held while voices are fetched into the voices folder.
+var voicesMu sync.Mutex
+
+/*
+ * RefreshVoices brings the voices of a copy installed by an older release up
+ * to the ones this release installs.
+ *
+ * Run when the program starts, like the voice recognition runtime's refresh:
+ * somebody who installed the voice agreed to its download once, and an update
+ * that withdrew its voices would otherwise leave them with the system voice
+ * and an Update button they have no reason to look for. Only a copy that has
+ * one of the withdrawn voices is touched; a machine without the voice, or
+ * with only voices somebody added, is left alone. Only the voices are
+ * fetched, not the program. The old files stay; nothing speaks with them.
+ *
+ * Reports whether anything was fetched.
+ */
+func RefreshVoices(w io.Writer) (bool, error) {
+	voicesMu.Lock()
+	defer voicesMu.Unlock()
+
+	dir := filepath.Join(localShare("piper"), "voices")
+
+	if !hasWithdrawnVoice(dir) {
+		return false, nil
+	}
+
+	fetched := false
+
+	for _, voice := range PiperVoices() {
+		to := filepath.Join(dir, voice.Name)
+
+		if _, err := os.Stat(to); err == nil {
+			continue
+		}
+
+		if !fetched {
+			fmt.Fprintln(w, "Fetching the new voices; the ones an older version installed are no longer used.")
+		}
+
+		fetched = true
+
+		if err := voiceFetch(voice, to, w); err != nil {
+			return false, err
+		}
+	}
+
+	return fetched, nil
+}
+
+// hasWithdrawnVoice reports whether a voices folder holds one of the voices
+// an older release installed.
+func hasWithdrawnVoice(dir string) bool {
+	models, _ := filepath.Glob(filepath.Join(dir, "*.onnx"))
+
+	for _, m := range models {
+		if Withdrawn(m) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// hasCurrentVoices reports whether a voices folder holds every voice this
+// release installs.
+func hasCurrentVoices(dir string) bool {
+	for _, voice := range PiperVoices() {
+		if _, err := os.Stat(filepath.Join(dir, voice.Name)); err != nil {
+			return false
+		}
+	}
+
+	return true
 }
 
 /*

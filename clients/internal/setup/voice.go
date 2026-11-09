@@ -76,8 +76,8 @@ func voiceChoices() []voiceView {
 
 	for _, want := range []struct{ kind, name, detail string }{
 		{"robot", "A robot", "a machine, and clear about it"},
-		{"man", "A man", "a British man's voice"},
-		{"woman", "A woman", "a British woman's voice"},
+		{"man", "A man", "a man's voice"},
+		{"woman", "A woman", "a woman's voice"},
 	} {
 		view := voiceView{Kind: want.kind, Name: want.name, Detail: want.detail}
 

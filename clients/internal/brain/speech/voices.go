@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"pn-scripts-assistant/internal/brain/exe"
+	"pn-scripts-assistant/internal/preflight"
 	"sort"
 	"strings"
 	"sync"
@@ -47,6 +48,11 @@ type Voice struct {
  * at.
  */
 var voiceSex = map[string]string{
+	"en_GB-cori-medium":                 "woman",
+	"en_GB-cori-high":                   "woman",
+	"en_US-ljspeech-medium":             "woman",
+	"en_US-ljspeech-high":               "woman",
+	"en_US-kristin-medium":              "woman",
 	"en_GB-alba-medium":                 "woman",
 	"en_US-amy-medium":                  "woman",
 	"en_US-kathleen-low":                "woman",
@@ -55,6 +61,8 @@ var voiceSex = map[string]string{
 	"it_IT-paola-medium":                "woman",
 	"fr_FR-siwis-medium":                "woman",
 
+	"en_US-norman-medium":                "man",
+	"en_US-john-medium":                  "man",
 	"en_US-lessac-medium":                "man",
 	"en_GB-northern_english_male-medium": "man",
 	"en_US-ryan-medium":                  "man",
@@ -154,18 +162,24 @@ const RobotID = "robot"
  * man's voice on purpose: a robot that sounds like the wrong person is still
  * far better than no robot, and the interface says whose voice it is.
  *
- * alba is deliberately absent, and it is the trap this list exists to avoid.
- * The model the robot is made of is hidden from the list of voices — offering
- * both would be offering a choice about whether an effect is applied — so a
- * robot built from alba would silently remove the woman's voice somebody could
- * otherwise have picked. The robot gets a model of its own.
+ * The woman setup installs (ljspeech) is deliberately absent, and it is the
+ * trap this list exists to avoid. The model the robot is made of is hidden
+ * from the list of voices (offering both would be offering a choice about
+ * whether an effect is applied), so a robot built from the offered woman would
+ * silently remove the woman's voice somebody could otherwise have picked. The
+ * robot gets a model of its own: Cori, a British woman.
+ *
+ * Every voice here may be used for anything: each was trained from scratch on
+ * recordings in the public domain (john was fine-tuned from kristin, which
+ * was). Until 1.0 the list was Jenny (Dioco), amy, kathleen,
+ * southern_english_female and lessac, every one of them fine-tuned from or
+ * trained on recordings licensed for research or non-commercial use only.
  */
 var RobotModels = []string{
-	"en_GB-jenny_dioco-medium",
-	"en_US-amy-medium",
-	"en_US-kathleen-low",
-	"en_GB-southern_english_female-low",
-	"en_US-lessac-medium",
+	"en_GB-cori-medium",
+	"en_GB-cori-high",
+	"en_US-kristin-medium",
+	"en_US-john-medium",
 }
 
 // RobotModel is the one this machine will actually use, given what is
@@ -272,7 +286,7 @@ func Voices() []Voice {
 		out = append([]Voice{{
 			ID:     RobotID,
 			Sex:    "robot",
-			Name:   robotName(strings.TrimSuffix(filepath.Base(robotBuiltFrom), ".onnx")),
+			Name:   "A robot",
 			Engine: "piper",
 			Path:   robotBuiltFrom,
 		}}, out...)
@@ -414,6 +428,12 @@ func piperVoiceFiles(p *Piper) []string {
 				continue
 			}
 
+			// A voice an older release installed and this one withdrew is
+			// left on the disk and never spoken with.
+			if preflight.Withdrawn(m) {
+				continue
+			}
+
 			seen[filepath.Base(m)] = true
 			out = append(out, m)
 		}
@@ -423,27 +443,30 @@ func piperVoiceFiles(p *Piper) []string {
 }
 
 /*
- * voiceCredits are the names a voice's licence asks it to be called by.
- *
- * The Jenny voice is trained on the Jenny (Dioco) dataset, whose licence asks
- * that software speaking with it refers to the voice as "Jenny", and where at
- * all practical as "Jenny (Dioco)". The list of voices is where somebody
- * meets it, so that is where it is called so, and the robot made from it says
- * whose voice it is made from. The full credits are in the Updates view and
- * in THIRD-PARTY-NOTICES.md.
+ * voiceNames are the names a voice goes by where its file name would be
+ * spelt wrong: "Ljspeech" is how the model's name comes out otherwise, and
+ * the dataset is called LJ Speech.
  */
-var voiceCredits = map[string]string{
-	"en_GB-jenny_dioco-medium": "Jenny (Dioco)",
+var voiceNames = map[string]string{
+	"en_US-ljspeech-medium": "LJ Speech",
+	"en_US-ljspeech-high":   "LJ Speech",
 }
 
-// robotName is what the robot made from a neural voice is called: the voice
-// it is made from named where that voice's licence asks for it.
-func robotName(model string) string {
-	if credit, ok := voiceCredits[model]; ok {
-		return "A robot, from the voice of " + credit
+/*
+ * Replacing is the voice setting to keep in place of one an older release
+ * wrote.
+ *
+ * A voice that release installed and this one withdrew (see
+ * preflight.Withdrawn) becomes the robot, the default; anything else somebody
+ * chose is theirs and is kept as it is. brain.New moves the setting with it
+ * when the brain opens.
+ */
+func Replacing(voice string) string {
+	if voice != "" && preflight.Withdrawn(voice) {
+		return RobotID
 	}
 
-	return "A robot"
+	return voice
 }
 
 // localeNames give a voice a place rather than a code.
@@ -467,13 +490,13 @@ func humaniseVoice(id string) string {
 		return id
 	}
 
-	if credit, ok := voiceCredits[id]; ok {
+	if named, ok := voiceNames[id]; ok {
 		locale, known := localeNames[parts[0]]
 		if !known {
 			locale = parts[0]
 		}
 
-		return credit + " · " + locale
+		return named + " · " + locale
 	}
 
 	locale, known := localeNames[parts[0]]
