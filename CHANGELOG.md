@@ -171,6 +171,19 @@ queue 0.13.0 filled with its own guides (below).
   changes nothing if the file is still held, and opens the copy that is
   installed, instead of leaving the program closed.
 
+- **A job that breaks no longer shows as working for ever.** When a job in
+  the background stopped on an error, the job itself was marked failed but
+  the task kept saying "working": nothing was behind it, nobody was told,
+  and it was taken up again only at the next start. Now it ends as blocked,
+  with the reason, and the conversation that asked is told, as with any
+  other stop.
+
+- **Archives cannot write outside their folder through a link.** The parts
+  setup unpacks were already checked name by name; a link inside an archive
+  could still point a later file elsewhere. Links that lead outside are not
+  made, and nothing is written through one. (Every archive is also checked
+  against its SHA-256 before it is opened.)
+
 ## 0.13.0 (2026-11-08)
 
 ### Your rules
