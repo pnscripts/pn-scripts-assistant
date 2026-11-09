@@ -493,7 +493,7 @@ func (c *Conductor) TakeWith(ctx context.Context, conversationID int64, request,
 		map[string]any{"goal": request, "steps": len(plan.Steps), "project": how.Project})
 
 	job, err := c.Jobs.StartQueued(plan.Name, func(ctx context.Context) (string, error) {
-		return "", c.Work(ctx, id)
+		return "", c.work(ctx, id)
 	})
 	if err != nil {
 		// The machine is already busy. The task stays written down, parked,
@@ -1907,6 +1907,59 @@ func (c *Conductor) lookingOnly(only []string, withTools bool) ([]string, bool) 
 // Live is everything still going on.
 func (c *Conductor) Live() ([]store.Task, error) { return c.DB.LiveTasks() }
 
+/*
+ * work is Work as a job runs it: work that fails does not stay "working".
+ *
+ * The job underneath records an error or a panic as failed, but the task's
+ * own row said working for ever after: the page showed it busy with nothing
+ * behind it, the conversation that asked was never told, and it was taken up
+ * again only at the next start. Now the task finishes blocked, with the reason,
+ * the way any other stop is reported. A job somebody stopped (its context
+ * cancelled) is left to Stop, which has already said so.
+ */
+func (c *Conductor) work(ctx context.Context, taskID int64) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("this stopped unexpectedly: %v", r)
+		}
+
+		if err == nil || ctx.Err() != nil {
+			return
+		}
+
+		c.Log.Warn("a task stopped on an error", "task", taskID, "error", err)
+
+		c.blockedBy(taskID, "it stopped on an error: "+plainly(err))
+	}()
+
+	return c.Work(ctx, taskID)
+}
+
+// blockedBy finishes a task that is still working as blocked, telling whoever
+// asked; if the full finish itself fails, the row at least says why.
+func (c *Conductor) blockedBy(taskID int64, why string) {
+	task, err := c.DB.Task(taskID)
+	if err != nil || task == nil || task.State != store.TaskWorking {
+		return
+	}
+
+	finished := func() (ok bool) {
+		defer func() {
+			if recover() != nil {
+				ok = false
+			}
+		}()
+
+		return c.finish(task, store.TaskBlocked, why) == nil
+	}()
+
+	if !finished {
+		if err := c.DB.SetTaskState(taskID, store.TaskBlocked, why); err != nil {
+			c.Log.Warn("could not record why a task stopped", "task", taskID, "error", err)
+		}
+	}
+}
+
 // plainly turns an error into something worth reading when it is the only
 // explanation somebody gets for work that stopped.
 func plainly(err error) string {
@@ -2025,7 +2078,7 @@ func (c *Conductor) Resolved(ctx context.Context, invocation store.Invocation) e
 	 * cannot buy itself more of either by having been parked.
 	 */
 	job, err := c.Jobs.StartQueued(task.Name, func(ctx context.Context) (string, error) {
-		return "", c.Work(ctx, task.ID)
+		return "", c.work(ctx, task.ID)
 	})
 	if err != nil {
 		return c.DB.SetTaskState(task.ID, store.TaskWaiting, plainly(err))
@@ -2079,7 +2132,7 @@ func (c *Conductor) Resume(taskID int64) error {
 	}
 
 	job, err := c.Jobs.StartQueued(task.Name, func(ctx context.Context) (string, error) {
-		return "", c.Work(ctx, taskID)
+		return "", c.work(ctx, taskID)
 	})
 	if err != nil {
 		c.DB.SetTaskState(taskID, store.TaskWaiting, plainly(err))

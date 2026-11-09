@@ -312,7 +312,7 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 
 	if c.Jobs != nil {
 		job, err := c.Jobs.StartQueued("For "+task.Name, func(ctx context.Context) (string, error) {
-			return "", c.Work(ctx, child)
+			return "", c.work(ctx, child)
 		})
 		if err != nil {
 			c.DB.SetTaskState(child, store.TaskWaiting, plainly(err))
@@ -525,7 +525,7 @@ func (c *Conductor) childFinished(child *store.Task, state string) error {
 	}
 
 	job, err := c.Jobs.StartQueued(parent.Name, func(ctx context.Context) (string, error) {
-		return "", c.Work(ctx, parent.ID)
+		return "", c.work(ctx, parent.ID)
 	})
 	if err != nil {
 		return c.DB.SetTaskState(parent.ID, store.TaskWaiting, plainly(err))
