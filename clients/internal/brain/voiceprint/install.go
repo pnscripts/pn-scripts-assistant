@@ -243,7 +243,10 @@ func Install(ctx context.Context, say func(string)) error {
 	ctx, stop := context.WithTimeout(ctx, Fetching)
 	defer stop()
 
-	if _, err := os.Stat(filepath.Join(into, ModelName)); err != nil {
+	// Missing, or not the published file: a model fetched by 0.13 or
+	// earlier came from a branch unchecked, and is hashed here before it is
+	// trusted (modelVerifiedIn).
+	if !modelVerifiedIn(into) {
 		say("Downloading the model that tells voices apart (about 28MB)…")
 
 		if err := model(ctx, into); err != nil {
@@ -289,6 +292,66 @@ func model(ctx context.Context, into string) error {
 	}
 
 	return os.Rename(working, filepath.Join(into, ModelName))
+}
+
+/*
+ * modelVerifiedIn reports whether the model in into is the published file.
+ *
+ * Hashed once per file and remembered for as long as the program runs: about
+ * thirty megabytes, a fraction of a second, and Installed asks on every turn.
+ * The memory is of this exact file (its size and modification time), so a
+ * model replaced or changed afterwards is hashed again rather than trusted.
+ *
+ * This is how a model downloaded by 0.13 or earlier, from the repository's
+ * main branch with no check, is checked: the first time the feature is used
+ * after the update. The published file goes on being used; any other is not
+ * loaded, and Install replaces it.
+ */
+var verified struct {
+	mu  sync.Mutex
+	key string
+	ok  bool
+}
+
+func modelVerifiedIn(into string) bool {
+	path := filepath.Join(into, ModelName)
+
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+
+	key := fmt.Sprintf("%s|%d|%d|%s", path, info.Size(), info.ModTime().UnixNano(), modelSum)
+
+	verified.mu.Lock()
+	defer verified.mu.Unlock()
+
+	if verified.key == key {
+		return verified.ok
+	}
+
+	ok := info.Size() <= mostModelBytes && fileSHA256(path) == modelSum
+
+	verified.key, verified.ok = key, ok
+
+	return ok
+}
+
+// fileSHA256 is a file's SHA-256 in lowercase hex, or "" when it cannot be read.
+func fileSHA256(path string) string {
+	file, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+
+	if _, err := io.Copy(hash, file); err != nil {
+		return ""
+	}
+
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 // temporary makes an empty file of its own beside name in dir, for a download
