@@ -569,8 +569,15 @@ async function refreshStatus() {
                 queue: Math.min(1, (s.memory.pending_lessons || 0) / 10),
             });
         }
-        el('conn-dot').className = 'dot online';
-        el('conn-text').textContent = `online · ${s.capabilities.length} capabilities`;
+        // Online is this program; whether the model answers is shown beside
+        // it, with the way to why (connection.js).
+        const conn = window.pnConnection(s);
+
+        el('conn-dot').className = `dot ${conn.tone}`;
+        el('conn-text').textContent = conn.text;
+        el('status-pill').title = conn.title;
+        el('status-pill').classList.toggle('is-warn', conn.tone === 'warn');
+        el('conn-why').hidden = !conn.why;
         // Only offer to speak when there is something that can. A control for
         // a capability the machine lacks is a promise the app cannot keep.
         // Talking needs both halves: hearing you and answering aloud.
@@ -615,7 +622,8 @@ async function refreshStatus() {
         document.title = s.name;
     } catch {
         el('conn-dot').className = 'dot offline';
-        el('conn-text').textContent = 'offline';
+        el('conn-text').textContent = window.pnT ? window.pnT('conn.offline') : 'offline';
+        el('conn-why').hidden = true;
     }
 }
 

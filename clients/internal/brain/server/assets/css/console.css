@@ -6447,3 +6447,20 @@ html[data-pace="hidden"] *::after {
 .care-items li.care-blocking { color: var(--warn); }
 .care-leftover { align-items: flex-start; }
 .care-command { display: block; flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; color: var(--text-dim); }
+
+/* The status pill when the model in use does not answer: still online (this
+   program is), but amber, with the way to the explanation beside it. */
+.dot.warn { background: var(--warn); box-shadow: 0 0 10px 2px rgba(240, 178, 107, 0.45); }
+.pill-status.is-warn { color: var(--warn); border-color: rgba(240, 178, 107, 0.4); background: rgba(240, 178, 107, 0.06); }
+.pill-why {
+    margin-left: 4px;
+    padding: 0 6px;
+    border: 1px solid rgba(240, 178, 107, 0.5);
+    background: none;
+    color: var(--warn);
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+}
+.pill-why:hover, .pill-why:focus-visible { background: rgba(240, 178, 107, 0.12); }
+.pill-why[hidden] { display: none; }
