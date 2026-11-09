@@ -272,7 +272,7 @@ func Voices() []Voice {
 		out = append([]Voice{{
 			ID:     RobotID,
 			Sex:    "robot",
-			Name:   "A robot",
+			Name:   robotName(strings.TrimSuffix(filepath.Base(robotBuiltFrom), ".onnx")),
 			Engine: "piper",
 			Path:   robotBuiltFrom,
 		}}, out...)
@@ -422,6 +422,30 @@ func piperVoiceFiles(p *Piper) []string {
 	return out
 }
 
+/*
+ * voiceCredits are the names a voice's licence asks it to be called by.
+ *
+ * The Jenny voice is trained on the Jenny (Dioco) dataset, whose licence asks
+ * that software speaking with it refers to the voice as "Jenny", and where at
+ * all practical as "Jenny (Dioco)". The list of voices is where somebody
+ * meets it, so that is where it is called so, and the robot made from it says
+ * whose voice it is made from. The full credits are in the Updates view and
+ * in THIRD-PARTY-NOTICES.md.
+ */
+var voiceCredits = map[string]string{
+	"en_GB-jenny_dioco-medium": "Jenny (Dioco)",
+}
+
+// robotName is what the robot made from a neural voice is called: the voice
+// it is made from named where that voice's licence asks for it.
+func robotName(model string) string {
+	if credit, ok := voiceCredits[model]; ok {
+		return "A robot, from the voice of " + credit
+	}
+
+	return "A robot"
+}
+
 // localeNames give a voice a place rather than a code.
 var localeNames = map[string]string{
 	"en_GB": "British", "en_US": "American", "en_AU": "Australian",
@@ -441,6 +465,15 @@ func humaniseVoice(id string) string {
 
 	if len(parts) < 2 {
 		return id
+	}
+
+	if credit, ok := voiceCredits[id]; ok {
+		locale, known := localeNames[parts[0]]
+		if !known {
+			locale = parts[0]
+		}
+
+		return credit + " · " + locale
 	}
 
 	locale, known := localeNames[parts[0]]

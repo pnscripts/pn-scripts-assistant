@@ -132,6 +132,50 @@ func Node() (Pinned, error) {
 }
 
 /*
+ * Ollama, the program the local models run in.
+ *
+ * It used to come from releases/latest with no checksum: whatever the project
+ * had published that morning, run as a service on the person's machine. Now it
+ * is one release, chosen when it was at least two weeks old, and the archive
+ * for each platform has its SHA-256 written down here. The digests are the
+ * ones the release publishes in its sha256sum.txt (and GitHub lists as each
+ * asset's digest); both archives were downloaded on 2026-11-09 and hashed, and
+ * matched.
+ *
+ * A person who already has a newer Ollama keeps it: installOllama uses that
+ * one rather than putting this older release over it.
+ */
+
+// OllamaVersion is the Ollama release this program installs.
+const OllamaVersion = "v0.40.11"
+
+var ollamaBuilds = map[string]struct {
+	asset string
+	sum   string
+	size  int64
+}{
+	"amd64": {"ollama-linux-amd64.tar.zst",
+		"7bedab90dd122661be78798e9f0edf37fccf0cccf2699d2c58ea1a3afdc04b6d", 1508659610},
+	"arm64": {"ollama-linux-arm64.tar.zst",
+		"77b278837b9e62c172f77d703675be4c52c8054e9075639031a9a6d5a53f1924", 1564235434},
+}
+
+// OllamaProgram is the pinned Ollama archive for this machine.
+func OllamaProgram() (Pinned, error) {
+	build, ok := ollamaBuilds[runtime.GOARCH]
+	if !ok || runtime.GOOS != "linux" {
+		return Pinned{}, fmt.Errorf("there is no pinned Ollama build for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+
+	return Pinned{
+		Name: "Ollama " + strings.TrimPrefix(OllamaVersion, "v"), Version: OllamaVersion,
+		URL: "https://github.com/ollama/ollama/releases/download/" + OllamaVersion + "/" + build.asset,
+		Sum: build.sum, Algorithm: "sha256", Size: build.size,
+		Licence: "MIT, free, no account, no fee",
+	}, nil
+}
+
+/*
  * The speech parts: the neural voice, its voices, and the speech model.
  *
  * Until 1.0 these came from moving targets: the voices and the model from the

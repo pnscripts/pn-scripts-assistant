@@ -50,10 +50,11 @@ against the code on 9 November 2026.
 - **A local model needs Ollama.** Setup installs it on Linux; on Windows it is
   installed from ollama.com first. On a machine without a graphics card the
   first answer after a start can take minutes while the model loads.
-- **Ollama is the one program setup installs without a fixed checksum.** It is
-  the newest release from Ollama's own GitHub releases, over HTTPS, because
-  new models need a current Ollama. The voice, the listening parts, Godot and
-  Node.js are each one fixed release checked against its SHA-256.
+- **Setup installs Ollama 0.40.11, not the newest.** Like the voice, the
+  listening parts, Godot and Node.js, it is one fixed release checked against
+  its SHA-256, so a model published after it may need a newer Ollama. An
+  Ollama you install or update yourself is kept: setup never replaces a newer
+  one with its own.
 - **Hosted providers have only been tested against stand-ins.** All twelve
   are tested against fakes that answer like them; none has been watched
   answering with a real key. If one misbehaves, the error it returns is shown

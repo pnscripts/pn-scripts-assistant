@@ -3,9 +3,9 @@ package speech
 import (
 	"os"
 	"path/filepath"
+	"strings"
+	"testing"
 )
-
-import "testing"
 
 /*
  * "A woman's voice or a man's" is the question people actually have.
@@ -210,5 +210,36 @@ func TestTheRobotUsesWhicheverModelIsThere(t *testing.T) {
 
 	if got := RobotModel(both); got != "en_GB-jenny_dioco-medium" {
 		t.Errorf("with both installed it chose %q", got)
+	}
+}
+
+/*
+ * The Jenny voice is called Jenny (Dioco), as its licence asks.
+ *
+ * The dataset's licence: software that speaks with it refers to the voice as
+ * "Jenny", and where at all practical as "Jenny (Dioco)". The robot is made
+ * from it, so the robot says so in the list somebody chooses from.
+ */
+func TestTheJennyVoiceIsCreditedWhereItIsChosen(t *testing.T) {
+	const jenny = "en_GB-jenny_dioco-medium"
+
+	if got := robotName(jenny); !strings.Contains(got, "Jenny (Dioco)") || !strings.HasPrefix(got, "A robot") {
+		t.Errorf("the robot made from Jenny is called %q", got)
+	}
+
+	if got := humaniseVoice(jenny); !strings.HasPrefix(got, "Jenny (Dioco) · ") {
+		t.Errorf("the Jenny voice on its own is called %q", got)
+	}
+
+	// The others keep their plain names; nothing is credited that is not
+	// asked for.
+	if got := robotName("en_US-amy-medium"); got != "A robot" {
+		t.Errorf("a robot from amy is called %q", got)
+	}
+
+	// Jenny is the first the robot is made from, so the credit is what a
+	// machine with the installed voices actually shows.
+	if RobotModels[0] != jenny {
+		t.Errorf("the robot is made from %s first; check its credit", RobotModels[0])
 	}
 }

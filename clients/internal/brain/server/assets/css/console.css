@@ -6470,3 +6470,16 @@ html[data-pace="hidden"] *::after {
     .pill-status #conn-text { display: none; }
     .pill-status { flex: none; }
 }
+
+/* Credits and licences (Updates view): long voice names wrap on a phone. */
+.credits-list {
+    margin: 0 0 10px;
+    padding-left: 18px;
+    font-size: 12.5px;
+}
+
+.credits-list li {
+    margin: 6px 0;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}

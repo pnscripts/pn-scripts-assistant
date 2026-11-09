@@ -57,6 +57,15 @@ queue 0.13.0 filled with its own guides (below).
   archive is fetched into a temporary file of its own instead of a fixed name
   others could create first.
 
+- **Ollama is a fixed release too.** Setup fetched the newest Ollama with no
+  check, and Ollama is a program that runs on your computer as a service.
+  Now it installs Ollama 0.40.11 for 64-bit Intel and ARM Linux, each archive
+  with its SHA-256 fixed in the program (the sums Ollama publishes with the
+  release) and an exact size limit, checked before anything in your home
+  folder is replaced. An Ollama you already have that is as new or newer is
+  kept and used as it is, never downgraded; an older one is replaced and
+  restarted.
+
 - **"Answer only me" no longer lets everybody through when it cannot
   recognise your voice.** If the part that tells voices apart was missing,
   or was the previous version's runtime right after an update, no voice was
@@ -73,6 +82,17 @@ queue 0.13.0 filled with its own guides (below).
   and are no longer read as memories. Only the guides and your own files in
   that folder are taken in without asking, and a path that climbs out of the
   folder is not trusted because of where it starts.
+
+### Credits
+
+- **The voices are credited the way their licences ask.** The robot speaks
+  with the voice of Jenny (Dioco), and its licence asks for that name where
+  the voice is used: the robot is now called "A robot, from the voice of
+  Jenny (Dioco)" in the list of voices. A new card in What it runs on,
+  *Credits and licences* (English and Bulgarian), credits the three voices'
+  datasets (Jenny (Dioco); the Alba corpus, CC BY 4.0; Google's OpenSLR 83,
+  CC BY-SA 4.0), Piper, whisper.cpp, OpenAI's Whisper model and Ollama.
+  THIRD-PARTY-NOTICES.md lists the same with the pinned releases.
 
 ### Fixed
 
