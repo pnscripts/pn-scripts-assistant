@@ -451,6 +451,8 @@ jobs:
             [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT rect, int size);
             [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
             [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+            [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+            [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
           }
           '@
 
@@ -481,8 +483,9 @@ jobs:
           for ($i = 0; $i -lt 60 -and $hwnd -eq [IntPtr]::Zero; $i++) { Start-Sleep 1; $p.Refresh(); $hwnd = $p.MainWindowHandle }
           if ($hwnd -eq [IntPtr]::Zero) { throw 'the program did not open its window' }
 
-          # Top left of the screen, in front, then time for the page to draw
-          # and its opening animation to settle.
+          # Top left of the screen and in front, so none of it is off the
+          # screen, then time for the page to draw and its opening animation
+          # to settle.
           [Shot]::SetWindowPos($hwnd, [IntPtr]::Zero, 0, 0, 0, 0, 0x0001 -bor 0x0004) | Out-Null
           [Shot]::SetForegroundWindow($hwnd) | Out-Null
           Start-Sleep 12
@@ -496,11 +499,27 @@ jobs:
           if ($w -lt 800 -or $h -lt 600) { throw "the window is too small for a picture: $w x $h" }
           if ($r.Left -lt 0 -or $r.Top -lt 0 -or $r.Right -gt $screen.Width -or $r.Bottom -gt $screen.Height) { throw 'the window does not fit on the screen; the picture would be clipped' }
 
-          New-Item -ItemType Directory -Force -Path gallery | Out-Null
-          $bmp = New-Object System.Drawing.Bitmap $w, $h
-          $g = [System.Drawing.Graphics]::FromImage($bmp)
-          $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
+          # Drawn by the window itself (PrintWindow with PW_RENDERFULLCONTENT,
+          # which includes WebView2's composited page), not copied off the
+          # screen: on the runner's desktop other windows can sit on top of
+          # it, and the first run's copy of the screen had them in the picture.
+          # The whole window is drawn, then cut to the frame bounds.
+          $wr = New-Object Shot+RECT
+          if (-not [Shot]::GetWindowRect($hwnd, [ref]$wr)) { throw 'no rectangle for the window' }
+          # 24-bit: GDI leaves the alpha byte at zero, which a 32-bit
+          # picture would save as transparent.
+          $full = New-Object System.Drawing.Bitmap ($wr.Right - $wr.Left), ($wr.Bottom - $wr.Top), ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+          $g = [System.Drawing.Graphics]::FromImage($full)
+          $hdc = $g.GetHdc()
+          $drawn = [Shot]::PrintWindow($hwnd, $hdc, 2)
+          $g.ReleaseHdc($hdc)
           $g.Dispose()
+          if (-not $drawn) { $full.Dispose(); throw 'the window would not draw itself' }
+
+          New-Item -ItemType Directory -Force -Path gallery | Out-Null
+          $frame = New-Object System.Drawing.Rectangle ($r.Left - $wr.Left), ($r.Top - $wr.Top), $w, $h
+          $bmp = $full.Clone($frame, $full.PixelFormat)
+          $full.Dispose()
 
           # A blank or black capture has a handful of colours; the page has
           # thousands. Sampled on a grid, which is plenty to tell them apart.
@@ -509,7 +528,7 @@ jobs:
           Write-Output "distinct colours on a 7 px grid: $($colours.Count)"
           $bmp.Save("$PWD\gallery\windows-main-window.png", [System.Drawing.Imaging.ImageFormat]::Png)
           $bmp.Dispose()
-          if ($colours.Count -lt 200) { throw 'the picture is blank; the screen was not captured' }
+          if ($colours.Count -lt 200) { throw 'the picture is blank; the page was not drawn' }
 
           $p.CloseMainWindow() | Out-Null
           if (-not $p.WaitForExit(30000)) { Stop-Process -Id $p.Id; throw 'the program did not close with its window' }
