@@ -6464,3 +6464,9 @@ html[data-pace="hidden"] *::after {
 }
 .pill-why:hover, .pill-why:focus-visible { background: rgba(240, 178, 107, 0.12); }
 .pill-why[hidden] { display: none; }
+/* A narrow bar has no room for the sentence: the dot keeps its colour, and
+   when the model does not answer the "Why?" beside it leads to the words. */
+@media (max-width: 860px) {
+    .pill-status #conn-text { display: none; }
+    .pill-status { flex: none; }
+}

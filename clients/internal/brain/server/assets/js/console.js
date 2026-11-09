@@ -578,6 +578,7 @@ async function refreshStatus() {
         el('status-pill').title = conn.title;
         el('status-pill').classList.toggle('is-warn', conn.tone === 'warn');
         el('conn-why').hidden = !conn.why;
+        el('conn-why').title = conn.title;
         // Only offer to speak when there is something that can. A control for
         // a capability the machine lacks is a promise the app cannot keep.
         // Talking needs both halves: hearing you and answering aloud.
@@ -1873,6 +1874,10 @@ async function openWhereWeLeftOff(canSpeak) {
     refreshActivity();
     el('talk').onclick = toggleTalking;
     el('input').focus();
+
+    // The status pill is written in the page's language, so a change of
+    // language redraws it rather than waiting for the next poll.
+    window.addEventListener('pn-language', () => refreshStatus());
 
     // Polling rather than websockets: approvals can be decided from the Filament
     // admin or another window, and a few seconds of staleness costs nothing here.
