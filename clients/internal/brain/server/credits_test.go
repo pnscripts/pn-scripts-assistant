@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"pn-scripts-assistant/internal/brain/voiceprint"
 	"pn-scripts-assistant/internal/preflight"
 )
 
@@ -27,13 +28,17 @@ var credits = map[string][]string{
 	"ljspeech": {"LJ Speech", "en_US-ljspeech-medium", "Bryce Beattie", "Keith Ito", "LibriVox", "public domain"},
 	"norman":   {"Norman", "en_US-norman-medium", "Bryce Beattie", "LibriVox", "public domain"},
 	"programs": {"Piper", "whisper.cpp", "Whisper", "OpenAI", "Ollama", "MIT"},
+
+	// "Answer only me": the model that tells voices apart and the runtime it
+	// runs in, downloaded when the feature is first turned on.
+	"voiceprint": {"CAM++", "3D-Speaker", "VoxCeleb", "Apache-2.0", "ONNX Runtime"},
 }
 
 func TestTheCreditsAreInThePageInBothLanguages(t *testing.T) {
 	page := readAsset(t, "index.html")
 	js := readAsset(t, filepath.Join("js", "i18n.js"))
 
-	for _, key := range []string{"title", "intro", "cori", "ljspeech", "norman", "programs", "more"} {
+	for _, key := range []string{"title", "intro", "cori", "ljspeech", "norman", "programs", "voiceprint", "more"} {
 		name := "credits." + key
 
 		if !strings.Contains(page, `data-i18n="`+name+`"`) {
@@ -110,6 +115,8 @@ func TestTheNoticesFileCreditsEveryDownloadedPart(t *testing.T) {
 		preflight.PiperVoicesRevision,
 		preflight.WhisperTag,
 		preflight.SpeechModelRevision,
+		voiceprint.ModelRevision,
+		voiceprint.RuntimeVersion,
 	} {
 		if !strings.Contains(notices, want) {
 			t.Errorf("THIRD-PARTY-NOTICES.md does not name the pinned %s", want)
