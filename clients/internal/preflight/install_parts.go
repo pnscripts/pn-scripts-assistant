@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -54,9 +53,32 @@ func localShare(name string) string {
  * that needs no password.
  */
 func installOllama(w io.Writer) error {
-	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
-		return fmt.Errorf("this installs Ollama only on 64-bit Linux; " +
+	program, err := OllamaProgram()
+	if err != nil {
+		return fmt.Errorf("this installs Ollama only on 64-bit Linux (x86 or ARM); " +
 			"get it from ollama.com/download")
+	}
+
+	/*
+	 * One already here that is as new as the pinned release, or newer, is
+	 * used as it is.
+	 *
+	 * The pinned release is chosen to be a little behind the newest, so
+	 * somebody who keeps their own Ollama current would otherwise have it
+	 * replaced by an older one the moment they pressed install: a downgrade
+	 * nobody asked for, of the program their models run in. An older one is
+	 * replaced, and only after the new archive has been checked.
+	 */
+	if have := ollamaAtHand(); have.version != "" && !IsNewer(OllamaVersion, have.version) {
+		fmt.Fprintf(w, "Ollama %s is already here (%s), as new as the %s this installs or newer, so it is used as it is.\n",
+			have.version, have.where, strings.TrimPrefix(OllamaVersion, "v"))
+
+		if have.answering || have.binary == "" || have.binary != ourOllama() {
+			return nil
+		}
+
+		// Ours, in ~/.local, and not running: start it as installing it would.
+		return ollamaStart(have.binary, w)
 	}
 
 	/*
@@ -85,10 +107,10 @@ func installOllama(w io.Writer) error {
 
 	defer os.Remove(plain)
 
-	const release = "https://github.com/ollama/ollama/releases/latest/download/" +
-		"ollama-linux-amd64.tar.zst"
-
-	if err := download(release, tmp, w); err != nil {
+	// The pinned release, its size bounded and its SHA-256 checked before
+	// anything is unpacked: nothing in ~/.local changes for an archive that
+	// is not the published one.
+	if err := ollamaFetch(program, tmp, w); err != nil {
 		return err
 	}
 
@@ -126,7 +148,7 @@ func installOllama(w io.Writer) error {
 
 	fmt.Fprintf(w, "Installed %s\n", binary)
 
-	return startOllama(binary, w)
+	return ollamaStart(binary, w)
 }
 
 /*
@@ -161,7 +183,12 @@ func startOllama(binary string, w io.Writer) error {
 	// the binary is still installed and can be started by hand.
 	for _, argv := range [][]string{
 		{"systemctl", "--user", "daemon-reload"},
-		{"systemctl", "--user", "enable", "--now", "ollama.service"},
+		{"systemctl", "--user", "enable", "ollama.service"},
+
+		// Restart rather than start: after an older Ollama was replaced, the
+		// one still running is the old program, and it would stay so until
+		// the next login.
+		{"systemctl", "--user", "restart", "ollama.service"},
 	} {
 		out, err := exec.Command(argv[0], argv[1:]...).CombinedOutput()
 		if err != nil {
