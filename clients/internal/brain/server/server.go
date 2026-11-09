@@ -1181,6 +1181,10 @@ func (s *Server) handleSetLanguage(w http.ResponseWriter, r *http.Request) {
 // handleMicrophones lists the inputs, so a person can pick the one they are
 // actually speaking into rather than trusting the system default — which on
 // this machine is an empty analog jack.
+// listenForTurn is speech.ListenForTurn; a variable so a test can say what
+// was heard without a microphone.
+var listenForTurn = speech.ListenForTurn
+
 // handleTurn listens until the speaker stops, rather than for a fixed time.
 //
 // This is what conversation mode calls. It blocks for as long as somebody is
@@ -1224,7 +1228,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	 */
 	meantForIt := body.Engaged || body.Interrupting
 
-	heard, err := speech.ListenForTurn(r.Context(), body.Device, meantForIt)
+	heard, err := listenForTurn(r.Context(), body.Device, meantForIt)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 
@@ -1256,13 +1260,15 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	addressed, ends := s.decide(heard.Text, body.Engaged, body.Interrupting)
 
 	/*
-	 * Somebody else's voice is heard and not acted on.
+	 * Somebody else's voice is heard and not acted on, and with "answer only
+	 * me" on, neither is a voice that could not be recognised (onlyMeRefuses).
 	 *
 	 * Kept in the record of what was overheard rather than dropped, because
 	 * "it ignored me" and "it never heard me" look identical from a chair and
 	 * the panel that shows this is the only way to tell them apart.
 	 */
-	if whose.Judged && !whose.Owner && s.brain.Cfg.OnlyMe {
+	refused := s.onlyMeRefuses(whose)
+	if refused != "" {
 		addressed.Addressed = false
 	}
 
@@ -1290,15 +1296,15 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 
 	if whose.Judged {
 		turn.Owner = whose.Owner
-
-		if !whose.Owner && s.brain.Cfg.OnlyMe {
-			turn.Why = fmt.Sprintf("that is not your voice (%.2f alike, %.2f needed)",
-				whose.Alike, s.brain.Cfg.VoiceMatch)
-		}
 	}
+
+	if refused != "" && heard.Text != "" {
+		turn.Why = refused
+	}
+
 	s.heard.add(turn)
 
-	ok(w, map[string]any{
+	answer := map[string]any{
 		"transcript": addressed.Text,
 		"heard":      heard.Text,
 		"addressed":  acted,
@@ -1312,7 +1318,15 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		// name is no use — a domain one letter out is somebody else's site —
 		// and the recogniser gives no sign when it has guessed.
 		"unfamiliar": heard.Unfamiliar,
-	})
+	}
+
+	// Why it was not acted on when "answer only me" decided it, so the page
+	// can say so rather than look as if nothing was heard.
+	if refused != "" {
+		answer["refused"] = refused
+	}
+
+	ok(w, answer)
 }
 
 // handleHeard reports what the microphone recently made of the room.

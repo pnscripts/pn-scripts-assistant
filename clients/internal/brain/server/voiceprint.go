@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"sync/atomic"
 
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/speech"
@@ -26,6 +28,13 @@ func (s *Server) whoseVoice(samples []float64) voiceprint.Verdict {
 	}
 
 	if !voiceprint.Installed() {
+		// After an upgrade the model is here and the runtime is the previous
+		// release's, which is a different fix from never having fetched it.
+		if voiceprint.RuntimeStale() {
+			return voiceprint.Verdict{Why: "the part that tells voices apart is from an older version " +
+				"and has not been updated yet"}
+		}
+
 		return voiceprint.Verdict{Why: "the voiceprint model is not installed"}
 	}
 
@@ -36,6 +45,56 @@ func (s *Server) whoseVoice(samples []float64) voiceprint.Verdict {
 	}
 
 	return voiceprint.Recognise(s.brain.Root, samples, match)
+}
+
+/*
+ * onlyMeRefuses says why a turn is not acted on because of "answer only me",
+ * or "" when that switch lets it through.
+ *
+ * Somebody else's voice is refused, and so is a voice that could not be
+ * recognised at all. The second used to pass: after an upgrade the runtime of
+ * the previous release counts as missing, no voice was judged, and everybody
+ * was answered while the switch still showed on. A protection that turns off
+ * by itself without saying so is worse than none, because it is relied on.
+ */
+func (s *Server) onlyMeRefuses(whose voiceprint.Verdict) string {
+	if !s.brain.Cfg.OnlyMe {
+		return ""
+	}
+
+	if !whose.Judged {
+		return "answer only me is on, and your voice cannot be recognised now: " + whose.Why
+	}
+
+	if !whose.Owner {
+		match := s.brain.Cfg.VoiceMatch
+		if match <= 0 {
+			match = 0.5
+		}
+
+		return fmt.Sprintf("that is not your voice (%.2f alike, %.2f needed)", whose.Alike, match)
+	}
+
+	return ""
+}
+
+// onlyMeBlocked is why "answer only me" cannot recognise anybody now, or ""
+// when it can: for the Privacy page, while the switch shows on.
+func (s *Server) onlyMeBlocked() string {
+	if !s.brain.Cfg.OnlyMe {
+		return ""
+	}
+
+	switch {
+	case voiceprint.RuntimeStale():
+		return "the part that tells voices apart is from an older version and has not been updated yet"
+	case !voiceprint.Installed():
+		return "the voiceprint model is not installed"
+	case !voiceprint.Enrolled(s.brain.Root):
+		return "no voice has been taught to this brain yet"
+	}
+
+	return ""
 }
 
 /*
@@ -53,6 +112,7 @@ func (s *Server) handleVoiceprint(w http.ResponseWriter, r *http.Request) {
 
 	body := map[string]any{
 		"installed":   voiceprint.Installed(),
+		"downloading": installing.Load() || voiceprint.Downloading(),
 		"enrolled":    known != nil && len(known.Print) == voiceprint.Dimensions,
 		"only_me":     s.brain.Cfg.OnlyMe,
 		"cancel_room": s.brain.Cfg.CancelRoom,
@@ -61,6 +121,10 @@ func (s *Server) handleVoiceprint(w http.ResponseWriter, r *http.Request) {
 		"match":       s.brain.Cfg.VoiceMatch,
 		"wanted":      voiceprint.SamplesWanted,
 		"megabytes":   voiceprint.AboutMegabytes,
+	}
+
+	if blocked := s.onlyMeBlocked(); blocked != "" {
+		body["only_me_blocked"] = blocked
 	}
 
 	if known != nil {
@@ -146,11 +210,26 @@ func (s *Server) handleForgetVoice(w http.ResponseWriter, r *http.Request) {
 	ok(w, map[string]any{"forgotten": true})
 }
 
+// installVoiceprint is voiceprint.Install; a variable so a test can stand in
+// for the download.
+var installVoiceprint = voiceprint.Install
+
+// installing is true from the press of the button until its download ends.
+var installing atomic.Bool
+
 /*
  * handleInstallVoiceprint downloads the model and the runtime.
  *
  * Long — forty megabytes on a home connection — so it runs in the background
  * and the page watches the same progress line everything else here uses.
+ *
+ * One at a time. A second press, or a press while the refresh at start is
+ * fetching the runtime, is told a download is already under way rather than
+ * starting another into the same folder (voiceprint keeps the files apart
+ * as well; this keeps the network and the page honest).
+ *
+ * Its progress is background work: Aside and BackgroundDone, so a question
+ * asked while it downloads keeps its own step on screen.
  */
 func (s *Server) handleInstallVoiceprint(w http.ResponseWriter, r *http.Request) {
 	if voiceprint.Installed() {
@@ -159,15 +238,23 @@ func (s *Server) handleInstallVoiceprint(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	go func() {
-		progress.SetBackground("learning", "Fetching what tells voices apart")
-		defer progress.Done()
+	if voiceprint.Downloading() || !installing.CompareAndSwap(false, true) {
+		ok(w, map[string]any{"started": false, "downloading": true, "megabytes": voiceprint.AboutMegabytes})
 
-		if err := voiceprint.Install(context.Background(), func(said string) {
-			progress.SetBackground("learning", said)
+		return
+	}
+
+	go func() {
+		defer installing.Store(false)
+
+		progress.Aside("learning", "Fetching what tells voices apart")
+		defer progress.BackgroundDone()
+
+		if err := installVoiceprint(context.Background(), func(said string) {
+			progress.Aside("learning", said)
 		}); err != nil {
 			s.log.Warn("could not fetch the voiceprint model", "error", err)
-			progress.SetBackground("learning", "Could not fetch it: "+err.Error())
+			progress.Aside("learning", "Could not fetch it: "+err.Error())
 		}
 	}()
 
@@ -202,14 +289,16 @@ func (s *Server) refreshVoiceprint(ctx context.Context) {
 
 	started := false
 
+	// Background work: said aside and ended with BackgroundDone, so a
+	// question answered while it downloads keeps its step on screen.
 	replaced, err := refreshRuntime(ctx, func(said string) {
 		started = true
 
-		progress.SetBackground("learning", said)
+		progress.Aside("learning", said)
 	})
 
 	if started {
-		defer progress.Done()
+		defer progress.BackgroundDone()
 	}
 
 	if err != nil {

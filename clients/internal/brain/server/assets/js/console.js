@@ -946,6 +946,13 @@ async function talkLoop() {
                  */
                 const ignored = (heard.heard || '').trim();
 
+                // "Answer only me" refused it: said, because the switch shows
+                // on and the brain would otherwise look deaf.
+                if (heard.refused) {
+                    setVoiceStatus(`Not acted on: ${heard.refused}`);
+                    continue;
+                }
+
                 setVoiceStatus(ignored
                     ? `Heard “${short(ignored)}” · say “${state.wakeWord}” to start`
                     : `Say “${state.wakeWord || 'the name'}” to start`);

@@ -63,7 +63,8 @@ function draw() {
      * taught, and acting on it can be switched off.
      */
     const lines = [
-        ['what it needs', state.installed ? 'installed' : `not here yet (${state.megabytes}MB)`],
+        ['what it needs', state.installed ? 'installed'
+            : state.downloading ? 'downloading now…' : `not here yet (${state.megabytes}MB)`],
         ['your voice', state.enrolled
             ? `taught from ${state.samples} recording${state.samples === 1 ? '' : 's'}`
             : 'not taught yet'],
@@ -82,12 +83,37 @@ function draw() {
             state.agreement < 0.6 ? ' — low; teach it again somewhere quieter' : ''}`]);
     }
 
-    rows.innerHTML = lines.map(([what, value]) => `<div class="row">
-        <span class="row-label">${what}</span>
-        <span class="row-value">${value}</span>
-    </div>`).join('');
+    /*
+     * "Answer only me" on, and the voice cannot be checked.
+     *
+     * Then nothing it hears is acted on, rather than everything: the switch
+     * still shows on, so it has to say here why the brain is not answering.
+     */
+    if (state.only_me && state.only_me_blocked) {
+        lines.push(['answer only me', `on, but your voice cannot be recognised now (${
+            state.only_me_blocked}), so nothing it hears is acted on. Type instead, or fetch what it needs again.`]);
+    }
+
+    // Text, never markup: a reason the server gives is shown as it is written.
+    rows.replaceChildren(...lines.map(([what, value]) => {
+        const row = document.createElement('div');
+        const label = document.createElement('span');
+        const shown = document.createElement('span');
+
+        row.className = 'row';
+        label.className = 'row-label';
+        label.textContent = what;
+        shown.className = 'row-value';
+        shown.textContent = value;
+        row.append(label, shown);
+
+        return row;
+    }));
 
     el('voice-get').hidden = state.installed;
+    // One download at a time: the server refuses a second, and the button
+    // says so by not being pressable while one runs.
+    el('voice-get').disabled = !!state.downloading;
     el('voice-teach').hidden = !state.installed;
     el('voice-forget').hidden = !state.enrolled;
     el('voice-only-field').hidden = !state.enrolled;
