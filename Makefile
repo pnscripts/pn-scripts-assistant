@@ -52,6 +52,7 @@ check:
 	@cd clients && $(GO) vet ./...
 	@bash scripts/version-order-test.sh
 	@bash scripts/release-versions-test.sh
+	@bash scripts/release-followers-test.sh
 
 test:
 	@echo "→ go test"

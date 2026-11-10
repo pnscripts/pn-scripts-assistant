@@ -43,7 +43,8 @@ env:
 jobs:
   publish:
     name: Build, sign and publish
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # After Release only for a tag push: a rehearsal from a branch is no release.
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -97,7 +98,7 @@ jobs:
         run: |
           sudo wget -qO /etc/apt/sources.list.d/pn-scripts-assistant.sources "$APT_URL/pn-scripts-assistant.sources"
           sudo apt-get update 2>&1 | tee update.log
-          ! grep -E '^(W|E):.*pnscripts' update.log
+          ! grep -E '^(W|E):.*pnscripts' update.log || exit 1
           apt-cache policy pn-scripts-assistant
 
       - name: Install the version before the newest
@@ -169,4 +170,4 @@ jobs:
           fi
           dpkg -S /etc/apt/sources.list.d/pn-scripts-assistant.sources
           sudo apt-get update 2>&1 | tee again.log
-          ! grep -E '^(W|E):' again.log
+          ! grep -E '^(W|E):' again.log || exit 1
