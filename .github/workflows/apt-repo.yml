@@ -90,7 +90,7 @@ jobs:
     name: A stranger adds it, installs the previous version and updates
     needs: publish
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       # The documented line, exactly as docs/guide/installing.md has it.
       - name: Add the repository (one line)
@@ -101,7 +101,7 @@ jobs:
           apt-cache policy pn-scripts-assistant
 
       - name: Install the version before the newest
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           versions="$(apt-cache madison pn-scripts-assistant | awk '{ print $3 }')"
           echo "$versions"
@@ -132,6 +132,12 @@ jobs:
           sudo apt-get update
           apt list --upgradable 2>/dev/null | tee upgradable.txt
           grep -q '^pn-scripts-assistant/' upgradable.txt
+          # Only this package may move. The runner image's own pending
+          # updates are not what this proves: on 2026-11-10 they pulled snaps
+          # (gnome-46-2404, mesa-2404) at 267 kB/s and ran out the step's ten
+          # minutes three times. The command stays the one a user types.
+          dpkg-query -W -f='${Package}\n' | sort -u | grep -vx 'pn-scripts-assistant' \
+            | xargs sudo apt-mark hold > /dev/null
           sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y </dev/null
           have="$(dpkg-query -W -f='${Version}' pn-scripts-assistant)"
           echo "installed now: $have, newest: $NEWEST"
