@@ -1288,7 +1288,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 		SpokeForMS:  heard.SpokeForMS,
 	}
 
-	turn.Why = why(turn, acted, strings.TrimSpace(s.brain.Cfg.WakeWord))
+	turn.Why, turn.WhyKey, turn.WhyVars = why(turn, acted, strings.TrimSpace(s.brain.Cfg.WakeWord))
 
 	turn.Voice = whose.Alike
 	turn.KnownVoice = whose.Judged
@@ -1302,7 +1302,7 @@ func (s *Server) handleTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if refused.Text != "" && heard.Text != "" {
-		turn.Why = refused.Text
+		turn.Why, turn.WhyKey, turn.WhyVars = refused.Text, refused.Key, refused.Vars
 	}
 
 	s.heard.add(turn)

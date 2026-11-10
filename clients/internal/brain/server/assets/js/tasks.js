@@ -11,6 +11,55 @@
     'use strict';
 
     const el = (id) => document.getElementById(id);
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+
+    // A key's words when it has them, the given text when it does not.
+    function maybe(key, otherwise, vars) {
+        const said = T(key, vars);
+
+        return said === key ? otherwise : said;
+    }
+
+    /*
+     * A specialist's name in the page's language.
+     *
+     * Steps and the weekly review name a specialist by its file name
+     * ("developer"); the built-in ones have their names in i18n.js, and one
+     * somebody added keeps the name it was given.
+     */
+    function agentTitle(name) {
+        if (!name) return '';
+
+        return maybe('task.agent.' + String(name).toLowerCase(), name);
+    }
+
+    // The same, from the English title the program wrote into a sentence
+    // ("waiting on the game developer"), through the roster team.js reads.
+    function titled(title) {
+        const name = (window.pnTeamByTitle || {})[String(title || '').toLowerCase()];
+
+        return name ? agentTitle(name) : title;
+    }
+
+    /*
+     * Why a task is waiting or stopped, in the page's language.
+     *
+     * The reason is kept on the task in English, as the program wrote it, and
+     * the server sends a key beside it when the program worded it itself
+     * (tasks.ReasonKey). A reason that carries an error from somewhere else
+     * keeps that error's words.
+     */
+    function reason(task) {
+        const key = task.blocked_key;
+        const args = Object.assign({}, task.blocked_args || {});
+
+        if (!key) return task.blocked_because || '';
+
+        if (args.why_key) args.why = T(args.why_key);
+        if (args.who) args.who = titled(args.who);
+
+        return T(key, args);
+    }
 
     // What the page is showing in detail, kept across the poll so opening a
     // task does not close itself two seconds later.
@@ -29,15 +78,21 @@
     // "it stopped" is a word about what happened.
     function stateOf(task) {
         switch (task.state) {
-            case 'planning': return 'working out what to do';
-            case 'working': return 'working';
-            case 'waiting': return task.blocked_because || 'waiting for you';
-            case 'blocked': return 'stopped: ' + (task.blocked_because || 'it could not go on');
-            case 'stopped': return 'you stopped it';
-            case 'done': return 'finished';
+            case 'planning': return T('task.st.planning');
+            case 'working': return T('task.st.working');
+            case 'waiting': return task.blocked_because ? reason(task) : T('task.st.waiting');
+            case 'blocked': return T('task.st.blocked', {
+                why: task.blocked_because ? reason(task) : T('task.couldNotGoOn')
+            });
+            case 'stopped': return T('task.st.stopped');
+            case 'done': return T('task.st.done');
             default: return task.state;
         }
     }
+
+    // For the room, which lists the same tasks.
+    window.pnTaskState = stateOf;
+    window.pnAgentTitle = agentTitle;
 
     function stepMark(step) {
         if (step.state === 'done') return step.verdict === 'verified' ? '✓' : '~';
@@ -61,13 +116,13 @@
         // got as far as being checked — and a bare ✗ with no reason beside it
         // is the least useful thing on the page.
         if (step.state === 'failed' && step.why) return step.why;
-        if (step.state === 'skipped') return step.why || 'skipped';
+        if (step.state === 'skipped') return step.why || T('task.skipped');
         if (step.verdict === 'verified') {
-            return 'checked against what the tools returned'
-                + (step.checked_by ? ' · ' + step.checked_by : '');
+            return T('task.checked')
+                + (step.checked_by ? ' · ' + agentTitle(step.checked_by) : '');
         }
-        if (step.verdict === 'claimed') return 'its own word for it, nothing was looked up';
-        if (step.verdict === 'unmet') return step.why || 'it did not do what the step was for';
+        if (step.verdict === 'claimed') return T('task.claimed');
+        if (step.verdict === 'unmet') return step.why || T('task.unmet');
         return '';
     }
 
@@ -86,8 +141,9 @@
         if (at < LEVELS.indexOf(quietFrom)) return null;
 
         const tag = document.createElement('span');
-        tag.className = 'risk-tag risk-' + LEVELS[Math.max(at, 0)];
-        tag.textContent = LEVELS[Math.max(at, 0)] + ' risk';
+        tag.className = 'risk-tag';
+        tag.classList.add(`risk-${LEVELS[Math.max(at, 0)]}`);
+        tag.textContent = T('task.riskTag', { level: T('risk.' + LEVELS[Math.max(at, 0)]) });
         return tag;
     }
 
@@ -113,14 +169,14 @@
         if (!withButtons) return row;
 
         if (task.state === 'working' || task.state === 'planning') {
-            row.appendChild(button('Stop', () => act(task.id, 'stop')));
+            row.appendChild(button(T('task.stop'), () => act(task.id, 'stop')));
         }
 
         // Only offered when nothing is actually in the way. A task parked on a
         // decision is picked up by making the decision, and a Resume button
         // beside it would be a button that does nothing.
         if (task.state === 'waiting' && !/decision/.test(task.blocked_because || '')) {
-            row.appendChild(button('Pick it up', () => act(task.id, 'resume')));
+            row.appendChild(button(T('task.pickUp'), () => act(task.id, 'resume')));
         }
 
         return row;
@@ -140,12 +196,12 @@
             const res = await fetch('/api/tasks/' + id + '/' + what, { method: 'POST' });
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                say(body.error || 'That did not work.');
+                say(body.error ? T('task.failedWhy', { why: body.error }) : T('task.failed'));
                 return;
             }
             refresh();
         } catch (err) {
-            say('That did not work: ' + err.message);
+            say(T('task.failedWhy', { why: err.message }));
         }
     }
 
@@ -153,7 +209,7 @@
         const box = el('task-request');
         if (!box || !box.value.trim()) return;
 
-        say('Planning it…');
+        say(T('task.planning'));
 
         try {
             const res = await fetch('/api/tasks', {
@@ -165,17 +221,17 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say(body.error || 'That did not work.');
+                say(body.error ? T('task.failedWhy', { why: body.error }) : T('task.failed'));
                 return;
             }
 
             box.value = '';
             typing = false;
             open = body.id;
-            say('Started: ' + body.name);
+            say(T('task.started', { name: body.name }));
             refresh();
         } catch (err) {
-            say('That did not work: ' + err.message);
+            say(T('task.failedWhy', { why: err.message }));
         }
     }
 
@@ -239,13 +295,13 @@
                 const up = document.createElement('button');
                 up.type = 'button';
                 up.className = 'task-link';
-                up.textContent = 'a step of task ' + task.parent_task_id;
+                up.textContent = T('task.stepOf', { n: task.parent_task_id });
                 up.addEventListener('click', () => { open = task.parent_task_id; refresh(); });
-                chain.append('This is ', up, '. ');
+                chain.append(...around(T('task.thisIs'), up));
             }
 
             if ((task.team || []).length) {
-                chain.append('Worked on by ' + task.team.join(', ') + '.');
+                chain.append(T('task.workedOnBy', { who: task.team.map(agentTitle).join(', ') }));
             }
 
             chain.hidden = chain.textContent === '';
@@ -286,8 +342,8 @@
                 const link = document.createElement('div');
                 link.className = 'task-step-note';
                 link.textContent = step.escalated_from
-                    ? 'sent up after step ' + (positionOf[step.escalated_from] || '?') + ' could not be done'
-                    : 'a review of step ' + (positionOf[step.review_of] || '?');
+                    ? T('task.sentUp', { n: positionOf[step.escalated_from] || '?' })
+                    : T('task.reviewOf', { n: positionOf[step.review_of] || '?' });
                 body.appendChild(link);
             }
 
@@ -299,10 +355,10 @@
                 const open_ = document.createElement('button');
                 open_.type = 'button';
                 open_.className = 'task-link';
-                open_.textContent = child ? child.name : 'task ' + step.handed_to;
+                open_.textContent = child ? child.name : T('task.taskN', { n: step.handed_to });
                 open_.addEventListener('click', () => { open = step.handed_to; refresh(); });
 
-                link.append('handed on: ', open_, child ? ' (' + stateOf(child) + ')' : '');
+                link.append(...around(T('task.handedOn'), open_), child ? ' (' + stateOf(child) + ')' : '');
                 body.appendChild(link);
             }
 
@@ -320,7 +376,7 @@
                 for (const line of step.acted.split('\n')) {
                     if (!line.trim()) continue;
                     const li = document.createElement('li');
-                    li.textContent = 'done without asking: ' + line;
+                    li.textContent = T('task.doneWithoutAsking', { line: line });
                     acted.appendChild(li);
                 }
 
@@ -352,7 +408,7 @@
             if (step.assignee || step.model) {
                 const who = document.createElement('div');
                 who.className = 'task-step-note';
-                who.textContent = [step.assignee, step.model].filter(Boolean).join(' · ');
+                who.textContent = [agentTitle(step.assignee), step.model].filter(Boolean).join(' · ');
                 // Why this model, as the router said it, on hover.
                 if (step.model_why) who.title = step.model_why;
                 body.appendChild(who);
@@ -361,7 +417,7 @@
             if (step.evidence) {
                 const shown = document.createElement('details');
                 const summary = document.createElement('summary');
-                summary.textContent = 'What came back';
+                summary.textContent = T('task.cameBack');
                 shown.appendChild(summary);
 
                 const pre = document.createElement('pre');
@@ -419,6 +475,19 @@
      */
     let waitingFor = {};
 
+    // Who holds or waits for a lane: the specialist's own name when the
+    // server says which one it is.
+    function seatName(seat) {
+        return seat.agent ? agentTitle(seat.agent) : seat.who;
+    }
+
+    // A sentence with an element in it: the words either side of {link}.
+    function around(sentence, node) {
+        const [before, after] = sentence.split('{link}');
+
+        return [before, node, after || ''].filter((part) => part !== '');
+    }
+
     function drawLanes(lanes) {
         waitingFor = {};
 
@@ -433,10 +502,10 @@
 
             behind.forEach((seat, i) => {
                 if (!seat.key) return;
-                const holders = inIt.map((s) => s.who.toLowerCase()).join(' and ');
-                waitingFor[seat.key] = 'waiting for ' + lane.name +
-                    (holders ? ', the ' + holders + (inIt.length > 1 ? ' have' : ' has') + ' it' : '') +
-                    (i > 0 ? ', ' + i + ' ahead' : '');
+                const holders = inIt.map((s) => seatName(s).toLowerCase()).join(T('task.and'));
+                waitingFor[seat.key] = maybe('task.waitFor.' + lane.name, T('task.waitForLane', { lane: lane.name })) +
+                    (holders ? T(inIt.length > 1 ? 'task.heldByMany' : 'task.heldBy', { who: holders }) : '') +
+                    (i > 0 ? T('task.ahead', { n: i }) : '');
             });
 
             if (!inIt.length && !behind.length) continue;
@@ -445,16 +514,16 @@
             row.className = 'task-lane';
 
             const name = document.createElement('b');
-            name.textContent = lane.name[0].toUpperCase() + lane.name.slice(1) +
-                (lane.size > 1 ? ' (' + inIt.length + ' of ' + lane.size + ')' : '');
+            name.textContent = maybe('task.lane.' + lane.name, lane.name[0].toUpperCase() + lane.name.slice(1)) +
+                (lane.size > 1 ? T('task.ofSize', { n: inIt.length, size: lane.size }) : '');
             row.appendChild(name);
 
             row.append(': ' + (inIt.length
-                ? inIt.map((s) => s.who + ': ' + s.what).join('; ')
-                : 'free'));
+                ? inIt.map((s) => seatName(s) + ': ' + s.what).join('; ')
+                : T('task.free')));
 
             if (behind.length) {
-                row.append('. Waiting, in order: ' + behind.map((s) => s.who).join(', ') + '.');
+                row.append(T('task.waitingInOrder', { who: behind.map(seatName).join(', ') }));
             }
 
             node.appendChild(row);
@@ -484,8 +553,8 @@
         const liveNode = el('task-live');
         const recentNode = el('task-recent');
 
-        if (liveNode) fill(liveNode, live, true, 'Nothing running.');
-        if (recentNode) fill(recentNode, recent, true, 'Nothing yet.');
+        if (liveNode) fill(liveNode, live, true, T('room.nothingRunning'));
+        if (recentNode) fill(recentNode, recent, true, T('teach.nothingYet'));
 
         if (!open) { detail(null); return; }
 
@@ -512,6 +581,9 @@
 
         // Joined to the same five seconds everything else on this page uses.
         setInterval(() => { if (!typing) refresh(); }, 5000);
+
+        // The cards are rebuilt; what somebody is typing is not touched.
+        window.addEventListener('pn-language', refresh);
     }
 
     if (document.readyState === 'loading') {

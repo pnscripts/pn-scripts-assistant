@@ -20,6 +20,26 @@
  * one. The other panels in this program already read the body; the console,
  * which is the one people look at, did not.
  */
+// The page's words for a key, in the language now chosen. See i18n.js.
+function words(key, vars) {
+    return window.pnT ? window.pnT(key, vars) : key;
+}
+
+function inBulgarian() {
+    return Boolean(window.pnLang && window.pnLang() === 'bg');
+}
+
+function pageLocale() {
+    return inBulgarian() ? 'bg-BG' : 'en-GB';
+}
+
+// A figure with the decimal mark of the page's language.
+function decimal(value, places) {
+    const figure = Number(value).toFixed(places);
+
+    return inBulgarian() ? figure.replace('.', ',') : figure;
+}
+
 async function why(res, path) {
     let said = '';
 
@@ -31,7 +51,7 @@ async function why(res, path) {
         said = '';
     }
 
-    return new Error(said || `that did not work (${path}, ${res.status})`);
+    return new Error(said || words('cc.failedAt', { path, status: res.status }));
 }
 
 const api = {
@@ -59,7 +79,7 @@ const el = (id) => document.getElementById(id);
 
 const state = {
     conversationId: null,
-    brainName: 'Assistant',
+    brainName: words('cc.assistant'),
     // What has to be said before it answers, or empty to answer everything.
     wakeWord: '',
     // Whether the name is needed on every sentence rather than once.
@@ -117,7 +137,9 @@ function renderSteps(steps) {
 
         const name = document.createElement('span');
         name.className = 'step-what';
-        name.textContent = s.summary || s.tool || 'did something';
+        name.textContent = inBulgarian() && s.tool && window.pnToolName
+            ? window.pnToolName(s.tool)
+            : s.summary || s.tool || words('cc.didSomething');
         head.appendChild(name);
 
         // How long it took, beside what it was. The number is the difference
@@ -126,8 +148,8 @@ function renderSteps(steps) {
         const time = document.createElement('span');
         time.className = 'step-time';
         time.textContent = s.millis >= 1000
-            ? (s.millis / 1000).toFixed(1) + 's'
-            : (s.millis || 0) + 'ms';
+            ? words('cc.seconds', { n: decimal(s.millis / 1000, 1) })
+            : words('cc.millis', { n: s.millis || 0 });
         head.appendChild(time);
 
         row.appendChild(head);
@@ -140,6 +162,15 @@ function renderSteps(steps) {
             t.className = 'step-tool';
             t.textContent = s.tool;
             detail.appendChild(t);
+
+            // On a Bulgarian page the name above is the tool's; its own
+            // summary of what it did is kept here, as it came.
+            if (inBulgarian() && s.summary) {
+                const said = document.createElement('div');
+                said.className = 'step-tool';
+                said.textContent = s.summary;
+                detail.appendChild(said);
+            }
         }
 
         if (s.asked) {
@@ -277,6 +308,9 @@ function openSource(where, web, button) {
     });
 }
 
+// The three speakers that are not the assistant, named in the page's language.
+const WHO = { you: 'cc.who.you', error: 'cc.who.error', system: 'cc.who.system' };
+
 function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps = [], answers = true, sources = [] } = {}) {
     clearBoot();
 
@@ -285,7 +319,7 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps =
 
     const label = document.createElement('div');
     label.className = 'who';
-    label.textContent = who;
+    label.textContent = WHO[who] ? words(WHO[who]) : who;
     wrap.appendChild(label);
 
     const body = document.createElement('div');
@@ -383,8 +417,9 @@ function showThinking() {
     clearBoot();
     const wrap = document.createElement('div');
     wrap.className = 'msg brain thinking';
-    wrap.innerHTML = '<div class="who"></div><div class="thinking-line">thinking…</div>';
+    wrap.innerHTML = '<div class="who"></div><div class="thinking-line"></div>';
     wrap.querySelector('.who').textContent = state.brainName;
+    wrap.querySelector('.thinking-line').textContent = words('cc.thinkingLine');
     el('transcript').appendChild(wrap);
     el('transcript').scrollTop = el('transcript').scrollHeight;
     el('orb').classList.add('thinking');
@@ -423,13 +458,17 @@ function whenSaid(iso) {
 
     const minutes = (Date.now() - at.getTime()) / 60000;
 
-    if (minutes < 60) return `${Math.max(1, Math.round(minutes))} minutes ago`;
+    if (minutes < 60) {
+        const n = Math.max(1, Math.round(minutes));
+
+        return words(n === 1 ? 'cc.minuteAgo' : 'cc.minutesAgo', { n });
+    }
 
     const sameDay = at.toDateString() === new Date().toDateString();
 
     return sameDay
-        ? `at ${at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-        : at.toLocaleString([], {
+        ? words('cc.atTime', { time: at.toLocaleTimeString(pageLocale(), { hour: '2-digit', minute: '2-digit' }) })
+        : at.toLocaleString(pageLocale(), {
             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
         });
 }
@@ -442,7 +481,7 @@ async function send(text) {
     state.busy = true;
     el('send').disabled = true;
     // Whatever was asked before has now been answered, one way or another.
-    document.querySelectorAll('#transcript .answers button').forEach((b) => { b.disabled = true; });
+    document.querySelectorAll('#transcript .answer').forEach((b) => { b.disabled = true; });
     addMessage('you', text, { cssClass: 'you' });
 
     const placeholder = showThinking();
@@ -476,7 +515,7 @@ async function send(text) {
      * somebody wants to know mid-answer is that they can cut in.
      */
     if (talking.on) {
-        setVoiceStatus('Say anything to cut in');
+        setVoiceStatus(words('cc.voice.cutIn'));
     }
 
     try {
@@ -529,7 +568,7 @@ async function send(text) {
          * which needs a line above it saying why the answer is missing.
          */
         if (err.name === 'AbortError') {
-            markThread('Stopped: that answer was not finished');
+            markThread(words('cc.stopped'));
         } else {
             addMessage('error', String(err.message || err), { cssClass: 'error' });
         }
@@ -639,9 +678,13 @@ function renderPrivacy(privacy) {
     // panel updating.
     if (!summary) return;
 
-    summary.textContent = privacy.summary;
+    // Said from the mode, in the page's language; the server's English is
+    // the same sentences (llm.Mode.Describe).
+    const known = ['open', 'research', 'private'].includes(privacy.mode);
+
+    summary.textContent = known ? words(`cc.privacy.${privacy.mode}`) : privacy.summary;
     summary.className = 'privacy-summary ' + privacy.mode;
-    el('privacy-detail').textContent = privacy.detail;
+    el('privacy-detail').textContent = known ? words(`cc.privacy.${privacy.mode}Detail`) : privacy.detail;
 }
 
 const GB = 1024 ** 3;
@@ -657,13 +700,21 @@ function renderStorage(storage) {
     fill.style.width = usedPct + '%';
     fill.className = storage.level === 'ok' ? '' : storage.level;
 
-    el('storage-text').textContent =
-        `${(storage.free_bytes / GB).toFixed(0)}GB free · brain using ` +
-        `${(storage.database_bytes / (1024 ** 2)).toFixed(0)}MB`;
+    el('storage-text').textContent = words('cc.storage', {
+        free: (storage.free_bytes / GB).toFixed(0),
+        used: (storage.database_bytes / (1024 ** 2)).toFixed(0),
+    });
 
+    // The advice is said from its level, in the page's language; the
+    // server's English is the same sentences (storage.Check).
+    const advice = { critical: 'cc.storage.critical', warn: 'cc.storage.warn', unknown: 'cc.storage.unknown' };
     const warning = el('storage-warning');
     warning.hidden = !storage.advice;
-    if (storage.advice) el('storage-advice').textContent = storage.advice;
+    if (storage.advice) {
+        el('storage-advice').textContent = advice[storage.level]
+            ? words(advice[storage.level], { root: storage.path || '' })
+            : storage.advice;
+    }
 }
 
 /*
@@ -751,7 +802,7 @@ function toggleTalking() {
         // would be worse than a moment's wait.
         talking.on = false;
         setTalkButton('stopping');
-        setVoiceStatus('Finishing this turn…');
+        setVoiceStatus(words('cc.voice.finishing'));
 
         return;
     }
@@ -783,7 +834,7 @@ window.brainCommands = {
 
         if (transcript) transcript.innerHTML = '';
 
-        addMessage(state.brainName, 'New conversation. What would you like to do?',
+        addMessage(state.brainName, words('cc.newConversationSaid'),
             { cssClass: 'brain' });
     },
 };
@@ -822,7 +873,7 @@ function setTalkButton(state) {
      * "Thinking" about the very same moment.
      */
     label.textContent = state === 'stopping'
-        ? 'Stopping'
+        ? words('cc.stopping')
         : window.brainStatusLabel(status);
 }
 
@@ -859,8 +910,8 @@ async function talkLoop() {
 
             setTalkButton(open ? 'listening' : 'waiting');
             setVoiceStatus(open
-                ? 'Speak when ready'
-                : `Say \u201c${state.wakeWord}\u201d to start`);
+                ? words('cc.voice.speak')
+                : words('cc.voice.sayName', { name: state.wakeWord }));
 
             let heard;
             try {
@@ -879,14 +930,14 @@ async function talkLoop() {
                 // worth a line in the transcript. One is a moment.
                 if (trouble >= 5) {
                     addMessage('error',
-                        `I cannot open the microphone: ${String(err.message || err)}`,
+                        words('cc.voice.noMicrophone', { why: String(err.message || err) }),
                         { cssClass: 'error' });
 
                     break;
                 }
 
                 setTalkButton('waiting');
-                setVoiceStatus('the microphone was busy, trying again');
+                setVoiceStatus(words('cc.voice.busy'));
 
                 await new Promise((again) => setTimeout(again, 1200));
 
@@ -912,13 +963,14 @@ async function talkLoop() {
              */
             if (said && (heard.unfamiliar || []).length) {
                 addMessage(state.brainName,
-                    `I heard \u201c${heard.unfamiliar.join('\u201d and \u201c')}\u201d ` +
-                    'but I do not know that name. Is that right? ' +
-                    'Say it again or type it, and I will remember the spelling.',
+                    words('cc.voice.unfamiliar', {
+                        names: heard.unfamiliar.join(words('cc.voice.namesJoin')),
+                    }),
                     { cssClass: 'note' });
 
-                speak(`I heard ${heard.unfamiliar.join(', and ')}, but I do not know ` +
-                    'that name. Is that right?');
+                speak(words('cc.voice.unfamiliarSaid', {
+                    names: heard.unfamiliar.join(words('cc.voice.namesJoinSaid')),
+                }));
             }
 
             /*
@@ -935,7 +987,7 @@ async function talkLoop() {
                 // conversation, and staying engaged past it means answering
                 // whatever they say to somebody else next.
                 disengage();
-                setVoiceStatus(`Say “${state.wakeWord}” to start`);
+                setVoiceStatus(words('cc.voice.sayName', { name: state.wakeWord }));
                 continue;
             }
 
@@ -960,13 +1012,13 @@ async function talkLoop() {
                 if (heard.refused) {
                     setVoiceStatus(window.pnOnlyMe
                         ? window.pnOnlyMe.notActedOn(heard)
-                        : `Not acted on: ${heard.refused}`);
+                        : words('onlyme.notActedOn', { why: heard.refused }));
                     continue;
                 }
 
                 setVoiceStatus(ignored
-                    ? `Heard “${short(ignored)}” · say “${state.wakeWord}” to start`
-                    : `Say “${state.wakeWord || 'the name'}” to start`);
+                    ? words('cc.voice.heardNot', { heard: short(ignored), name: state.wakeWord })
+                    : words('cc.voice.sayName', { name: state.wakeWord || words('cc.voice.theName') }));
                 continue;
             }
 
@@ -976,13 +1028,13 @@ async function talkLoop() {
             if (!said) {
                 // The name on its own: somebody getting its attention before
                 // saying what they want.
-                setVoiceStatus('Listening…');
+                setVoiceStatus(words('cc.voice.listening'));
                 continue;
             }
 
             addMessage('you', said);
             setTalkButton('thinking');
-            setVoiceStatus('Thinking…');
+            setVoiceStatus(words('cc.voice.thinking'));
 
             let reply;
             try {
@@ -1015,7 +1067,7 @@ async function talkLoop() {
             // Written and spoken, always — the transcript is the record and
             // the voice is how you hear it without looking.
             setTalkButton('speaking');
-            setVoiceStatus('Speaking…');
+            setVoiceStatus(words('cc.voice.speaking'));
 
             try {
                 /*
@@ -1130,7 +1182,7 @@ async function loadVoices() {
     select.onchange = async () => {
         try {
             await api.post('/api/voice', { id: select.value });
-            await api.post('/api/speak', { text: 'This is how I sound.' });
+            await api.post('/api/speak', { text: words('cc.voice.sample') });
         } catch (err) {
             addMessage('error', String(err.message || err), { cssClass: 'error' });
         }
@@ -1185,7 +1237,7 @@ async function loadMicrophones() {
         mics.forEach((m) => {
             const option = document.createElement('option');
             option.value = m.id;
-            option.textContent = m.name + (m.id === reply.inUse ? ' (in use)' : '');
+            option.textContent = m.id === reply.inUse ? words('cc.micInUse', { name: m.name }) : m.name;
             select.appendChild(option);
         });
 
@@ -1216,6 +1268,9 @@ function speak(text) {
     api.post('/api/speak', { text }).catch(() => {});
 }
 
+// How sure the learning was, as the badge on a lesson says it.
+const CONFIDENCE = { low: 'cc.conf.low', medium: 'cc.conf.medium', high: 'cc.conf.high', 'very-high': 'cc.conf.veryHigh' };
+
 async function refreshLessons() {
     let pending = [];
     try {
@@ -1242,7 +1297,7 @@ async function refreshLessons() {
         if (lesson.confidence) {
             const badge = document.createElement('span');
             badge.className = 'tool';
-            badge.textContent = lesson.confidence;
+            badge.textContent = CONFIDENCE[lesson.confidence] ? words(CONFIDENCE[lesson.confidence]) : lesson.confidence;
             content.prepend(badge);
         }
 
@@ -1251,12 +1306,12 @@ async function refreshLessons() {
 
         const accept = document.createElement('button');
         accept.className = 'approve';
-        accept.textContent = 'Remember';
+        accept.textContent = words('cc.remember');
         accept.onclick = () => decideLesson(lesson.id, 'accept');
 
         const reject = document.createElement('button');
         reject.className = 'reject';
-        reject.textContent = 'Discard';
+        reject.textContent = words('cc.discard');
         reject.onclick = () => decideLesson(lesson.id, 'reject');
 
         actions.append(accept, reject);
@@ -1285,10 +1340,19 @@ function syncWaitingEmpty() {
     empty.hidden = (approvals ? approvals.children.length : 0) + (lessons ? lessons.children.length : 0) > 0;
 }
 
+// What became of a lesson, from what the server decided (brain.DecideLesson).
+function lessonSaid(result) {
+    if (result.duplicate) return words('cc.lesson.duplicate');
+    if (result.status === 'rejected') return words('cc.lesson.rejected');
+    if (result.status === 'promoted') return words('cc.lesson.remembered');
+
+    return result.message || words('cc.done');
+}
+
 async function decideLesson(id, decision) {
     try {
         const result = await api.post(`/api/lessons/${id}/${decision}`);
-        addMessage('system', result.message || 'Done.', { cssClass: 'brain' });
+        addMessage('system', lessonSaid(result), { cssClass: 'brain' });
     } catch (err) {
         addMessage('error', String(err.message || err), { cssClass: 'error' });
     }
@@ -1347,14 +1411,14 @@ async function refreshDrives() {
 
         const free = document.createElement('span');
         free.className = 'drive-free';
-        free.textContent = (d.free_bytes / GB).toFixed(0) + 'GB free';
+        free.textContent = words('cc.gbFree', { n: (d.free_bytes / GB).toFixed(0) });
 
         row.append(where, free);
 
         const marks = [];
-        if (d.current) marks.push('in use');
-        if (d.removable) marks.push('removable');
-        if (!d.writable) marks.push('not writable');
+        if (d.current) marks.push(words('cc.drive.inUse'));
+        if (d.removable) marks.push(words('cc.drive.removable'));
+        if (!d.writable) marks.push(words('cc.drive.readOnly'));
 
         if (marks.length) {
             const note = document.createElement('span');
@@ -1369,7 +1433,7 @@ async function refreshDrives() {
     if (data.how && (data.drives || []).length > 1) {
         const how = document.createElement('p');
         how.className = 'storage-hint';
-        how.textContent = data.how;
+        how.textContent = words('cc.drive.how');
         list.appendChild(how);
     }
 }
@@ -1394,7 +1458,8 @@ async function refreshApprovals() {
 
         const tool = document.createElement('span');
         tool.className = 'tool';
-        tool.textContent = item.tool;
+        tool.textContent = window.pnToolName ? window.pnToolName(item.tool) : item.tool;
+        tool.title = item.tool;
 
         const summary = document.createElement('p');
         // The summary is the whole point of the prompt: it is what a person
@@ -1407,12 +1472,12 @@ async function refreshApprovals() {
 
         const approve = document.createElement('button');
         approve.className = 'approve';
-        approve.textContent = 'Approve';
+        approve.textContent = words('cc.approve');
         approve.onclick = () => decide(item.id, 'approve');
 
         const reject = document.createElement('button');
         reject.className = 'reject';
-        reject.textContent = 'Reject';
+        reject.textContent = words('cc.reject');
         // "deny" is what the server calls it. This said "reject", so the button
         // answered 400 and rejected nothing — the action stayed in the queue.
         reject.onclick = () => decide(item.id, 'deny');
@@ -1431,8 +1496,10 @@ async function refreshApprovals() {
          */
         const always = document.createElement('button');
         always.className = 'approve-always';
-        always.textContent = 'Always allow';
-        always.title = `Approve this, and stop asking about ${item.tool}`;
+        always.textContent = words('cc.always');
+        always.title = words('cc.alwaysTitle', {
+            tool: window.pnToolName ? window.pnToolName(item.tool) : item.tool,
+        });
         always.onclick = async () => {
             try {
                 await api.post('/api/permissions/decide', {
@@ -1444,7 +1511,7 @@ async function refreshApprovals() {
                 // Say so and do nothing else: approving the call while failing
                 // to record the permission would be the worst of both, because
                 // it looks like it worked and asks again tomorrow.
-                addMessage('error', `I could not record that: ${err.message || err}`,
+                addMessage('error', words('cc.couldNotRecord', { why: err.message || err }),
                     { cssClass: 'error' });
 
                 return;
@@ -1459,7 +1526,7 @@ async function refreshApprovals() {
          * allowed for good, whatever is chosen here; offering to would be a
          * button that quietly does nothing. Its summary says it is one.
          */
-        if ((item.summary || '').startsWith('Always asked')) {
+        if (/^Always asked/.test(item.summary || '')) {
             actions.append(approve, reject);
         } else {
             actions.append(approve, always, reject);
@@ -1489,9 +1556,9 @@ async function decide(id, decision) {
 
         const note = decision === 'approve'
             ? (answer.error
-                ? `Failed: ${answer.error}`
-                : (said ? `Done: ${said}` : 'Done.'))
-            : 'Rejected. Nothing was changed.';
+                ? words('cc.failed', { why: answer.error })
+                : (said ? words('cc.doneWith', { said }) : words('cc.done')))
+            : words('cc.rejected');
 
         addMessage('system', note, { cssClass: 'brain' });
     } catch (err) {
@@ -1544,11 +1611,12 @@ async function refreshActivity() {
      * colour, and that is the useful state to be able to recognise.
      */
     const KINDS = {
-        message: ['MSG', 'said'],
-        tool: ['RUN', 'ran'],
-        lesson: ['MEM', 'learned'],
-        approval: ['ASK', 'waiting'],
+        message: ['MSG', words('cc.kindSaid')],
+        tool: ['RUN', words('cc.kindRan')],
+        lesson: ['MEM', words('cc.kindLearned')],
+        approval: ['ASK', words('cc.kindWaiting')],
     };
+    const TAGS = { executed: 'cc.tag.executed', pending: 'cc.tag.pending', rejected: 'cc.tag.rejected', failed: 'cc.tag.failed' };
 
     items.forEach((item) => {
         const row = document.createElement('div');
@@ -1563,7 +1631,9 @@ async function refreshActivity() {
 
         const title = document.createElement('span');
         title.className = 'row-name';
-        title.textContent = item.summary || item.tool || '—';
+        title.textContent = item.summary
+            || (item.tool && window.pnToolName ? window.pnToolName(item.tool) : item.tool)
+            || '—';
 
         const when = document.createElement('span');
         when.className = 'row-state';
@@ -1574,7 +1644,8 @@ async function refreshActivity() {
 
         const tag = document.createElement('span');
         tag.className = `feed-tag ${item.status || ''}`;
-        tag.textContent = (item.status || item.kind || '').toUpperCase();
+        tag.textContent = (TAGS[item.status] ? words(TAGS[item.status]) : (item.status || item.kind || ''))
+            .toLocaleUpperCase(pageLocale());
 
         row.append(icon, text, tag);
         box.appendChild(row);
@@ -1617,11 +1688,11 @@ function ago(when) {
     const seconds = (Date.now() - new Date(when).getTime()) / 1000;
 
     if (!isFinite(seconds) || seconds < 0) return '';
-    if (seconds < 60) return 'just now';
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+    if (seconds < 60) return words('cc.justNow');
+    if (seconds < 3600) return words('cc.minutesShort', { n: Math.round(seconds / 60) });
+    if (seconds < 86400) return words('cc.hoursShort', { n: Math.round(seconds / 3600) });
 
-    return `${Math.round(seconds / 86400)}d ago`;
+    return words('cc.daysShort', { n: Math.round(seconds / 86400) });
 }
 
 // Returns whether anything was restored, so the caller knows whether a
@@ -1791,7 +1862,7 @@ async function openWhereWeLeftOff(canSpeak) {
         const restored = await restoreConversation();
 
         if (restored && greeting.last) {
-            markThread(`Carrying on, last said ${whenSaid(greeting.last.when)}`);
+            markThread(words('cc.carryingOn', { when: whenSaid(greeting.last.when) }));
         }
     } else {
         state.conversationId = null;
@@ -1799,8 +1870,11 @@ async function openWhereWeLeftOff(canSpeak) {
         if (greeting.last) {
             const topic = (greeting.last.topic || '').trim();
 
-            markThread(`New conversation. The last one was ${whenSaid(greeting.last.when)}`
-                + (topic ? `: ${topic.length > 60 ? `${topic.slice(0, 60).trimEnd()}…` : topic}` : ''));
+            const about = topic.length > 60 ? `${topic.slice(0, 60).trimEnd()}…` : topic;
+
+            markThread(topic
+                ? words('cc.newThreadAbout', { when: whenSaid(greeting.last.when), topic: about })
+                : words('cc.newThread', { when: whenSaid(greeting.last.when) }));
         }
     }
 
@@ -1879,7 +1953,17 @@ async function openWhereWeLeftOff(canSpeak) {
 
     // The status pill is written in the page's language, so a change of
     // language redraws it rather than waiting for the next poll.
-    window.addEventListener('pn-language', () => refreshStatus());
+    window.addEventListener('pn-language', () => {
+        refreshStatus();
+        refreshApprovals();
+        refreshLessons();
+        refreshDrives();
+        refreshActivity();
+
+        const talk = el('talk');
+
+        if (talk && talk.dataset.state) setTalkButton(talk.dataset.state);
+    });
 
     // Polling rather than websockets: approvals can be decided from the Filament
     // admin or another window, and a few seconds of staleness costs nothing here.
@@ -2173,7 +2257,7 @@ function showActivity(steps) {
 
     const signature = steps
         .map((s) => `${s.kind}|${s.note}|${(s.detail || []).join('~')}`)
-        .join('\n');
+        .join('\n') + (window.pnLang ? window.pnLang() : '');
 
     if (box.dataset.shown === signature) {
         // Only the clock on the last line moves.
@@ -2204,13 +2288,15 @@ function showActivity(steps) {
 
         const what = document.createElement('span');
         what.className = 'act-what';
-        what.textContent = step.note || step.kind;
+        what.textContent = step.note && window.pnStepLine
+            ? window.pnStepLine(step.note, step)
+            : step.note || step.kind;
         body.appendChild(what);
 
         (step.detail || []).forEach((line) => {
             const d = document.createElement('span');
             d.className = 'act-detail';
-            d.textContent = line;
+            d.textContent = window.pnStepLine ? window.pnStepLine(line) : line;
             body.appendChild(d);
         });
 

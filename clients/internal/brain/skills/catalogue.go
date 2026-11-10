@@ -93,6 +93,7 @@ func Pack() ([]Skill, error) {
 			bmeta, bbody := frontMatter(string(bg))
 			s.WhenBG = oneLine(bmeta["description"])
 			s.HowBG = capRunes(strings.TrimSpace(bbody), MostPlaybookRunes)
+			s.NameBG = heading(bbody)
 		}
 
 		if hasExtra(e.Name()) {
@@ -124,6 +125,18 @@ func hasExtra(folder string) bool {
 }
 
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// heading is the first top-level heading of a skill's text ("# Основи на
+// ДДС в България"), or nothing when it has none.
+func heading(body string) string {
+	for _, line := range strings.Split(body, "\n") {
+		if title, ok := strings.CutPrefix(strings.TrimSpace(line), "# "); ok {
+			return oneLine(title)
+		}
+	}
+
+	return ""
+}
 
 func capRunes(s string, n int) string {
 	if utf8.RuneCountInString(s) > n {

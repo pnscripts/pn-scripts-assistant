@@ -18,6 +18,8 @@
 (function () {
 
 const el = (id) => document.getElementById(id);
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+const bg = () => window.pnLang && window.pnLang() === 'bg';
 
 /*
  * Every status, in the order it happens during a turn.
@@ -31,16 +33,16 @@ const el = (id) => document.getElementById(id);
  * The wording under each is when it appears, because a colour picker beside
  * the word "hearing" tells nobody which moment it paints.
  */
-const COLOUR_PARTS = [
-    ['idle', 'At rest', 'Nothing happening'],
-    ['listening', 'Listening', 'While the microphone is open'],
-    ['hearing', 'Hearing you', 'While it works out what you said'],
-    ['thinking_core', 'Thinking', 'While a model is working'],
-    ['tool', 'Doing something', 'While it reads, searches or opens something'],
-    ['speaking', 'Its own voice', 'While it is speaking'],
-    ['waiting', 'Needs you', 'When it has stopped and wants an answer'],
-    ['learning', 'Learning', 'Its own background work, nobody waiting'],
-    ['thinking_line', 'The sweeping line', 'The band that crosses the core'],
+const colourParts = () => [
+    ['idle', T('sys.colour.idle'), T('sys.colour.idleWhen')],
+    ['listening', T('sys.colour.listening'), T('sys.colour.listeningWhen')],
+    ['hearing', T('sys.colour.hearing'), T('sys.colour.hearingWhen')],
+    ['thinking_core', T('sys.colour.thinking'), T('sys.colour.thinkingWhen')],
+    ['tool', T('sys.colour.tool'), T('sys.colour.toolWhen')],
+    ['speaking', T('sys.colour.speaking'), T('sys.colour.speakingWhen')],
+    ['waiting', T('sys.colour.waiting'), T('sys.colour.waitingWhen')],
+    ['learning', T('sys.colour.learning'), T('sys.colour.learningWhen')],
+    ['thinking_line', T('sys.colour.line'), T('sys.colour.lineWhen')],
 ];
 
 async function load() {
@@ -66,14 +68,23 @@ async function load() {
         const m = status.models;
 
         const jobs = [
-            ['talking', m.talk],
-            ['doing things', m.work],
-            ['working things out', m.reason],
+            [T('sys.role.talk'), m.talk],
+            [T('sys.role.work'), m.work],
+            [T('sys.role.reason'), m.reason],
         ].filter(([, model]) => model);
 
-        el('models-roles').innerHTML = jobs
-            .map(([job, model]) => `<span class="model-job">${job}</span> ${model}`)
-            .join('<br>');
+        // Built from nodes: a model's name is the server's, not markup.
+        const roles = el('models-roles');
+
+        roles.textContent = '';
+        jobs.forEach(([job, model], i) => {
+            if (i) roles.appendChild(document.createElement('br'));
+
+            const name = document.createElement('span');
+            name.className = 'model-job';
+            name.textContent = job;
+            roles.append(name, ' ' + model);
+        });
 
         const warning = el('models-warning');
 
@@ -144,7 +155,7 @@ async function renderColours() {
 
     host.innerHTML = '';
 
-    for (const [key, name, when] of COLOUR_PARTS) {
+    for (const [key, name, when] of colourParts()) {
         const row = document.createElement('div');
 
         row.className = 'row';
@@ -246,7 +257,7 @@ async function save(values, note) {
             return false;
         }
 
-        if (note) note.textContent = 'Saved.';
+        if (note) note.textContent = T('sys.saved');
 
         // Saved, so the server's answer is the truth again and the form may be
         // refilled from it.
@@ -254,7 +265,7 @@ async function save(values, note) {
 
         return true;
     } catch {
-        if (note) note.textContent = 'Could not save.';
+        if (note) note.textContent = T('sys.notSaved');
 
         return false;
     }
@@ -315,16 +326,16 @@ function wireSetup() {
     open.onclick = async () => {
         open.disabled = true;
 
-        if (note) note.textContent = 'Opening setup…';
+        if (note) note.textContent = T('sys.setupOpening');
 
         try {
             await api.post('/api/setup', {});
 
-            if (note) note.textContent = 'Setup is open in its own window.';
+            if (note) note.textContent = T('sys.setupOpened');
         } catch (err) {
             // Named, not swallowed: a button that does nothing and says nothing
             // is indistinguishable from a broken program.
-            if (note) note.textContent = 'Could not open setup: ' + err.message;
+            if (note) note.textContent = T('sys.setupFailed', { why: err.message });
         }
 
         open.disabled = false;
@@ -360,13 +371,11 @@ async function loadMenu() {
     if (status.packaged) {
         // Installed with the package: it is in the menu already, and that
         // entry belongs to apt rather than to this program.
-        note.textContent = 'In the menu, installed with the package. Press the Ubuntu key '
-            + `and type its name. \u00b7 ${status.entry}`;
+        note.textContent = T('sys.menuPackaged', { entry: status.entry });
     } else {
         note.textContent = status.installed
-            ? `In the menu. Press the Ubuntu key and type its name. \u00b7 ${status.entry}`
-            : 'Not in the menu yet. Adding it writes one file and a set of icons '
-                + 'into your own home directory, and nothing else on the machine changes.';
+            ? T('sys.menuIn', { entry: status.entry })
+            : T('sys.menuOut');
     }
 
     add.hidden = status.installed;
@@ -381,7 +390,7 @@ function wireMenu() {
             const was = button.textContent;
 
             button.disabled = true;
-            button.textContent = working;
+            button.textContent = working();
 
             try {
                 await api.post('/api/desktop', body);
@@ -395,8 +404,8 @@ function wireMenu() {
         });
     };
 
-    press(el('menu-add'), {}, 'Adding\u2026');
-    press(el('menu-remove'), { remove: true }, 'Removing\u2026');
+    press(el('menu-add'), {}, () => T('sys.adding'));
+    press(el('menu-remove'), { remove: true }, () => T('sys.removing'));
 }
 
 wireMenu();
@@ -411,7 +420,7 @@ document.querySelectorAll('.voice-choice [data-sex]').forEach((button) => {
         try {
             const chosen = await api.post('/api/voice/sex', { sex: button.dataset.sex });
 
-            if (note) note.textContent = `Now using ${chosen.voice}.`;
+            if (note) note.textContent = T('sys.voiceNow', { voice: chosen.voice });
         } catch (err) {
             if (note) note.textContent = String(err.message || err);
         } finally {
@@ -442,13 +451,16 @@ async function loadMail() {
     el('mail-user').value = status.user || '';
     el('mail-host').value = status.host || '';
     el('mail-smtp').value = status.smtp || '';
+    // Said by the script from here on, so the page's own placeholder does
+    // not put the static one back when the language changes.
+    delete el('mail-password').dataset.i18nPlaceholder;
     el('mail-password').placeholder = status.has_password
-        ? 'saved \u00b7 leave blank to keep it'
-        : 'app password';
+        ? T('sys.mailKeep')
+        : T('sys.mailPassHint');
 
     el('mail-note').textContent = status.configured
-        ? 'Ready. Ask it to check your email.'
-        : 'Not set up yet.';
+        ? T('sys.mailReady')
+        : T('sys.mailNotSet');
 }
 
 const mailForm = el('mail-form');
@@ -459,7 +471,7 @@ if (mailForm) {
 
         const note = el('mail-note');
 
-        note.textContent = 'Saving\u2026';
+        note.textContent = T('sys.saving');
 
         try {
             await api.post('/api/mail', {
@@ -475,6 +487,23 @@ if (mailForm) {
             note.textContent = String(err.message || err);
         }
     });
+}
+
+// Why a turn was or was not acted on, in the page's language.
+function heardWhy(turn) {
+    const key = turn.why_key || '';
+
+    if (key.startsWith('onlyme.') && window.pnOnlyMe) {
+        return window.pnOnlyMe.refused({ refused: turn.why, refused_key: key, refused_vars: turn.why_vars });
+    }
+
+    if (key) {
+        const said = T(key, turn.why_vars);
+
+        if (said !== key) return said;
+    }
+
+    return turn.why || '';
 }
 
 async function loadHeard() {
@@ -497,32 +526,32 @@ async function loadHeard() {
     if (!data.turns || !data.turns.length) {
         if (note) {
             note.textContent = data.wake_word
-                ? `Nothing heard yet. It is listening for \u201c${data.wake_word}\u201d.`
-                : 'Nothing heard yet.';
+                ? T('sys.heardNothingFor', { name: data.wake_word })
+                : T('sys.heardNothing');
         }
 
         return;
     }
 
     if (note) {
-        note.textContent = `It answers to: ${(data.names || []).join(', ') || 'anything'}`;
+        note.textContent = T('sys.answersTo', { names: (data.names || []).join(', ') || T('sys.anything') });
     }
 
     for (const turn of data.turns) {
         const row = document.createElement('div');
         row.className = `row heard-row${turn.addressed ? ' is-addressed' : ''}`;
 
-        const when = new Date(turn.at).toLocaleTimeString();
+        const when = new Date(turn.at).toLocaleTimeString(bg() ? 'bg-BG' : 'en-GB');
         const said = (turn.text || '').trim();
 
         const what = document.createElement('div');
         what.className = 'heard-what';
-        what.textContent = said ? `\u201c${said}\u201d` : '(no words)';
+        what.textContent = said ? (bg() ? `\u201e${said}\u201c` : `\u201c${said}\u201d`) : T('sys.noWords');
 
         const why = document.createElement('div');
         why.className = 'heard-why';
-        why.textContent = `${when} \u00b7 ${turn.why} \u00b7 loudest ${turn.peak_rms}, `
-            + `room ${turn.noise_floor}, needed ${turn.threshold}`;
+        why.textContent = `${when} \u00b7 ${heardWhy(turn)} \u00b7 `
+            + T('sys.heardLevels', { peak: turn.peak_rms, room: turn.noise_floor, need: turn.threshold });
 
         const text = document.createElement('div');
         text.appendChild(what);
@@ -543,7 +572,7 @@ async function loadHeard() {
                 const add = document.createElement('button');
                 add.type = 'button';
                 add.className = 'model-action';
-                add.textContent = `Also answer to \u201c${first}\u201d`;
+                add.textContent = T('sys.alsoAnswer', { word: first });
                 add.addEventListener('click', async () => {
                     add.disabled = true;
 
@@ -612,16 +641,39 @@ setInterval(() => {
  * found is available; a switch here adds it to a short list of exceptions,
  * which is empty on every brain until somebody writes in it.
  */
-const environmentStates = {
-    available: 'here',
-    needs_configuration: 'needs setting up',
-    needs_sign_in: 'not signed in',
-    needs_licence: 'not licensed',
-    not_installed: 'not installed',
-    blocked: 'here, unusable',
-    no_capacity: 'nothing left',
-    unknown: 'not known',
-};
+const environmentStates = () => ({
+    available: T('sys.env.state.available'),
+    needs_configuration: T('sys.env.state.configuration'),
+    needs_sign_in: T('sys.env.state.signIn'),
+    needs_licence: T('sys.env.state.licence'),
+    not_installed: T('sys.env.state.notInstalled'),
+    blocked: T('sys.env.state.blocked'),
+    no_capacity: T('sys.env.state.noCapacity'),
+    unknown: T('sys.env.state.unknown'),
+});
+
+const environmentKinds = () => ({
+    runtime: T('sys.env.kind.runtime'),
+    tool: T('sys.env.kind.tool'),
+    engine: T('sys.env.kind.engine'),
+    editor: T('sys.env.kind.editor'),
+    coder: T('sys.env.kind.coder'),
+    model: T('sys.env.kind.model'),
+    integration: T('sys.env.kind.integration'),
+    service: T('sys.env.kind.service'),
+    ability: T('sys.env.kind.ability'),
+    browser: T('sys.env.kind.browser'),
+});
+
+// A key the server sent, said in the page's language, or the English it
+// sent beside it when this page has no words for it.
+function envSaid(key, vars, english) {
+    if (!key) return english || '';
+
+    const said = T(key, vars);
+
+    return said === key ? (english || '') : said;
+}
 
 async function loadEnvironment(again) {
     const holder = el('environment-list');
@@ -639,7 +691,7 @@ async function loadEnvironment(again) {
     const things = state.things || [];
 
     if (things.length === 0) {
-        holder.textContent = 'Still looking.';
+        holder.textContent = T('sys.env.stillLooking');
 
         return;
     }
@@ -655,12 +707,12 @@ async function loadEnvironment(again) {
      */
     const lookAgain = document.createElement('button');
     lookAgain.type = 'button';
-    lookAgain.className = 'model-action environment-again';
-    lookAgain.textContent = 'Look again';
+    lookAgain.classList.add('model-action', 'environment-again');
+    lookAgain.textContent = T('mcare.look');
 
     lookAgain.addEventListener('click', async () => {
         lookAgain.disabled = true;
-        lookAgain.textContent = 'Looking\u2026';
+        lookAgain.textContent = T('sys.looking');
 
         try {
             await loadEnvironment(true);
@@ -681,7 +733,7 @@ async function loadEnvironment(again) {
 
             const heading = document.createElement('div');
             heading.className = 'environment-kind';
-            heading.textContent = kind.replace(/_/g, ' ');
+            heading.textContent = environmentKinds()[kind] || kind.replace(/_/g, ' ');
             holder.appendChild(heading);
         }
 
@@ -690,27 +742,30 @@ async function loadEnvironment(again) {
 
         const name = document.createElement('span');
         name.className = 'environment-name';
-        name.textContent = thing.title + (thing.version ? ' ' + thing.version : '');
+        name.textContent = envSaid(thing.title_key, thing.vars, thing.title)
+            + (thing.version ? ' ' + thing.version : '');
         row.appendChild(name);
 
         const said = document.createElement('span');
         said.className = 'environment-state';
         said.textContent = thing.off
-            ? 'switched off'
-            : (environmentStates[thing.state] || thing.state);
+            ? T('sys.env.off')
+            : (environmentStates()[thing.state] || thing.state);
         row.appendChild(said);
 
         // Always the same four columns, even when there is nothing to say
         // here: an empty cell keeps the button where the eye expects it.
         const needs = document.createElement('span');
         needs.className = 'environment-needs';
-        needs.textContent = thing.state === 'available' ? '' : (thing.needs || thing.why || '');
+        needs.textContent = thing.state === 'available'
+            ? ''
+            : (envSaid(thing.needs_key, thing.vars, thing.needs) || envSaid(thing.why_key, thing.vars, thing.why));
         row.appendChild(needs);
 
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'model-action environment-switch';
-        button.textContent = thing.off ? 'Use it again' : 'Do not use';
+        button.textContent = thing.off ? T('sys.env.useAgain') : T('sys.env.doNotUse');
 
         button.addEventListener('click', async () => {
             button.disabled = true;
@@ -735,5 +790,14 @@ loadHeard();
 loadMenu();
 loadMail();
 loadEnvironment();
+
+// Everything this draws, drawn again in the language just chosen.
+window.addEventListener('pn-language', () => {
+    load();
+    loadHeard();
+    loadMenu();
+    loadMail();
+    loadEnvironment();
+});
 
 })();

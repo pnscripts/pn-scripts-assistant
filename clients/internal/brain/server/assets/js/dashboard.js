@@ -17,6 +17,9 @@
 
 (function () {
     const el = (id) => document.getElementById(id);
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+    const bg = () => window.pnLang && window.pnLang() === 'bg';
+    const count = (n) => Number(n || 0).toLocaleString(bg() ? 'bg-BG' : 'en-GB');
 
     const get = async (path) => {
         const res = await fetch(path, { headers: { Accept: 'application/json' } });
@@ -74,9 +77,9 @@
             const done = busiest.learned || 0;
             const left = busiest.waiting;
 
-            el('headline-what').textContent = `reading ${busiest.name}`;
+            el('headline-what').textContent = T('cc.head.reading', { name: busiest.name });
             el('headline-count').textContent =
-                `${done.toLocaleString()} learned · ${left.toLocaleString()} to go`;
+                T('cc.head.learned', { done: count(done), left: count(left) });
 
             return;
         }
@@ -89,10 +92,10 @@
          * the screen more than a count of what it already holds.
          */
         if (waitingOnYou > 0) {
-            el('headline-what').textContent = 'waiting for you';
+            el('headline-what').textContent = T('cc.head.waiting');
             el('headline-count').textContent = waitingOnYou === 1
-                ? '1 thing to keep or discard'
-                : `${waitingOnYou} things to keep or discard`;
+                ? T('cc.head.oneToKeep')
+                : T('cc.head.toKeep', { n: count(waitingOnYou) });
 
             return;
         }
@@ -105,10 +108,10 @@
          * waited on.
          */
         el('headline-what').textContent = places.length
-            ? 'nothing left to read'
-            : 'nothing on the reading list';
+            ? T('cc.head.nothingLeft')
+            : T('cc.head.nothingListed');
 
-        el('headline-count').textContent = `${remembered.toLocaleString()} remembered`;
+        el('headline-count').textContent = T('cc.head.remembered', { n: count(remembered) });
     }
 
     setInterval(tickHeadline, 10000);
@@ -222,6 +225,15 @@
 
     const focusButton = el('focus-button');
 
+    // The button's words follow whether the conversation has the screen.
+    function sayFocus() {
+        if (!focusButton || !dash) return;
+
+        focusButton.querySelector('span').textContent = dash.classList.contains('focus-talk')
+            ? T('cc.unfocus')
+            : T('cc.focus');
+    }
+
     if (focusButton) {
         focusButton.addEventListener('click', () => {
             if (!dash) return;
@@ -230,9 +242,7 @@
 
             dash.classList.remove('focus-map');
             dash.classList.toggle('focus-talk', on);
-            focusButton.querySelector('span').textContent = on
-                ? 'Back to the command centre'
-                : 'Focus on the conversation';
+            sayFocus();
 
             show('console');
         });
@@ -252,11 +262,11 @@
         // It reads differently from Listening on purpose: the two look the
         // same from outside, and only one of them means the brain is paying
         // attention to you.
-        waiting: 'Waiting for its name',
-        listening: 'Listening',
-        thinking: 'Thinking',
-        speaking: 'Speaking',
-        idle: 'Idle',
+        waiting: 'cc.state.waiting',
+        listening: 'cc.state.listening',
+        thinking: 'cc.state.thinking',
+        speaking: 'cc.state.speaking',
+        idle: 'cc.state.idle',
 
         /*
          * The states this panel used to have no word for.
@@ -266,9 +276,9 @@
          * doing anything said it was doing nothing — during the two kinds of
          * work that take the longest.
          */
-        tool: 'Working',
-        hearing: 'Making out the words',
-        learning: 'Learning',
+        tool: 'cc.state.tool',
+        hearing: 'cc.state.hearing',
+        learning: 'cc.state.learning',
     };
 
     let talkState = 'idle';
@@ -283,7 +293,7 @@
         const label = el('voice-state');
 
         if (label) {
-            label.textContent = stateWords[talkState] || 'Idle';
+            label.textContent = T(stateWords[talkState] || 'cc.state.idle');
             label.className = 'voice-state';
 
             /*
@@ -489,7 +499,17 @@
     };
 
     function gigabytes(bytes) {
-        return `${(bytes / 1e9).toFixed(1)}GB`;
+        const figure = (bytes / 1e9).toFixed(1);
+
+        // A unit, the same in both languages; only the decimal mark differs.
+        return bg() ? `${figure.replace('.', ',')} GB` : `${figure}GB`;
+    }
+
+    // Where a memory was learned, as the bars and the legend name it.
+    const CATEGORIES = ['project', 'document', 'conversation', 'website', 'unknown'];
+
+    function categoryName(name) {
+        return CATEGORIES.includes(name) ? T(`cc.category.${name}`) : name;
     }
 
     function renderStatus(status) {
@@ -507,9 +527,9 @@
         renderRows(el('provider-rows'), (status.providers || []).map((p) => ({
             mark: (p.name || '?').slice(0, 2).toUpperCase(),
             name: p.name,
-            state: !p.permitted ? 'not permitted in this mode'
-                : p.reachable ? (p.default ? 'reachable · in use' : 'reachable')
-                    : 'not reachable',
+            state: !p.permitted ? T('cc.provider.notPermitted')
+                : p.reachable ? (p.default ? T('cc.provider.inUse') : T('cc.provider.reachable'))
+                    : T('cc.provider.unreachable'),
             tone: !p.permitted ? 'off' : p.reachable ? 'ok' : 'warn',
         })));
 
@@ -537,8 +557,8 @@
             }
         }
 
-        text('core-title', status.name || 'Assistant');
-        text('core-sub', status.model ? `${status.provider} · ${status.model}` : 'no model loaded');
+        text('core-title', status.name || T('cc.assistant'));
+        text('core-sub', status.model ? `${status.provider} · ${status.model}` : T('cc.noModel'));
 
         text('owner-name', status.owner || status.name || '—');
 
@@ -587,7 +607,7 @@
                 const behind = total - onScreen;
 
                 more.textContent = behind > 0
-                    ? `Showing the first ${onScreen} · ${behind.toLocaleString()} more behind them`
+                    ? T('cc.more', { shown: onScreen, behind: count(behind) })
                     : '';
                 more.hidden = behind <= 0 || onScreen === 0;
             }
@@ -634,11 +654,12 @@
 
         if (!facts) return;
 
+        const mode = status.privacy?.mode;
         const rows = [
-            ['Mode', status.privacy?.mode || 'unknown'],
-            ['Provider', status.provider || 'none'],
-            ['Model', status.model || 'none'],
-            ['Data folder', status.storage?.path || 'unknown'],
+            [T('cc.fact.mode'), ['open', 'research', 'private'].includes(mode) ? T(`cc.mode.${mode}`) : (mode || T('cc.unknown'))],
+            [T('cc.fact.provider'), status.provider || T('cc.none')],
+            [T('cc.fact.model'), status.model || T('cc.none')],
+            [T('cc.fact.folder'), status.storage?.path || T('cc.unknown')],
         ];
 
         facts.innerHTML = '';
@@ -673,7 +694,7 @@
             const head = document.createElement('div');
             head.className = 'bar-head';
             head.innerHTML = `<span></span><b></b>`;
-            head.firstChild.textContent = name;
+            head.firstChild.textContent = categoryName(name);
             head.lastChild.textContent = count;
 
             const track = document.createElement('div');
@@ -698,11 +719,11 @@
      * configured but not installed does not appear here at all.
      */
     const capabilityNames = {
-        memory: ['Memory', 'storing what it learns'],
-        recall: ['Recall', 'finding it again'],
-        'memory-map': ['Memory map', 'showing what it holds'],
-        speech: ['Voice', 'speaking replies aloud'],
-        listening: ['Listening', 'hearing you speak'],
+        memory: ['cc.cap.memory', 'cc.cap.memoryWhat'],
+        recall: ['cc.cap.recall', 'cc.cap.recallWhat'],
+        'memory-map': ['nav.memory', 'cc.cap.mapWhat'],
+        speech: ['cc.cap.voice', 'cc.cap.voiceWhat'],
+        listening: ['cc.cap.listening', 'cc.cap.listeningWhat'],
     };
 
     function renderCapabilities(capabilities) {
@@ -713,10 +734,12 @@
         host.innerHTML = '';
 
         for (const name of capabilities) {
-            const known = capabilityNames[name]
-                || (name.startsWith('model:')
-                    ? ['Model', `answering through ${name.slice(6)}`]
-                    : [name, 'available']);
+            const named = capabilityNames[name];
+            const known = named
+                ? [T(named[0]), T(named[1])]
+                : name.startsWith('model:')
+                    ? [T('cc.fact.model'), T('cc.cap.modelWhat', { model: name.slice(6) })]
+                    : [name, T('cc.cap.available')];
 
             const tile = document.createElement('div');
             tile.className = 'tile-card ok';
@@ -758,7 +781,7 @@
             swatch.style.background = COLOURS[name] || COLOURS.unknown;
 
             const label = document.createElement('span');
-            label.textContent = `${name} · ${categories[name]}`;
+            label.textContent = `${categoryName(name)} · ${categories[name]}`;
 
             item.append(swatch, label);
             host.append(item);
@@ -823,15 +846,15 @@
 
             if (detail) {
                 const rows = [
-                    ['Processors', load.cores ? `${load.cores} cores` : 'unknown'],
-                    ['Processor load', load.cpu_percent >= 0
-                        ? `${load.cpu_percent.toFixed(0)}%` : 'not measurable'],
-                    ['Memory in use', load.memory_total_bytes
-                        ? `${gigabytes(load.memory_used_bytes)} of ${gigabytes(load.memory_total_bytes)}`
-                        : 'not measurable'],
-                    ['Graphics', load.gpu_known
-                        ? `${load.gpu_percent.toFixed(0)}% of its top clock`
-                        : 'not readable on this card'],
+                    [T('cc.machine.processors'), load.cores ? T('cc.machine.cores', { n: load.cores }) : T('cc.unknown')],
+                    [T('cc.machine.load'), load.cpu_percent >= 0
+                        ? `${load.cpu_percent.toFixed(0)}%` : T('cc.machine.notMeasurable')],
+                    [T('cc.machine.memory'), load.memory_total_bytes
+                        ? T('cc.machine.of', { used: gigabytes(load.memory_used_bytes), total: gigabytes(load.memory_total_bytes) })
+                        : T('cc.machine.notMeasurable')],
+                    [T('cc.machine.graphics'), load.gpu_known
+                        ? T('cc.machine.clock', { n: load.gpu_percent.toFixed(0) })
+                        : T('cc.machine.noGraphics')],
                 ];
 
                 detail.innerHTML = '';
@@ -853,8 +876,8 @@
 
             if (note) {
                 note.textContent = load.available
-                    ? 'The model runs on this processor, which is why an answer takes as long as it does.'
-                    : 'This platform does not report its load, so no figure is shown rather than a guessed one.';
+                    ? T('cc.machine.why')
+                    : T('cc.machine.noLoad');
 
                 // One line in the panel, the whole sentence on hover: the
                 // panel is as tall as the dials, and a second line was cut
@@ -899,7 +922,7 @@
 
             const path = document.createElement('span');
             path.className = 'drive-path';
-            path.textContent = drive.mount_point + (drive.removable ? '  ·  removable' : '');
+            path.textContent = drive.mount_point + (drive.removable ? `  ·  ${T('cc.drive.removable')}` : '');
 
             const free = document.createElement('span');
             free.className = 'drive-free';
@@ -908,7 +931,7 @@
                 ? Math.round(((drive.total_bytes - drive.free_bytes) / drive.total_bytes) * 100)
                 : 0;
 
-            free.textContent = `${gigabytes(drive.free_bytes)} free · ${used}% used`;
+            free.textContent = T('cc.drive.freeUsed', { free: gigabytes(drive.free_bytes), used });
 
             row.append(path, free);
             host.append(row);
@@ -929,4 +952,13 @@
 
     pollMachine();
     pollStatus();
+
+    // Everything drawn here is drawn again in the language just chosen.
+    window.addEventListener('pn-language', () => {
+        tickHeadline();
+        pollMachine();
+        pollStatus();
+        sayFocus();
+        window.brainMapState(talkState);
+    });
 })();

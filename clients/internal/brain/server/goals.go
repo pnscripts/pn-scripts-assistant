@@ -19,7 +19,19 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, map[string]any{"goals": goals})
+	// Each with its tasks as the task list shows them, reasons and all.
+	type shownGoal struct {
+		store.Goal
+		Tasks []shownTask `json:"tasks,omitempty"`
+	}
+
+	shown := make([]shownGoal, 0, len(goals))
+
+	for _, goal := range goals {
+		shown = append(shown, shownGoal{Goal: goal, Tasks: showTasks(goal.Tasks)})
+	}
+
+	ok(w, map[string]any{"goals": shown})
 }
 
 func (s *Server) handleSaveGoal(w http.ResponseWriter, r *http.Request) {

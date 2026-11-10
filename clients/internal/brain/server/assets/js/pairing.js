@@ -12,6 +12,12 @@
 (function () {
     'use strict';
 
+    /*
+     * In the language of the page, which on a device not yet let in is the
+     * browser's own: the assistant cannot be asked before the code is typed.
+     */
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+
     async function locked() {
         try {
             const res = await fetch('/api/status');
@@ -29,14 +35,16 @@
         wrap.className = 'field';
 
         const name = document.createElement('span');
-        name.textContent = label;
+        name.dataset.i18n = label;
+        name.textContent = T(label);
         wrap.appendChild(name);
 
         const input = document.createElement('input');
         input.type = 'text';
         input.id = id;
         input.autocomplete = 'off';
-        input.placeholder = placeholder;
+        input.placeholder = placeholder.includes('.') ? T(placeholder) : placeholder;
+        if (placeholder.includes('.')) input.dataset.i18nPlaceholder = placeholder;
         wrap.appendChild(input);
 
         return wrap;
@@ -50,22 +58,24 @@
         card.className = 'card';
 
         const title = document.createElement('h2');
-        title.textContent = 'This device is not paired';
+        title.dataset.i18n = 'reach.lockedTitle';
+        title.textContent = T('reach.lockedTitle');
         card.appendChild(title);
 
         const why = document.createElement('p');
         why.className = 'note';
-        why.textContent = 'On the computer your assistant runs on, open Reaching it and '
-            + 'press "Pair a device". A code will appear. Type it here.';
+        why.dataset.i18n = 'reach.lockedHow';
+        why.textContent = T('reach.lockedHow');
         card.appendChild(why);
 
-        card.appendChild(field('What is this device called?', 'claim-name', 'my phone'));
-        card.appendChild(field('The code on the computer', 'claim-code', 'ABC 234'));
+        card.appendChild(field('reach.deviceName', 'claim-name', 'reach.deviceNameHint'));
+        card.appendChild(field('reach.codeHere', 'claim-code', 'ABC 234'));
 
         const go = document.createElement('button');
         go.type = 'button';
         go.className = 'task-button';
-        go.textContent = 'Pair it';
+        go.dataset.i18n = 'reach.pairIt';
+        go.textContent = T('reach.pairIt');
         card.appendChild(go);
 
         const said = document.createElement('p');
@@ -81,11 +91,11 @@
             const code = document.getElementById('claim-code').value.trim();
 
             if (!code) {
-                said.textContent = 'Type the code shown on the computer.';
+                said.textContent = T('reach.typeCode');
                 return;
             }
 
-            said.textContent = 'Pairing…';
+            said.textContent = T('reach.pairing');
 
             try {
                 const res = await fetch('/api/pair/claim', {
@@ -100,14 +110,14 @@
                 const body = await res.json().catch(() => ({}));
 
                 if (!res.ok) {
-                    said.textContent = body.error || 'That did not work.';
+                    said.textContent = body.error ? T('reach.failedWhy', { why: body.error }) : T('reach.failed');
                     return;
                 }
 
-                said.textContent = 'Paired. Opening…';
+                said.textContent = T('reach.paired');
                 location.reload();
             } catch (err) {
-                said.textContent = 'That did not work: ' + err.message;
+                said.textContent = T('reach.failedWhy', { why: err.message });
             }
         }
 

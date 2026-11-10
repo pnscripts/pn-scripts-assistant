@@ -23,14 +23,27 @@
 const list = document.getElementById('updates-list');
 const note = document.getElementById('updates-note');
 
+// Every word a person reads here is in i18n.js, in English and Bulgarian.
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+const bg = () => !!(window.pnLang && window.pnLang() === 'bg');
+
+// A string named by a key the server gives, or the English it came with.
+function said(key, fallback, vars) {
+    const text = T(key, vars);
+
+    return text === key ? fallback : text;
+}
+
+if (note) note.textContent = T('mdl.looking');
+
 const TONE = {
     running: 'ok',
     installed: 'ok',
     answering: 'ok',
     remembering: 'ok',
     configured: 'warn',
-    'not found': 'warn',
-    'not configured': 'off',
+    not_found: 'warn',
+    not_configured: 'off',
     unknown: 'off',
 };
 
@@ -42,39 +55,45 @@ async function load() {
 
         render(data.parts || []);
     } catch {
-        note.textContent = 'Could not read what is installed.';
+        note.textContent = T('parts.unreadable');
     }
 }
 
 function render(parts) {
     const paid = parts.filter((p) => p.cost && p.cost !== 'free' && p.cost !== '—');
 
-    note.textContent = paid.length
-        ? 'Everything below runs on this machine and is free, except where marked.'
-        : 'Everything below runs on this machine. Nothing here costs anything to use, '
-            + 'and nothing is sent anywhere.';
+    note.textContent = paid.length ? T('parts.freeExcept') : T('parts.allFree');
 
     list.innerHTML = '';
 
     for (const part of parts) {
         const row = document.createElement('div');
 
-        row.className = `row ${TONE[part.status] || ''}`;
+        row.className = `row ${TONE[String(part.status).replace(/\W+/g, '_')] || ''}`;
 
         const icon = document.createElement('span');
         icon.className = 'row-icon';
-        icon.textContent = part.cost === 'free' ? 'free' : part.cost === '—' ? '—' : 'paid';
+        icon.textContent = part.cost === 'free' ? T('parts.free') : part.cost === '—' ? '—' : T('parts.paid');
 
         const text = document.createElement('span');
         text.className = 'row-text';
 
         const name = document.createElement('span');
         name.className = 'row-name';
-        name.textContent = part.version ? `${part.name} · ${part.version}` : part.name;
+        const called = part.name_key ? said(`parts.called.${part.name_key}`, part.name) : part.name;
+        // A model's "version" is its size, written with a decimal comma in
+        // Bulgarian; a real version number keeps its points.
+        const sized = /^\d+(\.\d+)? ?[KMGT]?B$/.test(String(part.version || ''));
+        const version = bg() && sized ? part.version.replace('.', ',') : part.version;
+
+        name.textContent = version ? `${called} · ${version}` : called;
 
         const state = document.createElement('span');
         state.className = 'row-state';
-        state.textContent = `${part.status}: ${part.note}`;
+        const status = said(`parts.status.${String(part.status).replace(/\W+/g, '_')}`, part.status);
+        const told = part.note_key ? said(`parts.note.${part.note_key}`, part.note, part.args || {}) : part.note;
+
+        state.textContent = `${status}: ${told}`;
 
         text.append(name, state);
         row.append(icon, text);
@@ -83,6 +102,9 @@ function render(parts) {
 }
 
 document.querySelector('.nav-item[data-view="updates"]')?.addEventListener('click', load);
+
+// Drawn again in the other language as soon as it changes.
+window.addEventListener('pn-language', load);
 
 load();
 

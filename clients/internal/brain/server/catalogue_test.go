@@ -156,6 +156,7 @@ func TestTheModelsViewShowsWhatTheCatalogueSends(t *testing.T) {
 
 	answer, err := json.Marshal(map[string]any{
 		"machine": reportedMachine.Describe(),
+		"power":   powerFigures(reportedMachine),
 		"models":  listCatalogue(someLibrary, map[string]bool{"qwen3:8b": true}, reportedMachine),
 	})
 	if err != nil {
@@ -164,16 +165,50 @@ func TestTheModelsViewShowsWhatTheCatalogueSends(t *testing.T) {
 
 	dir := t.TempDir()
 
+	strings18, err := assets.ReadFile("assets/js/i18n.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	os.WriteFile(filepath.Join(dir, "install.js"), script, 0o644)
+	os.WriteFile(filepath.Join(dir, "i18n.js"), strings18, 0o644)
 	os.WriteFile(filepath.Join(dir, "answer.json"), answer, 0o644)
 	os.WriteFile(filepath.Join(dir, "run.js"), []byte(fakePage), 0o644)
 
-	shown, err := exec.Command("node", filepath.Join(dir, "run.js"), dir).CombinedOutput()
+	shown, err := exec.Command("node", filepath.Join(dir, "run.js"), dir, "en").CombinedOutput()
 	if err != nil {
 		t.Fatalf("the page script failed: %v\n%s", err, shown)
 	}
 
 	text := string(shown)
+
+	/*
+	 * And in Bulgarian: the same answer, every sentence the page or the
+	 * server writes said in Bulgarian, and the model library's own
+	 * descriptions and the model names left as they were published.
+	 */
+	shownBG, err := exec.Command("node", filepath.Join(dir, "run.js"), dir, "bg").CombinedOutput()
+	if err != nil {
+		t.Fatalf("the page script failed in Bulgarian: %v\n%s", err, shownBG)
+	}
+
+	for _, want := range []string{
+		"Този компютър: 4 ядра, 31 GB памет, без графично ускорение.",
+		"qwen3 · инструменти, разсъждаване",
+		"8b (инсталиран)",
+		"Обнови",
+		"Lightweight.\nиска около 4 GB памет, докато работи · използваем на процесор: секунди, а не мигновено\nchosen: 4b",
+	} {
+		if !strings.Contains(string(shownBG), want) {
+			t.Errorf("the Bulgarian Models view does not show %q:\n%s", want, shownBG)
+		}
+	}
+
+	for _, english := range []string{"This machine", "installed", "Update", "Install", "usable on", "wants about"} {
+		if strings.Contains(string(shownBG), english) {
+			t.Errorf("the Bulgarian Models view still says %q:\n%s", english, shownBG)
+		}
+	}
 
 	if strings.Contains(text, "not shown as typed") {
 		t.Errorf("a model name is drawn without the as-typed class, so CSS capitalises it")
@@ -248,6 +283,16 @@ global.fetch = async (url) => ({
     json: async () => (url === '/api/models/available' ? answer : {}),
 });
 
+// The page's strings, in the language asked for.
+global.window = global;
+global.addEventListener = () => {};
+global.dispatchEvent = () => {};
+global.CustomEvent = class {};
+global.document.readyState = 'complete';
+global.document.documentElement = {};
+Object.defineProperty(global, 'navigator', { value: { language: process.argv[3] || 'en' } });
+
+eval(fs.readFileSync(path.join(dir, 'i18n.js'), 'utf8'));
 eval(fs.readFileSync(path.join(dir, 'install.js'), 'utf8'));
 
 setTimeout(() => {

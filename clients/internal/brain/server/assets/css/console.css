@@ -3767,6 +3767,9 @@ select { font-size: 13.5px; }
 .ops-table th:nth-child(4), .ops-table td:nth-child(4) { width: 50px; }
 .ops-table th:nth-child(5), .ops-table td:nth-child(5) { width: 64px; }
 .ops-table th:nth-child(6), .ops-table td:nth-child(6) { width: 62px; }
+/* Bulgarian processor time is longer ("43мин 45с"): the resident size gives it the room. */
+html[lang="bg"] .ops-table th:nth-child(5), html[lang="bg"] .ops-table td:nth-child(5) { width: 56px; }
+html[lang="bg"] .ops-table th:nth-child(6), html[lang="bg"] .ops-table td:nth-child(6) { width: 74px; }
 
 .ops-table th {
     position: sticky;
@@ -4146,6 +4149,9 @@ select { font-size: 13.5px; }
     color: var(--text);
     text-transform: capitalize;
 }
+/* Bulgarian capitalises the first word of a name, not every word. */
+html[lang="bg"] .permit-name { text-transform: none; }
+html[lang="bg"] .permit-name:not(.as-typed):not(.human)::first-letter { text-transform: uppercase; }
 
 /*
  * A model's name, exactly as it is typed.
@@ -6051,6 +6057,7 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
 .writing-item.todo-item { border-left-color: var(--accent-dim); }
 .writing-item.todo-item.is-warn { border-left-color: var(--danger); }
 /* Every kind of box in a field looks the same as the text boxes. */
+.field input[type="email"],
 .field input[type="password"],
 .field input[type="date"],
 .field input[type="number"] {
@@ -6067,6 +6074,7 @@ textarea.writing-text[readonly] { color: var(--text); background: var(--bg-raise
     outline: none;
     color-scheme: dark;
 }
+.field input[type="email"]:focus,
 .field input[type="password"]:focus,
 .field input[type="date"]:focus,
 .field input[type="number"]:focus { border-color: var(--accent); }

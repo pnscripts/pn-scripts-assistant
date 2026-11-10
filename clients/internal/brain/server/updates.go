@@ -29,6 +29,13 @@ type Part struct {
 	Status  string `json:"status"`
 	Cost    string `json:"cost"`
 	Note    string `json:"note"`
+
+	// NoteKey names the note in i18n.js ('parts.note.<key>', filled with
+	// Args) and NameKey a name that is a description rather than a product
+	// ('parts.called.<key>'), so a Bulgarian page says both in Bulgarian.
+	NoteKey string            `json:"note_key,omitempty"`
+	NameKey string            `json:"name_key,omitempty"`
+	Args    map[string]string `json:"args,omitempty"`
 }
 
 // handleUpdates reports what is installed and what it costs.
@@ -55,11 +62,12 @@ func brainPart() Part {
 		Status:  "running",
 		Cost:    "free",
 		Note:    "Yours. One file, no account, nothing to renew.",
+		NoteKey: "brain",
 	}
 }
 
 func ollamaPart(ctx context.Context, url string) Part {
-	part := Part{Name: "Ollama", Cost: "free", Note: "Runs the models on this machine."}
+	part := Part{Name: "Ollama", Cost: "free", Note: "Runs the models on this machine.", NoteKey: "ollama"}
 
 	out, err := exec.CommandContext(ctx, "ollama", "--version").Output()
 	if err == nil {
@@ -71,6 +79,7 @@ func ollamaPart(ctx context.Context, url string) Part {
 	} else {
 		part.Status = "not found"
 		part.Note = "Without it the brain cannot think. Install it from ollama.com."
+		part.NoteKey = "ollamaMissing"
 	}
 
 	return part
@@ -80,8 +89,9 @@ func modelParts(ctx context.Context, url, chat, embed string) []Part {
 	installed, err := models.New(url).List(ctx)
 	if err != nil {
 		return []Part{{
-			Name: "Models", Status: "unknown", Cost: "free",
-			Note: "Ollama is not answering, so what is installed cannot be read.",
+			Name: "Models", Status: "unknown", Cost: "free", NameKey: "models",
+			Note:    "Ollama is not answering, so what is installed cannot be read.",
+			NoteKey: "modelsUnknown",
 		}}
 	}
 
@@ -103,6 +113,7 @@ func modelParts(ctx context.Context, url, chat, embed string) []Part {
 			Status:  role,
 			Cost:    "free",
 			Note:    "Downloaded once, runs here, costs nothing to use.",
+			NoteKey: "model",
 		})
 	}
 
@@ -121,15 +132,17 @@ func voicePart() Part {
 
 	if engine == nil {
 		return Part{
-			Name: "Voice", Status: "not found", Cost: "free",
-			Note: "Nothing installed that can speak, so replies are text only.",
+			Name: "Voice", Status: "not found", Cost: "free", NameKey: "voice",
+			Note:    "Nothing installed that can speak, so replies are text only.",
+			NoteKey: "voiceMissing",
 		}
 	}
 
-	note := "The voice."
+	note, key := "The voice.", "voice"
 
 	if engine.Name != "piper" {
 		note = "A plainer system voice. Piper sounds considerably better if you install it."
+		key = "plainVoice"
 	}
 
 	return Part{
@@ -137,6 +150,7 @@ func voicePart() Part {
 		Status:  "installed",
 		Cost:    "free",
 		Note:    note,
+		NoteKey: key,
 		Version: "",
 	}
 }
@@ -146,21 +160,37 @@ func earsPart() Part {
 	listening, detail := speech.Listening()
 
 	if !listening {
-		return Part{
+		part := Part{
 			Name: "Whisper", Status: "not found", Cost: "free",
-			Note: "Without it the brain cannot listen, only read what you type. " + detail,
+			Note:    "Without it the brain cannot listen, only read what you type. " + detail,
+			NoteKey: "whisperMissing",
 		}
+
+		// The two reasons speech.FindRecogniser gives, said in either
+		// language; anything else is passed on as it is.
+		switch {
+		case strings.HasPrefix(detail, "No speech recogniser or model is installed yet."):
+			part.NoteKey = "whisperNone"
+		case strings.Contains(detail, " is installed but its speech model is missing."):
+			part.NoteKey = "whisperNoModel"
+			part.Args = map[string]string{"command": strings.SplitN(detail, " ", 2)[0]}
+		default:
+			part.Args = map[string]string{"detail": detail}
+		}
+
+		return part
 	}
 
-	return Part{Name: "Whisper", Status: "installed", Cost: "free", Note: "Hearing you speak. " + detail}
+	return Part{Name: "Whisper", Status: "installed", Cost: "free", Note: "Hearing you speak. " + detail, NoteKey: "whisper"}
 }
 
 // cloudPart is the only thing here that can cost money.
 func cloudPart(configured bool, model string) Part {
 	if !configured {
 		return Part{
-			Name: "Cloud model", Status: "not configured", Cost: "—",
-			Note: "Nothing is sent anywhere. Everything above runs on this machine.",
+			Name: "Cloud model", Status: "not configured", Cost: "—", NameKey: "cloud",
+			Note:    "Nothing is sent anywhere. Everything above runs on this machine.",
+			NoteKey: "cloudOff",
 		}
 	}
 
@@ -168,5 +198,6 @@ func cloudPart(configured bool, model string) Part {
 		Name: model, Status: "configured", Cost: "billed by usage",
 		Note: "The one paid part. Charged per token by the provider: see their pricing " +
 			"page for current rates; a rate printed here would go out of date silently.",
+		NoteKey: "cloud",
 	}
 }

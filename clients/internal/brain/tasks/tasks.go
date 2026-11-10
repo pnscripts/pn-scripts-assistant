@@ -610,7 +610,7 @@ func (c *Conductor) Work(ctx context.Context, taskID int64) error {
 		 * and a task that did is stopped whatever is left.
 		 */
 		if task.StepsLeft <= 0 {
-			return c.finish(task, store.TaskBlocked, "it reached the most steps it was allowed for one job")
+			return c.finish(task, store.TaskBlocked, ReasonMostSteps)
 		}
 
 		/*
@@ -784,21 +784,22 @@ func (c *Conductor) inLane(provider llm.Provider, member team.Agent, step *store
 	}
 
 	return lanes.Provider{Provider: provider, Lanes: c.Lanes, Seat: lanes.Seat{
-		Who:  orTitle(member),
-		What: trimTo(step.Instruction, 80),
-		Key:  fmt.Sprintf("step:%d", step.ID),
+		Who:   orTitle(member),
+		Agent: member.Name,
+		What:  trimTo(step.Instruction, 80),
+		Key:   fmt.Sprintf("step:%d", step.ID),
 	}}
 }
 
 // asking is a provider for the conductor's own calls — planning and checking
 // — queued like everybody else's.
-func (c *Conductor) asking(provider llm.Provider, who, what string) llm.Provider {
+func (c *Conductor) asking(provider llm.Provider, agent, who, what string) llm.Provider {
 	if c.Lanes == nil {
 		return provider
 	}
 
 	return lanes.Provider{Provider: provider, Lanes: c.Lanes, Seat: lanes.Seat{
-		Who: who, What: trimTo(what, 80)}}
+		Who: who, Agent: agent, What: trimTo(what, 80)}}
 }
 
 // outOfBudget says which allowance ran out, in the owner's terms rather than
@@ -806,9 +807,9 @@ func (c *Conductor) asking(provider llm.Provider, who, what string) llm.Provider
 func (c *Conductor) outOfBudget(task *store.Task) string {
 	switch {
 	case !task.Deadline.IsZero() && c.now().After(task.Deadline):
-		return "it reached the half hour it was given and was not finished"
+		return ReasonHalfHour
 	case task.CallsLeft <= 0:
-		return "it used up the thinking it was given for this"
+		return ReasonThinking
 	}
 
 	return ""
@@ -857,7 +858,7 @@ type turn struct {
 // means it could not be started, and the task has already been told why.
 func (c *Conductor) prepare(task *store.Task, step *store.TaskStep) (*turn, error) {
 	if c.Agent == nil || c.Provider == nil {
-		return nil, c.finish(task, store.TaskBlocked, "this build cannot run tasks")
+		return nil, c.finish(task, store.TaskBlocked, ReasonNoBuild)
 	}
 
 	/*
@@ -1116,7 +1117,7 @@ func (c *Conductor) settle(ctx context.Context, task *store.Task, t *turn) (bool
 		// what it was stopping for.
 		c.say(task, task.Name+" has a question: "+res.Reply)
 
-		if err := c.DB.SetTaskState(task.ID, store.TaskWaiting, "it asked you something"); err != nil {
+		if err := c.DB.SetTaskState(task.ID, store.TaskWaiting, ReasonAsked); err != nil {
 			return false, err
 		}
 
@@ -1378,7 +1379,7 @@ func (c *Conductor) park(task *store.Task, step *store.TaskStep, res agent.Resul
 	 */
 	c.say(task, task.Name+" needs your decision before it can go on: "+strings.Join(what, "; "))
 
-	return c.DB.SetTaskState(task.ID, store.TaskWaiting, "it needs your decision")
+	return c.DB.SetTaskState(task.ID, store.TaskWaiting, ReasonDecision)
 }
 
 /*
@@ -1861,7 +1862,7 @@ func (c *Conductor) Stop(taskID int64) error {
 		}
 	}
 
-	return c.DB.SetTaskState(taskID, store.TaskStopped, "you stopped it")
+	return c.DB.SetTaskState(taskID, store.TaskStopped, ReasonStopped)
 }
 
 // live is whether a task could still do anything.
@@ -1929,7 +1930,7 @@ func (c *Conductor) work(ctx context.Context, taskID int64) (err error) {
 
 		c.Log.Warn("a task stopped on an error", "task", taskID, "error", err)
 
-		c.blockedBy(taskID, "it stopped on an error: "+plainly(err))
+		c.blockedBy(taskID, reasonError+plainly(err))
 	}()
 
 	return c.Work(ctx, taskID)
@@ -1971,9 +1972,9 @@ func plainly(err error) string {
 
 	switch {
 	case strings.Contains(text, "connection refused"):
-		return "the model it was using is not running"
+		return ReasonNotRunning
 	case strings.Contains(text, "context deadline exceeded"), strings.Contains(text, "timeout"):
-		return "the model took longer to answer than it was given"
+		return ReasonSlow
 	}
 
 	return text

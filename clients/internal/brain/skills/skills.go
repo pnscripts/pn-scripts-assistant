@@ -99,6 +99,10 @@ type Skill struct {
 	// WhenBG and HowBG are its words in Bulgarian, when it has them.
 	WhenBG string `json:"when_bg,omitempty"`
 	HowBG  string `json:"how_bg,omitempty"`
+
+	// NameBG is what it is called in Bulgarian, for the page: the heading of
+	// a pack skill's SKILL.bg.md. Name stays what it is asked for by.
+	NameBG string `json:"name_bg,omitempty"`
 }
 
 // Folder is where the skills live for a given brain.

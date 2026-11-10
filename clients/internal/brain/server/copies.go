@@ -59,6 +59,10 @@ func shown(list []copies.Copy) []map[string]any {
 			"never":     c.Never(),
 		}
 
+		if key := troubleKeys[c.Trouble]; key != "" {
+			row["trouble_key"] = key
+		}
+
 		if !c.Never() {
 			row["at"] = c.At
 			row["age_seconds"] = int(time.Since(c.At).Seconds())
@@ -266,4 +270,17 @@ func (s *Server) handleUseCopy(w http.ResponseWriter, r *http.Request) {
 		"using": body.Path,
 		"note":  "Restart PN Scripts Assistant to open this one. The brain it was copied from is still where it was.",
 	})
+}
+
+/*
+ * troubleKeys says the troubles a copy or a place can have in the page's
+ * language (i18n.js 'sys.trouble.*'). Anything not here is an error from the
+ * system, shown as it came.
+ */
+var troubleKeys = map[string]string{
+	"that is a file, not a folder":                              "sys.trouble.file",
+	"nothing has been copied here yet":                          "sys.trouble.never",
+	"not there right now; the drive is probably not plugged in": "sys.trouble.away",
+	"there is a copy here but its record cannot be read":        "sys.trouble.record",
+	"not attached right now":                                    "sys.trouble.notAttached",
 }

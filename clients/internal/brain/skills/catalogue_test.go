@@ -61,6 +61,45 @@ func TestThePackIsReadWithItsBulgarianWords(t *testing.T) {
 	}
 }
 
+/*
+ * A pack skill is called by its Bulgarian name on a Bulgarian page.
+ *
+ * The page showed the folder name ("bg vat basics") in both languages. The
+ * name it shows in Bulgarian is the heading of SKILL.bg.md, and every skill
+ * of the shipped pack that has a SKILL.bg.md has one, in Cyrillic.
+ */
+func TestAPackSkillHasItsBulgarianName(t *testing.T) {
+	fakePack(t)
+
+	got, err := Pack()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got[1].NameBG != "Пътуване" || got[0].NameBG != "" {
+		t.Errorf("names in Bulgarian: %q and %q", got[1].NameBG, got[0].NameBG)
+	}
+
+	packSource = packFS
+
+	shipped, err := Pack()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cyrillic := regexp.MustCompile(`[а-яА-Я]`)
+
+	for _, s := range shipped {
+		if s.WhenBG == "" {
+			continue
+		}
+
+		if !cyrillic.MatchString(s.NameBG) || strings.ContainsAny(s.NameBG, "–—") {
+			t.Errorf("%s has no proper Bulgarian name: %q", s.Name, s.NameBG)
+		}
+	}
+}
+
 func TestTheCatalogueSaysWhereEachSkillCameFromAndWhetherItIsOn(t *testing.T) {
 	fakePack(t)
 

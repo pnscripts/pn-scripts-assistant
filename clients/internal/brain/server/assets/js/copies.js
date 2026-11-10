@@ -25,6 +25,18 @@ function el(id) {
     return document.getElementById(id);
 }
 
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+const bg = () => window.pnLang && window.pnLang() === 'bg';
+
+// A count, grouped the way the page's language groups it.
+const num = (n) => Number(n || 0).toLocaleString(bg() ? 'bg-BG' : 'en-GB');
+
+// So many things, with "thing" said once for one.
+const things = (n) => (n === 1 ? T('sys.thing1') : T('sys.things', { n: num(n) }));
+
+// One decimal, with a decimal comma in Bulgarian.
+const decimal = (n) => (bg() ? n.toFixed(1).replace('.', ',') : n.toFixed(1));
+
 function say(what, kind) {
     const note = el('copy-note');
 
@@ -38,19 +50,24 @@ function say(what, kind) {
 // backup, and a timestamp to the second is a thing to decode.
 function ago(seconds) {
     if (!isFinite(seconds) || seconds < 0) return '';
-    if (seconds < 90) return 'just now';
-    if (seconds < 3600) return `${Math.round(seconds / 60)} minutes ago`;
-    if (seconds < 86400) return `${Math.round(seconds / 3600)} hours ago`;
+    if (seconds < 90) return T('sys.justNow');
+    if (seconds < 3600) return T('sys.minutesAgo', { n: Math.round(seconds / 60) });
 
-    return `${Math.round(seconds / 86400)} days ago`;
+    const hours = Math.round(seconds / 3600);
+
+    if (seconds < 86400) return hours === 1 ? T('sys.hourAgo') : T('sys.hoursAgo', { n: hours });
+
+    const days = Math.round(seconds / 86400);
+
+    return days === 1 ? T('sys.dayAgo') : T('sys.daysAgo', { n: days });
 }
 
 function size(bytes) {
     if (!bytes) return '';
 
     return bytes >= GB
-        ? `${(bytes / GB).toFixed(1)}GB`
-        : `${Math.max(1, Math.round(bytes / MB))}MB`;
+        ? `${decimal(bytes / GB)} GB`
+        : `${Math.max(1, Math.round(bytes / MB))} MB`;
 }
 
 async function send(where, body) {
@@ -62,7 +79,7 @@ async function send(where, body) {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) throw new Error(data.error || `that did not work (${res.status})`);
+    if (!res.ok) throw new Error(data.error || T('sys.failed', { status: res.status }));
 
     return data;
 }
@@ -116,7 +133,7 @@ function row(c) {
      */
     when.textContent = c.never
         ? '—'
-        : `${c.facts.toLocaleString()} things · ${ago(c.age_seconds)}`;
+        : `${things(c.facts)} · ${ago(c.age_seconds)}`;
 
     row.append(where, when);
 
@@ -124,9 +141,9 @@ function row(c) {
     note.className = 'drive-note';
 
     if (c.trouble) {
-        note.textContent = c.trouble;
+        note.textContent = c.trouble_key ? T(c.trouble_key) : c.trouble;
     } else if (!c.never) {
-        note.textContent = `${size(c.bytes)} copied`;
+        note.textContent = T('sys.copied', { size: size(c.bytes) });
     }
 
     if (note.textContent) row.appendChild(note);
@@ -152,16 +169,15 @@ function actions(c) {
         const use = document.createElement('button');
         use.type = 'button';
         use.className = 'model-action';
-        use.textContent = 'Use this copy';
+        use.textContent = T('sys.copyUse');
 
         use.onclick = async () => {
-            const age = ago(c.age_seconds);
             // Not asked first (ADR 0008): nothing is deleted and it takes effect on
             // restart, so it can be undone the same way.
 
             try {
-                const done = await send('/api/copies/use', { path: c.path });
-                say(done.note, 'ok');
+                await send('/api/copies/use', { path: c.path });
+                say(T('sys.copyUsed'), 'ok');
             } catch (err) {
                 say(String(err.message || err), 'bad');
             }
@@ -175,12 +191,12 @@ function actions(c) {
     const stop = document.createElement('button');
     stop.type = 'button';
     stop.className = 'model-action';
-    stop.textContent = 'Stop copying here';
+    stop.textContent = T('sys.copyStop');
 
     stop.onclick = async () => {
         try {
-            const done = await send('/api/copies/stop', { path: c.path });
-            say(done.note, 'ok');
+            await send('/api/copies/stop', { path: c.path });
+            say(T('sys.copyStopped'), 'ok');
         } catch (err) {
             say(String(err.message || err), 'bad');
         }
@@ -215,9 +231,8 @@ function suggestions(drives) {
         // The home folder is named as such. "/home/alex" in a row of drives
         // reads as a disk somebody has to recognise; "your home folder" is
         // what it actually is.
-        chip.textContent = d.home
-            ? `your home folder · ${(d.free_bytes / GB).toFixed(0)}GB free`
-            : `${d.mount_point} · ${(d.free_bytes / GB).toFixed(0)}GB free`;
+        chip.textContent = (d.home ? T('sys.homeFolder') : d.mount_point)
+            + ' · ' + T('sys.gbFree', { n: (d.free_bytes / GB).toFixed(0) });
         chip.title = d.suggested;
 
         chip.onclick = () => {
@@ -237,20 +252,20 @@ function wire() {
             const path = (el('copy-path').value || '').trim();
 
             if (!path) {
-                say('Type a folder, or pick a drive above.', 'bad');
+                say(T('sys.typeFolder'), 'bad');
 
                 return;
             }
 
             add.disabled = true;
-            say('Copying…');
+            say(T('sys.copying'));
 
             try {
                 const done = await send('/api/copies', { path });
 
                 say(done.copied
-                    ? `Copied. ${done.facts.toLocaleString()} things, ${size(done.bytes)}.`
-                    : `Added, but the copy did not finish: ${done.trouble}`,
+                    ? T('sys.copiedNow', { things: things(done.facts), size: size(done.bytes) })
+                    : T('sys.copyUnfinished', { why: done.trouble }),
                     done.copied ? 'ok' : 'bad');
 
                 if (done.copied) el('copy-path').value = '';
@@ -268,7 +283,7 @@ function wire() {
     if (now) {
         now.onclick = async () => {
             now.disabled = true;
-            say('Copying…');
+            say(T('sys.copying'));
 
             try {
                 const done = await send('/api/copies/now', {});
@@ -276,9 +291,9 @@ function wire() {
                 const missed = (done.copies || []).length - made.length;
 
                 say(made.length
-                    ? `Copied to ${made.length} place${made.length === 1 ? '' : 's'}.`
-                        + (missed ? ` ${missed} not reachable.` : '')
-                    : 'Nothing could be copied to right now.',
+                    ? (made.length === 1 ? T('sys.copiedTo1') : T('sys.copiedToN', { n: made.length }))
+                        + (missed ? ' ' + T('sys.unreachable', { n: missed }) : '')
+                    : T('sys.copiedNowhere'),
                     made.length ? 'ok' : 'bad');
             } catch (err) {
                 say(String(err.message || err), 'bad');
@@ -293,5 +308,6 @@ function wire() {
 wire();
 load();
 setInterval(load, COPIES_INTERVAL);
+window.addEventListener('pn-language', load);
 
 }());

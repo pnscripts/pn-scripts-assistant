@@ -32,11 +32,12 @@
 
     // What each one is, said the way the rest of the program says things.
     const words = {
-        start: 'waking up',
-        answered: 'asking what it knows',
-        named: 'reading its own name',
-        drawn: 'lighting the reactor',
-        ready: 'ready',
+        start: 'cc.boot.start',
+        answered: 'cc.boot.answered',
+        named: 'cc.boot.named',
+        drawn: 'cc.boot.drawn',
+        ready: 'cc.boot.ready',
+        slow: 'cc.boot.slow',
     };
 
     let gone = false;
@@ -44,7 +45,7 @@
     function say(text) {
         if (!step || gone) return;
 
-        step.textContent = text;
+        step.textContent = window.pnT ? window.pnT(text) : text;
     }
 
     function finished(what) {
@@ -112,7 +113,7 @@
     setTimeout(() => {
         if (gone) return;
 
-        say('taking longer than usual, carrying on');
+        say(words.slow);
         leave();
     }, 12000);
 

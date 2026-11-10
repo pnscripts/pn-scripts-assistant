@@ -39,6 +39,14 @@ type Finding struct {
 	 * promised is worse than no button.
 	 */
 	Fetch string `json:"fetch,omitempty"`
+
+	/*
+	 * Key and Args say the same finding for a page in any language: the
+	 * page's strings 'ops.pace.<key>.because' and 'ops.pace.<key>.change',
+	 * filled with Args. The English above stays for the assistant itself.
+	 */
+	Key  string            `json:"key"`
+	Args map[string]string `json:"args,omitempty"`
 }
 
 // Machine is what the advice needs to know about where it is running.
@@ -101,6 +109,7 @@ func Findings(typical Milestones, over int, m Machine) []Finding {
 	if typical.Speaking > 400 {
 		out = append(out, Finding{
 			Stage:   "speaking",
+			Key:     "speaking",
 			Costs:   typical.Speaking,
 			Because: "the voice takes this long to produce its first sound after a sentence is ready",
 			Change: "a synthesiser is kept started and waiting, so this is generation " +
@@ -111,6 +120,7 @@ func Findings(typical Milestones, over int, m Machine) []Finding {
 	if typical.Hearing > 600 {
 		out = append(out, Finding{
 			Stage:   "hearing",
+			Key:     "hearing",
 			Costs:   typical.Hearing,
 			Because: "the words are made out only after the recording ends",
 			Change: "a resident recogniser removes the model loading from this; " +
@@ -133,11 +143,17 @@ func Findings(typical Milestones, over int, m Machine) []Finding {
 func modelFinding(typical Milestones, m Machine) Finding {
 	f := Finding{
 		Stage:   "thinking",
+		Key:     "processor",
 		Costs:   typical.Thinking,
 		Because: fmt.Sprintf("%s runs on this machine's processor", short(typical.Model, m.Working)),
+		// No model is "the model" in the page's own language.
+		Args: map[string]string{"model": named(typical.Model, m.Working)},
 	}
 
 	if m.HasGPU {
+		f.Key = "card"
+		f.Args["card"] = m.GPUName
+
 		f.Because = fmt.Sprintf("%s is thinking for this long even with %s to run on",
 			short(typical.Model, m.Working), m.GPUName)
 		f.Change = "a smaller model, or fewer tools offered per turn: the tool " +
@@ -161,8 +177,13 @@ func modelFinding(typical Milestones, m Machine) Finding {
 			"needs doing still goes to the larger one"
 		f.Doing = "install-quick-model"
 		f.Fetch = m.Suggest
+		f.Key = "noQuick"
 
 		if f.Fetch != "" {
+			f.Key = "fetchQuick"
+			f.Args["fetch"] = f.Fetch
+			f.Args["working"] = named("", m.Working)
+
 			f.Change = fmt.Sprintf("install %s for conversation: it answers a "+
 				"greeting several times quicker on a processor, and anything "+
 				"that needs doing still goes to %s", f.Fetch,
@@ -176,8 +197,19 @@ func modelFinding(typical Milestones, m Machine) Finding {
 		"rest need the larger model, and on a processor that is arithmetic "+
 		"rather than tuning: every word means reading the whole model out of "+
 		"memory", m.Quick)
+	f.Key = "quick"
+	f.Args["quick"] = m.Quick
 
 	return f
+}
+
+// named is short without its English fallback: empty when no model is known.
+func named(measured, configured string) string {
+	if measured != "" {
+		return measured
+	}
+
+	return configured
 }
 
 // short is the model that actually answered, falling back to the one this
@@ -192,6 +224,27 @@ func short(measured, configured string) string {
 	}
 
 	return "the model"
+}
+
+/*
+ * VerdictKey is Verdict for a page in any language: which of the four it is
+ * ('ops.pace.verdict.<key>') and the figures that go into it.
+ */
+func VerdictKey(typical Milestones, over int) (string, map[string]string) {
+	turns := fmt.Sprint(over)
+
+	switch {
+	case over == 0:
+		return "none", nil
+
+	case typical.ToFirst <= RealTime:
+		return "quick", map[string]string{"ms": fmt.Sprint(typical.ToFirst), "turns": turns}
+
+	case typical.ToFirst < 3000:
+		return "noticeable", map[string]string{"s": fmt.Sprintf("%.1f", float64(typical.ToFirst)/1000), "turns": turns}
+	}
+
+	return "slow", map[string]string{"s": fmt.Sprintf("%.1f", float64(typical.ToFirst)/1000), "turns": turns}
 }
 
 /*

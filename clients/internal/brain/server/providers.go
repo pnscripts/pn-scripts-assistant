@@ -239,15 +239,19 @@ func (s *Server) handleTestProvider(w http.ResponseWriter, r *http.Request) {
 				"reachable": false,
 				"why": "Your privacy setting (" + s.brain.Cfg.Privacy +
 					") does not allow this one, so I have not tried to reach it.",
+				// The same answers as keys in i18n.js ('mdl.test.<key>').
+				"why_key": "forbidden",
+				"privacy": s.brain.Cfg.Privacy,
 			})
 
 		case a.Reachable:
-			ok(w, map[string]any{"name": name, "reachable": true, "why": "Answered."})
+			ok(w, map[string]any{"name": name, "reachable": true, "why": "Answered.", "why_key": "answered"})
 
 		default:
 			ok(w, map[string]any{
 				"name": name, "reachable": false,
-				"why": "No answer. Check the key, or whether this machine is online.",
+				"why":     "No answer. Check the key, or whether this machine is online.",
+				"why_key": "silent",
 			})
 		}
 

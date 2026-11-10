@@ -44,6 +44,24 @@
     const how = (s) => (bg() && s.how_bg ? s.how_bg : s.how) || '';
     const builtin = (s) => s.source === 'pack' || s.source === 'playbook';
 
+    // What a skill is called: a pack skill's Bulgarian heading and a built-in
+    // playbook's name from i18n.js on a Bulgarian page, otherwise its name.
+    function called(s) {
+        const plain = s.name.replace(/_/g, ' ');
+
+        if (!bg()) return plain;
+        if (s.name_bg) return s.name_bg;
+
+        if (s.source === 'playbook') {
+            const key = `teach.playbook.${s.name}`;
+            const said = T(key);
+
+            if (said !== key) return said;
+        }
+
+        return plain;
+    }
+
     function badge(s) {
         const b = document.createElement('span');
         b.className = `plan-chip sk-badge sk-${s.source}`;
@@ -61,7 +79,7 @@
         if (filter === 'off' && s.on) return false;
         if (!q) return true;
 
-        const hay = `${s.name} ${s.when || ''} ${s.when_bg || ''}`.toLowerCase();
+        const hay = `${s.name} ${s.name_bg || ''} ${s.when || ''} ${s.when_bg || ''}`.toLowerCase();
 
         return q.split(/\s+/).every((w) => hay.includes(w));
     }
@@ -84,7 +102,7 @@
             main.className = 'study-item-main';
 
             const name = document.createElement('strong');
-            name.textContent = s.name.replace(/_/g, ' ');
+            name.textContent = called(s);
 
             const desc = document.createElement('small');
             desc.className = 'study-stats';

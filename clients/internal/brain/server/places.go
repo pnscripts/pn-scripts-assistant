@@ -47,6 +47,10 @@ func (s *Server) handlePlaces(w http.ResponseWriter, r *http.Request) {
 			"never":     p.Never(),
 		}
 
+		if key := troubleKeys[p.Trouble]; key != "" {
+			row["trouble_key"] = key
+		}
+
 		if !p.Never() {
 			row["last_learned"] = p.LastLearned
 			row["age_seconds"] = int(time.Since(p.LastLearned).Seconds())

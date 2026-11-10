@@ -23,6 +23,12 @@ function el(id) {
     return document.getElementById(id);
 }
 
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+const bg = () => window.pnLang && window.pnLang() === 'bg';
+
+// A count, grouped the way the page's language groups it.
+const num = (n) => Number(n || 0).toLocaleString(bg() ? 'bg-BG' : 'en-GB');
+
 async function send(where, body) {
     const res = await fetch(where, {
         method: 'POST',
@@ -32,7 +38,7 @@ async function send(where, body) {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) throw new Error(data.error || `that did not work (${res.status})`);
+    if (!res.ok) throw new Error(data.error || T('sys.failed', { status: res.status }));
 
     return data;
 }
@@ -64,11 +70,12 @@ async function checkTheJourney() {
      */
     const note = el('travelled-note');
 
-    note.textContent =
-        `${data.affected.toLocaleString()} things it knows name the old path and cannot be `
-        + 'opened until they are repaired. Nothing is lost meanwhile.';
+    // Once repaired, the note says what was done until the next start.
+    if (note.dataset.repaired) return;
 
-    note.title = `Was: ${data.old_prefix}\nNow: ${data.new_prefix}`;
+    note.textContent = T('sys.travelledNote', { n: num(data.affected) });
+    note.title = T('sys.travelledWas', { old: data.old_prefix }) + '\n'
+        + T('sys.travelledNow', { now: data.new_prefix });
 }
 
 function wireTheRepair() {
@@ -99,7 +106,7 @@ function wireTheRepair() {
 
     button.onclick = async () => {
         button.disabled = true;
-        button.textContent = 'Repairing…';
+        button.textContent = T('sys.repairing');
 
         /*
          * Repairing means re-embedding every memory that changed, which is
@@ -109,15 +116,16 @@ function wireTheRepair() {
         try {
             const done = await send('/api/journey/repair', {});
 
-            el('travelled-note').textContent =
-                `Repaired ${done.repaired.toLocaleString()} memories `
-                + `(${done.re_embedded.toLocaleString()} re-read) from ${done.from} to ${done.to}.`;
+            el('travelled-note').textContent = T('sys.repaired', {
+                n: num(done.repaired), m: num(done.re_embedded), from: done.from, to: done.to,
+            });
+            el('travelled-note').dataset.repaired = '1';
 
             button.hidden = true;
         } catch (err) {
             el('travelled-note').textContent = String(err.message || err);
             button.disabled = false;
-            button.textContent = 'Try again';
+            button.textContent = T('sys.tryAgain');
         }
     };
 }
@@ -136,7 +144,11 @@ async function checkTheRoom() {
     const outlook = el('storage-outlook');
 
     if (outlook) {
-        outlook.textContent = data.outlook || '';
+        const said = data.outlook_key ? T(data.outlook_key, {
+            n: num((data.outlook_vars || {}).n),
+        }) : '';
+
+        outlook.textContent = said && said !== data.outlook_key ? said : (data.outlook || '');
         outlook.dataset.kind = data.level === 'ok' ? '' : 'bad';
     }
 
@@ -159,9 +171,9 @@ async function checkTheRoom() {
     drives.forEach((d) => {
         const option = document.createElement('option');
         option.value = d.suggested;
-        option.textContent = (d.home ? 'your home folder' : d.mount_point)
-            + ` · ${(d.free_bytes / GB).toFixed(0)}GB free`
-            + (d.removable ? ' · removable' : '');
+        option.textContent = (d.home ? T('sys.homeFolder') : d.mount_point)
+            + ' · ' + T('sys.gbFree', { n: (d.free_bytes / GB).toFixed(0) })
+            + (d.removable ? ' · ' + T('sys.removable') : '');
         where.appendChild(option);
     });
 
@@ -169,9 +181,11 @@ async function checkTheRoom() {
 
     const note = el('move-note');
 
-    if (note && !note.textContent) {
-        note.textContent = `Everything it knows is ${Math.max(1, Math.round(data.database_bytes / MB))}MB.`
-            + ' Moving copies it, checks it, and leaves the old one in place for you to delete.';
+    // Its own words until a move says something else, and those again in
+    // the language just chosen.
+    if (note && (!note.textContent || note.dataset.size)) {
+        note.textContent = T('sys.moveSize', { n: Math.max(1, Math.round(data.database_bytes / MB)) });
+        note.dataset.size = '1';
     }
 }
 
@@ -195,11 +209,12 @@ function wireTheMove() {
         // restart, so it can be undone the same way.
 
         button.disabled = true;
-        el('move-note').textContent = 'Moving…';
+        delete el('move-note').dataset.size;
+        el('move-note').textContent = T('sys.moving');
 
         try {
             const done = await send('/api/home', { path: where });
-            el('move-note').textContent = `Moved to ${done.moved}. ${done.note}`;
+            el('move-note').textContent = T('sys.moved', { where: done.moved });
             el('move-note').dataset.kind = 'ok';
         } catch (err) {
             el('move-note').textContent = String(err.message || err);
@@ -217,5 +232,9 @@ setInterval(() => {
     checkTheJourney();
     checkTheRoom();
 }, JOURNEY_INTERVAL);
+window.addEventListener('pn-language', () => {
+    checkTheJourney();
+    checkTheRoom();
+});
 
 }());

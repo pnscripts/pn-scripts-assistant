@@ -20,6 +20,28 @@
  *  not, since drawing a chart nobody is looking at is pure heat. */
 const TICK = 1000;
 
+// Every word a person reads here is in i18n.js, in English and Bulgarian.
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+const bg = () => !!(window.pnLang && window.pnLang() === 'bg');
+
+// A string the server names by key, or what it said when there is none.
+function said(key, fallback, vars) {
+    const text = T(key, vars);
+
+    return text === key ? fallback : text;
+}
+
+// A figure with the decimal point a reader of the page expects.
+function decimal(text) {
+    return bg() ? String(text).replace(/(\d)\.(\d)/g, '$1,$2') : String(text);
+}
+
+// Text from somewhere else, made safe for the markup this file builds.
+function escape(text) {
+    return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 const SERIES_A = 'var(--series-a)';
 const SERIES_B = 'var(--series-b)';
 
@@ -46,7 +68,7 @@ function bytes(n) {
         i += 1;
     }
 
-    return `${n < 10 && i > 0 ? n.toFixed(1) : Math.round(n)}${units[i]}`;
+    return decimal(`${n < 10 && i > 0 ? n.toFixed(1) : Math.round(n)}${units[i]}`);
 }
 
 function rate(n) {
@@ -54,7 +76,7 @@ function rate(n) {
 }
 
 function percent(n, places = 0) {
-    return isFinite(n) && n >= 0 ? `${n.toFixed(places)}%` : '—';
+    return isFinite(n) && n >= 0 ? decimal(`${n.toFixed(places)}%`) : '—';
 }
 
 // Uptime the way it is said out loud, not as a count of seconds.
@@ -65,10 +87,10 @@ function forHowLong(seconds) {
     const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
 
-    if (d) return `${d}d ${h}h`;
-    if (h) return `${h}h ${m}m`;
+    if (d) return T('ops.daysHours', { d, h });
+    if (h) return T('ops.hoursMinutes', { h, m });
 
-    return `${m}m`;
+    return T('ops.minutes', { m });
 }
 
 /*
@@ -113,7 +135,7 @@ function plot(where, { series, max, format, ticks = 3 }) {
     const points = series[0] ? series[0].values.length : 0;
 
     if (points < 2) {
-        box.innerHTML = '<p class="note tiny">Not enough readings yet.</p>';
+        box.innerHTML = `<p class="note tiny">${escape(T('ops.fewReadings'))}</p>`;
 
         return;
     }
@@ -242,7 +264,7 @@ function hover(box, { where, series, points, x, y, format, pad, h }) {
                 }
             }
 
-            lines.push(`<u>${s.name}</u> ${known ? format(v) : 'not reported'}`);
+            lines.push(`<u>${s.name}</u> ${known ? format(v) : escape(T('ops.notReported'))}`);
         });
 
         const when = series[0].times && series[0].times[i];
@@ -321,7 +343,7 @@ function drawTemperatures(list) {
             <span class="ops-bar-label" title="${t.chip}">${t.label}</span>
             <div class="ops-bar"><div${state ? ` data-state="${state}"` : ''}
                 style="width:${Math.min(100, (t.celsius / top) * 100).toFixed(1)}%"></div></div>
-            <span class="ops-bar-value">${t.celsius.toFixed(1)}°${limit}</span>
+            <span class="ops-bar-value">${decimal(t.celsius.toFixed(1))}°${limit}</span>
         </div>`;
     }).join('');
 }
@@ -331,7 +353,7 @@ function drawFans(list) {
 
     el('ops-fans').innerHTML = list.map((f) => `<div class="row">
         <span class="row-label">${f.label}</span>
-        <span class="row-value">${Math.round(f.rpm).toLocaleString()} rpm</span>
+        <span class="row-value">${escape(T('ops.rpm', { n: Math.round(f.rpm).toLocaleString(bg() ? 'bg-BG' : 'en-GB') }))}</span>
     </div>`).join('');
 }
 
@@ -341,12 +363,18 @@ function drawPower(power) {
     const state = power.percent <= 10 && power.state !== 'charging' ? 'hot'
         : power.percent <= 25 && power.state !== 'charging' ? 'warn' : '';
 
+    const named = power.state
+        ? said('ops.power.' + power.state.replace(/\W+/g, '_'), power.state)
+        : T('ops.battery');
+
+    const marked = state ? ' data-state="' + state + '"' : '';
+    const watts = power.watts >= 0 ? ' · ' + decimal(power.watts.toFixed(1)) + 'W' : '';
+
     el('ops-power').innerHTML = `<div class="ops-bar-row">
-        <span class="ops-bar-label">${power.state || 'battery'}</span>
-        <div class="ops-bar"><div${state ? ` data-state="${state}"` : ''}
+        <span class="ops-bar-label">${escape(named)}</span>
+        <div class="ops-bar"><div${marked}
             style="width:${Math.min(100, power.percent)}%"></div></div>
-        <span class="ops-bar-value">${Math.round(power.percent)}%${
-            power.watts >= 0 ? ` · ${power.watts.toFixed(1)}W` : ''}</span>
+        <span class="ops-bar-value">${Math.round(power.percent)}%${watts}</span>
     </div>`;
 }
 
@@ -356,11 +384,11 @@ function drawLinks(list) {
     el('ops-links').innerHTML = list.map((l) => {
         const speed = l.speed_mbps > 0
             ? `${l.speed_mbps >= 1000 ? `${l.speed_mbps / 1000}G` : `${l.speed_mbps}M`}`
-            : (l.wireless ? 'wireless' : '');
+            : (l.wireless ? T('ops.wireless') : '');
 
         const moving = l.state === 'up' && l.in_per_second >= 0
-            ? `${rate(l.in_per_second)} in · ${rate(l.out_per_second)} out`
-            : l.state;
+            ? T('ops.inOut', { in: rate(l.in_per_second), out: rate(l.out_per_second) })
+            : said(`ops.link.${String(l.state).replace(/\W+/g, '_')}`, l.state);
 
         return `<div class="row${l.state === 'up' ? '' : ' row-quiet'}">
             <span class="row-label">${l.name}${speed ? ` · ${speed}` : ''}</span>
@@ -381,10 +409,10 @@ function drawDisks(list) {
 
         return `<div class="ops-bar-row">
             <span class="ops-bar-label" title="${d.mount_point}">${
-                d.current ? 'the brain' : d.mount_point.split('/').pop() || '/'}</span>
+                d.current ? escape(T('ops.theBrain')) : d.mount_point.split('/').pop() || '/'}</span>
             <div class="ops-bar"><div${state ? ` data-state="${state}"` : ''}
                 style="width:${full.toFixed(1)}%"></div></div>
-            <span class="ops-bar-value">${bytes(d.free_bytes)} free</span>
+            <span class="ops-bar-value">${escape(T('ops.free', { size: bytes(d.free_bytes) }))}</span>
         </div>`;
     }).join('');
 }
@@ -428,7 +456,7 @@ function drawBar(fill, value, text, used, total, state) {
     if (label) {
         label.textContent = total
             ? `${bytes(used)} / ${bytes(total)}`
-            : 'none';
+            : T('ops.none');
     }
 }
 
@@ -451,7 +479,7 @@ function drawGPUs(gpus, note, history, times) {
 
     if (why) {
         why.hidden = !note;
-        why.textContent = note || '';
+        why.textContent = gpuNote(note);
     }
 
     const cards = gpus || [];
@@ -481,18 +509,18 @@ function drawGPUs(gpus, note, history, times) {
             </div>
             <div class="ops-bars">
                 <div class="ops-bar-row">
-                    <span class="ops-bar-label" data-busy-label>busy</span>
+                    <span class="ops-bar-label" data-busy-label>${escape(T('ops.busy'))}</span>
                     <div class="ops-bar"><div data-busy></div></div>
                     <span class="ops-bar-value" data-busy-value>—</span>
                 </div>
                 <div class="ops-bar-row" data-mem-row${g.memory_total_bytes > 0 ? '' : ' hidden'}>
-                    <span class="ops-bar-label">memory</span>
+                    <span class="ops-bar-label">${escape(T('ops.memory'))}</span>
                     <div class="ops-bar"><div data-series="b" data-mem></div></div>
                     <span class="ops-bar-value" data-mem-value>—</span>
                 </div>
             </div>
             <figure class="ops-figure">
-                <figcaption>Card ${g.index}, last three minutes</figcaption>
+                <figcaption>${escape(T('ops.cardChart', { n: g.index }))}</figcaption>
                 <div class="ops-legend" id="ops-gpu-chart-${i}-legend"></div>
                 <div class="ops-chart ops-chart-short" id="ops-gpu-chart-${i}"></div>
             </figure>
@@ -508,14 +536,14 @@ function drawGPUs(gpus, note, history, times) {
 
         const figures = [
             g.temperature_c >= 0 ? `<b>${Math.round(g.temperature_c)}°C</b>` : null,
-            g.fan_percent >= 0 ? `fan <b>${Math.round(g.fan_percent)}%</b>` : null,
+            g.fan_percent >= 0 ? `${escape(T('ops.fan'))} <b>${Math.round(g.fan_percent)}%</b>` : null,
             g.power_watts >= 0
                 ? `<b>${Math.round(g.power_watts)}W</b>${g.power_cap_watts >= 0 ? ` / ${Math.round(g.power_cap_watts)}` : ''}`
                 : null,
             g.clock_mhz >= 0 ? `<b>${Math.round(g.clock_mhz)}</b>MHz` : null,
         ].filter(Boolean).join(' · ');
 
-        card.querySelector('[data-figures]').innerHTML = figures || 'no figures reported';
+        card.querySelector('[data-figures]').innerHTML = figures || escape(T('ops.noFigures'));
 
         const busy = card.querySelector('[data-busy]');
         const state = pressure(g.util_percent);
@@ -536,7 +564,7 @@ function drawGPUs(gpus, note, history, times) {
          * puts an integrated chip at 100% beside a card at 100% while meaning
          * two different things by it.
          */
-        card.querySelector('[data-busy-label]').textContent = g.util_from_clock ? 'clock' : 'busy';
+        card.querySelector('[data-busy-label]').textContent = g.util_from_clock ? T('ops.clock') : T('ops.busy');
 
         card.querySelector('[data-busy-value]').textContent = g.util_from_clock && g.clock_mhz >= 0
             ? `${Math.round(g.clock_mhz)} / ${Math.round(g.clock_max_mhz)}MHz`
@@ -573,7 +601,7 @@ function drawGPUs(gpus, note, history, times) {
          */
         const drawn = [
             {
-                name: g.util_from_clock ? 'clock' : 'busy',
+                name: escape(g.util_from_clock ? T('ops.clock') : T('ops.busy')),
                 colour: SERIES_A,
                 values: history.map((h) => (h.gpu || [])[i]),
                 times,
@@ -582,7 +610,7 @@ function drawGPUs(gpus, note, history, times) {
 
         if (g.memory_total_bytes > 0) {
             drawn.push({
-                name: 'memory used',
+                name: escape(T('ops.memoryUsed')),
                 colour: SERIES_B,
                 values: history.map((h) => (h.gpu_memory || [])[i]),
                 times,
@@ -592,6 +620,17 @@ function drawGPUs(gpus, note, history, times) {
         legend(`ops-gpu-chart-${i}-legend`, drawn.length > 1 ? drawn.map((d) => d.name) : []);
         plot(`ops-gpu-chart-${i}`, { max: 100, format: (v) => `${Math.round(v)}%`, series: drawn });
     });
+}
+
+// Processor time as the server says it ("2h 19m", "1m 05s"), in the page's units.
+function clock(said) {
+    if (!said) return '—';
+    if (!bg()) return said;
+
+    return String(said)
+        .replace(/(\d+)h\b/g, (m, n) => T('ops.clockH', { n }))
+        .replace(/(\d+)m\b/g, (m, n) => T('ops.clockM', { n }))
+        .replace(/(\d+)s\b/g, (m, n) => T('ops.clockS', { n }));
 }
 
 function drawProcesses(list) {
@@ -605,7 +644,7 @@ function drawProcesses(list) {
         <td class="num">${percent(p.cpu_percent, 1)}</td>
         <td class="num">${percent(p.mem_percent, 1)}</td>
         <td class="num">${bytes(p.rss_bytes)}</td>
-        <td class="num">${p.cpu_time || '—'}</td>
+        <td class="num">${clock(p.cpu_time)}</td>
         <td class="command" title="${(p.command || '').replace(/"/g, '&quot;')}">${p.command || ''}</td>
     </tr>`).join('');
 }
@@ -619,22 +658,22 @@ function drawBrain(brain, machine) {
     const models = brain.models || {};
 
     const rows = [
-        ['answering with', brain.model || '—'],
-        ['doing now', step.busy ? (step.note || step.kind || 'working') : 'nothing'],
-        ['talking / working / reasoning',
+        [T('ops.answeringWith'), brain.model || '—'],
+        [T('ops.doingNow'), step.busy ? (step.note || step.kind || T('ops.working')) : T('ops.nothing')],
+        [T('ops.modelRoles'),
             [models.talk, models.work, models.reason].filter(Boolean).join(' · ') || '—'],
-        ['memory kept at', brain.root || '—'],
-        ['network', `${rate(machine.network_in_per_second)} in · ${rate(machine.network_out_per_second)} out`],
-        ['disk', `${rate(machine.disk_read_per_second)} read · ${rate(machine.disk_write_per_second)} written`],
+        [T('ops.memoryAt'), brain.root || '—'],
+        [T('ops.network'), T('ops.inOut', { in: rate(machine.network_in_per_second), out: rate(machine.network_out_per_second) })],
+        [T('ops.disk'), T('ops.readWritten', { read: rate(machine.disk_read_per_second), written: rate(machine.disk_write_per_second) })],
     ];
 
     if (brain.storage && brain.storage.free_bytes) {
-        rows.push(['room left', `${bytes(brain.storage.free_bytes)} free`]);
+        rows.push([T('ops.roomLeft'), T('ops.free', { size: bytes(brain.storage.free_bytes) })]);
     }
 
     box.innerHTML = rows.map(([what, value]) => `<div class="row">
-        <span class="row-label">${what}</span>
-        <span class="row-value">${value}</span>
+        <span class="row-label">${escape(what)}</span>
+        <span class="row-value">${escape(value)}</span>
     </div>`).join('');
 }
 
@@ -658,8 +697,7 @@ async function refresh() {
     if (!data.available) {
         if (missing) {
             missing.hidden = false;
-            missing.textContent = data.why
-                || 'This machine does not publish these readings.';
+            missing.textContent = T('ops.unavailable');
         }
 
         if (!failed) {
@@ -676,11 +714,11 @@ async function refresh() {
     const history = data.history || [];
 
     el('ops-uptime').textContent = forHowLong(m.uptime_seconds);
-    el('ops-load').textContent = (m.load_average || []).map((v) => v.toFixed(2)).join(' ') || '—';
+    el('ops-load').textContent = (m.load_average || []).map((v) => decimal(v.toFixed(2))).join(' ') || '—';
     el('ops-tasks').textContent = m.tasks
-        ? `${m.tasks} · ${m.threads} thr · ${m.running} running`
+        ? T('ops.tasksChip', { tasks: m.tasks, threads: m.threads, running: m.running })
         : '—';
-    el('ops-window').textContent = `${history.length} readings · ${data.seconds_back}s`;
+    el('ops-window').textContent = T('ops.window', { n: history.length, s: data.seconds_back });
 
     drawCores(m.cores);
 
@@ -697,10 +735,12 @@ async function refresh() {
 
     if (swapBar) swapBar.dataset.series = 'b';
 
-    const times = history.map((h) => new Date(h.at).toLocaleTimeString([], {
+    const times = history.map((h) => new Date(h.at).toLocaleTimeString(bg() ? 'bg-BG' : 'en-GB', {
         hour: '2-digit', minute: '2-digit', second: '2-digit',
     }));
 
+    gpuKey = data.gpu_note_key || '';
+    gpuWhy = data.gpu_note_why || '';
     drawGPUs(m.gpus, m.gpu_note, history, times);
     drawTemperatures(m.temperatures);
     drawFans(m.fans);
@@ -710,22 +750,22 @@ async function refresh() {
     drawProcesses(m.processes);
     drawBrain(data.brain, m);
 
-    legend('ops-cpu-legend', ['processor', 'memory']);
+    legend('ops-cpu-legend', [escape(T('ops.processor')), escape(T('ops.memory'))]);
     plot('ops-cpu-chart', {
         max: 100,
         format: (v) => `${Math.round(v)}%`,
         series: [
-            { name: 'processor', colour: SERIES_A, values: history.map((h) => h.cpu), times },
-            { name: 'memory', colour: SERIES_B, values: history.map((h) => h.memory), times },
+            { name: escape(T('ops.processor')), colour: SERIES_A, values: history.map((h) => h.cpu), times },
+            { name: escape(T('ops.memory')), colour: SERIES_B, values: history.map((h) => h.memory), times },
         ],
     });
 
-    legend('ops-io-legend', ['network out', 'disk written']);
+    legend('ops-io-legend', [escape(T('ops.networkOut')), escape(T('ops.diskWritten'))]);
     plot('ops-io-chart', {
         format: (v) => bytes(v),
         series: [
-            { name: 'network out', colour: SERIES_A, values: history.map((h) => h.network_out), times },
-            { name: 'disk written', colour: SERIES_B, values: history.map((h) => h.disk_write), times },
+            { name: escape(T('ops.networkOut')), colour: SERIES_A, values: history.map((h) => h.network_out), times },
+            { name: escape(T('ops.diskWritten')), colour: SERIES_B, values: history.map((h) => h.disk_write), times },
         ],
     });
 }
@@ -757,10 +797,17 @@ async function pace() {
     card.hidden = false;
 
     const t = data.typical || {};
-    const ms = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${Math.round(v)}ms`);
+    const ms = (v) => (v >= 1000
+        ? T('ops.seconds', { s: decimal((v / 1000).toFixed(1)) })
+        : T('ops.ms', { ms: Math.round(v) }));
 
-    document.getElementById('ops-pace-verdict').textContent =
-        data.verdict || '';
+    const verdictArgs = Object.assign({}, data.verdict_args || {});
+
+    if (verdictArgs.s) verdictArgs.s = decimal(verdictArgs.s);
+
+    document.getElementById('ops-pace-verdict').textContent = data.verdict_key
+        ? said(`ops.pace.verdict.${data.verdict_key}`, data.verdict || '', verdictArgs)
+        : (data.verdict || '');
 
     /*
      * Each stage against the whole wait, not against a fixed scale.
@@ -770,17 +817,17 @@ async function pace() {
      * every bar full and say nothing.
      */
     const stages = [
-        ['making out the words', t.hearing],
-        ['thinking', t.thinking],
-        ['writing a sentence', t.writing],
-        ['first sound', t.speaking],
+        [T('ops.stage.hearing'), t.hearing],
+        [T('ops.stage.thinking'), t.thinking],
+        [T('ops.stage.writing'), t.writing],
+        [T('ops.stage.speaking'), t.speaking],
     ].filter(([, v]) => v > 0);
 
     const worst = Math.max(1, ...stages.map(([, v]) => v));
 
     document.getElementById('ops-pace').innerHTML = stages.map(([what, v]) => `
         <div class="ops-bar-row">
-            <span class="ops-bar-label">${what}</span>
+            <span class="ops-bar-label">${escape(what)}</span>
             <div class="ops-bar"><div style="width:${Math.round((v / worst) * 100)}%"></div></div>
             <span class="ops-bar-value">${ms(v)}</span>
         </div>`).join('');
@@ -789,10 +836,9 @@ async function pace() {
     const fixed = data.fixed || {};
 
     document.getElementById('ops-pace-model').textContent = t.model
-        ? `${t.model}${t.tools ? ' with tools' : ''} · over ${data.over} spoken turn${
-            data.over === 1 ? '' : 's'} · conversation speed is under ${target}ms · `
-            + `${fixed.silence_ms}ms of that is the silence waited out, and the tools `
-            + `are about ${fixed.tool_words} tokens read before every answer`
+        ? t.model + (t.tools ? ' ' + T('ops.withTools') : '')
+            + ' · ' + T(data.over === 1 ? 'ops.paceOverOne' : 'ops.paceOver', { n: data.over })
+            + ' · ' + T('ops.paceTarget', { ms: target, silence: fixed.silence_ms, tokens: fixed.tool_words })
         : '';
 
     /*
@@ -804,19 +850,24 @@ async function pace() {
      * be able to drift apart.
      */
     document.getElementById('ops-pace-findings').innerHTML =
-        (data.findings || []).map((f) => `<div class="row">
-            <span class="row-label">${f.stage} · ${ms(f.costs_ms)}</span>
-            <span class="row-value">${f.because}. ${f.change}.${
-                f.fetch ? ` <button type="button" class="model-action"
-                    data-fetch-model="${f.fetch}">Get ${f.fetch}</button>` : ''}</span>
-        </div>`).join('');
+        (data.findings || []).map((f) => {
+            const offer = f.fetch
+                ? ' <button type="button" class="model-action" data-fetch-model="' + escape(f.fetch) + '">'
+                    + escape(T('ops.get', { name: f.fetch })) + '</button>'
+                : '';
+
+            return `<div class="row">
+            <span class="row-label">${escape(said('ops.stage.' + f.stage, f.stage))} · ${ms(f.costs_ms)}</span>
+            <span class="row-value">${escape(finding(f))}${offer}</span>
+        </div>`;
+        }).join('');
 
     for (const button of document.querySelectorAll('[data-fetch-model]')) {
         button.onclick = async () => {
             const name = button.dataset.fetchModel;
 
             button.disabled = true;
-            button.textContent = `Fetching ${name}…`;
+            button.textContent = T('ops.fetching', { name });
 
             try {
                 await fetch('/api/models/pull', {
@@ -826,7 +877,7 @@ async function pace() {
                 });
             } catch (err) {
                 button.disabled = false;
-                button.textContent = `Get ${name}`;
+                button.textContent = T('ops.get', { name });
 
                 return;
             }
@@ -834,14 +885,48 @@ async function pace() {
             // It carries on in the background and reports on the progress
             // line, which is where every other long fetch in this program
             // reports.
-            button.textContent = `Fetching ${name}, watch Doing now`;
+            button.textContent = T('ops.fetchingWatch', { name });
         };
     }
+}
+
+/*
+ * A finding in the page's language: its two halves by key, with the model
+ * names it carries; the English the server wrote when there is no key.
+ */
+function finding(f) {
+    const args = Object.assign({}, f.args || {});
+
+    for (const name of ['model', 'working']) {
+        if (name in args && !args[name]) args[name] = T('ops.theModel');
+    }
+
+    const because = said(`ops.pace.${f.key}.because`, '', args);
+    const change = said(`ops.pace.${f.key}.change`, '', args);
+
+    return f.key && because && change ? `${because}. ${change}.` : `${f.because}. ${f.change}.`;
+}
+
+// The graphics note, by the key the server names it with when it has one.
+let gpuKey = '';
+let gpuWhy = '';
+
+function gpuNote(note) {
+    if (!note) return '';
+
+    return gpuKey ? said(`ops.gpu.${gpuKey}`, note, { why: gpuWhy }) : note;
 }
 
 refresh();
 pace();
 setInterval(refresh, TICK);
+
+// Drawn again at once in the other language, rather than at the next tick.
+window.addEventListener('pn-language', () => {
+    cardsBuilt = -1; // the cards' own labels are written when they are built
+    refresh();
+    pace();
+});
 setInterval(pace, 15000);
 
 // And immediately when the view is opened, rather than up to a second later.

@@ -306,7 +306,7 @@ func (c *Conductor) handOn(task *store.Task, step *store.TaskStep, member team.A
 
 	// Written last, after the sentence that explains it — see park.
 	if err := c.DB.SetTaskState(task.ID, store.TaskWaiting,
-		"waiting on the "+strings.ToLower(orTitle(specialist))); err != nil {
+		reasonWaitingOn+strings.ToLower(orTitle(specialist))); err != nil {
 		return false, err
 	}
 

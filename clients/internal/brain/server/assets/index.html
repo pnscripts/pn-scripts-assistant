@@ -71,7 +71,7 @@
     </div>
 
     <div class="boot-name" id="boot-name">PN Scripts Assistant</div>
-    <div class="boot-step" id="boot-step">waking up</div>
+    <div class="boot-step" id="boot-step"></div>
 
     <div class="boot-bar"><span class="boot-bar-fill" id="boot-bar-fill"></span></div>
 </div>
@@ -96,19 +96,17 @@
     this key opens it on another computer; it is not shown again once kept.
 -->
 <div id="recovery" class="drive-lost recovery" hidden role="alert">
-    <strong>Your brain is now encrypted.</strong>
-    <span class="drive-lost-note">Only this program can read it, with a key this computer keeps in
-        <span id="recovery-keyring">its keyring</span>. To open it on another computer (the drive
-        travels, the key does not), you need this recovery key. Keep it somewhere safe, away from
-        the drive. It is shown once.</span>
+    <strong data-i18n="vault.title">Your brain is now encrypted.</strong>
+    <!-- Filled in by vault.js, which knows where this computer keeps the key. -->
+    <span class="drive-lost-note" id="recovery-note"></span>
     <code id="recovery-key" style="display:block;margin:8px 0;font-size:15px;letter-spacing:1px;user-select:all"></code>
     <span class="drive-lost-note" id="recovery-warning"></span>
-    <a id="recovery-file" href="/api/vault/recovery?as=file" download>Save it as a file</a>
-    <button type="button" id="recovery-kept">I have kept it</button>
+    <a id="recovery-file" href="/api/vault/recovery?as=file" download data-i18n="vault.save">Save it as a file</a>
+    <button type="button" id="recovery-kept" data-i18n="vault.kept">I have kept it</button>
 </div>
 
 <div id="travelled" class="drive-lost travelled" hidden role="alert">
-    <strong>This drive has moved.</strong>
+    <strong data-i18n="sys.travelled">This drive has moved.</strong>
     <!--
         Short on purpose, with the paths in the tooltip.
 
@@ -118,8 +116,8 @@
         program to describe a problem is its own problem.
     -->
     <span class="drive-lost-note" id="travelled-note"></span>
-    <button type="button" class="model-action" id="travelled-fix">Repair them</button>
-    <button type="button" class="model-action" id="travelled-no">Not needed</button>
+    <button type="button" class="model-action" id="travelled-fix" data-i18n="sys.repair">Repair them</button>
+    <button type="button" class="model-action" id="travelled-no" data-i18n="sys.notNeeded">Not needed</button>
 </div>
 
 <div class="shell">
@@ -137,7 +135,7 @@
             <div class="orb" id="orb" aria-hidden="true"><span></span><span></span><span></span></div>
             <div class="brand-text">
                 <h1 id="brain-name">{{ .Name }}</h1>
-                <p class="brand-sub">command centre</p>
+                <p class="brand-sub" data-i18n="cc.brandSub">command centre</p>
             </div>
         </div>
 
@@ -233,7 +231,7 @@
         <div class="operator">
             <div class="operator-text">
                 <strong id="owner-name">—</strong>
-                <span>owner</span>
+                <span data-i18n="cc.owner">owner</span>
             </div>
             <div class="operator-mark" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="15" height="15">
@@ -599,7 +597,7 @@
              is remembered for that version. -->
         <div class="update-banner" id="update-banner" role="status" aria-live="polite" hidden>
             <span class="update-banner-text" id="update-banner-text"></span>
-            <button type="button" class="model-action" id="update-banner-go">Update now</button>
+            <button type="button" class="model-action" id="update-banner-go" data-i18n="upd.updateNow">Update now</button>
             <button type="button" class="model-action quiet" id="update-banner-later" data-i18n="upd.later">Later</button>
         </div>
 
@@ -619,7 +617,7 @@
                      occupying the best position on the page while the thing
                      that changes every few seconds had nowhere to appear. -->
                 <div class="card" data-area="core">
-                    <h2>Doing now</h2>
+                    <h2 data-i18n="cc.doingNow">Doing now</h2>
                     <!--
                         One line saying whether it is working on something.
 
@@ -645,12 +643,12 @@
                     -->
                     <div class="tasks-now" id="tasks-now" hidden></div>
                     <div class="feed" id="feed">
-                        <p class="feed-idle" id="feed-idle">Waiting.</p>
+                        <p class="feed-idle" id="feed-idle" data-i18n="cc.idle">Waiting.</p>
                     </div>
                 </div>
 
                 <div class="card card-core" data-area="reactor">
-                    <h2>Core</h2>
+                    <h2 data-i18n="cc.core">Core</h2>
                     <canvas id="brainmap" aria-hidden="true"></canvas>
                     <div class="core-caption">
                         <p class="core-title" id="core-title">{{ .Name }}</p>
@@ -659,7 +657,7 @@
                 </div>
 
                 <div class="card" data-area="activity">
-                    <h2>Activity</h2>
+                    <h2 data-i18n="cc.activity">Activity</h2>
                     <!--
                         Two writers, one each.
 
@@ -678,44 +676,44 @@
                     <div id="activity" class="activity">
                         <div id="activity-jobs" class="jobs" hidden></div>
                         <div id="activity-items"></div>
-                        <p class="activity-empty" id="activity-empty">Nothing yet.</p>
+                        <p class="activity-empty" id="activity-empty" data-i18n="cc.nothingYet">Nothing yet.</p>
                     </div>
                 </div>
 
                 <!-- Row two: what it can do, what it is waiting on, what you can do. -->
                 <div class="card card-map" data-area="map">
-                    <h2>Memory map</h2>
+                    <h2 data-i18n="nav.memory">Memory map</h2>
                     <canvas id="memorymap"></canvas>
                     <p class="map-hover" id="memory-hover" hidden></p>
                     <div class="legend" id="legend"></div>
 
                     <aside class="memory-detail" id="memory-detail" hidden>
                         <button type="button" class="memory-detail-close" id="memory-detail-close"
-                                aria-label="Close">×</button>
+                                aria-label="Close" data-i18n-label="cc.close">×</button>
                         <span class="memory-detail-category" id="memory-detail-category">—</span>
                         <p class="memory-detail-text" id="memory-detail-text"></p>
-                        <button type="button" class="memory-ask" id="memory-ask">Ask about this</button>
-                        <h3>Closest to it</h3>
+                        <button type="button" class="memory-ask" id="memory-ask" data-i18n="cc.askAbout">Ask about this</button>
+                        <h3 data-i18n="cc.closest">Closest to it</h3>
                         <div id="memory-detail-related"></div>
                     </aside>
                 </div>
 
                 <div class="card card-chat" data-area="chat">
-                    <h2>Conversation</h2>
+                    <h2 data-i18n="cc.conversation">Conversation</h2>
                     <div class="transcript" id="transcript">
                         <div class="boot" id="boot">
-                            <p class="boot-sub">Ask something, or tell me to look at something.</p>
+                            <p class="boot-sub" data-i18n="cc.askSomething">Ask something, or tell me to look at something.</p>
                         </div>
                     </div>
                     <p class="working" id="working" hidden>
                         <span class="working-dot" aria-hidden="true"></span>
-                        <span id="working-note">Working</span>
+                        <span id="working-note" data-i18n="cc.working">Working</span>
                         <span class="working-clock" id="working-clock"></span>
                     </p>
                 </div>
 
                 <div class="card" data-area="waiting">
-                    <h2>Waiting for you <span class="badge" id="waiting-count">0</span></h2>
+                    <h2><span data-i18n="cc.waitingForYou">Waiting for you</span> <span class="badge" id="waiting-count">0</span></h2>
                     <div id="approvals-panel" hidden>
                         <div id="approvals"></div>
                     </div>
@@ -733,7 +731,7 @@
                         was real, and neither admitted the other existed.
                     -->
                     <p class="queue-more" id="waiting-more" hidden></p>
-                    <p class="activity-empty" id="waiting-empty">Nothing needs a decision.</p>
+                    <p class="activity-empty" id="waiting-empty" data-i18n="cc.nothingWaiting">Nothing needs a decision.</p>
                     <span id="approval-count" hidden>0</span>
                     <span id="lesson-count" hidden>0</span>
                 </div>
@@ -745,14 +743,14 @@
                     what the brain is doing right now, is.
                 -->
                 <div class="card" data-area="knows">
-                    <h2>Conversations</h2>
+                    <h2 data-i18n="cc.conversations">Conversations</h2>
                     <div class="thinking-now" id="thinking-now" hidden>
                         <span class="thinking-dot" aria-hidden="true"></span>
-                        <span id="thinking-now-text">Thinking</span>
+                        <span id="thinking-now-text" data-i18n="cc.thinking">Thinking</span>
                         <span class="thinking-clock" id="thinking-now-clock"></span>
                     </div>
                     <div id="history-rows" class="rows"></div>
-                    <p class="activity-empty" id="history-empty">Nothing said yet.</p>
+                    <p class="activity-empty" id="history-empty" data-i18n="cc.nothingSaid">Nothing said yet.</p>
                 </div>
 
                 <!-- Row three: the measurements. -->
@@ -760,7 +758,7 @@
                      tinting them by what the brain is doing would make a busy
                      processor look like a state of the conversation. -->
                 <div class="card card-measured" data-area="monitor">
-                    <h2>System monitor</h2>
+                    <h2 data-i18n="cc.monitor">System monitor</h2>
                     <div class="gauges">
                         <div class="gauge">
                             <svg viewBox="0 0 44 44" aria-hidden="true">
@@ -768,7 +766,7 @@
                                 <circle class="gauge-fill" id="gauge-cpu" cx="22" cy="22" r="18"/>
                             </svg>
                             <span class="gauge-value" id="cpu-value">—</span>
-                            <span class="gauge-label">cpu</span>
+                            <span class="gauge-label" data-i18n="cc.gauge.cpu">cpu</span>
                         </div>
                         <div class="gauge">
                             <svg viewBox="0 0 44 44" aria-hidden="true">
@@ -776,7 +774,7 @@
                                 <circle class="gauge-fill" id="gauge-ram" cx="22" cy="22" r="18"/>
                             </svg>
                             <span class="gauge-value" id="ram-value">—</span>
-                            <span class="gauge-label">memory</span>
+                            <span class="gauge-label" data-i18n="cc.gauge.memory">memory</span>
                         </div>
                         <div class="gauge">
                             <svg viewBox="0 0 44 44" aria-hidden="true">
@@ -784,7 +782,7 @@
                                 <circle class="gauge-fill" id="gauge-disk" cx="22" cy="22" r="18"/>
                             </svg>
                             <span class="gauge-value" id="disk-value">—</span>
-                            <span class="gauge-label">disk</span>
+                            <span class="gauge-label" data-i18n="cc.gauge.disk">disk</span>
                         </div>
                     </div>
                     <p class="note tiny" id="machine-note"></p>
@@ -796,13 +794,13 @@
                         always "with what" — which core, which card, which
                         process — and until now the only answer was a terminal.
                     -->
-                    <button type="button" class="model-action card-corner" data-view="operations">
+                    <button type="button" class="model-action card-corner" data-view="operations" data-i18n="cc.everything">
                         Everything it is doing
                     </button>
                 </div>
 
                 <div class="card" data-area="commands">
-                    <h2>What it knows</h2>
+                    <h2 data-i18n="cc.whatItKnows">What it knows</h2>
                     <!--
                         Outside the grid below, not inside it.
 
@@ -819,12 +817,12 @@
                         conversation threads, the same word meaning neither the
                         same thing nor the same number.
                     -->
-                    <p class="insight-note">What it remembers, by where it learned it</p>
+                    <p class="insight-note" data-i18n="cc.byWhere">What it remembers, by where it learned it</p>
                     <div class="insight">
                         <div class="bars" id="category-breakdown"></div>
                         <div class="insight-figures">
-                            <div><span class="figure" id="fig-facts">—</span><span class="figure-label">memories</span></div>
-                            <div><span class="figure" id="fig-convos">—</span><span class="figure-label">threads</span></div>
+                            <div><span class="figure" id="fig-facts">—</span><span class="figure-label" data-i18n="cc.memories">memories</span></div>
+                            <div><span class="figure" id="fig-convos">—</span><span class="figure-label" data-i18n="cc.threads">threads</span></div>
                             <!--
                                 "Awaiting review" was here, and does not belong
                                 in a panel called What it knows: the queue is
@@ -847,7 +845,7 @@
                         inside this view — so it had no way in at all: the entry
                         was in the column the stage hides.
                     -->
-                    <button type="button" class="model-action card-corner" data-view="memory">
+                    <button type="button" class="model-action card-corner" data-view="memory" data-i18n="cc.seeMap">
                         See the memory map
                     </button>
                 </div>
@@ -858,8 +856,8 @@
         <section class="view" data-view="models" hidden>
             <div class="view-inner">
                 <div class="card">
-                    <h2>Models on this machine</h2>
-                    <p class="note" id="models-note">Looking…</p>
+                    <h2 data-i18n="mdl.here">Models on this machine</h2>
+                    <p class="note" id="models-note"></p>
                     <div id="models-list" class="rows"></div>
                 </div>
 
@@ -877,8 +875,8 @@
                     card and machines with two.
                 -->
                 <div class="card">
-                    <h2>Models you can install</h2>
-                    <p class="insight-note" id="catalogue-machine">Looking at this machine…</p>
+                    <h2 data-i18n="mdl.installable">Models you can install</h2>
+                    <p class="insight-note" id="catalogue-machine"></p>
                     <div id="catalogue-list"></div>
                 </div>
 
@@ -897,12 +895,8 @@
                     shoulder.
                 -->
                 <div class="card">
-                    <h2>Models somewhere else</h2>
-                    <p class="insight-note" id="providers-privacy">
-                        Anything but the first sends your conversation to another
-                        company's computers. Your privacy setting decides which
-                        are allowed at all.
-                    </p>
+                    <h2 data-i18n="mdl.elsewhere">Models somewhere else</h2>
+                    <p class="insight-note" id="providers-privacy" data-i18n="mdl.elsewhereNote">Anything but the first sends your conversation to another company's computers. Your privacy setting decides which are allowed at all.</p>
                     <div id="providers-list"></div>
                 </div>
             </div>
@@ -932,49 +926,49 @@
                     <p class="note" id="mcare-said" role="status" aria-live="polite"></p>
                 </div>
                 <div class="card">
-                    <h2>Settings</h2>
+                    <h2 data-i18n="sys.settings">Settings</h2>
                     <form id="settings-form">
                         <label class="field">
-                            <span>What it is called</span>
+                            <span data-i18n="sys.name">What it is called</span>
                             <input id="set-name" type="text" autocomplete="off">
                         </label>
                         <label class="field">
-                            <span>What to call you</span>
+                            <span data-i18n="sys.owner">What to call you</span>
                             <input id="set-owner" type="text" autocomplete="off">
                         </label>
                         <label class="field">
-                            <span>What it answers to</span>
-                            <input id="set-wake" type="text" autocomplete="off" placeholder="none">
-                            <small class="field-note">Separate several with commas. Add whatever
+                            <span data-i18n="sys.wake">What it answers to</span>
+                            <input id="set-wake" type="text" autocomplete="off" placeholder="none" data-i18n-placeholder="sys.wakeNone">
+                            <small class="field-note" data-i18n="sys.wakeNote">Separate several with commas. Add whatever
                                 the microphone actually writes down: if it hears “Brain” as
                                 “Bryan”, put Bryan here too. Empty means it answers everything
                                 it hears, which suits a headset and not a room.</small>
                         </label>
                         <label class="field field-check">
                             <input id="set-always" type="checkbox">
-                            <span>Call it by name every time</span>
-                            <small class="field-note">On, it answers only sentences that carry
+                            <span data-i18n="sys.always">Call it by name every time</span>
+                            <small class="field-note" data-i18n="sys.alwaysNote">On, it answers only sentences that carry
                                 its name. Off, it stays in the conversation for about a minute
                                 after being addressed, so follow-ups need no name, which is
                                 easier alone and wrong in a room with a television in it,
                                 because everything said in that minute is treated as yours.</small>
                         </label>
                         <label class="field">
-                            <span>Voice</span>
+                            <span data-i18n="sys.voice">Voice</span>
                             <div class="voice-choice">
-                                <button type="button" class="model-action" data-sex="robot">A robot</button>
-                                <button type="button" class="model-action" data-sex="woman">A woman</button>
-                                <button type="button" class="model-action" data-sex="man">A man</button>
+                                <button type="button" class="model-action" data-sex="robot" data-i18n="sys.robot">A robot</button>
+                                <button type="button" class="model-action" data-sex="woman" data-i18n="sys.woman">A woman</button>
+                                <button type="button" class="model-action" data-sex="man" data-i18n="sys.man">A man</button>
                             </div>
-                            <small class="field-note">Picks the best installed voice of that
+                            <small class="field-note" data-i18n="sys.voiceNote">Picks the best installed voice of that
                                 kind and says a line so you can hear it. Every voice one by one,
                                 each robot, each woman, each man, is under Engine, in the
                                 Voice list.</small>
                         </label>
                         <label class="field field-check">
                             <input id="set-always-listen" type="checkbox">
-                            <span>Open the microphone when the window opens</span>
-                            <small class="field-note">On, it starts hearing the room as soon
+                            <span data-i18n="sys.listen">Open the microphone when the window opens</span>
+                            <small class="field-note" data-i18n="sys.listenNote">On, it starts hearing the room as soon
                                 as you open it, and waits for its name. Off, it stays quiet
                                 until you press the button, and the microphone is free for
                                 anything else, and the processor is doing only what you asked
@@ -983,8 +977,8 @@
                         </label>
                         <label class="field field-check">
                             <input id="set-always-speak" type="checkbox">
-                            <span>Read every answer out loud</span>
-                            <small class="field-note">On, it speaks whether you typed the
+                            <span data-i18n="sys.speak">Read every answer out loud</span>
+                            <small class="field-note" data-i18n="sys.speakNote">On, it speaks whether you typed the
                                 question or said it. Off, only spoken questions get spoken
                                 answers. An answer takes a while to work out on this
                                 processor, and the point of a voice is that you can be doing
@@ -992,8 +986,8 @@
                         </label>
                         <label class="field field-check">
                             <input id="set-goal-mode" type="checkbox">
-                            <span>Work on goals on its own</span>
-                            <small class="field-note" id="goal-mode-consent">I work on your goals on my own: I plan, choose
+                            <span data-i18n="sys.goals">Work on goals on its own</span>
+                            <small class="field-note" data-i18n="sys.goalConsent" id="goal-mode-consent">I work on your goals on my own: I plan, choose
                                 specialists and models, download the models, tools and integrations I
                                 need from trusted sources with checks, work in a separate folder for each
                                 goal and report to you. For this I download from the internet even when
@@ -1006,30 +1000,30 @@
                         </label>
                         <label class="field field-check">
                             <input id="set-auto-model" type="checkbox">
-                            <span>Answer small talk with a quicker model</span>
-                            <small class="field-note">Every answer is worked out on this
+                            <span data-i18n="sys.quick">Answer small talk with a quicker model</span>
+                            <small class="field-note" data-i18n="sys.quickNote">Every answer is worked out on this
                                 processor, so the size of the model is the whole of the wait.
                                 With this on, "good morning" is answered by a small fast model
                                 and anything that means doing something still goes to the
                                 usual one.</small>
                         </label>
                         <label class="field">
-                            <span>Privacy</span>
+                            <span data-i18n="sys.privacy">Privacy</span>
                             <select id="set-privacy">
-                                <option value="open">open · may use a cloud model (default)</option>
-                                <option value="research">research · may read the web</option>
-                                <option value="private">private · nothing leaves this machine</option>
+                                <option value="open" data-i18n="sys.privOpen">open · may use a cloud model (default)</option>
+                                <option value="research" data-i18n="sys.privResearch">research · may read the web</option>
+                                <option value="private" data-i18n="sys.privPrivate">private · nothing leaves this machine</option>
                             </select>
                         </label>
-                        <button type="submit" class="model-action" id="set-save">Save</button>
+                        <button type="submit" class="model-action" id="set-save" data-i18n="sys.save">Save</button>
                         <p class="engine-meta" id="set-note"></p>
                     </form>
                 </div>
                 <div class="card">
-                    <h2>Models in use</h2>
+                    <h2 data-i18n="sys.modelsTitle">Models in use</h2>
                     <p class="note" id="models-roles">—</p>
                     <div id="models-warning" hidden>
-                        <p class="storage-advice">Both models cannot be held in memory at
+                        <p class="storage-advice" data-i18n="sys.modelsWarn">Both models cannot be held in memory at
                             once on this machine, so every switch between them reloads one,
                             which costs more than choosing the smaller one saves. Ollama is
                             set to keep two models, and the memory used for remembering takes
@@ -1038,85 +1032,82 @@
                     </div>
                 </div>
                 <div class="card card-wide">
-                    <h2>Mailbox</h2>
-                    <p class="note">Fill these in yourself and the brain can read and write
-                        your mail. Use an <strong>app password</strong>, not your account
-                        password: every provider worth using issues them, they can be
-                        revoked on their own, and they cannot be used to take the account
-                        over. It is kept in the settings file beside the brain and sent
-                        only to your own mail server. Mail is read from one server and
-                        sent through another: Gmail reads on imap.gmail.com and sends
-                        through smtp.gmail.com. Leave the outgoing server blank and an
-                        incoming server named imap.<em>something</em> is taken to send
-                        through smtp.<em>something</em>; any other name needs the
-                        outgoing server filled in.</p>
+                    <h2 data-i18n="sys.mail">Mailbox</h2>
+                    <p class="note" data-i18n="sys.mailIntro">Fill these in yourself and the brain can read and write
+                        your mail. Use an app password, not your account password: every provider
+                        worth using issues them, they can be revoked on their own, and they cannot
+                        be used to take the account over. It is kept in the settings file beside
+                        the brain and sent only to your own mail server.</p>
+                    <p class="note" data-i18n="sys.mailServers">Mail is read from one server and sent through
+                        another: Gmail reads on imap.gmail.com and sends through smtp.gmail.com.
+                        Leave the outgoing server blank and an incoming server named imap.something
+                        is taken to send through smtp.something; any other name needs the outgoing
+                        server filled in.</p>
                     <form id="mail-form">
                         <label class="field">
-                            <span>Your address</span>
+                            <span data-i18n="sys.mailUser">Your address</span>
                             <input id="mail-user" type="email" autocomplete="off"
                                    placeholder="you@example.com">
                         </label>
                         <label class="field">
-                            <span>App password</span>
+                            <span data-i18n="cal.password">App password</span>
                             <input id="mail-password" type="password" autocomplete="off"
-                                   placeholder="leave blank to keep the one already saved">
+                                   placeholder="leave blank to keep the one already saved"
+                                   data-i18n-placeholder="sys.mailPassKeep">
                         </label>
                         <label class="field">
-                            <span>Incoming server (IMAP)</span>
+                            <span data-i18n="sys.mailIn">Incoming server (IMAP)</span>
                             <input id="mail-host" type="text" autocomplete="off"
                                    placeholder="imap.gmail.com">
                         </label>
                         <label class="field">
-                            <span>Outgoing server (SMTP)</span>
+                            <span data-i18n="sys.mailOut">Outgoing server (SMTP)</span>
                             <input id="mail-smtp" type="text" autocomplete="off"
                                    placeholder="smtp.gmail.com">
                         </label>
-                        <button type="submit" class="model-action">Save mailbox</button>
+                        <button type="submit" class="model-action" data-i18n="sys.mailSave">Save mailbox</button>
                         <p class="engine-meta" id="mail-note"></p>
                     </form>
                 </div>
                 <div class="card">
-                    <h2>Set up again</h2>
-                    <p class="note">Change which drive holds everything, which model does
+                    <h2 data-i18n="sys.setup">Set up again</h2>
+                    <p class="note" data-i18n="sys.setupNote">Change which drive holds everything, which model does
                         the thinking, or the keys for a service. Opens the same wizard as
                         the first run. Nothing changes until you press Apply at the end,
                         and closing it changes nothing at all.</p>
-                    <button type="button" class="model-action" id="setup-open">
-                        Open setup</button>
+                    <button type="button" class="model-action" id="setup-open" data-i18n="sys.setupOpen">Open setup</button>
                     <p class="engine-meta" id="setup-note"></p>
                 </div>
                 <div class="card">
-                    <h2>Applications menu</h2>
+                    <h2 data-i18n="sys.menu">Applications menu</h2>
                     <p class="note" id="menu-note">—</p>
-                    <button type="button" class="model-action" id="menu-add">
-                        Add to the applications menu</button>
-                    <button type="button" class="model-action" id="menu-remove" hidden>
-                        Take it out of the menu</button>
+                    <button type="button" class="model-action" id="menu-add" data-i18n="sys.menuAdd">Add to the applications menu</button>
+                    <button type="button" class="model-action" id="menu-remove" hidden data-i18n="sys.menuRemove">Take it out of the menu</button>
                 </div>
                 <div class="card card-wide">
-                    <h2>What is on this machine</h2>
-                    <p class="note">Everything found here is available to the assistant, and
+                    <h2 data-i18n="sys.env">What is on this machine</h2>
+                    <p class="note" data-i18n="sys.envNote">Everything found here is available to the assistant, and
                         this is the same list it is given when it answers. Switch one off and
                         it stops being offered, including the tools that cannot work without
                         it.</p>
                     <div id="environment-list" class="environment-list">—</div>
                 </div>
                 <div class="card card-wide">
-                    <h2>What it has been hearing</h2>
-                    <p class="note">The last few things the microphone made of the room, so
+                    <h2 data-i18n="sys.heard">What it has been hearing</h2>
+                    <p class="note" data-i18n="sys.heardNote">The last few things the microphone made of the room, so
                         that “I said its name and nothing happened” has an answer. Held in
                         memory only, never written down, gone when the brain restarts.</p>
                     <div id="heard-rows" class="rows"></div>
                     <p class="engine-meta" id="heard-note"></p>
                 </div>
                 <div class="card">
-                    <h2>Colours</h2>
-                    <p class="note">What the core is showing you, by what it is doing.
+                    <h2 data-i18n="sys.colours">Colours</h2>
+                    <p class="note" data-i18n="sys.coloursNote">What the core is showing you, by what it is doing.
                         You can also just ask it to change one.</p>
                     <div id="colour-rows" class="rows"></div>
                 </div>
                 <div class="card">
-                    <h2>Storage</h2>
+                    <h2 data-i18n="sys.storage">Storage</h2>
                     <div class="storage-bar"><div id="storage-fill"></div></div>
                     <p class="storage-text" id="storage-text">—</p>
                     <div id="storage-warning" hidden>
@@ -1134,11 +1125,11 @@
                     -->
                     <div class="copy-add" id="move-home" hidden>
                         <label class="field">
-                            <span>Move everything to</span>
+                            <span data-i18n="sys.moveTo">Move everything to</span>
                             <select id="move-where"></select>
                         </label>
                         <div class="copy-buttons">
-                            <button type="button" class="model-action" id="move-go">Move the brain there</button>
+                            <button type="button" class="model-action" id="move-go" data-i18n="sys.moveGo">Move the brain there</button>
                         </div>
                         <p class="drive-note" id="move-note"></p>
                     </div>
@@ -1155,8 +1146,8 @@
                     one. Choosing one is a thing you do here, on purpose.
                 -->
                 <div class="card">
-                    <h2>Copies of the brain</h2>
-                    <p class="note">The brain is the assistant's knowledge base: everything it has
+                    <h2 data-i18n="sys.copies">Copies of the brain</h2>
+                    <p class="note" data-i18n="sys.copiesNote">The brain is the assistant's knowledge base: everything it has
                         learned, remembered and been told, kept together in one folder.
                         A copy of everything it knows, kept on
                         another drive or folder and refreshed on its own
@@ -1164,18 +1155,18 @@
                         Nothing is ever opened from a copy unless you choose
                         it here.</p>
                     <div id="copies" class="drives"></div>
-                    <p class="drive-note" id="copies-empty">No copies yet.
+                    <p class="drive-note" id="copies-empty" data-i18n="sys.copiesEmpty">No copies yet.
                         Everything the brain knows is in one place.</p>
                     <div class="copy-add">
                         <label class="field">
-                            <span>Keep a copy in</span>
+                            <span data-i18n="sys.copyIn">Keep a copy in</span>
                             <input id="copy-path" type="text" autocomplete="off"
                                    placeholder="/media/you/backup/PN-SCRIPTS-ASSISTANT-COPY">
                         </label>
                         <div id="copy-suggestions" class="copy-suggestions"></div>
                         <div class="copy-buttons">
-                            <button type="button" class="model-action" id="copy-add">Keep a copy there</button>
-                            <button type="button" class="model-action" id="copy-now">Copy now</button>
+                            <button type="button" class="model-action" id="copy-add" data-i18n="sys.copyAdd">Keep a copy there</button>
+                            <button type="button" class="model-action" id="copy-now" data-i18n="sys.copyNow">Copy now</button>
                         </div>
                         <p class="drive-note" id="copy-note"></p>
                     </div>
@@ -1195,54 +1186,54 @@
                     button in the program, so it says so on the row.
                 -->
                 <div class="card">
-                    <h2>Where it learns from</h2>
-                    <p class="note">Drives and folders it looks after. When one
+                    <h2 data-i18n="sys.places">Where it learns from</h2>
+                    <p class="note" data-i18n="sys.placesNote">Drives and folders it looks after. When one
                         is attached and holds something it has not seen, it
                         reads a little at a time on its own, so a drive you
                         plug in on Friday is learned by Saturday without you
                         asking.</p>
                     <div id="places" class="drives"></div>
-                    <p class="drive-note" id="places-empty">Nowhere yet. It only
+                    <p class="drive-note" id="places-empty" data-i18n="sys.placesEmpty">Nowhere yet. It only
                         knows what it has been shown.</p>
                     <div class="copy-add">
                         <label class="field">
-                            <span>Learn from</span>
+                            <span data-i18n="sys.learnFrom">Learn from</span>
                             <input id="place-path" type="text" autocomplete="off"
                                    placeholder="/media/you/work/Projects">
                         </label>
                         <div id="place-suggestions" class="copy-suggestions"></div>
                         <label class="field">
-                            <span>Read it for</span>
+                            <span data-i18n="sys.readFor">Read it for</span>
                             <select id="place-kind">
-                                <option value="everything">Everything: projects and documents</option>
-                                <option value="projects">Projects: code and repositories</option>
-                                <option value="documents">Documents: text and papers</option>
+                                <option value="everything" data-i18n="sys.kindAll">Everything: projects and documents</option>
+                                <option value="projects" data-i18n="sys.kindProjects">Projects: code and repositories</option>
+                                <option value="documents" data-i18n="sys.kindDocs">Documents: text and papers</option>
                             </select>
                         </label>
                         <div class="copy-buttons">
-                            <button type="button" class="model-action" id="place-add">Look after this</button>
+                            <button type="button" class="model-action" id="place-add" data-i18n="sys.placeAdd">Look after this</button>
                         </div>
                         <p class="drive-note" id="place-note"></p>
                     </div>
                 </div>
                 <div class="card">
-                    <h2>Model status</h2>
+                    <h2 data-i18n="sys.modelStatus">Model status</h2>
                     <div class="rows" id="provider-rows"></div>
                 </div>
         <section class="card">
-            <h2>Engine</h2>
+            <h2 data-i18n="sys.engine">Engine</h2>
             <label class="field">
-                <span>Provider</span>
+                <span data-i18n="sys.provider">Provider</span>
                 <select id="provider">
-                    <option value="">default</option>
-                    <option value="ollama">ollama · local</option>
-                    <option value="anthropic">anthropic · api</option>
+                    <option value="" data-i18n="sys.provDefault">default</option>
+                    <option value="ollama" data-i18n="sys.provOllama">ollama · local</option>
+                    <option value="anthropic" data-i18n="sys.provAnthropic">anthropic · api</option>
                 </select>
             </label>
             <label class="field" id="language-field" hidden>
-                <span>I speak</span>
-                <select id="language" aria-label="Spoken language">
-                    <option value="">Let it guess</option>
+                <span data-i18n="sys.iSpeak">I speak</span>
+                <select id="language" aria-label="Spoken language" data-i18n-label="sys.spoken">
+                    <option value="" data-i18n="sys.guess">Let it guess</option>
                     <option value="bg">Български</option>
                     <option value="en">English</option>
                     <option value="de">Deutsch</option>
@@ -1254,26 +1245,26 @@
                 </select>
             </label>
             <label class="field" id="voice-field" hidden>
-                <span>Voice</span>
-                <select id="voice" aria-label="Voice"></select>
-                <small class="field-note">Every voice this machine can speak in, one by one.
+                <span data-i18n="sys.voice">Voice</span>
+                <select id="voice" aria-label="Voice" data-i18n-label="sys.voice"></select>
+                <small class="field-note" data-i18n="sys.voiceListNote">Every voice this machine can speak in, one by one.
                     The first three are the best robot, woman and man it has; the rest are
                     named for what they are, so a particular one can be asked for again.
                     Choosing one says a line immediately: a voice picked from a list of
                     names without hearing it is picked blind.</small>
             </label>
             <label class="field" id="microphone-field" hidden>
-                <span>Microphone</span>
-                <select id="microphone" aria-label="Microphone"></select>
+                <span data-i18n="sys.mic">Microphone</span>
+                <select id="microphone" aria-label="Microphone" data-i18n-label="sys.mic"></select>
             </label>
             <p class="engine-meta" id="engine-meta">—</p>
         </section>
                 <div class="card">
-                    <h2>Capabilities</h2>
+                    <h2 data-i18n="sys.capabilities">Capabilities</h2>
                     <div id="capabilities" class="chips"></div>
                 </div>
                 <div class="card">
-                    <h2>Machine</h2>
+                    <h2 data-i18n="sys.machine">Machine</h2>
                     <div id="machine-detail" class="kv"></div>
                 </div>
             </div>
@@ -1297,11 +1288,11 @@
         -->
         <section class="view view-operations" data-view="operations" hidden>
             <div class="ops-head">
-                <h1>Operations</h1>
+                <h1 data-i18n="ops.title">Operations</h1>
                 <div class="ops-head-figures">
-                    <span class="ops-chip"><b id="ops-uptime">—</b> up</span>
-                    <span class="ops-chip"><b id="ops-load">—</b> load</span>
-                    <span class="ops-chip"><b id="ops-tasks">—</b> tasks</span>
+                    <span class="ops-chip"><b id="ops-uptime">—</b> <span data-i18n="ops.up">up</span></span>
+                    <span class="ops-chip"><b id="ops-load">—</b> <span data-i18n="ops.load">load</span></span>
+                    <span class="ops-chip"><b id="ops-tasks">—</b> <span data-i18n="ops.tasks">tasks</span></span>
                     <span class="ops-chip" id="ops-window">—</span>
                 </div>
             </div>
@@ -1336,7 +1327,7 @@
                         which machine it is.
                     -->
                     <div class="card" id="ops-pace-card" hidden>
-                        <h2>Answering</h2>
+                        <h2 data-i18n="ops.answering">Answering</h2>
                         <p class="note tiny" id="ops-pace-verdict"></p>
                         <div id="ops-pace" class="ops-bars"></div>
                         <p class="note tiny" id="ops-pace-model"></p>
@@ -1344,35 +1335,34 @@
                     </div>
 
                     <div class="card" id="ops-graphics-card" hidden>
-                        <h2>Graphics</h2>
+                        <h2 data-i18n="ops.graphics">Graphics</h2>
                         <p class="note tiny" id="ops-gpu-note" hidden></p>
                         <div id="ops-gpus" class="ops-gpu-list"></div>
                     </div>
 
                     <div class="card" id="ops-temps-card" hidden>
-                        <h2>Temperatures</h2>
-                        <p class="note tiny">Each against the limit its own chip
-                            publishes, where it publishes one.</p>
+                        <h2 data-i18n="ops.temperatures">Temperatures</h2>
+                        <p class="note tiny" data-i18n="ops.tempsNote">Each against the limit its own chip publishes, where it publishes one.</p>
                         <div id="ops-temps" class="ops-bars"></div>
                     </div>
 
                     <div class="card" id="ops-fans-card" hidden>
-                        <h2>Fans</h2>
+                        <h2 data-i18n="ops.fans">Fans</h2>
                         <div id="ops-fans" class="rows"></div>
                     </div>
 
                     <div class="card" id="ops-power-card" hidden>
-                        <h2>Battery</h2>
+                        <h2 data-i18n="ops.batteryTitle">Battery</h2>
                         <div id="ops-power" class="ops-bars"></div>
                     </div>
 
                     <div class="card" id="ops-links-card" hidden>
-                        <h2>Network</h2>
+                        <h2 data-i18n="ops.networkTitle">Network</h2>
                         <div id="ops-links" class="rows"></div>
                     </div>
 
                     <div class="card" id="ops-disks-card" hidden>
-                        <h2>Disks</h2>
+                        <h2 data-i18n="ops.disks">Disks</h2>
                         <div id="ops-disks" class="ops-bars"></div>
                     </div>
                 </div>
@@ -1381,22 +1371,22 @@
                      an average hides the case that matters, which is one core
                      pegged while fifteen idle. -->
                 <div class="card ops-cpu">
-                    <h2>Processors</h2>
+                    <h2 data-i18n="ops.processors">Processors</h2>
                     <div id="ops-cores" class="ops-cores"></div>
                     <div class="ops-bars">
                         <div class="ops-bar-row">
-                            <span class="ops-bar-label">memory</span>
+                            <span class="ops-bar-label" data-i18n="ops.memory">memory</span>
                             <div class="ops-bar"><div id="ops-mem-fill"></div></div>
                             <span class="ops-bar-value" id="ops-mem-value">—</span>
                         </div>
                         <div class="ops-bar-row">
-                            <span class="ops-bar-label">swap</span>
+                            <span class="ops-bar-label" data-i18n="ops.swap">swap</span>
                             <div class="ops-bar"><div id="ops-swap-fill"></div></div>
                             <span class="ops-bar-value" id="ops-swap-value">—</span>
                         </div>
                     </div>
                     <figure class="ops-figure">
-                        <figcaption>Processor and memory, last three minutes</figcaption>
+                        <figcaption data-i18n="ops.cpuChart">Processor and memory, last three minutes</figcaption>
                         <div class="ops-legend" id="ops-cpu-legend"></div>
                         <div class="ops-chart" id="ops-cpu-chart"></div>
                     </figure>
@@ -1405,18 +1395,18 @@
                 <!-- What is running. Ours marked, because in two hundred rows
                      those are the ones being looked for. -->
                 <div class="card ops-processes">
-                    <h2>Running now</h2>
+                    <h2 data-i18n="ops.runningNow">Running now</h2>
                     <div class="ops-table-scroll">
                         <table class="ops-table">
                             <thead>
                                 <tr>
-                                    <th class="num">pid</th>
-                                    <th>user</th>
-                                    <th class="num">cpu</th>
-                                    <th class="num">mem</th>
-                                    <th class="num">resident</th>
-                                    <th class="num">time</th>
-                                    <th>command</th>
+                                    <th class="num" data-i18n="ops.col.pid">pid</th>
+                                    <th data-i18n="ops.col.user">user</th>
+                                    <th class="num" data-i18n="ops.col.cpu">cpu</th>
+                                    <th class="num" data-i18n="ops.col.mem">mem</th>
+                                    <th class="num" data-i18n="ops.col.resident">resident</th>
+                                    <th class="num" data-i18n="ops.col.time">time</th>
+                                    <th data-i18n="ops.col.command">command</th>
                                 </tr>
                             </thead>
                             <tbody id="ops-processes"></tbody>
@@ -1427,10 +1417,10 @@
                 <!-- The brain's own service, which is the thing all of the
                      above is in aid of. -->
                 <div class="card ops-brain">
-                    <h2>The brain</h2>
+                    <h2 data-i18n="ops.brainTitle">The brain</h2>
                     <div class="rows" id="ops-brain-rows"></div>
                     <figure class="ops-figure">
-                        <figcaption>Network and disk, last three minutes</figcaption>
+                        <figcaption data-i18n="ops.ioChart">Network and disk, last three minutes</figcaption>
                         <div class="ops-legend" id="ops-io-legend"></div>
                         <div class="ops-chart ops-chart-short" id="ops-io-chart"></div>
                     </figure>
@@ -1466,8 +1456,8 @@
                 </div>
 
                 <div class="card">
-                    <h2>What it runs on</h2>
-                    <p class="note" id="updates-note">Looking…</p>
+                    <h2 data-i18n="nav.updates">What it runs on</h2>
+                    <p class="note" id="updates-note"></p>
                     <div id="updates-list" class="rows"></div>
                 </div>
 
@@ -1482,13 +1472,8 @@
                     this program and checked by nothing.
                 -->
                 <div class="card">
-                    <h2>Pieces <span class="badge" id="parts-missing" hidden>0</span></h2>
-                    <p class="insight-note">
-                        Everything the brain can use. Each says what it is for,
-                        what stops working without it, how big it is, and where
-                        it goes. Installing happens in the background, so you can
-                        carry on while it runs.
-                    </p>
+                    <h2><span data-i18n="parts.title">Pieces</span> <span class="badge" id="parts-missing" hidden>0</span></h2>
+                    <p class="insight-note" data-i18n="parts.intro">Everything the brain can use. Each says what it is for, what stops working without it, how big it is, and where it goes. Installing happens in the background, so you can carry on while it runs.</p>
                     <div id="parts-list"></div>
                 </div>
 
@@ -1504,19 +1489,12 @@
                     what goes is whatever was ticked.
                 -->
                 <div class="card">
-                    <h2>Remove</h2>
-                    <p class="insight-note">
-                        Tick what you want taken off this machine. Nothing here
-                        is ticked to begin with, and the things that came with
-                        your system are not listed: those belong to it, not to
-                        this program.
-                    </p>
+                    <h2 data-i18n="parts.removeTitle">Remove</h2>
+                    <p class="insight-note" data-i18n="parts.removeIntro">Tick what you want taken off this machine. Nothing here is ticked to begin with, and the things that came with your system are not listed: those belong to it, not to this program.</p>
                     <div id="remove-list"></div>
                     <div class="remove-foot">
                         <span id="remove-size" class="field-note"></span>
-                        <button id="remove-go" class="model-action" disabled>
-                            Remove what is ticked
-                        </button>
+                        <button id="remove-go" class="model-action" disabled></button>
                     </div>
                 </div>
 
@@ -1580,23 +1558,23 @@
         <section class="view" data-view="reach" hidden>
             <div class="view-inner">
                 <div class="card">
-                    <h2>What may reach this</h2>
-                    <p class="note">
+                    <h2 data-i18n="reach.title">What may reach this</h2>
+                    <p class="note" data-i18n="reach.intro">
                         Until you pair something, this assistant answers only on this
                         computer, not because of a setting, but because it refuses to
                         listen anywhere else. Everything it knows sits behind that.
                     </p>
 
-                    <div id="paired-list"><p class="note">Nothing is paired.</p></div>
+                    <div id="paired-list"><p class="note" data-i18n="reach.none">Nothing is paired.</p></div>
 
                     <div class="field">
-                        <span>What a new device may do</span>
+                        <span data-i18n="reach.can">What a new device may do</span>
                         <select id="pair-can">
-                            <option value="limited">talk to it and watch it</option>
-                            <option value="full">everything this computer can</option>
+                            <option value="limited" data-i18n="reach.canLimited">talk to it and watch it</option>
+                            <option value="full" data-i18n="reach.canFull">everything this computer can</option>
                         </select>
                     </div>
-                    <button type="button" class="task-button" id="pair-offer">Pair a device</button>
+                    <button type="button" class="task-button" id="pair-offer" data-i18n="reach.pair">Pair a device</button>
 
                     <!--
                         The code, large, because it is being read across a room
@@ -1605,37 +1583,37 @@
                     <div id="pair-code-box" hidden>
                         <p class="pair-code" id="pair-code">— — —</p>
                         <p class="note" id="pair-how"></p>
-                        <button type="button" class="task-button" id="pair-stop">Never mind</button>
+                        <button type="button" class="task-button" id="pair-stop" data-i18n="reach.stop">Never mind</button>
                     </div>
 
                     <p class="note" id="paired-said"></p>
                 </div>
 
                 <div class="card">
-                    <h2>Answering on your network</h2>
-                    <p class="note">
+                    <h2 data-i18n="reach.netTitle">Answering on your network</h2>
+                    <p class="note" data-i18n="reach.netOff">
                         Off. Turning it on lets paired devices on your own network reach
                         it, over an encrypted connection, and nothing else. It takes
                         effect the next time the program starts.
                     </p>
-                    <p class="note">
+                    <p class="note" data-i18n="reach.netWarn">
                         This is the one change here that cannot be taken back by changing
                         it back: anything that reached the machine while it was open
                         stays reached.
                     </p>
 
                     <div class="field">
-                        <span>How far it answers</span>
+                        <span data-i18n="reach.howFar">How far it answers</span>
                         <select id="reach">
-                            <option value="here">only this computer</option>
-                            <option value="network">paired devices on my network</option>
+                            <option value="here" data-i18n="reach.here">only this computer</option>
+                            <option value="network" data-i18n="reach.network">paired devices on my network</option>
                         </select>
                     </div>
-                    <button type="button" class="task-button" id="reach-save">Save</button>
+                    <button type="button" class="task-button" id="reach-save" data-i18n="reach.save">Save</button>
                     <p class="note" id="reach-said"></p>
 
                     <div id="reach-where" hidden>
-                        <p class="note">On the device, open one of these:</p>
+                        <p class="note" data-i18n="reach.openOne">On the device, open one of these:</p>
                         <div id="reach-addresses"></div>
                         <!--
                             The fingerprint, because nobody has vouched for this
@@ -1644,7 +1622,7 @@
                             once, and this is what the warning is asking to be
                             checked against.
                         -->
-                        <p class="note">
+                        <p class="note" data-i18n="reach.browserWarns">
                             Your browser will warn that nobody has vouched for the
                             connection. That is true: this computer signed it itself.
                             Check the fingerprint it shows matches this one, then accept it:
@@ -1663,26 +1641,26 @@
                     their mail, and the ability to run commands.
                 -->
                 <div class="card">
-                    <h2>From outside your house</h2>
+                    <h2 data-i18n="reach.outTitle">From outside your house</h2>
                     <p class="note" id="tunnel-state">—</p>
 
                     <div class="field">
-                        <span>How a device finds your house from outside</span>
+                        <span data-i18n="reach.endpoint">How a device finds your house from outside</span>
                         <input type="text" id="tunnel-endpoint" autocomplete="off"
-                               placeholder="home.example.net, or your home address">
+                               placeholder="home.example.net, or your home address" data-i18n-placeholder="reach.endpointHint">
                     </div>
-                    <p class="note">
+                    <p class="note" data-i18n="reach.typed">
                         Typed rather than looked up: finding it out means asking a
                         service on the internet where you live. Most home connections
                         change address, so a free dynamic DNS name is the usual answer.
                     </p>
-                    <button type="button" class="task-button" id="tunnel-save">Set it up</button>
+                    <button type="button" class="task-button" id="tunnel-save" data-i18n="reach.setUp">Set it up</button>
 
                     <div id="tunnel-ready" hidden>
                         <p class="note" id="tunnel-forward"></p>
                         <div class="agent-controls">
-                            <button type="button" class="task-button" id="tunnel-up">Turn the tunnel on</button>
-                            <button type="button" class="task-button" id="tunnel-down">Turn it off</button>
+                            <button type="button" class="task-button" id="tunnel-up" data-i18n="reach.up">Turn the tunnel on</button>
+                            <button type="button" class="task-button" id="tunnel-down" data-i18n="reach.down">Turn it off</button>
                         </div>
                         <p class="note" id="tunnel-inside"></p>
                     </div>
@@ -1706,37 +1684,37 @@
                     Permissions, which is where they can be taken back.
                 -->
                 <div class="card" id="room-waiting-card" hidden>
-                    <h2>Waiting for you</h2>
+                    <h2 data-i18n="room.waiting">Waiting for you</h2>
                     <div id="room-waiting"></div>
                 </div>
 
                 <div class="card">
-                    <h2>What it is for</h2>
-                    <p class="note">
+                    <h2 data-i18n="room.forTitle">What it is for</h2>
+                    <p class="note" data-i18n="room.forIntro">
                         A task finishes. A goal comes round again, so what matters about
                         one is when it was last looked at and what happened that time.
                     </p>
-                    <div id="goal-list"><p class="note">Nothing set yet.</p></div>
+                    <div id="goal-list"><p class="note" data-i18n="room.noGoalsShort">Nothing set yet.</p></div>
 
                     <details id="goal-new">
-                        <summary>Set one</summary>
+                        <summary data-i18n="room.setOne">Set one</summary>
                         <div class="field">
-                            <span>The goal</span>
+                            <span data-i18n="room.goal">The goal</span>
                             <input type="text" id="goal-name" autocomplete="off"
-                                   placeholder="Keep my Godot projects building">
+                                   placeholder="Keep my Godot projects building" data-i18n-placeholder="room.goalExample">
                         </div>
                         <div class="field">
-                            <span>What that means, in your words</span>
+                            <span data-i18n="room.means">What that means, in your words</span>
                             <textarea id="goal-why" rows="3" spellcheck="false"
-                                      placeholder="Check each project still opens and exports, and tell me what broke."></textarea>
+                                      placeholder="Check each project still opens and exports, and tell me what broke." data-i18n-placeholder="room.meansExample"></textarea>
                         </div>
                         <div class="field">
-                            <span>Come back to it</span>
+                            <span data-i18n="room.every">Come back to it</span>
                             <select id="goal-every">
-                                <option value="0">only when I ask</option>
-                                <option value="1">every day</option>
-                                <option value="7">every week</option>
-                                <option value="30">every month</option>
+                                <option value="0" data-i18n="room.everyAsk">only when I ask</option>
+                                <option value="1" data-i18n="room.everyDay">every day</option>
+                                <option value="7" data-i18n="room.everyWeek">every week</option>
+                                <option value="30" data-i18n="room.everyMonth">every month</option>
                             </select>
                         </div>
                         <!--
@@ -1750,17 +1728,17 @@
                         -->
                         <label class="goal-auto">
                             <input type="checkbox" id="goal-auto">
-                            <span>Let it start this on its own when it is due</span>
+                            <span data-i18n="room.auto">Let it start this on its own when it is due</span>
                         </label>
-                        <button type="button" class="task-button" id="goal-save">Set it</button>
+                        <button type="button" class="task-button" id="goal-save" data-i18n="room.setIt">Set it</button>
                     </details>
 
                     <p class="note" id="goal-said"></p>
                 </div>
 
                 <div class="card">
-                    <h2>Going on now</h2>
-                    <div id="room-live"><p class="note">Nothing running.</p></div>
+                    <h2 data-i18n="room.live">Going on now</h2>
+                    <div id="room-live"><p class="note" data-i18n="room.nothingRunning">Nothing running.</p></div>
                 </div>
 
                 <!--
@@ -1769,47 +1747,47 @@
                     goes in when you say so and comes out when you ask.
                 -->
                 <div class="card">
-                    <h2>What is on</h2>
-                    <div id="diary-list"><p class="note">Nothing in the next fortnight.</p></div>
+                    <h2 data-i18n="room.diary">What is on</h2>
+                    <div id="diary-list"><p class="note" data-i18n="room.diaryEmpty">Nothing in the next fortnight.</p></div>
 
                     <details id="diary-new">
-                        <summary>Put something in</summary>
+                        <summary data-i18n="room.putIn">Put something in</summary>
                         <div class="field">
-                            <span>What</span>
-                            <input type="text" id="diary-title" autocomplete="off" placeholder="Dentist">
+                            <span data-i18n="room.what">What</span>
+                            <input type="text" id="diary-title" autocomplete="off" placeholder="Dentist" data-i18n-placeholder="room.whatExample">
                         </div>
                         <div class="field">
-                            <span>When</span>
+                            <span data-i18n="room.when">When</span>
                             <input type="datetime-local" id="diary-when">
                         </div>
                         <div class="field">
-                            <span>How long</span>
+                            <span data-i18n="room.howLong">How long</span>
                             <select id="diary-length">
-                                <option value="30">half an hour</option>
-                                <option value="60" selected>an hour</option>
-                                <option value="120">two hours</option>
-                                <option value="0">all day</option>
+                                <option value="30" data-i18n="room.halfHour">half an hour</option>
+                                <option value="60" selected data-i18n="room.anHour">an hour</option>
+                                <option value="120" data-i18n="room.twoHours">two hours</option>
+                                <option value="0" data-i18n="room.allDayOption">all day</option>
                             </select>
                         </div>
                         <div class="field">
-                            <span>Where</span>
-                            <input type="text" id="diary-place" autocomplete="off" placeholder="optional">
+                            <span data-i18n="room.where">Where</span>
+                            <input type="text" id="diary-place" autocomplete="off" placeholder="optional" data-i18n-placeholder="room.optional">
                         </div>
-                        <button type="button" class="task-button" id="diary-save">Put it in</button>
+                        <button type="button" class="task-button" id="diary-save" data-i18n="room.putItIn">Put it in</button>
                     </details>
 
                     <details id="diary-move">
-                        <summary>Bring a calendar in, or take one out</summary>
+                        <summary data-i18n="room.move">Bring a calendar in, or take one out</summary>
                         <div class="field">
-                            <span>A .ics file already on this machine</span>
+                            <span data-i18n="room.icsFile">A .ics file already on this machine</span>
                             <input type="text" id="diary-path" autocomplete="off"
                                    placeholder="/home/you/Downloads/calendar.ics">
                         </div>
                         <div class="agent-controls">
-                            <button type="button" class="task-button" id="diary-import">Read it in</button>
-                            <button type="button" class="task-button" id="diary-export">Write mine out</button>
+                            <button type="button" class="task-button" id="diary-import" data-i18n="room.readIn">Read it in</button>
+                            <button type="button" class="task-button" id="diary-export" data-i18n="room.writeOut">Write mine out</button>
                         </div>
-                        <p class="note">
+                        <p class="note" data-i18n="room.offline">
                             Nothing here reaches a network. A file goes in when you say so and
                             comes out when you ask. There is no account and nothing syncing.
                         </p>
@@ -1832,14 +1810,14 @@
                     must not make on its own.
                 -->
                 <div class="card" id="habits-card" hidden>
-                    <h2>Things it keeps asking about</h2>
+                    <h2 data-i18n="room.habits">Things it keeps asking about</h2>
                     <div id="habits-list"></div>
                     <p class="note" id="habits-said"></p>
                 </div>
 
                 <div class="card">
-                    <h2>How it has been going</h2>
-                    <p class="note">
+                    <h2 data-i18n="room.going">How it has been going</h2>
+                    <p class="note" data-i18n="room.goingIntro">
                         Checked against what the tools returned, or taken on its own word.
                         The two are counted apart on purpose: a task finishes when its plan
                         runs out of steps, whether or not anything in it was ever confirmed.
@@ -1860,16 +1838,15 @@
         <section class="view" data-view="teaching" hidden>
             <div class="view-inner">
                 <div class="card">
-                    <h2>About you</h2>
-                    <p class="note">
+                    <h2 data-i18n="teach.about">About you</h2>
+                    <p class="note" data-i18n="teach.aboutIntro">
                         What it should know about you before every conversation: what you
                         do, who you work with, how you want things handled. Write it in
                         your own words; it is not a form.
                     </p>
-                    <textarea id="profile-text" rows="14" spellcheck="false"
-                              placeholder="I run a small studio in Sofia. Most of my work is Laravel and Godot.&#10;&#10;I bill in advance and I never chase late payments myself, so ask me before writing to a client about money."></textarea>
+                    <textarea id="profile-text" rows="14" spellcheck="false"></textarea>
                     <p class="note" id="profile-count">—</p>
-                    <button type="button" class="task-button" id="profile-save">Save</button>
+                    <button type="button" class="task-button" id="profile-save" data-i18n="teach.save">Save</button>
                     <p class="note" id="profile-said"></p>
 
                     <!--
@@ -1883,31 +1860,30 @@
                 </div>
 
                 <div class="card">
-                    <h2>What it has been taught</h2>
-                    <p class="note">
+                    <h2 data-i18n="teach.taught">What it has been taught</h2>
+                    <p class="note" data-i18n="teach.taughtIntro">
                         Ways of working it should follow. Tell it in conversation ("remember
                         how I do this") or write one here. Following a learned procedure still uses its
                         ordinary tools, so anything that changes something still waits for you.
                     </p>
-                    <div id="skill-list"><p class="note">Nothing yet.</p></div>
+                    <div id="skill-list"><p class="note" data-i18n="teach.nothingYet">Nothing yet.</p></div>
 
                     <details id="skill-new">
-                        <summary>Write one</summary>
+                        <summary data-i18n="teach.writeOne">Write one</summary>
                         <div class="field">
-                            <span>Called</span>
-                            <input type="text" id="skill-name" autocomplete="off" placeholder="invoicing">
+                            <span data-i18n="teach.called">Called</span>
+                            <input type="text" id="skill-name" autocomplete="off" placeholder="invoicing" data-i18n-placeholder="teach.calledExample">
                         </div>
                         <div class="field">
-                            <span>Used when</span>
+                            <span data-i18n="teach.usedWhen">Used when</span>
                             <input type="text" id="skill-when" autocomplete="off"
-                                   placeholder="I ask about invoices, billing or what a client owes">
+                                   placeholder="I ask about invoices, billing or what a client owes" data-i18n-placeholder="teach.usedWhenExample">
                         </div>
                         <div class="field">
-                            <span>How it is done</span>
-                            <textarea id="skill-how" rows="8" spellcheck="false"
-                                      placeholder="1. Open the ledger.&#10;2. Bill in advance.&#10;3. Never chase late payments myself."></textarea>
+                            <span data-i18n="teach.how">How it is done</span>
+                            <textarea id="skill-how" rows="8" spellcheck="false"></textarea>
                         </div>
-                        <button type="button" class="task-button" id="skill-save">Save it</button>
+                        <button type="button" class="task-button" id="skill-save" data-i18n="teach.saveIt">Save it</button>
                     </details>
 
                     <p class="note" id="skill-said"></p>
@@ -2013,8 +1989,8 @@
         <section class="view" data-view="organisation" hidden>
             <div class="view-inner">
                 <div class="card card-wide">
-                    <h2>The organisation</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.title">The organisation</h2>
+                    <p class="note" data-i18n="org.intro">
                         A job is a definition, a seat is a responsibility, and a specialist is
                         who actually turns up. Several specialists can hold the same seat, and a
                         seat with nobody in it is not a gap: it is this saying there is a
@@ -2027,18 +2003,18 @@
                 </div>
 
                 <div class="card">
-                    <h2>Hire someone</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.hireTitle">Hire someone</h2>
+                    <p class="note" data-i18n="org.hireIntro">
                         Say who you need. It is matched against the jobs and what they are
                         good at. Somebody already here who does it is the answer when there
                         is one, and nobody is hired twice for the same thing.
                     </p>
                     <div class="field">
-                        <span>I need someone who</span>
+                        <span data-i18n="org.hireNeed">I need someone who</span>
                         <input type="text" id="org-hire-for" autocomplete="off"
-                            placeholder="specialises in Laravel security">
+                            placeholder="specialises in Laravel security" data-i18n-placeholder="org.hireNeedHint">
                     </div>
-                    <button type="button" class="task-button" id="org-hire-for-go">Propose somebody</button>
+                    <button type="button" class="task-button" id="org-hire-for-go" data-i18n="org.proposeSomebody">Propose somebody</button>
                     <p class="note" id="org-hire-for-said"></p>
 
                     <!--
@@ -2050,51 +2026,51 @@
                     <div id="org-proposal" hidden>
                         <pre class="proposal-text" id="org-proposal-text"></pre>
                         <div class="field" id="org-proposal-goal-field" hidden>
-                            <span>The one task</span>
+                            <span data-i18n="org.oneTask">The one task</span>
                             <input type="text" id="org-proposal-goal" autocomplete="off"
-                                placeholder="help me plan the kitchen wiring">
+                                placeholder="help me plan the kitchen wiring" data-i18n-placeholder="org.oneTaskHint">
                         </div>
                         <div class="org-actions">
-                            <button type="button" class="task-button" id="org-proposal-permanent">Hire permanently</button>
-                            <button type="button" class="task-button" id="org-proposal-task">For one task</button>
-                            <button type="button" class="task-button" id="org-proposal-decline">Not now</button>
+                            <button type="button" class="task-button" id="org-proposal-permanent" data-i18n="org.hirePermanent">Hire permanently</button>
+                            <button type="button" class="task-button" id="org-proposal-task" data-i18n="org.hireTask">For one task</button>
+                            <button type="button" class="task-button" id="org-proposal-decline" data-i18n="org.notNow">Not now</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>Start a project</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.projTitle">Start a project</h2>
+                    <p class="note" data-i18n="org.projIntro">
                         Say what to make and where. Nothing is guessed: with no folder you are
                         asked for one, with no engine you are asked which. The folder is looked
                         at first, the plan is shown in full, and nothing is written, installed
                         or hired until you start it.
                     </p>
                     <div class="field">
-                        <span>What</span>
+                        <span data-i18n="org.projWhat">What</span>
                         <input type="text" id="proj-request" autocomplete="off"
-                            placeholder="a Tetris game">
+                            placeholder="a Tetris game" data-i18n-placeholder="org.projWhatHint">
                     </div>
                     <div class="field">
-                        <span>Where</span>
+                        <span data-i18n="org.projWhere">Where</span>
                         <input type="text" id="proj-folder" autocomplete="off"
                             placeholder="/home/you/Projects/tetris">
                     </div>
-                    <button type="button" class="task-button" id="proj-go">Work it out</button>
+                    <button type="button" class="task-button" id="proj-go" data-i18n="org.projWorkOut">Work it out</button>
                     <p class="note" id="proj-said"></p>
                     <div id="proj-proposal" hidden>
                         <pre class="proposal-text" id="proj-proposal-text"></pre>
                         <div class="org-actions" id="proj-options"></div>
                         <div class="org-actions">
-                            <button type="button" class="task-button" id="proj-start" hidden>Start it</button>
-                            <button type="button" class="task-button" id="proj-decline" hidden>Not now</button>
+                            <button type="button" class="task-button" id="proj-start" hidden data-i18n="org.startIt">Start it</button>
+                            <button type="button" class="task-button" id="proj-decline" hidden data-i18n="org.notNow">Not now</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>Capability packages</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.pkgTitle">Capability packages</h2>
+                    <p class="note" data-i18n="org.pkgIntro">
                         What a kind of work needs to be done well and safely: the role, what it
                         may and may not touch, what the machine needs, and what finished means.
                         Advisory work touches nothing; work that needs a licensed professional
@@ -2104,8 +2080,8 @@
                 </div>
 
                 <div class="card" id="res-card">
-                    <h2>How work is done</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.resTitle">How work is done</h2>
+                    <p class="note" data-i18n="org.resIntro">
                         You say what you want; this decides who writes it, with which model, and
                         what takes over if that fails: subscriptions you already pay for first,
                         then this machine. How much of a subscription is left is shown only when
@@ -2115,48 +2091,48 @@
                     <pre class="proposal-text" id="res-coding">—</pre>
                     <div id="res-list"><p class="note">—</p></div>
                     <details class="res-policy">
-                        <summary>Your policy</summary>
+                        <summary data-i18n="org.policy">Your policy</summary>
                         <div class="field">
-                            <span>Where work may be done</span>
+                            <span data-i18n="org.policyWhere">Where work may be done</span>
                             <select id="res-privacy">
-                                <option value="cloud_preferred">services first</option>
-                                <option value="balanced">balanced: best suited, subscriptions first</option>
-                                <option value="local_preferred">this machine first</option>
-                                <option value="local_only">this machine only</option>
+                                <option value="cloud_preferred" data-i18n="org.policyCloud">services first</option>
+                                <option value="balanced" data-i18n="org.policyBalanced">balanced: best suited, subscriptions first</option>
+                                <option value="local_preferred" data-i18n="org.policyLocalFirst">this machine first</option>
+                                <option value="local_only" data-i18n="org.policyLocalOnly">this machine only</option>
                             </select>
                         </div>
                         <div class="field">
-                            <span>When it switches</span>
+                            <span data-i18n="org.policyNotify">When it switches</span>
                             <select id="res-notify">
-                                <option value="verbose">tell me everything</option>
-                                <option value="normal">tell me briefly</option>
-                                <option value="minimal">only record it</option>
+                                <option value="verbose" data-i18n="org.notifyAll">tell me everything</option>
+                                <option value="normal" data-i18n="org.notifyBrief">tell me briefly</option>
+                                <option value="minimal" data-i18n="org.notifyRecord">only record it</option>
                             </select>
                         </div>
                         <label class="field"><input type="checkbox" id="res-auto-models">
-                            <span>Install local models without asking, within the sizes below</span></label>
+                            <span data-i18n="org.autoModels">Install local models without asking, within the sizes below</span></label>
                         <label class="field"><input type="checkbox" id="res-auto-tools">
-                            <span>Install pinned tools without asking, within the sizes below</span></label>
-                        <div class="field"><span>Largest download without asking (GB)</span>
+                            <span data-i18n="org.autoTools">Install pinned tools without asking, within the sizes below</span></label>
+                        <div class="field"><span data-i18n="org.maxDownload">Largest download without asking (GB)</span>
                             <input type="number" id="res-max-download" min="0" step="0.5"></div>
-                        <div class="field"><span>Keep free on the disk (GB)</span>
+                        <div class="field"><span data-i18n="org.minFree">Keep free on the disk (GB)</span>
                             <input type="number" id="res-min-free" min="0" step="1"></div>
-                        <div class="field"><span>Paid per use, a month (USD): 0 means never; spending is not counted yet, so it is used only when a task names it</span>
+                        <div class="field"><span data-i18n="org.budget">Paid per use, a month (USD): 0 means never; spending is not counted yet, so it is used only when a task names it</span>
                             <input type="number" id="res-budget" min="0" step="1"></div>
-                        <div class="field"><span>Capacity lines: warn, low, stop (% left)</span>
+                        <div class="field"><span data-i18n="org.thresholds">Capacity lines: warn, low, stop (% left)</span>
                             <span><input type="number" id="res-warn" min="0" max="100" class="res-pct">
                             <input type="number" id="res-low" min="0" max="100" class="res-pct">
                             <input type="number" id="res-critical" min="0" max="100" class="res-pct"></span></div>
-                        <button type="button" class="task-button" id="res-save">Save the policy</button>
+                        <button type="button" class="task-button" id="res-save" data-i18n="org.savePolicy">Save the policy</button>
                     </details>
                     <div id="res-runs"></div>
-                    <button type="button" class="task-button" id="res-refresh">Look again</button>
+                    <button type="button" class="task-button" id="res-refresh" data-i18n="org.lookAgain">Look again</button>
                     <p class="note" id="res-said"></p>
                 </div>
 
                 <div class="card">
-                    <h2>On this machine</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.provTitle">On this machine</h2>
+                    <p class="note" data-i18n="org.provIntro">
                         Engines, runtimes and tools the packages ask for, and whether each is
                         here in a version that will do. Only what this program includes a recipe
                         for can be installed from here, pinned to a version and checked;
@@ -2167,8 +2143,8 @@
                 </div>
 
                 <div class="card">
-                    <h2>Integrations</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.intTitle">Integrations</h2>
+                    <p class="note" data-i18n="org.intIntro">
                         MCP servers: somebody else's programs offering tools. None runs until
                         you approve it; its tools reach only the specialists you grant them to, ask
                         before they change anything, and what they send back is treated as
@@ -2180,52 +2156,52 @@
                 </div>
 
                 <div class="card">
-                    <h2>Take somebody on</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.takeTitle">Take somebody on</h2>
+                    <p class="note" data-i18n="org.takeIntro">
                         Find the job first. What it is expected to know and be good at comes
                         from the definition, so nothing here has to be typed twice, and a
                         seat fills in the rest.
                     </p>
                     <div class="field">
-                        <span>What work</span>
+                        <span data-i18n="org.takeWhat">What work</span>
                         <input type="text" id="org-job-search" autocomplete="off"
-                            placeholder="postgresql, tax, welding, заварчик…">
+                            placeholder="postgresql, tax, welding, заварчик…" data-i18n-placeholder="org.takeWhatHint">
                     </div>
-                    <div id="org-jobs"><p class="note">Search to see what there is.</p></div>
+                    <div id="org-jobs"><p class="note" data-i18n="org.searchFirst">Search to see what there is.</p></div>
                 </div>
 
                 <div class="card" id="org-hire-card" hidden>
                     <h2 id="org-hire-title">—</h2>
                     <p class="note" id="org-hire-what">—</p>
                     <div class="field">
-                        <span>Called</span>
+                        <span data-i18n="org.called">Called</span>
                         <input type="text" id="org-hire-name" autocomplete="off"
                             placeholder="alex">
                     </div>
                     <div class="field">
-                        <span>Seat</span>
+                        <span data-i18n="org.seat">Seat</span>
                         <select id="org-hire-seat"></select>
                     </div>
                     <div class="field">
-                        <span>Start from</span>
+                        <span data-i18n="org.startFrom">Start from</span>
                         <select id="org-hire-template"></select>
                     </div>
                     <div class="field">
-                        <span>Model</span>
+                        <span data-i18n="org.model">Model</span>
                         <select id="org-hire-uses">
-                            <option value="work">the working model</option>
-                            <option value="quick">the quick one</option>
-                            <option value="best">the best one</option>
-                            <option value="reason">the one that thinks</option>
+                            <option value="work" data-i18n="org.usesWork">the working model</option>
+                            <option value="quick" data-i18n="org.usesQuick">the quick one</option>
+                            <option value="best" data-i18n="org.usesBest">the best one</option>
+                            <option value="reason" data-i18n="org.usesReason">the one that thinks</option>
                         </select>
                     </div>
-                    <button type="button" class="task-button" id="org-hire">Propose them</button>
+                    <button type="button" class="task-button" id="org-hire" data-i18n="org.proposeThem">Propose them</button>
                     <p class="note" id="org-hire-said"></p>
                 </div>
 
                 <div class="card">
-                    <h2>Bring in a classification</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.importTitle">Bring in a classification</h2>
+                    <p class="note" data-i18n="org.importIntro">
                         The jobs included are a few hundred written by hand. The thousands
                         come from a real classification: ESCO (the European one, with
                         Bulgarian names, from esco.ec.europa.eu, as CSV) or O*NET (the
@@ -2235,29 +2211,29 @@
                         shipped keeps what it says.
                     </p>
                     <div class="field">
-                        <span>Which</span>
+                        <span data-i18n="org.importWhich">Which</span>
                         <select id="org-import-source">
                             <option value="esco">ESCO</option>
                             <option value="onet">O*NET</option>
                         </select>
                     </div>
                     <div class="field">
-                        <span>Folder or zip</span>
+                        <span data-i18n="org.importFrom">Folder or zip</span>
                         <input type="text" id="org-import-from" autocomplete="off"
                             placeholder="/home/you/Downloads/ESCO dataset - v1.2.0.zip">
                     </div>
-                    <button type="button" class="task-button" id="org-import-go">Import</button>
+                    <button type="button" class="task-button" id="org-import-go" data-i18n="org.importGo">Import</button>
                     <div id="org-imports"><p class="note">—</p></div>
                 </div>
 
                 <div class="card">
-                    <h2>Who is good at</h2>
-                    <p class="note">
+                    <h2 data-i18n="org.whoTitle">Who is good at</h2>
+                    <p class="note" data-i18n="org.whoIntro">
                         Answered from the chart and the definitions rather than by asking
                         every specialist, which would cost minutes and come back with opinions.
                     </p>
                     <div class="field">
-                        <span>Good at</span>
+                        <span data-i18n="org.whoGoodAt">Good at</span>
                         <input type="text" id="org-who-can" autocomplete="off"
                             placeholder="postgresql">
                     </div>
@@ -2269,19 +2245,19 @@
         <section class="view" data-view="tasks" hidden>
             <div class="view-inner">
                 <div class="card">
-                    <h2>Tasks</h2>
-                    <p class="note">
+                    <h2 data-i18n="task.title">Tasks</h2>
+                    <p class="note" data-i18n="task.intro">
                         A job it works through on its own, planned first, so you can
                         read what it intends to do before any of it happens. Anything
                         that changes something still waits for you.
                     </p>
 
                     <div class="field">
-                        <span>Give it a job</span>
+                        <span data-i18n="task.give">Give it a job</span>
                         <input type="text" id="task-request" autocomplete="off"
-                               placeholder="go through my projects and tell me which have no readme">
+                               placeholder="go through my projects and tell me which have no readme" data-i18n-placeholder="task.example">
                     </div>
-                    <button type="button" class="task-button" id="task-start">Start it</button>
+                    <button type="button" class="task-button" id="task-start" data-i18n="task.start">Start it</button>
                     <p class="note" id="task-said"></p>
                 </div>
 
@@ -2293,8 +2269,8 @@
                     they are looking at work it did.
                 -->
                 <div class="card">
-                    <h2>The team</h2>
-                    <p class="note">
+                    <h2 data-i18n="task.team">The team</h2>
+                    <p class="note" data-i18n="task.teamIntro">
                         Each part of a job goes to whoever it suits. Every model is good
                         at something different, so a job of four steps is not four turns
                         of the same compromise. Anything that changes something still
@@ -2306,16 +2282,16 @@
                 </div>
 
                 <div class="card">
-                    <h2>Going on now</h2>
+                    <h2 data-i18n="room.live">Going on now</h2>
                     <!-- Who has the model and who is waiting for it. Shown only while
                          somebody is, because a lane with nobody in it has nothing to say. -->
                     <div id="task-lanes" class="task-lanes" hidden></div>
-                    <div id="task-live"><p class="note">Nothing running.</p></div>
+                    <div id="task-live"><p class="note" data-i18n="room.nothingRunning">Nothing running.</p></div>
                 </div>
 
                 <div class="card">
-                    <h2>Recently</h2>
-                    <div id="task-recent"><p class="note">Nothing yet.</p></div>
+                    <h2 data-i18n="task.recent">Recently</h2>
+                    <div id="task-recent"><p class="note" data-i18n="teach.nothingYet">Nothing yet.</p></div>
                 </div>
 
                 <div class="card" id="task-detail-card" hidden>
@@ -3365,15 +3341,16 @@
         <section class="view" data-view="privacy" hidden>
             <div class="view-inner">
                 <div class="card">
-                    <h2>Privacy</h2>
+                    <h2 data-i18n="prv.title">Privacy</h2>
                     <p class="privacy-summary" id="privacy-summary">—</p>
                     <p class="privacy-detail" id="privacy-detail"></p>
                     <div id="privacy-facts" class="kv"></div>
+                    <!-- Three pieces, so filling each in leaves the button in place. -->
                     <p class="note">
-                        What may leave this machine is set by the Privacy choice in
-                        System. <button type="button" class="link-button"
-                        data-view="permissions">How much it asks</button> is a separate
-                        setting, and neither changes the other.
+                        <span data-i18n="prv.setIn">What may leave this machine is set by the Privacy choice in
+                        System.</span> <button type="button" class="link-button"
+                        data-view="permissions" data-i18n="prv.howMuch">How much it asks</button>
+                        <span data-i18n="prv.separate">is a separate setting, and neither changes the other.</span>
                     </p>
                 </div>
 
@@ -3391,8 +3368,8 @@
                     rule protecting the keys and then read them.
                 -->
                 <div class="card">
-                    <h2>What it asks about first</h2>
-                    <p class="note">Nothing here is off limits. These are the
+                    <h2 data-i18n="prv.askTitle">What it asks about first</h2>
+                    <p class="note" data-i18n="prv.askIntro">Nothing here is off limits. These are the
                         files where it stops and asks you before reading, and
                         it remembers what you answer. Set to act freely, it
                         reads them without asking and writes down that it
@@ -3401,12 +3378,12 @@
 
                     <div class="copy-add">
                         <label class="field">
-                            <span>Also ask about</span>
+                            <span data-i18n="prv.alsoAsk">Also ask about</span>
                             <input id="protect-add" type="text" autocomplete="off"
-                                   placeholder="/a/folder/  or  a-file-name.txt">
+                                   placeholder="/a/folder/ or a-file-name.txt" data-i18n-placeholder="prv.addHint">
                         </label>
                         <div class="copy-buttons">
-                            <button type="button" class="model-action" id="protect-save">Add it</button>
+                            <button type="button" class="model-action" id="protect-save" data-i18n="prv.add">Add it</button>
                         </div>
                         <div id="protect-yours" class="rows"></div>
                         <p class="drive-note" id="protect-note"></p>
@@ -3474,8 +3451,8 @@
                 </div>
 
                 <div class="card" id="protect-learned-card" hidden>
-                    <h2>What it has learned it may read</h2>
-                    <p class="note">You said yes to these, so it stopped
+                    <h2 data-i18n="prv.learnedTitle">What it has learned it may read</h2>
+                    <p class="note" data-i18n="prv.learnedIntro">You said yes to these, so it stopped
                         asking. Take any of them back and it will ask again.</p>
                     <div id="protect-learned" class="rows"></div>
                 </div>
@@ -3494,9 +3471,9 @@
         -->
         <div class="voice-dock">
             <section class="panel voice-card">
-                <h2>Voice</h2>
+                <h2 data-i18n="cc.voice">Voice</h2>
                 <canvas id="voicewave" class="voicewave" aria-hidden="true"></canvas>
-                <p class="voice-state" id="voice-state">Idle</p>
+                <p class="voice-state" id="voice-state" data-i18n="cc.state.idle">Idle</p>
                 <!--
                     Whose turn it is, under the microphone rather than over in the
                     engine panel where this used to be. A line telling somebody
@@ -3505,8 +3482,9 @@
                 -->
                 <p class="voice-hint" id="voice-status"></p>
                 <button type="button" id="talk" hidden aria-pressed="false"
-                        aria-label="Talk to the brain"
-                        title="Talk instead of typing. It listens until you stop, answers aloud, and listens again.">
+                        aria-label="Talk to the brain" data-i18n-label="cc.talkLabel"
+                        title="Talk instead of typing. It listens until you stop, answers aloud, and listens again."
+                        data-i18n-title="cc.talkTitle">
                     <span class="talk-ring" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="20" height="20">
                             <rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/>
@@ -3514,16 +3492,17 @@
                         </svg>
                     </span>
                     <span class="talk-dot" aria-hidden="true"></span>
-                    <span id="talk-label">Talk</span>
+                    <span id="talk-label" data-i18n="cc.status.idle">Talk</span>
                 </button>
             </section>
 
             <button type="button" class="focus-button" id="focus-button"
-                    title="The conversation and nothing else. Press again to come back">
+                    title="The conversation and nothing else. Press again to come back"
+                    data-i18n-title="cc.focusTitle">
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                     <path d="M13 2L5 14h6l-2 8 8-12h-6z" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 </svg>
-                <span>Focus on the conversation</span>
+                <span data-i18n="cc.focus">Focus on the conversation</span>
             </button>
         </div>
 
@@ -3531,8 +3510,8 @@
             <canvas id="wave-left" class="wave" aria-hidden="true"></canvas>
 
             <form class="composer" id="composer" autocomplete="off">
-                <textarea id="input" rows="1" placeholder="Say something…" aria-label="Message"></textarea>
-                <button type="submit" id="send" aria-label="Send">
+                <textarea id="input" rows="1" placeholder="Say something…" aria-label="Message" data-i18n-placeholder="cc.inputPlaceholder" data-i18n-label="cc.inputLabel"></textarea>
+                <button type="submit" id="send" aria-label="Send" data-i18n-label="cc.send">
                     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                         <path d="M3 12l18-9-9 18-2-7-7-2z" fill="currentColor"/>
                     </svg>
@@ -3546,14 +3525,14 @@
              there is one more thing to read past; a control that appears at the
              moment it becomes useful reads as an offer. -->
         <button type="button" class="talk-action stop-action" id="stop-now" hidden>
-            <span class="row-icon">■</span><span>Stop</span>
+            <span class="row-icon">■</span><span data-i18n="cc.stop">Stop</span>
         </button>
 
         <button type="button" class="talk-action" id="new-conversation">
-            <span class="row-icon">+</span><span>New conversation</span>
+            <span class="row-icon">+</span><span data-i18n="cc.newConversation">New conversation</span>
         </button>
 
-        <p class="hint">Reads run on their own. Anything that changes something waits for you.</p>
+        <p class="hint" data-i18n="cc.hint">Reads run on their own. Anything that changes something waits for you.</p>
     </footer>
 
 </div>

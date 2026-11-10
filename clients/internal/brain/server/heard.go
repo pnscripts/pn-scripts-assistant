@@ -39,6 +39,10 @@ type Overheard struct {
 	Addressed bool   `json:"addressed"`
 	Why       string `json:"why"`
 
+	// WhyKey and WhyVars say Why in the page's language (i18n.js).
+	WhyKey  string         `json:"why_key,omitempty"`
+	WhyVars map[string]any `json:"why_vars,omitempty"`
+
 	/*
 	 * Whose voice it was, when the brain has been taught one.
 	 *
@@ -99,33 +103,35 @@ func (h *heardLog) recent() []Overheard {
 	return out
 }
 
-// why says, in one line, what happened to a turn.
+// why says, in one line, what happened to a turn, and the same as a key and
+// values the page says in its own language (i18n.js 'sys.heardWhy.*').
 //
 // Written here rather than in the page because the page would have to know the
 // thresholds to say anything true about them, and then there would be two
 // places that had to agree about what counts as being heard.
-func why(h Overheard, addressed bool, wakeWord string) string {
+func why(h Overheard, addressed bool, wakeWord string) (text, key string, vars map[string]any) {
 	switch {
 	case !h.HeardSpeech:
-		return "nothing crossed the threshold"
+		return "nothing crossed the threshold", "sys.heardWhy.silent", nil
 	case h.Text == "":
-		return "loud enough, but no words came back"
+		return "loud enough, but no words came back", "sys.heardWhy.noWords", nil
 	case addressed:
-		return "addressed"
+		return "addressed", "sys.heardWhy.addressed", nil
 	case wakeWord == "":
-		return "addressed"
+		return "addressed", "sys.heardWhy.addressed", nil
 	default:
 		/*
 		 * "No name in it" is true and, when the recogniser mangled the name,
 		 * useless. Said plainly, the difference is between "you did not
-		 * address me" and "you did, and I did not recognise my own name" —
+		 * address me" and "you did, and I did not recognise my own name":
 		 * two problems, two fixes, and one of them is not the microphone.
 		 */
 		if near := wake.NearMiss(h.Text, wakeWord); near != "" {
-			return fmt.Sprintf("no name in it: %q was close but not close enough", near)
+			return fmt.Sprintf("no name in it: %q was close but not close enough", near),
+				"sys.heardWhy.near", map[string]any{"near": near}
 		}
 
-		return "no name in it"
+		return "no name in it", "sys.heardWhy.noName", nil
 	}
 }
 

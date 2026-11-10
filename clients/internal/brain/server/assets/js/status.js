@@ -155,17 +155,155 @@ window.brainStatuses = STATUSES;
  * for one state, and it is more obvious to read.
  */
 const STATUS_LABEL = {
-    idle: 'Talk',
-    listening: 'Listening',
-    hearing: 'Hearing you',
-    thinking: 'Thinking',
-    tool: 'Working',
-    speaking: 'Speaking',
-    waiting: 'Needs you',
-    learning: 'Learning',
+    idle: 'cc.status.idle',
+    listening: 'cc.status.listening',
+    hearing: 'cc.status.hearing',
+    thinking: 'cc.status.thinking',
+    tool: 'cc.status.tool',
+    speaking: 'cc.status.speaking',
+    waiting: 'cc.status.waiting',
+    learning: 'cc.status.learning',
 };
 
-window.brainStatusLabel = (status) => STATUS_LABEL[status] || 'Working';
+function statusWords(key, vars) {
+    return window.pnT ? window.pnT(key, vars) : key;
+}
+
+window.brainStatusLabel = (status) => statusWords(STATUS_LABEL[status] || 'cc.status.tool');
+
+/*
+ * The lines the brain writes about what it is doing, in the page's language.
+ *
+ * The server writes each step for a person in English ("Reading notes.txt:
+ * passage 3 of 12"), and the same line is read by the log and the tests. The
+ * page says it in Bulgarian by recognising the shape of the line: the English
+ * of each of these strings in i18n.js is a shape the Go code writes, with
+ * {1}, {2} where its values go, and TestEveryStepLineHasItsBulgarian checks
+ * the shapes against the lines the Go code writes. A line nobody has listed
+ * (a tool's own summary of what it was asked) is shown as it came.
+ */
+const STEP_KEYS = [
+    'cc.step.thinking',
+    'cc.step.listening',
+    'cc.step.hearing',
+    'cc.step.speaking',
+    'cc.step.answering',
+    'cc.step.doing',
+    'cc.step.lastConversation',
+    'cc.step.voicesApart',
+    'cc.step.waitingFor',
+    'cc.step.passage',
+    'cc.step.learningMany',
+    'cc.step.learningFrom',
+    'cc.step.waitingList',
+    'cc.step.reindexing',
+    'cc.step.testing',
+    'cc.step.listeningTo',
+    'cc.step.couldNotRead',
+    'cc.step.reading',
+    'cc.step.passOneMore',
+    'cc.step.passManyMore',
+    'cc.step.passOneAll',
+    'cc.step.passManyAll',
+    'cc.step.prompt',
+    'cc.step.rate',
+    'cc.step.words',
+    'cc.step.nothingBack',
+    'cc.step.linesBack',
+    'cc.step.failed',
+    'cc.step.stillTalking',
+    'cc.step.joined',
+    'cc.step.noise',
+    'cc.step.cutIn',
+    'cc.step.speech',
+    'cc.step.film',
+    'cc.step.ownVoice',
+    'cc.step.heard',
+    'cc.step.noWords',
+    'cc.step.kept',
+    'cc.step.unfamiliar',
+    'cc.step.referenceFor',
+    'cc.step.reference',
+    'cc.step.checking',
+    'cc.step.runningAWhile',
+    'cc.step.running',
+    'cc.step.building',
+    'cc.step.exporting',
+    'cc.step.workingIn',
+];
+
+let stepShapes = null;
+
+// The shapes, longest first, so "Reading {1}: passage {2} of {3}" is tried
+// before "Reading {1}".
+function shapes() {
+    if (stepShapes) return stepShapes;
+
+    stepShapes = STEP_KEYS.map((key) => {
+        const english = window.pnEnglish ? window.pnEnglish(key) : key;
+        const pattern = english
+            .split(/\{\d\}/)
+            .map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .join('(.+?)');
+
+        return { key, size: english.length, pattern: new RegExp(`^${pattern}$`) };
+    }).sort((a, b) => b.size - a.size);
+
+    return stepShapes;
+}
+
+// A number or a duration as the page's language writes it: "1.5s" is
+// "1,5 с" in Bulgarian.
+function localNumber(text) {
+    const bg = window.pnLang && window.pnLang() === 'bg';
+    const value = String(text);
+
+    if (!bg) return value;
+
+    const took = value.match(/^(?:(\d+)m )?(\d+(?:\.\d+)?)(ms|s)$/);
+
+    if (took) {
+        const unit = took[3] === 'ms' ? 'мс' : 'с';
+        const rest = `${took[2].replace('.', ',')} ${unit}`;
+
+        return took[1] ? `${took[1]} мин ${rest}` : rest;
+    }
+
+    return /^[\d.]+k?$/.test(value) ? value.replace('.', ',').replace(/k$/, ' хил.') : value;
+}
+
+window.pnLocalNumber = localNumber;
+
+/*
+ * stepWords says one line about a step in the page's language: the note
+ * when no step is given, or the step's own headline. On a Bulgarian page a
+ * tool's step is named by the tool, since its summary is the tool's own
+ * English.
+ */
+window.pnStepLine = function (line, step) {
+    const bg = window.pnLang && window.pnLang() === 'bg';
+    const text = String(line || '');
+
+    if (!bg) return text;
+
+    if (step && step.tool && window.pnToolName && (step.kind === 'tool' || !step.kind)) {
+        return window.pnToolName(step.tool);
+    }
+
+    for (const { pattern, key } of shapes()) {
+        const m = text.match(pattern);
+
+        if (!m) continue;
+
+        const vars = {};
+
+        m.slice(1).forEach((value, i) => { vars[i + 1] = localNumber(value); });
+
+        return statusWords(key, vars);
+    }
+
+    return text;
+};
 
 /*
  * The whole interface follows the current status.

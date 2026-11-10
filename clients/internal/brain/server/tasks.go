@@ -6,7 +6,36 @@ import (
 	"strconv"
 
 	"pn-scripts-assistant/internal/brain/store"
+	"pn-scripts-assistant/internal/brain/tasks"
 )
+
+/*
+ * shownTask is a task as the page reads it: the row, and the key for why it
+ * waits or stopped when that reason is one the program words itself, so a
+ * Bulgarian page can say it in Bulgarian (tasks.ReasonKey). The English
+ * stays in blocked_because for everything else that reads it.
+ */
+type shownTask struct {
+	*store.Task
+	BlockedKey  string            `json:"blocked_key,omitempty"`
+	BlockedArgs map[string]string `json:"blocked_args,omitempty"`
+}
+
+func showTask(task *store.Task) shownTask {
+	key, args := tasks.ReasonKey(task.Because)
+
+	return shownTask{Task: task, BlockedKey: key, BlockedArgs: args}
+}
+
+func showTasks(list []store.Task) []shownTask {
+	out := make([]shownTask, 0, len(list))
+
+	for i := range list {
+		out = append(out, showTask(&list[i]))
+	}
+
+	return out
+}
 
 /*
  * Work that outlives the sentence that asked for it.
@@ -53,7 +82,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		lanes = s.brain.Lanes.Now()
 	}
 
-	ok(w, map[string]any{"tasks": live, "recent": recent, "lanes": lanes})
+	ok(w, map[string]any{"tasks": showTasks(live), "recent": showTasks(recent), "lanes": lanes})
 }
 
 // handleTask is one task with every step, its evidence and its verdicts.
@@ -114,10 +143,10 @@ func (s *Server) handleTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, struct {
-		*store.Task
-		Children []store.Task `json:"children"`
-		Team     []string     `json:"team"`
-	}{task, children, team})
+		shownTask
+		Children []shownTask `json:"children"`
+		Team     []string    `json:"team"`
+	}{showTask(task), showTasks(children), team})
 }
 
 /*

@@ -26,6 +26,13 @@
 const list = document.getElementById('models-list');
 const note = document.getElementById('models-note');
 
+// Every word a person reads here is in i18n.js, in English and Bulgarian.
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+const bg = () => !!(window.pnLang && window.pnLang() === 'bg');
+const decimal = (text) => (bg() ? String(text).replace(/(\d)\.(\d)/g, '$1,$2') : String(text));
+
+if (note) note.textContent = T('mdl.looking');
+
 let inUse = '';
 /*
  * What each model was measured doing here.
@@ -56,27 +63,27 @@ async function load() {
         const data = await fetch('/api/models').then((r) => r.json());
 
         if (data.error) {
-            note.textContent = data.error;
+            // The server's reason, in English, stays on hand for whoever
+            // points at the line; the line itself is in the page's language.
+            note.textContent = T('mdl.ollamaSilent');
+            note.title = data.error;
             list.innerHTML = '';
 
             return;
         }
 
+        note.title = '';
         inUse = data.chat || '';
         render(data);
     } catch {
-        note.textContent = 'Ollama is not answering, so there is nothing to choose from.';
+        note.textContent = T('mdl.ollamaSilent');
     }
 }
 
 function render(data) {
     const usable = (data.installed || []).filter((m) => !/embed|bge/i.test(m.name));
 
-    note.textContent = usable.length
-        ? 'Test one to see how long it takes here and whether it uses tools properly. '
-            + 'The memory model is not listed: every memory was embedded with it, '
-            + 'and changing it would make recall meaningless rather than different.'
-        : 'Nothing is installed that can hold a conversation.';
+    note.textContent = usable.length ? T('mdl.testNote') : T('mdl.nothingInstalled');
 
     list.innerHTML = '';
 
@@ -94,7 +101,7 @@ function render(data) {
 
         const name = document.createElement('span');
         name.className = 'row-name';
-        name.textContent = model.name + (model.name === inUse ? '  · in use' : '');
+        name.textContent = model.name + (model.name === inUse ? ' · ' + T('mdl.inUse') : '');
 
         const state = document.createElement('span');
         state.className = 'row-state';
@@ -102,21 +109,21 @@ function render(data) {
         const result = measured.get(model.name);
 
         state.textContent = result
-            ? `${result.seconds.toFixed(0)}s · ${result.note}`
-            : `${model.size} · not tested here yet`;
+            ? T('mdl.measured', { s: result.seconds.toFixed(0), note: toolNote(result) })
+            : T('mdl.untested', { size: decimal(model.size) });
 
         text.append(name, state);
 
         const test = document.createElement('button');
         test.type = 'button';
         test.className = 'model-action';
-        test.textContent = 'Test';
+        test.textContent = T('mdl.test');
         test.onclick = () => measure(model.name, test);
 
         const use = document.createElement('button');
         use.type = 'button';
         use.className = 'model-action';
-        use.textContent = 'Use';
+        use.textContent = T('mdl.use');
         use.disabled = model.name === inUse;
         use.onclick = () => choose(model.name);
 
@@ -125,9 +132,18 @@ function render(data) {
     }
 }
 
+// How a model asked for its tool, in the page's language; the note the
+// measurement kept when it names a way this page does not know.
+function toolNote(result) {
+    const key = `mdl.tool.${result.tool_call}`;
+    const text = T(key);
+
+    return text === key ? result.note : text;
+}
+
 async function measure(name, button) {
     button.disabled = true;
-    button.textContent = 'Testing…';
+    button.textContent = T('mdl.testing');
 
     try {
         const result = await fetch('/api/models/measure', {
@@ -180,6 +196,9 @@ setInterval(async () => {
 }, 5000);
 
 loadMeasurements().then(load);
+
+// Drawn again in the other language as soon as it changes.
+window.addEventListener('pn-language', () => load());
 
 load();
 

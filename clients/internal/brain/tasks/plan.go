@@ -105,7 +105,7 @@ func (c *Conductor) plan(ctx context.Context, request, provider string, forced b
 
 	model, err := c.Provider(provider)
 	if err == nil {
-		model = c.asking(model, "The planner", request)
+		model = c.asking(model, "planner", "The planner", request)
 	}
 
 	if err != nil {
