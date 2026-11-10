@@ -74,7 +74,18 @@ check_program() {
         return 0
     fi
 
-    out="$(PN_SCRIPTS_ASSISTANT_SILENT=1 timeout 30 "$file" --version 2>&1)" || {
+    # A downloaded artifact loses its execute bit (actions/download-artifact
+    # keeps no permissions): run a copy that has one, never change the file
+    # that is about to be published.
+    local run="$file"
+
+    if [ ! -x "$file" ]; then
+        run="$(mktemp "$work/run.XXXXXX")"
+        cp "$file" "$run"
+        chmod 755 "$run"
+    fi
+
+    out="$(PN_SCRIPTS_ASSISTANT_SILENT=1 timeout 30 "$run" --version 2>&1)" || {
         printf '✗ %s --version failed: %s\n' "$label" "$out" >&2
         bad=$((bad + 1))
 

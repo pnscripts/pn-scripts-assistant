@@ -55,10 +55,16 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -C "$ROOT/clients" -trimpath \
 # Something that is not one of our programs is skipped, not failed.
 printf 'not a program\n' > "$work/stamped/SHA256SUMS"
 
+# Downloaded artifacts lose their execute bit (actions/download-artifact):
+# the check must still run them rather than fail on permission.
+chmod -x "$work/stamped/pn-scripts-assistant-doctor"
+
 out="$(bash "$ROOT/scripts/check-versions.sh" "$version" "$work/stamped")" ||
     fail "check-versions.sh refused programs stamped with $version"
 grep -qF "all 3 programs say they are $version" <<<"$out" ||
     fail "check-versions.sh did not check all three programs: $out"
+grep -qF "pn-scripts-assistant-doctor --version: " <<<"$out" ||
+    fail "check-versions.sh did not run a program that lost its execute bit: $out"
 
 # The same, inside a zip, the way the Windows download carries it.
 (cd "$work/stamped" && zip -q "$work/stamped.zip" pn-scripts-assistant-doctor.exe) 2>/dev/null ||
