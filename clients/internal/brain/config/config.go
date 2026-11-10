@@ -689,22 +689,9 @@ func LoadFrom(path string) (Config, error) {
 		cfg.New = true
 	}
 
-	values, err := readFile(path)
+	values, err := readOpened(path)
 	if err != nil {
 		return cfg, err
-	}
-
-	// Sealed values opened (ADR 0008); one that will not open — no key here
-	// yet, or another brain's — reads as unset rather than as ciphertext.
-	for k, v := range values {
-		if vault.IsSealedString(v) {
-			plain, err := vault.OpenIfSealed(v)
-			if err != nil {
-				plain = ""
-			}
-
-			values[k] = plain
-		}
 	}
 
 	/*
@@ -720,7 +707,10 @@ func LoadFrom(path string) (Config, error) {
 	 */
 	if !cfg.New && values[OpenedKey] == "" {
 		if err := openUp(path); err == nil {
-			if again, err := readFile(path); err == nil {
+			// Read through readOpened like the first time: on the first
+			// start the file has just been sealed, and a plain read here
+			// handed the program ciphertext as the owner's name.
+			if again, err := readOpened(path); err == nil {
 				values = again
 			}
 		} else {
@@ -1130,6 +1120,33 @@ func SealFile(path string) error {
 
 // readFile parses key=value lines, ignoring blanks and # comments. A missing
 // file is not an error: it means "all defaults", which is a valid state.
+/*
+ * readOpened reads a settings file with its sealed values opened (ADR 0008).
+ *
+ * A value that will not open (no key here yet, or another brain's) reads as
+ * unset rather than as ciphertext. Every read Load makes goes through here,
+ * so no sealed text can reach a setting.
+ */
+func readOpened(path string) (map[string]string, error) {
+	values, err := readFile(path)
+	if err != nil {
+		return values, err
+	}
+
+	for k, v := range values {
+		if vault.IsSealedString(v) {
+			plain, err := vault.OpenIfSealed(v)
+			if err != nil {
+				plain = ""
+			}
+
+			values[k] = plain
+		}
+	}
+
+	return values, nil
+}
+
 func readFile(path string) (map[string]string, error) {
 	out := map[string]string{}
 
