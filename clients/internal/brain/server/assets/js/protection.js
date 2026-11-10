@@ -18,6 +18,42 @@ function el(id) {
     return document.getElementById(id);
 }
 
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+
+// A built-in rule's name and reason in the page's language; the server's
+// English when this page has no words for a rule a later version added.
+function ruleWords(rule) {
+    const named = `prv.rule.${rule.id}`;
+    const what = T(named);
+    const why = T(`${named}.why`);
+
+    return {
+        what: what === named ? rule.what : what,
+        why: why === `${named}.why` ? rule.why : why,
+    };
+}
+
+// A row of one path and the button that changes it, written as text.
+function pathRow(path, label, data, titled) {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const name = document.createElement('span');
+    name.className = 'row-label';
+    name.textContent = path;
+    if (titled) name.title = path;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'model-action';
+    button.dataset[data] = path;
+    button.textContent = label;
+
+    row.append(name, button);
+
+    return row;
+}
+
 function say(what, kind) {
     const note = el('protect-note');
 
@@ -38,7 +74,7 @@ async function send(body) {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) throw new Error(data.error || `that did not work (${res.status})`);
+    if (!res.ok) throw new Error(data.error || T('prv.failed', { status: res.status }));
 
     return data;
 }
@@ -81,9 +117,23 @@ function drawRules() {
          * "/.aws/" is not something anybody can make a decision about. What it
          * is and what is in it are the decision.
          */
+        const words = ruleWords(rule);
         const text = document.createElement('span');
-        text.innerHTML = `<b>${rule.what}</b>${rule.fixed
-            ? ' <span class="protect-fixed">always</span>' : ''}<br><span class="note">${rule.why}</span>`;
+        const name = document.createElement('b');
+        name.textContent = words.what;
+        text.appendChild(name);
+
+        if (rule.fixed) {
+            const always = document.createElement('span');
+            always.className = 'protect-fixed';
+            always.textContent = T('prv.always');
+            text.append(' ', always);
+        }
+
+        const why = document.createElement('span');
+        why.className = 'note';
+        why.textContent = words.why;
+        text.append(document.createElement('br'), why);
 
         tick.onchange = async () => {
             const off = (current.rules || [])
@@ -93,9 +143,10 @@ function drawRules() {
 
             try {
                 current = await send({ off });
-                say(tick.checked
-                    ? `It will ask about ${rule.what.toLowerCase()} again.`
-                    : `It will no longer ask about ${rule.what.toLowerCase()}.`, 'ok');
+                // English says the name inside the sentence; Bulgarian quotes it.
+                const named = window.pnLang && window.pnLang() === 'bg' ? words.what : words.what.toLowerCase();
+
+                say(T(tick.checked ? 'prv.askAgain' : 'prv.noLonger', { what: named }), 'ok');
             } catch (err) {
                 say(String(err.message || err), 'bad');
             }
@@ -113,10 +164,8 @@ function drawYours() {
 
     if (!box) return;
 
-    box.innerHTML = (current.yours || []).map((own) => `<div class="row">
-        <span class="row-label">${own}</span>
-        <button type="button" class="model-action" data-drop="${own.replace(/"/g, '&quot;')}">Remove</button>
-    </div>`).join('');
+    box.textContent = '';
+    (current.yours || []).forEach((own) => box.appendChild(pathRow(own, T('prv.remove'), 'drop', false)));
 
     box.querySelectorAll('[data-drop]').forEach((button) => {
         button.onclick = async () => {
@@ -125,7 +174,7 @@ function drawYours() {
                     yours: (current.yours || []).filter((y) => y !== button.dataset.drop),
                 });
 
-                say('Removed.', 'ok');
+                say(T('prv.removed'), 'ok');
             } catch (err) {
                 say(String(err.message || err), 'bad');
             }
@@ -145,10 +194,8 @@ function drawLearned() {
 
     card.hidden = learned.length === 0;
 
-    box.innerHTML = learned.map((path) => `<div class="row">
-        <span class="row-label" title="${path.replace(/"/g, '&quot;')}">${path}</span>
-        <button type="button" class="model-action" data-forget="${path.replace(/"/g, '&quot;')}">Ask me again</button>
-    </div>`).join('');
+    box.textContent = '';
+    learned.forEach((path) => box.appendChild(pathRow(path, T('prv.askMeAgain'), 'forget', true)));
 
     box.querySelectorAll('[data-forget]').forEach((button) => {
         button.onclick = async () => {
@@ -172,7 +219,7 @@ if (add) {
         const what = (el('protect-add').value || '').trim();
 
         if (!what) {
-            say('Type a folder or a file name.', 'bad');
+            say(T('prv.typeSomething'), 'bad');
 
             return;
         }
@@ -180,7 +227,7 @@ if (add) {
         try {
             current = await send({ yours: [...(current.yours || []), what] });
             el('protect-add').value = '';
-            say(`It will ask before opening anything matching ${what}.`, 'ok');
+            say(T('prv.willAsk', { what }), 'ok');
         } catch (err) {
             say(String(err.message || err), 'bad');
         }
@@ -190,5 +237,8 @@ if (add) {
 }
 
 load();
+
+// Drawn here, so drawn again in the other language.
+window.addEventListener('pn-language', draw);
 
 }());

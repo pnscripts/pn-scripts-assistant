@@ -22,6 +22,13 @@ whenever something visible changed.
   (twelve were still in English), and so are the tooltips of the buttons at
   the top. Some pages are still partly in English; the known limits list
   them.
+- With the page in Bulgarian, the ten pages that were still partly English
+  are in Bulgarian too: Command centre, Models, System, Operations, The room,
+  Teaching, Organisation, Tasks, Reaching it and Privacy, with the parts on
+  What it runs on, the recovery key notice, the status lines of the
+  conversation and the names of the built-in skills. Dates, decimal commas
+  and plurals follow the page's language. The known limits say what still
+  reads in English and why.
 - A job started while another was still recording its progress could fail
   with "database is locked" before its first step was written. Writes that
   read first now wait their turn.

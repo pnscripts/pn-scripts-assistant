@@ -11,14 +11,33 @@
     'use strict';
 
     const el = (id) => document.getElementById(id);
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
 
-    const SIZES = [
-        ['work', 'the working model'],
-        ['quick', 'the fastest one'],
-        ['best', 'the ablest one'],
-        ['reason', 'one that thinks first'],
-        ['talk', 'the small one']
-    ];
+    // The sizes of model somebody can be given; their words are task.size.*.
+    const SIZES = ['work', 'quick', 'best', 'reason', 'talk'];
+
+    // A key's words when it has them, the given text when it does not.
+    function maybe(key, otherwise) {
+        const said = T(key);
+
+        return said === key ? otherwise : said;
+    }
+
+    // The name and purpose of a built-in specialist in the page's language;
+    // one somebody changed says what they wrote.
+    function titleOf(agent) {
+        const own = agent.title || agent.name;
+
+        return agent.built_in ? maybe('task.agent.' + agent.name, own) : own;
+    }
+
+    function forOf(agent) {
+        return agent.built_in ? maybe('task.agentFor.' + agent.name, agent.for) : agent.for;
+    }
+
+    function toolName(name) {
+        return window.pnToolName ? window.pnToolName(name) : name;
+    }
 
     function say(text) {
         const node = el('team-said');
@@ -39,12 +58,12 @@
         const head = document.createElement('div');
         head.className = 'agent-head';
 
-        head.appendChild(label(agent.title || agent.name, 'agent-title'));
+        head.appendChild(label(titleOf(agent), 'agent-title'));
 
         // What it is for, which is also how the planner chooses it.
-        head.appendChild(label(agent.for, 'agent-for'));
+        head.appendChild(label(forOf(agent), 'agent-for'));
 
-        if (!agent.built_in) head.appendChild(label('changed', 'skill-origin'));
+        if (!agent.built_in) head.appendChild(label(T('task.changed'), 'skill-origin'));
 
         row.appendChild(head);
 
@@ -55,10 +74,10 @@
         // the choice is between real models rather than between words.
         const uses = document.createElement('select');
 
-        for (const [value, text] of SIZES) {
+        for (const value of SIZES) {
             const option = document.createElement('option');
             option.value = value;
-            option.textContent = text;
+            option.textContent = T(`task.size.${value}`);
             option.selected = (agent.uses || 'work') === value;
             uses.appendChild(option);
         }
@@ -69,14 +88,14 @@
 
         const anywhere = document.createElement('option');
         anywhere.value = '';
-        anywhere.textContent = 'whatever the job is using';
+        anywhere.textContent = T('task.anyProvider');
         anywhere.selected = !agent.provider;
         on.appendChild(anywhere);
 
         for (const name of providers) {
             const option = document.createElement('option');
             option.value = name;
-            option.textContent = 'always ' + name;
+            option.textContent = T('task.always', { name: name });
             option.selected = agent.provider === name;
             on.appendChild(option);
         }
@@ -86,7 +105,7 @@
         const save = document.createElement('button');
         save.type = 'button';
         save.className = 'task-button';
-        save.textContent = 'Save';
+        save.textContent = T('task.save');
         save.addEventListener('click', () => saveAgent(agent.name, uses.value, on.value));
         controls.appendChild(save);
 
@@ -94,7 +113,7 @@
             const reset = document.createElement('button');
             reset.type = 'button';
             reset.className = 'task-button';
-            reset.textContent = 'Put back';
+            reset.textContent = T('task.putBack');
             reset.addEventListener('click', () => resetAgent(agent.name));
             controls.appendChild(reset);
         }
@@ -105,10 +124,10 @@
         note.className = 'agent-note';
 
         const tools = agent.tools || [];
-        note.textContent = (agent.model || 'no model installed')
+        note.textContent = (agent.model || T('task.noModel'))
             + ' · ' + (tools.length === 1 && tools[0] === 'everything'
-                ? 'every tool'
-                : tools.length + ' tools: ' + tools.join(', '));
+                ? T('task.everyTool')
+                : T('task.tools', { n: tools.length, list: tools.map(toolName).join(', ') }));
 
         row.appendChild(note);
 
@@ -116,7 +135,7 @@
     }
 
     async function saveAgent(name, uses, provider) {
-        say('Saving…');
+        say(T('task.saving'));
 
         try {
             const res = await fetch('/api/team/' + encodeURIComponent(name), {
@@ -128,19 +147,19 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say(body.error || 'That did not save.');
+                say(body.error ? T('task.notSavedWhy', { why: body.error }) : T('task.notSaved'));
                 return;
             }
 
-            say('Saved. It takes effect on the next step given to them.');
+            say(T('task.savedAgent'));
             load();
         } catch (err) {
-            say('That did not save: ' + err.message);
+            say(T('task.notSavedWhy', { why: err.message }));
         }
     }
 
     async function resetAgent(name) {
-        say('Putting ' + name + ' back…');
+        say(T('task.puttingBack', { name: name }));
 
         try {
             const res = await fetch('/api/team/' + encodeURIComponent(name) + '/reset', {
@@ -149,14 +168,14 @@
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                say(body.error || 'That did not work.');
+                say(body.error ? T('task.failedWhy', { why: body.error }) : T('task.failed'));
                 return;
             }
 
-            say('Back to how it came with the program.');
+            say(T('task.putBackDone'));
             load();
         } catch (err) {
-            say('That did not work: ' + err.message);
+            say(T('task.failedWhy', { why: err.message }));
         }
     }
 
@@ -176,14 +195,21 @@
 
         list.textContent = '';
 
+        // The English titles, so a sentence the program wrote about one
+        // ("waiting on the developer") can name it in the page's language.
+        const byTitle = {};
+        for (const agent of (body.team || [])) {
+            if (agent.title) byTitle[agent.title.toLowerCase()] = agent.name;
+        }
+        window.pnTeamByTitle = byTitle;
+
         for (const agent of (body.team || [])) {
             list.appendChild(agentRow(agent, body.providers || []));
         }
 
         const folder = el('team-folder');
         if (folder) {
-            folder.textContent = 'Their tools and standing instructions are files in '
-                + (body.folder || '') + '.';
+            folder.textContent = T('task.teamFolder', { folder: body.folder || '' });
         }
     }
 
@@ -195,6 +221,8 @@
         // ever be a way to reset one somebody had just changed.
         document.querySelector('.nav-item[data-view="tasks"]')
             ?.addEventListener('click', load);
+
+        window.addEventListener('pn-language', load);
     }
 
     if (document.readyState === 'loading') {

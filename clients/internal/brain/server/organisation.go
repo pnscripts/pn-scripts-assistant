@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"pn-scripts-assistant/internal/brain/occupations"
 	"pn-scripts-assistant/internal/brain/org"
@@ -56,6 +58,10 @@ func (s *Server) handleOrganisation(w http.ResponseWriter, r *http.Request) {
 			"also":      agent.Also,
 			"hired_for": agent.HiredFor,
 
+			// Whether its name is still the one the program shipped with,
+			// which the page can then say in Bulgarian.
+			"shipped": shippedWho()[agent.Name] == agent.Title && agent.Title != "",
+
 			// What it is doing now and what is queued for it — the registry's
 			// "who is available" — and what it has actually got done.
 			"doing":     doing[agent.Name],
@@ -79,20 +85,26 @@ func (s *Server) handleOrganisation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	units := make([]map[string]any, 0, len(chart))
+	shipped := shippedUnits()
 
 	for _, unit := range org.Shape(chart) {
 		seats := make([]map[string]any, 0, len(unit.Seats))
+		was, builtIn := shipped[unit.Name]
 
 		for _, seat := range unit.Seats {
+			job, jobBG := jobTitle(s.brain.DB, seat.Job)
+
 			seats = append(seats, map[string]any{
-				"name":       seat.Name,
-				"title":      seat.Title,
-				"job":        seat.Job,
-				"job_title":  jobTitle(s.brain.DB, seat.Job),
-				"seniority":  seat.Seniority,
-				"reports_to": seat.ReportsTo,
-				"held_by":    held[seat.Name],
-				"vacant":     !seated[seat.Name],
+				"name":         seat.Name,
+				"title":        seat.Title,
+				"job":          seat.Job,
+				"job_title":    job,
+				"job_title_bg": jobBG,
+				"seniority":    seat.Seniority,
+				"reports_to":   seat.ReportsTo,
+				"held_by":      held[seat.Name],
+				"vacant":       !seated[seat.Name],
+				"shipped":      builtIn && seat.Title != "" && was.seats[seat.Name] == seat.Title,
 			})
 		}
 
@@ -101,6 +113,10 @@ func (s *Server) handleOrganisation(w http.ResponseWriter, r *http.Request) {
 			"parent": unit.Parent, "purpose": unit.Purpose,
 			"depth": depth[unit.Name], "built_in": unit.BuiltIn,
 			"seats": seats,
+
+			// Whether its name and purpose are still the shipped ones.
+			"shipped":         builtIn && unit.Title != "" && was.title == unit.Title,
+			"shipped_purpose": builtIn && unit.Purpose != "" && was.purpose == unit.Purpose,
 		})
 	}
 
@@ -187,10 +203,87 @@ func templateViews(templates []team.Template) []map[string]any {
 		out = append(out, map[string]any{
 			"name": t.Name, "title": t.Title, "job": t.Job, "for": t.For,
 			"tools": t.Tools, "built_in": t.BuiltIn,
+			"shipped": shippedWho()[t.Name] == t.Title && t.Title != "",
 		})
 	}
 
 	return out
+}
+
+/*
+ * shippedWho is the name every built-in specialist and template shipped
+ * with, by its id.
+ *
+ * The page says these in Bulgarian (org.who.<id> in i18n.js) while they are
+ * still called what they shipped as. A name its owner changed is his, and is
+ * shown as he wrote it.
+ */
+func shippedWho() map[string]string {
+	out := map[string]string{}
+
+	for _, t := range team.BuiltInTemplates() {
+		out[t.Name] = t.Title
+	}
+
+	for _, a := range team.BuiltIn() {
+		out[a.Name] = a.Title
+	}
+
+	return out
+}
+
+// A built-in part of the organisation as it shipped: its name, its purpose
+// and the names of its seats, which the page says in Bulgarian while they
+// are unchanged.
+type shippedUnit struct {
+	title, purpose string
+	seats          map[string]string
+}
+
+func shippedUnits() map[string]shippedUnit {
+	out := map[string]shippedUnit{}
+
+	for _, u := range org.BuiltIn() {
+		was := shippedUnit{title: u.Title, purpose: u.Purpose, seats: map[string]string{}}
+
+		for _, seat := range u.Seats {
+			was.seats[seat.Name] = seat.Title
+		}
+
+		out[u.Name] = was
+	}
+
+	return out
+}
+
+/*
+ * bulgarianTitle is a job's name in Bulgarian, when the classification it
+ * came from gives one.
+ *
+ * ESCO does: its Bulgarian label is read in after the English names, so it
+ * is the first name in Cyrillic (the files are read in name order, and
+ * occupations_bg comes before occupations_uk). The built-in jobs carry
+ * Bulgarian words too, but as search words ("анализатор данни"), not as
+ * names, so they are not shown as one.
+ */
+func bulgarianTitle(job store.Occupation) string {
+	if job.CameFrom != store.FromESCO {
+		return ""
+	}
+
+	for _, name := range job.Aliases {
+		name = strings.TrimSpace(name)
+
+		if !strings.ContainsFunc(name, func(r rune) bool { return unicode.Is(unicode.Cyrillic, r) }) {
+			continue
+		}
+
+		first, size := utf8.DecodeRuneInString(name)
+
+		return string(unicode.ToUpper(first)) + name[size:]
+	}
+
+	return ""
 }
 
 // shownTools says "everything" rather than an empty list, because an empty
@@ -208,17 +301,18 @@ func shownTools(fit team.Fit) any {
 	return fit.Tools
 }
 
-func jobTitle(db *store.DB, id string) string {
+// jobTitle is a job's name, and its name in Bulgarian when there is one.
+func jobTitle(db *store.DB, id string) (string, string) {
 	if id == "" {
-		return ""
+		return "", ""
 	}
 
 	job, err := db.Occupation(id)
 	if err != nil || job == nil {
-		return ""
+		return "", ""
 	}
 
-	return job.Title
+	return job.Title, bulgarianTitle(*job)
 }
 
 /*
@@ -256,7 +350,7 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 		needs, _ := s.brain.DB.CapabilitiesOf(job.ID)
 
 		shown = append(shown, map[string]any{
-			"id": job.ID, "title": job.Title, "category": job.Category,
+			"id": job.ID, "title": job.Title, "title_bg": bulgarianTitle(job), "category": job.Category,
 			"what": job.Description, "status": job.Status, "risk": job.Risk,
 			"oversight": job.Oversight, "aliases": job.Aliases,
 			"ladder": job.Steps(), "needs": needs, "does": job.Does,
@@ -290,6 +384,7 @@ func (s *Server) handleWhoKnows(w http.ResponseWriter, r *http.Request) {
 	for _, agent := range found {
 		who = append(who, map[string]any{
 			"name": agent.Name, "title": agent.Title, "position": agent.Position,
+			"shipped": shippedWho()[agent.Name] == agent.Title && agent.Title != "",
 		})
 	}
 
@@ -300,7 +395,7 @@ func (s *Server) handleWhoKnows(w http.ResponseWriter, r *http.Request) {
 	could := make([]map[string]any, 0, len(jobs))
 
 	for _, job := range jobs {
-		could = append(could, map[string]any{"id": job.ID, "title": job.Title})
+		could = append(could, map[string]any{"id": job.ID, "title": job.Title, "title_bg": bulgarianTitle(job)})
 	}
 
 	ok(w, map[string]any{"who": who, "jobs": could})

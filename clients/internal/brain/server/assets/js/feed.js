@@ -31,27 +31,43 @@ const feedIdle = document.getElementById('feed-idle');
  * be three different colours in three places.
  */
 const FEED_KINDS = {
-    listening: 'Listening',
-    transcribing: 'Making out the words',
-    thinking: 'Thinking',
-    tool: 'Running a tool',
-    answering: 'Writing the answer',
-    speaking: 'Speaking',
-    waiting: 'Waiting for you',
-    learning: 'Learning',
-    model: 'Testing a model',
-    embedding: 'Re-indexing',
+    listening: 'cc.kind.listening',
+    transcribing: 'cc.kind.transcribing',
+    thinking: 'cc.kind.thinking',
+    tool: 'cc.kind.tool',
+    answering: 'cc.kind.answering',
+    speaking: 'cc.kind.speaking',
+    waiting: 'cc.kind.waiting',
+    learning: 'cc.kind.learning',
+    model: 'cc.kind.model',
+    embedding: 'cc.kind.embedding',
 };
+
+function feedWords(key, vars) {
+    return window.pnT ? window.pnT(key, vars) : key;
+}
+
+// What a kind of step is called, or nothing for a kind not listed.
+function feedKind(kind) {
+    return FEED_KINDS[kind] ? feedWords(FEED_KINDS[kind]) : '';
+}
+
+// A line the server wrote about a step, in the page's language.
+function feedLine(line, step) {
+    return window.pnStepLine ? window.pnStepLine(line, step) : line;
+}
 
 /** A duration a person can read at a glance. */
 function feedTime(seconds) {
     if (!seconds || seconds < 0.1) return '';
-    if (seconds < 1) return `${Math.round(seconds * 1000)}ms`;
-    if (seconds < 60) return `${seconds.toFixed(1)}s`;
+    const say = window.pnLocalNumber || ((text) => text);
+
+    if (seconds < 1) return say(`${Math.round(seconds * 1000)}ms`);
+    if (seconds < 60) return say(`${seconds.toFixed(1)}s`);
 
     const mins = Math.floor(seconds / 60);
 
-    return `${mins}m ${String(Math.round(seconds % 60)).padStart(2, '0')}s`;
+    return say(`${mins}m ${String(Math.round(seconds % 60)).padStart(2, '0')}s`);
 }
 
 let feedShown = '';
@@ -110,17 +126,21 @@ function sayWhetherItIsWorking(all, working) {
     const step = working[working.length - 1] || last || {};
     const rounds = all.filter((s) => s.kind === 'tool' || s.tool).length;
 
-    let what = FEED_KINDS[step.kind] || 'Working';
+    let what = feedKind(step.kind) || feedWords('cc.working');
 
-    if (step.tool) what = 'Running ' + step.tool;
+    if (step.tool) {
+        what = feedWords('cc.runningTool', {
+            tool: window.pnToolName ? window.pnToolName(step.tool) : step.tool,
+        });
+    }
 
     /*
      * How many tools it has run, because a task that needs several is the one
      * where somebody most wants to know it is progressing rather than stuck.
      */
-    if (rounds > 0) what += ' · ' + rounds + (rounds === 1 ? ' step' : ' steps');
+    if (rounds > 0) what += ' · ' + feedWords(rounds === 1 ? 'cc.oneStep' : 'cc.steps', { n: rounds });
 
-    text.textContent = 'Working on your question: ' + what;
+    text.textContent = feedWords('cc.workingOn', { what });
     clock.textContent = feedTime(step.seconds) || '';
     line.dataset.status = window.brainStatusOf
         ? window.brainStatusOf({ ...step, busy: true })
@@ -192,13 +212,13 @@ function drawFeed(steps) {
      */
     const signature = steps
         .map((s) => `${s.kind}|${s.note}|${s.tool}|${(s.detail || []).join('~')}`)
-        .join('\n');
+        .join('\n') + (window.pnLang ? window.pnLang() : '');
 
     if (signature !== feedShown) {
         feedBox.querySelectorAll('.feed-line').forEach((n) => n.remove());
 
         steps.forEach((step, i) => {
-            const title = FEED_KINDS[step.kind] || step.kind || 'Working';
+            const title = feedKind(step.kind) || step.kind || feedWords('cc.working');
             const running = i === steps.length - 1;
 
             const line = document.createElement('div');
@@ -233,7 +253,7 @@ function drawFeed(steps) {
 
             const name = document.createElement('span');
             name.className = 'feed-name';
-            name.textContent = step.note || title;
+            name.textContent = step.note ? feedLine(step.note, step) : title;
             body.appendChild(name);
 
             // The model, when one was answering — a switch mid-turn is most of
@@ -257,7 +277,7 @@ function drawFeed(steps) {
             (step.detail || []).forEach((text) => {
                 const detail = document.createElement('span');
                 detail.className = 'feed-detail';
-                detail.textContent = text;
+                detail.textContent = feedLine(text);
                 body.appendChild(detail);
             });
 
@@ -353,7 +373,8 @@ function drawBackground(jobs) {
     const sorted = [...jobs].sort((a, b) =>
         (order[a.state] ?? 9) - (order[b.state] ?? 9) || b.id - a.id);
 
-    const signature = sorted.map((j) => `${j.id}|${j.state}`).join('\n');
+    const signature = sorted.map((j) => `${j.id}|${j.state}`).join('\n')
+        + (window.pnLang ? window.pnLang() : '');
 
     if (box.dataset.jobs === signature) {
         // Only the clocks move.
@@ -387,7 +408,7 @@ function drawBackground(jobs) {
 
         const what = document.createElement('span');
         what.className = 'job-what';
-        what.textContent = job.what || 'Working';
+        what.textContent = job.what ? feedLine(job.what) : feedWords('cc.working');
         body.appendChild(what);
 
         // What came of it, when something did. A finished job with no result

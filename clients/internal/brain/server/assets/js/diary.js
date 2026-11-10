@@ -10,6 +10,8 @@
     'use strict';
 
     const el = (id) => document.getElementById(id);
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+    const locale = () => (window.pnLang && window.pnLang() === 'bg' ? 'bg-BG' : 'en-GB');
 
     function say(text) {
         const node = el('diary-said');
@@ -32,15 +34,15 @@
         const days = Math.round((new Date(starts).setHours(0, 0, 0, 0) - today) / 86400000);
 
         let day;
-        if (days === 0) day = 'today';
-        else if (days === 1) day = 'tomorrow';
-        else day = starts.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+        if (days === 0) day = T('room.today');
+        else if (days === 1) day = T('room.tomorrow');
+        else day = starts.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' });
 
-        if (event.all_day) return day + ', all day';
+        if (event.all_day) return T('room.allDay', { day: day });
 
-        const clock = (d) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        const clock = (d) => d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 
-        return day + ' ' + clock(starts) + ' to ' + clock(ends);
+        return T('room.fromTo', { day: day, from: clock(starts), to: clock(ends) });
     }
 
     function eventRow(event) {
@@ -62,14 +64,14 @@
         if (event.came_from) {
             const from = document.createElement('span');
             from.className = 'skill-origin';
-            from.textContent = 'imported';
+            from.textContent = T('room.imported');
             row.appendChild(from);
         }
 
         const cancel = document.createElement('button');
         cancel.type = 'button';
         cancel.className = 'task-button';
-        cancel.textContent = 'Cancel it';
+        cancel.textContent = T('room.cancelIt');
         cancel.addEventListener('click', () => cancelEvent(event.id));
         row.appendChild(cancel);
 
@@ -82,10 +84,10 @@
 
             if (!res.ok) return;
 
-            say('Taken out of the diary.');
+            say(T('room.takenOut'));
             load();
         } catch (err) {
-            say('That did not work: ' + err.message);
+            say(T('room.failed', { why: err.message }));
         }
     }
 
@@ -94,7 +96,7 @@
         const at = el('diary-when')?.value;
 
         if (!title || !at) {
-            say('It needs a name and a time.');
+            say(T('room.needsNameTime'));
             return;
         }
 
@@ -126,7 +128,7 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say(body.error || 'That did not go in.');
+                say(body.error ? T('room.notInWhy', { why: body.error }) : T('room.notIn'));
                 return;
             }
 
@@ -135,10 +137,10 @@
             const details = el('diary-new');
             if (details) details.open = false;
 
-            say('In the diary.');
+            say(T('room.inDiary'));
             load();
         } catch (err) {
-            say('That did not go in: ' + err.message);
+            say(T('room.notInWhy', { why: err.message }));
         }
     }
 
@@ -146,11 +148,11 @@
         const path = el('diary-path')?.value.trim();
 
         if (!path) {
-            say('Say where the file is.');
+            say(T('room.sayFile'));
             return;
         }
 
-        say('Reading it…');
+        say(T('room.reading'));
 
         try {
             const res = await fetch('/api/diary/import', {
@@ -162,14 +164,18 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say(body.error || 'That file could not be read.');
+                say(body.error ? T('room.unreadableWhy', { why: body.error }) : T('room.unreadable'));
                 return;
             }
 
-            say(body.said || 'Read in.');
+            // Said from the counts, in the page's language.
+            say(typeof body.added === 'number'
+                ? T('room.readInCount', { n: body.added })
+                  + (body.skipped ? T('room.readInSkipped', { n: body.skipped }) : '')
+                : T('room.readInDone'));
             load();
         } catch (err) {
-            say('That file could not be read: ' + err.message);
+            say(T('room.unreadableWhy', { why: err.message }));
         }
     }
 
@@ -205,8 +211,8 @@
             const p = document.createElement('p');
             p.className = 'note';
             p.textContent = body.total
-                ? 'Nothing in the next fortnight, though there are ' + body.total + ' in all.'
-                : 'Nothing in the diary yet.';
+                ? T('room.diaryEmptyOf', { n: body.total })
+                : T('room.diaryNone');
             list.appendChild(p);
             return;
         }
@@ -228,6 +234,8 @@
 
         document.querySelector('.nav-item[data-view="room"]')
             ?.addEventListener('click', load);
+
+        window.addEventListener('pn-language', load);
     }
 
     if (document.readyState === 'loading') {

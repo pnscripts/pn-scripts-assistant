@@ -350,15 +350,38 @@ func (t *Tunnel) PeerConfig(p Peer, port string) string {
 	return b.String()
 }
 
+// What can still be missing before the tunnel carries anything. The page
+// says each in the owner's language; Ready says it in English.
+const (
+	MissingSetup    = "setup"
+	MissingEndpoint = "endpoint"
+	MissingDevices  = "devices"
+)
+
+// MissingWhat names what is still missing (one of the Missing constants), or
+// "" when nothing is.
+func (t *Tunnel) MissingWhat() string {
+	switch {
+	case !t.Started():
+		return MissingSetup
+	case strings.TrimSpace(t.Endpoint) == "":
+		return MissingEndpoint
+	case len(t.Peers) == 0:
+		return MissingDevices
+	default:
+		return ""
+	}
+}
+
 // Ready says what is still missing before the tunnel can carry anything, in
 // the owner's terms.
 func (t *Tunnel) Ready() string {
-	switch {
-	case !t.Started():
+	switch t.MissingWhat() {
+	case MissingSetup:
 		return "the tunnel has not been set up yet"
-	case strings.TrimSpace(t.Endpoint) == "":
+	case MissingEndpoint:
 		return "it does not know how to find your house from outside it"
-	case len(t.Peers) == 0:
+	case MissingDevices:
 		return "no device has been given a way in yet"
 	default:
 		return ""

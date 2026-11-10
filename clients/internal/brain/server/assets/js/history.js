@@ -23,6 +23,14 @@ function el(id) {
     return document.getElementById(id);
 }
 
+function words(key, vars) {
+    return window.pnT ? window.pnT(key, vars) : key;
+}
+
+function locale() {
+    return window.pnLang && window.pnLang() === 'bg' ? 'bg-BG' : 'en-GB';
+}
+
 function when(iso) {
     const at = new Date(iso);
 
@@ -32,8 +40,8 @@ function when(iso) {
     const sameDay = at.toDateString() === today.toDateString();
 
     return sameDay
-        ? at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : at.toLocaleDateString([], { day: 'numeric', month: 'short' });
+        ? at.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
+        : at.toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 }
 
 function shorten(text, most) {
@@ -110,14 +118,14 @@ async function loadHistory() {
 
         rename.type = 'button';
         rename.className = 'history-act';
-        rename.title = 'Rename this conversation';
+        rename.title = words('cc.rename');
         rename.textContent = '✎';
 
         rename.addEventListener('click', async (e) => {
             e.stopPropagation();
 
             const now = c.title || shorten(c.opening, 60);
-            const name = window.prompt('Call this conversation:', now);
+            const name = window.prompt(words('cc.renameAsk'), now);
 
             if (name === null || name.trim() === '') return;
 
@@ -134,7 +142,7 @@ async function loadHistory() {
 
         remove.type = 'button';
         remove.className = 'history-act history-delete';
-        remove.title = 'Delete this conversation';
+        remove.title = words('cc.delete');
         remove.textContent = '×';
 
         remove.addEventListener('click', async (e) => {
@@ -150,8 +158,7 @@ async function loadHistory() {
              */
             const name = c.title || shorten(c.opening, 40);
 
-            if (!window.confirm('Delete "' + name + '"? What it learned is kept; '
-                + 'the conversation itself cannot be brought back.')) return;
+            if (!window.confirm(words('cc.deleteAsk', { name }))) return;
 
             await fetch('/api/conversations/' + c.id, { method: 'DELETE' });
 
@@ -198,7 +205,8 @@ function showThinking() {
      * describes nothing.
      */
     const unattended = step.background && step.kind !== 'listening';
-    let what = unattended ? `${step.note} (on its own)` : step.note || 'Working';
+    const note = step.note && window.pnStepLine ? window.pnStepLine(step.note, step) : step.note;
+    let what = unattended ? words('cc.onItsOwn', { what: note }) : note || words('cc.working');
 
     if (step.model && !step.background) what += ` \u00b7 ${step.model}`;
 
@@ -211,9 +219,11 @@ function showThinking() {
 
     const seconds = Math.round(step.seconds || 0);
 
-    el('thinking-now-clock').textContent = seconds < 60
+    const local = window.pnLocalNumber || ((text) => text);
+
+    el('thinking-now-clock').textContent = local(seconds < 60
         ? `${seconds}s`
-        : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
+        : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`);
 }
 
 setInterval(loadHistory, HISTORY_INTERVAL);
@@ -225,5 +235,6 @@ showThinking();
 // Refreshed as soon as an exchange finishes, rather than up to twenty seconds
 // later, so the conversation you just had appears in the list you are looking at.
 window.brainConversationChanged = loadHistory;
+window.addEventListener('pn-language', loadHistory);
 
 })();

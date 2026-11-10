@@ -26,4 +26,18 @@ func TestSettingsShowTheGoalModeConsentWordForWord(t *testing.T) {
 	if want := tools.GoalModeConsent(false); shown != want {
 		t.Errorf("Settings show:\n%s\nthe program says:\n%s", shown, want)
 	}
+
+	// And in Bulgarian, word for word what setup agreed to (i18n.js).
+	en, bg := strings2(t, readAsset(t, "js/i18n.js"), "sys.goalConsent")
+	if en != tools.GoalModeConsent(false) {
+		t.Errorf("i18n.js says in English:\n%s\nthe program says:\n%s", en, tools.GoalModeConsent(false))
+	}
+
+	if bg != tools.GoalModeConsent(true) {
+		t.Errorf("i18n.js says in Bulgarian:\n%s\nthe program says:\n%s", bg, tools.GoalModeConsent(true))
+	}
+
+	if !regexp.MustCompile(`data-i18n="sys.goalConsent"[^>]*id="goal-mode-consent"|id="goal-mode-consent"[^>]*data-i18n="sys.goalConsent"`).Match(page) {
+		t.Error("the consent note on Settings does not name its string in i18n.js")
+	}
 }

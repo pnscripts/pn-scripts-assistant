@@ -10,6 +10,7 @@
     'use strict';
 
     const el = (id) => document.getElementById(id);
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
 
     function say(id, text) {
         const node = el(id);
@@ -27,18 +28,32 @@
     }
 
     function canWords(can) {
-        return can === 'full' ? 'everything this computer can' : 'talks to it and watches';
+        return can === 'full' ? T('reach.canFull') : T('reach.canLimitedNow');
     }
 
     function whenWords(at) {
-        if (!at || at.startsWith('0001')) return 'not since it was paired';
+        if (!at || at.startsWith('0001')) return T('reach.neverSince');
 
         const days = Math.round((Date.now() - new Date(at)) / 86400000);
 
-        if (days <= 0) return 'today';
-        if (days === 1) return 'yesterday';
+        if (days <= 0) return T('reach.today');
+        if (days === 1) return T('reach.yesterday');
 
-        return days + ' days ago';
+        return T('reach.daysAgo', { n: days });
+    }
+
+    // The time a code has left, in words, from when it runs out.
+    function leftWords(until) {
+        const at = until ? new Date(until).getTime() : NaN;
+
+        if (Number.isNaN(at) || at < Date.UTC(2000, 0, 1)) return T('reach.leftFew');
+
+        const minutes = Math.round((at - Date.now()) / 60000);
+
+        if (at - Date.now() < 60000) return T('reach.leftUnder');
+        if (minutes <= 1) return T('reach.leftOne');
+
+        return T('reach.leftMany', { n: minutes });
     }
 
     function deviceRow(device) {
@@ -52,9 +67,9 @@
 
         const what = document.createElement('span');
         what.className = 'task-state';
-        what.textContent = canWords(device.can)
-            + ' · last heard from ' + whenWords(device.last_seen)
-            + (device.from ? ' at ' + device.from : '');
+        what.textContent = canWords(device.can) + ' · ' + (device.from
+            ? T('reach.lastHeardAt', { when: whenWords(device.last_seen), from: device.from })
+            : T('reach.lastHeard', { when: whenWords(device.last_seen) }));
         row.appendChild(what);
 
         // A phone left in a taxi is the case this exists for, so it is one
@@ -62,7 +77,7 @@
         const forget = document.createElement('button');
         forget.type = 'button';
         forget.className = 'task-button';
-        forget.textContent = 'Unpair it';
+        forget.textContent = T('reach.unpair');
         forget.addEventListener('click', () => unpair(device.id, device.name));
         row.appendChild(forget);
 
@@ -70,22 +85,21 @@
     }
 
     async function unpair(id, name) {
-        say('paired-said', 'Unpairing ' + name + '…');
+        say('paired-said', T('reach.unpairing', { name }));
 
         try {
             const res = await fetch('/api/paired/' + encodeURIComponent(id), { method: 'DELETE' });
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                say('paired-said', body.error || 'That did not work.');
+                say('paired-said', body.error ? T('reach.failedWhy', { why: body.error }) : T('reach.failed'));
                 return;
             }
 
-            say('paired-said', name + ' can no longer reach this. It takes effect now, '
-                + 'not at the next restart.');
+            say('paired-said', T('reach.unpaired', { name }));
             load();
         } catch (err) {
-            say('paired-said', 'That did not work: ' + err.message);
+            say('paired-said', T('reach.failedWhy', { why: err.message }));
         }
     }
 
@@ -102,17 +116,17 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('paired-said', body.error || 'That did not work.');
+                say('paired-said', body.error ? T('reach.failedWhy', { why: body.error }) : T('reach.failed'));
                 return;
             }
 
-            showCode(body.code, body.for);
+            showCode(body.code, body.until);
         } catch (err) {
-            say('paired-said', 'That did not work: ' + err.message);
+            say('paired-said', T('reach.failedWhy', { why: err.message }));
         }
     }
 
-    function showCode(code, howLong) {
+    function showCode(code, until) {
         const box = el('pair-code-box');
         if (!box) return;
 
@@ -122,10 +136,7 @@
         // read wrongly far more often than three and three.
         say('pair-code', code ? code.slice(0, 3) + ' ' + code.slice(3) : '');
 
-        say('pair-how', code
-            ? 'On the device, open the address below and type this in. It lasts '
-              + (howLong || 'a few minutes') + ', and works once.'
-            : '');
+        say('pair-how', code ? T('reach.howCode', { left: leftWords(until) }) : '');
     }
 
     async function stopOffering() {
@@ -142,7 +153,7 @@
     async function saveReach() {
         const wanted = el('reach')?.value || 'here';
 
-        say('reach-said', 'Saving…');
+        say('reach-said', T('reach.saving'));
 
         try {
             const res = await fetch('/api/reach', {
@@ -154,14 +165,14 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('reach-said', body.error || 'That did not save.');
+                say('reach-said', body.error ? T('reach.notSavedWhy', { why: body.error }) : T('reach.notSaved'));
                 return;
             }
 
-            say('reach-said', body.said || 'Saved.');
+            say('reach-said', T(body.reach === 'network' ? 'reach.saidNetwork' : 'reach.saidHere'));
             load();
         } catch (err) {
-            say('reach-said', 'That did not save: ' + err.message);
+            say('reach-said', T('reach.notSavedWhy', { why: err.message }));
         }
     }
 
@@ -186,7 +197,7 @@
             if (!devices.length) {
                 const p = document.createElement('p');
                 p.className = 'note';
-                p.textContent = 'Nothing is paired, so nothing but this computer can reach it.';
+                p.textContent = T('reach.noneLong');
                 list.appendChild(p);
             } else {
                 for (const device of devices) list.appendChild(deviceRow(device));
@@ -220,10 +231,17 @@
 
         // The code, if one is being offered — so it survives changing view and
         // stops showing itself the moment it runs out.
-        showCode(body.code || '', '');
+        showCode(body.code || '', body.code_until || '');
     }
 
     /* ---------- from outside the house ---------- */
+
+    // What the tunnel still needs, by the name the server gives it.
+    const MISSING = {
+        setup: 'reach.missing.setup',
+        endpoint: 'reach.missing.endpoint',
+        devices: 'reach.missing.devices',
+    };
 
     /*
      * A tunnel, not a door.
@@ -247,18 +265,15 @@
 
         if (state) {
             if (!body.installed) {
-                state.textContent = 'WireGuard is not installed yet. It is in the list of '
-                    + 'parts this machine needs, under "What it runs on". The tunnel itself '
-                    + 'is already in your system, this is the tool that configures it.';
+                state.textContent = T('reach.noWireguard');
             } else if (!body.started) {
-                state.textContent = 'Not set up. A tunnel puts a device on your home network '
-                    + 'from anywhere, without anything new being reachable from the internet.';
+                state.textContent = T('reach.notSetUp');
             } else if (body.missing) {
-                state.textContent = 'Nearly: ' + body.missing + '.';
+                const key = MISSING[body.missing_what];
+
+                state.textContent = T('reach.nearly', { what: key ? T(key) : body.missing });
             } else {
-                state.textContent = body.up
-                    ? 'The tunnel is on.'
-                    : 'Set up, and off. Turn it on to let your devices in from outside.';
+                state.textContent = T(body.up ? 'reach.on' : 'reach.offReady');
             }
         }
 
@@ -270,14 +285,9 @@
 
         // The one thing only its owner can do, said plainly rather than left
         // to be discovered when nothing connects.
-        say('tunnel-forward', body.forward
-            ? 'Your router must send ' + body.forward + '. That is the one step this '
-              + 'program cannot do for you, and nothing gets through without it.'
-            : '');
+        say('tunnel-forward', body.forward ? T('reach.forward', { port: body.port }) : '');
 
-        say('tunnel-inside', body.inside
-            ? 'Once a device is through, it opens ' + body.inside
-            : '');
+        say('tunnel-inside', body.inside ? T('reach.inside', { address: body.inside }) : '');
 
         drawTunnelDevices(body);
     }
@@ -305,11 +315,11 @@
             what.className = 'task-state';
 
             if (!way) {
-                what.textContent = 'no way in from outside';
+                what.textContent = T('reach.noWay');
                 row.appendChild(what);
-                row.appendChild(button('Give it one', () => giveWayIn(device.id)));
+                row.appendChild(button(T('reach.giveWay'), () => giveWayIn(device.id)));
             } else if (!way.collected) {
-                what.textContent = 'ready at ' + way.address + ', collect it on the device';
+                what.textContent = T('reach.readyAt', { address: way.address });
                 row.appendChild(what);
 
                 /*
@@ -320,27 +330,27 @@
                  */
                 const how = document.createElement('span');
                 how.className = 'agent-note';
-                how.textContent = 'On the device, open this page and press Collect. '
-                    + 'It can only be taken once.';
+                how.textContent = T('reach.collectHow');
                 row.appendChild(how);
 
-                row.appendChild(button('Collect it', () => {
+                row.appendChild(button(T('reach.collect'), () => {
                     window.open('/api/tunnel/' + encodeURIComponent(device.id) + '/config', '_blank');
                     setTimeout(loadTunnel, 1500);
                 }));
-                row.appendChild(button('Take it away', () => removeWayIn(device.id)));
+                row.appendChild(button(T('reach.takeAway'), () => removeWayIn(device.id)));
             } else {
-                what.textContent = 'in at ' + way.address;
+                what.textContent = T('reach.inAt', { address: way.address });
                 row.appendChild(what);
-                row.appendChild(button('Take it away', () => removeWayIn(device.id)));
+                row.appendChild(button(T('reach.takeAway'), () => removeWayIn(device.id)));
             }
 
             list.appendChild(row);
         }
     }
 
+    // then is the key of what to say once it has worked.
     async function post(url, body, then) {
-        say('tunnel-said', 'Working…');
+        say('tunnel-said', T('reach.working'));
 
         try {
             const res = await fetch(url, {
@@ -352,25 +362,23 @@
             const answer = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('tunnel-said', answer.error || 'That did not work.');
+                say('tunnel-said', answer.error ? T('reach.failedWhy', { why: answer.error }) : T('reach.failed'));
                 return;
             }
 
-            say('tunnel-said', answer.said || (then || ''));
+            say('tunnel-said', then ? T(then) : '');
             loadTunnel();
         } catch (err) {
-            say('tunnel-said', 'That did not work: ' + err.message);
+            say('tunnel-said', T('reach.failedWhy', { why: err.message }));
         }
     }
 
     function setUpTunnel() {
-        post('/api/tunnel', { endpoint: el('tunnel-endpoint')?.value.trim() || '' },
-            'Set up. Now give each device a way in.');
+        post('/api/tunnel', { endpoint: el('tunnel-endpoint')?.value.trim() || '' }, 'reach.setUpDone');
     }
 
     function giveWayIn(id) {
-        post('/api/tunnel/' + encodeURIComponent(id), {},
-            'Ready. Collect it on the device itself, while it is still on your network.');
+        post('/api/tunnel/' + encodeURIComponent(id), {}, 'reach.wayReady');
     }
 
     async function removeWayIn(id) {
@@ -379,21 +387,21 @@
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                say('tunnel-said', body.error || 'That did not work.');
+                say('tunnel-said', body.error ? T('reach.failedWhy', { why: body.error }) : T('reach.failed'));
                 return;
             }
 
-            say('tunnel-said', 'That device can no longer come in from outside.');
+            say('tunnel-said', T('reach.wayRemoved'));
             loadTunnel();
         } catch (err) {
-            say('tunnel-said', 'That did not work: ' + err.message);
+            say('tunnel-said', T('reach.failedWhy', { why: err.message }));
         }
     }
 
     function wire() {
         el('tunnel-save')?.addEventListener('click', setUpTunnel);
-        el('tunnel-up')?.addEventListener('click', () => post('/api/tunnel/run', { up: true }));
-        el('tunnel-down')?.addEventListener('click', () => post('/api/tunnel/run', { up: false }));
+        el('tunnel-up')?.addEventListener('click', () => post('/api/tunnel/run', { up: true }, 'reach.tunnelUp'));
+        el('tunnel-down')?.addEventListener('click', () => post('/api/tunnel/run', { up: false }, 'reach.tunnelDown'));
 
         el('pair-offer')?.addEventListener('click', offer);
         el('pair-stop')?.addEventListener('click', stopOffering);
@@ -401,6 +409,12 @@
 
         load();
         loadTunnel();
+
+        // The rows are written here, so they are written again in the other language.
+        window.addEventListener('pn-language', () => {
+            load();
+            loadTunnel();
+        });
 
         document.querySelector('.nav-item[data-view="reach"]')?.addEventListener('click', () => {
             load();

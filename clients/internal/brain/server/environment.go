@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"pn-scripts-assistant/internal/brain/environs"
@@ -61,6 +62,10 @@ func (s *Server) handleEnvironment(w http.ResponseWriter, r *http.Request) {
 		Needs   string `json:"needs,omitempty"`
 		Local   bool   `json:"local"`
 		Off     bool   `json:"off"`
+
+		// The same in the page's language (i18n.js 'sys.env.*'): keys for
+		// the title, what it needs and why, and the values they name.
+		envSaid
 	}
 
 	out := make([]shown, 0, len(things))
@@ -70,7 +75,7 @@ func (s *Server) handleEnvironment(w http.ResponseWriter, r *http.Request) {
 			ID: thing.ID, Kind: string(thing.Kind), Title: thing.Title,
 			State: string(thing.State), Version: thing.Version, Path: thing.Path,
 			Why: thing.Why, Needs: thing.Needs, Local: thing.Local,
-			Off: off[thing.ID],
+			Off: off[thing.ID], envSaid: envWords(thing),
 		})
 	}
 
@@ -157,4 +162,81 @@ func known(things []environs.Thing, id string) bool {
 	}
 
 	return false
+}
+
+// envSaid is a thing on the machine as the page says it in its language.
+type envSaid struct {
+	TitleKey string         `json:"title_key,omitempty"`
+	NeedsKey string         `json:"needs_key,omitempty"`
+	WhyKey   string         `json:"why_key,omitempty"`
+	Vars     map[string]any `json:"vars,omitempty"`
+}
+
+// A command to type reads the same in every language.
+var envCommand = regexp.MustCompile(`^(sudo apt install|npm install) [^,;]+$`)
+
+/*
+ * envWords gives a thing on the machine its keys in i18n.js, so a Bulgarian
+ * page does not show what it needs and why in English.
+ *
+ * The English stays beside them: it is what the model is given, and what the
+ * page falls back to for a reason it has no words for.
+ */
+func envWords(thing environs.Thing) envSaid {
+	said := envSaid{Vars: map[string]any{}}
+	id := envKeyID(thing.ID)
+
+	switch {
+	case strings.HasPrefix(thing.ID, "ability:"):
+		said.TitleKey = "sys.env.title." + id
+		if thing.Needs != "" {
+			said.NeedsKey = "sys.env.needs." + id
+		}
+
+		if thing.Why != "" {
+			said.WhyKey = "sys.env.why." + id
+		}
+
+	case strings.HasPrefix(thing.ID, "service:"):
+		said.Vars["name"] = thing.Title
+
+		switch {
+		case strings.HasPrefix(thing.Needs, "a key for "):
+			said.NeedsKey = "sys.env.needs.serviceKey"
+		case strings.HasPrefix(thing.Needs, "privacy is set"):
+			said.NeedsKey = "sys.env.needs.servicePrivate"
+		}
+
+	default:
+		if thing.Needs != "" && !envCommand.MatchString(thing.Needs) {
+			said.NeedsKey = "sys.env.needs." + id
+		}
+	}
+
+	// Why something found is unusable, as programs.find says it.
+	if m := envNotExecutable.FindStringSubmatch(thing.Why); m != nil {
+		said.WhyKey, said.Vars["at"] = "sys.env.why.notExecutable", m[1]
+	} else if m := envUnreadable.FindStringSubmatch(thing.Why); m != nil {
+		said.WhyKey, said.Vars["at"] = "sys.env.why.unreadable", m[1]
+	}
+
+	if len(said.Vars) == 0 {
+		said.Vars = nil
+	}
+
+	return said
+}
+
+var (
+	envNotExecutable = regexp.MustCompile(`^it is at (.+) and is not executable: chmod \+x `)
+	envUnreadable    = regexp.MustCompile(`^it may be at (.+), which this user may not read$`)
+)
+
+// envKeyID is an id as a part of a key: letters and digits only.
+func envKeyID(id string) string {
+	if _, after, found := strings.Cut(id, ":"); found {
+		id = after
+	}
+
+	return regexp.MustCompile(`[^a-zA-Z0-9]+`).ReplaceAllString(id, "_")
 }

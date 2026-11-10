@@ -31,6 +31,11 @@ func (s *Server) handleParts(w http.ResponseWriter, r *http.Request) {
 	type part struct {
 		Name string `json:"name"`
 
+		// Key names the part's strings in i18n.js ('parts.name.<key>',
+		// 'parts.why.<key>', 'parts.without.<key>', 'parts.hint.<key>'), so a
+		// Bulgarian page describes it in Bulgarian.
+		Key string `json:"key"`
+
 		// Why it exists and what is lost without it, both, because those are
 		// two different questions and a list that answers only the first
 		// cannot be judged by somebody deciding what to install.
@@ -39,11 +44,21 @@ func (s *Server) handleParts(w http.ResponseWriter, r *http.Request) {
 
 		State  string `json:"state"`
 		Detail string `json:"detail,omitempty"`
-		Where  string `json:"where,omitempty"`
+
+		// DetailKey names the detail in i18n.js ('parts.d.<key>', filled
+		// with DetailArgs) when it is one of the sentences the checks write.
+		DetailKey  string            `json:"detail_key,omitempty"`
+		DetailArgs map[string]string `json:"detail_args,omitempty"`
+		Where      string            `json:"where,omitempty"`
 
 		// Size is what the download costs, which is the question everybody has
 		// and nothing was answering.
 		Size string `json:"size,omitempty"`
+
+		// SizeBuilds is set when the size is a download and a build: the
+		// page says "plus a few minutes to build" in its own language, and
+		// Size is then the download alone.
+		SizeBuilds bool `json:"size_builds,omitempty"`
 
 		Optional    bool `json:"optional"`
 		Installable bool `json:"installable"`
@@ -72,6 +87,7 @@ func (s *Server) handleParts(w http.ResponseWriter, r *http.Request) {
 
 		p := part{
 			Name:        r.Name,
+			Key:         partKey(r.Name),
 			Why:         r.Why,
 			Consequence: r.Consequence,
 			State:       state.Label(),
@@ -86,6 +102,12 @@ func (s *Server) handleParts(w http.ResponseWriter, r *http.Request) {
 
 		if r.Where != nil {
 			p.Where = r.Where()
+		}
+
+		p.DetailKey, p.DetailArgs = partDetailKey(detail)
+
+		if before, found := strings.CutSuffix(p.Size, buildsToo); found {
+			p.Size, p.SizeBuilds = before, true
 		}
 
 		/*
@@ -110,6 +132,69 @@ func (s *Server) handleParts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]any{"parts": out})
+}
+
+// buildsToo is what the list adds to a size that is also a build.
+const buildsToo = ", plus a few minutes to build the recogniser"
+
+/*
+ * partDetailKey names the sentences the checks in preflight write, so the
+ * page can say them in its own language. Versions, program names and paths
+ * are not sentences and have no key.
+ */
+func partDetailKey(detail string) (string, map[string]string) {
+	fixed := map[string]string{
+		"installed":          "installed",
+		"needs Ollama first": "needsOllama",
+		"piper (neural)":     "piper",
+		"piper (neural), with voices an older version installed": "piperOld",
+		"only half of it is here":                                "half",
+	}
+
+	if key, found := fixed[detail]; found {
+		return key, nil
+	}
+
+	if url, found := strings.CutPrefix(detail, "answering at "); found {
+		return "answeringAt", map[string]string{"url": url}
+	}
+
+	if what, found := strings.CutSuffix(detail, " is here but has no speech model"); found {
+		return "noSpeechModel", map[string]string{"what": what}
+	}
+
+	if rest, found := strings.CutSuffix(detail, " available"); found {
+		if installed, latest, found := strings.Cut(rest, " · "); found {
+			return "newer", map[string]string{"installed": installed, "latest": latest}
+		}
+	}
+
+	return "", nil
+}
+
+// partKey is a part's name as an i18n.js key: "Voice (listening)" is
+// "voice_listening".
+func partKey(name string) string {
+	var b strings.Builder
+
+	gap := false
+
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if gap && b.Len() > 0 {
+				b.WriteByte('_')
+			}
+
+			b.WriteRune(r)
+			gap = false
+
+			continue
+		}
+
+		gap = true
+	}
+
+	return b.String()
 }
 
 /*

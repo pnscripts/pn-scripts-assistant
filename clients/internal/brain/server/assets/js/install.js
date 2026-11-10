@@ -14,6 +14,56 @@
 (function () {
     const el = (id) => document.getElementById(id);
 
+    // Every word a person reads here is in i18n.js, in English and Bulgarian.
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+    const bg = () => !!(window.pnLang && window.pnLang() === 'bg');
+
+    // Where a part from the system's packages lives, as preflight says it
+    // ("/usr/bin/ffmpeg, installed by apt"): the path stays, the words follow
+    // the page.
+    function whereSaid(where) {
+        if (!where || !bg()) return where || '';
+
+        return String(where)
+            .replace(/: system libraries, installed by apt$/, () => ': ' + T('parts.where.libs'))
+            .replace(/: system headers, installed by apt$/, () => ': ' + T('parts.where.headers'))
+            .replace(/, installed by apt$/, () => ', ' + T('parts.where.apt'));
+    }
+
+    // A string named by a key the server gives, or the English it came with
+    // when this page has no such key.
+    function said(key, fallback, vars) {
+        const text = T(key, vars);
+
+        return text === key ? fallback : text;
+    }
+
+    // A size as a reader of the page writes it: "1,5 GB" in Bulgarian.
+    function size(text) {
+        if (!bg()) return text;
+
+        return String(text || '')
+            .replace(/(\d)\.(\d)/g, '$1,$2')
+            .replace(/(\d)(KB|MB|GB|TB)\b/g, '$1 $2');
+    }
+
+    // A part's name, what it is for and what is lost without it.
+    const partName = (p) => said(`parts.name.${p.key}`, p.name);
+    const partWhy = (p) => said(`parts.why.${p.key}`, p.why);
+    const partWithout = (p) => said(`parts.without.${p.key}`, p.consequence);
+
+    // What the download costs, and the build that follows it for some.
+    function partSize(p) {
+        return p.size_builds
+            ? T('parts.sizeAndBuild', { size: size(p.size) })
+            : size(p.size);
+    }
+
+    // What the check found: a sentence by its key, a version or a name as it is.
+    function partDetail(p) {
+        return p.detail_key ? said(`parts.d.${p.detail_key}`, p.detail, p.detail_args || {}) : p.detail;
+    }
+
     async function call(path, payload) {
         const res = await fetch(path, {
             method: payload ? 'POST' : 'GET',
@@ -25,7 +75,7 @@
 
         const body = await res.json().catch(() => ({}));
 
-        if (!res.ok) throw new Error(body.error || `that did not work (${res.status})`);
+        if (!res.ok) throw new Error(body.error || T('mdl.failedStatus', { status: res.status }));
 
         return body.data !== undefined ? body.data : body;
     }
@@ -42,11 +92,11 @@
         const was = button.textContent;
 
         button.disabled = true;
-        button.textContent = 'starting…';
+        button.textContent = T('parts.starting');
 
         try {
             await work();
-            button.textContent = done || 'started';
+            button.textContent = done || T('parts.started');
         } catch (err) {
             button.textContent = String(err.message || err).slice(0, 48);
             button.disabled = false;
@@ -109,15 +159,15 @@
 
         const name = document.createElement('span');
         name.className = 'permit-name';
-        name.textContent = p.name + (p.optional ? '' : ' · needed');
+        name.textContent = partName(p) + (p.optional ? '' : ' · ' + T('parts.needed'));
 
         const what = document.createElement('span');
         what.className = 'permit-what';
         // Why it exists when it is here; what is lost when it is not. Those
         // are different questions and only one of them is useful at a time.
         what.textContent = p.state === 'ok'
-            ? `${p.why}${p.detail ? ' (' + p.detail + ')' : ''}`
-            : `Without this: ${p.consequence}`;
+            ? `${partWhy(p)}${p.detail ? ' (' + partDetail(p) + ')' : ''}`
+            : T('parts.without', { what: partWithout(p) });
 
         text.append(name, what);
 
@@ -126,9 +176,9 @@
 
         const bits = [];
 
-        if (p.state !== 'ok' && p.size) bits.push(p.size);
-        if (p.state !== 'ok' && p.needs_password) bits.push('asks for your password');
-        if (p.where) bits.push((p.state === 'ok' ? 'at ' : 'goes to ') + p.where);
+        if (p.state !== 'ok' && p.size) bits.push(partSize(p));
+        if (p.state !== 'ok' && p.needs_password) bits.push(T('parts.password'));
+        if (p.where) bits.push(T(p.state === 'ok' ? 'parts.at' : 'parts.goesTo', { where: whereSaid(p.where) }));
 
         note.textContent = bits.join(' · ');
 
@@ -148,17 +198,17 @@
         if (p.state === 'ok') {
             const here = document.createElement('span');
             here.className = 'permit-reading';
-            here.textContent = 'installed';
+            here.textContent = T('parts.installed');
             row.appendChild(here);
 
             if (p.installable) {
                 const update = document.createElement('button');
                 update.className = 'model-action quiet';
-                update.textContent = 'Update';
-                update.title = `Fetch the current version of ${p.name}`;
+                update.textContent = T('parts.update');
+                update.title = T('parts.updateTitle', { name: partName(p) });
                 update.onclick = () => press(update, async () => {
                     await call('/api/parts/install', { name: p.name });
-                }, 'updating…');
+                }, T('parts.updating'));
 
                 row.appendChild(update);
             }
@@ -175,15 +225,15 @@
             if (p.removable) {
                 const remove = document.createElement('button');
                 remove.className = 'model-action quiet';
-                remove.textContent = 'Remove';
-                remove.title = `Take ${p.name} off this machine`;
+                remove.textContent = T('parts.remove');
+                remove.title = T('parts.removeTitleOne', { name: partName(p) });
 
                 let armed = false;
 
                 remove.onclick = () => {
                     if (!armed) {
                         armed = true;
-                        remove.textContent = 'Sure?';
+                        remove.textContent = T('parts.sure');
                         remove.classList.add('danger');
 
                         // Disarms itself, so a "Sure?" left on screen from a
@@ -191,7 +241,7 @@
                         setTimeout(() => {
                             if (!armed) return;
                             armed = false;
-                            remove.textContent = 'Remove';
+                            remove.textContent = T('parts.remove');
                             remove.classList.remove('danger');
                         }, 4000);
 
@@ -203,7 +253,7 @@
 
                     press(remove, async () => {
                         await call('/api/parts/remove', { name: p.name });
-                    }, 'removing…');
+                    }, T('parts.removing'));
                 };
 
                 row.appendChild(remove);
@@ -215,8 +265,8 @@
         if (!p.installable) {
             const by = document.createElement('span');
             by.className = 'permit-reading';
-            by.textContent = 'by hand';
-            by.title = p.hint || '';
+            by.textContent = T('parts.byHand');
+            by.title = p.hint ? said(`parts.hint.${p.key}`, p.hint) : '';
             row.appendChild(by);
 
             return row;
@@ -224,10 +274,10 @@
 
         const button = document.createElement('button');
         button.className = 'model-action';
-        button.textContent = p.state === 'outdated' ? 'Update' : 'Install';
+        button.textContent = p.state === 'outdated' ? T('parts.update') : T('parts.install');
         button.onclick = () => press(button, async () => {
             await call('/api/parts/install', { name: p.name });
-        }, p.state === 'outdated' ? 'updating…' : 'installing…');
+        }, p.state === 'outdated' ? T('parts.updating') : T('parts.installing'));
 
         row.appendChild(button);
 
@@ -276,11 +326,11 @@
 
             rows.push({
                 key: 'part:' + p.name,
-                name: p.name,
-                detail: p.why,
+                name: partName(p),
+                detail: partWhy(p),
                 where: p.where || '',
                 // What removing it actually gives back, measured on disk.
-                sizeText: p.on_disk_text || '',
+                sizeText: size(p.on_disk_text || ''),
                 bytes: p.on_disk || 0,
                 freeGB: p.free_gb || 0,
             });
@@ -292,8 +342,8 @@
             rows.push({
                 key: 'model:' + name,
                 name: name,
-                detail: 'a language model',
-                sizeText: m.size_text || m.size || '',
+                detail: T('parts.languageModel'),
+                sizeText: size(m.size_text || m.size || ''),
                 bytes: m.size_bytes || m.bytes || 0,
                 model: true,
             });
@@ -302,7 +352,7 @@
         if (!rows.length) {
             const none = document.createElement('p');
             none.className = 'field-note';
-            none.textContent = 'There is nothing here that this program installed.';
+            none.textContent = T('parts.nothingToRemove');
             host.appendChild(none);
             refreshRemoveButton();
 
@@ -343,7 +393,7 @@
 
         const detail = document.createElement('span');
         detail.className = 'remove-detail';
-        detail.textContent = [r.detail, r.where].filter(Boolean).join(' · ');
+        detail.textContent = [r.detail, whereSaid(r.where)].filter(Boolean).join(' · ');
         body.appendChild(detail);
 
         row.append(tick, body);
@@ -368,10 +418,10 @@
 
     function inWords(bytes) {
         if (!bytes) return '';
-        if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + 'KB';
-        if (bytes < 1024 * 1024 * 1024) return Math.round(bytes / (1024 * 1024)) + 'MB';
+        if (bytes < 1024 * 1024) return size(Math.round(bytes / 1024) + 'KB');
+        if (bytes < 1024 * 1024 * 1024) return size(Math.round(bytes / (1024 * 1024)) + 'MB');
 
-        return (bytes / (1024 * 1024 * 1024)).toFixed(1) + 'GB';
+        return size((bytes / (1024 * 1024 * 1024)).toFixed(1) + 'GB');
     }
 
     function refreshRemoveButton() {
@@ -382,8 +432,8 @@
 
         go.disabled = ticked.size === 0;
         go.textContent = ticked.size
-            ? 'Remove ' + ticked.size + (ticked.size === 1 ? ' thing' : ' things')
-            : 'Remove what is ticked';
+            ? T(ticked.size === 1 ? 'parts.removeOne' : 'parts.removeMany', { n: ticked.size })
+            : T('parts.removeTicked');
 
         if (size) {
             if (!ticked.size) {
@@ -402,8 +452,8 @@
 
                 const freed = inWords(total);
 
-                size.textContent = (freed ? 'Frees about ' + freed + '. ' : '')
-                    + 'Nothing is removed until you press the button.';
+                size.textContent = (freed ? T('parts.frees', { size: freed }) + ' ' : '')
+                    + T('parts.untilPressed');
             }
         }
     }
@@ -447,7 +497,7 @@
         if (size) {
             size.textContent = failures.length
                 ? failures.join(' · ')
-                : 'Started. It appears under Activity while it runs.';
+                : T('parts.removeStarted');
         }
 
         refreshRemoveButton();
@@ -484,9 +534,8 @@
              * not "This machine: undefined".
              */
             machine.textContent = data.machine
-                ? `This machine: ${data.machine}. `
-                    + 'What each one would be like here is worked out from that.'
-                : (data.why || '');
+                ? T('mdl.machineIs', { machine: machineSaid(data) })
+                : (data.why_key ? said(data.why_key, data.why || '') : (data.why || ''));
         }
 
         host.textContent = '';
@@ -527,8 +576,8 @@
     function variantNote(v) {
         const parts = [];
 
-        if (v.needs_gb > 0) parts.push(`wants about ${Math.ceil(v.needs_gb)}GB while running`);
-        if (v.verdict) parts.push(v.verdict);
+        if (v.needs_gb > 0) parts.push(T('mdl.wants', { gb: Math.ceil(v.needs_gb) }));
+        if (v.verdict) parts.push(v.verdict_key ? said(`mdl.verdict.${v.verdict_key}`, v.verdict) : v.verdict);
 
         return parts.join(' · ');
     }
@@ -552,7 +601,9 @@
 
         const name = document.createElement('span');
         name.className = 'permit-name as-typed';
-        name.textContent = m.can && m.can.length ? `${m.name} · ${m.can.join(', ')}` : m.name;
+        name.textContent = m.can && m.can.length
+            ? `${m.name} · ${m.can.map((word) => said('mdl.can.' + word, word)).join(', ')}`
+            : m.name;
         text.appendChild(name);
 
         if (m.what) {
@@ -578,12 +629,12 @@
         if (variants.length > 1) {
             size = document.createElement('select');
             size.className = 'permit-choice';
-            size.setAttribute('aria-label', `Size of ${m.name}`);
+            size.setAttribute('aria-label', T('mdl.sizeOf', { name: m.name }));
 
             for (const each of variants) {
                 const option = document.createElement('option');
                 option.value = each.name;
-                option.textContent = (each.size || each.name) + (each.installed ? ' (installed)' : '');
+                option.textContent = (each.size || each.name) + (each.installed ? ' (' + T('parts.installed') + ')' : '');
                 option.selected = each === v;
                 size.appendChild(option);
             }
@@ -616,15 +667,15 @@
                  * almost always no.
                  */
                 button.className = 'model-action quiet';
-                button.textContent = 'Update';
-                button.title = `Fetch ${v.name} again if it has changed`;
+                button.textContent = T('parts.update');
+                button.title = T('mdl.updateTitle', { name: v.name });
             } else {
                 // Offered even when it does not fit, and said so plainly beside it.
                 // Refusing outright would be deciding for somebody about their own
                 // machine, and they may be about to add memory.
                 button.className = 'model-action' + (v.fits ? '' : ' danger');
-                button.textContent = 'Install';
-                button.title = `Download ${v.name}`;
+                button.textContent = T('parts.install');
+                button.title = T('mdl.installTitle', { name: v.name });
             }
         }
 
@@ -640,12 +691,26 @@
 
             press(button, async () => {
                 await call('/api/models/pull', { name: chosen.name });
-            }, chosen.installed ? 'checking…' : 'downloading…');
+            }, chosen.installed ? T('mdl.checking') : T('mdl.downloading'));
         };
 
         show();
 
         return row;
+    }
+
+    /*
+     * The machine, in the page's language: from its figures when the server
+     * sends them, which every version that sends a key does.
+     */
+    function machineSaid(data) {
+        const p = data.power;
+
+        if (!p) return data.machine;
+
+        return T(p.accelerated ? 'mdl.machineCard' : 'mdl.machineNoCard', {
+            cores: p.cores, memory: p.memory_gb, card: p.card_gb,
+        });
     }
 
     function load() {
@@ -674,7 +739,7 @@
             if (!armed) {
                 armed = true;
                 go.classList.add('danger');
-                go.textContent = 'Sure? This cannot be undone';
+                go.textContent = T('parts.sureForGood');
 
                 setTimeout(() => {
                     if (!armed) return;
@@ -693,5 +758,12 @@
         });
     }
 
+    refreshRemoveButton();
     load();
+
+    // Drawn again in the other language as soon as it changes.
+    window.addEventListener('pn-language', () => {
+        refreshRemoveButton();
+        load();
+    });
 }());

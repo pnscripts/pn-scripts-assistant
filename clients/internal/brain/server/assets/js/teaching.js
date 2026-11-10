@@ -11,6 +11,12 @@
     'use strict';
 
     const el = (id) => document.getElementById(id);
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+
+    // What was last read, so a change of language can say it again without
+    // reading anything over what somebody is typing.
+    let toHosted = null;
+    let lastSkills = null;
 
     // Whether either form is being edited. Nothing reloads over a cursor.
     let editingProfile = false;
@@ -33,8 +39,7 @@
         // in half without explaining itself.
         const used = [...box.value].length;
 
-        say('profile-count', used + ' of ' + most + ' letters'
-            + (used > most ? '. The rest will not be kept' : ''));
+        say('profile-count', T(used > most ? 'teach.countOver' : 'teach.count', { used: used, most: most }));
     }
 
     async function loadProfile() {
@@ -58,18 +63,21 @@
 
         countProfile();
 
-        say('profile-where', body.to_hosted
-            ? 'This is given to whichever model answers, including paid ones. '
-              + 'Change that in Privacy.'
-            : 'This is only ever given to the model on this machine. Paid services '
-              + 'are not told any of it. Change that in Privacy.');
+        toHosted = !!body.to_hosted;
+        sayWhere();
+    }
+
+    function sayWhere() {
+        if (toHosted === null) return;
+
+        say('profile-where', T(toHosted ? 'teach.toHosted' : 'teach.toLocal'));
     }
 
     async function saveProfile() {
         const box = el('profile-text');
         if (!box) return;
 
-        say('profile-said', 'Saving…');
+        say('profile-said', T('teach.saving'));
 
         try {
             const res = await fetch('/api/profile', {
@@ -81,7 +89,7 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('profile-said', body.error || 'That did not save.');
+                say('profile-said', body.error ? T('room.notSavedWhy', { why: body.error }) : T('room.notSaved'));
                 return;
             }
 
@@ -90,9 +98,9 @@
             editingProfile = false;
             box.value = body.profile || '';
             countProfile();
-            say('profile-said', 'Saved. It is read again on your next message.');
+            say('profile-said', T('teach.savedProfile'));
         } catch (err) {
-            say('profile-said', 'That did not save: ' + err.message);
+            say('profile-said', T('room.notSavedWhy', { why: err.message }));
         }
     }
 
@@ -109,7 +117,7 @@
 
         const when = document.createElement('span');
         when.className = 'task-state';
-        when.textContent = skill.when || 'no note on when to use it';
+        when.textContent = skill.when || T('teach.noWhen');
         row.appendChild(when);
 
         // Where it came from, because a skill it wrote itself and one somebody
@@ -117,21 +125,21 @@
         if (skill.taught) {
             const how = document.createElement('span');
             how.className = 'skill-origin';
-            how.textContent = 'taught';
+            how.textContent = T('teach.taughtTag');
             row.appendChild(how);
         }
 
         const read = document.createElement('button');
         read.type = 'button';
         read.className = 'task-button';
-        read.textContent = 'Read';
+        read.textContent = T('teach.read');
         read.addEventListener('click', () => showSkill(skill));
         row.appendChild(read);
 
         const forget = document.createElement('button');
         forget.type = 'button';
         forget.className = 'task-button';
-        forget.textContent = 'Forget';
+        forget.textContent = T('teach.forget');
         forget.addEventListener('click', () => forgetSkill(skill.name));
         row.appendChild(forget);
 
@@ -154,7 +162,7 @@
     }
 
     async function forgetSkill(name) {
-        say('skill-said', 'Forgetting ' + name + '…');
+        say('skill-said', T('teach.forgetting', { name: name }));
 
         try {
             const res = await fetch('/api/skills/' + encodeURIComponent(name), {
@@ -164,14 +172,14 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('skill-said', body.error || 'That did not work.');
+                say('skill-said', body.error ? T('teach.failedWhy', { why: body.error }) : T('teach.failed'));
                 return;
             }
 
-            say('skill-said', 'Forgotten. It is no longer offered.');
+            say('skill-said', T('teach.forgotten'));
             loadSkills();
         } catch (err) {
-            say('skill-said', 'That did not work: ' + err.message);
+            say('skill-said', T('teach.failedWhy', { why: err.message }));
         }
     }
 
@@ -181,11 +189,11 @@
         const how = el('skill-how')?.value.trim();
 
         if (!name || !how) {
-            say('skill-said', 'It needs a name and some instructions.');
+            say('skill-said', T('teach.needs'));
             return;
         }
 
-        say('skill-said', 'Saving…');
+        say('skill-said', T('teach.saving'));
 
         try {
             const res = await fetch('/api/skills', {
@@ -197,7 +205,7 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('skill-said', body.error || 'That did not save.');
+                say('skill-said', body.error ? T('room.notSavedWhy', { why: body.error }) : T('room.notSaved'));
                 return;
             }
 
@@ -209,10 +217,10 @@
             const details = el('skill-new');
             if (details) details.open = false;
 
-            say('skill-said', 'Saved. It can use it from your next message.');
+            say('skill-said', T('teach.savedSkill'));
             loadSkills();
         } catch (err) {
-            say('skill-said', 'That did not save: ' + err.message);
+            say('skill-said', T('room.notSavedWhy', { why: err.message }));
         }
     }
 
@@ -229,8 +237,14 @@
             return;
         }
 
+        lastSkills = body;
+        drawSkills();
+    }
+
+    function drawSkills() {
+        const body = lastSkills;
         const list = el('skill-list');
-        if (!list) return;
+        if (!list || !body) return;
 
         list.textContent = '';
 
@@ -239,15 +253,23 @@
         if (!found.length) {
             const p = document.createElement('p');
             p.className = 'note';
-            p.textContent = 'Nothing yet. Tell it "remember how I do this" in a '
-                + 'conversation, or write one below.';
+            p.textContent = T('teach.nothingTaught');
             list.appendChild(p);
         } else {
             for (const skill of found) list.appendChild(skillRow(skill));
         }
 
-        say('skill-folder', 'They are files in ' + (body.folder || '')
-            + '. You can edit them there too.');
+        say('skill-folder', T('teach.folder', { folder: body.folder || '' }));
+    }
+
+    // The two examples keep their line breaks, which an attribute in the
+    // page cannot carry through a change of language.
+    function examples() {
+        const profile = el('profile-text');
+        if (profile) profile.placeholder = T('teach.aboutExample');
+
+        const how = el('skill-how');
+        if (how) how.placeholder = T('teach.howExample');
     }
 
     function wire() {
@@ -265,8 +287,17 @@
             el(id)?.addEventListener('input', () => { editingSkill = true; });
         }
 
+        examples();
         loadProfile();
         loadSkills();
+
+        // Said again in the other language; nothing typed is touched.
+        window.addEventListener('pn-language', () => {
+            examples();
+            countProfile();
+            sayWhere();
+            drawSkills();
+        });
 
         /*
          * Reloaded when the view is opened, not on a timer.

@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	"pn-scripts-assistant/internal/brain/vault"
 )
@@ -21,12 +22,49 @@ func (s *Server) handleVault(w http.ResponseWriter, r *http.Request) {
 		_, pending = vault.RecoveryToShow(s.brain.Root, k)
 	}
 
+	where, dir := keyringWords(u.Keyring)
+
 	ok(w, map[string]any{
 		"sealed":           k != nil,
 		"keyring":          u.Keyring,
+		"keyring_key":      where,
+		"keyring_dir":      dir,
 		"warning":          u.Warning,
+		"warning_key":      warningWords(u.Warning),
 		"recovery_pending": pending,
 	})
+}
+
+/*
+ * keyringWords names where the key is kept as a string of i18n.js, and the
+ * folder for a key file, so the notice says it in the page's language. The
+ * vault says it in English, for the log and for anything that is not a page;
+ * a keyring this does not know is said in English as before (empty key).
+ */
+func keyringWords(name string) (key, dir string) {
+	switch {
+	case strings.HasPrefix(name, vault.FileKeyring{}.Name()):
+		return "vault.keyring.file", strings.TrimPrefix(name, vault.FileKeyring{}.Name())
+	case name == "this computer's keyring (Secret Service)":
+		return "vault.keyring.secret", ""
+	case name == "the macOS Keychain":
+		return "vault.keyring.macos", ""
+	case strings.HasPrefix(name, "Windows (DPAPI"):
+		return "vault.keyring.windows", ""
+	case name == (&vault.MemoryKeyring{}).Name():
+		return "vault.keyring.memory", ""
+	}
+
+	return "", ""
+}
+
+// warningWords names the vault's warning as a string of i18n.js.
+func warningWords(warning string) string {
+	if warning != "" && warning == (vault.FileKeyring{}).Warning() {
+		return "vault.warning.file"
+	}
+
+	return ""
 }
 
 // handleRecovery hands over the recovery key while it has not been kept.

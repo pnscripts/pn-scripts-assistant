@@ -102,6 +102,12 @@ func proposalOut(row store.Proposal) map[string]any {
 		if json.Unmarshal([]byte(row.Body), &p) == nil {
 			out["proposal"], out["text"] = p, p.Text()
 			out["ready"], out["question"], out["options"] = p.Ready(), p.Question, p.Options
+
+			// The common question, which the page says in its own language
+			// (org.proj.where in i18n.js).
+			if p.Question == bootstrap.WhereQuestion {
+				out["question_key"] = "where"
+			}
 		}
 	}
 
@@ -233,7 +239,9 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, map[string]any{"said": said})
+	// In goal mode the install is done before this answers; otherwise it
+	// runs in the background. The page says which in its own language.
+	ok(w, map[string]any{"said": said, "background": !s.brain.Cfg.GoalMode})
 }
 
 // handleInspect looks at a folder. Reading only.

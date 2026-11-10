@@ -49,14 +49,19 @@ func (s *Server) handlePace(w http.ResponseWriter, r *http.Request) {
 		Suggest:  llm.TalkCandidates[0],
 	}
 
+	verdictKey, verdictArgs := pace.VerdictKey(typical, over)
+
 	ok(w, map[string]any{
-		"typical":  typical,
-		"over":     over,
-		"turns":    turns,
-		"fixed":    s.fixedCosts(),
-		"verdict":  pace.Verdict(typical, over),
-		"findings": pace.Findings(typical, over, machine),
-		"target":   pace.RealTime,
+		// The verdict for a page in any language: 'ops.pace.verdict.<key>'.
+		"verdict_key":  verdictKey,
+		"verdict_args": verdictArgs,
+		"typical":      typical,
+		"over":         over,
+		"turns":        turns,
+		"fixed":        s.fixedCosts(),
+		"verdict":      pace.Verdict(typical, over),
+		"findings":     pace.Findings(typical, over, machine),
+		"target":       pace.RealTime,
 	})
 }
 

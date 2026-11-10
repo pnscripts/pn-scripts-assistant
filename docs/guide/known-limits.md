@@ -169,13 +169,17 @@ against the code on 9 November 2026.
 - The *Your voice* card on the Privacy page is still in English on a
   Bulgarian page, apart from what it says when "Answer only me" cannot
   recognise your voice.
-- With the page in Bulgarian, every name in the menu is in Bulgarian, but
-  these pages are still partly in English: Command centre, Models, System,
-  Operations, The room, Teaching, Organisation, Tasks, Reaching it and
-  Privacy, as are the descriptions of the parts on What it runs on, the
-  one-time recovery key notice, some status lines in the conversation and
-  the names of the built-in skills.
-  Conversation, memory, mail, writing, translation, learning, research,
-  tables, invoices, forms, plans, customers, devices and rules are in
-  Bulgarian. Model descriptions come from the model library as published
-  there.
+- With the page in Bulgarian, the menu and the pages behind it are in
+  Bulgarian: Command centre, Models, System, Operations, The room, Teaching,
+  Organisation, Tasks, Reaching it and Privacy among them, with the parts on
+  What it runs on, the one-time recovery key notice and the status lines of
+  the conversation. What still reads in English there is what the program
+  shows as it came: model descriptions from the model library, the
+  descriptions of capability packages and integrations, most jobs of the
+  built-in classification below the ones the organisation chart uses, the
+  names of programs and what they print about their own version. So do the
+  details a tool or the model writes under a step, the rare error message
+  from the server (shown after "That did not work:"), and, when no model
+  answers, the plain list of facts the first introduction falls back to.
+  Built-in skills are named in Bulgarian where they come with a Bulgarian
+  description.

@@ -23,6 +23,19 @@ function el(id) {
     return document.getElementById(id);
 }
 
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+const bg = () => window.pnLang && window.pnLang() === 'bg';
+
+// The knowledge folder keeps the name the server gives it (places.KnowledgeName)
+// until somebody renames it; that one name is said in the page's language.
+const placeName = (p) => (window.pnEnglish && p.name === window.pnEnglish('sys.knowledgeName') ? T('sys.knowledgeName') : p.name);
+
+// A count, grouped the way the page's language groups it.
+const num = (n) => Number(n || 0).toLocaleString(bg() ? 'bg-BG' : 'en-GB');
+
+// So many things, with "thing" said once for one.
+const things = (n) => (n === 1 ? T('sys.thing1') : T('sys.things', { n: num(n) }));
+
 function say(what, kind) {
     const note = el('place-note');
 
@@ -34,11 +47,16 @@ function say(what, kind) {
 
 function ago(seconds) {
     if (!isFinite(seconds) || seconds < 0) return '';
-    if (seconds < 90) return 'just now';
-    if (seconds < 3600) return `${Math.round(seconds / 60)} minutes ago`;
-    if (seconds < 86400) return `${Math.round(seconds / 3600)} hours ago`;
+    if (seconds < 90) return T('sys.justNow');
+    if (seconds < 3600) return T('sys.minutesAgo', { n: Math.round(seconds / 60) });
 
-    return `${Math.round(seconds / 86400)} days ago`;
+    const hours = Math.round(seconds / 3600);
+
+    if (seconds < 86400) return hours === 1 ? T('sys.hourAgo') : T('sys.hoursAgo', { n: hours });
+
+    const days = Math.round(seconds / 86400);
+
+    return days === 1 ? T('sys.dayAgo') : T('sys.daysAgo', { n: days });
 }
 
 async function send(where, body) {
@@ -50,7 +68,7 @@ async function send(where, body) {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) throw new Error(data.error || `that did not work (${res.status})`);
+    if (!res.ok) throw new Error(data.error || T('sys.failed', { status: res.status }));
 
     return data;
 }
@@ -88,7 +106,7 @@ function row(p) {
 
     const where = document.createElement('span');
     where.className = 'drive-path';
-    where.textContent = p.name;
+    where.textContent = placeName(p);
     where.title = p.path;
 
     const state = document.createElement('span');
@@ -103,9 +121,9 @@ function row(p) {
      * one that has quietly stopped.
      */
     state.textContent = p.never && !p.learned
-        ? (p.waiting ? `${p.waiting.toLocaleString()} to read` : 'not read yet')
-        : `${p.learned.toLocaleString()} learned`
-            + (p.waiting ? ` · ${p.waiting.toLocaleString()} to go` : '');
+        ? (p.waiting ? T('sys.placeToRead', { n: num(p.waiting) }) : T('sys.placeUnread'))
+        : T('sys.placeLearned', { n: num(p.learned) })
+            + (p.waiting ? ' · ' + T('sys.placeToGo', { n: num(p.waiting) }) : '');
 
     row.append(where, state);
 
@@ -113,12 +131,12 @@ function row(p) {
     note.className = 'drive-note';
 
     if (p.trouble) {
-        note.textContent = p.trouble;
+        note.textContent = p.trouble_key ? T(p.trouble_key) : p.trouble;
     } else {
         const bits = [p.short];
 
-        if (!p.never) bits.push(`last read ${ago(p.age_seconds)}`);
-        if (!p.waiting && !p.never) bits.push('all of it read');
+        if (!p.never) bits.push(T('sys.placeLastRead', { ago: ago(p.age_seconds) }));
+        if (!p.waiting && !p.never) bits.push(T('sys.placeAllRead'));
 
         note.textContent = bits.join(' · ');
     }
@@ -139,21 +157,21 @@ function actions(p) {
         const look = document.createElement('button');
         look.type = 'button';
         look.className = 'model-action';
-        look.textContent = 'Read some now';
+        look.textContent = T('sys.placeReadNow');
 
         look.onclick = async () => {
             look.disabled = true;
-            say(`Reading ${p.name}…`);
+            say(T('sys.placeReading', { name: placeName(p) }));
 
             try {
                 const done = await send('/api/places/look', { path: p.path });
 
                 say(done.read
-                    ? `${p.name}: ${done.learned} new, ${done.known} already known`
+                    ? T('sys.placeRead', { name: placeName(p), learned: num(done.learned), known: num(done.known) })
                         + (done.waiting
-                            ? `, ${done.waiting.toLocaleString()} still to read.`
-                            : ', and that is all of it.')
-                    : `Nothing new in ${p.name}.`, 'ok');
+                            ? T('sys.placeStill', { n: num(done.waiting) })
+                            : T('sys.placeAll'))
+                    : T('sys.placeNothingNew', { name: placeName(p) }), 'ok');
             } catch (err) {
                 say(String(err.message || err), 'bad');
             }
@@ -168,10 +186,10 @@ function actions(p) {
     const rename = document.createElement('button');
     rename.type = 'button';
     rename.className = 'model-action';
-    rename.textContent = 'Rename';
+    rename.textContent = T('sys.placeRename');
 
     rename.onclick = async () => {
-        const name = window.prompt(`What do you call ${p.short}?`, p.name);
+        const name = window.prompt(T('sys.placeCall', { place: p.short }), p.name);
 
         if (name === null) return;
 
@@ -187,12 +205,12 @@ function actions(p) {
     const forget = document.createElement('button');
     forget.type = 'button';
     forget.className = 'model-action';
-    forget.textContent = 'Stop looking after';
+    forget.textContent = T('sys.placeForget');
 
     forget.onclick = async () => {
         try {
-            const done = await send('/api/places/forget', { path: p.path });
-            say(done.note, 'ok');
+            await send('/api/places/forget', { path: p.path });
+            say(T('sys.placeForgot'), 'ok');
         } catch (err) {
             say(String(err.message || err), 'bad');
         }
@@ -218,8 +236,8 @@ function suggestions(drives) {
         chip.className = 'copy-suggestion';
 
         chip.textContent = d.home
-            ? 'your home folder'
-            : `${d.mount_point}${d.free_bytes ? ` · ${(d.free_bytes / GB).toFixed(0)}GB free` : ''}`;
+            ? T('sys.homeFolder')
+            : d.mount_point + (d.free_bytes ? ' · ' + T('sys.gbFree', { n: (d.free_bytes / GB).toFixed(0) }) : '');
 
         // The mount point is where to start typing, not the answer: the folder
         // worth learning is almost always one inside it.
@@ -243,13 +261,13 @@ function wire() {
         const path = (el('place-path').value || '').trim();
 
         if (!path) {
-            say('Type a folder, or pick a drive above.', 'bad');
+            say(T('sys.typeFolder'), 'bad');
 
             return;
         }
 
         add.disabled = true;
-        say('Looking…');
+        say(T('sys.looking'));
 
         try {
             const done = await send('/api/places', {
@@ -263,13 +281,19 @@ function wire() {
              * reading, and being told that up front is the difference between
              * patience and a bug report.
              */
+            const minutes = Math.max(1, done.minutes);
+
             if (!done.counted) {
-                say(`Looking after ${done.name}. ${done.note || ''}`.trim(), 'ok');
+                say(T('sys.placeAdded', { name: done.name })
+                    + (done.note ? ' ' + T('sys.placeAway') : ''), 'ok');
             } else if (done.waiting) {
-                say(`Looking after ${done.name}: ${done.waiting.toLocaleString()} things to read,`
-                    + ` about ${Math.max(1, done.minutes)} minutes of work. It starts on its own.`, 'ok');
+                say(T('sys.placeCounted', {
+                    name: done.name,
+                    things: things(done.waiting),
+                    work: minutes === 1 ? T('sys.aboutMinute') : T('sys.aboutMinutes', { n: minutes }),
+                }), 'ok');
             } else {
-                say(`Looking after ${done.name}. Nothing new in it to read.`, 'ok');
+                say(T('sys.placeNothingToRead', { name: done.name }), 'ok');
             }
 
             el('place-path').value = '';
@@ -285,5 +309,6 @@ function wire() {
 wire();
 load();
 setInterval(load, PLACES_INTERVAL);
+window.addEventListener('pn-language', load);
 
 }());

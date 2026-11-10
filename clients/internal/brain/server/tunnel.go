@@ -55,8 +55,10 @@ func (s *Server) handleTunnel(w http.ResponseWriter, r *http.Request) {
 		"endpoint":  t.Endpoint,
 		"port":      t.Port,
 		"missing":   t.Ready(),
-		"ways":      ways,
-		"devices":   s.paired.List(),
+		// The same, as a name the page says in the owner's language.
+		"missing_what": t.MissingWhat(),
+		"ways":         ways,
+		"devices":      s.paired.List(),
 
 		// Where a device goes once it is through, and the one thing only its
 		// owner can do.
@@ -104,7 +106,7 @@ func (s *Server) handleTunnelSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, map[string]any{"started": true, "missing": t.Ready()})
+	ok(w, map[string]any{"started": true, "missing": t.Ready(), "missing_what": t.MissingWhat()})
 }
 
 // handleTunnelAdd gives one paired device a way in from outside.

@@ -14,6 +14,14 @@
     'use strict';
 
     const el = (id) => document.getElementById(id);
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+
+    // A key's words when it has them, the given text when it does not.
+    function maybe(key, otherwise, vars) {
+        const said = T(key, vars);
+
+        return said === key ? otherwise : said;
+    }
 
     function say(id, text) {
         const node = el(id);
@@ -61,18 +69,18 @@
 
         // textContent, never markup: a summary is written by a tool and this
         // is the one place somebody is deciding whether to trust it.
-        what.textContent = item.summary || item.tool;
+        what.textContent = item.summary || toolName(item.tool);
         row.appendChild(what);
 
         const tool = document.createElement('div');
         tool.className = 'task-step-note';
-        tool.textContent = item.tool;
+        tool.textContent = toolName(item.tool);
         row.appendChild(tool);
 
         const buttons = document.createElement('div');
         buttons.className = 'agent-controls';
-        buttons.appendChild(button('Approve', () => decide(item.id, true)));
-        buttons.appendChild(button('Reject', () => decide(item.id, false)));
+        buttons.appendChild(button(T('room.approve'), () => decide(item.id, true)));
+        buttons.appendChild(button(T('room.reject'), () => decide(item.id, false)));
         row.appendChild(buttons);
 
         return row;
@@ -110,18 +118,29 @@
 
     /* ---------- what it is for ---------- */
 
+    function toolName(name) {
+        return window.pnToolName ? window.pnToolName(name) : name;
+    }
+
+    // A task's state in a word, as the task list says it.
+    function taskState(task) {
+        if (window.pnTaskState) return window.pnTaskState(task);
+
+        return task.state;
+    }
+
     function whenText(goal) {
-        if (goal.state !== 'active') return goal.state;
-        if (!goal.every_days) return 'when you ask';
-        if (goal.due) return 'due now';
+        if (goal.state !== 'active') return maybe(`room.state.${goal.state}`, goal.state);
+        if (!goal.every_days) return T('room.whenAsk');
+        if (goal.due) return T('room.dueNow');
 
         if (goal.next_due) {
             const days = Math.round((new Date(goal.next_due) - Date.now()) / 86400000);
-            if (days <= 0) return 'due now';
-            return 'in ' + days + (days === 1 ? ' day' : ' days');
+            if (days <= 0) return T('room.dueNow');
+            return days === 1 ? T('room.inDay') : T('room.inDays', { n: days });
         }
 
-        return 'every ' + goal.every_days + ' days';
+        return T('room.everyDays', { n: goal.every_days });
     }
 
     function goalRow(goal) {
@@ -135,11 +154,11 @@
 
         const when = document.createElement('span');
         when.className = 'task-state';
-        when.textContent = whenText(goal) + (goal.starts_itself ? ' · starts itself' : '');
+        when.textContent = whenText(goal) + (goal.starts_itself ? ' · ' + T('room.startsItself') : '');
         row.appendChild(when);
 
-        row.appendChild(button('Work on it', () => workOn(goal.id)));
-        row.appendChild(button('Forget', () => forget(goal.id)));
+        row.appendChild(button(T('room.workOn'), () => workOn(goal.id)));
+        row.appendChild(button(T('room.forget'), () => forget(goal.id)));
 
         // What has actually been done towards it. A goal with no history is a
         // note somebody wrote, and saying so plainly is more use than a blank.
@@ -149,8 +168,8 @@
         const tasks = goal.tasks || [];
 
         history.textContent = tasks.length
-            ? tasks.map((t) => t.name + ': ' + t.state).join(' · ')
-            : 'nothing done towards it yet';
+            ? tasks.map((t) => t.name + ': ' + taskState(t)).join(' · ')
+            : T('room.nothingDone');
 
         row.appendChild(history);
 
@@ -158,21 +177,21 @@
     }
 
     async function workOn(id) {
-        say('goal-said', 'Starting…');
+        say('goal-said', T('room.starting'));
 
         try {
             const res = await fetch('/api/goals/' + id + '/work', { method: 'POST' });
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('goal-said', body.error || 'That did not start.');
+                say('goal-said', body.error ? T('room.notStartedWhy', { why: body.error }) : T('room.notStarted'));
                 return;
             }
 
-            say('goal-said', 'Started: ' + (body.name || 'it'));
+            say('goal-said', T('room.started', { name: body.name || '' }));
             refresh();
         } catch (err) {
-            say('goal-said', 'That did not start: ' + err.message);
+            say('goal-said', T('room.notStartedWhy', { why: err.message }));
         }
     }
 
@@ -182,7 +201,7 @@
 
             if (!res.ok) return;
 
-            say('goal-said', 'Forgotten. What was done towards it is still recorded.');
+            say('goal-said', T('room.forgotten'));
             refresh();
         } catch (err) {
             /* the next poll will show it either way */
@@ -193,7 +212,7 @@
         const name = el('goal-name')?.value.trim();
 
         if (!name) {
-            say('goal-said', 'Say what the goal is.');
+            say('goal-said', T('room.sayGoal'));
             return;
         }
 
@@ -212,7 +231,7 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('goal-said', body.error || 'That did not save.');
+                say('goal-said', body.error ? T('room.notSavedWhy', { why: body.error }) : T('room.notSaved'));
                 return;
             }
 
@@ -223,10 +242,10 @@
             const details = el('goal-new');
             if (details) details.open = false;
 
-            say('goal-said', 'Set.');
+            say('goal-said', T('room.set'));
             refresh();
         } catch (err) {
-            say('goal-said', 'That did not save: ' + err.message);
+            say('goal-said', T('room.notSavedWhy', { why: err.message }));
         }
     }
 
@@ -252,8 +271,7 @@
         const goals = body.goals || [];
 
         if (!goals.length) {
-            list.appendChild(note('Nothing set yet. A goal is something that comes '
-                + 'round again rather than something that finishes.'));
+            list.appendChild(note(T('room.noGoals')));
             return;
         }
 
@@ -281,7 +299,7 @@
         const live = body.tasks || [];
 
         if (!live.length) {
-            list.appendChild(note('Nothing running.'));
+            list.appendChild(note(T('room.nothingRunning')));
             return;
         }
 
@@ -296,12 +314,10 @@
 
             const state = document.createElement('span');
             state.className = 'task-state';
-            state.textContent = task.state === 'waiting'
-                ? (task.blocked_because || 'waiting for you')
-                : task.state;
+            state.textContent = taskState(task);
             row.appendChild(state);
 
-            row.appendChild(button('Watch it', () => {
+            row.appendChild(button(T('room.watch'), () => {
                 document.querySelector('.nav-item[data-view="tasks"]')?.click();
             }));
 
@@ -320,7 +336,7 @@
      * change this program must never make.
      */
     async function settle(tool, answer) {
-        say('habits-said', 'Saving…');
+        say('habits-said', T('room.saving'));
 
         try {
             const res = await fetch('/api/permissions/decide', {
@@ -329,24 +345,38 @@
                 body: JSON.stringify({
                     tool: tool,
                     answer: answer,
-                    why: 'you had answered this the same way every time'
+                    why: T('room.habitWhy')
                 })
             });
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                say('habits-said', body.error || 'That did not save.');
+                say('habits-said', body.error ? T('room.notSavedWhy', { why: body.error }) : T('room.notSaved'));
                 return;
             }
 
-            say('habits-said', answer === 'allow'
-                ? 'It will stop asking about ' + tool + '. You can take that back in Permissions.'
-                : 'It will always refuse ' + tool + '. You can take that back in Permissions.');
+            say('habits-said', T(answer === 'allow' ? 'room.willStopAsking' : 'room.willRefuse',
+                { tool: toolName(tool) }));
 
             loadHabits();
         } catch (err) {
-            say('habits-said', 'That did not save: ' + err.message);
+            say('habits-said', T('room.notSavedWhy', { why: err.message }));
         }
+    }
+
+    // What the record says, in the page's language: from the counts the
+    // server sends beside its own English sentence.
+    function times(n) {
+        if (n === 1) return T('room.once');
+        if (n === 2) return T('room.twice');
+
+        return T('room.times', { n: n });
+    }
+
+    function habitSaid(habit) {
+        return habit.suggest === 'allow'
+            ? T('room.habitYes', { times: times(habit.approved || 0) })
+            : T('room.habitNo', { times: times(habit.refused || 0) });
     }
 
     async function loadHabits() {
@@ -375,16 +405,16 @@
 
             const name = document.createElement('span');
             name.className = 'skill-name';
-            name.textContent = habit.tool;
+            name.textContent = toolName(habit.tool);
             row.appendChild(name);
 
             const said = document.createElement('span');
             said.className = 'task-state';
-            said.textContent = habit.said;
+            said.textContent = habitSaid(habit);
             row.appendChild(said);
 
             row.appendChild(button(
-                habit.suggest === 'allow' ? 'Stop asking' : 'Always refuse',
+                T(habit.suggest === 'allow' ? 'room.stopAsking' : 'room.alwaysRefuse'),
                 () => settle(habit.tool, habit.suggest)));
 
             list.appendChild(row);
@@ -414,11 +444,11 @@
             const memory = await res.json();
             const gone = (memory.superseded || 0) + (memory.retired || 0);
 
+            const counts = { n: gone, replaced: memory.superseded || 0, gone: memory.retired || 0 };
+
             node.textContent = gone
-                ? 'It has stopped believing ' + gone + (gone === 1 ? ' thing: ' : ' things: ')
-                  + (memory.superseded || 0) + ' replaced by a newer reading, '
-                  + (memory.retired || 0) + ' whose source is gone.'
-                : 'It has not had to unlearn anything yet.';
+                ? T(gone === 1 ? 'room.unlearnedOne' : 'room.unlearnedMany', counts)
+                : T('room.unlearnedNone');
         } catch (err) {
             /* a nicety; the rest of the pane stands without it */
         }
@@ -437,9 +467,10 @@
             if (!count) continue;
 
             const part = document.createElement('span');
-            part.className = 'review-part review-' + kind;
+            part.className = 'review-part';
+            part.classList.add(`review-${kind}`);
             part.style.width = (count / total * 100) + '%';
-            part.title = count + ' ' + kind;
+            part.title = T(`room.kind.${kind}`, { n: count });
             wrap.appendChild(part);
         }
 
@@ -480,7 +511,7 @@
             + (tasks.running || 0) + (tasks.waiting || 0);
 
         if (!anySteps && !anyTasks) {
-            summary.appendChild(note('No work has been done in the last week.'));
+            summary.appendChild(note(T('room.noWork')));
             el('review-people').textContent = '';
             return;
         }
@@ -489,19 +520,22 @@
         line.className = 'note';
 
         const parts = [
-            (tasks.done || 0) + ' finished',
-            (tasks.blocked || 0) + ' stopped'
+            T('room.finished', { n: tasks.done || 0 }),
+            T('room.stopped', { n: tasks.blocked || 0 })
         ];
 
-        if (tasks.waiting) parts.push(tasks.waiting + ' waiting for you');
-        if (tasks.running) parts.push(tasks.running + ' still going');
+        if (tasks.waiting) parts.push(T('room.waitingN', { n: tasks.waiting }));
+        if (tasks.running) parts.push(T('room.stillGoing', { n: tasks.running }));
 
-        line.textContent = parts.join(', ') + ' · '
-            + (steps.verified || 0) + ' steps checked against what the tools returned, '
-            + (steps.claimed || 0) + ' taken on its own word, '
-            + (steps.unmet || 0) + ' that did not do what they were for'
-            + (steps.failed ? ', ' + steps.failed + ' that could not run at all' : '')
-            + '.';
+        const stepParts = [
+            T('room.stepsChecked', { n: steps.verified || 0 }),
+            T('room.stepsClaimed', { n: steps.claimed || 0 }),
+            T('room.stepsUnmet', { n: steps.unmet || 0 })
+        ];
+
+        if (steps.failed) stepParts.push(T('room.stepsFailed', { n: steps.failed }));
+
+        line.textContent = parts.join(', ') + ' · ' + stepParts.join(', ') + '.';
         summary.appendChild(line);
 
         /*
@@ -524,15 +558,14 @@
 
             const name = document.createElement('span');
             name.className = 'agent-title';
-            name.textContent = person.name;
+            name.textContent = window.pnAgentTitle ? window.pnAgentTitle(person.name) : person.name;
             row.appendChild(name);
 
             const what = document.createElement('span');
             what.className = 'task-state';
-            what.textContent = person.steps + ' steps · ' + person.verified + ' checked, '
-                + person.claimed + ' claimed'
-                + (person.failed ? ', ' + person.failed + ' failed' : '')
-                + ' · ' + Math.round(person.seconds) + 's';
+            what.textContent = T('room.person', { steps: person.steps, checked: person.verified, claimed: person.claimed })
+                + (person.failed ? ', ' + T('room.personFailed', { n: person.failed }) : '')
+                + ' · ' + T('room.seconds', { n: Math.round(person.seconds) });
             row.appendChild(what);
 
             people.appendChild(row);
@@ -571,6 +604,8 @@
 
         document.querySelector('.nav-item[data-view="room"]')
             ?.addEventListener('click', refresh);
+
+        window.addEventListener('pn-language', refresh);
     }
 
     if (document.readyState === 'loading') {

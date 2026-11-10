@@ -69,6 +69,10 @@ type Seat struct {
 	// Key is what the work is known by elsewhere — a task step, say — so the
 	// interface can put "waiting for this machine" beside the right thing.
 	Key string `json:"key,omitempty"`
+
+	// Agent is who it is by name ("developer", "planner") rather than by
+	// the English title in Who, so the page can name them in its language.
+	Agent string `json:"agent,omitempty"`
 }
 
 // Lane is one kind of lane as it stands.

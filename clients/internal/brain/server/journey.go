@@ -226,6 +226,7 @@ func (s *Server) handleWhereItCouldLive(w http.ResponseWriter, r *http.Request) 
 	}
 
 	facts, _ := s.brain.DB.CountFacts()
+	outlook, outlookKey, outlookVars := roomOutlook(report, facts)
 
 	ok(w, map[string]any{
 		"here":           s.brain.Root,
@@ -235,7 +236,9 @@ func (s *Server) handleWhereItCouldLive(w http.ResponseWriter, r *http.Request) 
 		"drives":         out,
 		// What the numbers mean for somebody worrying about room, said rather
 		// than left to be worked out from two byte counts.
-		"outlook": outlook(report, facts),
+		"outlook":      outlook,
+		"outlook_key":  outlookKey,
+		"outlook_vars": outlookVars,
 	})
 }
 
@@ -244,7 +247,7 @@ func (s *Server) handleWhereItCouldLive(w http.ResponseWriter, r *http.Request) 
 const copiesRoom = 3
 
 /*
- * outlook turns the free space into the question people actually have.
+ * roomOutlook turns the free space into the question people actually have.
  *
  * Nobody wants to know how many bytes a database is. They want to know whether
  * running out of room is a problem they have to plan for, and for a brain of a
@@ -252,9 +255,9 @@ const copiesRoom = 3
  * that it is not — which is worth saying plainly rather than leaving somebody
  * to infer it from two numbers.
  */
-func outlook(r storage.Report, facts int) string {
+func roomOutlook(r storage.Report, facts int) (text, key string, vars map[string]any) {
 	if r.DatabaseBytes <= 0 || r.FreeBytes == 0 || facts <= 0 {
-		return ""
+		return "", "", nil
 	}
 
 	each := r.DatabaseBytes / int64(facts)
@@ -265,14 +268,18 @@ func outlook(r storage.Report, facts int) string {
 
 	room := int64(r.FreeBytes) / each
 
+	// The key and values say the same in the page's language (i18n.js
+	// 'sys.outlook.*').
 	switch {
 	case room >= 1_000_000:
 		return "There is room here for millions more things than it knows now. " +
-			"Running out of space is not something this brain is going to do."
+			"Running out of space is not something this brain is going to do.", "sys.outlook.millions", nil
 
 	case room >= 1_000:
-		return fmt.Sprintf("There is room here for roughly %d thousand more things.", room/1000)
+		return fmt.Sprintf("There is room here for roughly %d thousand more things.", room/1000),
+			"sys.outlook.thousands", map[string]any{"n": room / 1000}
 	}
 
-	return fmt.Sprintf("There is room here for roughly %d more things.", room)
+	return fmt.Sprintf("There is room here for roughly %d more things.", room),
+		"sys.outlook.some", map[string]any{"n": room}
 }

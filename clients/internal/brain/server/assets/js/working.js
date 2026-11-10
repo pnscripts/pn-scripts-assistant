@@ -61,8 +61,19 @@ const SPOKEN = {};
  * line when a turn has been going a long time — see stillWorking below.
  */
 const SPOKEN_KINDS = {
-    waiting: 'I need you to decide something.',
+    waiting: 'cc.say.decide',
 };
+
+function workingWords(key, vars) {
+    return window.pnT ? window.pnT(key, vars) : key;
+}
+
+// A line the server wrote about a step, in the page's language.
+function workingLine(step) {
+    if (!step.note) return workingWords('cc.working');
+
+    return window.pnStepLine ? window.pnStepLine(step.note, step) : step.note;
+}
 
 /*
  * How long a turn runs before it says anything about itself.
@@ -95,7 +106,7 @@ function stillWorking(step) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            text: `Still ${(step.note || 'working').toLowerCase()}. This machine takes a while.`,
+            text: workingWords('cc.say.still', { what: workingLine(step).toLowerCase() }),
         }),
     }).catch(() => {});
 }
@@ -164,7 +175,7 @@ function announce(step) {
      */
     if (step.background) return;
 
-    const said = SPOKEN[step.tool] || SPOKEN_KINDS[step.kind];
+    const said = SPOKEN[step.tool] || (SPOKEN_KINDS[step.kind] && workingWords(SPOKEN_KINDS[step.kind]));
 
     if (!said || said === announced) return;
 
@@ -200,18 +211,19 @@ function show(step) {
      * which of them they are waiting for, while they wait rather than after.
      */
     label.textContent = step.model
-        ? `${step.note || 'Working'} \u00b7 ${step.model}`
-        : step.note || 'Working';
+        ? `${workingLine(step)} \u00b7 ${step.model}`
+        : workingLine(step);
 
     const seconds = Math.round(step.seconds || 0);
-    const time = seconds < 60
+    const local = window.pnLocalNumber || ((text) => text);
+    const time = local(seconds < 60
         ? `${seconds}s`
-        : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
+        : `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`);
 
     // The round count is what makes a long turn make sense: a tool-using turn
     // is several model calls, and knowing it is on the third explains the wait
     // in a way a spinner never can.
-    clock.textContent = step.round > 1 ? `${time} · step ${step.round}` : time;
+    clock.textContent = step.round > 1 ? workingWords('cc.round', { time, n: step.round }) : time;
 
     /*
      * Announced by tool name, not by the summary.

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"math"
 	"net/http"
 	"sort"
 	"strings"
@@ -51,6 +52,10 @@ type Variant struct {
 	// Verdict is what this machine would make of it; empty when there was
 	// nothing to judge it by.
 	Verdict string `json:"verdict"`
+
+	// VerdictKey names the verdict in i18n.js ('mdl.verdict.<key>'), so a
+	// Bulgarian page says it in Bulgarian.
+	VerdictKey string `json:"verdict_key,omitempty"`
 }
 
 // Listed is one model with every size it comes in.
@@ -77,7 +82,8 @@ func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
 	 */
 	if !s.brain.Cfg.LookOnline {
 		ok(w, map[string]any{
-			"models": []Listed{},
+			"models":  []Listed{},
+			"why_key": "mdl.lookingOff",
 			"why": "The list of models lives on the internet and looking things " +
 				"up is switched off. Turn it on under Permissions: it is not " +
 				"your privacy setting, and asking what models exist sends " +
@@ -121,8 +127,11 @@ func (s *Server) handleCatalogue(w http.ResponseWriter, r *http.Request) {
 
 	ok(w, map[string]any{
 		"machine": power.Describe(),
-		"tier":    string(power.Tier()),
-		"models":  listCatalogue(library, installed, power),
+		// The same reading in figures, so the page can say it in its own
+		// language rather than repeat the English sentence.
+		"power":  powerFigures(power),
+		"tier":   string(power.Tier()),
+		"models": listCatalogue(library, installed, power),
 	})
 }
 
@@ -187,10 +196,10 @@ func listCatalogue(library []catalogue.Model, installed map[string]bool, power m
 				// Small, and run once per thing remembered; the machine is
 				// never the limit.
 				v.NeedsGB = 1
-				v.Fits, v.Comfortable, v.Verdict = judge(v.NeedsGB, true, power)
+				v.Fits, v.Comfortable, v.Verdict, v.VerdictKey = judge(v.NeedsGB, true, power)
 
 			case v.NeedsGB > 0:
-				v.Fits, v.Comfortable, v.Verdict = judge(v.NeedsGB, false, power)
+				v.Fits, v.Comfortable, v.Verdict, v.VerdictKey = judge(v.NeedsGB, false, power)
 			}
 
 			listed.AnyInstalled = listed.AnyInstalled || v.Installed
@@ -217,7 +226,7 @@ func listCatalogue(library []catalogue.Model, installed map[string]bool, power m
  * minutes per answer on four cores, so comfortable is reported apart from
  * fits: it is what the interface starts on.
  */
-func judge(needsGB float64, embedding bool, p models.Power) (fits, comfortable bool, verdict string) {
+func judge(needsGB float64, embedding bool, p models.Power) (fits, comfortable bool, verdict, key string) {
 	const gb = 1 << 30
 
 	room := float64(p.RAMBytes) / gb
@@ -225,7 +234,7 @@ func judge(needsGB float64, embedding bool, p models.Power) (fits, comfortable b
 	if embedding {
 		// Small, and run once per thing remembered rather than per answer.
 		// The tier does not change the answer.
-		return true, true, "fine on any machine"
+		return true, true, "fine on any machine", "anyMachine"
 	}
 
 	if p.Accelerated && p.VRAMBytes > 0 {
@@ -233,27 +242,38 @@ func judge(needsGB float64, embedding bool, p models.Power) (fits, comfortable b
 
 		switch {
 		case needsGB <= card:
-			return true, true, "fits on your graphics card, so this will be quick"
+			return true, true, "fits on your graphics card, so this will be quick", "card"
 
 		case needsGB <= room:
-			return true, false, "too big for your graphics card, so it runs on the processor, slower"
+			return true, false, "too big for your graphics card, so it runs on the processor, slower", "notCard"
 
 		default:
-			return false, false, "larger than this machine's memory"
+			return false, false, "larger than this machine's memory", "tooBig"
 		}
 	}
 
 	switch {
 	case needsGB > room:
-		return false, false, "larger than this machine's memory, so it would swap and crawl"
+		return false, false, "larger than this machine's memory, so it would swap and crawl", "swap"
 
 	case needsGB <= 3.5:
-		return true, true, "quick enough on a processor"
+		return true, true, "quick enough on a processor", "quick"
 
 	case needsGB <= 6:
-		return true, true, "usable on a processor: seconds, not instant"
+		return true, true, "usable on a processor: seconds, not instant", "usable"
 
 	default:
-		return true, false, "slow without a graphics card: minutes per answer"
+		return true, false, "slow without a graphics card: minutes per answer", "slow"
+	}
+}
+
+// powerFigures is models.Power.Describe as numbers: the same rounding, so
+// both languages name the same machine.
+func powerFigures(p models.Power) map[string]any {
+	return map[string]any{
+		"cores":       p.Cores,
+		"memory_gb":   int(math.Round(float64(p.RAMBytes) / (1 << 30))),
+		"card_gb":     int(math.Round(float64(p.VRAMBytes) / (1 << 30))),
+		"accelerated": p.Accelerated,
 	}
 }

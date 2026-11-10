@@ -138,7 +138,7 @@ func (c *Conductor) check(ctx context.Context, task *store.Task, step *store.Tas
 func (c *Conductor) ask(ctx context.Context, task *store.Task, step *store.TaskStep, res agent.Result, evidence string) Checked {
 	model, err := c.Provider(task.Provider)
 	if err == nil {
-		model = c.asking(model, "The checker", step.Instruction)
+		model = c.asking(model, "checker", "The checker", step.Instruction)
 	}
 
 	if err != nil {

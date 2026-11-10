@@ -14,6 +14,17 @@
 (function () {
     const el = (id) => document.getElementById(id);
 
+    // Every word a person reads here is in i18n.js, in English and Bulgarian.
+    const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+
+    // A string named by a key the server or the list gives, or the English
+    // it came with when this page has no such key.
+    function said(key, fallback, vars) {
+        const text = T(key, vars);
+
+        return text === key ? fallback : text;
+    }
+
     async function call(path, payload) {
         const res = await fetch(path, {
             method: payload ? 'POST' : 'GET',
@@ -25,7 +36,7 @@
 
         const body = await res.json().catch(() => ({}));
 
-        if (!res.ok) throw new Error(body.error || `that did not work (${res.status})`);
+        if (!res.ok) throw new Error(body.error || T('mdl.failedStatus', { status: res.status }));
 
         return body.data !== undefined ? body.data : body;
     }
@@ -77,23 +88,23 @@
          * the privacy setting forbids is a third, where nothing is wrong at
          * all. Saying which is most of the value of this page.
          */
-        state.textContent = !p.permitted ? 'not allowed at this privacy setting'
-            : p.reachable ? 'answering'
-                : (p.needs_key && !p.has_key) ? 'no key yet'
-                    : 'not answering';
+        state.textContent = !p.permitted ? T('mdl.notAllowed')
+            : p.reachable ? T('mdl.answering')
+                : (p.needs_key && !p.has_key) ? T('mdl.noKey')
+                    : T('mdl.notAnswering');
 
         head.append(name, state);
 
         if (p.default) {
             const mark = document.createElement('span');
             mark.className = 'provider-default';
-            mark.textContent = 'default';
+            mark.textContent = T('mdl.default');
             head.appendChild(mark);
         }
 
         const what = document.createElement('p');
         what.className = 'provider-what';
-        what.textContent = p.what;
+        what.textContent = said(`mdl.prov.${p.name}`, p.what);
 
         card.append(head, what);
 
@@ -108,7 +119,7 @@
             key.autocomplete = 'off';
             key.spellcheck = false;
             // The tail, not the key: enough to recognise, useless to steal.
-            key.placeholder = p.has_key ? `key set, ending ${p.key_tail}` : 'paste the key';
+            key.placeholder = p.has_key ? T('mdl.keySet', { tail: p.key_tail }) : T('mdl.pasteKey');
             fields.appendChild(key);
         }
 
@@ -124,7 +135,7 @@
         const model = document.createElement('input');
         model.type = 'text';
         model.value = p.model || '';
-        model.placeholder = 'model name, or leave empty for the default';
+        model.placeholder = T('mdl.modelName');
         fields.appendChild(model);
 
         card.appendChild(fields);
@@ -134,7 +145,7 @@
 
         const save = document.createElement('button');
         save.className = 'model-action';
-        save.textContent = p.has_key || !p.needs_key ? 'Save' : 'Connect';
+        save.textContent = p.has_key || !p.needs_key ? T('mdl.save') : T('mdl.connect');
         save.onclick = async () => {
             const payload = { provider: p.name, model: model.value };
 
@@ -153,11 +164,15 @@
 
         const test = document.createElement('button');
         test.className = 'model-action';
-        test.textContent = 'Test';
+        test.textContent = T('mdl.test');
         test.onclick = () => act(test, async () => {
             const answer = await call(`/api/providers/${p.name}/test`, {});
 
-            state.textContent = answer.why || (answer.reachable ? 'answering' : 'not answering');
+            state.textContent = answer.why_key
+                ? said(`mdl.test.${answer.why_key}`, answer.why, {
+                    privacy: said(`mdl.privacy.${answer.privacy}`, answer.privacy || ''),
+                })
+                : (answer.why || (answer.reachable ? T('mdl.answering') : T('mdl.notAnswering')));
             card.dataset.state = answer.reachable ? 'reachable' : 'unreachable';
         });
 
@@ -166,7 +181,7 @@
         if (p.needs_key && p.has_key) {
             const forget = document.createElement('button');
             forget.className = 'model-action danger';
-            forget.textContent = 'Forget the key';
+            forget.textContent = T('mdl.forgetKey');
             forget.onclick = () => act(forget, async () => {
                 await call('/api/providers/connect', { provider: p.name, forget: true });
                 load();
@@ -190,11 +205,11 @@
         const was = button.textContent;
 
         button.disabled = true;
-        button.textContent = 'one moment…';
+        button.textContent = T('mdl.oneMoment');
 
         try {
             await work();
-            button.textContent = 'done';
+            button.textContent = T('mdl.done');
         } catch (err) {
             button.textContent = String(err.message || err).slice(0, 60);
         }
@@ -208,6 +223,9 @@
     for (const item of document.querySelectorAll('[data-view="models"]')) {
         item.addEventListener('click', () => load());
     }
+
+    // Drawn again in the other language as soon as it changes.
+    window.addEventListener('pn-language', () => load());
 
     load();
 }());

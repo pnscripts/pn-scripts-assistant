@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/machine"
@@ -56,11 +57,17 @@ func (s *Server) handleOperations(w http.ResponseWriter, r *http.Request) {
 	 */
 	disks, _ := storage.Drives(s.brain.Root)
 
+	gpuKey, gpuWhy := gpuNoteKey(now.GPUNote)
+
 	ok200(w, map[string]any{
 		"available": now.Available,
 		"machine":   now,
-		"disks":     disks,
-		"history":   machine.History(),
+		// The graphics note as a key in i18n.js ('ops.gpu.<key>'), with the
+		// reason the card's reader gave when it is that one.
+		"gpu_note_key": gpuKey,
+		"gpu_note_why": gpuWhy,
+		"disks":        disks,
+		"history":      machine.History(),
 		// How far back the graphs go and how often the readings are taken, so
 		// the axis is labelled from the truth rather than from a guess in the
 		// page.
@@ -82,6 +89,23 @@ func (s *Server) handleOperations(w http.ResponseWriter, r *http.Request) {
 			"capability": s.brain.Capabilities(),
 		},
 	})
+}
+
+// gpuNoteKey names the three notes the reader of NVIDIA cards gives, so the
+// page can say them in its own language; any other note has no key.
+func gpuNoteKey(note string) (string, string) {
+	const silent = "nvidia-smi is installed but would not answer: "
+
+	switch {
+	case note == "No NVIDIA card on this machine.":
+		return "none", ""
+	case note == "nvidia-smi answered, but listed no cards.":
+		return "empty", ""
+	case strings.HasPrefix(note, silent):
+		return "silent", strings.TrimPrefix(note, silent)
+	}
+
+	return "", ""
 }
 
 // ok200 is ok, named apart so this file reads without a variable called ok
