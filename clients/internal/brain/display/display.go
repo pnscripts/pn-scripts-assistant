@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"pn-scripts-assistant/internal/brain/sandbox"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -159,7 +160,8 @@ func Start(ctx context.Context, width, height int) (*Virtual, error) {
 	compositor.Env = env
 	sandbox.OwnGroup(compositor)
 
-	var said strings.Builder
+	// Read below while mutter may still be writing into it: see output.
+	var said output
 
 	compositor.Stdout, compositor.Stderr = &said, &said
 
@@ -225,6 +227,32 @@ func (v *Virtual) Stop() {
 func base(runtime string) []string {
 	return []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME"),
 		"LANG=C.UTF-8", "XDG_RUNTIME_DIR=" + runtime}
+}
+
+/*
+ * output is what a program says, safe to read while it is still saying it.
+ *
+ * os/exec copies a program's output from a goroutine of its own, so reading
+ * a plain strings.Builder while the program runs is a data race: `make race`
+ * found it when mutter could not open its display and Start quoted it.
+ */
+type output struct {
+	mu   sync.Mutex
+	text strings.Builder
+}
+
+func (o *output) Write(p []byte) (int, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	return o.text.Write(p)
+}
+
+func (o *output) String() string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	return o.text.String()
 }
 
 func lastLine(text string) string {
