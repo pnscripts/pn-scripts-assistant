@@ -63,7 +63,7 @@ process that can be left running when it should not be.
 **Found by the move: every memory held a container path.** All 79 facts recorded
 paths under `/mnt/scan`, which is where the owner's disk appeared *inside* the
 container. Outside it, those paths point nowhere, so the knowledge was accurate
-and unusable at the same time. `brain rewrite-paths` repairs them and re-embeds
+and unusable at the same time. `pn-scripts-assistant rewrite-paths` repairs them and re-embeds
 what it changed, because rewriting the text alone would leave each vector describing the
 old wording, and nothing would ever surface that mismatch.
 

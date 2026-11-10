@@ -44,7 +44,7 @@ if ! pkg-config --exists gtk+-3.0 webkit2gtk-4.1 2>/dev/null; then
     CGO=0
 fi
 
-log "Building the brain (cgo=$CGO)"
+log "Building PN Scripts Assistant (cgo=$CGO)"
 mkdir -p "$PROJECT_ROOT/dist"
 
 CGO_ENABLED=$CGO go build -C "$PROJECT_ROOT/clients" \

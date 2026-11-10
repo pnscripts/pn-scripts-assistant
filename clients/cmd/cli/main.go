@@ -1,13 +1,14 @@
-// pn-scripts-assistant-cli is a terminal client for the PN Scripts Assistant API. It's the first of several
-// clients that talk to the one brain (see ../../app/Brain) over HTTP — each
-// client picks whatever language fits its platform; only the brain itself is
-// single-sourced.
+// pn-scripts-assistant-cli is a terminal client for PN Scripts Assistant: it
+// asks the running program over its local HTTP API and prints the answers. It
+// keeps no knowledge of its own; everything it says comes from the program
+// running on this machine.
 package main
 
 import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -36,22 +37,83 @@ type chatResponse struct {
 	Model          string `json:"model"`
 }
 
-type brainInfo struct {
+// program is how the client names what it talks to when that has no name of
+// its own: the command that starts it.
+const program = "pn-scripts-assistant"
+
+const (
+	// defaultAPIURL is where the program serves unless told otherwise
+	// (config.Default().Addr; a test keeps the two together).
+	defaultAPIURL = "http://127.0.0.1:8790"
+
+	// apiURLEnv is where to find it, under the program's name.
+	apiURLEnv = "PN_SCRIPTS_ASSISTANT_API_URL"
+
+	// legacyAPIURLEnv is the same from when the program was PN Brain. Still
+	// read, so a script written for an older version keeps working.
+	legacyAPIURLEnv = "BRAIN_API_URL"
+)
+
+// apiURLFromEnv is the address to talk to: the new variable, then the old one,
+// then where the program serves by default.
+func apiURLFromEnv() string {
+	for _, key := range []string{apiURLEnv, legacyAPIURLEnv} {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
+	}
+
+	return defaultAPIURL
+}
+
+type assistantInfo struct {
 	Name  string `json:"name"`
 	Owner string `json:"owner"`
 }
 
-func fetchBrainInfo(apiURL string) (brainInfo, error) {
-	resp, err := http.Get(strings.TrimRight(apiURL, "/") + "/api/brain")
+/*
+ * fetchInfo asks the program what it is called and whom it works for.
+ *
+ * /api/status is where the program says so. The client used to ask /api/brain,
+ * which the program has never answered, so it always fell back to calling the
+ * assistant "brain". /api/brain is still tried second, for anything older that
+ * did answer there.
+ */
+func fetchInfo(apiURL string) (assistantInfo, error) {
+	var last error
+
+	for _, path := range []string{"/api/status", "/api/brain"} {
+		info, err := getInfo(strings.TrimRight(apiURL, "/") + path)
+		if err == nil {
+			return info, nil
+		}
+
+		last = err
+	}
+
+	return assistantInfo{}, last
+}
+
+func getInfo(url string) (assistantInfo, error) {
+	resp, err := http.Get(url)
 	if err != nil {
-		return brainInfo{}, err
+		return assistantInfo{}, err
 	}
 	defer resp.Body.Close()
 
-	var info brainInfo
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return brainInfo{}, err
+	if resp.StatusCode != http.StatusOK {
+		return assistantInfo{}, fmt.Errorf("%s answered %d", url, resp.StatusCode)
 	}
+
+	var info assistantInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return assistantInfo{}, err
+	}
+
+	if info.Name == "" && info.Owner == "" {
+		return assistantInfo{}, errors.New(url + " did not say who it is")
+	}
+
 	return info, nil
 }
 
@@ -119,35 +181,51 @@ func send(apiURL string, s cliState, provider, message string) (chatResponse, er
 	return cr, nil
 }
 
-func runOne(apiURL string, s *cliState, provider, message, name string) {
+func runOne(apiURL string, s *cliState, provider, message, name string, stdout, stderr io.Writer) bool {
 	cr, err := send(apiURL, *s, provider, message)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return
+		fmt.Fprintln(stderr, "error:", err)
+		return false
 	}
 	s.ConversationID = &cr.ConversationID
 	saveState(*s)
-	fmt.Printf("%s [%s/%s]> %s\n", strings.ToLower(name), cr.Provider, cr.Model, cr.Reply)
-}
-
-func envOr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
+	fmt.Fprintf(stdout, "%s [%s/%s]> %s\n", strings.ToLower(name), cr.Provider, cr.Model, cr.Reply)
+	return true
 }
 
 func main() {
-	apiURL := flag.String("api", envOr("BRAIN_API_URL", "http://localhost:8090"), "AI Brain API base URL")
-	provider := flag.String("provider", "", "force provider: ollama or anthropic (default: server config)")
-	newConv := flag.Bool("new", false, "start a new conversation instead of continuing the last one")
-	version := flag.Bool("version", false, "say which version this is, and nothing else")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+}
+
+// run is the whole client, with its streams passed in so a test can read what
+// a person would see.
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("pn-scripts-assistant-cli", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	fs.Usage = func() {
+		fmt.Fprint(stderr, "pn-scripts-assistant-cli talks to PN Scripts Assistant from a terminal.\n\n"+
+			"  pn-scripts-assistant-cli [options] [message]\n\n")
+		fs.PrintDefaults()
+		fmt.Fprintf(stderr, "\nThe address can also be set with %s (%s is still read).\n",
+			apiURLEnv, legacyAPIURLEnv)
+	}
+
+	apiURL := fs.String("api", apiURLFromEnv(), "address of PN Scripts Assistant on this machine")
+	provider := fs.String("provider", "", "force provider: ollama or anthropic (default: server config)")
+	newConv := fs.Bool("new", false, "start a new conversation instead of continuing the last one")
+	version := fs.Bool("version", false, "say which version this is, and nothing else")
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
 
 	// Which copy this is, answered before anything reaches the network.
 	if *version {
-		fmt.Println(release.Full("PN Scripts Assistant CLI"))
-		return
+		fmt.Fprintln(stdout, release.Full("PN Scripts Assistant CLI"))
+		return 0
 	}
 
 	s := loadState()
@@ -155,28 +233,35 @@ func main() {
 		s.ConversationID = nil
 	}
 
-	info, err := fetchBrainInfo(*apiURL)
-	name := "brain"
+	info, err := fetchInfo(*apiURL)
+	name := program
 	if err == nil && info.Name != "" {
 		name = info.Name
 	}
 
-	if args := flag.Args(); len(args) > 0 {
-		runOne(*apiURL, &s, *provider, strings.Join(args, " "), name)
-		return
+	if rest := fs.Args(); len(rest) > 0 {
+		if !runOne(*apiURL, &s, *provider, strings.Join(rest, " "), name, stdout, stderr) {
+			return 1
+		}
+		return 0
 	}
 
 	if err == nil {
-		fmt.Printf("%s online. How can I help, %s? (':new' for a fresh conversation, 'exit' to quit)\n", info.Name, info.Owner)
+		help := "How can I help?"
+		if info.Owner != "" {
+			help = "How can I help, " + info.Owner + "?"
+		}
+		fmt.Fprintf(stdout, "%s online. %s (':new' for a fresh conversation, 'exit' to quit)\n", name, help)
 	} else {
-		fmt.Println("Connected, but /api/brain didn't respond. Is the brain running? (':new' for a fresh conversation, 'exit' to quit)")
+		fmt.Fprintf(stdout, "Nothing answered at %s. Is PN Scripts Assistant running? Start it with %s, "+
+			"or point this at it with --api. (':new' for a fresh conversation, 'exit' to quit)\n", *apiURL, program)
 	}
 
-	scanner := bufio.NewScanner(os.Stdin)
+	scanner := bufio.NewScanner(stdin)
 	for {
-		fmt.Print("you> ")
+		fmt.Fprint(stdout, "you> ")
 		if !scanner.Scan() {
-			fmt.Println()
+			fmt.Fprintln(stdout)
 			break
 		}
 		line := strings.TrimSpace(scanner.Text())
@@ -184,12 +269,14 @@ func main() {
 		case line == "":
 			continue
 		case line == "exit" || line == "quit":
-			return
+			return 0
 		case line == ":new":
 			s.ConversationID = nil
-			fmt.Println("(new conversation)")
+			fmt.Fprintln(stdout, "(new conversation)")
 			continue
 		}
-		runOne(*apiURL, &s, *provider, line, name)
+		runOne(*apiURL, &s, *provider, line, name, stdout, stderr)
 	}
+
+	return 0
 }

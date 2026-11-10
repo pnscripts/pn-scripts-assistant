@@ -332,7 +332,7 @@ A few things worth knowing:
 | Everything it can do from a terminal | `man pn-scripts-assistant` |
 | Where the data is, and how much | `pn-scripts-assistant status` |
 | Why it did not start | `~/.local/state/pn-scripts-assistant/logs/pn-scripts-assistant.log` |
-| Somewhere else | `BRAIN_ADDR=127.0.0.1:9000 pn-scripts-assistant` |
+| Somewhere else | `PN_SCRIPTS_ASSISTANT_ADDR=127.0.0.1:9000 pn-scripts-assistant` |
 
 Everything else is in the window. The terminal is for people who prefer one.
 

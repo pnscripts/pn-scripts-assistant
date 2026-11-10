@@ -19,7 +19,7 @@ secrets are taken out of it before it is written.
 | What you see | What it means |
 |---|---|
 | `Assistant is already running on this brain (…) and answering on http://127.0.0.1:8790` | A second copy was asked to open the same brain. Use the one that is running, or serve a different brain with `PN_SCRIPTS_ASSISTANT_DATA_ROOT=<folder>`. |
-| `something is already answering on 127.0.0.1:8790` | Something else has the port. Open that address to see what it is, or start elsewhere with `BRAIN_ADDR=127.0.0.1:9000`. |
+| `something is already answering on 127.0.0.1:8790` | Something else has the port. Open that address to see what it is, or start elsewhere with `PN_SCRIPTS_ASSISTANT_ADDR=127.0.0.1:9000`. |
 | Nothing at all, launched from the menu | Read the log. If it is empty, run `pn-scripts-assistant` in a terminal: the reason will be on screen. |
 | It waits for a drive | The brain is on a disk that is not plugged in. Plug it in, or `pn-scripts-assistant start-again` to stop waiting for one that is gone for good. |
 
