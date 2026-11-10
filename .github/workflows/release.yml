@@ -50,7 +50,7 @@ jobs:
 
       # CGO for the window layer; the tests themselves need no display.
       - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-        timeout-minutes: 10
+        timeout-minutes: 25
 
       - run: go test ./...
         working-directory: clients
@@ -94,7 +94,7 @@ jobs:
           cache-dependency-path: clients/go.sum
 
       - name: Install what the window and the packaging need
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
@@ -288,7 +288,7 @@ jobs:
       # WebKitGTK 4.1 — Ubuntu 24.04 dropped 4.0 entirely, which is also why
       # the maintained Go webview bindings cannot build here.
       - name: Install webview headers
-        timeout-minutes: 10
+        timeout-minutes: 25
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update

@@ -64,7 +64,7 @@ jobs:
 
       # vet reaches the window, which is cgo against GTK and WebKit.
       - name: Install what the window needs
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
@@ -84,7 +84,7 @@ jobs:
           cache-dependency-path: clients/go.sum
 
       - name: Install what the window needs
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
@@ -169,7 +169,7 @@ jobs:
       # of these are cgo against GTK and WebKit, so without this the scan does
       # not come back clean: it does not run at all.
       - name: Install what the window needs
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
@@ -198,7 +198,7 @@ jobs:
           cache-dependency-path: clients/go.sum
 
       - name: Install what the window and the packaging need
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
@@ -335,7 +335,7 @@ jobs:
     needs: package
     name: Idle load stays under budget
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -345,7 +345,7 @@ jobs:
           path: package
 
       - name: Install the package, a virtual display and xdotool
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           sudo apt-get update
           sudo apt-get install -y ./package/*.deb xvfb xdotool
@@ -818,7 +818,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: shellcheck
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck

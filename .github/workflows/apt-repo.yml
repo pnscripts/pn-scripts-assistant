@@ -90,7 +90,7 @@ jobs:
     name: A stranger adds it, installs the previous version and updates
     needs: publish
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       # The documented line, exactly as docs/guide/installing.md has it.
       - name: Add the repository (one line)
@@ -101,7 +101,7 @@ jobs:
           apt-cache policy pn-scripts-assistant
 
       - name: Install the version before the newest
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
           versions="$(apt-cache madison pn-scripts-assistant | awk '{ print $3 }')"
           echo "$versions"
