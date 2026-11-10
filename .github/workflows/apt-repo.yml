@@ -132,6 +132,12 @@ jobs:
           sudo apt-get update
           apt list --upgradable 2>/dev/null | tee upgradable.txt
           grep -q '^pn-scripts-assistant/' upgradable.txt
+          # Only this package may move. The runner image's own pending
+          # updates are not what this proves: on 2026-11-10 they pulled snaps
+          # (gnome-46-2404, mesa-2404) at 267 kB/s and ran out the step's ten
+          # minutes three times. The command stays the one a user types.
+          dpkg-query -W -f='${Package}\n' | sort -u | grep -vx 'pn-scripts-assistant' \
+            | xargs sudo apt-mark hold > /dev/null
           sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y </dev/null
           have="$(dpkg-query -W -f='${Version}' pn-scripts-assistant)"
           echo "installed now: $have, newest: $NEWEST"
