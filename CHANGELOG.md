@@ -9,6 +9,18 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
+## Unreleased
+
+- The standalone Linux download (`pn-scripts-assistant-linux-amd64`) knows
+  its version again. 1.0.0 and 0.13.0 published it without one, so it called
+  itself "built from source" and never said when a newer version was out.
+  The .deb and the Windows download were not affected. Every published
+  program, the CLI and doctor included, now answers `--version`, and a
+  release is refused when any file it would publish does not carry its
+  version.
+- Research reports no longer contain dashes: the report asks for none, and
+  a section where the sources agree says "None." (in Bulgarian „Няма.“).
+
 ## 1.0.0 (2026-11-10)
 
 The first version we call finished. Everything the 0.x releases added is
