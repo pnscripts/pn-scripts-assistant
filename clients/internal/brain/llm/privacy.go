@@ -155,8 +155,8 @@ func (m Mode) Describe() Description {
 			Detail: "Local model and local embeddings only. Web search and page fetching " +
 				"are switched off. Your conversations, memory and files stay here. With " +
 				"\"May look things up about itself\" on (a separate setting), the program may still " +
-				"download its own parts, such as the voice recognition runtime after an " +
-				"update; those downloads carry nothing about you.",
+				"download its own parts, such as a voice replaced by an update; those " +
+				"downloads carry nothing about you.",
 		}
 	}
 }

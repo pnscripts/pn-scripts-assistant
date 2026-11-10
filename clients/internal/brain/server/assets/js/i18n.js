@@ -1556,12 +1556,12 @@
         'cc.privacy.privateDetail': [
             'Local model and local embeddings only. Web search and page fetching are switched off. '
                 + 'Your conversations, memory and files stay here. With "May look things up about itself" on '
-                + '(a separate setting), the program may still download its own parts, such as the voice '
-                + 'recognition runtime after an update; those downloads carry nothing about you.',
+                + '(a separate setting), the program may still download its own parts, such as a voice '
+                + 'replaced by an update; those downloads carry nothing about you.',
             'Само локален модел и локални вектори. Търсенето в интернет и отварянето на страници са изключени. '
                 + 'Разговорите, паметта и файловете ви остават тук. Ако „Може да проверява информация за себе си“ '
                 + 'е включено (отделна настройка), програмата все пак може да изтегля свои компоненти, например '
-                + 'средата за разпознаване на глас след обновяване. Тези изтегляния не носят нищо за вас.',
+                + 'глас, заменен при обновяване. Тези изтегляния не носят нищо за вас.',
         ],
         'cc.privacy.research': ['Your data stays here; the brain may read the web.', 'Данните ви остават тук, а мозъкът може да чете в интернет.'],
         'cc.privacy.researchDetail': [

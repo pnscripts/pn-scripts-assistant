@@ -120,7 +120,7 @@ against the code on 9 November 2026.
   on the first start.
 
 - **Two pieces of background work at once share one progress line.** When
-  one finishes (for example the voice recognition download while a folder is
+  one finishes (for example a voice download while a folder is
   being read), the line is cleared, and the other's progress shows again only
   with its next step. The work itself is not affected.
 
