@@ -24,8 +24,8 @@ import (
  * the way a person reads the screen: every word on those pages names its
  * string in i18n.js, and every string has Bulgarian in it.
  *
- * The "Your voice" card on Privacy is left out on purpose: its strings are
- * changed elsewhere and known-limits.md says it is still English.
+ * The "Your voice" card on Privacy is included since 1.0.1, which rewrote it
+ * when "Answer only me" was withdrawn.
  */
 
 // The views whose every word must come from i18n.js.
@@ -79,7 +79,7 @@ type pageText struct {
 	attr  string // "" for text; title, placeholder or aria-label for an attribute
 }
 
-// withoutComments blanks out comments and the Your voice card, keeping
+// withoutComments blanks out comments, scripts and styles, keeping
 // every line where it was so a failure names the right one.
 func withoutComments(t *testing.T, page string) string {
 	t.Helper()
@@ -92,35 +92,7 @@ func withoutComments(t *testing.T, page string) string {
 	page = regexp.MustCompile(`(?s)<script\b.*?</script>`).ReplaceAllStringFunc(page, blank)
 	page = regexp.MustCompile(`(?s)<style\b.*?</style>`).ReplaceAllStringFunc(page, blank)
 
-	// The Your voice card: from the card around its heading to its end.
-	head := strings.Index(page, "<h2>Your voice</h2>")
-	if head < 0 {
-		t.Fatal("the Your voice card has moved; say again which part of Privacy it is")
-	}
-
-	start := strings.LastIndex(page[:head], `<div class="card">`)
-	depth, end := 0, -1
-	tag := regexp.MustCompile(`<(/?)div\b[^>]*>`)
-
-	for _, m := range tag.FindAllStringSubmatchIndex(page[start:], -1) {
-		if page[start+m[2]:start+m[3]] == "/" {
-			depth--
-		} else {
-			depth++
-		}
-
-		if depth == 0 {
-			end = start + m[1]
-
-			break
-		}
-	}
-
-	if end < 0 {
-		t.Fatal("the Your voice card does not end")
-	}
-
-	return page[:start] + blank(page[start:end]) + page[end:]
+	return page
 }
 
 /*
@@ -348,7 +320,7 @@ var bilingualScripts = []string{
 	"organisation.js", "equip.js",
 	"tasks.js", "team.js",
 	"devices.js", "pairing.js",
-	"protection.js",
+	"protection.js", "voiceprint.js",
 }
 
 // Literals in those scripts that are code, not words a person reads.

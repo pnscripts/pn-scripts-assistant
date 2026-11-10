@@ -11,6 +11,19 @@ whenever something visible changed.
 
 ## Unreleased
 
+- **"Answer only me" is withdrawn.** The model it told voices apart with
+  (CAM++ from the 3D-Speaker project) was trained on VoxCeleb, whose
+  recordings are offered for research only. Until there is a model made
+  only from recordings free for any use, the switch is not offered: updating
+  turns it off, and the assistant answers any voice that addresses it, as it
+  did before the feature existed. Nothing is downloaded any more. A voice
+  you taught it, and the model and runtime 1.0.0 downloaded, stay where they
+  are and are not used; the Privacy page says why, in English and in
+  Bulgarian, and can still forget the voice. The credits and
+  THIRD-PARTY-NOTICES.md no longer list the model or the ONNX Runtime
+  download.
+- The *Your voice* card on the Privacy page is in Bulgarian on a Bulgarian
+  page too.
 - The standalone Linux download (`pn-scripts-assistant-linux-amd64`) knows
   its version again. 1.0.0 and 0.13.0 published it without one, so it called
   itself "built from source" and never said when a newer version was out.

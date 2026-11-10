@@ -64,31 +64,29 @@ func TestDownloadingIsTrueOnlyWhileADownloadRuns(t *testing.T) {
 }
 
 /*
- * The model comes from one commit, and only as that commit had it.
+ * A model, when one is offered, comes from one commit and only as that
+ * commit had it.
  *
  * It was fetched from the repository's main branch with no check at all, so
  * whatever that branch held on the day was what the program loaded, and a
- * server that never stopped sending could fill the disk.
+ * server that never stopped sending could fill the disk. Since 1.0.1 no model
+ * is offered (both empty); a release that offers one again must pin it.
  */
 func TestTheModelIsPinnedToOneCommitAndOneHash(t *testing.T) {
-	if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(ModelRevision) {
-		t.Errorf("ModelRevision %q is not a full commit id", ModelRevision)
+	if !Offered() {
+		if modelFrom != "" || modelSum != "" {
+			t.Errorf("half a model is named: from %q, sum %q", modelFrom, modelSum)
+		}
+
+		return
 	}
 
-	if !strings.Contains(ModelFrom, "/resolve/"+ModelRevision+"/") || strings.Contains(ModelFrom, "/resolve/main/") {
-		t.Errorf("ModelFrom %q does not name the pinned commit", ModelFrom)
+	if !regexp.MustCompile(`/resolve/[0-9a-f]{40}/`).MatchString(modelFrom) || strings.Contains(modelFrom, "/resolve/main/") {
+		t.Errorf("the model source %q does not name one commit", modelFrom)
 	}
 
-	if !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(ModelSHA256) {
-		t.Errorf("ModelSHA256 %q is not a SHA-256 in lowercase hex", ModelSHA256)
-	}
-
-	if modelFrom != ModelFrom || modelSum != ModelSHA256 {
-		t.Error("the model source differs from the published constants outside a test")
-	}
-
-	if ModelBytes <= 0 || ModelBytes > mostModelBytes {
-		t.Errorf("ModelBytes %d is not within the limit %d", ModelBytes, mostModelBytes)
+	if !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(modelSum) {
+		t.Errorf("the model digest %q is not a SHA-256 in lowercase hex", modelSum)
 	}
 }
 

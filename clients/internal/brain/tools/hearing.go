@@ -52,6 +52,8 @@ type Overheard struct {
 
 // HearingState is how the recognition is set up right now.
 type HearingState struct {
+	// Withdrawn: this release offers no model that tells voices apart.
+	Withdrawn    bool
 	VoiceModel   bool
 	VoiceTaught  bool
 	OnlyOwner    bool
@@ -166,6 +168,11 @@ func describeHearing(s HearingState) string {
 	}
 
 	switch {
+	case s.Withdrawn:
+		lines = append(lines, "I cannot tell one voice from another: that is not offered "+
+			"in this version, because the model it used was trained on recordings licensed "+
+			"for research only. I answer any voice that addresses me.")
+
 	case !s.VoiceModel:
 		lines = append(lines, "I cannot tell one voice from another: what does that "+
 			"is not installed. It can be fetched in Privacy.")
@@ -187,7 +194,7 @@ func describeHearing(s HearingState) string {
 
 	// The switch on with no way to recognise anybody holds every turn rather
 	// than letting every voice through (see the server's onlyMeRefuses).
-	if s.OnlyOwner && (!s.VoiceModel || !s.VoiceTaught) {
+	if s.OnlyOwner && !s.Withdrawn && (!s.VoiceModel || !s.VoiceTaught) {
 		lines = append(lines, "\"Answer only me\" is on, so until I can recognise your voice "+
 			"I act on nothing I hear. Type to me instead, or fix it in Privacy.")
 	}

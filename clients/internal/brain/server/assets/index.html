@@ -1516,7 +1516,6 @@
                         <li data-i18n="credits.ljspeech">The woman is LJ Speech: the Piper voice en_US-ljspeech-medium, trained from scratch by Bryce Beattie on Keith Ito's LJ Speech dataset of LibriVox recordings, which are in the public domain.</li>
                         <li data-i18n="credits.norman">The man is Norman: the Piper voice en_US-norman-medium, trained from scratch by Bryce Beattie on LibriVox recordings, which are in the public domain.</li>
                         <li data-i18n="credits.programs">Speaking: Piper by Michael Hansen (MIT). Listening: whisper.cpp by the ggml authors (MIT) with the Whisper small model by OpenAI (MIT). Local models: Ollama (MIT).</li>
-                        <li data-i18n="credits.voiceprint">Answer only me: the CAM++ model from the 3D-Speaker project on ModelScope (Apache-2.0), trained on VoxCeleb, run with ONNX Runtime by Microsoft (MIT).</li>
                     </ul>
                     <p class="note tiny" data-i18n="credits.more">Every component and its licence is listed in THIRD-PARTY-NOTICES.md, published with the program's source code.</p>
                 </div>
@@ -3404,46 +3403,42 @@
                     is the only thing that makes keeping it at all reasonable.
                 -->
                 <div class="card">
-                    <h2>Your voice</h2>
-                    <p class="note" id="voice-note">Teach it your voice and it can
-                        tell you from a television, a video, or somebody else in
-                        the room.</p>
+                    <h2 data-i18n="voice.title">Your voice</h2>
+                    <p class="note" id="voice-note" data-i18n="voice.note">Teach it your voice and it can tell you from a television, a video, or somebody else in the room.</p>
+                    <!--
+                        1.0.1 withdrew "Answer only me": the model that told
+                        voices apart was trained on recordings licensed for
+                        research only. Shown instead of the note while no model
+                        is offered (the server's "withdrawn").
+                    -->
+                    <p class="note" id="voice-withdrawn" data-i18n="voice.withdrawn" hidden>Answer only me is not offered in this version. The model that told voices apart was trained on recordings licensed for research only, so it was withdrawn until there is one made only from recordings free for any use. The assistant answers any voice that addresses it, as it did before.</p>
+                    <p class="note" id="voice-withdrawn-kept" data-i18n="voice.withdrawnKept" hidden>The voice you taught it before is still kept on this machine and is not used. You can forget it below.</p>
 
                     <div id="voice-state-rows" class="rows"></div>
 
                     <div class="copy-add">
                         <div class="copy-buttons">
-                            <button type="button" class="model-action" id="voice-get" hidden>Get what it needs</button>
-                            <button type="button" class="model-action" id="voice-teach" hidden>Teach it my voice</button>
-                            <button type="button" class="model-action" id="voice-forget" hidden>Forget my voice</button>
+                            <button type="button" class="model-action" id="voice-get" data-i18n="voice.get" hidden>Get what it needs</button>
+                            <button type="button" class="model-action" id="voice-teach" data-i18n="voice.teach" hidden>Teach it my voice</button>
+                            <button type="button" class="model-action" id="voice-forget" data-i18n="voice.forget" hidden>Forget my voice</button>
                         </div>
 
                         <label class="field-check" id="voice-only-field" hidden>
                             <input type="checkbox" id="voice-only">
-                            <span><b>Answer only me</b><br>
-                                <span class="note">Anything in another voice is heard
-                                    and not acted on. It still appears in what it has
-                                    been hearing, so you can see what it ignored.</span></span>
+                            <span><b data-i18n="voice.only">Answer only me</b><br>
+                                <span class="note" data-i18n="voice.onlyNote">Anything in another voice is heard and not acted on. It still appears in what it has been hearing, so you can see what it ignored.</span></span>
                         </label>
 
                         <label class="field-check" id="voice-room-field">
                             <input type="checkbox" id="voice-room">
-                            <span><b>Stop hearing this machine</b><br>
-                                <span class="note">Music, videos and calls playing on this
-                                    machine go through the echo canceller, so the microphone
-                                    stops hearing them mixed with your voice. Sound from
-                                    somewhere else in the room (a phone, a radio) is still
-                                    sound in the room.</span></span>
+                            <span><b data-i18n="voice.room">Stop hearing this machine</b><br>
+                                <span class="note" data-i18n="voice.roomNote">Music, videos and calls playing on this machine go through the echo canceller, so the microphone stops hearing them mixed with your voice. Sound from somewhere else in the room (a phone, a radio) is still sound in the room.</span></span>
                         </label>
 
                         <label class="field-check" id="voice-quiet-field">
                             <input type="checkbox" id="voice-quiet">
-                            <span><b>Turn the rest down while I talk</b><br>
-                                <span class="note">Music and videos on this machine drop to
-                                    a fifth while I am speaking and come straight back
-                                    afterwards. Lowered, never paused: stopping your film
-                                    every time I say a word would be worse than talking over
-                                    it.</span></span>
+                            <span><b data-i18n="voice.quiet">Turn the rest down while I talk</b><br>
+                                <span class="note" data-i18n="voice.quietNote">Music and videos on this machine drop to a fifth while I am speaking and come straight back afterwards. Lowered, never paused: stopping your film every time I say a word would be worse than talking over it.</span></span>
                         </label>
 
                         <p class="drive-note" id="voice-progress"></p>

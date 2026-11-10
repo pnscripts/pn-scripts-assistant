@@ -33,6 +33,8 @@ import (
  * and the turn says why, on the page and in the record of what was heard.
  */
 func TestAnswerOnlyMeActsOnNothingItCannotRecognise(t *testing.T) {
+	offerAModel(t)
+
 	cases := []struct {
 		name  string
 		setup func(t *testing.T, parts, root string)
@@ -155,6 +157,8 @@ func TestAnswerOnlyMeActsOnNothingItCannotRecognise(t *testing.T) {
 
 // The Privacy page is told, too, while the switch shows on.
 func TestThePrivacyPageSaysAnswerOnlyMeCannotWorkNow(t *testing.T) {
+	offerAModel(t)
+
 	t.Setenv("HOME", t.TempDir())
 
 	ts, _, b := newServer(t)
@@ -186,6 +190,8 @@ func TestThePrivacyPageSaysAnswerOnlyMeCannotWorkNow(t *testing.T) {
  * each language, and reads what a person would see.
  */
 func TestAnswerOnlyMeIsSaidInBothLanguages(t *testing.T) {
+	offerAModel(t)
+
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("node is not installed")
 	}
@@ -362,4 +368,17 @@ process.stdout.write(JSON.stringify({
 	}
 
 	return said
+}
+
+/*
+ * offerAModel stands in a speaker model for a test of "Answer only me" itself.
+ *
+ * 1.0.1 offers none (voiceprint.Offered), so the switch cannot be turned on;
+ * these tests keep proving how it behaves for the release that offers a clean
+ * model again.
+ */
+func offerAModel(t *testing.T) {
+	t.Helper()
+
+	t.Cleanup(voiceprint.Offer("a model offered for this test", strings.Repeat("0", 64)))
 }

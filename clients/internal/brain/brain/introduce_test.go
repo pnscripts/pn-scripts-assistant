@@ -64,7 +64,7 @@ func TestSomethingNewIsMentionedOnce(t *testing.T) {
 		t.Fatal("said nothing about a tool it did not have last time")
 	}
 
-	if !strings.Contains(line, "answer only me") {
+	if !strings.Contains(line, "speak your answers out loud") {
 		t.Fatalf("did not say what to actually say: %q", line)
 	}
 

@@ -52,6 +52,7 @@ import (
 	"pn-scripts-assistant/internal/brain/tasks"
 	"pn-scripts-assistant/internal/brain/team"
 	"pn-scripts-assistant/internal/brain/tools"
+	"pn-scripts-assistant/internal/brain/voiceprint"
 )
 
 // Brain is a running assistant.
@@ -1087,6 +1088,24 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		if err := b.Cfg.Save(root); err != nil {
 			logger.Warn("could not save the voice setting", "error", err)
+		}
+	}
+
+	/*
+	 * "Answer only me" switched on by an older release is switched off once,
+	 * in the settings file too: 1.0.1 offers no model that tells voices apart
+	 * (the one before was trained on recordings licensed for research only),
+	 * so left on it would hold every turn and the brain would answer nobody.
+	 * A voice taught before stays where it was until its owner forgets it.
+	 */
+	if cfg.OnlyMe && !voiceprint.Offered() {
+		logger.Info("answer only me is not offered in this version; switched off")
+
+		cfg.OnlyMe = false
+		b.Cfg.OnlyMe = false
+
+		if err := b.Cfg.Save(root); err != nil {
+			logger.Warn("could not save the answer only me setting", "error", err)
 		}
 	}
 

@@ -108,10 +108,7 @@ func machine(t *testing.T) string {
 	 * a test lays out as already installed is one. A test about the model
 	 * download itself names its own (serveModel).
 	 */
-	oldSum := modelSum
-	modelSum = sumOf([]byte("model"))
-
-	t.Cleanup(func() { modelSum = oldSum })
+	t.Cleanup(Offer("a model offered for this test", sumOf([]byte("model"))))
 
 	into := Parts()
 

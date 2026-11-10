@@ -92,6 +92,21 @@ else
     echo 'BRAIN_VOICE=en_GB-alba-medium' >> "$WORK/DATA/brain.conf"
 fi
 
+# "Answer only me" on, with the model, its runtime and a taught voice where
+# 1.0.0 put them (stand-ins). 1.0.1 withdrew the model (trained on recordings
+# licensed for research only): the setting must be switched off, nothing
+# fetched, nothing loaded, and the files left where they are.
+if grep -q '^BRAIN_ONLY_ME=' "$WORK/DATA/brain.conf"; then
+    sed -i 's/^BRAIN_ONLY_ME=.*/BRAIN_ONLY_ME=1/' "$WORK/DATA/brain.conf"
+else
+    echo 'BRAIN_ONLY_ME=1' >> "$WORK/DATA/brain.conf"
+fi
+SPEAKER="$WORK/home/.local/share/pn-scripts-assistant/voice"
+mkdir -p "$SPEAKER"
+echo stand-in > "$SPEAKER/voiceprint.onnx"
+echo stand-in > "$SPEAKER/libonnxruntime.so"
+echo 1.29.0 > "$SPEAKER/libonnxruntime.version"
+
 # The voice files 0.13's setup put in place (stand-ins: nothing here speaks).
 # With looking online off this tree must not fetch anything and must report
 # the voice as out of date, offering Update.
@@ -127,6 +142,22 @@ else
     echo "  FAIL  the voice part is '$voice_state', want outdated"
     missing=$((missing + 1))
 fi
+speaker_state="$(curl -s -m 10 "http://127.0.0.1:$PORT/api/voiceprint" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+data = data.get("data", data)
+print("withdrawn" if data.get("withdrawn") is True and data.get("only_me") is False else json.dumps(data))
+' 2>/dev/null || echo unreadable)"
+if [ "$speaker_state" = withdrawn ]; then
+    echo "  ok    answer only me is withdrawn and off"
+else
+    echo "  FAIL  the voiceprint state is $speaker_state, want withdrawn and off"
+    missing=$((missing + 1))
+fi
+if [ "$(ls "$SPEAKER" | wc -l)" -ne 3 ] || ! grep -qx stand-in "$SPEAKER/libonnxruntime.so"; then
+    echo "  FAIL  the speaker model folder changed: $(ls "$SPEAKER" | tr '\n' ' ')"
+    missing=$((missing + 1))
+fi
 if [ "$(ls "$VOICES" | wc -l)" -ne 6 ]; then
     echo "  FAIL  something was fetched with looking online off: $(ls "$VOICES" | tr '\n' ' ')"
     missing=$((missing + 1))
@@ -137,6 +168,13 @@ if grep -qx 'BRAIN_VOICE=robot' "$WORK/DATA/brain.conf"; then
     echo "  ok    a voice 0.13 installed became the robot"
 else
     echo "  FAIL  the voice setting is $(grep '^BRAIN_VOICE=' "$WORK/DATA/brain.conf")"
+    missing=$((missing + 1))
+fi
+
+if grep -qx 'BRAIN_ONLY_ME=0' "$WORK/DATA/brain.conf"; then
+    echo "  ok    answer only me, on in the older release, is switched off"
+else
+    echo "  FAIL  the setting is $(grep '^BRAIN_ONLY_ME=' "$WORK/DATA/brain.conf"), want BRAIN_ONLY_ME=0"
     missing=$((missing + 1))
 fi
 

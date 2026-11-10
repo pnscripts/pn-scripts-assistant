@@ -2259,6 +2259,12 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	 * see. Refused with a reason instead.
 	 */
 	if body.OnlyMe != nil {
+		if *body.OnlyMe && !voiceprint.Offered() {
+			fail(w, http.StatusBadRequest, withdrawnSentence)
+
+			return
+		}
+
 		if *body.OnlyMe && !voiceprint.Enrolled(s.brain.Root) {
 			fail(w, http.StatusBadRequest,
 				"Teach it your voice first: there is nothing to compare against yet.")

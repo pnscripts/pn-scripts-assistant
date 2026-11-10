@@ -15,8 +15,8 @@ import (
 /*
  * The model that turns a voice into numbers.
  *
- * CAM++, trained on VoxCeleb: a few seconds of audio in, five hundred and
- * twelve numbers out, describing who is speaking rather than what they said.
+ * A speaker model (none is offered since 1.0.1, see Offered): a few seconds
+ * of audio in, five hundred and twelve numbers out, describing who is speaking rather than what they said.
  * Two recordings of one person land close together; two people do not. That is
  * the whole mechanism, and everything above it is arithmetic on the result.
  *
@@ -74,6 +74,11 @@ func Folder(root string) string { return filepath.Join(root, FolderName) }
  * which is a feature briefly absent rather than one quietly wrong.
  */
 func Installed() bool {
+	// A model an older release left is not loaded while none is offered.
+	if !Offered() {
+		return false
+	}
+
 	into := Parts()
 
 	if _, err := os.Stat(filepath.Join(into, ModelName)); err != nil {
