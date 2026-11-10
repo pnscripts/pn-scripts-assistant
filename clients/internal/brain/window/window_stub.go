@@ -47,7 +47,7 @@ func Open(url, title string, width, height int) error {
 				"program was compiled without cgo.\n\n"+
 				"  rebuild:  CGO_ENABLED=1 go build ./cmd/pn-scripts-assistant\n"+
 				"  (a plain `go build` is enough only where `go env CGO_ENABLED` is 1)\n\n"+
-				"In the meantime the brain is running: open %s", url)
+				"In the meantime PN Scripts Assistant is running: open %s", url)
 	}
 
 	return fmt.Errorf(
@@ -55,7 +55,7 @@ func Open(url, title string, width, height int) error {
 			"installed here.\n\n"+
 			"  install them:  sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev\n"+
 			"  then rebuild:  CGO_ENABLED=1 go build ./cmd/pn-scripts-assistant\n\n"+
-			"In the meantime the brain is running: open %s", url)
+			"In the meantime PN Scripts Assistant is running: open %s", url)
 }
 
 /*

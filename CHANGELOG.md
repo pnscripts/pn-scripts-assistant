@@ -9,6 +9,24 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
+## Unreleased
+
+- **Everything a terminal shows says the program's name.** The terminal
+  client signed every answer "brain" and asked "Is the brain running?",
+  because it looked for its name where the program never answered; it now
+  asks the program, signs answers with the name you gave the assistant (or
+  `pn-scripts-assistant` before it has one), and says how to start it when
+  nothing answers. A drive that is away is explained with
+  `pn-scripts-assistant start-again`, not `brain start-again`, and the help,
+  the settings file, the manual and the guides name the program's own
+  commands.
+- The terminal client finds the assistant without being told where: it
+  looked at port 8090 while the program serves on 8790.
+- The address is set with `PN_SCRIPTS_ASSISTANT_ADDR` (the program) and
+  `PN_SCRIPTS_ASSISTANT_API_URL` (the terminal client). `BRAIN_ADDR` and
+  `BRAIN_API_URL`, their names from before, still work, and the settings
+  file keeps its name and its lines.
+
 ## 1.0.1 (2026-11-10)
 
 - **"Answer only me" is withdrawn.** The model it told voices apart with

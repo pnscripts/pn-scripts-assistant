@@ -20,8 +20,9 @@ import (
  * then it is gone.
  *
  * The machinery existed the whole time and only the command line could reach
- * it — brain ingest <dir> scans, embeds and stores. A capability the owner can
- * only use by finding a terminal is one this program says it does not have.
+ * it: pn-scripts-assistant ingest <dir> scans, embeds and stores. A capability
+ * the owner can only use by finding a terminal is one this program says it
+ * does not have.
  */
 type LearnFolder struct {
 	/*

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -249,8 +250,12 @@ func runMenu(args []string) error {
 	return nil
 }
 
-func usage() {
-	fmt.Fprint(os.Stderr, `PN Scripts Assistant
+func usage() { usageTo(os.Stderr) }
+
+// usageTo writes the help: every line a command a person can type, under the
+// program's own name.
+func usageTo(w io.Writer) {
+	fmt.Fprint(w, `PN Scripts Assistant
 
   pn-scripts-assistant                    run the app: serve, and open the window
   pn-scripts-assistant serve              serve only, without a window
@@ -269,7 +274,7 @@ func usage() {
   pn-scripts-assistant start-over --all   forget everything learned and read every folder again
   pn-scripts-assistant setup              choose the drive, the model and the keys again
   pn-scripts-assistant start-again        stop waiting for a drive that is gone for good
-  pn-scripts-assistant menu               put the brain in the applications menu
+  pn-scripts-assistant menu               put PN Scripts Assistant in the applications menu
   pn-scripts-assistant menu --remove      take it out again
   pn-scripts-assistant rewrite-paths      repair stored paths after a move, then re-embed
   pn-scripts-assistant unlock             open an encrypted brain on a new machine with its recovery key
@@ -1616,11 +1621,7 @@ func runSetup(args []string) error {
  * to fall back on a terminal.
  */
 func brainAway(elsewhere *paths.AwayError) error {
-	fmt.Fprintf(os.Stderr, "\n  PN Scripts Assistant keeps everything it knows at:\n    %s\n\n", elsewhere.Path)
-	fmt.Fprint(os.Stderr, "  That place is not available right now. If it is on a drive,\n")
-	fmt.Fprint(os.Stderr, "  plug the drive in and start PN Scripts Assistant again. Nothing is lost.\n\n")
-	fmt.Fprint(os.Stderr, "  If it is gone for good and you want to begin again:\n")
-	fmt.Fprint(os.Stderr, "    brain start-again\n\n")
+	fmt.Fprint(os.Stderr, awayText(elsewhere.Path))
 
 	if !window.Available() {
 		return errNothingMore
@@ -1643,6 +1644,16 @@ func brainAway(elsewhere *paths.AwayError) error {
 	}
 
 	return errNothingMore
+}
+
+// awayText is what the terminal says when the knowledge is somewhere that is
+// not there, ending with the command that stops waiting for it.
+func awayText(path string) string {
+	return fmt.Sprintf("\n  PN Scripts Assistant keeps everything it knows at:\n    %s\n\n", path) +
+		"  That place is not available right now. If it is on a drive,\n" +
+		"  plug the drive in and start PN Scripts Assistant again. Nothing is lost.\n\n" +
+		"  If it is gone for good and you want to begin again:\n" +
+		"    pn-scripts-assistant start-again\n\n"
 }
 
 // errNothingMore ends the program without printing a second explanation on top
@@ -2558,12 +2569,12 @@ func bindProblem(cfg config.Config, err error) error {
 
 	if server.InUse(cfg.Addr) {
 		return fmt.Errorf("something is already answering on %s. If it is %s, open http://%s; "+
-			"otherwise start this one elsewhere with BRAIN_ADDR=127.0.0.1:<port>",
-			cfg.Addr, cfg.Name, cfg.Addr)
+			"otherwise start this one elsewhere with %s=127.0.0.1:<port>",
+			cfg.Addr, cfg.Name, cfg.Addr, config.AddrEnv)
 	}
 
 	return fmt.Errorf("%s is taken by another program. Start this one elsewhere with "+
-		"BRAIN_ADDR=127.0.0.1:<port>, or free that port", cfg.Addr)
+		"%s=127.0.0.1:<port>, or free that port", cfg.Addr, config.AddrEnv)
 }
 
 func listenAs(cfg config.Config, root string, logger *slog.Logger) ([]net.Listener, error) {

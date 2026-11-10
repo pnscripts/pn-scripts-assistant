@@ -76,7 +76,7 @@ For the few things that have to be decided before the program starts:
 | Variable | What it does |
 |---|---|
 | `PN_SCRIPTS_ASSISTANT_DATA_ROOT` | use this folder as the brain, instead of the remembered one |
-| `BRAIN_ADDR` | the address to serve on, e.g. `127.0.0.1:9000` |
+| `PN_SCRIPTS_ASSISTANT_ADDR` | the address to serve on, e.g. `127.0.0.1:9000` (`BRAIN_ADDR`, its name before 1.0.2, still works) |
 | `OLLAMA_BASE_URL` | where Ollama is, if not `http://127.0.0.1:11434` |
 
 ## The settings file

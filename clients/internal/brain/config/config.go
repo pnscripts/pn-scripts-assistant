@@ -71,7 +71,7 @@ type Config struct {
 	 * for starting and for repairing, and it must not reappear on an ordinary
 	 * launch — a program that opens its installer every day has not finished
 	 * installing. Once this is set, setup happens only when it is asked for:
-	 * the button under System, or "brain setup".
+	 * the button under System, or "pn-scripts-assistant setup".
 	 *
 	 * Kept as a setting rather than as the mere existence of a file, because a
 	 * settings file gets written by the naming card, by the privacy dropdown,
@@ -478,6 +478,15 @@ const (
 	Product     = "PN Scripts Assistant"
 	DefaultName = "Assistant"
 )
+
+/*
+ * AddrEnv sets the address to serve on for one run, under the program's name.
+ *
+ * The settings file keeps its BRAIN_ADDR line, and BRAIN_ADDR in the
+ * environment still works; this is the name the help and the guides give,
+ * because a person types it and it should say what it belongs to.
+ */
+const AddrEnv = "PN_SCRIPTS_ASSISTANT_ADDR"
 
 // assignInt sets a number from a setting, leaving it alone when unset or
 // unreadable — a typo should not silently become port zero.
@@ -893,6 +902,12 @@ func LoadFrom(path string) (Config, error) {
 	}
 
 	assign(&cfg.Addr, "BRAIN_ADDR")
+
+	// Under the program's name, which wins: BRAIN_ADDR is from when it was PN
+	// Brain and is still read, from the environment and from this file.
+	if v := os.Getenv(AddrEnv); v != "" {
+		cfg.Addr = v
+	}
 	assign(&cfg.Voice, "BRAIN_VOICE")
 	assign(&cfg.Language, "BRAIN_LANGUAGE")
 	assign(&cfg.BraveKey, "BRAVE_SEARCH_KEY")
@@ -950,7 +965,7 @@ func (c Config) Save(root string) error {
 	b.WriteString("# Written by a version that opened everything up; leave it here.\n")
 	b.WriteString(OpenedKey + "=1\n")
 	b.WriteString("# Set once somebody has been through setup. Setup then only\n")
-	b.WriteString("# runs when it is asked for, from System or \"brain setup\".\n")
+	b.WriteString("# runs when it is asked for, from System or \"pn-scripts-assistant setup\".\n")
 	b.WriteString("BRAIN_SETUP_DONE=" + boolText(c.SetupDone) + "\n")
 
 	b.WriteString("# Whether it may look things up about itself: updates, the\n")

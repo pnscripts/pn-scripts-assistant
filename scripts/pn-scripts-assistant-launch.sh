@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# One click / one command to start the global Brain.
+# One click / one command to start PN Scripts Assistant.
 #
 # Rebuilds from this tree when the source is newer than the binary, then opens
-# the window. If the brain is already running, it just brings the page up.
+# the window. If it is already running, it just brings the page up.
 # Double-clicking the desktop icon lands here; so does `pn-scripts-assistant` on PATH.
 set -euo pipefail
 
@@ -48,7 +48,7 @@ rebuild() {
         say "Building without a native window (WebKit headers missing)."
     fi
 
-    say "Building the brain (cgo=$cgo)"
+    say "Building PN Scripts Assistant (cgo=$cgo)"
     CGO_ENABLED="$cgo" go build -C "$CLIENTS" \
         -trimpath \
         -o "$BIN" ./cmd/pn-scripts-assistant \
@@ -109,5 +109,5 @@ install_shortcuts
 
 [[ -x "$BIN" ]] || fail "No binary at $BIN"
 
-# Remaining args go to the brain itself: `pn-scripts-assistant serve`, `pn-scripts-assistant status`, …
+# Remaining args go to the program itself: `pn-scripts-assistant serve`, `pn-scripts-assistant status`, …
 exec "$BIN" "$@"

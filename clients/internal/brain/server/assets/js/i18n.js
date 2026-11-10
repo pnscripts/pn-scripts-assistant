@@ -1410,7 +1410,7 @@
 
         // The conversation's own controls, at the foot of every page.
         'cc.voice': ['Voice', 'Глас'],
-        'cc.talkLabel': ['Talk to the brain', 'Говорете с асистента'],
+        'cc.talkLabel': ['Talk to the assistant', 'Говорете с асистента'],
         'cc.talkTitle': [
             'Talk instead of typing. It listens until you stop, answers aloud, and listens again.',
             'Говорете, вместо да пишете. Слуша, докато спрете, отговаря на глас и отново слуша.',
