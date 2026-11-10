@@ -49,8 +49,15 @@ func (c connector) Driver() driver.Driver { return &sqlite.Driver{} }
 func openPool(path string, key *vault.Key) *sql.DB {
 	// secure_delete: a page freed by an update is zeroed, so the plain text a
 	// value held before it was sealed is not left behind in the file.
+	//
+	// _txlock=immediate: every transaction here writes, and one that began
+	// as a reader (AddSteps reads the last position first) cannot wait to
+	// become a writer once somebody else has written: it fails at once with
+	// "database is locked", whatever busy_timeout says. Taking the write lock
+	// when the transaction begins makes it wait its turn instead. Single
+	// statements outside a transaction are unaffected.
 	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)" +
-		"&_pragma=secure_delete(ON)"
+		"&_pragma=secure_delete(ON)&_txlock=immediate"
 
 	return sql.OpenDB(connector{dsn: dsn, key: key})
 }

@@ -81,7 +81,11 @@ func TestAGoalWorksInItsOwnFolderAndReportsWhatWasPrepared(t *testing.T) {
 		t.Errorf("the game was not given its folder: %q %v", task.Project, folders)
 	}
 
-	sorted, _, _ := c.TakeWith(context.Background(), 0, "Sort the photos in ~/Pictures by year", "", true, Taking{Steps: steps})
+	sorted, _, err := c.TakeWith(context.Background(), 0, "Sort the photos in ~/Pictures by year", "", true, Taking{Steps: steps})
+	if err != nil || sorted == nil {
+		t.Fatalf("the second job was not taken: %v", err)
+	}
+
 	if again, _ := db.Task(sorted.ID); again.Project != "" || len(folders) != 1 {
 		t.Errorf("work on the user's own files was moved into a folder: %q", again.Project)
 	}

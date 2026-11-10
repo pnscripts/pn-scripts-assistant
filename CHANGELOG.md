@@ -22,6 +22,9 @@ whenever something visible changed.
   (twelve were still in English), and so are the tooltips of the buttons at
   the top. Some pages are still partly in English; the known limits list
   them.
+- A job started while another was still recording its progress could fail
+  with "database is locked" before its first step was written. Writes that
+  read first now wait their turn.
 - Research reports no longer contain dashes: the report asks for none, and
   a section where the sources agree says "None." (in Bulgarian „Няма.“).
 
