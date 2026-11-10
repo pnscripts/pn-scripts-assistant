@@ -32,6 +32,21 @@
         ],
         'conn.why': ['Why?', 'Защо?'],
 
+        // The menu: the name of every view, and the tooltips of the two
+        // buttons at the top that open one by name.
+        'nav.console': ['Command centre', 'Команден център'],
+        'nav.memory': ['Memory map', 'Карта на паметта'],
+        'nav.models': ['Models', 'Модели'],
+        'nav.system': ['System', 'Система'],
+        'nav.operations': ['Operations', 'Операции'],
+        'nav.room': ['The room', 'Стаята'],
+        'nav.teaching': ['Teaching', 'Обучение'],
+        'nav.organisation': ['Organisation', 'Организация'],
+        'nav.tasks': ['Tasks', 'Задачи'],
+        'nav.reach': ['Reaching it', 'Достъп'],
+        'nav.privacy': ['Privacy', 'Поверителност'],
+        'nav.devices': ['The house', 'Домът'],
+
         // "Answer only me": a turn it heard and did not act on, and the
         // Privacy page while the switch is on and no voice can be recognised.
         'onlyme.notActedOn': ['Not acted on: {why}', 'Без действие: {why}'],

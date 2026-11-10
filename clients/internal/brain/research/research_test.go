@@ -284,3 +284,46 @@ func TestCutNeverBreaksALetter(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * The brief never asks for a dash, and asks for none.
+ *
+ * It used to tell the model to write "—" under "Where they disagree" when the
+ * sources agree, and its own section lines were joined with "—", so every
+ * report carried the dash the owner's texts must not (PN Scripts rule,
+ * 08.11.2026). The empty section is a word in the report's language now, and
+ * the check treats that word the way it treated the dash.
+ */
+func TestTheReportBriefAsksForNoDash(t *testing.T) {
+	for _, lang := range []string{"en", "bg"} {
+		brief := ReportBrief(lang)
+
+		if strings.ContainsAny(brief, "—–") {
+			t.Errorf("the %s brief still contains a dash:\n%s", lang, brief)
+		}
+
+		none := HeadingsFor(lang).None
+		if none == "" || !strings.Contains(brief, `"`+none+`"`) {
+			t.Errorf("the %s brief does not say what to write when the sources agree (%q)", lang, none)
+		}
+
+		if !strings.Contains(brief, "dash") {
+			t.Errorf("the %s brief does not ask for no dashes", lang)
+		}
+	}
+}
+
+func TestAnEmptyDisagreementSectionIsNotAClaim(t *testing.T) {
+	for lang, report := range map[string]string{
+		"en": "## Short answer\nThe standard VAT rate in Bulgaria is 20 % [1].\n\n## Where they disagree\nNone.\n\n## What is not known\nNext year.\n",
+		"bg": "## Накратко\nThe standard VAT rate in Bulgaria is 20 % [1].\n\n## Къде се разминават\nНяма.\n\n## Какво не е известно\nСледващата година.\n",
+	} {
+		_, claims, _ := Check(report, sources(), lang)
+
+		for _, c := range claims {
+			if strings.HasPrefix(c.Text, "None") || strings.HasPrefix(c.Text, "Няма") {
+				t.Errorf("%s: the empty section became a claim: %+v", lang, c)
+			}
+		}
+	}
+}
