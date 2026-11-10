@@ -18,6 +18,10 @@ whenever something visible changed.
   program, the CLI and doctor included, now answers `--version`, and a
   release is refused when any file it would publish does not carry its
   version.
+- With the page in Bulgarian, every name in the menu is in Bulgarian
+  (twelve were still in English), and so are the tooltips of the buttons at
+  the top. Some pages are still partly in English; the known limits list
+  them.
 - Research reports no longer contain dashes: the report asks for none, and
   a section where the sources agree says "None." (in Bulgarian „Няма.“).
 

@@ -188,7 +188,7 @@
         </div>
 
         <div class="icon-buttons">
-            <button type="button" class="icon-button" data-view="console" title="Command centre">
+            <button type="button" class="icon-button" data-view="console" title="Command centre" data-i18n-title="nav.console">
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                     <rect x="4" y="4" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.6"/>
                     <rect x="13" y="4" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -221,7 +221,7 @@
                 </svg>
                 <span class="icon-badge" id="bell-count" hidden>0</span>
             </button>
-            <button type="button" class="icon-button" data-view="system" title="System">
+            <button type="button" class="icon-button" data-view="system" title="System" data-i18n-title="nav.system">
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                     <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
                     <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"
@@ -260,34 +260,34 @@
                 <path d="M4 5h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 <path d="M8 20h8" fill="none" stroke="currentColor" stroke-width="1.6"/>
             </svg>
-            <span>Command centre</span>
+            <span data-i18n="nav.console">Command centre</span>
         </button>
         <button type="button" class="nav-item" data-view="memory">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
             </svg>
-            <span>Memory map</span>
+            <span data-i18n="nav.memory">Memory map</span>
         </button>
         <button type="button" class="nav-item" data-view="models">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 <path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
             </svg>
-            <span>Models</span>
+            <span data-i18n="nav.models">Models</span>
         </button>
         <button type="button" class="nav-item" data-view="system">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M5 19V9 M12 19V5 M19 19v-7" fill="none" stroke="currentColor" stroke-width="1.8"/>
             </svg>
-            <span>System</span>
+            <span data-i18n="nav.system">System</span>
         </button>
         <button type="button" class="nav-item" data-view="operations">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M3 17l4-6 4 3 4-8 6 11" fill="none" stroke="currentColor" stroke-width="1.7"
                       stroke-linejoin="round" stroke-linecap="round"/>
             </svg>
-            <span>Operations</span>
+            <span data-i18n="nav.operations">Operations</span>
         </button>
         <button type="button" class="nav-item" data-view="updates">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
@@ -330,7 +330,7 @@
                 <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 <path d="M12 2v2M12 20v2M2 12h2M20 12h2" stroke="currentColor" stroke-width="1.6"/>
             </svg>
-            <span>The room</span>
+            <span data-i18n="nav.room">The room</span>
             <span class="nav-count" id="nav-room" hidden>0</span>
         </button>
 
@@ -348,7 +348,7 @@
                 <path d="M12 5 3 9l9 4 9-4-9-4z" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 <path d="M7 11v4c0 1.7 2.2 3 5 3s5-1.3 5-3v-4" fill="none" stroke="currentColor" stroke-width="1.6"/>
             </svg>
-            <span>Teaching</span>
+            <span data-i18n="nav.teaching">Teaching</span>
         </button>
         <!--
             Skills: every skill it can follow — built in, read from other
@@ -391,13 +391,13 @@
                 <rect x="9" y="2" width="6" height="5" rx="1" fill="none"
                     stroke="currentColor" stroke-width="1.6"/>
             </svg>
-            <span>Organisation</span>
+            <span data-i18n="nav.organisation">Organisation</span>
         </button>
         <button type="button" class="nav-item" data-view="tasks">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h9" fill="none" stroke="currentColor" stroke-width="1.6"/>
             </svg>
-            <span>Tasks</span>
+            <span data-i18n="nav.tasks">Tasks</span>
             <span class="nav-count" id="nav-tasks" hidden>0</span>
         </button>
         <!--
@@ -545,14 +545,14 @@
                 <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 <path d="M11 18h2" stroke="currentColor" stroke-width="1.6"/>
             </svg>
-            <span>Reaching it</span>
+            <span data-i18n="nav.reach">Reaching it</span>
         </button>
         <button type="button" class="nav-item" data-view="privacy">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <rect x="5" y="10" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 <path d="M8 10V7a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/>
             </svg>
-            <span>Privacy</span>
+            <span data-i18n="nav.privacy">Privacy</span>
         </button>
         <!--
             Beside Privacy and not inside it.
@@ -576,7 +576,7 @@
                 <path d="M6 10v9h12v-9" fill="none" stroke="currentColor" stroke-width="1.6"/>
                 <circle cx="12" cy="14" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/>
             </svg>
-            <span>The house</span>
+            <span data-i18n="nav.devices">The house</span>
         </button>
         <button type="button" class="nav-item" data-view="permissions">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
