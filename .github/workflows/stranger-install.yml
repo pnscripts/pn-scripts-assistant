@@ -43,7 +43,8 @@ env:
 jobs:
   ubuntu:
     name: Ubuntu 24.04, apt install of the published .deb
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # After Release only for a tag push: a rehearsal from a branch is no release.
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -64,7 +65,7 @@ jobs:
 
       - name: The machine has never had it, nor the window's libraries
         run: |
-          ! command -v pn-scripts-assistant
+          ! command -v pn-scripts-assistant || exit 1
           dpkg -s libwebkit2gtk-4.1-0 2>/dev/null | grep -q '^Status: install ok installed' \
             && echo "libwebkit2gtk-4.1-0 was already here" \
             || echo "libwebkit2gtk-4.1-0 is not installed: apt must bring it"
@@ -87,7 +88,7 @@ jobs:
             test -e "$f" || { echo "missing: $f"; exit 1; }
           done
           ls /usr/share/icons/hicolor/*/apps/pn-scripts-assistant.png
-          ! ldd /usr/bin/pn-scripts-assistant | grep 'not found'
+          ! ldd /usr/bin/pn-scripts-assistant | grep 'not found' || exit 1
           ldd /usr/bin/pn-scripts-assistant | grep -q webkit2gtk-4.1
           pn-scripts-assistant version
           test ! -e "$HOME/.local/share/pn-scripts-assistant" || { echo "it wrote into the home folder before being run"; exit 1; }
@@ -122,14 +123,15 @@ jobs:
       - name: sudo apt remove takes the program and leaves the brain
         run: |
           sudo apt remove -y pn-scripts-assistant
-          ! test -e /usr/bin/pn-scripts-assistant
-          ! test -e /usr/share/applications/pn-scripts-assistant.desktop
+          ! test -e /usr/bin/pn-scripts-assistant || exit 1
+          ! test -e /usr/share/applications/pn-scripts-assistant.desktop || exit 1
           test -e "$HOME/.local/share/pn-scripts-assistant/data/brain.sqlite"
           echo "removed $TAG; the brain is still there"
 
   windows:
     name: Windows, the published installer
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # After Release only for a tag push: a rehearsal from a branch is no release.
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: windows-latest
     timeout-minutes: 25
     env:

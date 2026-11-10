@@ -34,7 +34,8 @@ env:
 jobs:
   winget:
     name: winget validate, install the previous version, upgrade to the newest (winget's steps)
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    # After Release only for a tag push: a rehearsal from a branch is no release.
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: windows-latest
     timeout-minutes: 30
     env:
