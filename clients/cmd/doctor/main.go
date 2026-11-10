@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"pn-scripts-assistant/internal/brain/release"
 	"pn-scripts-assistant/internal/preflight"
 )
 
@@ -121,7 +122,16 @@ func main() {
 	autoInstall := flag.Bool("install", false, "Install what is missing, asking first")
 	assumeYes := flag.Bool("yes", false, "With --install, don't ask")
 	quiet := flag.Bool("quiet", false, "Print nothing when everything is fine")
+	version := flag.Bool("version", false, "Say which version this is, and nothing else")
 	flag.Parse()
+
+	// Which copy this is, the first thing asked when something went wrong.
+	// Answered before anything is checked, so it works on any machine.
+	if *version {
+		fmt.Println(release.Full("PN Scripts Assistant doctor"))
+
+		return
+	}
 
 	results := preflight.Check()
 

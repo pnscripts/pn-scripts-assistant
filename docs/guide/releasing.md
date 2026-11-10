@@ -43,6 +43,19 @@ work is older than the release it is working towards.
 A binary built by hand, outside the release script, says `built from source
 (e9b80e0)` rather than claiming a number that cannot be looked up.
 
+Every program a release publishes is stamped the same way: the .deb and the
+Windows build by `scripts/build-packages.sh`, and the plain binaries
+(`pn-scripts-assistant-linux-amd64`, the CLI and doctor) by release.yml with
+the stamp it takes from `scripts/build-packages.sh --print-ldflags`. Each of
+them answers `--version`. Before anything is published, the job *Every file
+says its version* runs `scripts/check-versions.sh` over every file, the
+programs inside the .deb and the zip included, and refuses the release if one
+of them does not carry the version (1.0.0 published its standalone Linux
+program unstamped, so it said "built from source" and never offered an
+update). `make check` keeps release.yml and the check honest
+(`scripts/release-versions-test.sh`). To rehearse a release from a branch
+without publishing: `gh workflow run release.yml --ref <branch>`.
+
 ## Releasing
 
 1. Put the new number in `VERSION`, commit it.

@@ -29,6 +29,14 @@ var (
 	Version = ""
 	Commit  = ""
 	Built   = ""
+
+	// Mark is the version again, as one string a file can be searched for
+	// without running it: "PNSA-RELEASE[1.0.1]". The build record cannot
+	// say it, because -trimpath leaves -ldflags out of the record, and a
+	// program built for another system cannot be asked. 1.0.0 published its
+	// standalone Linux program without a version; scripts/check-versions.sh
+	// looks for this in every file a release publishes.
+	Mark = ""
 )
 
 // Is the version of this copy: the released number when there is one, the
@@ -86,6 +94,13 @@ func Full(product string) string {
 
 	if Built != "" {
 		line += ", built " + Built
+	}
+
+	// Two stamps that disagree mean the build was put together by hand from
+	// two places; say so rather than trust either. (Reading Mark here is
+	// also what keeps it in the program for the release check to find.)
+	if Version != "" && Mark != "" && !strings.HasSuffix(Mark, "["+Version+"]") {
+		line += ", stamped inconsistently (" + Mark + ")"
 	}
 
 	return line

@@ -50,3 +50,30 @@ func TestAReleasedCopySaysEverythingItKnows(t *testing.T) {
 		t.Errorf("it made up a build date: %q", Full("PN Scripts Assistant"))
 	}
 }
+
+// The second stamp, the one a release check searches the file for, agrees
+// with the version or the line says it does not. A copy put together from
+// two builds must not quote either number as if it were sure.
+func TestTheSearchableStampAgreesWithTheVersion(t *testing.T) {
+	was, wasMark, wasCommit, wasBuilt := Version, Mark, Commit, Built
+	t.Cleanup(func() { Version, Mark, Commit, Built = was, wasMark, wasCommit, wasBuilt })
+
+	Version, Mark, Commit, Built = "1.0.1", "PNSA-RELEASE[1.0.1]", "", ""
+
+	if got := Full("PN Scripts Assistant"); got != "PN Scripts Assistant 1.0.1" {
+		t.Errorf("a consistent copy says %q", got)
+	}
+
+	Mark = "PNSA-RELEASE[1.0.0]"
+
+	if got := Full("PN Scripts Assistant"); !strings.Contains(got, "stamped inconsistently") {
+		t.Errorf("two stamps that disagree went unmentioned: %q", got)
+	}
+
+	// 1.0.1 is a prefix of 1.0.10; the brackets keep them apart.
+	Version, Mark = "1.0.1", "PNSA-RELEASE[1.0.10]"
+
+	if got := Full("PN Scripts Assistant"); !strings.Contains(got, "stamped inconsistently") {
+		t.Errorf("1.0.10 passed for 1.0.1: %q", got)
+	}
+}

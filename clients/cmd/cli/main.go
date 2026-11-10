@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"pn-scripts-assistant/internal/brain/release"
 )
 
 type cliState struct {
@@ -139,7 +141,14 @@ func main() {
 	apiURL := flag.String("api", envOr("BRAIN_API_URL", "http://localhost:8090"), "AI Brain API base URL")
 	provider := flag.String("provider", "", "force provider: ollama or anthropic (default: server config)")
 	newConv := flag.Bool("new", false, "start a new conversation instead of continuing the last one")
+	version := flag.Bool("version", false, "say which version this is, and nothing else")
 	flag.Parse()
+
+	// Which copy this is, answered before anything reaches the network.
+	if *version {
+		fmt.Println(release.Full("PN Scripts Assistant CLI"))
+		return
+	}
 
 	s := loadState()
 	if *newConv {

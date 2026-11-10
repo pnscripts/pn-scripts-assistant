@@ -51,6 +51,7 @@ check:
 	@echo "→ go vet"
 	@cd clients && $(GO) vet ./...
 	@bash scripts/version-order-test.sh
+	@bash scripts/release-versions-test.sh
 
 test:
 	@echo "→ go test"

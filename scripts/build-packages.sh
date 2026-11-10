@@ -107,8 +107,8 @@ version_stamp() {
     hash="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
     when="$(git -C "$ROOT" log -1 --format=%cd --date=format:%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)"
 
-    printf -- "-X %s.Version=%s -X %s.Commit=%s -X %s.Built=%s" \
-        "$pkg" "$VERSION" "$pkg" "$hash" "$pkg" "$when"
+    printf -- "-X %s.Version=%s -X %s.Mark=PNSA-RELEASE[%s] -X %s.Commit=%s -X %s.Built=%s" \
+        "$pkg" "$VERSION" "$pkg" "$VERSION" "$pkg" "$hash" "$pkg" "$when"
 }
 
 VERSION="$(derive_version)"
@@ -140,6 +140,19 @@ want="${1:-all}"
 # build happen.
 if [ "$want" = "--print-version" ]; then
     printf '%s\n' "$VERSION"
+
+    exit 0
+fi
+
+# The version stamp for -ldflags, for builds made outside this script.
+#
+# release.yml builds the plain binaries (the standalone Linux program, the CLI
+# and doctor) with lines of its own, and 1.0.0 shipped the Linux one without
+# the stamp: it said "built from source" and never offered an update. Those
+# lines take the stamp from here now, so there is one place that makes it;
+# scripts/release-versions-test.sh keeps it that way.
+if [ "$want" = "--print-ldflags" ]; then
+    printf '%s\n' "$(version_stamp)"
 
     exit 0
 fi
