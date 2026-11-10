@@ -62,6 +62,8 @@ func TestTheRuntimeRefreshLeavesTheAnswerOnScreen(t *testing.T) {
  * step of a question answered meanwhile.
  */
 func TestTheInstallButtonStartsOneDownload(t *testing.T) {
+	offerAModel(t)
+
 	t.Setenv("HOME", t.TempDir())
 
 	ts, _, _ := newServer(t)

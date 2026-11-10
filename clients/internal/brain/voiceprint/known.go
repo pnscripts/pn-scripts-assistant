@@ -201,12 +201,15 @@ const (
 	ReasonNotTaught       = "notTaught"
 	ReasonNothingRecorded = "nothingRecorded"
 	ReasonUnreadable      = "unreadable"
+
+	// ReasonWithdrawn: this release offers no model that tells voices apart.
+	ReasonWithdrawn = "withdrawn"
 )
 
 // Reasons is every Reason code, for the test that each is said in every
 // language the pages speak.
 func Reasons() []string {
-	return []string{ReasonNotInstalled, ReasonStale, ReasonNotTaught, ReasonNothingRecorded, ReasonUnreadable}
+	return []string{ReasonNotInstalled, ReasonStale, ReasonNotTaught, ReasonNothingRecorded, ReasonUnreadable, ReasonWithdrawn}
 }
 
 /*

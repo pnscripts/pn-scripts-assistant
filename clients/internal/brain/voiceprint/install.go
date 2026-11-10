@@ -32,24 +32,19 @@ import (
 // what it is about to download before it starts.
 const (
 	/*
-	 * The model, from one commit of its repository rather than its main
-	 * branch.
+	 * No model is offered in this release.
 	 *
-	 * A branch is whatever its owner last pushed, so fetching from main meant
-	 * the program loaded whatever was there on the day, with nothing to say it
-	 * was the file this was tested with. The commit is the one main pointed at
-	 * on 2026-11-09 (last changed 2024-10-14), and the hash is the file's
-	 * SHA-256 as Hugging Face publishes it for that commit (its LFS object id),
-	 * confirmed by downloading it from this address and hashing it.
+	 * 1.0.0 downloaded CAM++ from the 3D-Speaker project, trained on VoxCeleb,
+	 * whose recordings are offered for research only. On 2026-11-10 the owner
+	 * withdrew it until a model whose whole lineage (base checkpoint and every
+	 * dataset) may be used commercially exists. A later release names that
+	 * model in modelFrom and modelSum below, pinned to one commit and one
+	 * SHA-256 like every other download; until then Offered is false, Install
+	 * fetches nothing and a model an older release left is never loaded.
+	 *
+	 * mostModelBytes bounds the download the way mostRuntimeBytes bounds the
+	 * runtime's.
 	 */
-	ModelRevision = "0743f301363dec56491a490f6d6cbc9d67f9a3bf"
-	ModelFrom     = "https://huggingface.co/csukuangfj/speaker-embedding-models/" +
-		"resolve/" + ModelRevision + "/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx"
-	ModelSHA256 = "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b"
-
-	// ModelBytes is that file's size, and mostModelBytes bounds the download
-	// the way mostRuntimeBytes bounds the runtime's.
-	ModelBytes     = 29596978
 	mostModelBytes = 64 << 20
 
 	/*
@@ -87,7 +82,8 @@ const (
 	// server that never stops sending cannot fill the disk.
 	mostRuntimeBytes = 256 << 20
 
-	// AboutMegabytes is the pair, for saying so before asking.
+	// AboutMegabytes is the pair, for saying so before asking (the
+	// withdrawn model and its runtime were forty).
 	AboutMegabytes = 40
 )
 
@@ -100,9 +96,32 @@ const Fetching = 20 * time.Minute
 var (
 	runtimeFrom = RuntimeFrom
 	runtimeSum  = RuntimeSHA256
-	modelFrom   = ModelFrom
-	modelSum    = ModelSHA256
+	modelFrom   = ""
+	modelSum    = ""
 )
+
+/*
+ * Offered reports whether this release offers a model that tells voices
+ * apart. False since 1.0.1 (see mostModelBytes above for why): the switch
+ * "Answer only me" cannot be turned on and nothing is downloaded.
+ */
+func Offered() bool { return modelFrom != "" && modelSum != "" }
+
+/*
+ * Offer stands in a model for a test, served from the test's own address,
+ * and returns how to undo it. Nothing outside tests calls it; a release that
+ * offers a model again pins it in modelFrom and modelSum instead.
+ */
+func Offer(from, sum string) (undo func()) {
+	oldFrom, oldSum := modelFrom, modelSum
+	modelFrom, modelSum = from, sum
+
+	return func() { modelFrom, modelSum = oldFrom, oldSum }
+}
+
+// ErrWithdrawn is asking for a model when none is offered.
+var ErrWithdrawn = errors.New("telling voices apart is not offered in this version: " +
+	"the model it used was trained on recordings licensed for research only")
 
 // ErrRuntimeTampered is a runtime archive that is not the one released.
 var ErrRuntimeTampered = errors.New("the downloaded runtime is not the published one")
@@ -184,6 +203,12 @@ func Refresh(ctx context.Context, say func(string)) (bool, error) {
 		say = func(string) {}
 	}
 
+	// Nothing to keep matching while no model is offered: the runtime only
+	// ever served the model.
+	if !Offered() {
+		return false, nil
+	}
+
 	into := Parts()
 
 	if _, err := os.Stat(filepath.Join(into, ModelName)); err != nil {
@@ -225,6 +250,10 @@ func Refresh(ctx context.Context, say func(string)) (bool, error) {
  * presses again.
  */
 func Install(ctx context.Context, say func(string)) error {
+	if !Offered() {
+		return ErrWithdrawn
+	}
+
 	if say == nil {
 		say = func(string) {}
 	}
@@ -330,7 +359,7 @@ func modelVerifiedIn(into string) bool {
 		return verified.ok
 	}
 
-	ok := info.Size() <= mostModelBytes && fileSHA256(path) == modelSum
+	ok := modelSum != "" && info.Size() <= mostModelBytes && fileSHA256(path) == modelSum
 
 	verified.key, verified.ok = key, ok
 

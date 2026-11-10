@@ -229,15 +229,21 @@ func TestOpenSaysRecalledMemoryIsSent(t *testing.T) {
 /*
  * "Nothing leaves this machine" is about your words, and says so: with
  * "May look things up about itself" on, the program may still fetch its own parts
- * (the voice recognition runtime is refreshed after an update), and the
- * description of private mode must not promise otherwise.
+ * (a voice withdrawn by an update is replaced at the next start), and the
+ * description of private mode must not promise otherwise. Since 1.0.1 it
+ * names no voice recognition runtime: nothing tells voices apart, so nothing
+ * of that is downloaded.
  */
 func TestPrivateModeSaysWhatMayStillBeDownloaded(t *testing.T) {
 	d := ModePrivate.Describe()
 
-	for _, want := range []string{"May look things up about itself", "voice recognition runtime", "nothing about you"} {
+	for _, want := range []string{"May look things up about itself", "a voice replaced by an update", "nothing about you"} {
 		if !strings.Contains(d.Detail, want) {
 			t.Errorf("private mode's description does not say %q: %s", want, d.Detail)
 		}
+	}
+
+	if strings.Contains(d.Detail, "voice recognition") {
+		t.Errorf("private mode's description names a download 1.0.1 no longer makes: %s", d.Detail)
 	}
 }

@@ -51,6 +51,7 @@ func (b *Brain) recentlyHeard() []tools.Overheard {
 // several separate things is switched on.
 func (b *Brain) howItListens() tools.HearingState {
 	return tools.HearingState{
+		Withdrawn:    !voiceprint.Offered(),
 		VoiceModel:   voiceprint.Installed(),
 		VoiceTaught:  voiceprint.Enrolled(b.Root),
 		OnlyOwner:    b.Cfg.OnlyMe,
@@ -338,6 +339,13 @@ func (b *Brain) changeSetting(ctx context.Context, what string, on bool) (string
 			"for a while without it.", b.Cfg.Save(b.Root)
 
 	case "only_me":
+		// Not offered since 1.0.1: nothing can tell voices apart.
+		if on && !voiceprint.Offered() {
+			return "Answering only your voice is not offered in this version: the model " +
+				"that told voices apart was trained on recordings licensed for research " +
+				"only, so it was withdrawn. I answer any voice that addresses me.", nil
+		}
+
 		b.Cfg.OnlyMe = on
 
 		if on && !voiceprint.Enrolled(b.Root) {

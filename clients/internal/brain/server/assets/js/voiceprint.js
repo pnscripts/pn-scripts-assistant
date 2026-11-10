@@ -13,6 +13,9 @@
  */
 (function () {
 
+// Every word from i18n.js, in the page's language.
+const T = (key, vars) => (window.pnT ? window.pnT(key, vars) : key);
+
 function el(id) {
     return document.getElementById(id);
 }
@@ -35,7 +38,7 @@ async function send(where, body) {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) throw new Error(data.error || `that did not work (${res.status})`);
+    if (!res.ok) throw new Error(data.error || T('voice.failed', { status: res.status }));
 
     return data;
 }
@@ -58,19 +61,33 @@ function draw() {
     if (!rows) return;
 
     /*
-     * Three separate facts, because they fail separately and the fix is
-     * different for each: the model can be missing, no voice can have been
-     * taught, and acting on it can be switched off.
+     * Withdrawn since 1.0.1: no model tells voices apart, so the card says
+     * why, and a voice taught before can only be forgotten.
      */
-    const lines = [
-        ['what it needs', state.installed ? 'installed'
-            : state.downloading ? 'downloading now…' : `not here yet (${state.megabytes}MB)`],
-        ['your voice', state.enrolled
-            ? `taught from ${state.samples} recording${state.samples === 1 ? '' : 's'}`
-            : 'not taught yet'],
-    ];
+    const withdrawn = !!state.withdrawn;
 
-    if (state.enrolled && typeof state.agreement === 'number' && state.samples > 1) {
+    el('voice-note').hidden = withdrawn;
+    el('voice-withdrawn').hidden = !withdrawn;
+    el('voice-withdrawn-kept').hidden = !(withdrawn && state.enrolled);
+
+    /*
+     * Separate facts, because they fail separately and the fix is different
+     * for each: the model can be missing, no voice can have been taught, and
+     * acting on it can be switched off.
+     */
+    const taught = state.samples === 1
+        ? T('voice.taughtOne')
+        : T('voice.taughtMany', { n: state.samples });
+
+    const lines = withdrawn
+        ? (state.enrolled ? [[T('voice.yours'), T('voice.kept')]] : [])
+        : [
+            [T('voice.needs'), state.installed ? T('voice.installed')
+                : state.downloading ? T('voice.downloading') : T('voice.missing', { mb: state.megabytes })],
+            [T('voice.yours'), state.enrolled ? taught : T('voice.notTaught')],
+        ];
+
+    if (!withdrawn && state.enrolled && typeof state.agreement === 'number' && state.samples > 1) {
         /*
          * How alike the recordings were to each other.
          *
@@ -79,8 +96,10 @@ function draw() {
          * do not then something else was in the room and the print describes a
          * blend of two voices.
          */
-        lines.push(['how alike they were', `${state.agreement.toFixed(2)}${
-            state.agreement < 0.6 ? ' (low, teach it again somewhere quieter)' : ''}`]);
+        const alike = state.agreement.toFixed(2);
+
+        lines.push([T('voice.alike'), `${window.pnLang && window.pnLang() === 'bg' ? alike.replace('.', ',') : alike}${
+            state.agreement < 0.6 ? T('voice.low') : ''}`]);
     }
 
     /*
@@ -90,9 +109,8 @@ function draw() {
      * still shows on, so it has to say here why the brain is not answering.
      */
     if (state.only_me && state.only_me_blocked) {
-        lines.push(window.pnOnlyMe ? window.pnOnlyMe.blocked(state)
-            : ['answer only me', `on, but your voice cannot be recognised now (${
-                state.only_me_blocked}), so nothing it hears is acted on. Type instead, or fetch what it needs again.`]);
+        // onlyme.js is loaded before this script and says it in the page's language.
+        lines.push(window.pnOnlyMe.blocked(state));
     }
 
     // Text, never markup: a reason the server gives is shown as it is written.
@@ -111,13 +129,13 @@ function draw() {
         return row;
     }));
 
-    el('voice-get').hidden = state.installed;
+    el('voice-get').hidden = withdrawn || state.installed;
     // One download at a time: the server refuses a second, and the button
     // says so by not being pressable while one runs.
     el('voice-get').disabled = !!state.downloading;
-    el('voice-teach').hidden = !state.installed;
+    el('voice-teach').hidden = withdrawn || !state.installed;
     el('voice-forget').hidden = !state.enrolled;
-    el('voice-only-field').hidden = !state.enrolled;
+    el('voice-only-field').hidden = withdrawn || !state.enrolled;
     el('voice-only').checked = !!state.only_me;
 
     /*
@@ -130,14 +148,12 @@ function draw() {
     el('voice-room').checked = !!state.cancel_room;
     el('voice-quiet').checked = !!state.keep_quiet;
 
-    el('voice-teach').textContent = state.enrolled
-        ? 'Teach it more of my voice'
-        : 'Teach it my voice';
+    el('voice-teach').textContent = state.enrolled ? T('voice.teachMore') : T('voice.teach');
 }
 
 el('voice-get').onclick = async () => {
     el('voice-get').disabled = true;
-    say(`Fetching about ${state.megabytes}MB. It carries on in the background. Watch Doing now.`);
+    say(T('voice.fetching', { mb: state.megabytes }));
 
     try {
         await send('/api/voiceprint/install', {});
@@ -156,7 +172,7 @@ el('voice-get').onclick = async () => {
         if (state.installed) {
             clearInterval(watching);
             el('voice-get').disabled = false;
-            say('Ready. Teach it your voice next.', 'ok');
+            say(T('voice.ready'), 'ok');
         }
     }, 4000);
 };
@@ -165,7 +181,7 @@ el('voice-teach').onclick = async () => {
     const button = el('voice-teach');
 
     button.disabled = true;
-    say('Say a sentence, anything, in your normal voice. Listening…');
+    say(T('voice.listening'));
 
     try {
         const done = await send('/api/voiceprint/teach', {
@@ -173,8 +189,8 @@ el('voice-teach').onclick = async () => {
         });
 
         say(done.enough
-            ? `Got it: ${done.samples} recordings, and that is enough. You can add more any time.`
-            : `Got it: ${done.samples} of ${done.wanted}. Press again and say something else.`,
+            ? T('voice.gotEnough', { n: done.samples })
+            : T('voice.gotSome', { n: done.samples, wanted: done.wanted }),
             'ok');
     } catch (err) {
         say(String(err.message || err), 'bad');
@@ -185,16 +201,13 @@ el('voice-teach').onclick = async () => {
 };
 
 el('voice-forget').onclick = async () => {
-    const agreed = window.confirm(
-        'Forget your voice?\n\nThe voiceprint is deleted and it goes back to '
-        + 'answering any voice that says its name. Nothing else is affected.'
-    );
+    const agreed = window.confirm(T('voice.forgetConfirm'));
 
     if (!agreed) return;
 
     try {
         await send('/api/voiceprint/forget', {});
-        say('Forgotten. Nothing about your voice is left on this machine.', 'ok');
+        say(T('voice.forgotten'), 'ok');
     } catch (err) {
         say(String(err.message || err), 'bad');
     }
@@ -208,9 +221,7 @@ el('voice-quiet').onchange = async () => {
     try {
         await send('/api/settings', { keep_quiet: on });
 
-        say(on
-            ? 'Music and videos will drop while I speak, and come back afterwards.'
-            : 'I will speak over whatever is playing.', 'ok');
+        say(on ? T('voice.quietOn') : T('voice.quietOff'), 'ok');
     } catch (err) {
         say(String(err.message || err), 'bad');
     }
@@ -221,16 +232,12 @@ el('voice-quiet').onchange = async () => {
 el('voice-room').onchange = async () => {
     const on = el('voice-room').checked;
 
-    say(on
-        ? 'Moving this machine\u2019s sound through the canceller\u2026'
-        : 'Putting the sound back\u2026');
+    say(on ? T('voice.roomMoving') : T('voice.roomRestoring'));
 
     try {
         await send('/api/settings', { cancel_room: on });
 
-        say(on
-            ? 'Done. What this machine plays no longer reaches the microphone.'
-            : 'Done. This machine\u2019s sound goes straight to the speakers again.', 'ok');
+        say(on ? T('voice.roomOn') : T('voice.roomOff'), 'ok');
     } catch (err) {
         say(String(err.message || err), 'bad');
     }
@@ -242,15 +249,11 @@ el('voice-only').onchange = async () => {
     const on = el('voice-only').checked;
 
     try {
-        await fetch('/api/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ only_me: on }),
-        });
+        // send, not fetch: a refusal (withdrawn, nothing taught) is said
+        // rather than reported as done.
+        await send('/api/settings', { only_me: on });
 
-        say(on
-            ? 'It will answer your voice and ignore the rest of the room.'
-            : 'It will answer any voice that addresses it.', 'ok');
+        say(on ? T('voice.onlyOn') : T('voice.onlyOff'), 'ok');
     } catch (err) {
         say(String(err.message || err), 'bad');
     }
@@ -258,7 +261,7 @@ el('voice-only').onchange = async () => {
     load();
 };
 
-// The "answer only me" row follows the page's language when it changes.
+// The whole card follows the page's language when it changes.
 window.addEventListener('pn-language', () => draw());
 
 load();

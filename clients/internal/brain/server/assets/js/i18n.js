@@ -79,6 +79,121 @@
         ],
         'onlyme.why.nothingRecorded': ['nothing was recorded', 'нищо не беше записано'],
         'onlyme.why.unreadable': ['the recording could not be measured', 'записът не можа да бъде измерен'],
+        'onlyme.why.withdrawn': [
+            'telling voices apart is not offered in this version',
+            'разпознаването на гласове не се предлага в тази версия',
+        ],
+
+        // The Your voice card on Privacy (voiceprint.js). Since 1.0.1 "Answer
+        // only me" is withdrawn: the card says why and offers only to forget
+        // a voice taught before, plus the two switches about the room.
+        'voice.title': ['Your voice', 'Вашият глас'],
+        'voice.note': [
+            'Teach it your voice and it can tell you from a television, a video, or somebody else in the room.',
+            'Научете го на гласа си и той ще различава вас от телевизора, от видео или от друг човек в стаята.',
+        ],
+        'voice.withdrawn': [
+            'Answer only me is not offered in this version. The model that told voices apart was trained on '
+                + 'recordings licensed for research only, so it was withdrawn until there is one made only from '
+                + 'recordings free for any use. The assistant answers any voice that addresses it, as it did before.',
+            '„Отговаряй само на мен“ не се предлага в тази версия. Моделът, който различаваше гласовете, е обучен '
+                + 'върху записи, разрешени само за научни цели, затова е изтеглен, докато не се появи модел, направен '
+                + 'изцяло от записи, свободни за всякаква употреба. Асистентът отговаря на всеки глас, който се обърне '
+                + 'към него, както преди.',
+        ],
+        'voice.withdrawnKept': [
+            'The voice you taught it before is still kept on this machine and is not used. You can forget it below.',
+            'Гласът, на който сте го научили преди, все още се пази на този компютър и не се използва. '
+                + 'Можете да го изтриете с бутона по-долу.',
+        ],
+        'voice.needs': ['what it needs', 'нужното'],
+        'voice.installed': ['installed', 'инсталирано'],
+        'voice.downloading': ['downloading now…', 'изтегля се…'],
+        'voice.missing': ['not here yet ({mb} MB)', 'още го няма ({mb} MB)'],
+        'voice.yours': ['your voice', 'вашият глас'],
+        'voice.taughtOne': ['taught from 1 recording', 'научен от 1 запис'],
+        'voice.taughtMany': ['taught from {n} recordings', 'научен от {n} записа'],
+        'voice.notTaught': ['not taught yet', 'още не е научен'],
+        'voice.kept': ['kept from before, not used', 'пази се отпреди, не се използва'],
+        'voice.alike': ['how alike they were', 'колко си приличат записите'],
+        'voice.low': [' (low, teach it again somewhere quieter)', ' (ниско, научете го отново на по-тихо място)'],
+        'voice.get': ['Get what it needs', 'Изтегли нужното'],
+        'voice.teach': ['Teach it my voice', 'Научи гласа ми'],
+        'voice.teachMore': ['Teach it more of my voice', 'Научи още от гласа ми'],
+        'voice.forget': ['Forget my voice', 'Забрави гласа ми'],
+        'voice.only': ['Answer only me', 'Отговаряй само на мен'],
+        'voice.onlyNote': [
+            'Anything in another voice is heard and not acted on. It still appears in what it has been hearing, '
+                + 'so you can see what it ignored.',
+            'Казаното с друг глас се чува, но не се изпълнява. То пак се вижда в чутото досега, '
+                + 'така че можете да проверите какво е пренебрегнато.',
+        ],
+        'voice.room': ['Stop hearing this machine', 'Не чувай този компютър'],
+        'voice.roomNote': [
+            'Music, videos and calls playing on this machine go through the echo canceller, so the microphone '
+                + 'stops hearing them mixed with your voice. Sound from somewhere else in the room (a phone, a radio) '
+                + 'is still sound in the room.',
+            'Музиката, видеоклиповете и разговорите на този компютър минават през потискането на ехото и микрофонът '
+                + 'вече не ги чува смесени с гласа ви. Звук от друго място в стаята (телефон, радио) си остава звук '
+                + 'в стаята.',
+        ],
+        'voice.quiet': ['Turn the rest down while I talk', 'Намалявай останалото, докато говоря'],
+        'voice.quietNote': [
+            'Music and videos on this machine drop to a fifth while I am speaking and come straight back afterwards. '
+                + 'Lowered, never paused: stopping your film every time I say a word would be worse than talking over it.',
+            'Музиката и видеото на този компютър намаляват до една пета, докато говоря, и веднага се връщат след това. '
+                + 'Само се намаляват, не спират: да спирам филма ви при всяка моя дума би било по-лошо, '
+                + 'отколкото да говоря над него.',
+        ],
+        'voice.fetching': [
+            'Fetching about {mb} MB. It carries on in the background. Watch Doing now.',
+            'Изтеглят се около {mb} MB. Продължава във фонов режим. Следете „Какво прави сега“.',
+        ],
+        'voice.ready': ['Ready. Teach it your voice next.', 'Готово. Сега го научете на гласа си.'],
+        'voice.listening': [
+            'Say a sentence, anything, in your normal voice. Listening…',
+            'Кажете едно изречение, каквото и да е, с обичайния си глас. Слушам…',
+        ],
+        'voice.gotEnough': [
+            'Got it: {n} recordings, and that is enough. You can add more any time.',
+            'Записано: {n} записа, и това е достатъчно. Можете да добавите още по всяко време.',
+        ],
+        'voice.gotSome': [
+            'Got it: {n} of {wanted}. Press again and say something else.',
+            'Записано: {n} от {wanted}. Натиснете отново и кажете нещо друго.',
+        ],
+        'voice.forgetConfirm': [
+            'Forget your voice?\n\nThe voiceprint is deleted. Nothing else is affected.',
+            'Да бъде ли забравен гласът ви?\n\nОтпечатъкът на гласа се изтрива. Нищо друго не се променя.',
+        ],
+        'voice.forgotten': [
+            'Forgotten. Nothing about your voice is left on this machine.',
+            'Забравен. На този компютър не е останало нищо за гласа ви.',
+        ],
+        'voice.quietOn': [
+            'Music and videos will drop while I speak, and come back afterwards.',
+            'Музиката и видеото ще намаляват, докато говоря, и ще се връщат след това.',
+        ],
+        'voice.quietOff': ['I will speak over whatever is playing.', 'Ще говоря върху всичко, което звучи.'],
+        'voice.roomMoving': [
+            'Moving this machine’s sound through the canceller…',
+            'Звукът на този компютър се пренасочва през потискането на ехото…',
+        ],
+        'voice.roomRestoring': ['Putting the sound back…', 'Звукът се връща както беше…'],
+        'voice.roomOn': [
+            'Done. What this machine plays no longer reaches the microphone.',
+            'Готово. Това, което пуска този компютър, вече не стига до микрофона.',
+        ],
+        'voice.roomOff': [
+            'Done. This machine’s sound goes straight to the speakers again.',
+            'Готово. Звукът на този компютър отново отива направо към високоговорителите.',
+        ],
+        'voice.onlyOn': [
+            'It will answer your voice and ignore the rest of the room.',
+            'Ще отговаря на вашия глас и ще пренебрегва останалото в стаята.',
+        ],
+        'voice.onlyOff': ['It will answer any voice that addresses it.', 'Ще отговаря на всеки глас, който се обърне към него.'],
+        'voice.failed': ['That did not work ({status}).', 'Не стана ({status}).'],
 
         // Updates: is a newer version out, and getting it.
         'nav.updates': ['What it runs on', 'На какво работи'],
@@ -125,12 +240,6 @@
                 + 'with the Whisper small model by OpenAI (MIT). Local models: Ollama (MIT).',
             'Говорене: Piper на Michael Hansen (MIT). Слушане: whisper.cpp на авторите на ggml (MIT) '
                 + 'с модела Whisper small на OpenAI (MIT). Локални модели: Ollama (MIT).',
-        ],
-        'credits.voiceprint': [
-            'Answer only me: the CAM++ model from the 3D-Speaker project on ModelScope (Apache-2.0), '
-                + 'trained on VoxCeleb, run with ONNX Runtime by Microsoft (MIT).',
-            '„Answer only me“: моделът CAM++ от проекта 3D-Speaker в ModelScope (Apache-2.0), '
-                + 'обучен върху VoxCeleb, изпълняван с ONNX Runtime на Microsoft (MIT).',
         ],
         'credits.more': [
             'Every component and its licence is listed in THIRD-PARTY-NOTICES.md, published with the program\'s source code.',
@@ -1447,12 +1556,12 @@
         'cc.privacy.privateDetail': [
             'Local model and local embeddings only. Web search and page fetching are switched off. '
                 + 'Your conversations, memory and files stay here. With "May look things up about itself" on '
-                + '(a separate setting), the program may still download its own parts, such as the voice '
-                + 'recognition runtime after an update; those downloads carry nothing about you.',
+                + '(a separate setting), the program may still download its own parts, such as a voice '
+                + 'replaced by an update; those downloads carry nothing about you.',
             'Само локален модел и локални вектори. Търсенето в интернет и отварянето на страници са изключени. '
                 + 'Разговорите, паметта и файловете ви остават тук. Ако „Може да проверява информация за себе си“ '
                 + 'е включено (отделна настройка), програмата все пак може да изтегля свои компоненти, например '
-                + 'средата за разпознаване на глас след обновяване. Тези изтегляния не носят нищо за вас.',
+                + 'глас, заменен при обновяване. Тези изтегляния не носят нищо за вас.',
         ],
         'cc.privacy.research': ['Your data stays here; the brain may read the web.', 'Данните ви остават тук, а мозъкът може да чете в интернет.'],
         'cc.privacy.researchDetail': [

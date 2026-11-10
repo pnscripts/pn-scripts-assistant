@@ -27,6 +27,12 @@ func (s *Server) whoseVoice(samples []float64) voiceprint.Verdict {
 		return voiceprint.Verdict{Why: "nothing was recorded", Reason: voiceprint.ReasonNothingRecorded}
 	}
 
+	// Not offered since 1.0.1: nothing measures a voice, and nothing is loaded.
+	if !voiceprint.Offered() {
+		return voiceprint.Verdict{Why: "telling voices apart is not offered in this version",
+			Reason: voiceprint.ReasonWithdrawn}
+	}
+
 	if !voiceprint.Installed() {
 		// After an upgrade the model is here and the runtime is the previous
 		// release's, which is a different fix from never having fetched it.
@@ -80,7 +86,11 @@ func (r refusal) fields() map[string]any {
  * by itself without saying so is worse than none, because it is relied on.
  */
 func (s *Server) onlyMeRefuses(whose voiceprint.Verdict) refusal {
-	if !s.brain.Cfg.OnlyMe {
+	// With no model offered (1.0.1) the switch means nothing, and holding
+	// every turn would answer nobody: every voice is answered, as before the
+	// feature existed. brain.New switches it off; this covers a settings file
+	// edited by hand afterwards.
+	if !s.brain.Cfg.OnlyMe || !voiceprint.Offered() {
 		return refusal{}
 	}
 
@@ -112,7 +122,7 @@ func (s *Server) onlyMeRefuses(whose voiceprint.Verdict) refusal {
 // sentence and a Reason code, or "" when it can: for the Privacy page, while
 // the switch shows on.
 func (s *Server) onlyMeBlocked() (string, string) {
-	if !s.brain.Cfg.OnlyMe {
+	if !s.brain.Cfg.OnlyMe || !voiceprint.Offered() {
 		return "", ""
 	}
 
@@ -143,10 +153,13 @@ func (s *Server) handleVoiceprint(w http.ResponseWriter, r *http.Request) {
 	known, _ := voiceprint.Load(s.brain.Root)
 
 	body := map[string]any{
+		// Not offered since 1.0.1: the page says why and offers only to
+		// forget a voice taught before.
+		"withdrawn":   !voiceprint.Offered(),
 		"installed":   voiceprint.Installed(),
 		"downloading": installing.Load() || voiceprint.Downloading(),
 		"enrolled":    known != nil && len(known.Print) == voiceprint.Dimensions,
-		"only_me":     s.brain.Cfg.OnlyMe,
+		"only_me":     s.brain.Cfg.OnlyMe && voiceprint.Offered(),
 		"cancel_room": s.brain.Cfg.CancelRoom,
 		"keep_quiet":  s.brain.Cfg.KeepQuiet,
 		"rerouting":   speech.Rerouting(),
@@ -176,6 +189,12 @@ func (s *Server) handleVoiceprint(w http.ResponseWriter, r *http.Request) {
  * through a different one describes a different signal chain.
  */
 func (s *Server) handleTeachVoice(w http.ResponseWriter, r *http.Request) {
+	if !voiceprint.Offered() {
+		fail(w, http.StatusBadRequest, withdrawnSentence)
+
+		return
+	}
+
 	if !voiceprint.Installed() {
 		fail(w, http.StatusBadRequest,
 			"The model that tells voices apart is not installed yet.")
@@ -243,6 +262,15 @@ func (s *Server) handleForgetVoice(w http.ResponseWriter, r *http.Request) {
 	ok(w, map[string]any{"forgotten": true})
 }
 
+/*
+ * withdrawnSentence is the refusal when somebody asks for "Answer only me"
+ * in a release that offers no model to tell voices apart. The page says it
+ * in the reader's language ('voice.withdrawn'); this is for the API.
+ */
+const withdrawnSentence = "Answering only your voice is not offered in this version: " +
+	"the model that told voices apart was trained on recordings licensed for research only, " +
+	"so it was withdrawn. Every voice that addresses the assistant is answered."
+
 // installVoiceprint is voiceprint.Install; a variable so a test can stand in
 // for the download.
 var installVoiceprint = voiceprint.Install
@@ -265,6 +293,13 @@ var installing atomic.Bool
  * asked while it downloads keeps its own step on screen.
  */
 func (s *Server) handleInstallVoiceprint(w http.ResponseWriter, r *http.Request) {
+	// Nothing to download while no model is offered (1.0.1).
+	if !voiceprint.Offered() {
+		fail(w, http.StatusBadRequest, withdrawnSentence)
+
+		return
+	}
+
 	if voiceprint.Installed() {
 		ok(w, map[string]any{"installed": true})
 
@@ -312,7 +347,7 @@ var refreshRuntime = voiceprint.Refresh
  */
 func (s *Server) refreshVoiceprint(ctx context.Context) {
 	if !s.brain.Cfg.LookOnline {
-		if voiceprint.RuntimeStale() {
+		if voiceprint.Offered() && voiceprint.RuntimeStale() {
 			s.log.Info("the voiceprint runtime is from an older release and looking online is off; " +
 				"it will be fetched when asked for on the Privacy page")
 		}

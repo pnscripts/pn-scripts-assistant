@@ -429,3 +429,21 @@ func TestBothToolsDescribeThemselvesToTheModel(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Since 1.0.1 no model tells voices apart (the one before was trained on
+ * recordings licensed for research only). Asked about it, the assistant says
+ * so and that it answers any voice, instead of offering to fetch a part that
+ * is not offered any more.
+ */
+func TestItSaysTellingVoicesApartIsWithdrawn(t *testing.T) {
+	said := answer(t, HearingState{Withdrawn: true, VoiceTaught: true, WakeWord: "brain"})
+
+	if !strings.Contains(said, "not offered") || !strings.Contains(said, "any voice") {
+		t.Fatalf("it should say the feature is not offered and that it answers any voice:\n%s", said)
+	}
+
+	if strings.Contains(said, "fetched") || strings.Contains(said, "only you") {
+		t.Fatalf("it offers or claims what is withdrawn:\n%s", said)
+	}
+}

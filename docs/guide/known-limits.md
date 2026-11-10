@@ -100,24 +100,18 @@ against the code on 9 November 2026.
   says it does not look yet. Work is not yet moved to quiet hours by itself:
   the allowance of a paid coding agent is shown before each task instead.
 
-## Telling voices apart, and updating from 0.13
+## Telling voices apart
 
-- **The voice recognition runtime is replaced when the program first starts
-  after an update**, in the background (about 11 MB), and only while *May look
-  things up about itself* is on. Until it is done, voices are not told apart.
-  With that setting off, or if the download fails, the Privacy page shows the
-  part as missing and its button fetches it; pressed while a download runs,
-  it says so and does not start another.
-- **A voice recognition model fetched by 0.13 or earlier is checked the
-  first time it is used after the update.** Those versions took it unchecked
-  from a branch. If it is the published file nothing changes; if it is not,
-  it is not used, voices are not told apart, and the Privacy page offers to
-  fetch the published one.
-- **"Answer only me" acts on nothing it cannot check.** While it is on and a
-  voice cannot be recognised (the part above missing or being replaced, no
-  voice taught yet, or a recording too short to judge), what it hears is not
-  acted on. The command centre says why, the Privacy page shows it beside the
-  switch, and typing works as always.
+- **"Answer only me" is not offered in this version.** The model that told
+  voices apart (1.0.0 downloaded it when the feature was first turned on)
+  was trained on recordings licensed for research only, so 1.0.1 withdrew it
+  until there is one made only from recordings free for any use. Updating
+  switches the setting off, and the assistant answers any voice that
+  addresses it, as it did before the feature existed. Nothing is
+  downloaded. The model, its runtime and a voice you taught it stay where
+  1.0.0 left them and are not used; the Privacy page can forget the voice,
+  and the files under the program's machine folder (`voice`) can be deleted
+  by hand.
 - **Documents 0.13 read only in part stay that way until they change.** 0.13
   could stop reading a long document in the middle. This version reads every
   document whole, but a document already read is read again only when it
@@ -126,7 +120,7 @@ against the code on 9 November 2026.
   on the first start.
 
 - **Two pieces of background work at once share one progress line.** When
-  one finishes (for example the voice recognition download while a folder is
+  one finishes (for example a voice download while a folder is
   being read), the line is cleared, and the other's progress shows again only
   with its next step. The work itself is not affected.
 
@@ -166,9 +160,6 @@ against the code on 9 November 2026.
 - The program and its built-in guides are in English and Bulgarian. Of these
   guides, installing, setting up, troubleshooting and this list are in both;
   the guides for developers and for making a release are in English only.
-- The *Your voice* card on the Privacy page is still in English on a
-  Bulgarian page, apart from what it says when "Answer only me" cannot
-  recognise your voice.
 - With the page in Bulgarian, the menu and the pages behind it are in
   Bulgarian: Command centre, Models, System, Operations, The room, Teaching,
   Organisation, Tasks, Reaching it and Privacy among them, with the parts on

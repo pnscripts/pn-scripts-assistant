@@ -37,6 +37,7 @@
         notTaught: 'no voice has been taught to this brain yet',
         nothingRecorded: 'nothing was recorded',
         unreadable: 'the recording could not be measured',
+        withdrawn: 'telling voices apart is not offered in this version',
     };
 
     function why(code, english) {

@@ -136,7 +136,7 @@ func introductionLine(root string, loaded []string) string {
  */
 func firstExample(fresh []string) string {
 	examples := map[string]string{
-		"change_a_setting":          `"answer only me"`,
+		"change_a_setting":          `"speak your answers out loud"`,
 		"what_can_you_do":           `"what can you do"`,
 		"places_it_learns_from":     `"learn everything"`,
 		"what_am_i_hearing":         `"why did you ignore me"`,
