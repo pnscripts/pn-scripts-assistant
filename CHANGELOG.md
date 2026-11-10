@@ -9,7 +9,7 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
-## Unreleased
+## 1.0.1 (2026-11-10)
 
 - **"Answer only me" is withdrawn.** The model it told voices apart with
   (CAM++ from the 3D-Speaker project) was trained on VoxCeleb, whose
