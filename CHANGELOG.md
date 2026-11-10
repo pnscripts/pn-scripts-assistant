@@ -26,6 +26,13 @@ whenever something visible changed.
   `PN_SCRIPTS_ASSISTANT_API_URL` (the terminal client). `BRAIN_ADDR` and
   `BRAIN_API_URL`, their names from before, still work, and the settings
   file keeps its name and its lines.
+- **Your name, not a sealed code, on the first start.** A settings file
+  written by hand before the first start (`BRAIN_OWNER=Sam`) is encrypted in
+  place on that start, and the program then read it back still encrypted:
+  the page, the status and the terminal greeted you as `pnsealed1:...`, and
+  mail and service keys from the same file did not work, until the next
+  start. Every personal setting is now read back in the clear on the first
+  start too.
 
 ## 1.0.1 (2026-11-10)
 
