@@ -18,7 +18,7 @@ go 1.26.0
 //
 // Worth re-running govulncheck when this is raised again, and worth raising
 // it when a scan says so.
-toolchain go1.26.10
+toolchain go1.26.11
 
 require (
 	github.com/yalue/onnxruntime_go v1.38.0

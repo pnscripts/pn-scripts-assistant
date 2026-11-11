@@ -33,6 +33,8 @@ whenever something visible changed.
   mail and service keys from the same file did not work, until the next
   start. Every personal setting is now read back in the clear on the first
   start too.
+- Built with Go 1.26.11, which fixes GO-2026-6859 in `net/http` (found by
+  govulncheck on 2026-11-11), and with `golang.org/x/sys` 0.50.0.
 
 ## 1.0.1 (2026-11-10)
 
