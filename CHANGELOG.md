@@ -9,6 +9,16 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
+## Unreleased
+
+- **Quiet hours for heavy work.** Settings has a window for heavy work
+  (for example 22:00 until 07:00). Outside it, a coding agent whose paid
+  allowance is being spent faster than it renews is not started on its
+  own, even with everything allowed: the question says until when the work
+  waits, and your yes starts it anyway. On pace, inside the window or with
+  no window set, nothing changes. Saved as `BRAIN_QUIET_HOURS` in the
+  settings file; a window that cannot be meant is refused with why.
+
 ## 1.0.2 (2026-11-11)
 
 - **Everything a terminal shows says the program's name.** The terminal

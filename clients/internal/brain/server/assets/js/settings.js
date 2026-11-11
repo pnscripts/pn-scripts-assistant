@@ -122,6 +122,11 @@ async function load() {
         el('set-auto-model').checked = status.auto_model !== false;
         el('set-goal-mode').checked = status.goal_mode === true;
 
+        // "22:00-07:00", or both empty for none.
+        const [from, to] = (status.quiet_hours || '').split('-');
+        el('set-quiet-from').value = from || '';
+        el('set-quiet-to').value = to || '';
+
         // Defaults to on: an assistant you can talk to should answer out loud
         // unless somebody has said otherwise.
         el('set-always-listen').checked = status.always_listen !== false;
@@ -277,7 +282,25 @@ if (form) {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        // Both times or neither, and two different ones: said here, in the
+        // page's language, rather than half saved.
+        const from = el('set-quiet-from').value;
+        const to = el('set-quiet-to').value;
+
+        if (!!from !== !!to) {
+            el('set-note').textContent = T('sys.quietBoth');
+
+            return;
+        }
+
+        if (from && from === to) {
+            el('set-note').textContent = T('sys.quietSame');
+
+            return;
+        }
+
         await save({
+            quiet_hours: from ? from + '-' + to : '',
             name: el('set-name').value,
             owner: el('set-owner').value,
             wake_word: el('set-wake').value,

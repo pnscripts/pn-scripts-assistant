@@ -234,7 +234,10 @@ of writing); the rest is specified below and not started.
 - **Work moved to quiet hours.** A user-set window for heavy work (goals,
   coding agents, learning), with each paid allowance paced to its renewal:
   work that would run an allowance out early waits for the window, says so,
-  and can be started anyway with one press.
+  and can be started anyway with one press. First step built on 11 November
+  2026: the window (Settings, `BRAIN_QUIET_HOURS`) and coding agents, whose
+  calls are held as a question that says until when and run on the yes.
+  Next: goals and learning wait for the window and start in it by themselves.
 - **Replies on the user's own channels.** Comments on pages the user connects
   (through the official API where there is one, else a browser the user signs
   in), each checked for scams and answered from facts the assistant can show;

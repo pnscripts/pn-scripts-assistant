@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/quiethours"
 	"pn-scripts-assistant/internal/brain/vault"
 	"sort"
 	"strconv"
@@ -319,6 +320,14 @@ type Config struct {
 	 * folder, and a change to the whole system. See tools.GoalModeAsks.
 	 */
 	GoalMode bool
+
+	/*
+	 * QuietHours is the window set aside for heavy work, "22:00-07:00", or
+	 * empty for none. Outside it, work on a paid allowance that is being
+	 * spent faster than it renews is held until the window opens and can be
+	 * started at once with a yes. See the quiethours package.
+	 */
+	QuietHours string
 
 	/*
 	 * CiteSources numbers what an answer was built from and asks the model
@@ -811,6 +820,12 @@ func LoadFrom(path string) (Config, error) {
 		cfg.GoalMode = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 
+	// Only a window that means something: a typo must not start holding
+	// work at a time nobody chose.
+	if w, err := quiethours.Parse(get("BRAIN_QUIET_HOURS")); err == nil {
+		cfg.QuietHours = w.String()
+	}
+
 	if v := get("BRAIN_MAIL_MORNING"); v != "" {
 		cfg.MailMorning = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
@@ -999,6 +1014,9 @@ func (c Config) Save(root string) error {
 	b.WriteString("# Works on goals on its own; asks only before paying, sending or publishing\n")
 	b.WriteString("# in your name, deleting outside the goal's folder or changing the whole system.\n")
 	b.WriteString("BRAIN_GOAL_MODE=" + boolText(c.GoalMode) + "\n")
+	b.WriteString("# Hours set aside for heavy work, like 22:00-07:00. Outside them, work on a\n")
+	b.WriteString("# paid allowance spent faster than it renews waits, and a yes starts it anyway.\n")
+	b.WriteString("BRAIN_QUIET_HOURS=" + c.QuietHours + "\n")
 	b.WriteString("# Say which sentence of an answer came from which source, by number.\n")
 	b.WriteString("BRAIN_CITE_SOURCES=" + boolText(c.CiteSources) + "\n")
 	b.WriteString("# A summary of new mail in the conversation once a morning.\n")

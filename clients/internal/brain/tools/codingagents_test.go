@@ -61,3 +61,51 @@ func TestTheCodingAgentToolSaysWhoWhereAndHowFar(t *testing.T) {
 		t.Error("it does not say what it sends off this machine")
 	}
 }
+
+type heldAgent struct{ asked *int }
+
+func (heldAgent) CodingAgents() []CodingAgent {
+	return []CodingAgent{{ID: "codex", Title: "Codex", Ready: true,
+		Pace: "70 % of its allowance used with 20 % of its 7-day window gone; ahead of pace",
+		Held: "Held for your quiet hours (22:00 to 07:00): its allowance is being spent faster than it renews, " +
+			"so heavy work waits until 22:00 today. Ask again then, or say yes to start it now anyway."}}
+}
+
+func (h heldAgent) AskCodingAgent(_ context.Context, id, folder, task, access string) (AgentAnswer, error) {
+	*h.asked++
+
+	return AgentAnswer{Agent: id, Said: "done"}, nil
+}
+
+/*
+ * Work on an allowance spent ahead of its pace, outside the quiet hours, is
+ * put to its user with until when it waits: their yes is the one press that
+ * starts it anyway. Any access, reading included, and full access still
+ * says why it is always asked.
+ */
+func TestAnAgentHeldForQuietHoursIsAskedWithUntilWhen(t *testing.T) {
+	var asked int
+
+	tool := AskCodingAgent{Agents: heldAgent{asked: &asked}}
+	raw := json.RawMessage(`{"task":"Refactor the parser","folder":"/p"}`)
+
+	if why := tool.AlwaysAsks(raw); why != "held for your quiet hours" {
+		t.Errorf("reading while held: %q", why)
+	}
+
+	if why := tool.AlwaysAsks(json.RawMessage(`{"task":"x","folder":"/p","access":"full"}`)); why !=
+		"full access for a coding agent; held for your quiet hours" {
+		t.Errorf("full access while held: %q", why)
+	}
+
+	s := tool.Summarize(raw)
+	if !strings.HasSuffix(s, "waits until 22:00 today. Ask again then, or say yes to start it now anyway.") ||
+		!strings.Contains(s, "ahead of pace") {
+		t.Errorf("%q", s)
+	}
+
+	// The yes runs it: being held is a question, never a refusal.
+	if _, err := tool.Execute(context.Background(), raw); err != nil || asked != 1 {
+		t.Errorf("the yes did not start it: %v, asked %d", err, asked)
+	}
+}

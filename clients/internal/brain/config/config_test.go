@@ -360,3 +360,52 @@ func TestTheUpgradeDoesNotWriteTheEnvironmentDown(t *testing.T) {
 		t.Errorf("the file should say open and nothing from the environment:\n%s", raw)
 	}
 }
+
+/*
+ * Quiet hours survive a restart, written the one way they are saved, and a
+ * window that cannot be meant is not taken as one: a typo must not start
+ * holding work at a time nobody chose.
+ */
+func TestQuietHoursAreRememberedAndOnlyWhenTheyMeanSomething(t *testing.T) {
+	root := t.TempDir()
+
+	cfg := Default()
+	if cfg.QuietHours != "" {
+		t.Fatalf("a fresh brain has quiet hours %q", cfg.QuietHours)
+	}
+
+	cfg.QuietHours = "22:00-07:00"
+	if err := cfg.Save(root); err != nil {
+		t.Fatal(err)
+	}
+
+	back, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if back.QuietHours != "22:00-07:00" {
+		t.Fatalf("came back as %q", back.QuietHours)
+	}
+
+	written, _ := os.ReadFile(filepath.Join(root, FileName))
+	if !strings.Contains(string(written), "BRAIN_QUIET_HOURS=22:00-07:00") {
+		t.Errorf("not written as BRAIN_QUIET_HOURS:\n%s", written)
+	}
+
+	for in, want := range map[string]string{" 23:00 - 6:30 ": "23:00-06:30", "22:00": "", "25:00-07:00": ""} {
+		text := strings.Replace(string(written), "BRAIN_QUIET_HOURS=22:00-07:00", "BRAIN_QUIET_HOURS="+in, 1)
+		if err := os.WriteFile(filepath.Join(root, FileName), []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if got.QuietHours != want {
+			t.Errorf("%q in the file read as %q, want %q", in, got.QuietHours, want)
+		}
+	}
+}
