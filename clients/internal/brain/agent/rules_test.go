@@ -307,3 +307,48 @@ func TestARuleIsNeverKeptWithoutAYes(t *testing.T) {
 		t.Fatalf("kept without a yes: %v %+v", kept, res.Pending)
 	}
 }
+
+type heldHere struct{ asked *[]string }
+
+func (heldHere) CodingAgents() []tools.CodingAgent {
+	return []tools.CodingAgent{{ID: "claude-code", Title: "Claude Code", Ready: true,
+		Held: "Held for your quiet hours (22:00 to 07:00): its allowance is being spent faster than it renews, " +
+			"so heavy work waits until 22:00 today. Ask again then, or say yes to start it now anyway."}}
+}
+
+func (a heldHere) AskCodingAgent(_ context.Context, id, folder, task, access string) (tools.AgentAnswer, error) {
+	*a.asked = append(*a.asked, access)
+
+	return tools.AgentAnswer{Agent: "Claude Code", Said: "Done."}, nil
+}
+
+/*
+ * Outside the quiet hours, with its allowance ahead of pace, even a coding
+ * agent that only reads waits for its user's yes, with everything allowed
+ * and nothing asked: the question says until when, and the yes starts it.
+ */
+func TestACodingAgentHeldForQuietHoursWaitsForAYes(t *testing.T) {
+	var asked []string
+
+	loop, db := newLoop(t, tools.AskCodingAgent{Agents: heldHere{asked: &asked}})
+	everythingAllowed(loop)
+
+	conv, _ := db.NewConversation("t")
+
+	model := &scripted{replies: []llm.Response{{
+		Content: "Asking it.",
+		ToolCalls: []llm.ToolCall{{ID: "c1", Name: "ask_coding_agent", Arguments: json.RawMessage(
+			`{"task":"Tidy the tests.","folder":"/tmp/project","access":"read"}`)}},
+	}}}
+
+	res, err := loop.RunBrief(context.Background(), conv, model, nil, Brief{WithTools: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(asked) != 0 || len(res.Pending) != 1 ||
+		!strings.Contains(res.Pending[0].Summary, "Always asked (held for your quiet hours)") ||
+		!strings.Contains(res.Pending[0].Summary, "waits until 22:00 today") {
+		t.Fatalf("held work ran or was not put to the user: ran %v, %+v", asked, res.Pending)
+	}
+}

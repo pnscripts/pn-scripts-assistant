@@ -53,6 +53,13 @@ the window, which has the same settings one at a time, plus:
   browser and tool it found, with its version and whether it is ready. This is
   the same list the assistant is given when it answers, so the panel and the
   program cannot disagree about whether Godot is installed.
+- **Quiet hours for heavy work**: a window such as 22:00 until 07:00. Outside
+  it, a coding agent whose paid allowance is being spent faster than it
+  renews (judged from what the agent itself last said about its allowance)
+  is not started on its own: the question says until when the work waits,
+  and your yes starts it anyway. With the allowance on pace, inside the
+  window, or with no window, nothing waits. In the settings file it is
+  `BRAIN_QUIET_HOURS=22:00-07:00`.
 
 ## Switching something off
 

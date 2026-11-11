@@ -34,6 +34,7 @@ import (
 	"pn-scripts-assistant/internal/brain/pace"
 	"pn-scripts-assistant/internal/brain/pair"
 	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/quiethours"
 	"pn-scripts-assistant/internal/brain/speech"
 	"pn-scripts-assistant/internal/brain/storage"
 	"pn-scripts-assistant/internal/brain/store"
@@ -761,6 +762,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"always_name":   s.brain.Cfg.AlwaysName,
 		"auto_model":    s.brain.Cfg.AutoModel,
 		"goal_mode":     s.brain.Cfg.GoalMode,
+		"quiet_hours":   s.brain.Cfg.QuietHours,
 		"always_speak":  s.brain.Cfg.AlwaysSpeak,
 		"always_listen": s.brain.Cfg.AlwaysListen,
 		"models":        modelRoles(s.brain),
@@ -2172,12 +2174,31 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		// Whether the machine's own sound goes through the canceller.
 		CancelRoom *bool `json:"cancel_room"`
 		KeepQuiet  *bool `json:"keep_quiet"`
+
+		// QuietHours is the window for heavy work, "22:00-07:00"; empty
+		// clears it.
+		QuietHours *string `json:"quiet_hours"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<13)).Decode(&body); err != nil {
 		fail(w, http.StatusBadRequest, "Those are not settings.")
 
 		return
+	}
+
+	// Read before anything is changed: a window that cannot be meant is
+	// refused with why, and the rest of the form is not half saved.
+	var quiet quiethours.Window
+
+	if body.QuietHours != nil {
+		w2, err := quiethours.Parse(*body.QuietHours)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err.Error())
+
+			return
+		}
+
+		quiet = w2
 	}
 
 	if body.Name != nil {
@@ -2286,6 +2307,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	 * Somebody switches this on because music is confusing the brain now, and
 	 * an answer of "restart and it will be better" is not one.
 	 */
+	if body.QuietHours != nil {
+		s.brain.Cfg.QuietHours = quiet.String()
+	}
+
 	if body.KeepQuiet != nil {
 		s.brain.Cfg.KeepQuiet = *body.KeepQuiet
 
@@ -2326,6 +2351,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		"always_name":   s.brain.Cfg.AlwaysName,
 		"auto_model":    s.brain.Cfg.AutoModel,
 		"goal_mode":     s.brain.Cfg.GoalMode,
+		"quiet_hours":   s.brain.Cfg.QuietHours,
 		"always_speak":  s.brain.Cfg.AlwaysSpeak,
 		"always_listen": s.brain.Cfg.AlwaysListen,
 	})

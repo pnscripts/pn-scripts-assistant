@@ -13,6 +13,7 @@ import (
 
 	"pn-scripts-assistant/internal/brain/orchestrator"
 	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/quiethours"
 	"pn-scripts-assistant/internal/brain/rules"
 	"pn-scripts-assistant/internal/brain/tools"
 )
@@ -51,7 +52,13 @@ func (b *Brain) CodingAgents() []tools.CodingAgent {
 			a := tools.CodingAgent{ID: r.ID, Title: r.Title, Why: r.Why}
 
 			if u, err := b.DB.UsageOf(r.ID); err == nil {
-				a.Pace = orchestrator.PaceOf(u, time.Now()).Say()
+				now := time.Now()
+				pace := orchestrator.PaceOf(u, now)
+				a.Pace = pace.Say()
+
+				// Ahead of its pace, outside the quiet hours: the work
+				// waits for a yes that says until when.
+				a.Held = quiethours.Held(b.Cfg.QuietHours, pace.Ahead, now)
 			}
 
 			switch {

@@ -998,6 +998,19 @@
                                 service, sending or publishing in your name, deleting files outside the
                                 goal's folder, and changing the whole system.</small>
                         </label>
+                        <div class="field quiet-hours" role="group" aria-labelledby="quiet-title">
+                            <span id="quiet-title" data-i18n="sys.quiet">Quiet hours for heavy work</span>
+                            <div class="quiet-times">
+                                <label><span data-i18n="sys.quietFrom">From</span>
+                                    <input id="set-quiet-from" type="time" step="60"></label>
+                                <label><span data-i18n="sys.quietTo">Until</span>
+                                    <input id="set-quiet-to" type="time" step="60"></label>
+                            </div>
+                            <small class="field-note" data-i18n="sys.quietNote">Outside these hours, a coding agent
+                                whose paid allowance is being spent faster than it renews waits, and
+                                the question says until when; your yes starts it anyway. Leave both
+                                empty for no quiet hours.</small>
+                        </div>
                         <label class="field field-check">
                             <input id="set-auto-model" type="checkbox">
                             <span data-i18n="sys.quick">Answer small talk with a quicker model</span>

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"pn-scripts-assistant/internal/brain/orchestrator"
+	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 )
 
@@ -150,5 +151,55 @@ func TestTheAgentsFolderIsChecked(t *testing.T) {
 
 	if len(jobs) != 0 {
 		t.Errorf("an agent was started: %+v", jobs)
+	}
+}
+
+/*
+ * An agent whose week is mostly spent on its first day is held while the
+ * quiet hours are shut, and not while they are open, and never without a
+ * window or on pace.
+ */
+func TestAnAgentAheadOfItsPaceIsHeldOutsideTheQuietHours(t *testing.T) {
+	var jobs []orchestrator.Job
+
+	b := agentBrain(t, fakeAgent{jobs: &jobs})
+
+	left := 10.0
+	if err := b.DB.NoteUsage(store.Usage{Resource: "claude-code", State: "ok", Remaining: &left,
+		Window: "seven_day", ResetsAt: time.Now().Add(6 * 24 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now()
+	window := func(from, to time.Duration) string {
+		return now.Add(from).Format("15:04") + "-" + now.Add(to).Format("15:04")
+	}
+
+	held := func() string { return b.CodingAgents()[0].Held }
+
+	if s := held(); s != "" {
+		t.Errorf("held with no quiet hours: %q", s)
+	}
+
+	b.Cfg.QuietHours = window(2*time.Hour, 3*time.Hour)
+	if s := held(); !strings.Contains(s, "waits until "+now.Add(2*time.Hour).Format("15:04")) {
+		t.Errorf("not held outside the quiet hours %s: %q", b.Cfg.QuietHours, s)
+	}
+
+	b.Cfg.QuietHours = window(-time.Hour, time.Hour)
+	if s := held(); s != "" {
+		t.Errorf("held inside the quiet hours %s: %q", b.Cfg.QuietHours, s)
+	}
+
+	// On pace: 40 % used with four of seven days gone is never held.
+	left = 60
+	if err := b.DB.NoteUsage(store.Usage{Resource: "claude-code", State: "ok", Remaining: &left,
+		Window: "seven_day", ResetsAt: time.Now().Add(3 * 24 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+
+	b.Cfg.QuietHours = window(2*time.Hour, 3*time.Hour)
+	if s := held(); s != "" {
+		t.Errorf("held on pace: %q", s)
 	}
 }

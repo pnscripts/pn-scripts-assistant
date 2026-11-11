@@ -35,6 +35,12 @@ type CodingAgent struct {
 	// Pace is how its allowance is being spent, in a sentence, when the
 	// agent has said: see orchestrator.PaceOf.
 	Pace string `json:"pace,omitempty"`
+
+	// Held says, when it is, that work for it waits for its user's quiet
+	// hours (its allowance is ahead of its pace and the window is shut),
+	// and until when: see the quiethours package. A held call is always
+	// asked, and the yes starts it anyway.
+	Held string `json:"held,omitempty"`
 }
 
 // AgentChange is one file an agent added, changed or removed.
@@ -166,9 +172,9 @@ func (t AskCodingAgent) chosen(name string) (CodingAgent, bool) {
 func (t AskCodingAgent) Summarize(raw json.RawMessage) string {
 	a := readAgentArgs(raw)
 
-	title, pace := a.Agent, ""
+	title, pace, held := a.Agent, "", ""
 	if agent, ok := t.chosen(a.Agent); ok {
-		title, pace = agent.Title, agent.Pace
+		title, pace, held = agent.Title, agent.Pace, agent.Held
 	}
 
 	if title == "" {
@@ -195,20 +201,37 @@ func (t AskCodingAgent) Summarize(raw json.RawMessage) string {
 		out += "\n\n" + title + ": " + pace + "."
 	}
 
+	// And, when the work waits for the quiet hours, until when: the yes is
+	// what starts it anyway.
+	if held != "" {
+		out += "\n\n" + held
+	}
+
 	return out
 }
 
 /*
  * AlwaysAsks: full access is put to its user every time, whatever else
- * they have allowed — "never stop", goal mode and everything allowed
- * included. It is the one reach that is not bounded by the folder.
+ * they have allowed: "never stop", goal mode and everything allowed
+ * included. It is the one reach that is not bounded by the folder. So is
+ * any call to an agent held for the quiet hours.
  */
-func (AskCodingAgent) AlwaysAsks(raw json.RawMessage) string {
-	if readAgentArgs(raw).Access == ReachFull {
-		return "full access for a coding agent"
+func (t AskCodingAgent) AlwaysAsks(raw json.RawMessage) string {
+	a := readAgentArgs(raw)
+
+	var why []string
+
+	if a.Access == ReachFull {
+		why = append(why, "full access for a coding agent")
 	}
 
-	return ""
+	// Held for the quiet hours: whatever its reach, the work waits for a
+	// yes, which starts it now anyway.
+	if agent, ok := t.chosen(a.Agent); ok && agent.Held != "" {
+		why = append(why, "held for your quiet hours")
+	}
+
+	return strings.Join(why, "; ")
 }
 
 // Outward: with folder or full access it changes files.
