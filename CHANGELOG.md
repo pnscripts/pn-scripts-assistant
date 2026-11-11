@@ -9,7 +9,7 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
-## Unreleased
+## 1.0.2 (2026-11-11)
 
 - **Everything a terminal shows says the program's name.** The terminal
   client signed every answer "brain" and asked "Is the brain running?",
