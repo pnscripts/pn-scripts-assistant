@@ -33,6 +33,10 @@ type Entry struct {
 	// page, which has no use for it.
 	id int64
 
+	// invocation is the question this step waits on, when it is one, so
+	// the decision can settle it. Not sent to the page either.
+	invocation int64
+
 	Kind string `json:"kind"`
 	Note string `json:"note"`
 	Tool string `json:"tool"`
@@ -64,6 +68,11 @@ type Entry struct {
 	 * interesting at different moments.
 	 */
 	Detail []string `json:"detail"`
+
+	// Decided says how the question this step waited on was decided:
+	// Approved, Refused or ByItself. Empty while it waits, and for any
+	// other step. See Decided.
+	Decided string `json:"decided,omitempty"`
 }
 
 var history = struct {
@@ -85,6 +94,12 @@ var history = struct {
  * and a tool that was never called.
  */
 func remember(kind, note, tool, model string, background bool) {
+	rememberFor(kind, note, tool, model, background, 0)
+}
+
+// rememberFor is remember for a step that waits on a stored question: the
+// same words about another question are another step. See Waiting.
+func rememberFor(kind, note, tool, model string, background bool, invocation int64) {
 	history.mu.Lock()
 	defer history.mu.Unlock()
 
@@ -105,7 +120,7 @@ func remember(kind, note, tool, model string, background bool) {
 	 */
 	if n := len(history.entries); n > 0 {
 		last := history.entries[n-1]
-		if last.Kind == kind && last.Note == note && last.Tool == tool {
+		if last.Kind == kind && last.Note == note && last.Tool == tool && last.invocation == invocation {
 			history.entries[n-1].Took = 0
 
 			return
@@ -116,6 +131,7 @@ func remember(kind, note, tool, model string, background bool) {
 
 	history.entries = append(history.entries, Entry{
 		id:         history.nextID,
+		invocation: invocation,
 		Kind:       kind,
 		Note:       note,
 		Tool:       tool,

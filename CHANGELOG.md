@@ -31,6 +31,11 @@ whenever something visible changed.
   a change while it waited leaves it to you. Its answer appears in the
   conversation it was asked in, and the record says it started by itself,
   so it never counts as your yes.
+- **Fixed: Doing now kept saying "Waiting for you" after you had decided.**
+  A question answered by hand, from another window, or by itself when the
+  quiet hours opened stayed as a red "Waiting for you" row until other work
+  came along. The row now says how it was decided (Approved, Refused or
+  Started by itself) and is no longer painted as something blocked.
 
 ## 1.0.2 (2026-11-11)
 

@@ -48,6 +48,9 @@ const STATUS_OF = {
     answering: 'thinking',
     speaking: 'speaking',
     waiting: 'waiting',
+    // A question that was waiting and has been decided: settled, so it
+    // is no longer painted in the colour of something blocked.
+    decided: 'idle',
     learning: 'learning',
     embedding: 'learning',
     model: 'thinking',
@@ -192,6 +195,9 @@ const STEP_KEYS = [
     'cc.step.lastConversation',
     'cc.step.voicesApart',
     'cc.step.waitingFor',
+    'cc.step.approved',
+    'cc.step.refused',
+    'cc.step.startedItself',
     'cc.step.passage',
     'cc.step.learningMany',
     'cc.step.learningFrom',
@@ -246,7 +252,8 @@ function shapes() {
             .map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
             .join('(.+?)');
 
-        return { key, size: english.length, pattern: new RegExp(`^${pattern}$`) };
+        // 's': a question's summary can run over several lines.
+        return { key, size: english.length, pattern: new RegExp(`^${pattern}$`, 's') };
     }).sort((a, b) => b.size - a.size);
 
     return stepShapes;
