@@ -324,7 +324,7 @@ func TestRegisteredTools(t *testing.T) {
 		"read_document", "read_file", "read_integration", "read_mailbox", "record_invoice", "remember_how_to_do_this",
 		"remind_me", "remove_a_part", "research", "run_as_admin", "run_command", "scroll", "search_files",
 		"set_appearance", "set_wake_word", "start_project", "stop_background",
-		"stop_hearing_this_machine", "stop_leftover", "study_progress", "table_summary", "todo", "translate", "translate_document", "type_text", "vat_summary", "web_search", "what_am_i_hearing", "what_can_you_do",
+		"stop_hearing_this_machine", "stop_leftover", "study_progress", "table_summary", "todo", "translate", "translate_document", "type_text", "vat_summary", "watch_for_restart", "web_search", "what_am_i_hearing", "what_can_you_do",
 		"what_is_next", "what_is_on", "what_ive_been_taught", "what_this_machine_needs", "what_you_know",
 		"write_document", "write_file", "write_originality_report",
 	}

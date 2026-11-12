@@ -154,6 +154,9 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 		ctx = tools.WithEverythingAllowed(ctx)
 	}
 
+	// Said where it was asked, by a tool whose answer comes later.
+	ctx = tools.InConversation(ctx, invocation.ConversationID)
+
 	/*
 	 * Its user's rules, again: a rule kept, or switched on, while this was
 	 * waiting still counts, and a yes given to a question asked before it

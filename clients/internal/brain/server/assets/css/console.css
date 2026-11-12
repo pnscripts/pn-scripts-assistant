@@ -6455,6 +6455,9 @@ html[data-pace="hidden"] *::after {
 .care-items li.care-blocking { color: var(--warn); }
 .care-leftover { align-items: flex-start; }
 .care-command { display: block; flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; color: var(--text-dim); }
+.care-watch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 12px; }
+.care-watch #mcare-watching { flex: 1 1 260px; margin: 0; overflow-wrap: anywhere; }
+#mcare-watching[hidden], #mcare-watch[hidden], #mcare-unwatch[hidden] { display: none; }
 
 /* The status pill when the model in use does not answer: still online (this
    program is), but amber, with the way to the explanation beside it. */

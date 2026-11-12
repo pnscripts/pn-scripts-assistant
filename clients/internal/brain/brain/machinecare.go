@@ -23,6 +23,10 @@ type CareReport struct {
 	Restart   machinecare.Readiness  `json:"restart"`
 	Leftovers []machinecare.Leftover `json:"leftovers"`
 
+	// Watch is "tell me when I can restart": going now, or the last one,
+	// or nil. See restartwatch.go.
+	Watch *machinecare.Watch `json:"watch"`
+
 	// Here is false on a system the look does not cover yet.
 	Here bool `json:"here"`
 }
@@ -46,6 +50,7 @@ func (b *Brain) MachineCare(ctx context.Context) CareReport {
 	}
 
 	r.Restart = machinecare.Read(ctx, b.busyWithWhat(), b.workFolders())
+	r.Watch = b.RestartWatch()
 
 	return r
 }

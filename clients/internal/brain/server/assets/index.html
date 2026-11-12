@@ -919,6 +919,13 @@
                     <h3 data-i18n="mcare.restartTitle">Can it be restarted now?</h3>
                     <p class="care-verdict" id="mcare-verdict" role="status" aria-live="polite"></p>
                     <ul id="mcare-items" class="books-rule-list care-items"></ul>
+                    <!-- Tell me when I can restart: one watch at a time,
+                         looked at every 2 minutes, said out loud when it ends. -->
+                    <div class="care-watch" id="mcare-watch-row">
+                        <p class="note" id="mcare-watching" role="status" aria-live="polite" hidden></p>
+                        <button type="button" class="model-action" id="mcare-watch" hidden data-i18n="mcare.watch">Tell me when it is safe</button>
+                        <button type="button" class="model-action" id="mcare-unwatch" hidden data-i18n="mcare.unwatch">Stop watching</button>
+                    </div>
                     <h3 data-i18n="mcare.leftTitle">Left running</h3>
                     <p class="note" data-i18n="mcare.leftNote"></p>
                     <ul id="mcare-left" class="writing-list study-list care-left"></ul>

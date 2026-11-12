@@ -91,3 +91,21 @@ func EverythingAllowed(ctx context.Context) bool {
 
 	return on
 }
+
+type conversationKey struct{}
+
+/*
+ * InConversation names the conversation a call was made in, so a tool
+ * whose result comes later (a watch that ends in an hour) can say it
+ * there. Zero, or no mark at all, is a call from no conversation.
+ */
+func InConversation(ctx context.Context, id int64) context.Context {
+	return context.WithValue(ctx, conversationKey{}, id)
+}
+
+// ConversationOf is the conversation a call was made in, or zero.
+func ConversationOf(ctx context.Context) int64 {
+	id, _ := ctx.Value(conversationKey{}).(int64)
+
+	return id
+}

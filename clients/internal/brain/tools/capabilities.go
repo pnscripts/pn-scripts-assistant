@@ -169,6 +169,7 @@ var serves = map[string][]string{
 	"how_fast_can_you_answer":   {"machine_upkeep"},
 	"what_am_i_hearing":         {"machine_upkeep"},
 	"stop_hearing_this_machine": {"machine_upkeep"},
+	"watch_for_restart":         {"machine_upkeep"},
 
 	// The house.
 	"list_devices": {"smart_home"},

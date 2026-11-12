@@ -17,6 +17,15 @@ missing. The card says what stands in the way:
 - **Work not committed or not pushed** in the places it learns from and the
   folders its tasks worked in. A restart keeps it, but it is worth knowing.
 
+## Tell me when I can restart
+When a restart is not safe yet, press **Tell me when it is safe**, or say
+"tell me when I can restart". The assistant looks again every 2 minutes and,
+as soon as nothing stands in the way, tells you out loud (as a reminder) and
+in the conversation you asked in. It watches for 4 hours unless you say
+otherwise (at most 12), then says what was still in the way. There is one
+watch at a time: asking again shows the one already going. **Stop watching**
+ends it, and so does closing the assistant. It never restarts anything.
+
 ## Left running
 Processes whose job looks over: a browser running without a window, a
 virtual display, a waiting `sleep` or `timeout`, a `tail -f` on a log, a
