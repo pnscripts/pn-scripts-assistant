@@ -39,6 +39,8 @@
         verdict.textContent = T(!r.known ? 'mcare.unknown' : (r.ready ? 'mcare.ready' : 'mcare.notReady'));
         verdict.classList.toggle('is-bad', r.known && !r.ready);
 
+        drawWatch(r);
+
         el('mcare-items').replaceChildren(...(r.items || []).map((item) => {
             const li = document.createElement('li');
             li.className = item.blocking ? 'care-blocking' : '';
@@ -113,6 +115,94 @@
         el('mcare-none').textContent = T(data.here ? 'mcare.none' : 'mcare.notHere');
     }
 
+    /*
+     * Tell me when I can restart. Offered while a restart is not safe and
+     * nothing is watching; while one is, it says until when and can be
+     * stopped; once it has ended, how.
+     */
+    function drawWatch(r) {
+        const w = data.watch;
+        const going = !!(w && w.state === 'watching');
+        const line = el('mcare-watching');
+
+        el('mcare-watch').hidden = going || !r.known || r.ready;
+        el('mcare-unwatch').hidden = !going;
+
+        if (going) {
+            line.textContent = T('mcare.watching', { since: clock(w.since), until: clock(w.until) });
+        } else if (w && w.state) {
+            line.textContent = T(`mcare.w.${w.state}`, { at: clock(w.ended) });
+        }
+
+        line.hidden = !(w && w.state);
+
+        // While it watches, the line follows it: one small question a
+        // minute, and none while the page is not being looked at.
+        clearTimeout(follow);
+        if (going) follow = setTimeout(followWatch, 60000);
+    }
+
+    let follow = 0;
+
+    async function followWatch() {
+        if (document.hidden || !el('mcare-card').offsetParent) {
+            follow = setTimeout(followWatch, 60000);
+
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/machine/care/watch', { headers: { Accept: 'application/json' } });
+            const out = await res.json().catch(() => ({}));
+
+            if (!res.ok) throw new Error(out.error || `${res.status}`);
+
+            // Ended: the whole card is read again, since what stood in the
+            // way has changed too.
+            if (out.watch && out.watch.state !== 'watching') {
+                await load(true);
+
+                return;
+            }
+
+            data.watch = out.watch;
+            draw();
+        } catch {
+            follow = setTimeout(followWatch, 60000);
+        }
+    }
+
+    function clock(iso) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+
+        return d.toLocaleTimeString(bg() ? 'bg-BG' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function watch(stop) {
+        const button = el(stop ? 'mcare-unwatch' : 'mcare-watch');
+        button.disabled = true;
+
+        try {
+            const res = await fetch('/api/machine/care/watch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(stop ? { stop: true } : { hours: 0 }),
+            });
+            const out = await res.json().catch(() => ({}));
+
+            if (!res.ok) throw new Error(out.error || `${res.status}`);
+
+            data.watch = out.watch;
+            draw();
+            say('');
+        } catch (err) {
+            say(T('writing.failed', { why: err.message }), true);
+        } finally {
+            button.disabled = false;
+        }
+    }
+
     async function load(quiet) {
         el('mcare-look').disabled = true;
 
@@ -136,6 +226,8 @@
         if (!el('mcare-card')) return;
 
         el('mcare-look').addEventListener('click', () => load());
+        el('mcare-watch').addEventListener('click', () => watch(false));
+        el('mcare-unwatch').addEventListener('click', () => watch(true));
 
         for (const item of document.querySelectorAll('[data-view="system"]')) {
             if (item.classList.contains('nav-item') || item.classList.contains('icon-button')) {

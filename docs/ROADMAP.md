@@ -227,7 +227,9 @@ of writing); the rest is specified below and not started.
   a yes, never the user's programs), how the last session ended (a power cut
   is noticed, interrupted work is parked with the reason), and "can I
   restart?" (a waiting kernel and its DKMS drivers, installs, running work,
-  unpushed work). Linux first.
+  unpushed work); since 12 November 2026, when not yet, "tell me when I can
+  restart" watches every 2 minutes for up to 12 hours and says it out loud
+  and in the conversation the moment it is. Linux first.
 
 **Next, specified:**
 

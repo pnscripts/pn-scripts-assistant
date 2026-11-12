@@ -258,7 +258,7 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 		"/api/goals", "/api/goals/2/work", "/api/skills", "/api/skills/reload",
 		"/api/providers/connect", "/api/devices/connect", "/api/tunnel", "/api/copies",
 		"/api/desktop", "/api/organisation/agents/x/state", "/api/upkeep/self", "/api/upkeep/notice",
-		"/api/rules", "/api/rules/3", "/api/rules/3/decide", "/api/rules/3/switch", "/api/machine/care/stop",
+		"/api/rules", "/api/rules/3", "/api/rules/3/decide", "/api/rules/3/switch", "/api/machine/care/stop", "/api/machine/care/watch",
 	} {
 		*got = false
 

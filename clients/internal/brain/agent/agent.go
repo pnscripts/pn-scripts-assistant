@@ -1324,6 +1324,8 @@ func (l *Loop) RunBrief(
 				acting = tools.WithEverythingAllowed(ctx)
 			}
 
+			acting = tools.InConversation(acting, conversationID)
+
 			output, evidence, err := tools.Perform(acting, tool, call.Arguments)
 
 			step := Step{

@@ -61,6 +61,10 @@ type Brain struct {
 	// this one (see machinecare.Begin). The zero value knows nothing.
 	LastStop machinecare.LastStop
 
+	// restart is the one "tell me when I can restart" there may be. See
+	// restartwatch.go.
+	restart restartWatching
+
 	DB     *store.DB
 	Router *llm.Router
 	Cfg    config.Config
@@ -509,6 +513,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// machinecare.go.
 		tools.CanIRestart{Care: b},
 		tools.LeftoverProcesses{Care: b},
+		tools.WatchForRestart{Care: b},
 		tools.StopLeftover{Care: b},
 
 		tools.InBackground{Jobs: backgroundOf{b}, Registry: func() *tools.Registry {
@@ -1593,6 +1598,10 @@ func (b *Brain) Stop() {
 	speech.PutTheSoundBack(putBack)
 
 	speech.StopResident()
+
+	// A restart being watched for ends with the program: nothing is left
+	// looking at the machine for somebody who closed it.
+	b.StopRestartWatch()
 }
 
 // SystemPrompt is who this assistant is.

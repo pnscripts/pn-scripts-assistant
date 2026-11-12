@@ -36,6 +36,13 @@ whenever something visible changed.
   quiet hours opened stayed as a red "Waiting for you" row until other work
   came along. The row now says how it was decided (Approved, Refused or
   Started by itself) and is no longer painted as something blocked.
+- **Tell me when I can restart.** When a restart is not safe yet (software
+  being installed, a driver not built for the new kernel, its own work still
+  running), press "Tell me when it is safe" under System, or ask for it. It
+  looks again every 2 minutes and, the moment nothing stands in the way,
+  says so out loud and in the conversation you asked in. It watches for 4
+  hours unless you say otherwise (at most 12), one watch at a time, stops
+  when you say or when the program closes, and never restarts anything.
 
 ## 1.0.2 (2026-11-11)
 

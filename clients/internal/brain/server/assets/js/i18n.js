@@ -1007,6 +1007,22 @@
         'mcare.r.uncommitted': ['Changed files not committed in {dir}: {n}.', 'Некъмитнати промени във файлове в {dir}: {n}.'],
         'mcare.r.unpushed': ['Commits not pushed in {dir}: {n}.', 'Некачени къмити в {dir}: {n}.'],
         'mcare.r.repo_unchecked': ['Not checked: the git settings in {dir} would run programs.', 'Не е проверено: настройките на git в {dir} биха стартирали програми.'],
+        'mcare.watch': ['Tell me when it is safe', 'Кажи ми, когато е безопасно'],
+        'mcare.unwatch': ['Stop watching', 'Спри следенето'],
+        'mcare.watching': [
+            'Watching since {since}: it looks every 2 minutes until {until} and tells you out loud as soon as a restart is safe.',
+            'Следи от {since} ч.: проверява на всеки 2 минути до {until} ч. и ще ви каже на глас веднага щом рестартът стане безопасен.',
+        ],
+        'mcare.w.safe': ['Safe to restart since {at}.', 'Рестартът е безопасен от {at} ч.'],
+        'mcare.w.gave_up': [
+            'Stopped watching at {at}: a restart was still not safe.',
+            'Следенето спря в {at} ч.: рестартът все още не беше безопасен.',
+        ],
+        'mcare.w.cannot_tell': [
+            'Whether a restart is safe cannot be told on this system.',
+            'На тази система не може да се провери дали рестартът е безопасен.',
+        ],
+        'mcare.w.stopped': ['You stopped watching at {at}.', 'Спряхте следенето в {at} ч.'],
         'mcare.leftTitle': ['Left running', 'Оставени да работят'],
         'mcare.leftNote': [
             'Processes whose job looks over: a headless browser, a virtual display, a waiting command, a log follower, a small web server, started by this assistant, or whose starter has gone. Your own programs are never listed.',
@@ -4006,6 +4022,7 @@
         business_answers: ['Show the answer book', 'Книгата с отговори'],
         calculate_table: ['Work something out from a table', 'Изчисление от таблица'],
         can_i_restart: ['Can I restart now?', 'Може ли рестарт сега?'],
+        watch_for_restart: ['Tell me when I can restart', 'Кажи ми кога мога да рестартирам'],
         change_a_setting: ['Change a setting', 'Промяна на настройка'],
         change_business_answers: ['Change the answer book', 'Промяна в книгата с отговори'],
         change_the_diary: ['Change the diary', 'Промяна в дневника'],
