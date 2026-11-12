@@ -1426,6 +1426,15 @@
         'cc.send': ['Send', 'Изпрати'],
         'cc.stop': ['Stop', 'Спри'],
         'cc.newConversation': ['New conversation', 'Нов разговор'],
+        // Answers come from an AI (EU AI Act article 50(1)); see aidisclosure_test.go.
+        'cc.aiNotice': [
+            'Answers come from AI and can be wrong.',
+            'Отговорите идват от изкуствен интелект и може да грешат.',
+        ],
+        'cc.aiNoticeTitle': [
+            'This assistant is an AI system: what it says and writes comes from a language model, so check what matters before you rely on it or send it. Mail it sends and documents it writes are marked as written with AI.',
+            'Този асистент е система с изкуствен интелект: каквото казва и пише, идва от езиков модел, затова проверете важното, преди да разчитате на него или да го изпратите. Писмата, които изпраща, и документите, които пише, са отбелязани като написани с изкуствен интелект.',
+        ],
         'cc.hint': [
             'Reads run on their own. Anything that changes something waits for you.',
             'Четенето става автоматично. Всичко, което променя нещо, чака вашето решение.',

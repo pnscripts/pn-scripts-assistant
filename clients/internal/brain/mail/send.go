@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/aidisclosure"
 )
 
 /*
@@ -105,6 +107,16 @@ func compose(from string, to []string, subject, body string) string {
 	b.WriteString("Message-ID: " + messageID(from) + "\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
+
+	/*
+	 * Marked as written with an AI, in the headers rather than the words.
+	 *
+	 * Everything this sends was written with the model and approved by its
+	 * owner, word for word; EU AI Act article 50(2) asks for the mark to be
+	 * machine-readable, and the approved body is not the place to add words
+	 * the owner did not see. See the aidisclosure package.
+	 */
+	b.WriteString(aidisclosure.MailHeader + ": " + aidisclosure.MailValue + "\r\n")
 	b.WriteString("\r\n")
 
 	// Lone newlines are not legal line endings in a message.

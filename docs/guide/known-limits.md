@@ -149,6 +149,12 @@ against the code on 9 November 2026.
 - **Mail** is read over IMAP with TLS (port 993) and sent over SMTP, with an
   app password. Signing in with a Google or Microsoft account (OAuth) is not
   offered. Nothing is sent without your yes to the exact words.
+- **The AI mark** is in the headers of every mail it sends
+  (`AI-Disclosure: mode=ai-originated`) and in the properties of the PDF and
+  Word documents it writes. Plain text, Markdown and spreadsheets have no
+  place for it, and text you copy out of the page (a draft pasted into your
+  own mail program, a translation) carries no mark: say it yourself where it
+  matters.
 - **Paired devices and the tunnel** work across one network and are tested
   there; using them across the internet has not been exercised. A device
   paired for talking can read and talk; changes are made at the computer.

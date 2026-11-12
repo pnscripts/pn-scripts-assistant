@@ -6491,3 +6491,38 @@ html[data-pace="hidden"] *::after {
     line-height: 1.45;
     overflow-wrap: anywhere;
 }
+
+/* ---------- AI notice ----------
+
+   Answers come from an AI (EU AI Act article 50(1)): a small mark beside the
+   name in the top bar, on every page, and a line beside the conversation's
+   heading, where answers appear. Quiet on purpose, and never hidden: none of
+   the narrow-screen rules that drop the hint or the name may reach these. */
+.ai-badge {
+    flex: none;
+    align-self: center;
+    margin-left: -4px;
+    padding: 1px 5px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.4;
+    color: var(--accent);
+    border: 1px solid rgba(77, 208, 225, 0.4);
+    cursor: help;
+    user-select: none;
+}
+
+.card-chat h2 .ai-notice {
+    margin-left: auto;
+    min-width: 0;
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    text-align: right;
+    color: var(--text-dim);
+    cursor: help;
+}
