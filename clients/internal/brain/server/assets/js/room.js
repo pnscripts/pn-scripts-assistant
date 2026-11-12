@@ -143,7 +143,15 @@
         return T('room.everyDays', { n: goal.every_days });
     }
 
-    function goalRow(goal) {
+    // A goal that would start itself now waits for the quiet hours, and says
+    // when it starts; "Work on it" starts it at once.
+    function waitsText(goal, quiet) {
+        if (!goal.waits_for_quiet || !quiet) return '';
+
+        return T(quiet.tomorrow ? 'room.waitsQuietTomorrow' : 'room.waitsQuietToday', { at: quiet.from });
+    }
+
+    function goalRow(goal, quiet) {
         const row = document.createElement('div');
         row.className = 'task-row';
 
@@ -154,7 +162,9 @@
 
         const when = document.createElement('span');
         when.className = 'task-state';
-        when.textContent = whenText(goal) + (goal.starts_itself ? ' · ' + T('room.startsItself') : '');
+        const waits = waitsText(goal, quiet);
+
+        when.textContent = whenText(goal) + (waits ? ' · ' + waits : goal.starts_itself ? ' · ' + T('room.startsItself') : '');
         row.appendChild(when);
 
         row.appendChild(button(T('room.workOn'), () => workOn(goal.id)));
@@ -275,7 +285,7 @@
             return;
         }
 
-        for (const goal of goals) list.appendChild(goalRow(goal));
+        for (const goal of goals) list.appendChild(goalRow(goal, body.quiet));
     }
 
     /* ---------- going on now ---------- */

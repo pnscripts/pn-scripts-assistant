@@ -97,8 +97,10 @@ against the code on 9 November 2026.
 
 - **Looking after the computer** (leftover processes, stopping them, and
   whether a restart is safe) reads Linux's own records; on Windows the card
-  says it does not look yet. Work is not yet moved to quiet hours by itself:
-  the allowance of a paid coding agent is shown before each task instead.
+  says it does not look yet. Goals that start themselves and the reading of
+  places wait for the quiet hours and start in them by themselves; a coding
+  agent held for them still waits for your yes, and is not yet started by
+  itself when they open.
 
 ## Telling voices apart
 

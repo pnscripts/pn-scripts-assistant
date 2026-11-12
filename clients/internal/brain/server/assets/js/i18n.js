@@ -2141,8 +2141,8 @@
         'sys.quietFrom': ['From', 'От'],
         'sys.quietTo': ['Until', 'До'],
         'sys.quietNote': [
-            'Outside these hours, a coding agent whose paid allowance is being spent faster than it renews waits, and the question says until when; your yes starts it anyway. Leave both empty for no quiet hours.',
-            'Извън тези часове агент за код, чийто платен лимит се изразходва по-бързо, отколкото се подновява, изчаква, а въпросът към вас казва до кога; вашето „да“ го пуска веднага. Оставете двете полета празни, ако не искате тихи часове.',
+            'Outside these hours, a coding agent whose paid allowance is being spent faster than it renews waits, and the question says until when; your yes starts it anyway. Goals that start themselves and the reading of the places it learns from wait for these hours and start in them by themselves; their own buttons start them at once. Leave both empty for no quiet hours.',
+            'Извън тези часове агент за код, чийто платен лимит се изразходва по-бързо, отколкото се подновява, изчаква, а въпросът към вас казва до кога; вашето „да“ го пуска веднага. Целите, които започват без подкана, и четенето на местата, от които се учи, чакат тези часове и започват в тях автоматично; собствените им бутони ги пускат веднага. Оставете двете полета празни, ако не искате тихи часове.',
         ],
         'sys.quietBoth': ['Give both times for the quiet hours, or leave both empty.', 'Въведете и двата часа за тихите часове или оставете двете полета празни.'],
         'sys.quietSame': ['The quiet hours must start and end at different times.', 'Тихите часове трябва да започват и да свършват в различен час.'],
@@ -2485,6 +2485,14 @@
         'sys.placeLastRead': ['last read {ago}', 'последно четене {ago}'],
         'sys.placeAllRead': ['all of it read', 'всичко е прочетено'],
         'sys.placeReadNow': ['Read some now', 'Прочети малко сега'],
+        'sys.placesQuietToday': [
+            'Reading waits for your quiet hours ({from} to {to}) and starts by itself at {at} today. "Read some now" reads at once.',
+            'Четенето чака тихите часове (от {from} до {to}) и започва автоматично днес в {at}. „Прочети малко сега“ чете веднага.',
+        ],
+        'sys.placesQuietTomorrow': [
+            'Reading waits for your quiet hours ({from} to {to}) and starts by itself at {at} tomorrow. "Read some now" reads at once.',
+            'Четенето чака тихите часове (от {from} до {to}) и започва автоматично утре в {at}. „Прочети малко сега“ чете веднага.',
+        ],
         'sys.placeReading': ['Reading {name}…', 'Четене на {name}…'],
         'sys.placeRead': [
             '{name}: {learned} new, {known} already known',
@@ -2780,6 +2788,14 @@
         'room.inDays': ['in {n} days', 'след {n} дни'],
         'room.everyDays': ['every {n} days', 'на всеки {n} дни'],
         'room.startsItself': ['starts itself', 'започва без подкана'],
+        'room.waitsQuietToday': [
+            'waits for your quiet hours, starts by itself at {at} today',
+            'чака тихите часове, започва автоматично днес в {at}',
+        ],
+        'room.waitsQuietTomorrow': [
+            'waits for your quiet hours, starts by itself at {at} tomorrow',
+            'чака тихите часове, започва автоматично утре в {at}',
+        ],
         'room.workOn': ['Work on it', 'Работи по нея'],
         'room.forget': ['Forget', 'Забрави'],
         'room.nothingDone': ['nothing done towards it yet', 'по нея още нищо не е свършено'],

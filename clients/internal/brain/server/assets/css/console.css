@@ -6509,3 +6509,7 @@ html[data-pace="hidden"] *::after {
 }
 .quiet-hours input[type="time"]:focus { border-color: var(--accent); }
 .quiet-hours .field-note { display: block; margin-top: 5px; }
+
+/* Reading waits for the quiet hours: said above the places, not hidden. */
+.places-quiet { color: var(--text); margin: 4px 0 8px; }
+.places-quiet[hidden] { display: none; }

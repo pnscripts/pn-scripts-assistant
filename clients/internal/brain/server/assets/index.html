@@ -1008,8 +1008,10 @@
                             </div>
                             <small class="field-note" data-i18n="sys.quietNote">Outside these hours, a coding agent
                                 whose paid allowance is being spent faster than it renews waits, and
-                                the question says until when; your yes starts it anyway. Leave both
-                                empty for no quiet hours.</small>
+                                the question says until when; your yes starts it anyway. Goals that
+                                start themselves and the reading of the places it learns from wait
+                                for these hours and start in them by themselves; their own buttons
+                                start them at once. Leave both empty for no quiet hours.</small>
                         </div>
                         <label class="field field-check">
                             <input id="set-auto-model" type="checkbox">
@@ -1205,6 +1207,7 @@
                         reads a little at a time on its own, so a drive you
                         plug in on Friday is learned by Saturday without you
                         asking.</p>
+                    <p class="drive-note places-quiet" id="places-quiet" hidden></p>
                     <div id="places" class="drives"></div>
                     <p class="drive-note" id="places-empty" data-i18n="sys.placesEmpty">Nowhere yet. It only
                         knows what it has been shown.</p>

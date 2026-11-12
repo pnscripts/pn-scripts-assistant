@@ -237,7 +237,10 @@ of writing); the rest is specified below and not started.
   and can be started anyway with one press. First step built on 11 November
   2026: the window (Settings, `BRAIN_QUIET_HOURS`) and coding agents, whose
   calls are held as a question that says until when and run on the yes.
-  Next: goals and learning wait for the window and start in it by themselves.
+  Second step on 12 November 2026: goals that start themselves and the
+  reading of places wait for the window and start in it by themselves.
+  Next: a held coding agent question answered by itself when the window
+  opens.
 - **Replies on the user's own channels.** Comments on pages the user connects
   (through the official API where there is one, else a browser the user signs
   in), each checked for scams and answered from facts the assistant can show;

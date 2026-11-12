@@ -63,12 +63,20 @@ func (s *Server) handlePlaces(w http.ResponseWriter, r *http.Request) {
 		out = append(out, row)
 	}
 
-	ok(w, map[string]any{
+	answer := map[string]any{
 		"places": out,
 		// Somewhere to start from, so nobody has to know what the system
 		// called the drive they just plugged in.
 		"drives": placesToLearnFrom(s.brain.Root),
-	})
+	}
+
+	// Reading waits for the quiet hours: said, or the page reads like a
+	// brain that has quietly stopped.
+	if quiet := s.quietWait(time.Now()); quiet != nil {
+		answer["quiet"] = quiet
+	}
+
+	ok(w, answer)
 }
 
 /*

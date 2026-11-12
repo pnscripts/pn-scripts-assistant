@@ -58,7 +58,13 @@ the window, which has the same settings one at a time, plus:
   renews (judged from what the agent itself last said about its allowance)
   is not started on its own: the question says until when the work waits,
   and your yes starts it anyway. With the allowance on pace, inside the
-  window, or with no window, nothing waits. In the settings file it is
+  window, or with no window, nothing waits. Work nobody asked for at that
+  moment waits for the window whatever the allowance, and starts in it by
+  itself: goals set to start themselves (the goal says "waits for your
+  quiet hours" and when it starts; "Work on it" starts it at once) and the
+  reading of the places it learns from (the Places card says so; "Read some
+  now" reads at once). Work already under way when the window closes is
+  finished, not stopped. In the settings file it is
   `BRAIN_QUIET_HOURS=22:00-07:00`.
 
 ## Switching something off
