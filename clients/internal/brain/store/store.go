@@ -1132,6 +1132,15 @@ var migrations = []string{
 		done_at TEXT NOT NULL
 	);
 	`,
+
+	// 29: a question held for the quiet hours and for nothing else answers
+	// itself when they open (answers_itself), and one that did says so
+	// (answered_itself), so it is never counted as its user's yes. Flags
+	// only: nothing personal.
+	`
+	ALTER TABLE tool_invocations ADD COLUMN answers_itself INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE tool_invocations ADD COLUMN answered_itself INTEGER NOT NULL DEFAULT 0;
+	`,
 }
 
 /*

@@ -9,8 +9,10 @@ import (
 
 	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/permits"
+	"pn-scripts-assistant/internal/brain/quiethours"
 	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/rules"
+	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tools"
 )
 
@@ -313,7 +315,7 @@ type heldHere struct{ asked *[]string }
 func (heldHere) CodingAgents() []tools.CodingAgent {
 	return []tools.CodingAgent{{ID: "claude-code", Title: "Claude Code", Ready: true,
 		Held: "Held for your quiet hours (22:00 to 07:00): its allowance is being spent faster than it renews, " +
-			"so heavy work waits until 22:00 today. Ask again then, or say yes to start it now anyway."}}
+			"so heavy work waits until 22:00 today. Say yes to start it now anyway."}}
 }
 
 func (a heldHere) AskCodingAgent(_ context.Context, id, folder, task, access string) (tools.AgentAnswer, error) {
@@ -350,5 +352,94 @@ func TestACodingAgentHeldForQuietHoursWaitsForAYes(t *testing.T) {
 		!strings.Contains(res.Pending[0].Summary, "Always asked (held for your quiet hours)") ||
 		!strings.Contains(res.Pending[0].Summary, "waits until 22:00 today") {
 		t.Fatalf("held work ran or was not put to the user: ran %v, %+v", asked, res.Pending)
+	}
+}
+
+// heldCall runs one call to a held coding agent through the loop and returns
+// what was put to its user and the stored question.
+func heldCall(t *testing.T, args string, settle func(*Loop)) (Pending, *store.Invocation, []string) {
+	t.Helper()
+
+	var asked []string
+
+	loop, db := newLoop(t, tools.AskCodingAgent{Agents: heldHere{asked: &asked}})
+	settle(loop)
+
+	conv, _ := db.NewConversation("t")
+
+	model := &scripted{replies: []llm.Response{{
+		Content:   "Asking it.",
+		ToolCalls: []llm.ToolCall{{ID: "c1", Name: "ask_coding_agent", Arguments: json.RawMessage(args)}},
+	}}}
+
+	res, err := loop.RunBrief(context.Background(), conv, model, nil, Brief{WithTools: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(res.Pending) != 1 {
+		t.Fatalf("not put to its user: %+v", res)
+	}
+
+	inv, err := db.Invocation(res.Pending[0].ID)
+	if err != nil || inv == nil {
+		t.Fatal(err)
+	}
+
+	return res.Pending[0], inv, asked
+}
+
+/*
+ * Held for the quiet hours and for nothing else, a question answers itself
+ * when they open: its user's settings had already said yes to it. Asked
+ * anyway (full access, or a permission that asks), it waits for its user,
+ * and the question says which.
+ */
+func TestOnlyAQuestionHeldForQuietHoursAloneAnswersItself(t *testing.T) {
+	read := `{"task":"Tidy the tests.","folder":"/tmp/project","access":"read"}`
+	full := `{"task":"Tidy the tests.","folder":"/tmp/project","access":"full"}`
+
+	asksForChanges := func(l *Loop) {
+		l.MayI = func(_, _ string, changes bool, _ risk.Level) permits.Answer {
+			if changes {
+				return permits.Ask
+			}
+
+			return permits.Allow
+		}
+	}
+
+	cases := []struct {
+		name   string
+		args   string
+		settle func(*Loop)
+		itself bool
+	}{
+		{"everything allowed, reading", read, everythingAllowed, true},
+		{"everything allowed, full access", full, everythingAllowed, false},
+		{"a permission that asks", read, asksForChanges, false},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p, inv, ran := heldCall(t, c.args, c.settle)
+
+			if len(ran) != 0 {
+				t.Fatalf("held work ran: %v", ran)
+			}
+
+			if inv.AnswersItself != c.itself || p.AnswersItself != c.itself {
+				t.Errorf("answers itself %v (pending %v), want %v", inv.AnswersItself, p.AnswersItself, c.itself)
+			}
+
+			want := quiethours.WaitsForYou
+			if c.itself {
+				want = quiethours.StartsItself
+			}
+
+			if !strings.Contains(p.Summary, want) || !strings.Contains(inv.Summary, want) {
+				t.Errorf("the question does not say %q:\n%s", want, p.Summary)
+			}
+		})
 	}
 }

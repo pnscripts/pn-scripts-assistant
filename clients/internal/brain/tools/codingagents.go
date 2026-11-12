@@ -78,6 +78,19 @@ type AlwaysAsking interface {
 	AlwaysAsks(args json.RawMessage) string
 }
 
+/*
+ * QuietHolding is a tool whose call can be held for its user's quiet hours.
+ *
+ * QuietHold says whether this call is held now, and whether being held is
+ * all its tool would ask about (the rest of the gate is the loop's to say).
+ * A call held for nothing else would have run without a question at any
+ * other time, so it answers itself when the window opens; the second answer
+ * is read again then, when the call is no longer held.
+ */
+type QuietHolding interface {
+	QuietHold(args json.RawMessage) (held, only bool)
+}
+
 // The ways a task may reach, as the tool takes them.
 const (
 	ReachRead   = "read"
@@ -232,6 +245,18 @@ func (t AskCodingAgent) AlwaysAsks(raw json.RawMessage) string {
 	}
 
 	return strings.Join(why, "; ")
+}
+
+// QuietHold: held when its agent is; only that, unless it has full access,
+// which is always asked whatever the hour.
+func (t AskCodingAgent) QuietHold(raw json.RawMessage) (held, only bool) {
+	a := readAgentArgs(raw)
+
+	if agent, ok := t.chosen(a.Agent); ok && agent.Held != "" {
+		held = true
+	}
+
+	return held, a.Access != ReachFull
 }
 
 // Outward: with folder or full access it changes files.

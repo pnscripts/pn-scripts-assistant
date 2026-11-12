@@ -58,6 +58,9 @@ downloaded, never anything you installed.
 With quiet hours set in Settings (for example 22:00 until 07:00), heavy work
 goes there. Outside them, a coding agent whose paid allowance is being spent
 faster than it renews waits for your yes, and the question says until when.
+When nothing else would have asked about it, it also starts by itself when
+the window begins, unless you answered first, and what it said appears in
+the conversation it was asked in.
 Work nobody asked for at that moment waits for the window whatever the
 allowance and starts in it by itself: goals set to start themselves, and the
 reading of the places I learn from. A waiting goal says so and when it

@@ -190,3 +190,45 @@ func TestTheWaitIsSaidInBothLanguages(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * The waiting list tells the page which questions start by themselves when
+ * the quiet hours open, so the card can say so; one that would have been
+ * asked anyway carries no such promise.
+ */
+func TestTheWaitingListSaysWhichQuestionsStartByThemselves(t *testing.T) {
+	ts, _, b := newServer(t)
+
+	itself, err := b.DB.RecordInvocation(0, "ask_coding_agent", `{"task":"x"}`, "Ask Claude Code", "mutating")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := b.DB.AnswersItselfInQuietHours(itself); err != nil {
+		t.Fatal(err)
+	}
+
+	asked, _ := b.DB.RecordInvocation(0, "ask_coding_agent", `{"task":"y","access":"full"}`, "Ask it, full", "mutating")
+
+	res, err := http.Get(ts.URL + "/api/approvals")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	var list []map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+
+	got := map[int64]bool{}
+	for _, item := range list {
+		id, _ := item["id"].(float64)
+		starts, _ := item["answers_itself"].(bool)
+		got[int64(id)] = starts
+	}
+
+	if len(got) != 2 || !got[itself] || got[asked] {
+		t.Fatalf("%v", list)
+	}
+}

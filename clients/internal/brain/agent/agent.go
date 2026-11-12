@@ -29,6 +29,7 @@ import (
 	"pn-scripts-assistant/internal/brain/polish"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
+	"pn-scripts-assistant/internal/brain/quiethours"
 	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/rules"
 	"pn-scripts-assistant/internal/brain/sandbox"
@@ -256,6 +257,10 @@ type Pending struct {
 	ID      int64  `json:"id"`
 	Tool    string `json:"tool"`
 	Summary string `json:"summary"`
+
+	// AnswersItself is a question held for the quiet hours and nothing
+	// else: it starts by itself when they open, unless answered first.
+	AnswersItself bool `json:"answers_itself,omitempty"`
 }
 
 // Result is the outcome of one turn.
@@ -1223,6 +1228,16 @@ func (l *Loop) RunBrief(
 				answer = permits.Ask
 			}
 
+			/*
+			 * Whether it would be asked without the quiet hours: settled
+			 * here, after everything that can ask (permissions, consent,
+			 * goal mode, rules) and before the tool's own "always". A call
+			 * held for the quiet hours alone answers itself when they open,
+			 * since everything else had already said yes; see
+			 * tools.QuietHolding and Brain.AnswerHeldQuestions.
+			 */
+			askedAnyway := ask || answer == permits.Ask
+
 			// And a call its tool says is always asked, the same way: see
 			// tools.AlwaysAsking (a coding agent given full access).
 			if a, ok := tool.(tools.AlwaysAsking); ok {
@@ -1230,6 +1245,20 @@ func (l *Loop) RunBrief(
 					ask = true
 					answer = permits.Ask
 					summary = "Always asked (" + why + "): " + summary
+				}
+			}
+
+			answersItself := false
+
+			if q, ok := tool.(tools.QuietHolding); ok {
+				if held, only := q.QuietHold(call.Arguments); held {
+					answersItself = only && !askedAnyway
+
+					if answersItself {
+						summary += "\n" + quiethours.StartsItself
+					} else {
+						summary += "\n" + quiethours.WaitsForYou
+					}
 				}
 			}
 
@@ -1258,7 +1287,14 @@ func (l *Loop) RunBrief(
 					return Result{}, err
 				}
 
-				pending = append(pending, Pending{ID: id, Tool: tool.Name(), Summary: summary})
+				if answersItself {
+					if err := l.DB.AnswersItselfInQuietHours(id); err != nil {
+						return Result{}, err
+					}
+				}
+
+				pending = append(pending, Pending{ID: id, Tool: tool.Name(), Summary: summary,
+					AnswersItself: answersItself})
 
 				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
 					Asked: askedFor(call.Arguments), Level: level}, call.Arguments, messages, model, choice.Why, DeedWaiting)

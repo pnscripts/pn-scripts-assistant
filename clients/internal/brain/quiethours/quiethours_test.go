@@ -270,3 +270,49 @@ func TestWaitingIsSaidWithTheWayToStartItNow(t *testing.T) {
 		t.Errorf("after a morning window: %q", s)
 	}
 }
+
+/*
+ * Held questions answer themselves only while a window is open: no window,
+ * one that cannot be read, or a shut one answers nothing.
+ */
+func TestHeldQuestionsAnswerThemselvesOnlyInAnOpenWindow(t *testing.T) {
+	loc := time.UTC
+
+	cases := []struct {
+		setting, now string
+		open         bool
+	}{
+		{"", "2026-11-12 23:00", false},
+		{"not a window", "2026-11-12 23:00", false},
+		{"22:00-22:00", "2026-11-12 22:00", false},
+		{"22:00-07:00", "2026-11-12 21:59", false},
+		{"22:00-07:00", "2026-11-12 22:00", true},
+		{"22:00-07:00", "2026-11-13 06:59", true},
+		{"22:00-07:00", "2026-11-13 07:00", false},
+		{"09:00-17:00", "2026-11-12 12:00", true},
+		{"09:00-17:00", "2026-11-12 17:30", false},
+	}
+
+	for _, c := range cases {
+		if got := OpenNow(c.setting, at(t, loc, c.now)); got != c.open {
+			t.Errorf("%q at %s: open %v, want %v", c.setting, c.now, got, c.open)
+		}
+	}
+}
+
+// The held sentence no longer tells its user to ask again: whether it
+// starts by itself is said beside it, by whoever knows.
+func TestTheHeldSentenceLeavesWhatHappensThenToItsCaller(t *testing.T) {
+	loc := time.UTC
+	w, _ := Parse("22:00-07:00")
+	now := at(t, loc, "2026-11-12 15:00")
+
+	s := Say(w, w.Opens(now), now)
+	if strings.Contains(s, "Ask again") || !strings.HasSuffix(s, "waits until 22:00 today. Say yes to start it now anyway.") {
+		t.Errorf("%q", s)
+	}
+
+	if strings.ContainsAny(StartsItself+WaitsForYou, "–—") {
+		t.Error("a dash in a sentence people read")
+	}
+}

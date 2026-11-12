@@ -23,6 +23,14 @@ whenever something visible changed.
   for it and start in it by themselves, at the opening. The goal and the
   Places card say until when; "Work on it" and "Read some now" start them at
   once. Work under way when the window closes is finished, not stopped.
+- **A held question starts by itself when the quiet hours begin.** A coding
+  agent question held for the quiet hours and for nothing else (your
+  permissions, rules and the access asked for would have let it run) says
+  so on its card, and when the window opens it starts by itself unless you
+  answered first. Everything that could ask about it is checked again then;
+  a change while it waited leaves it to you. Its answer appears in the
+  conversation it was asked in, and the record says it started by itself,
+  so it never counts as your yes.
 
 ## 1.0.2 (2026-11-11)
 

@@ -1507,6 +1507,10 @@
             'Мозъкът вече знаеше това, затова не е записано втори път.',
         ],
         'cc.approve': ['Approve', 'Одобри'],
+        'cc.answersItself': [
+            'Starts by itself when your quiet hours begin, unless you answer first.',
+            'Започва автоматично, когато настъпят тихите часове, освен ако не отговорите преди това.',
+        ],
         'cc.reject': ['Reject', 'Откажи'],
         'cc.always': ['Always allow', 'Разрешавай винаги'],
         'cc.alwaysTitle': ['Approve this, and stop asking about {tool}', 'Одобри това и не питай повече за „{tool}“'],
@@ -2141,8 +2145,8 @@
         'sys.quietFrom': ['From', 'От'],
         'sys.quietTo': ['Until', 'До'],
         'sys.quietNote': [
-            'Outside these hours, a coding agent whose paid allowance is being spent faster than it renews waits, and the question says until when; your yes starts it anyway. Goals that start themselves and the reading of the places it learns from wait for these hours and start in them by themselves; their own buttons start them at once. Leave both empty for no quiet hours.',
-            'Извън тези часове агент за код, чийто платен лимит се изразходва по-бързо, отколкото се подновява, изчаква, а въпросът към вас казва до кога; вашето „да“ го пуска веднага. Целите, които започват без подкана, и четенето на местата, от които се учи, чакат тези часове и започват в тях автоматично; собствените им бутони ги пускат веднага. Оставете двете полета празни, ако не искате тихи часове.',
+            'Outside these hours, a coding agent whose paid allowance is being spent faster than it renews waits, and the question says until when; your yes starts it anyway, and when nothing else would have asked about it, it starts by itself when these hours begin. Goals that start themselves and the reading of the places it learns from wait for these hours and start in them by themselves; their own buttons start them at once. Leave both empty for no quiet hours.',
+            'Извън тези часове агент за код, чийто платен лимит се изразходва по-бързо, отколкото се подновява, изчаква, а въпросът към вас казва до кога; вашето „да“ го пуска веднага, а ако нищо друго не би питало за него, започва автоматично, когато настъпят тези часове. Целите, които започват без подкана, и четенето на местата, от които се учи, чакат тези часове и започват в тях автоматично; собствените им бутони ги пускат веднага. Оставете двете полета празни, ако не искате тихи часове.',
         ],
         'sys.quietBoth': ['Give both times for the quiet hours, or leave both empty.', 'Въведете и двата часа за тихите часове или оставете двете полета празни.'],
         'sys.quietSame': ['The quiet hours must start and end at different times.', 'Тихите часове трябва да започват и да свършват в различен час.'],
