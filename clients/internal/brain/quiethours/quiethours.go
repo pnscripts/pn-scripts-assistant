@@ -10,6 +10,12 @@
  * yes. Work on an allowance that is on pace is never held, and with no window
  * set nothing is.
  *
+ * Work nobody asked for at that moment (a goal that starts itself, reading
+ * the places it looks after) is different: there is nobody to say yes, and
+ * it is the heaviest work there is on a processor somebody is using. With a
+ * window set, it waits for the window whatever the allowance, and starts in
+ * it by itself; the page says so, and its own button starts it at once.
+ *
  * Read by the wall clock of the machine, so a summer time change moves the
  * window with the clock on the wall rather than by a fixed number of hours.
  */
@@ -139,16 +145,9 @@ func Hold(w Window, ahead bool, now time.Time) (bool, time.Time) {
 
 // Say is the hold in a sentence for the person asked, said at now.
 func Say(w Window, opens, now time.Time) string {
-	day := "today"
-
-	ny, nm, nd := now.Date()
-	if oy, om, od := opens.Date(); oy != ny || om != nm || od != nd {
-		day = "tomorrow"
-	}
-
 	return fmt.Sprintf("Held for your quiet hours (%s to %s): its allowance is being spent faster than it renews, "+
 		"so heavy work waits until %s %s. Ask again then, or say yes to start it now anyway.",
-		w.From(), w.To(), hhmm(opens.Hour()*60+opens.Minute()), day)
+		w.From(), w.To(), hhmm(opens.Hour()*60+opens.Minute()), dayOf(opens, now))
 }
 
 // Held is the sentence for work on an allowance at now under the saved
@@ -166,4 +165,62 @@ func Held(setting string, ahead bool, now time.Time) string {
 	}
 
 	return Say(w, opens, now)
+}
+
+// Waits says whether work nobody asked for at that moment waits at now under
+// the saved setting, and when the window opens. A setting that cannot be read
+// holds nothing back.
+func Waits(setting string, now time.Time) (bool, time.Time) {
+	w, err := Parse(setting)
+	if err != nil || !w.Set() || w.Contains(now) {
+		return false, time.Time{}
+	}
+
+	return true, w.Opens(now)
+}
+
+// Sleep is how long a loop that looks every round should wait from now: a
+// whole round, or less when the window opens sooner, so work waiting for it
+// starts at the opening rather than up to a round later. Never under a
+// second, so a loop woken a moment early does not spin.
+func Sleep(setting string, now time.Time, round time.Duration) time.Duration {
+	waits, opens := Waits(setting, now)
+	if !waits {
+		return round
+	}
+
+	until := opens.Sub(now)
+
+	switch {
+	case until < time.Second:
+		return time.Second
+	case until < round:
+		return until
+	}
+
+	return round
+}
+
+// Waiting is the sentence for work nobody asked for that waits at now, or
+// empty when it does not.
+func Waiting(setting string, now time.Time) string {
+	waits, opens := Waits(setting, now)
+	if !waits {
+		return ""
+	}
+
+	w, _ := Parse(setting)
+
+	return fmt.Sprintf("Waiting for your quiet hours (%s to %s): it starts by itself at %s %s.",
+		w.From(), w.To(), hhmm(opens.Hour()*60+opens.Minute()), dayOf(opens, now))
+}
+
+// dayOf is "today" or "tomorrow" for when, said at now.
+func dayOf(when, now time.Time) string {
+	ny, nm, nd := now.Date()
+	if wy, wm, wd := when.Date(); wy != ny || wm != nm || wd != nd {
+		return "tomorrow"
+	}
+
+	return "today"
 }

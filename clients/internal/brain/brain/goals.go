@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/quiethours"
 	"pn-scripts-assistant/internal/brain/store"
 )
 
@@ -22,18 +23,21 @@ import (
 const howOftenToCheckGoals = 10 * time.Minute
 
 func (b *Brain) watchGoals(ctx context.Context) {
-	ticker := time.NewTicker(howOftenToCheckGoals)
-	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-time.After(b.untilNextGoalCheck()):
 		}
 
 		b.startDueGoals(ctx)
 	}
+}
+
+// untilNextGoalCheck is a round, or less when the quiet hours open sooner:
+// a goal waiting for them starts at the opening, not up to a round later.
+func (b *Brain) untilNextGoalCheck() time.Duration {
+	return quiethours.Sleep(b.QuietHours(), time.Now(), howOftenToCheckGoals)
 }
 
 func (b *Brain) startDueGoals(ctx context.Context) {
@@ -56,6 +60,20 @@ func (b *Brain) startDueGoals(ctx context.Context) {
 		if !goal.StartsItself {
 			// It says it is due, in the room. Somebody decides.
 			continue
+		}
+
+		/*
+		 * Outside the quiet hours it waits for them.
+		 *
+		 * Nobody asked for this work now, so nobody is there to say yes to
+		 * it, and a goal is the heaviest thing this program does on a
+		 * processor somebody is using. It starts by itself when the window
+		 * opens (the loop wakes then); "Work on it" starts it at once.
+		 */
+		if waits, opens := quiethours.Waits(b.QuietHours(), time.Now()); waits {
+			b.Log.Debug("a goal waits for the quiet hours", "goal", goal.ID, "opens", opens)
+
+			return
 		}
 
 		/*
@@ -123,3 +141,28 @@ type noSuchGoal struct{}
 func (noSuchGoal) Error() string { return "there is no goal with that number" }
 
 var errNoSuchGoal = noSuchGoal{}
+
+// QuietHours is the saved window for heavy work ("22:00-07:00", or empty),
+// safe to read while the settings page changes it.
+func (b *Brain) QuietHours() string {
+	b.quietMu.Lock()
+	defer b.quietMu.Unlock()
+
+	return b.Cfg.QuietHours
+}
+
+// SetQuietHours changes the window; the loops waiting on it see it at their
+// next look. The caller saves the settings.
+func (b *Brain) SetQuietHours(window string) {
+	b.quietMu.Lock()
+	defer b.quietMu.Unlock()
+
+	b.Cfg.QuietHours = window
+}
+
+// UnaskedWorkWaits is the sentence for goals that start themselves and the
+// reading of places while they wait for the quiet hours, or empty when they
+// do not wait.
+func (b *Brain) UnaskedWorkWaits() string {
+	return quiethours.Waiting(b.QuietHours(), time.Now())
+}

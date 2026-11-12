@@ -95,7 +95,26 @@ async function load() {
 
     places.forEach((p) => list.appendChild(row(p)));
 
+    // Only when there is something left to read: "reading waits" over
+    // places that are all read would be a wait for nothing.
+    quiet(data.quiet, places.some((p) => p.reachable && (p.waiting > 0 || p.never)));
+
     suggestions(data.drives || []);
+}
+
+/*
+ * Reading waits for the quiet hours, said above the list: without it, a
+ * place with things still to read looks like a brain that quietly stopped.
+ */
+function quiet(q, unread) {
+    const line = el('places-quiet');
+
+    if (!line) return;
+
+    line.hidden = !q || !unread;
+    line.textContent = q && unread
+        ? T(q.tomorrow ? 'sys.placesQuietTomorrow' : 'sys.placesQuietToday', { from: q.from, to: q.to, at: q.from })
+        : '';
 }
 
 function row(p) {

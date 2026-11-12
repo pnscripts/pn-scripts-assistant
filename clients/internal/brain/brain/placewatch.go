@@ -8,6 +8,7 @@ import (
 	"pn-scripts-assistant/internal/brain/learning"
 	"pn-scripts-assistant/internal/brain/places"
 	"pn-scripts-assistant/internal/brain/progress"
+	"pn-scripts-assistant/internal/brain/quiethours"
 )
 
 /*
@@ -94,6 +95,10 @@ func (b *Brain) keepPlaces(ctx context.Context) {
 			wait = BetweenBites
 		}
 
+		// Waiting for the quiet hours, it looks again when they open
+		// rather than up to a round later.
+		wait = quiethours.Sleep(b.QuietHours(), time.Now(), wait)
+
 		select {
 		case <-ctx.Done():
 			return
@@ -117,6 +122,17 @@ func (b *Brain) lookAtOnePlace(ctx context.Context) bool {
 	}
 
 	if b.Learner == nil {
+		return false
+	}
+
+	/*
+	 * Outside the quiet hours, nothing is read.
+	 *
+	 * Reading a place is minutes of processor nobody asked for at that
+	 * moment, so with a window set it waits for the window and starts in it
+	 * by itself. The Places page says so, and "Read now" there reads at once.
+	 */
+	if waits, _ := quiethours.Waits(b.QuietHours(), time.Now()); waits {
 		return false
 	}
 

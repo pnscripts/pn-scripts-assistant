@@ -183,3 +183,90 @@ func TestHeldReadsTheSavedSetting(t *testing.T) {
 		t.Errorf("on pace held: %q", s)
 	}
 }
+
+// Work nobody asked for at that moment (a goal that starts itself, reading a
+// place) has nobody to say yes, so outside the window it waits for it,
+// whatever the allowance, and starts in it.
+func TestUnaskedWorkWaitsForTheWindowAndStartsInIt(t *testing.T) {
+	loc := time.FixedZone("here", 2*3600)
+
+	waits, opens := Waits("22:00-07:00", at(t, loc, "2026-11-11 15:10"))
+	if !waits || !opens.Equal(at(t, loc, "2026-11-11 22:00")) {
+		t.Fatalf("afternoon: waits %v until %v, want until 22:00 today", waits, opens)
+	}
+
+	for _, s := range []string{"2026-11-11 22:00", "2026-11-12 03:00", "2026-11-12 06:59"} {
+		if waits, _ := Waits("22:00-07:00", at(t, loc, s)); waits {
+			t.Errorf("%s is inside the window and still waits", s)
+		}
+	}
+
+	// The minute the window closes, the next opening is the same evening.
+	waits, opens = Waits("22:00-07:00", at(t, loc, "2026-11-12 07:00"))
+	if !waits || !opens.Equal(at(t, loc, "2026-11-12 22:00")) {
+		t.Errorf("at 07:00: waits %v until %v", waits, opens)
+	}
+
+	// No window, or one that cannot be read, holds nothing back.
+	for _, setting := range []string{"", "  ", "nonsense", "22:00-22:00"} {
+		if waits, _ := Waits(setting, at(t, loc, "2026-11-11 15:10")); waits {
+			t.Errorf("%q made work wait", setting)
+		}
+	}
+}
+
+// A loop that checks now and then wakes at the opening, not up to a whole
+// round after it: "starts in it by itself" means at the start of the window.
+func TestALoopWakesWhenTheWindowOpens(t *testing.T) {
+	loc := time.FixedZone("here", 2*3600)
+	round := 10 * time.Minute
+
+	if got := Sleep("22:00-07:00", at(t, loc, "2026-11-11 21:55"), round); got != 5*time.Minute {
+		t.Errorf("five minutes before the opening: sleeps %v", got)
+	}
+
+	if got := Sleep("22:00-07:00", at(t, loc, "2026-11-11 15:10"), round); got != round {
+		t.Errorf("hours before: sleeps %v, want a whole round", got)
+	}
+
+	if got := Sleep("22:00-07:00", at(t, loc, "2026-11-11 23:00"), round); got != round {
+		t.Errorf("inside: sleeps %v, want a whole round", got)
+	}
+
+	if got := Sleep("", at(t, loc, "2026-11-11 21:55"), round); got != round {
+		t.Errorf("no window: sleeps %v", got)
+	}
+
+	// Seconds before the opening it still sleeps a moment, never zero or
+	// less, or the loop would spin.
+	almost := at(t, loc, "2026-11-11 22:00").Add(-200 * time.Millisecond)
+	if got := Sleep("22:00-07:00", almost, round); got < time.Second || got > 2*time.Second {
+		t.Errorf("a moment before: sleeps %v", got)
+	}
+}
+
+// The sentence for work that waits says the window, when it starts and that
+// it can be started at once.
+func TestWaitingIsSaidWithTheWayToStartItNow(t *testing.T) {
+	loc := time.FixedZone("here", 2*3600)
+	day := at(t, loc, "2026-11-11 15:10")
+
+	s := Waiting("22:00-07:00", day)
+	for _, part := range []string{"22:00 to 07:00", "22:00 today", "by itself"} {
+		if !strings.Contains(s, part) {
+			t.Errorf("%q does not say %q", s, part)
+		}
+	}
+
+	if strings.ContainsAny(s, "–—") {
+		t.Errorf("%q has a dash", s)
+	}
+
+	if s := Waiting("22:00-07:00", at(t, loc, "2026-11-11 23:00")); s != "" {
+		t.Errorf("inside the window: %q", s)
+	}
+
+	if s := Waiting("01:30-05:00", at(t, loc, "2026-11-11 06:00")); !strings.Contains(s, "01:30 tomorrow") {
+		t.Errorf("after a morning window: %q", s)
+	}
+}

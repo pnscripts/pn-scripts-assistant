@@ -762,7 +762,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"always_name":   s.brain.Cfg.AlwaysName,
 		"auto_model":    s.brain.Cfg.AutoModel,
 		"goal_mode":     s.brain.Cfg.GoalMode,
-		"quiet_hours":   s.brain.Cfg.QuietHours,
+		"quiet_hours":   s.brain.QuietHours(),
 		"always_speak":  s.brain.Cfg.AlwaysSpeak,
 		"always_listen": s.brain.Cfg.AlwaysListen,
 		"models":        modelRoles(s.brain),
@@ -2308,7 +2308,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	 * an answer of "restart and it will be better" is not one.
 	 */
 	if body.QuietHours != nil {
-		s.brain.Cfg.QuietHours = quiet.String()
+		s.brain.SetQuietHours(quiet.String())
 	}
 
 	if body.KeepQuiet != nil {
@@ -2351,7 +2351,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		"always_name":   s.brain.Cfg.AlwaysName,
 		"auto_model":    s.brain.Cfg.AutoModel,
 		"goal_mode":     s.brain.Cfg.GoalMode,
-		"quiet_hours":   s.brain.Cfg.QuietHours,
+		"quiet_hours":   s.brain.QuietHours(),
 		"always_speak":  s.brain.Cfg.AlwaysSpeak,
 		"always_listen": s.brain.Cfg.AlwaysListen,
 	})

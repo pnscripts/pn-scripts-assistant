@@ -139,6 +139,10 @@ type Brain struct {
 	// that repeats itself every ten minutes is one somebody turns off.
 	saidQueueIsFull bool
 
+	// quietMu guards Cfg.QuietHours, which the settings page changes while
+	// the goal and reading loops read it. See QuietHours.
+	quietMu sync.Mutex
+
 	// Jobs is work happening behind the conversation, so that "read through
 	// that folder" does not mean sitting in silence for four minutes.
 	Jobs *jobs.Runner

@@ -18,6 +18,11 @@ whenever something visible changed.
   waits, and your yes starts it anyway. On pace, inside the window or with
   no window set, nothing changes. Saved as `BRAIN_QUIET_HOURS` in the
   settings file; a window that cannot be meant is refused with why.
+- **Goals and learning wait for the quiet hours.** With a window set, goals
+  that start themselves and the reading of the places it learns from wait
+  for it and start in it by themselves, at the opening. The goal and the
+  Places card say until when; "Work on it" and "Read some now" start them at
+  once. Work under way when the window closes is finished, not stopped.
 
 ## 1.0.2 (2026-11-11)
 

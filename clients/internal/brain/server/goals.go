@@ -19,19 +19,28 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Each with its tasks as the task list shows them, reasons and all.
+	// Each with its tasks as the task list shows them, reasons and all, and
+	// whether a goal that would start itself now waits for the quiet hours.
 	type shownGoal struct {
 		store.Goal
-		Tasks []shownTask `json:"tasks,omitempty"`
+		Tasks         []shownTask `json:"tasks,omitempty"`
+		WaitsForQuiet bool        `json:"waits_for_quiet,omitempty"`
 	}
 
+	quiet := s.quietWait(time.Now())
 	shown := make([]shownGoal, 0, len(goals))
 
 	for _, goal := range goals {
-		shown = append(shown, shownGoal{Goal: goal, Tasks: showTasks(goal.Tasks)})
+		shown = append(shown, shownGoal{Goal: goal, Tasks: showTasks(goal.Tasks),
+			WaitsForQuiet: quiet != nil && goal.Due && goal.StartsItself})
 	}
 
-	ok(w, map[string]any{"goals": shown})
+	out := map[string]any{"goals": shown}
+	if quiet != nil {
+		out["quiet"] = quiet
+	}
+
+	ok(w, out)
 }
 
 func (s *Server) handleSaveGoal(w http.ResponseWriter, r *http.Request) {

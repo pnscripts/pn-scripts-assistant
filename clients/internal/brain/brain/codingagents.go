@@ -58,7 +58,7 @@ func (b *Brain) CodingAgents() []tools.CodingAgent {
 
 				// Ahead of its pace, outside the quiet hours: the work
 				// waits for a yes that says until when.
-				a.Held = quiethours.Held(b.Cfg.QuietHours, pace.Ahead, now)
+				a.Held = quiethours.Held(b.QuietHours(), pace.Ahead, now)
 			}
 
 			switch {

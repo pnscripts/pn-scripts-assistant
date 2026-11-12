@@ -53,3 +53,14 @@ data; a registry is searched with a short word for the kind of tool, never
 with your words. Everything else still follows your privacy setting. What I
 downloaded and have not used for 30 days I remove on my own, and only what I
 downloaded, never anything you installed.
+
+## Quiet hours for heavy work
+With quiet hours set in Settings (for example 22:00 until 07:00), heavy work
+goes there. Outside them, a coding agent whose paid allowance is being spent
+faster than it renews waits for your yes, and the question says until when.
+Work nobody asked for at that moment waits for the window whatever the
+allowance and starts in it by itself: goals set to start themselves, and the
+reading of the places I learn from. A waiting goal says so and when it
+starts, and "Work on it" starts it at once; the Places card says reading
+waits, and "Read some now" reads at once. Work already under way when the
+window closes is finished, not stopped.
