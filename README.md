@@ -18,6 +18,13 @@ AMD). What it does not do yet is written down in
 
 ## What it does
 
+- **Says that it is an AI.** The first thing it says to somebody new is that
+  it is an AI assistant whose answers come from a language model and can be
+  wrong; the page says so beside the conversation and with an AI mark beside
+  its name, in English and Bulgarian. Mail it sends carries an
+  `AI-Disclosure` header and the PDF and Word documents it writes say
+  "AI-generated" in their properties, as article 50 of the EU AI Act asks;
+  the words you approved are left as they are.
 - **Answers with memory.** It recalls what it already knows about your projects
   and documents, and uses that to answer, so "where does that project live"
   gets a real path rather than a guess.

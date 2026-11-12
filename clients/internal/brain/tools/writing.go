@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"pn-scripts-assistant/internal/brain/aidisclosure"
 	"pn-scripts-assistant/internal/brain/undo"
 )
 
@@ -150,7 +151,8 @@ func plainText(title, text string) string {
  * document, the document relationships, and the document itself. Word and
  * LibreOffice both refuse the file if any of them is missing, and the error
  * they give says nothing useful about which — so all four are written even
- * though only the last has anything in it.
+ * though only the last has anything in it. A fifth, the core properties,
+ * says it was written with an AI (see coreProperties).
  */
 func buildDocx(title, text string) ([]byte, error) {
 	var out bytes.Buffer
@@ -162,6 +164,7 @@ func buildDocx(title, text string) ([]byte, error) {
 		{"_rels/.rels", packageRels},
 		{"word/_rels/document.xml.rels", documentRels},
 		{"word/document.xml", documentXML(title, text)},
+		{"docProps/core.xml", coreProperties},
 	}
 
 	for _, part := range parts {
@@ -187,12 +190,25 @@ const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
 </Types>`
 
 const packageRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
 </Relationships>`
+
+/*
+ * coreProperties says the document was written with an AI (EU AI Act article
+ * 50(2), machine-readable), where Word and LibreOffice show it under File,
+ * Properties: description and keywords. No author: that is the owner's.
+ */
+const coreProperties = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:description>` + aidisclosure.DocumentNote + `</dc:description>
+<cp:keywords>` + aidisclosure.DocumentKeywords + `</cp:keywords>
+</cp:coreProperties>`
 
 const documentRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`
@@ -311,6 +327,18 @@ func buildPDF(title, text string) ([]byte, error) {
 			pageWidth, pageHeight, 4+i))
 	}
 
+	/*
+	 * The document information: written with an AI, in the properties a
+	 * reader shows under File, Properties, and not on the page, whose words
+	 * are the owner's to approve. EU AI Act article 50(2); see the
+	 * aidisclosure package. The values are plain ASCII with nothing to
+	 * escape in a PDF string (its test keeps them so).
+	 */
+	object(fmt.Sprintf("<</Producer(%s)/Subject(%s)/Keywords(%s)>>",
+		aidisclosure.Producer, aidisclosure.DocumentNote, aidisclosure.DocumentKeywords))
+
+	info := len(offsets)
+
 	// The table of where every object started, which is the part a reader
 	// trusts absolutely.
 	start := out.Len()
@@ -321,8 +349,8 @@ func buildPDF(title, text string) ([]byte, error) {
 		fmt.Fprintf(&out, "%010d 00000 n \n", at)
 	}
 
-	fmt.Fprintf(&out, "trailer\n<</Size %d/Root 1 0 R>>\nstartxref\n%d\n%%%%EOF\n",
-		len(offsets)+1, start)
+	fmt.Fprintf(&out, "trailer\n<</Size %d/Root 1 0 R/Info %d 0 R>>\nstartxref\n%d\n%%%%EOF\n",
+		len(offsets)+1, info, start)
 
 	return out.Bytes(), nil
 }

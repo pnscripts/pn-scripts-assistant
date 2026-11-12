@@ -138,6 +138,15 @@
                 <p class="brand-sub" data-i18n="cc.brandSub">command centre</p>
             </div>
         </div>
+        <!--
+            An AI, on every page: the top bar is the one thing they all share.
+            Beside the name and not inside it, so it stays when a narrow bar
+            drops the name (EU AI Act article 50(1)).
+        -->
+        <span class="ai-badge" role="note"
+              title="This assistant is an AI system: what it says and writes comes from a language model, so check what matters before you rely on it or send it. Mail it sends and documents it writes are marked as written with AI."
+              aria-label="This assistant is an AI system: what it says and writes comes from a language model, so check what matters before you rely on it or send it. Mail it sends and documents it writes are marked as written with AI."
+              data-i18n-title="cc.aiNoticeTitle" data-i18n-label="cc.aiNoticeTitle">AI</span>
 
         <div class="pill pill-status" id="status-pill">
             <span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span>
@@ -699,7 +708,15 @@
                 </div>
 
                 <div class="card card-chat" data-area="chat">
-                    <h2 data-i18n="cc.conversation">Conversation</h2>
+                    <!--
+                        Answers come from an AI, said where they appear (EU AI
+                        Act article 50(1)). Small and always there: never
+                        hidden on a narrow screen. See aidisclosure_test.go.
+                    -->
+                    <h2><span data-i18n="cc.conversation">Conversation</span>
+                        <span class="ai-notice" data-i18n="cc.aiNotice"
+                              title="This assistant is an AI system: what it says and writes comes from a language model, so check what matters before you rely on it or send it. Mail it sends and documents it writes are marked as written with AI."
+                              data-i18n-title="cc.aiNoticeTitle">Answers come from AI and can be wrong.</span></h2>
                     <div class="transcript" id="transcript">
                         <div class="boot" id="boot">
                             <p class="boot-sub" data-i18n="cc.askSomething">Ask something, or tell me to look at something.</p>

@@ -44,6 +44,24 @@ whenever something visible changed.
   hours unless you say otherwise (at most 12), one watch at a time, stops
   when you say or when the program closes, and never restarts anything.
 
+## 1.0.3 (2026-11-13)
+
+- **It says that it is an AI.** Article 50 of the EU AI Act, in force for
+  this kind of program since 2 August 2026, asks an assistant to tell people
+  they are talking with an AI and to mark what it writes. The first thing
+  it says (and speaks) to somebody new now says it is an AI assistant whose
+  answers come from a language model and can be wrong, in English or
+  Bulgarian, even when the model's own opener leaves it out. The page says
+  "Answers come from AI and can be wrong" beside the conversation and shows
+  a small AI mark beside the assistant's name on every page, with the full
+  explanation when you point at either.
+- **What it sends and writes is marked.** Every mail it sends carries the
+  header `AI-Disclosure: mode=ai-originated` (the shape of the IETF draft
+  for the same purpose), and the PDF and Word documents it writes say
+  "AI-generated" in their properties. Nothing is added to the words you
+  approved. Plain text, Markdown, spreadsheets and text copied out of the
+  page carry no mark; known limits says so.
+
 ## 1.0.2 (2026-11-11)
 
 - **Everything a terminal shows says the program's name.** The terminal
