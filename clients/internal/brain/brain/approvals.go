@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"pn-scripts-assistant/internal/brain/agent"
+	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/brain/rules"
 	"pn-scripts-assistant/internal/brain/store"
@@ -71,6 +72,18 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 		return *invocation, fmt.Errorf(
 			"that action was already %s and cannot be decided again", invocation.Status)
 	}
+
+	// Doing now stops saying it waits for this, however it was decided.
+	how := progress.Refused
+
+	switch {
+	case invocation.AnsweredItself:
+		how = progress.ByItself
+	case approve:
+		how = progress.Approved
+	}
+
+	progress.Decided(id, how)
 
 	// Said as it is decided, so a window that is not the one that decided —
 	// or a phone that asked from a train — stops showing it as waiting.

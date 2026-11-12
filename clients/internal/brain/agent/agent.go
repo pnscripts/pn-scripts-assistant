@@ -1275,8 +1275,6 @@ func (l *Loop) RunBrief(
 			if answer == permits.Ask || ask {
 				summary = asked
 
-				l.doing("waiting", "Waiting for you: "+summary)
-
 				// What runs after the yes must be what the question showed.
 				if p, ok := tool.(tools.Pinning); ok {
 					call.Arguments = p.Pin(call.Arguments)
@@ -1286,6 +1284,10 @@ func (l *Loop) RunBrief(
 				if err != nil {
 					return Result{}, err
 				}
+
+				// Said once it has a number, so the decision, whenever it
+				// comes, settles this row (progress.Decided).
+				l.waitingOn("Waiting for you: "+summary, id)
 
 				if answersItself {
 					if err := l.DB.AnswersItselfInQuietHours(id); err != nil {
@@ -2339,6 +2341,12 @@ func (l *Loop) round(n int) {
 func (l *Loop) doing(kind, note string) {
 	if !l.Quietly {
 		progress.Set(kind, note)
+	}
+}
+
+func (l *Loop) waitingOn(note string, invocation int64) {
+	if !l.Quietly {
+		progress.Waiting(note, invocation)
 	}
 }
 

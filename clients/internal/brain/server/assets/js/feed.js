@@ -38,6 +38,7 @@ const FEED_KINDS = {
     answering: 'cc.kind.answering',
     speaking: 'cc.kind.speaking',
     waiting: 'cc.kind.waiting',
+    decided: 'cc.kind.decided',
     learning: 'cc.kind.learning',
     model: 'cc.kind.model',
     embedding: 'cc.kind.embedding',
@@ -81,7 +82,7 @@ let feedShown = '';
  * under — a running commentary on the fan.
  */
 const WORKING_KINDS = new Set([
-    'thinking', 'tool', 'answering', 'speaking', 'waiting', 'learning',
+    'thinking', 'tool', 'answering', 'speaking', 'waiting', 'decided', 'learning',
     'model', 'embedding',
 ]);
 
@@ -219,7 +220,9 @@ function drawFeed(steps) {
 
         steps.forEach((step, i) => {
             const title = feedKind(step.kind) || step.kind || feedWords('cc.working');
-            const running = i === steps.length - 1;
+            // A decided question is over, even as the newest row: it does not
+            // pulse as though it were still going.
+            const running = i === steps.length - 1 && step.kind !== 'decided';
 
             const line = document.createElement('div');
             line.className = 'feed-line';
