@@ -239,8 +239,9 @@ of writing); the rest is specified below and not started.
   calls are held as a question that says until when and run on the yes.
   Second step on 12 November 2026: goals that start themselves and the
   reading of places wait for the window and start in it by themselves.
-  Next: a held coding agent question answered by itself when the window
-  opens.
+  Third step on 12 November 2026: a coding agent question held for the
+  window alone answers itself when it opens, judged again then, and its
+  answer goes to the conversation it was asked in.
 - **Replies on the user's own channels.** Comments on pages the user connects
   (through the official API where there is one, else a browser the user signs
   in), each checked for scams and answered from facts the assistant can show;

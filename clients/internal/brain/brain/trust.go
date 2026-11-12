@@ -72,6 +72,17 @@ func (b *Brain) recordDenied(inv store.Invocation) {
 	b.recordInvocation(inv, agent.DeedRefused, "", true)
 }
 
+// decidedBy is who said yes, in the words the record keeps: its owner, or
+// nobody, for a question held for the quiet hours alone that answered
+// itself when they opened.
+func decidedBy(inv store.Invocation) string {
+	if inv.AnsweredItself {
+		return "started by itself when your quiet hours opened"
+	}
+
+	return "you approved it"
+}
+
 func (b *Brain) recordInvocation(inv store.Invocation, outcome, leaves string, changes bool) {
 	if b.DB == nil {
 		return
@@ -82,7 +93,7 @@ func (b *Brain) recordInvocation(inv store.Invocation, outcome, leaves string, c
 		Tool:           inv.Tool,
 		Summary:        inv.Summary,
 		Asked:          inv.Arguments,
-		Request:        "you approved it",
+		Request:        decidedBy(inv),
 		Result:         inv.Result,
 		Outcome:        outcome,
 		Changes:        changes,

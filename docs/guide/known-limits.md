@@ -98,9 +98,11 @@ against the code on 9 November 2026.
 - **Looking after the computer** (leftover processes, stopping them, and
   whether a restart is safe) reads Linux's own records; on Windows the card
   says it does not look yet. Goals that start themselves and the reading of
-  places wait for the quiet hours and start in them by themselves; a coding
-  agent held for them still waits for your yes, and is not yet started by
-  itself when they open.
+  places wait for the quiet hours and start in them by themselves, and so does
+  a coding agent question held for them alone. The program checks for those
+  questions at most every ten minutes, so one can start up to ten minutes
+  after the window begins when the window was changed while it waited; it
+  starts only while the program is running.
 
 ## Telling voices apart
 

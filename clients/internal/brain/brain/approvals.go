@@ -29,6 +29,17 @@ func (b *Brain) PendingApprovals() ([]store.Invocation, error) {
 // repeated or replayed request cannot turn a denial into an approval or run
 // something twice.
 func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invocation, error) {
+	return b.decide(ctx, id, approve, false)
+}
+
+/*
+ * decide is Decide, or, with itself, the yes a question held for the quiet
+ * hours alone gives itself when they open (see AnswerHeldQuestions). That
+ * yes moves the row only while it is still waiting and still marked, so its
+ * user answering first always wins, and everything after it (the project's
+ * folders, the rules, the record) is the same as for a yes pressed by hand.
+ */
+func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (store.Invocation, error) {
 	invocation, err := b.DB.Invocation(id)
 	if err != nil {
 		return store.Invocation{}, err
@@ -43,7 +54,15 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 		decision = store.InvocationApproved
 	}
 
-	moved, err := b.DB.DecideInvocation(id, decision)
+	var moved bool
+
+	if itself && approve {
+		moved, err = b.DB.AnswerItself(id)
+		invocation.AnsweredItself = moved
+	} else {
+		moved, err = b.DB.DecideInvocation(id, decision)
+	}
+
 	if err != nil {
 		return store.Invocation{}, err
 	}
@@ -56,7 +75,8 @@ func (b *Brain) Decide(ctx context.Context, id int64, approve bool) (store.Invoc
 	// Said as it is decided, so a window that is not the one that decided —
 	// or a phone that asked from a train — stops showing it as waiting.
 	b.Happens.Say(protocol.New(protocol.ApprovalReceived, invocation.Summary).
-		With(map[string]any{"invocation": id, "tool": invocation.Tool, "approved": approve}))
+		With(map[string]any{"invocation": id, "tool": invocation.Tool, "approved": approve,
+			"itself": invocation.AnsweredItself}))
 
 	if !approve {
 		invocation.Status = store.InvocationDenied

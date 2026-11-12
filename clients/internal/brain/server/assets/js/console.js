@@ -1531,6 +1531,17 @@ async function refreshApprovals() {
         } else {
             actions.append(approve, always, reject);
         }
+        /*
+         * Held for the quiet hours and nothing else: it starts by itself when
+         * they begin, so the card says so under its name, in the page's
+         * language, above a question long enough to scroll.
+         */
+        if (item.answers_itself) {
+            const itself = document.createElement('span');
+            itself.className = 'approval-itself';
+            itself.textContent = words('cc.answersItself');
+            tool.after(itself);
+        }
         card.append(summary, actions);
         list.appendChild(card);
     });

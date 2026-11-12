@@ -1460,6 +1460,10 @@ func (b *Brain) Start(ctx context.Context) {
 	// watchGoals.
 	go b.watchGoals(ctx)
 
+	// And questions held for the quiet hours alone, answered by themselves
+	// when the window opens. See watchHeldQuestions.
+	go b.watchHeldQuestions(ctx)
+
 	// Both models loaded and kept loaded, so choosing between them costs
 	// nothing at the moment of choosing.
 	go b.keepModelsWarm(ctx)

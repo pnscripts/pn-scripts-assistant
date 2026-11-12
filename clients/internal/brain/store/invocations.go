@@ -28,6 +28,12 @@ type Invocation struct {
 
 	// ConversationID is the conversation it was proposed in, when known.
 	ConversationID int64 `json:"conversation_id,omitempty"`
+
+	// AnswersItself is a question held for the quiet hours and nothing
+	// else: unless its user answers first, it is approved by itself when
+	// they open. AnsweredItself is one that was.
+	AnswersItself  bool `json:"answers_itself,omitempty"`
+	AnsweredItself bool `json:"answered_itself,omitempty"`
 }
 
 // RecordInvocation stores a proposed action awaiting approval.
@@ -58,7 +64,8 @@ func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, ri
 // PendingInvocations lists what is waiting for a decision.
 func (d *DB) PendingInvocations() ([]Invocation, error) {
 	rows, err := d.sql().Query(`
-		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, created_at
+		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, created_at,
+			COALESCE(conversation_id, 0), answers_itself
 		FROM tool_invocations WHERE status = ? ORDER BY id`, InvocationPending)
 	if err != nil {
 		return nil, err
@@ -71,7 +78,8 @@ func (d *DB) PendingInvocations() ([]Invocation, error) {
 		var i Invocation
 		var created string
 
-		if err := rows.Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &created); err != nil {
+		if err := rows.Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &created,
+			&i.ConversationID, &i.AnswersItself); err != nil {
 			return nil, err
 		}
 
@@ -82,6 +90,68 @@ func (d *DB) PendingInvocations() ([]Invocation, error) {
 	return out, rows.Err()
 }
 
+// AnswersItselfInQuietHours marks a waiting question as held for the quiet
+// hours and nothing else, so it is approved by itself when they open unless
+// its user answers first. A question already decided is left as it is.
+func (d *DB) AnswersItselfInQuietHours(id int64) error {
+	_, err := d.sql().Exec(
+		`UPDATE tool_invocations SET answers_itself = 1, updated_at = ? WHERE id = ? AND status = ?`,
+		time.Now().UTC().Format(time.RFC3339), id, InvocationPending)
+
+	return err
+}
+
+// NoLongerAnswersItself leaves a waiting question to its user: something
+// that would have asked about it anyway changed while it waited.
+func (d *DB) NoLongerAnswersItself(id int64) error {
+	_, err := d.sql().Exec(
+		`UPDATE tool_invocations SET answers_itself = 0, updated_at = ? WHERE id = ?`,
+		time.Now().UTC().Format(time.RFC3339), id)
+
+	return err
+}
+
+// WaitingForQuietHours is every waiting question that answers itself when
+// the quiet hours open, oldest first.
+func (d *DB) WaitingForQuietHours() ([]Invocation, error) {
+	all, err := d.PendingInvocations()
+	if err != nil {
+		return nil, err
+	}
+
+	out := []Invocation{}
+
+	for _, i := range all {
+		if i.AnswersItself {
+			out = append(out, i)
+		}
+	}
+
+	return out, nil
+}
+
+/*
+ * AnswerItself approves a held question by itself, and only one still
+ * waiting and still marked: its user answering first, or the mark being
+ * taken back, wins. Like DecideInvocation, the WHERE clause is the guard,
+ * and it says whether the row moved.
+ */
+func (d *DB) AnswerItself(id int64) (bool, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	res, err := d.sql().Exec(
+		`UPDATE tool_invocations SET status = ?, answered_itself = 1, decided_at = ?, updated_at = ?
+		 WHERE id = ? AND status = ? AND answers_itself = 1`,
+		InvocationApproved, now, now, id, InvocationPending)
+	if err != nil {
+		return false, err
+	}
+
+	n, err := res.RowsAffected()
+
+	return n > 0, err
+}
+
 // Invocation loads one by id.
 func (d *DB) Invocation(id int64) (*Invocation, error) {
 	var i Invocation
@@ -90,10 +160,10 @@ func (d *DB) Invocation(id int64) (*Invocation, error) {
 
 	err := d.sql().QueryRow(`
 		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, result, created_at,
-			COALESCE(conversation_id, 0)
+			COALESCE(conversation_id, 0), answers_itself, answered_itself
 		FROM tool_invocations WHERE id = ?`, id).
 		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &result, &created,
-			&i.ConversationID)
+			&i.ConversationID, &i.AnswersItself, &i.AnsweredItself)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -177,7 +247,7 @@ func (d *DB) Habits() ([]Habit, error) {
 		       COUNT(*) FILTER (WHERE status = ?)       AS refused,
 		       MAX(COALESCE(decided_at, updated_at))    AS last
 		FROM tool_invocations
-		WHERE status <> ?
+		WHERE status <> ? AND answered_itself = 0
 		GROUP BY tool
 		ORDER BY approved + refused DESC, tool`,
 		InvocationApproved, InvocationDone, InvocationDenied, InvocationPending)

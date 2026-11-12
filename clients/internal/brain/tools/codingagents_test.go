@@ -68,7 +68,7 @@ func (heldAgent) CodingAgents() []CodingAgent {
 	return []CodingAgent{{ID: "codex", Title: "Codex", Ready: true,
 		Pace: "70 % of its allowance used with 20 % of its 7-day window gone; ahead of pace",
 		Held: "Held for your quiet hours (22:00 to 07:00): its allowance is being spent faster than it renews, " +
-			"so heavy work waits until 22:00 today. Ask again then, or say yes to start it now anyway."}}
+			"so heavy work waits until 22:00 today. Say yes to start it now anyway."}}
 }
 
 func (h heldAgent) AskCodingAgent(_ context.Context, id, folder, task, access string) (AgentAnswer, error) {
@@ -99,7 +99,7 @@ func TestAnAgentHeldForQuietHoursIsAskedWithUntilWhen(t *testing.T) {
 	}
 
 	s := tool.Summarize(raw)
-	if !strings.HasSuffix(s, "waits until 22:00 today. Ask again then, or say yes to start it now anyway.") ||
+	if !strings.HasSuffix(s, "waits until 22:00 today. Say yes to start it now anyway.") ||
 		!strings.Contains(s, "ahead of pace") {
 		t.Errorf("%q", s)
 	}
@@ -107,5 +107,42 @@ func TestAnAgentHeldForQuietHoursIsAskedWithUntilWhen(t *testing.T) {
 	// The yes runs it: being held is a question, never a refusal.
 	if _, err := tool.Execute(context.Background(), raw); err != nil || asked != 1 {
 		t.Errorf("the yes did not start it: %v, asked %d", err, asked)
+	}
+}
+
+/*
+ * A held call says whether being held is the only thing its tool asks
+ * about: reading or folder access, yes; full access is always asked anyway,
+ * so it never answers itself. Not held, it is not held, whatever the reach.
+ */
+func TestAHeldCallSaysWhetherTheQuietHoursAreAllThatHoldIt(t *testing.T) {
+	var asked int
+
+	held := AskCodingAgent{Agents: heldAgent{asked: &asked}}
+	free := AskCodingAgent{Agents: twoAgents{}}
+
+	cases := []struct {
+		tool       AskCodingAgent
+		args       string
+		held, only bool
+	}{
+		{held, `{"task":"x","folder":"/p"}`, true, true},
+		{held, `{"task":"x","folder":"/p","access":"folder"}`, true, true},
+		{held, `{"task":"x","folder":"/p","access":"full"}`, true, false},
+		{free, `{"task":"x","folder":"/p"}`, false, true},
+		{free, `{"task":"x","folder":"/p","access":"full"}`, false, false},
+	}
+
+	for _, c := range cases {
+		h, only := c.tool.QuietHold(json.RawMessage(c.args))
+		if h != c.held || only != c.only {
+			t.Errorf("%s: held %v only %v, want %v %v", c.args, h, only, c.held, c.only)
+		}
+	}
+
+	var _ QuietHolding = held
+
+	if asked != 0 {
+		t.Error("asking whether it is held ran the agent")
 	}
 }

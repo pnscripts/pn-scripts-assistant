@@ -57,7 +57,13 @@ the window, which has the same settings one at a time, plus:
   it, a coding agent whose paid allowance is being spent faster than it
   renews (judged from what the agent itself last said about its allowance)
   is not started on its own: the question says until when the work waits,
-  and your yes starts it anyway. With the allowance on pace, inside the
+  and your yes starts it anyway. When nothing else would have asked about
+  it (your permissions, a rule, full access), the question also says it
+  starts by itself when the window begins, and it does, unless you answered
+  first; what it said appears in the conversation it was asked in. Whatever
+  you changed while it waited is checked again then: a permission now set to
+  ask or never, or a rule that asks about it, leaves it to you. With the
+  allowance on pace, inside the
   window, or with no window, nothing waits. Work nobody asked for at that
   moment waits for the window whatever the allowance, and starts in it by
   itself: goals set to start themselves (the goal says "waits for your

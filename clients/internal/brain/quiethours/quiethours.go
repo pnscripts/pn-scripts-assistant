@@ -146,8 +146,32 @@ func Hold(w Window, ahead bool, now time.Time) (bool, time.Time) {
 // Say is the hold in a sentence for the person asked, said at now.
 func Say(w Window, opens, now time.Time) string {
 	return fmt.Sprintf("Held for your quiet hours (%s to %s): its allowance is being spent faster than it renews, "+
-		"so heavy work waits until %s %s. Ask again then, or say yes to start it now anyway.",
+		"so heavy work waits until %s %s. Say yes to start it now anyway.",
 		w.From(), w.To(), hhmm(opens.Hour()*60+opens.Minute()), dayOf(opens, now))
+}
+
+/*
+ * What becomes of a held question when the window opens.
+ *
+ * A call held for the quiet hours and for nothing else would have run
+ * without a question at any other time: its user's settings already said
+ * yes to it. So when the window opens it answers itself, unless its user
+ * answered first. A call that would have been asked anyway (full access, a
+ * permission set to ask, a rule, a protected file) waits for its user
+ * whenever that is, and says so.
+ */
+const (
+	StartsItself = "If you have not answered by then, it starts by itself when they open."
+	WaitsForYou  = "It does not start by itself: answer it when you want it to run."
+)
+
+// OpenNow says whether the saved setting is a window and it is open at now:
+// the moment held questions that answer themselves are answered. No window,
+// or one that cannot be read, is never open, so nothing answers itself.
+func OpenNow(setting string, now time.Time) bool {
+	w, err := Parse(setting)
+
+	return err == nil && w.Contains(now)
 }
 
 // Held is the sentence for work on an allowance at now under the saved
