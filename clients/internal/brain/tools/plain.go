@@ -30,6 +30,8 @@ var plainWords = map[string][2]string{
 		"Показва и прави копия на базата знания на асистента."},
 	"can_i_restart": {"Says whether the computer can be restarted now: a waiting kernel and its drivers, installs, running work, unpushed work.",
 		"Казва дали компютърът може да се рестартира сега: чакащо ядро и драйверите му, инсталиране, текуща работа, неизпратена работа."},
+	"list_programs": {"Says which programs are on this computer and what was installed, updated or removed lately.",
+		"Казва кои програми има на компютъра и какво е инсталирано, обновено или премахнато наскоро."},
 	"watch_for_restart": {"Watches the computer and tells you when it is safe to restart, out loud and in the conversation.",
 		"Следи компютъра и ви казва кога рестартът е безопасен, на глас и в разговора."},
 	"change_a_setting": {"Changes one of its own settings when you ask it to.",

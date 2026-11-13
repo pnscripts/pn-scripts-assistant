@@ -335,6 +335,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 
 	// Looking after the machine. See machinecare.go.
 	s.mux.HandleFunc("GET /api/machine/care", s.handleMachineCare)
+	s.mux.HandleFunc("GET /api/programs", s.handleProgramInventory)
 	s.mux.HandleFunc("POST /api/machine/care/stop", s.handleStopLeftover)
 	s.mux.HandleFunc("GET /api/machine/care/watch", s.handleRestartWatchState)
 	s.mux.HandleFunc("POST /api/machine/care/watch", s.handleRestartWatch)

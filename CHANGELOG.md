@@ -11,6 +11,15 @@ whenever something visible changed.
 
 ## Unreleased
 
+- **It knows which programs you have (Linux).** It reads the programs on
+  the computer (menu programs, system packages through dpkg-query, snaps and
+  Flatpaks, with their versions) when it starts, and then notices installs,
+  updates and removals by itself within seconds, from the system's own file
+  events; a folder it cannot watch is looked at every 10 minutes. Ask "is
+  GIMP installed?" or "what was removed lately?": a removed program is
+  remembered with when it went, and a reinstall is the same program coming
+  back. The list is sealed in the knowledge base like everything personal;
+  nothing found is ever started. On Windows it does not read the programs yet.
 - **Quiet hours for heavy work.** Settings has a window for heavy work
   (for example 22:00 until 07:00). Outside it, a coding agent whose paid
   allowance is being spent faster than it renews is not started on its

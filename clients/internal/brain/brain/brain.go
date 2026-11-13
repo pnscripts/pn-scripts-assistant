@@ -78,6 +78,10 @@ type Brain struct {
 	// restartwatch.go.
 	restart restartWatching
 
+	// programs is the inventory of the programs on this computer. See
+	// programs.go.
+	programs programKeeping
+
 	DB     *store.DB
 	Router *llm.Router
 	Cfg    config.Config
@@ -527,6 +531,10 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		tools.CanIRestart{Care: b},
 		tools.LeftoverProcesses{Care: b},
 		tools.WatchForRestart{Care: b},
+
+		// The programs on this computer, kept current by itself. See
+		// programs.go.
+		tools.ListPrograms{Programs: b},
 		tools.StopLeftover{Care: b},
 
 		tools.InBackground{Jobs: backgroundOf{b}, Registry: func() *tools.Registry {
@@ -1526,6 +1534,10 @@ func (b *Brain) start(ctx context.Context) {
 		go b.Integrations.Resume(ctx)
 	}
 
+	// The programs on this computer: read once, then watched. See
+	// programs.go.
+	b.KeepPrograms(ctx)
+
 	/*
 	 * Recordings a previous run could not clear up.
 	 *
@@ -1686,6 +1698,9 @@ func (b *Brain) Stop() {
 	// A restart being watched for ends with the program: nothing is left
 	// looking at the machine for somebody who closed it.
 	b.StopRestartWatch()
+
+	// And the program inventory stops watching.
+	b.StopPrograms()
 }
 
 // SystemPrompt is who this assistant is.
