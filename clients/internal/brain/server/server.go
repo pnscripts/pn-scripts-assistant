@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/appearance"
@@ -79,6 +80,10 @@ type Server struct {
 
 	// newest is the last answer about the newest release. See upkeep.go.
 	newest newestCache
+
+	// agreed is whether the terms of use are accepted, once they are. See
+	// terms.go.
+	agreed atomic.Bool
 }
 
 // OnPresent sets what to do when another copy asks this one to come forward.
@@ -454,6 +459,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/voice/sex", s.handleVoiceSex)
 	s.mux.HandleFunc("POST /api/language", s.handleSetLanguage)
 	s.mux.HandleFunc("GET /health", s.handleHealth)
+	s.mux.HandleFunc("GET /api/terms", s.handleTerms)
+	s.mux.HandleFunc("POST /api/terms", s.handleAcceptTerms)
 
 	s.mux.HandleFunc("GET /", s.handleRoot)
 
@@ -470,7 +477,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
  */
 func (s *Server) Handler() http.Handler {
 	if s.through == nil {
-		s.through = s.Guard(s.mux)
+		// Who is asking first, then whether the terms are accepted.
+		s.through = s.Guard(s.untilAgreed(s.mux))
 	}
 
 	return s.through

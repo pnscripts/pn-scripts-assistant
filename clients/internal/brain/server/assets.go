@@ -31,6 +31,10 @@ var assets embed.FS
 // without a round trip.
 var indexTemplate = template.Must(template.ParseFS(assets, "assets/index.html"))
 
+// agreementTemplate is the page shown instead until the terms of use are
+// accepted. See terms.go.
+var agreementTemplate = template.Must(template.ParseFS(assets, "assets/agreement.html"))
+
 // assetHandler serves the interface.
 //
 // Every response carries a validator and no-cache, and the reason is a bug that
@@ -56,7 +60,7 @@ func assetHandler(logger *slog.Logger) http.Handler {
 	staged := stage.Handler()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" || r.URL.Path == "/agreement.html" {
 			// Handled by the server so the name can be injected; see
 			// Server.renderIndex.
 			http.NotFound(w, r)
@@ -128,7 +132,12 @@ func (s *Server) renderIndex(w http.ResponseWriter, r *http.Request) {
 
 	var buf bytes.Buffer
 
-	if err := indexTemplate.Execute(&buf, map[string]any{"Name": name}); err != nil {
+	page := indexTemplate
+	if !s.termsAccepted() {
+		page = agreementTemplate
+	}
+
+	if err := page.Execute(&buf, map[string]any{"Name": name}); err != nil {
 		s.log.Error("rendering the interface failed", "error", err)
 		http.Error(w, "The interface could not be rendered.", http.StatusInternalServerError)
 
@@ -136,6 +145,19 @@ func (s *Server) renderIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	/*
+	 * The agreement is never kept: revalidated against the same start time,
+	 * the console asked for after accepting would come back "not modified"
+	 * and the browser would show the agreement it kept.
+	 */
+	if page == agreementTemplate {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(buf.Bytes())
+
+		return
+	}
+
 	// The page is built into the binary and changes only when the program does,
 	// but a stale cached copy after an update would look like a bug, so it is
 	// revalidated rather than cached.

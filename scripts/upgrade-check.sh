@@ -121,6 +121,20 @@ echo "→ this tree opens it"
 serve "$WORK/bin/new" "$WORK/new.log"
 
 missing=0
+
+# An upgraded brain is asked to accept the terms of use (1.0.4) before it is
+# used: the API refuses until then, and opens once they are accepted.
+refused="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/todos")"
+if [ "$refused" = 403 ] && curl -s -m 5 "http://127.0.0.1:$PORT/api/todos" | grep -q '"terms":"not accepted"'; then
+    echo "  ok    the upgraded brain asks for the terms of use before it is used"
+else
+    echo "  FAIL  the upgraded brain answered $refused before its terms were accepted"
+    missing=$((missing + 1))
+fi
+terms_version="$(curl -s -m 5 "http://127.0.0.1:$PORT/api/terms" | python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])')"
+curl -fs -m 5 -X POST -H 'Content-Type: application/json' -d "{\"version\":$terms_version,\"language\":\"en\"}" \
+    "http://127.0.0.1:$PORT/api/terms" > /dev/null || { echo "  FAIL  accepting the terms"; missing=$((missing + 1)); }
+
 for route in conversations conversations/1 mail/drafts todos study research care books goals deeds; do
     if ! curl -s -m 5 "http://127.0.0.1:$PORT/api/$route" | grep -q ZZUPGRADEMARK; then
         echo "  FAIL  /api/$route does not show the seeded record"

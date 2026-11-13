@@ -9,6 +9,28 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
+## 1.0.4 (2026-11-13)
+
+- **It behaves as an assistant.** The first thing it says to somebody new is
+  its own opener again, without "Before anything else: I am an AI
+  assistant...", and the page no longer shows "Answers come from AI and can
+  be wrong" beside the conversation or the AI mark beside its name. Asked
+  whether it is an AI, it says so plainly.
+- **Terms of use, accepted once.** The first time it opens (and after an
+  update from an earlier version) it shows its terms of use before anything
+  else, in English or Bulgarian: that it is an AI system whose answers can be
+  wrong, what stays on this computer and what leaves it, that it acts for you
+  without asking unless you change that, and that what it sends is marked.
+  One button accepts them; until then it answers nothing, listens to nothing
+  and starts no work of its own, and a terminal client is told why. The
+  acceptance is kept beside its memory with the version accepted, so new
+  terms in a later version are asked for again. They stay readable on the
+  "What it runs on" page, and the same text is in the guide
+  ([terms of use](docs/guide/terms.md), [на български](docs/guide/terms.bg.md)).
+  This is where article 50(1) of the EU AI Act is met.
+- Mail it sends keeps the `AI-Disclosure` header, and its PDF and Word
+  documents keep "AI-generated" in their properties.
+
 ## 1.0.3 (2026-11-13)
 
 - **It says that it is an AI.** Article 50 of the EU AI Act, in force for

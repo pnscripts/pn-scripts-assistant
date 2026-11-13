@@ -18,13 +18,16 @@ AMD). What it does not do yet is written down in
 
 ## What it does
 
-- **Says that it is an AI.** The first thing it says to somebody new is that
-  it is an AI assistant whose answers come from a language model and can be
-  wrong; the page says so beside the conversation and with an AI mark beside
-  its name, in English and Bulgarian. Mail it sends carries an
-  `AI-Disclosure` header and the PDF and Word documents it writes say
-  "AI-generated" in their properties, as article 50 of the EU AI Act asks;
-  the words you approved are left as they are.
+- **Terms you accept once.** The first time it opens it shows its
+  [terms of use](docs/guide/terms.md)
+  ([на български](docs/guide/terms.bg.md)) before anything else: that it is an
+  AI system whose answers can be wrong, what stays on this computer, that it
+  acts for you, and that what it sends is marked. One button accepts them;
+  until then it does nothing. After that it behaves as an assistant and does
+  not keep repeating it. Mail it sends carries an `AI-Disclosure` header and
+  the PDF and Word documents it writes say "AI-generated" in their
+  properties, as article 50 of the EU AI Act asks; the words you approved are
+  left as they are.
 - **Answers with memory.** It recalls what it already knows about your projects
   and documents, and uses that to answer, so "where does that project live"
   gets a real path rather than a guess.
@@ -459,6 +462,7 @@ whichever model you point it at. How it came to be built this way is in
 
 На български: [инсталиране](docs/guide/installing.bg.md),
 [настройка](docs/guide/configuring.bg.md),
+[условия за ползване](docs/guide/terms.bg.md),
 [когато нещо не е наред](docs/guide/troubleshooting.bg.md),
 [известни ограничения](docs/guide/known-limits.bg.md).
 
@@ -466,6 +470,7 @@ whichever model you point it at. How it came to be built this way is in
 |---|---|
 | [Installing, updating, removing](docs/guide/installing.md) | the package and what it puts where ([на български](docs/guide/installing.bg.md)) |
 | [Setting it up](docs/guide/configuring.md) | the first run, privacy, environment ([на български](docs/guide/configuring.bg.md)) |
+| [Terms of use](docs/guide/terms.md) | what you accept the first time it opens ([на български](docs/guide/terms.bg.md)) |
 | [Models](docs/guide/how-it-thinks.md) | which one answers, and why the second question is faster |
 | [When something is wrong](docs/guide/troubleshooting.md) | the log first ([на български](docs/guide/troubleshooting.bg.md)) |
 | [Known limits](docs/guide/known-limits.md) | what it does not do yet, written down ([на български](docs/guide/known-limits.bg.md)) |

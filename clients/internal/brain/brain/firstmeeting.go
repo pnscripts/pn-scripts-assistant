@@ -6,7 +6,6 @@ import (
 	"strings"
 	"unicode"
 
-	"pn-scripts-assistant/internal/brain/aidisclosure"
 	"pn-scripts-assistant/internal/brain/wording"
 )
 
@@ -219,30 +218,20 @@ func (b *Brain) firstWords(ctx context.Context) string {
 		language = "Bulgarian"
 	}
 
-	said := oneLine(wording.Say(ctx, provider, b.modelRoles().Talk, wording.Want{
+	return oneLine(wording.Say(ctx, provider, b.modelRoles().Talk, wording.Want{
 		Brief: "the first thing you say to somebody who has just opened you on their own " +
 			"computer and whom you have never met. Not a greeting formula, not an offer " +
 			"of help, no list of what you can do, no exclamation marks. One or two plain " +
-			"sentences: say that you are an AI, and at most one question, the thing you " +
-			"actually need, which is what to call them",
+			"sentences, and at most one question, the thing you actually need, which " +
+			"is what to call them",
 		Facts: map[string]any{
 			"you have never met them":    true,
 			"you do not know their name": true,
-			"what you are":               "an AI assistant (a language model) that lives on this computer and remembers what it is told",
+			"what you are":               "an assistant that lives on this computer and remembers what it is told",
 			"language":                   language,
 		},
 		Plain:  "",
 		Most:   240,
 		Within: wording.AtLeisure,
 	}))
-
-	/*
-	 * And it says it is an AI, whatever the model chose to say.
-	 *
-	 * EU AI Act article 50(1): a person talking with an AI system is told so
-	 * at the latest at the first interaction. This opener is that moment, and
-	 * it is both shown and spoken, so the notice goes into it when the
-	 * model's words leave it out. See the aidisclosure package.
-	 */
-	return aidisclosure.Introduced(said, b.Cfg.Language)
 }

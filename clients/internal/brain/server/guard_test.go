@@ -31,6 +31,8 @@ func plain(t *testing.T, reach string) *Server {
 	cfg := config.Default()
 	cfg.Reach = reach
 
+	agreedTo(t, root)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return New(brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"), logger), logger)
 }
@@ -259,6 +261,7 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 		"/api/providers/connect", "/api/devices/connect", "/api/tunnel", "/api/copies",
 		"/api/desktop", "/api/organisation/agents/x/state", "/api/upkeep/self", "/api/upkeep/notice",
 		"/api/rules", "/api/rules/3", "/api/rules/3/decide", "/api/rules/3/switch", "/api/machine/care/stop",
+		"/api/terms",
 	} {
 		*got = false
 

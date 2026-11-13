@@ -22,6 +22,13 @@ opens by itself and asks three things:
 
 Nothing changes until the last screen.
 
+When the window opens for the first time it shows the [terms of
+use](terms.md) before anything else: that it is an AI system whose answers can
+be wrong, what stays on this computer, that it acts for you and that what it
+sends is marked. One button accepts them, and until then it does nothing.
+After an update that changes them it asks again. They stay readable on the
+*What it runs on* page.
+
 ## Afterwards
 
 `pn-scripts-assistant setup` opens the same wizard. Or use the System tab in

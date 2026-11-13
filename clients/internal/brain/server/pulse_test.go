@@ -32,6 +32,8 @@ func TestThePulseSpeaksOnlyOfChanges(t *testing.T) {
 	}
 	defer db.Close()
 
+	agreedTo(t, root)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	srv := New(brain.New(db, config.Default(), root, filepath.Join(root, "brain.sqlite"), logger), logger)
 	srv.pulseEvery = 10 * time.Millisecond

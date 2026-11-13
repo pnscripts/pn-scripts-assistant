@@ -39,6 +39,12 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/pnsa-load-check.XXXXXX")"
 mkdir -p "$WORK"/{home,config,DATA,run}
 chmod 700 "$WORK/run"
 echo '{"id":"load-check","schema":1}' > "$WORK/DATA/.brain-root.json"
+# The terms of use accepted, as its owner does once on the first start: what
+# is measured is the console, not the agreement shown before it. The version
+# in force is read from this tree (clients/internal/brain/terms).
+TERMS_VERSION="$(grep -oE '^const Version = [0-9]+' "$(dirname "$0")/../clients/internal/brain/terms/terms.go" | grep -oE '[0-9]+$')"
+[ -n "$TERMS_VERSION" ] || { echo "cannot read the terms version from this tree"; exit 1; }
+printf '{"version": %s, "accepted_at": "2026-11-13T00:00:00Z", "language": "en"}\n' "$TERMS_VERSION" > "$WORK/DATA/terms-accepted.json"
 
 XVFB_PID=""
 APP_PID=""
