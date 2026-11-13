@@ -320,7 +320,7 @@ func TestRegisteredTools(t *testing.T) {
 		"game_check", "game_docs", "game_engines", "glossary", "godot_build", "godot_docs", "godot_status",
 		"hire_agent", "how_fast_can_you_answer", "import_invoices", "inspect_project", "install_a_model", "install_a_part",
 		"install_requirement", "keep_a_rule", "learn_from_folder", "leftover_processes", "lesson", "list_background", "list_directory", "list_drives",
-		"list_integrations", "list_models", "list_reminders", "list_todos", "list_waiting", "list_windows",
+		"list_integrations", "list_models", "list_programs", "list_reminders", "list_todos", "list_waiting", "list_windows",
 		"look_at_screen", "mail_digest", "make_a_picture", "make_a_video", "make_subtitles", "my_rules", "open_app", "pdf_form_fields",
 		"places_it_learns_from", "plan_project", "polish_text", "proofread", "put_in_the_diary", "put_it_back", "quiz", "read_a_page",
 		"read_document", "read_file", "read_integration", "read_mailbox", "record_invoice", "remember_how_to_do_this",

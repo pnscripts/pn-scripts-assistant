@@ -1141,6 +1141,32 @@ var migrations = []string{
 	ALTER TABLE tool_invocations ADD COLUMN answers_itself INTEGER NOT NULL DEFAULT 0;
 	ALTER TABLE tool_invocations ADD COLUMN answered_itself INTEGER NOT NULL DEFAULT 0;
 	`,
+
+	/*
+	 * 30: the programs on this computer, present and removed (see package
+	 * programs). What somebody has installed says things about them, so
+	 * every word is sealed, the source's own id too; kind, presence and the
+	 * times say nothing about anybody. A program that goes keeps its row,
+	 * so "when was it removed" has an answer and a reinstall is the same
+	 * program coming back.
+	 */
+	`
+	CREATE TABLE programs (
+		id               INTEGER PRIMARY KEY AUTOINCREMENT,
+		kind             TEXT NOT NULL,
+		ident            TEXT NOT NULL,
+		name             TEXT NOT NULL DEFAULT '',
+		version          TEXT NOT NULL DEFAULT '',
+		path             TEXT NOT NULL DEFAULT '',
+		exec             TEXT NOT NULL DEFAULT '',
+		present          INTEGER NOT NULL DEFAULT 1,
+		first_seen       TEXT NOT NULL,
+		changed_at       TEXT NOT NULL,
+		removed_at       TEXT,
+		previous_version TEXT NOT NULL DEFAULT ''
+	);
+	CREATE INDEX idx_programs_kind ON programs(kind);
+	`,
 }
 
 /*

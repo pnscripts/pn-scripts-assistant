@@ -4097,6 +4097,7 @@
         list_drives: ['List drives', 'Дискове'],
         list_integrations: ['List integrations', 'Интеграции'],
         list_models: ['List models', 'Модели'],
+        list_programs: ['List the programs on this computer', 'Програмите на компютъра'],
         list_reminders: ['List reminders', 'Напомняния'],
         list_todos: ['List the to-dos', 'Списъци със задачи'],
         list_waiting: ['List what is waiting', 'Чакащи действия'],
