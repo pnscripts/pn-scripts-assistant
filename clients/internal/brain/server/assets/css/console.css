@@ -6559,12 +6559,20 @@ html[data-pace="hidden"] *::after {
     overflow-wrap: anywhere;
 }
 
+.agreement-product {
+    margin: -10px 0 0;
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-align: center;
+    color: var(--text-dim);
+}
+
 .agreement-card {
     display: flex;
     flex-direction: column;
     width: 100%;
     max-width: 760px;
-    max-height: calc(100vh - 110px);
+    max-height: calc(100vh - 130px);
     padding: 20px 24px;
 }
 

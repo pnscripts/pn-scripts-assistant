@@ -87,6 +87,12 @@ func TestNothingIsUsedBeforeTheTermsAreAccepted(t *testing.T) {
 		t.Fatalf("the first page is not the agreement (%d)", code)
 	}
 
+	// Whose terms these are, in the markup itself (the Windows CI job reads
+	// the page for the product's name before any script runs).
+	if !strings.Contains(page, `class="agreement-product">PN Scripts Assistant</p>`) {
+		t.Error("the agreement page does not name the product")
+	}
+
 	for _, console := range []string{`id="transcript"`, `/js/console.js`, `id="composer"`} {
 		if strings.Contains(page, console) {
 			t.Errorf("the agreement page carries the console's %s", console)
