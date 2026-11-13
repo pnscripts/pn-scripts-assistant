@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Target is something a source is watched through: a folder, or one file
@@ -120,18 +121,57 @@ func (s Scanner) run(ctx context.Context, name string, args ...string) ([]byte, 
 
 // Scan is what one source shows now.
 func (s Scanner) Scan(ctx context.Context, k Kind) ([]Program, error) {
+	var (
+		ps  []Program
+		err error
+	)
+
 	switch k {
 	case Deb:
-		return s.debs(ctx)
+		ps, err = s.debs(ctx)
 	case Snap:
-		return s.snaps()
+		ps, err = s.snaps()
 	case Flatpak:
-		return s.flatpaks()
+		ps, err = s.flatpaks()
 	case App:
-		return s.apps()
+		ps, err = s.apps()
+	default:
+		return nil, fmt.Errorf("no source %q", k)
 	}
 
-	return nil, fmt.Errorf("no source %q", k)
+	for i := range ps {
+		ps[i].Name = tidy(ps[i].Name)
+		ps[i].ID = tidy(ps[i].ID)
+		ps[i].Version = tidy(ps[i].Version)
+	}
+
+	return ps, err
+}
+
+// MostName is the longest name, id or version kept, in characters.
+const MostName = 120
+
+/*
+ * tidy keeps what a program says about itself short and on one line: it is
+ * written by whoever made the program and reaches the model as data, so a
+ * menu entry must not be able to hand it a page of text.
+ */
+func tidy(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+
+		return r
+	}, s)
+
+	s = strings.Join(strings.Fields(s), " ")
+
+	if r := []rune(s); len(r) > MostName {
+		s = strings.TrimSpace(string(r[:MostName-1])) + "…"
+	}
+
+	return s
 }
 
 // Targets is what a source is watched through. Folders that do not exist
