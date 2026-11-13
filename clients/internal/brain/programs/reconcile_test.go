@@ -225,3 +225,74 @@ func TestTheFirstLookOfASourceIsNotNews(t *testing.T) {
 		t.Errorf("an install right after the first look is news: %+v %+v", later, ch)
 	}
 }
+
+/*
+ * Every record keeps what last happened to it, so the Programs page can say
+ * "came back" or "updated from 2.10" without guessing from the versions: a
+ * program updated once and reinstalled later keeps its previous version,
+ * which alone would read as another update.
+ */
+func TestARecordKeepsWhatLastHappenedToIt(t *testing.T) {
+	day1 := time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)
+	at := func(n int) time.Time { return day1.Add(time.Duration(n) * 24 * time.Hour) }
+
+	step := func(known []Record, seen []Program, now time.Time) []Record {
+		save, _ := Reconcile(Deb, known, seen, now)
+
+		next := byKey(known)
+		for i, r := range save {
+			if r.RowID == 0 {
+				r.RowID = int64(100 + i)
+			}
+
+			next[r.Key()] = r
+		}
+
+		out := []Record{}
+		for _, r := range next {
+			out = append(out, r)
+		}
+
+		return out
+	}
+
+	first, _ := FirstLook(Reconcile(Deb, nil, []Program{deb("gimp", "2.10")}, at(0)))
+	for i := range first {
+		first[i].RowID = int64(i + 1)
+	}
+
+	if first[0].LastChange != "" {
+		t.Errorf("what was there at the first look did not happen: %q", first[0].LastChange)
+	}
+
+	known := step(first, []Program{deb("gimp", "2.10"), deb("krita", "5.2")}, at(1))
+	if got := byKey(known); got["deb:krita"].LastChange != Added || got["deb:gimp"].LastChange != "" {
+		t.Errorf("day 1: krita %q gimp %q", got["deb:krita"].LastChange, got["deb:gimp"].LastChange)
+	}
+
+	known = step(known, []Program{deb("gimp", "3.0"), deb("krita", "5.2")}, at(2))
+	if got := byKey(known)["deb:gimp"]; got.LastChange != Updated || got.PreviousVersion != "2.10" {
+		t.Errorf("day 2: gimp %+v", got)
+	}
+
+	known = step(known, []Program{deb("krita", "5.2")}, at(3))
+	if got := byKey(known)["deb:gimp"]; got.LastChange != Removed {
+		t.Errorf("day 3: gimp %q", got.LastChange)
+	}
+
+	// Back with the same version: came back, not updated, though it still
+	// remembers the version before its last update.
+	known = step(known, []Program{deb("gimp", "3.0"), deb("krita", "5.2")}, at(4))
+	if got := byKey(known)["deb:gimp"]; got.LastChange != Returned || got.PreviousVersion != "2.10" {
+		t.Errorf("day 4: gimp %+v", got)
+	}
+
+	// A menu entry renamed by an update is not news: the last change stays.
+	renamed := deb("krita", "5.2")
+	renamed.Name = "Krita"
+
+	known = step(known, []Program{deb("gimp", "3.0"), renamed}, at(5))
+	if got := byKey(known)["deb:krita"]; got.LastChange != Added || got.Name != "Krita" || !got.ChangedAt.Equal(at(1)) {
+		t.Errorf("day 5: krita %+v", got)
+	}
+}

@@ -280,6 +280,15 @@
             </svg>
             <span data-i18n="nav.system">System</span>
         </button>
+        <button type="button" class="nav-item" data-view="programs">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                <rect x="4" y="4" width="6.5" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M16.75 13.5v6.5 M13.5 16.75h6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <span data-i18n="nav.programs">Programs</span>
+        </button>
         <button type="button" class="nav-item" data-view="operations">
             <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                 <path d="M3 17l4-6 4 3 4-8 6 11" fill="none" stroke="currentColor" stroke-width="1.7"
@@ -898,6 +907,60 @@
                     <h2 data-i18n="mdl.elsewhere">Models somewhere else</h2>
                     <p class="insight-note" id="providers-privacy" data-i18n="mdl.elsewhereNote">Anything but the first sends your conversation to another company's computers. Your privacy setting decides which are allowed at all.</p>
                     <div id="providers-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- The programs on this computer (programs.js): what is installed,
+             what came and went, and each program's first-contact card. Read
+             only; the server keeps the inventory current by itself. -->
+        <section class="view" data-view="programs" hidden>
+            <div class="view-inner view-grid">
+                <div class="card card-wide">
+                    <h2 data-i18n="prg.title">Programs on this computer</h2>
+                    <p class="note" data-i18n="prg.lead">What is installed, kept current by itself: a program installed, updated or removed shows up here within seconds. Read only: nothing here starts or changes a program.</p>
+                    <p class="programs-summary" id="programs-summary" role="status" aria-live="polite" data-i18n="prg.looking">Looking…</p>
+                    <h3 data-i18n="prg.keepTitle">How it stays current</h3>
+                    <ul class="programs-keeping" id="programs-keeping"></ul>
+                </div>
+
+                <div class="card card-wide programs-card" id="programs-card" hidden>
+                    <div class="study-head">
+                        <h2 id="programs-card-name"></h2>
+                        <button type="button" class="model-action" id="programs-card-close" data-i18n="prg.close">Close</button>
+                    </div>
+                    <h3 data-i18n="prg.cardTitle">What I found</h3>
+                    <dl class="programs-found" id="programs-card-found"></dl>
+                    <h3 data-i18n="prg.cardCanTitle">What I do with it</h3>
+                    <p class="note" id="programs-card-can"></p>
+                </div>
+
+                <div class="card">
+                    <h2 data-i18n="prg.changesTitle">What changed</h2>
+                    <div class="programs-rows" id="programs-changes"></div>
+                    <p class="note" id="programs-changes-note"></p>
+                </div>
+
+                <div class="card card-wide">
+                    <h2 data-i18n="prg.allTitle">Every program</h2>
+                    <div class="programs-filter">
+                        <label class="field">
+                            <span data-i18n="prg.choice">Which programs</span>
+                            <select id="programs-choice">
+                                <option value="app" data-i18n="prg.choice.app">In the menu</option>
+                                <option value="deb" data-i18n="prg.choice.deb">Packages</option>
+                                <option value="snap" data-i18n="prg.choice.snap">Snaps</option>
+                                <option value="flatpak" data-i18n="prg.choice.flatpak">Flatpaks</option>
+                                <option value="removed" data-i18n="prg.choice.removed">Removed</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span data-i18n="prg.search">Search by name</span>
+                            <input id="programs-search" type="text" autocomplete="off">
+                        </label>
+                    </div>
+                    <div class="programs-rows" id="programs-list"></div>
+                    <p class="note" id="programs-list-note"></p>
                 </div>
             </div>
         </section>
@@ -3594,6 +3657,7 @@
 <script src="/js/status.js"></script>
 <script src="/js/onlyme.js"></script>
 <script src="/js/terms.js"></script>
+<script src="/js/programs.js"></script>
 <script src="/js/connection.js"></script>
 <script src="/js/console.js"></script>
 <script src="/js/dashboard.js"></script>

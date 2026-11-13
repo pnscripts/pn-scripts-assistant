@@ -21,7 +21,7 @@ import (
 // present and removed, in the order they were first written.
 func (d *DB) Programs(kind programs.Kind) ([]programs.Record, error) {
 	q := `SELECT id, kind, ident, name, version, path, exec, present, first_seen, changed_at,
-	             removed_at, previous_version, initial FROM programs`
+	             removed_at, previous_version, initial, last_change FROM programs`
 
 	var args []any
 
@@ -46,14 +46,16 @@ func (d *DB) Programs(kind programs.Kind) ([]programs.Record, error) {
 			present, initial int
 			first, changed   string
 			removed          sql.NullString
+			last             string
 		)
 
 		if err := rows.Scan(&r.RowID, &kind, &r.ID, &r.Name, &r.Version, &r.Path, &r.Exec, &present,
-			&first, &changed, &removed, &r.PreviousVersion, &initial); err != nil {
+			&first, &changed, &removed, &r.PreviousVersion, &initial, &last); err != nil {
 			return nil, err
 		}
 
 		r.Kind, r.Present, r.Initial = programs.Kind(kind), present == 1, initial == 1
+		r.LastChange = programs.ChangeKind(last)
 		r.FirstSeen, _ = time.Parse(time.RFC3339Nano, first)
 		r.ChangedAt, _ = time.Parse(time.RFC3339Nano, changed)
 
@@ -77,6 +79,33 @@ func (d *DB) ProgramSourceLooked(kind programs.Kind) (bool, error) {
 	err := d.sql().QueryRow(`SELECT COUNT(*) FROM program_sources WHERE kind = ?`, string(kind)).Scan(&n)
 
 	return n > 0, err
+}
+
+// ProgramFirstLooks is when each source was first read, for the sources
+// that have been.
+func (d *DB) ProgramFirstLooks() (map[programs.Kind]time.Time, error) {
+	rows, err := d.sql().Query(`SELECT kind, first_look FROM program_sources`)
+	if err != nil {
+		return nil, fmt.Errorf("reading the first looks: %w", err)
+	}
+
+	defer rows.Close()
+
+	out := map[programs.Kind]time.Time{}
+
+	for rows.Next() {
+		var kind, at string
+
+		if err := rows.Scan(&kind, &at); err != nil {
+			return nil, err
+		}
+
+		if when, err := time.Parse(time.RFC3339Nano, at); err == nil {
+			out[programs.Kind(kind)] = when
+		}
+	}
+
+	return out, rows.Err()
 }
 
 // SavePrograms writes what programs.Reconcile returned, all or nothing:
@@ -132,9 +161,9 @@ func (d *DB) saveLook(kind programs.Kind, rs []programs.Record, at time.Time) er
 
 		if r.RowID == 0 {
 			_, err = tx.Exec(`INSERT INTO programs (kind, ident, name, version, path, exec, present,
-				first_seen, changed_at, removed_at, previous_version, initial) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+				first_seen, changed_at, removed_at, previous_version, initial, last_change) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 				string(r.Kind), d.seal(r.ID), d.seal(r.Name), d.seal(r.Version), d.seal(r.Path), d.seal(r.Exec),
-				present, first, changed, removed, d.seal(r.PreviousVersion), initial)
+				present, first, changed, removed, d.seal(r.PreviousVersion), initial, string(r.LastChange))
 			if err != nil {
 				return fmt.Errorf("writing down a program: %w", err)
 			}
@@ -143,10 +172,10 @@ func (d *DB) saveLook(kind programs.Kind, rs []programs.Record, at time.Time) er
 		}
 
 		res, err := tx.Exec(`UPDATE programs SET kind = ?, ident = ?, name = ?, version = ?, path = ?, exec = ?,
-			present = ?, first_seen = ?, changed_at = ?, removed_at = ?, previous_version = ?, initial = ?
-			WHERE id = ?`,
+			present = ?, first_seen = ?, changed_at = ?, removed_at = ?, previous_version = ?, initial = ?,
+			last_change = ? WHERE id = ?`,
 			string(r.Kind), d.seal(r.ID), d.seal(r.Name), d.seal(r.Version), d.seal(r.Path), d.seal(r.Exec),
-			present, first, changed, removed, d.seal(r.PreviousVersion), initial, r.RowID)
+			present, first, changed, removed, d.seal(r.PreviousVersion), initial, string(r.LastChange), r.RowID)
 		if err != nil {
 			return fmt.Errorf("changing a program: %w", err)
 		}

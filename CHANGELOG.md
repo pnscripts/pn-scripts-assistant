@@ -20,6 +20,15 @@ whenever something visible changed.
   remembered with when it went, and a reinstall is the same program coming
   back. The list is sealed in the knowledge base like everything personal;
   nothing found is ever started. On Windows it does not read the programs yet.
+- **A Programs page.** Programs in the menu shows how many programs are
+  installed (menu programs, packages, snaps, Flatpaks), how the list stays
+  current, what was installed, updated, removed or installed again in the
+  last 14 days, and every program by kind with a search, removed ones too.
+  Pressing a program opens its card: what was found about it (version,
+  where it lives, what it starts, when it was first seen, what last
+  happened to it) and what the assistant does with it today, which is to
+  know it is there and never to start, change or remove it. In English and
+  Bulgarian, on a phone too, with a guide in both languages.
 - **Quiet hours for heavy work.** Settings has a window for heavy work
   (for example 22:00 until 07:00). Outside it, a coding agent whose paid
   allowance is being spent faster than it renews is not started on its

@@ -8,8 +8,9 @@ import (
 
 /*
  * handleProgramInventory is the programs on this computer, present and
- * removed, and how each source is kept current: ?kind= narrows it to app,
- * deb, snap or flatpak. Read only.
+ * removed, how each source is kept current and when each was first read
+ * (what that look found was already there): ?kind= narrows the programs to
+ * app, deb, snap or flatpak. Read only.
  */
 func (s *Server) handleProgramInventory(w http.ResponseWriter, r *http.Request) {
 	kind := programs.Kind(r.URL.Query().Get("kind"))
@@ -29,6 +30,13 @@ func (s *Server) handleProgramInventory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	looks, err := s.brain.DB.ProgramFirstLooks()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
 	out := make([]programs.Record, 0, len(records))
 
 	for _, rec := range records {
@@ -41,5 +49,5 @@ func (s *Server) handleProgramInventory(w http.ResponseWriter, r *http.Request) 
 		sources = []programs.SourceState{}
 	}
 
-	ok(w, map[string]any{"programs": out, "sources": sources})
+	ok(w, map[string]any{"programs": out, "sources": sources, "first_looks": looks})
 }

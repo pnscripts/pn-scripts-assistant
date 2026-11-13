@@ -32,6 +32,7 @@ import (
 var bilingualViews = []string{
 	"console", "models", "system", "operations", "room",
 	"teaching", "organisation", "tasks", "reach", "privacy",
+	"programs",
 }
 
 // Text that reads the same in both languages: names, not words.
@@ -321,6 +322,7 @@ var bilingualScripts = []string{
 	"tasks.js", "team.js",
 	"devices.js", "pairing.js",
 	"protection.js", "voiceprint.js",
+	"programs.js",
 }
 
 // Literals in those scripts that are code, not words a person reads.

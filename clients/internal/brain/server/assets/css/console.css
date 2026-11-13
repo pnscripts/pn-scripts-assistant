@@ -6673,3 +6673,87 @@ button.agreement-accept:disabled { opacity: 0.4; cursor: default; filter: none; 
 .terms-foot { margin-top: 12px; display: flex; justify-content: flex-start; }
 
 .terms-foot .model-action { margin-left: 0; }
+
+/*
+ * The Programs page (programs.js): rows that open a program's card, the
+ * card's facts as a two-column list, a filter that wraps on a phone.
+ */
+.programs-card[hidden],
+.programs-rows[hidden] { display: none; }
+
+.programs-summary { font-size: 13px; color: var(--text); margin: 6px 0 10px; }
+
+.programs-keeping {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    overflow-wrap: anywhere;
+}
+
+.programs-keeping li { margin-bottom: 3px; }
+
+.programs-filter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 10px;
+}
+
+.programs-filter input[type="text"] { width: 100%; box-sizing: border-box; }
+
+.programs-rows { max-height: 420px; overflow-y: auto; }
+
+.program-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 2px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.program-row:last-child { border-bottom: none; }
+.program-row:hover .program-name,
+.program-row:focus-visible .program-name { color: var(--accent); }
+
+.program-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.program-said {
+    flex: 1 1 140px;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.programs-found {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 5px 14px;
+    margin: 4px 0 10px;
+    font-size: 12px;
+}
+
+.programs-found dt { color: var(--text-dim); }
+.programs-found dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+
+@media (max-width: 600px) {
+    .programs-filter { grid-template-columns: 1fr; gap: 0; }
+    .programs-found { grid-template-columns: 1fr; gap: 2px; }
+    .programs-found dd { margin-bottom: 6px; }
+    .program-row { flex-wrap: wrap; }
+    .program-said { text-align: left; flex-basis: 100%; }
+}

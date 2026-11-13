@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -218,9 +219,14 @@ func TestAWatchThatCannotBeSetIsPolled(t *testing.T) {
 		t.Fatalf("both targets polled: %+v", s)
 	}
 
-	reasons := map[string]string{}
+	reasons, codes := map[string]string{}, map[string]string{}
 	for _, p := range s[0].Polled {
-		reasons[p.Dir] = p.Why
+		reasons[p.Dir], codes[p.Dir] = p.Why, p.Reason
+	}
+
+	// The page says the reason by its code, in the page's language.
+	if codes[missing] != "missing" || (runtime.GOOS == "linux" && codes[dir] != "limit") {
+		t.Errorf("the reasons' codes %v", codes)
 	}
 
 	if runtime.GOOS == "linux" && reasons[dir] != WhyLimit {
@@ -308,7 +314,22 @@ func TestASourceWithNothingToWatchIsLookedAtByThePoll(t *testing.T) {
 
 	f.wait(t, Deb, time.Second)
 
-	if s := w.State(); len(s) != 1 || len(s[0].Polled) != 1 || s[0].Polled[0].Why != WhyNoPath {
+	if s := w.State(); len(s) != 1 || len(s[0].Polled) != 1 || s[0].Polled[0].Why != WhyNoPath ||
+		s[0].Polled[0].Reason != "no-path" {
 		t.Errorf("state %+v", s)
+	}
+}
+
+// Every reason a folder can be polled for has its code, and no two share one.
+func TestEveryReasonForPollingHasACode(t *testing.T) {
+	got := Reasons()
+	if strings.Join(got, ",") != "limit,missing,no-events,no-path" {
+		t.Errorf("reasons %v", got)
+	}
+
+	for _, why := range []string{WhyMissing, WhyLimit, WhyNoEvents, WhyNoPath} {
+		if reasons[why] == "" {
+			t.Errorf("%q has no code", why)
+		}
 	}
 }

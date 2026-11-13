@@ -30,9 +30,14 @@ func TestTheProgramInventoryIsServed(t *testing.T) {
 	apps, _ := programs.Reconcile(programs.App, nil, []programs.Program{{Kind: programs.App, ID: "gimp.desktop", Name: "GIMP", Exec: "gimp"}}, now)
 	db.SavePrograms(apps)
 
+	if err := db.SaveLook(programs.Snap, nil, now); err != nil {
+		t.Fatal(err)
+	}
+
 	var all struct {
-		Programs []programs.Record      `json:"programs"`
-		Sources  []programs.SourceState `json:"sources"`
+		Programs   []programs.Record           `json:"programs"`
+		Sources    []programs.SourceState      `json:"sources"`
+		FirstLooks map[programs.Kind]time.Time `json:"first_looks"`
 	}
 
 	getJSON(t, ts.URL+"/api/programs", &all)
@@ -42,9 +47,14 @@ func TestTheProgramInventoryIsServed(t *testing.T) {
 	}
 
 	for _, r := range all.Programs {
-		if r.ID == "krita" && (r.Present || r.RemovedAt == nil) {
+		if r.ID == "krita" && (r.Present || r.RemovedAt == nil || r.LastChange != programs.Removed) {
 			t.Errorf("removed krita %+v", r)
 		}
+	}
+
+	// The page says "installed since" from each source's first look.
+	if len(all.FirstLooks) != 1 || !all.FirstLooks[programs.Snap].Equal(now) {
+		t.Errorf("first looks %v", all.FirstLooks)
 	}
 
 	var debs struct {

@@ -196,3 +196,53 @@ func TestTheFirstLookOfASourceIsRemembered(t *testing.T) {
 		t.Errorf("half a look was written: %+v", rs)
 	}
 }
+
+// What last happened to a program is kept with it, and each source's first
+// look can be read back: the Programs page says "installed since" from it.
+func TestWhatLastHappenedAndTheFirstLooksAreKept(t *testing.T) {
+	db := openDeeds(t)
+
+	day1 := time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)
+	day2 := day1.Add(24 * time.Hour)
+
+	if looks, err := db.ProgramFirstLooks(); err != nil || len(looks) != 0 {
+		t.Fatalf("no look yet: %v %v", looks, err)
+	}
+
+	first, changes := programs.Reconcile(programs.Deb, nil, []programs.Program{
+		{Kind: programs.Deb, ID: "gimp", Name: "gimp", Version: "2.10"},
+	}, day1)
+	first, _ = programs.FirstLook(first, changes)
+
+	if err := db.SaveLook(programs.Deb, first, day1); err != nil {
+		t.Fatal(err)
+	}
+
+	known, _ := db.Programs(programs.Deb)
+
+	save, _ := programs.Reconcile(programs.Deb, known, []programs.Program{
+		{Kind: programs.Deb, ID: "gimp", Name: "gimp", Version: "3.0"},
+		{Kind: programs.Deb, ID: "krita", Name: "krita", Version: "5.2"},
+	}, day2)
+
+	if err := db.SaveLook(programs.Deb, save, day2); err != nil {
+		t.Fatal(err)
+	}
+
+	back := map[string]programs.Record{}
+
+	all, _ := db.Programs("")
+	for _, r := range all {
+		back[r.ID] = r
+	}
+
+	if back["gimp"].LastChange != programs.Updated || back["krita"].LastChange != programs.Added {
+		t.Errorf("gimp %q krita %q", back["gimp"].LastChange, back["krita"].LastChange)
+	}
+
+	// The second look is not a first look: the date stays day 1.
+	looks, err := db.ProgramFirstLooks()
+	if err != nil || len(looks) != 1 || !looks[programs.Deb].Equal(day1) {
+		t.Errorf("first looks %v %v", looks, err)
+	}
+}

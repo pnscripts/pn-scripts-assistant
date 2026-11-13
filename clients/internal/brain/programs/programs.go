@@ -82,6 +82,11 @@ type Record struct {
 	// Initial is a program that was already there when the assistant first
 	// looked at its source: not something installed since.
 	Initial bool `json:"initial,omitempty"`
+
+	// LastChange is what last happened to it (at ChangedAt): added,
+	// removed, returned or updated; empty for one that was already there at
+	// the first look and has not changed since.
+	LastChange ChangeKind `json:"last_change,omitempty"`
 }
 
 // ChangeKind is what happened to a program between two looks.
@@ -143,7 +148,7 @@ func Reconcile(kind Kind, known []Record, seen []Program, now time.Time) (save [
 
 		r, ok := byKey[p.Key()]
 		if !ok {
-			save = append(save, Record{Program: p, Present: true, FirstSeen: now, ChangedAt: now})
+			save = append(save, Record{Program: p, Present: true, FirstSeen: now, ChangedAt: now, LastChange: Added})
 			changes = append(changes, Change{Kind: Added, Program: p, At: now})
 
 			continue
@@ -154,7 +159,7 @@ func Reconcile(kind Kind, known []Record, seen []Program, now time.Time) (save [
 
 		switch {
 		case !r.Present:
-			next.Present, next.RemovedAt, next.ChangedAt = true, nil, now
+			next.Present, next.RemovedAt, next.ChangedAt, next.LastChange = true, nil, now, Returned
 
 			c := Change{Kind: Returned, Program: p, At: now, WasRemovedAt: r.RemovedAt}
 			if r.Version != p.Version {
@@ -163,7 +168,7 @@ func Reconcile(kind Kind, known []Record, seen []Program, now time.Time) (save [
 
 			save, changes = append(save, next), append(changes, c)
 		case r.Version != p.Version:
-			next.PreviousVersion, next.ChangedAt = r.Version, now
+			next.PreviousVersion, next.ChangedAt, next.LastChange = r.Version, now, Updated
 			save = append(save, next)
 			changes = append(changes, Change{Kind: Updated, Program: p, From: r.Version, At: now})
 		case r.Name != p.Name || r.Path != p.Path || r.Exec != p.Exec:
@@ -179,7 +184,7 @@ func Reconcile(kind Kind, known []Record, seen []Program, now time.Time) (save [
 		}
 
 		at := now
-		r.Present, r.RemovedAt, r.ChangedAt = false, &at, now
+		r.Present, r.RemovedAt, r.ChangedAt, r.LastChange = false, &at, now, Removed
 		save = append(save, r)
 		changes = append(changes, Change{Kind: Removed, Program: r.Program, At: now})
 	}
@@ -197,7 +202,7 @@ func Reconcile(kind Kind, known []Record, seen []Program, now time.Time) (save [
  */
 func FirstLook(save []Record, _ []Change) ([]Record, []Change) {
 	for i := range save {
-		save[i].Initial = true
+		save[i].Initial, save[i].LastChange = true, ""
 	}
 
 	return save, nil

@@ -1173,6 +1173,16 @@ var migrations = []string{
 		first_look TEXT NOT NULL
 	);
 	`,
+
+	/*
+	 * 31: what last happened to each program (added, removed, returned,
+	 * updated; empty for one that was there at the first look), so the
+	 * Programs page says "came back" without guessing from the versions.
+	 * A word of the program's own life, not of anybody's: not sealed.
+	 */
+	`
+	ALTER TABLE programs ADD COLUMN last_change TEXT NOT NULL DEFAULT '';
+	`,
 }
 
 /*
