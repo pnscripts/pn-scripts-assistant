@@ -16,10 +16,13 @@ against the code on 9 November 2026.
   protected your PC"); *More info → Run anyway* passes it once.
   [installing.md](installing.md) says more. A checksum and a GitHub provenance
   attestation are published for every file instead.
-- **The list of programs is Linux only, and dpkg only for packages.** It
-  reads menu programs, snaps and Flatpaks on any Linux, and packages through
-  `dpkg-query` (Debian, Ubuntu); rpm and pacman packages are not listed yet.
-  On Windows it does not read the installed programs yet. A folder that does
+- **The list of programs: dpkg only for Linux packages, nothing on macOS.**
+  It reads menu programs, snaps and Flatpaks on any Linux, and packages
+  through `dpkg-query` (Debian, Ubuntu); rpm and pacman packages are not
+  listed yet. On Windows it reads the Start menu, the installed programs
+  (Settings, Apps) and the app packages installed for the user; app packages
+  installed only for another user are not listed, and Start menu shortcuts
+  more than four folders deep are not read. A folder that does
   not exist when it starts (for example the Flatpak folders before the first
   Flatpak is installed), or one the system refuses to watch, is looked at
   every 10 minutes instead of at once. Menu entries more than three folders

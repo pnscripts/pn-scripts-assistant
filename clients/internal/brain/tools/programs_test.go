@@ -175,3 +175,44 @@ func TestAnInstallJustAfterTheFirstLookIsSaid(t *testing.T) {
 		t.Errorf("a refused watch is said: %s", out)
 	}
 }
+
+func TestWindowsProgramsAreListedAndAskedForByTheirSource(t *testing.T) {
+	now := time.Now()
+	start := now.Add(-30 * 24 * time.Hour)
+
+	tool := ListPrograms{Programs: inventory{records: []programs.Record{
+		rec(programs.App, "7-Zip/7-Zip File Manager.lnk", "7-Zip File Manager", "", start, start, nil),
+		rec(programs.Win, "7-Zip", "7-Zip 24.09 (x64)", "24.09", start, start, nil),
+		rec(programs.Win, "Discord", "Discord", "1.0.9171", now.Add(-time.Hour), now.Add(-time.Hour), nil),
+		rec(programs.Msix, "Microsoft.WindowsCalculator_8wekyb3d8bbwe", "Windows Calculator", "11.2405.2.0", start, start, nil),
+	}}}
+
+	out, err := tool.Execute(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, want := range []string{
+		"In the menu (1): 7-Zip File Manager.",
+		"Installed programs (Settings, Apps): 2.", "App packages: 1.",
+		"Installed: Discord (win 1.0.9171)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+
+	// A Windows computer has no snaps: not counted as none.
+	if programs.Kinds[1] == programs.Win && (strings.Contains(out, "Snaps") || strings.Contains(out, "Flatpaks")) {
+		t.Errorf("sources this computer has not:\n%s", out)
+	}
+
+	out, err = tool.Execute(context.Background(), json.RawMessage(`{"kind":"msix"}`))
+	if err != nil || !strings.Contains(out, "App packages: 1") || strings.Contains(out, "Installed programs (Settings") {
+		t.Errorf("kind msix: %v\n%s", err, out)
+	}
+
+	if _, err := tool.Execute(context.Background(), json.RawMessage(`{"kind":"rpm"}`)); err == nil {
+		t.Error("an unknown source must be refused")
+	}
+}

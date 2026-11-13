@@ -67,9 +67,6 @@ func openKey(path string, access uint32) (registry.Key, error) {
 	return k, err
 }
 
-// mostSubkeys bounds one key's listing.
-const mostSubkeys = 20000
-
 // readRegistry lists a key's subkeys with their string and number
 // values. A subkey that cannot be opened (another user's, being written)
 // is left out; the key itself failing is an error.
@@ -81,8 +78,9 @@ func readRegistry(path string) ([]RegEntry, error) {
 
 	defer k.Close()
 
-	names, err := k.ReadSubKeyNames(mostSubkeys)
-	if err != nil && !errors.Is(err, errNoMoreItems) {
+	// All of them: with a count, the call ends a full listing with io.EOF.
+	names, err := k.ReadSubKeyNames(0)
+	if err != nil {
 		return nil, err
 	}
 
@@ -112,8 +110,6 @@ func readRegistry(path string) ([]RegEntry, error) {
 
 	return out, nil
 }
-
-var errNoMoreItems = windows.ERROR_NO_MORE_ITEMS
 
 // keyStamp is when a key last changed, for the poll; false when it is not
 // there.

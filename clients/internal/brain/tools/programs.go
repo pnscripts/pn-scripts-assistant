@@ -28,10 +28,12 @@ type ListPrograms struct{ Programs ProgramKeeping }
 func (ListPrograms) Name() string { return "list_programs" }
 
 func (ListPrograms) Description() string {
-	return "The programs installed on this computer, kept current by itself: menu programs, system " +
-		"packages, snaps and Flatpaks, with versions, and what was installed, updated or removed in the " +
-		"last two weeks. name finds a program (also one that was removed, with when); kind narrows to " +
-		"app, deb, snap or flatpak. Use it before saying a program is or is not there."
+	return "The programs installed on this computer, kept current by itself: menu programs (the Start " +
+		"menu on Windows), system packages, snaps and Flatpaks on Linux, installed programs and app " +
+		"packages on Windows, with versions, and what was installed, updated or removed in the last two " +
+		"weeks. name finds a program (also one that was removed, with when); kind narrows to app, deb, " +
+		"snap, flatpak, win (Windows' installed programs) or msix (app packages). Use it before saying a " +
+		"program is or is not there."
 }
 
 func (ListPrograms) Parameters() json.RawMessage {
@@ -39,7 +41,7 @@ func (ListPrograms) Parameters() json.RawMessage {
 		"type": "object",
 		"properties": {
 			"name": {"type": "string", "description": "Part of a program's name or package, e.g. gimp."},
-			"kind": {"type": "string", "enum": ["app", "deb", "snap", "flatpak"], "description": "Only this source."},
+			"kind": {"type": "string", "enum": ["app", "deb", "snap", "flatpak", "win", "msix"], "description": "Only this source."},
 			"removed": {"type": "boolean", "description": "List the removed programs instead."}
 		},
 		"required": []
@@ -94,8 +96,8 @@ func (t ListPrograms) Execute(_ context.Context, raw json.RawMessage) (string, e
 	}
 
 	kind := programs.Kind(strings.ToLower(strings.TrimSpace(a.Kind)))
-	if kind != "" && kind != programs.App && kind != programs.Deb && kind != programs.Snap && kind != programs.Flatpak {
-		return "", fmt.Errorf("kind is app, deb, snap or flatpak, not %q", a.Kind)
+	if kind != "" && !programs.Known(kind) {
+		return "", fmt.Errorf("kind is app, deb, snap, flatpak, win or msix, not %q", a.Kind)
 	}
 
 	records, state, err := t.Programs.ProgramInventory()
@@ -124,7 +126,7 @@ func (t ListPrograms) Execute(_ context.Context, raw json.RawMessage) (string, e
 		return removedPrograms(mine), nil
 	}
 
-	return programOverview(mine, state, time.Now()), nil
+	return programOverview(mine, state, kind, time.Now()), nil
 }
 
 // programLabel is a program as the answer names it: name (source version).
@@ -212,7 +214,16 @@ func cappedPrograms(items []string) string {
 		fmt.Sprintf("; and %d more (ask with a longer name to see them)", len(items)-mostListed)
 }
 
-func programOverview(rs []programs.Record, state []programs.SourceState, now time.Time) string {
+// sourceNames are the sources as the overview counts them.
+var sourceNames = map[programs.Kind]string{
+	programs.Deb:     "Packages",
+	programs.Snap:    "Snaps",
+	programs.Flatpak: "Flatpaks",
+	programs.Win:     "Installed programs (Settings, Apps)",
+	programs.Msix:    "App packages",
+}
+
+func programOverview(rs []programs.Record, state []programs.SourceState, only programs.Kind, now time.Time) string {
 	var (
 		menu    []string
 		counts  = map[programs.Kind]int{}
@@ -267,7 +278,15 @@ func programOverview(rs []programs.Record, state []programs.SourceState, now tim
 		b.WriteString(".")
 	}
 
-	fmt.Fprintf(&b, " Packages: %d. Snaps: %d. Flatpaks: %d.", counts[programs.Deb], counts[programs.Snap], counts[programs.Flatpak])
+	// Each source this computer has, and any other a remembered program
+	// came from; asked for one kind, only that one.
+	for _, k := range programs.Shown(rs) {
+		if k == programs.App || (only != "" && k != only) {
+			continue
+		}
+
+		fmt.Fprintf(&b, " %s: %d.", sourceNames[k], counts[k])
+	}
 
 	if len(changes) > 0 {
 		b.WriteString(" In the last two weeks: " + cappedPrograms(changes) + ".")

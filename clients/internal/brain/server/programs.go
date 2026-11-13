@@ -9,16 +9,15 @@ import (
 /*
  * handleProgramInventory is the programs on this computer, present and
  * removed, how each source is kept current and when each was first read
- * (what that look found was already there): ?kind= narrows the programs to
- * app, deb, snap or flatpak. Read only.
+ * (what that look found was already there), and the sources worth showing
+ * (kinds: this system's, then any a remembered program came from): ?kind=
+ * narrows the programs to one source. Read only.
  */
 func (s *Server) handleProgramInventory(w http.ResponseWriter, r *http.Request) {
 	kind := programs.Kind(r.URL.Query().Get("kind"))
 
-	switch kind {
-	case "", programs.App, programs.Deb, programs.Snap, programs.Flatpak:
-	default:
-		fail(w, http.StatusBadRequest, "kind is app, deb, snap or flatpak")
+	if kind != "" && !programs.Known(kind) {
+		fail(w, http.StatusBadRequest, "kind is app, deb, snap, flatpak, win or msix")
 
 		return
 	}
@@ -49,5 +48,5 @@ func (s *Server) handleProgramInventory(w http.ResponseWriter, r *http.Request) 
 		sources = []programs.SourceState{}
 	}
 
-	ok(w, map[string]any{"programs": out, "sources": sources, "first_looks": looks})
+	ok(w, map[string]any{"programs": out, "sources": sources, "first_looks": looks, "kinds": programs.Shown(records)})
 }

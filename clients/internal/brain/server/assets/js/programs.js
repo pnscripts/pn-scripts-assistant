@@ -35,7 +35,35 @@
         deb: 'prg.kind.deb',
         snap: 'prg.kind.snap',
         flatpak: 'prg.kind.flatpak',
+        win: 'prg.kind.win',
+        msix: 'prg.kind.msix',
     };
+
+    // Each source as the summary counts it.
+    const PART = {
+        app: 'prg.part.app',
+        deb: 'prg.part.deb',
+        snap: 'prg.part.snap',
+        flatpak: 'prg.part.flatpak',
+        win: 'prg.part.win',
+        msix: 'prg.part.msix',
+    };
+
+    // The sources an answer from an older server names none of: Linux's.
+    const LINUX = ['app', 'deb', 'snap', 'flatpak'];
+
+    // The sources worth showing: the server's (this computer's, then any
+    // a remembered program came from).
+    function kinds(body) {
+        const k = body && Array.isArray(body.kinds) ? body.kinds.filter((x) => KIND[x]) : [];
+        return k.length ? k : LINUX;
+    }
+
+    // The choices of the "Which programs" list: each source shown, then
+    // the removed ones.
+    function choices(body) {
+        return kinds(body).concat(['removed']);
+    }
 
     function when(at) {
         const d = new Date(at);
@@ -80,9 +108,9 @@
                 ? T('prg.noneFound') : T('prg.notYet');
         }
 
-        return T('prg.summary', {
-            n: count(here.length), app: of('app'), deb: of('deb'), snap: of('snap'), flatpak: of('flatpak'),
-        });
+        const parts = kinds(body).map((kind) => T(PART[kind], { n: of(kind) }));
+
+        return T('prg.summary', { n: count(here.length), parts: parts.join(', ') });
     }
 
     // How each source is kept current: watched folders; folders that are
@@ -148,8 +176,8 @@
         };
     }
 
-    // The list for one choice ('app', 'deb', 'snap', 'flatpak' or
-    // 'removed') and a search, by name.
+    // The list for one choice (a source, or 'removed') and a search, by
+    // name.
     function list(body, choice, query) {
         const q = (query || '').trim().toLowerCase();
         const all = ((body && body.programs) || []).filter((p) => (choice === 'removed'
@@ -202,7 +230,7 @@
         return p.present ? T('prg.canDo') : T('prg.canDoGone', { when: when(p.removed_at || p.changed_at) });
     }
 
-    window.pnPrograms = { summary, keeping, changes, list, found, canDo, why, reasons: Object.keys(WHY) };
+    window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, why, reasons: Object.keys(WHY) };
 
     // ---- drawing ----
 
@@ -302,7 +330,22 @@
         fill('programs-changes', c.rows);
         say('programs-changes-note', c.total ? (c.more ? T('prg.moreChanges', { n: count(c.more) }) : '') : T('prg.noChanges', { days: RECENT_DAYS }));
 
-        const l = list(last, el('programs-choice')?.value || 'app', el('programs-search')?.value || '');
+        // Only the sources this computer has (and any a remembered
+        // program came from) are offered.
+        const select = el('programs-choice');
+        const offered = choices(last);
+
+        if (select) {
+            for (const option of select.options) {
+                const off = !offered.includes(option.value);
+                option.hidden = off;
+                option.disabled = off;
+            }
+
+            if (!offered.includes(select.value)) select.value = offered[0];
+        }
+
+        const l = list(last, select?.value || 'app', el('programs-search')?.value || '');
         fill('programs-list', l.rows);
         say('programs-list-note', l.note);
 
