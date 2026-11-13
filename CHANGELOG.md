@@ -19,7 +19,15 @@ whenever something visible changed.
   GIMP installed?" or "what was removed lately?": a removed program is
   remembered with when it went, and a reinstall is the same program coming
   back. The list is sealed in the knowledge base like everything personal;
-  nothing found is ever started. On Windows it does not read the programs yet.
+  nothing found is ever started.
+- **And on Windows.** The same list on Windows: the Start menu's programs
+  (read from the shortcuts themselves; documents, help files and
+  uninstallers left out), the installed programs Settings, Apps lists (yours
+  and the machine's, without parts of Windows and updates) and the app
+  packages installed for you (Microsoft Store and other MSIX apps, without
+  frameworks). Installs, updates and removals are noticed within seconds
+  from Windows' own folder and registry change notices; the Programs page
+  offers only the sources the computer has.
 - **A Programs page.** Programs in the menu shows how many programs are
   installed (menu programs, packages, snaps, Flatpaks), how the list stays
   current, what was installed, updated, removed or installed again in the

@@ -17,17 +17,24 @@ import (
 	"unicode"
 )
 
-// Target is something a source is watched through: a folder, or one file
-// in it (Only).
+/*
+ * Target is something a source is watched through: a folder, or one file
+ * in it (Only); on Windows also a registry key (Registry, Dir naming it as
+ * HKLM\… or HKCU\…). Tree watches everything under it, where the system
+ * can (Windows); elsewhere each subfolder is a target of its own.
+ */
 type Target struct {
-	Dir  string `json:"dir"`
-	Only string `json:"only,omitempty"`
+	Dir      string `json:"dir"`
+	Only     string `json:"only,omitempty"`
+	Registry bool   `json:"registry,omitempty"`
+	Tree     bool   `json:"tree,omitempty"`
 }
 
 /*
  * Scanner reads the sources. Every path it reads is under Root ("" is the
  * real filesystem), so a test builds a machine in a folder; Run runs
- * dpkg-query and apt-config, so a test answers for them.
+ * dpkg-query, apt-config and PowerShell, so a test answers for them, and
+ * Registry reads the registry.
  */
 type Scanner struct {
 	Root     string
@@ -35,6 +42,16 @@ type Scanner struct {
 	DataHome string   // $XDG_DATA_HOME
 	DataDirs []string // $XDG_DATA_DIRS
 	Path     []string // $PATH, for TryExec
+
+	// Windows: the menu is the Start menu's folders (the user's first),
+	// and the app packages' data is under LocalAppData.
+	Windows      bool
+	StartMenus   []string
+	LocalAppData string
+
+	// Registry lists the subkeys of a key (HKLM\… or HKCU\…) with their
+	// values; os.ErrNotExist when the key is not there. Nil off Windows.
+	Registry func(key string) ([]RegEntry, error)
 
 	Run func(ctx context.Context, name string, args ...string) ([]byte, error)
 }
@@ -53,13 +70,17 @@ func FromEnvironment() Scanner {
 		dirs = []string{"/usr/local/share", "/usr/share"}
 	}
 
-	return Scanner{
+	s := Scanner{
 		Home:     home,
 		DataHome: dataHome,
 		DataDirs: dirs,
 		Path:     filepath.SplitList(os.Getenv("PATH")),
 		Run:      runCommand,
 	}
+
+	windowsHere(&s)
+
+	return s
 }
 
 // commandTimeout bounds dpkg-query and apt-config.
@@ -75,6 +96,7 @@ func runCommand(ctx context.Context, name string, args ...string) ([]byte, error
 
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	noWindow(cmd)
 
 	out, err := cmd.StdoutPipe()
 	if err != nil {
@@ -134,7 +156,15 @@ func (s Scanner) Scan(ctx context.Context, k Kind) ([]Program, error) {
 	case Flatpak:
 		ps, err = s.flatpaks()
 	case App:
-		ps, err = s.apps()
+		if s.Windows {
+			ps, err = s.shortcuts()
+		} else {
+			ps, err = s.apps()
+		}
+	case Win:
+		ps, err = s.installed()
+	case Msix:
+		ps, err = s.appPackages(ctx)
 	default:
 		return nil, fmt.Errorf("no source %q", k)
 	}
@@ -201,12 +231,42 @@ func (s Scanner) Targets(ctx context.Context, k Kind) []Target {
 	case App:
 		var out []Target
 
+		if s.Windows {
+			for _, menu := range s.StartMenus {
+				out = append(out, Target{Dir: s.atWin(menu), Tree: true})
+			}
+
+			return out
+		}
+
 		for _, dir := range s.appDirs() {
 			out = append(out, Target{Dir: dir})
 
 			for _, sub := range subdirs(dir, 3) {
 				out = append(out, Target{Dir: sub})
 			}
+		}
+
+		return out
+	case Win:
+		if s.Registry == nil {
+			return nil
+		}
+
+		out := []Target{}
+		for _, key := range uninstallKeys {
+			out = append(out, Target{Dir: key, Registry: true, Tree: true})
+		}
+
+		return out
+	case Msix:
+		if !s.Windows {
+			return nil
+		}
+
+		out := []Target{{Dir: appxRepository, Registry: true}}
+		if s.LocalAppData != "" {
+			out = append(out, Target{Dir: s.atWin(filepath.Join(s.LocalAppData, "Packages"))})
 		}
 
 		return out

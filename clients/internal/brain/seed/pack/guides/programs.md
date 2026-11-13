@@ -7,14 +7,24 @@ looking all the time. You can also ask: "which programs do I have?", "is
 GIMP installed?", "what was removed this week?".
 
 ## Where it looks
+On Linux:
 - **Menu programs**: the programs a person starts from the menu.
 - **Packages**: the system's packages (asked of dpkg-query on Debian and
   Ubuntu).
 - **Snaps** and **Flatpaks**: both read from their own folders.
 
-The page says how the list stays current: how many folders are watched, and
-any folder that is looked at every 10 minutes instead (one that is not there
-yet, or one the system would not let it watch).
+On Windows:
+- **Menu programs**: the shortcuts in the Start menu, yours and everybody's
+  (shortcuts to documents, help files and uninstallers are left out).
+- **Installed programs**: the list Windows shows under Settings, Apps
+  (without parts of Windows and updates).
+- **App packages**: the Microsoft Store and other MSIX apps installed for
+  you (without the frameworks they use and parts of Windows).
+
+The page says how the list stays current: how many places (folders, and on
+Windows the registry keys that list programs) are watched, and any that is
+looked at every 10 minutes instead (one that is not there yet, or one the
+system would not let it watch).
 
 ## What changed
 The last 14 days: what was installed, updated (from which version to which),
@@ -22,8 +32,9 @@ removed, or installed again after a removal, newest first. What was already
 here the first time it looked is not news and is not listed.
 
 ## Every program
-Pick **In the menu**, **Packages**, **Snaps**, **Flatpaks** or **Removed**
-and type part of a name. A long list shows the first 200 and says so.
+Pick one of this computer's sources (**In the menu**, **Packages**,
+**Snaps**, **Flatpaks** on Linux; **In the menu**, **Installed programs**,
+**App packages** on Windows) or **Removed**, and type part of a name. A long list shows the first 200 and says so.
 
 ## A program's card
 Press a program to see what was found about it: its kind, its own name,
@@ -37,4 +48,4 @@ you first, at this computer.
 ## Privacy
 The list is yours: the names, versions and paths are sealed in the knowledge base like
 everything personal, and the log only counts changes. Nothing on the page
-starts a program or changes the system. Windows is not read yet.
+starts a program or changes the system.

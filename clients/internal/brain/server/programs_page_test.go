@@ -187,7 +187,7 @@ func TestTheProgramsPageSaysTheInventoryInBothLanguages(t *testing.T) {
 	// How it stays current: watched folders added up, folders that are not
 	// there yet counted (most computers have no Flatpak), any other reason
 	// named with its folder.
-	if len(en.Keeping) != 3 || !strings.HasPrefix(en.Keeping[0], "Folders watched: 5.") ||
+	if len(en.Keeping) != 3 || !strings.HasPrefix(en.Keeping[0], "Places watched: 5.") ||
 		!strings.Contains(en.Keeping[1], "/usr/share/applications is looked at every 10 minutes instead (the system refused a file watch)") ||
 		!strings.HasPrefix(en.Keeping[2], "Folders where programs could appear but which are not there yet") ||
 		!strings.Contains(en.Keeping[2], "): 2. Each is looked at every 10 minutes.") {
@@ -208,7 +208,7 @@ func TestTheProgramsPageSaysTheInventoryInBothLanguages(t *testing.T) {
 		return regexp.MustCompile(`/\S+`).ReplaceAllString(s, "")
 	}
 
-	texts := []string{bg.Summary, bg.NoMatch, bg.CanDo, bg.CanDoGone, bg.Long.Note}
+	texts := []string{bg.Summary, bg.Windows, bg.NoMatch, bg.CanDo, bg.CanDoGone, bg.Long.Note}
 	texts = append(texts, bg.Why...)
 	texts = append(texts, bg.Keeping...)
 
@@ -234,6 +234,25 @@ func TestTheProgramsPageSaysTheInventoryInBothLanguages(t *testing.T) {
 
 	if bg.Summary != "Програми тук: 4 (в менюто 2, пакети 2, snap пакети 0, Flatpak пакети 0)." {
 		t.Errorf("in Bulgarian the summary is %q", bg.Summary)
+	}
+
+	// A Windows computer: its own sources, in its own words, and only
+	// those offered in the list; an older server's answer is Linux's.
+	if en.Windows != "Programs here: 3 (in the menu 1, installed programs 1, app packages 1)." ||
+		bg.Windows != "Програми тук: 3 (в менюто 1, инсталирани програми 1, пакети на приложения 1)." {
+		t.Errorf("a Windows summary: %q / %q", en.Windows, bg.Windows)
+	}
+
+	if strings.Join(en.WinChoices, ",") != "app,win,msix,removed" || strings.Join(en.OldChoices, ",") != "app,deb,snap,flatpak,removed" {
+		t.Errorf("the choices: %v / %v", en.WinChoices, en.OldChoices)
+	}
+
+	if len(en.WinCard) < 2 || en.WinCard[0][1] != "Installed program" || bg.WinCard[0][1] != "Инсталирана програма" {
+		t.Errorf("an installed program's card: %v / %v", en.WinCard, bg.WinCard)
+	}
+
+	if len(en.WinList) != 1 || en.WinList[0].Name != "Windows Calculator" || en.WinList[0].Said != "11.2405.2.0" {
+		t.Errorf("the app packages: %+v", en.WinList)
 	}
 
 	// Bulgarian dates are day.month.year.
@@ -282,6 +301,11 @@ type programsSaid struct {
 	Why         []string      `json:"why"`
 	Keeping     []string      `json:"keeping"`
 	Many        string        `json:"many"`
+	Windows     string        `json:"windows"`
+	WinChoices  []string      `json:"winChoices"`
+	WinCard     [][2]string   `json:"winCard"`
+	WinList     []programsRow `json:"winList"`
+	OldChoices  []string      `json:"oldChoices"`
 	Long        struct {
 		Rows  int    `json:"rows"`
 		Total int    `json:"total"`
@@ -323,6 +347,12 @@ if (body.data) body = body.data;
 const P = window.pnPrograms;
 const rows = (r) => r.map((x) => ({ name: x.name, said: x.said }));
 const find = (id) => body.programs.find((p) => p.id === id);
+// A Windows computer's answer.
+const win = { kinds: ['app', 'win', 'msix'], first_looks: {}, programs: [
+    { kind: 'app', id: 'Firefox.lnk', name: 'Firefox', present: true, exec: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe' },
+    { kind: 'win', id: '7-Zip', name: '7-Zip 24.09 (x64)', version: '24.09', path: 'C:\\Program Files\\7-Zip\\', present: true, initial: true },
+    { kind: 'win', id: 'Discord', name: 'Discord', version: '1.0', present: false, removed_at: new Date().toISOString(), last_change: 'removed' },
+    { kind: 'msix', id: 'Microsoft.WindowsCalculator_8wekyb3d8bbwe', name: 'Windows Calculator', version: '11.2405.2.0', present: true }] };
 process.stdout.write(JSON.stringify({
     summary: P.summary(body),
     changes: rows(P.changes(body).rows),
@@ -338,6 +368,11 @@ process.stdout.write(JSON.stringify({
     many: P.summary({ programs: Array.from({ length: 12345 }, (_, i) => ({ kind: 'deb', id: 'p' + i, present: true })) }),
     long: (() => { const l = P.list({ programs: Array.from({ length: 12345 }, (_, i) => ({ kind: 'deb', id: 'p' + i, present: true })) }, 'deb', '');
         return { rows: l.rows.length, total: l.total, note: l.note }; })(),
+    windows: P.summary(win),
+    winChoices: P.choices(win),
+    winCard: P.found(win.programs[1], win),
+    winList: rows(P.list(win, 'msix', '').rows),
+    oldChoices: P.choices({ programs: [] }),
     keeping: P.keeping({ sources: [{ kind: 'app', watched: 3, polled: [
         { dir: '/usr/local/share/applications', reason: 'missing', why: 'not there' },
         { dir: '/var/lib/flatpak/exports/share/applications', reason: 'missing', why: 'not there' },

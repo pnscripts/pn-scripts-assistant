@@ -56,10 +56,13 @@
             'Какво е инсталирано, обновява се само: инсталирана, обновена или премахната програма се появява тук за секунди. Само за четене: оттук нито се стартира, нито се променя програма.',
         ],
         'prg.looking': ['Looking…', 'Проверявам…'],
-        'prg.summary': [
-            'Programs here: {n} (in the menu {app}, packages {deb}, snaps {snap}, Flatpaks {flatpak}).',
-            'Програми тук: {n} (в менюто {app}, пакети {deb}, snap пакети {snap}, Flatpak пакети {flatpak}).',
-        ],
+        'prg.summary': ['Programs here: {n} ({parts}).', 'Програми тук: {n} ({parts}).'],
+        'prg.part.app': ['in the menu {n}', 'в менюто {n}'],
+        'prg.part.deb': ['packages {n}', 'пакети {n}'],
+        'prg.part.snap': ['snaps {n}', 'snap пакети {n}'],
+        'prg.part.flatpak': ['Flatpaks {n}', 'Flatpak пакети {n}'],
+        'prg.part.win': ['installed programs {n}', 'инсталирани програми {n}'],
+        'prg.part.msix': ['app packages {n}', 'пакети на приложения {n}'],
         'prg.notYet': [
             'The first look at the programs has not finished yet.',
             'Първият преглед на програмите още не е завършил.',
@@ -72,8 +75,8 @@
             'Още не се следи: следенето започва заедно с асистента.',
         ],
         'prg.keepWatched': [
-            'Folders watched: {n}. A change is noticed when it happens, at no cost while nothing changes.',
-            'Следени папки: {n}. Промяната се забелязва в момента, в който стане, без разход, докато нищо не се променя.',
+            'Places watched: {n}. A change is noticed when it happens, at no cost while nothing changes.',
+            'Следени места: {n}. Промяната се забелязва в момента, в който стане, без разход, докато нищо не се променя.',
         ],
         'prg.keepPolled': [
             '{kind}: {dir} is looked at every 10 minutes instead ({why}).',
@@ -95,6 +98,8 @@
         'prg.kind.deb': ['Package', 'Пакет'],
         'prg.kind.snap': ['Snap', 'Snap пакет'],
         'prg.kind.flatpak': ['Flatpak', 'Flatpak пакет'],
+        'prg.kind.win': ['Installed program', 'Инсталирана програма'],
+        'prg.kind.msix': ['App package', 'Пакет на приложение'],
         'prg.changesTitle': ['What changed', 'Какво се промени'],
         'prg.noChanges': [
             'Nothing was installed, updated or removed in the last {days} days.',
@@ -112,6 +117,8 @@
         'prg.choice.deb': ['Packages', 'Пакети'],
         'prg.choice.snap': ['Snaps', 'Snap пакети'],
         'prg.choice.flatpak': ['Flatpaks', 'Flatpak пакети'],
+        'prg.choice.win': ['Installed programs', 'Инсталирани програми'],
+        'prg.choice.msix': ['App packages', 'Пакети на приложения'],
         'prg.choice.removed': ['Removed', 'Премахнати'],
         'prg.search': ['Search by name', 'Търсене по име'],
         'prg.noMatch': ['No program here matches “{q}”.', 'Нито една програма тук не отговаря на „{q}“.'],

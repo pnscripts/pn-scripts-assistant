@@ -399,6 +399,13 @@ jobs:
         working-directory: clients
         run: go test ./internal/brain/window/
 
+      # The program inventory's Windows sources, read for real: an uninstall
+      # entry written for this user and removed, shortcuts Windows makes, the
+      # user's app packages, and the events that notice each change.
+      - name: Test the program inventory on Windows
+        working-directory: clients
+        run: go test -count=1 -v ./internal/brain/programs/
+
       # So the build makes the installer too, which the steps after the window
       # install, run and remove.
       - name: Make sure Inno Setup is here
