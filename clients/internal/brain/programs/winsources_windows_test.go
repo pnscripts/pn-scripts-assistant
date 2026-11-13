@@ -81,12 +81,26 @@ func TestTheRealRegistryIsReadAndWatched(t *testing.T) {
 
 	t.Logf("installed programs here: %d", len(before))
 
+	// A user who never installed a program for themselves has no key of
+	// their own yet (it is then polled, like a folder not there yet):
+	// made here as the first such install would, removed afterwards.
+	if _, there := keyStamp(`HKCU\` + userUninstall); !there {
+		k, _, err := registry.CreateKey(registry.CURRENT_USER, userUninstall, registry.SET_VALUE)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		k.Close()
+		t.Cleanup(func() { registry.DeleteKey(registry.CURRENT_USER, userUninstall) })
+		t.Log("this user had no uninstall key of their own; made one")
+	}
+
 	f := newFires()
 	w := Watch(context.Background(), map[Kind][]Target{Win: s.Targets(context.Background(), Win)}, quick(), f.fire)
 	defer w.Stop()
 
-	if st := w.State(); len(st) != 1 || st[0].Watched < 2 {
-		t.Fatalf("the uninstall keys are watched: %+v", st)
+	if st := w.State(); len(st) != 1 || st[0].Watched != 3 {
+		t.Fatalf("the three uninstall keys are watched: %+v", st)
 	}
 
 	name := testKey(t)
