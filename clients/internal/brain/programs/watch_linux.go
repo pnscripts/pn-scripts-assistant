@@ -4,6 +4,7 @@ package programs
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"unsafe"
@@ -26,7 +27,7 @@ type inotify struct {
 	file *os.File
 }
 
-func newEvents() (events, error) {
+func newEvents(*Watching) (events, error) {
 	fd, err := unix.InotifyInit1(unix.IN_CLOEXEC | unix.IN_NONBLOCK)
 	if err != nil {
 		return nil, err
@@ -35,7 +36,14 @@ func newEvents() (events, error) {
 	return &inotify{fd: fd, file: os.NewFile(uintptr(fd), "inotify")}, nil
 }
 
-func (in *inotify) add(dir string) (int, error) { return addWatch(in.fd, dir, watchMask) }
+// add watches a folder; a registry key is never a target here.
+func (in *inotify) add(t Target) (int, error) {
+	if t.Registry {
+		return -1, errors.ErrUnsupported
+	}
+
+	return addWatch(in.fd, t.Dir, watchMask)
+}
 
 func (in *inotify) remove(wd int) { unix.InotifyRmWatch(in.fd, uint32(wd)) }
 

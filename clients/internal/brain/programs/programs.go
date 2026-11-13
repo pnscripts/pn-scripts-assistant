@@ -3,7 +3,7 @@ Package programs is the inventory of the programs on this computer: what is
 installed, what came and went, and how the assistant keeps that current
 without looking all the time.
 
-Four sources, each read on its own (Scanner):
+On Linux, four sources, each read on its own (Scanner):
 
   - deb: the system's packages, asked of dpkg-query (dpkg's interface; its
     database files are dpkg's own business);
@@ -13,7 +13,17 @@ Four sources, each read on its own (Scanner):
   - app: the menu entries (freedesktop .desktop files), which are the
     programs a person sees and starts.
 
-Kept current by file events (Watch: inotify on Linux, debounced), with a slow
+On Windows, three:
+
+  - win: the installed programs Windows lists under Settings, Apps (the
+    uninstall entries in the registry, the machine's in both views and the
+    user's own);
+  - msix: the app packages installed for this user (Microsoft Store and
+    other MSIX apps), asked of Get-AppxPackage;
+  - app: the Start menu's shortcuts, the programs a person sees and starts.
+
+Kept current by events (Watch: inotify on Linux; ReadDirectoryChangesW and
+RegNotifyChangeKeyValue on Windows; debounced), with a slow
 poll for whatever cannot be watched, and judged by Reconcile, which tells a
 new program from a removed one, a reinstall from an upgrade. Nothing here
 runs a program it found or changes anything on the machine.
@@ -33,10 +43,56 @@ const (
 	Snap    Kind = "snap"
 	Flatpak Kind = "flatpak"
 	App     Kind = "app"
+	Win     Kind = "win"
+	Msix    Kind = "msix"
 )
 
-// Kinds is every source, in the order they are first read.
-var Kinds = []Kind{App, Deb, Snap, Flatpak}
+// Kinds is every source this system has, in the order they are first read
+// (kinds_windows.go, kinds_other.go).
+var Kinds = kindsHere
+
+// AllKinds is every source there is, on any system: a brain carried from
+// one computer to another remembers programs of the other's sources.
+var AllKinds = []Kind{App, Deb, Snap, Flatpak, Win, Msix}
+
+// Known is whether k is a source at all.
+func Known(k Kind) bool {
+	for _, a := range AllKinds {
+		if a == k {
+			return true
+		}
+	}
+
+	return false
+}
+
+/*
+ * Shown is the sources worth showing a person: this system's, then any
+ * other that a remembered program came from, in AllKinds order after
+ * this system's.
+ */
+func Shown(records []Record) []Kind {
+	out := append([]Kind(nil), Kinds...)
+	has := map[Kind]bool{}
+
+	for _, k := range out {
+		has[k] = true
+	}
+
+	from := map[Kind]bool{}
+	for _, r := range records {
+		from[r.Kind] = true
+	}
+
+	for _, k := range AllKinds {
+		if from[k] && !has[k] {
+			out = append(out, k)
+			has[k] = true
+		}
+	}
+
+	return out
+}
 
 // ErrNotHere is a source this system does not have (no dpkg on Fedora): its
 // programs are unknown, never "all removed".

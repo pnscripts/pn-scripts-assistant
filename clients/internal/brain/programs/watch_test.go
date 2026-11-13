@@ -69,8 +69,8 @@ func quick() Options {
 func needsEvents(t *testing.T) {
 	t.Helper()
 
-	if runtime.GOOS != "linux" {
-		t.Skip("file events are read with inotify on Linux; other systems poll (TestAWatchThatCannotBeSetIsPolled)")
+	if runtime.GOOS != "linux" && runtime.GOOS != "windows" {
+		t.Skip("file events are read with inotify on Linux and ReadDirectoryChangesW on Windows; other systems poll (TestAWatchThatCannotBeSetIsPolled)")
 	}
 }
 
@@ -195,7 +195,9 @@ func TestAWatchThatCannotBeSetIsPolled(t *testing.T) {
 	dir := t.TempDir()
 	missing := filepath.Join(t.TempDir(), "not-yet")
 
-	if runtime.GOOS == "linux" {
+	events := runtime.GOOS == "linux" || runtime.GOOS == "windows"
+
+	if events {
 		was := addWatch
 		addWatch = func(fd int, path string, mask uint32) (int, error) {
 			if path == dir {
@@ -225,11 +227,11 @@ func TestAWatchThatCannotBeSetIsPolled(t *testing.T) {
 	}
 
 	// The page says the reason by its code, in the page's language.
-	if codes[missing] != "missing" || (runtime.GOOS == "linux" && codes[dir] != "limit") {
+	if codes[missing] != "missing" || (events && codes[dir] != "limit") {
 		t.Errorf("the reasons' codes %v", codes)
 	}
 
-	if runtime.GOOS == "linux" && reasons[dir] != WhyLimit {
+	if events && reasons[dir] != WhyLimit {
 		t.Errorf("why %s is polled: %q", dir, reasons[dir])
 	}
 

@@ -109,9 +109,10 @@ type Watching struct {
 	once   sync.Once
 }
 
-// events is the platform's file events: inotify on Linux, none elsewhere.
+// events is the platform's events: inotify on Linux, ReadDirectoryChangesW
+// and RegNotifyChangeKeyValue on Windows, none elsewhere.
 type events interface {
-	add(dir string) (int, error)
+	add(t Target) (int, error)
 	remove(wd int)
 	close()
 }
@@ -134,7 +135,7 @@ func Watch(ctx context.Context, targets map[Kind][]Target, opts Options, fire fu
 	}
 
 	// Without file events everything is polled.
-	if ev, err := newEvents(); err == nil {
+	if ev, err := newEvents(w); err == nil {
 		w.events = ev
 	}
 
@@ -184,7 +185,7 @@ func Watch(ctx context.Context, targets map[Kind][]Target, opts Options, fire fu
 
 // tryWatch adds a watch for a target; on failure it is polled. Under mu.
 func (w *Watching) tryWatch(t *target) bool {
-	if st, err := os.Stat(t.Dir); err != nil || !st.IsDir() {
+	if !there(t.Target) {
 		t.why = WhyMissing
 
 		return false
@@ -196,7 +197,7 @@ func (w *Watching) tryWatch(t *target) bool {
 		return false
 	}
 
-	wd, err := w.events.add(t.Dir)
+	wd, err := w.events.add(t.Target)
 	if err != nil {
 		t.why = WhyLimit
 
@@ -462,6 +463,12 @@ func (w *Watching) poll(ctx context.Context) {
 // fingerprint is what the poll compares: whether the folder (and its one
 // file) is there, and when each last changed.
 func fingerprint(t Target) string {
+	if t.Registry {
+		print, _ := keyStamp(t.Dir)
+
+		return print
+	}
+
 	print := stamp(t.Dir)
 	if t.Only != "" {
 		print += "|" + stamp(filepath.Join(t.Dir, t.Only))
@@ -477,4 +484,17 @@ func stamp(path string) string {
 	}
 
 	return st.ModTime().UTC().Format(time.RFC3339Nano) + "/" + strconv.FormatInt(st.Size(), 10)
+}
+
+// there is whether a target can be watched now: its folder, or its key.
+func there(t Target) bool {
+	if t.Registry {
+		_, ok := keyStamp(t.Dir)
+
+		return ok
+	}
+
+	st, err := os.Stat(t.Dir)
+
+	return err == nil && st.IsDir()
 }
