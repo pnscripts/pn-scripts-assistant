@@ -202,3 +202,26 @@ func TestTheSameProgramSeenTwiceCountsOnce(t *testing.T) {
 		t.Errorf("first wins, empty ids dropped: %+v", save)
 	}
 }
+
+// What the very first look of a source finds was there before the
+// assistant: written down as such, and not news.
+func TestTheFirstLookOfASourceIsNotNews(t *testing.T) {
+	now := time.Now()
+
+	save, changes := Reconcile(Deb, nil, []Program{deb("gimp", "2.10")}, now)
+	save, changes = FirstLook(save, changes)
+
+	if len(changes) != 0 {
+		t.Errorf("changes %+v", changes)
+	}
+
+	if len(save) != 1 || !save[0].Initial || !save[0].Present {
+		t.Errorf("save %+v", save)
+	}
+
+	// After it, a new program is not initial.
+	later, ch := Reconcile(Deb, save, []Program{deb("gimp", "2.10"), deb("krita", "5.2")}, now.Add(time.Second))
+	if len(ch) != 1 || ch[0].Kind != Added || len(later) != 1 || later[0].Initial {
+		t.Errorf("an install right after the first look is news: %+v %+v", later, ch)
+	}
+}

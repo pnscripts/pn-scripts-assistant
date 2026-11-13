@@ -151,3 +151,48 @@ func TestTheProgramInventoryIsSealed(t *testing.T) {
 		}
 	}
 }
+
+// A source's first look is written down with its programs, all or nothing,
+// and what it found is remembered as already there.
+func TestTheFirstLookOfASourceIsRemembered(t *testing.T) {
+	db := openDeeds(t)
+
+	if looked, err := db.ProgramSourceLooked(programs.Flatpak); err != nil || looked {
+		t.Fatalf("never looked: %v %v", looked, err)
+	}
+
+	// A first look that found nothing still counts.
+	if err := db.SaveLook(programs.Flatpak, nil, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	if looked, _ := db.ProgramSourceLooked(programs.Flatpak); !looked {
+		t.Error("an empty first look is a look")
+	}
+
+	save, changes := programs.Reconcile(programs.Snap, nil, []programs.Program{{Kind: programs.Snap, ID: "firefox", Name: "firefox"}}, time.Now())
+	save, _ = programs.FirstLook(save, changes)
+
+	if err := db.SaveLook(programs.Snap, save, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	back, _ := db.Programs(programs.Snap)
+	if len(back) != 1 || !back[0].Initial {
+		t.Errorf("%+v", back)
+	}
+
+	// A bad record fails the whole look: nothing written, not looked.
+	bad := []programs.Record{{Program: programs.Program{Kind: programs.Deb, ID: "a"}}, {Program: programs.Program{Kind: programs.Deb}}}
+	if err := db.SaveLook(programs.Deb, bad, time.Now()); err == nil {
+		t.Fatal("a bad record was accepted")
+	}
+
+	if looked, _ := db.ProgramSourceLooked(programs.Deb); looked {
+		t.Error("a failed first look was marked done")
+	}
+
+	if rs, _ := db.Programs(programs.Deb); len(rs) != 0 {
+		t.Errorf("half a look was written: %+v", rs)
+	}
+}

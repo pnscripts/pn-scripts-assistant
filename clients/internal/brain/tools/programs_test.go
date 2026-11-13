@@ -26,6 +26,7 @@ func rec(kind programs.Kind, id, name, version string, first, changed time.Time,
 		Program:   programs.Program{Kind: kind, ID: id, Name: name, Version: version},
 		Present:   removed == nil,
 		FirstSeen: first, ChangedAt: changed, RemovedAt: removed,
+		Initial: first.Before(time.Now().Add(-29 * 24 * time.Hour)),
 	}
 }
 
@@ -143,5 +144,34 @@ func TestListProgramsRefusesWhatItCannotDo(t *testing.T) {
 
 	if (ListPrograms{}).Risk() != Safe {
 		t.Error("reading the inventory changes nothing")
+	}
+}
+
+// Installed a minute after the assistant first looked is still news; a
+// source this computer does not have is not worth a sentence.
+func TestAnInstallJustAfterTheFirstLookIsSaid(t *testing.T) {
+	now := time.Now()
+	start := now.Add(-2 * time.Minute)
+
+	inv := inventory{records: []programs.Record{
+		{Program: programs.Program{Kind: programs.App, ID: "a.desktop", Name: "Old"}, Present: true, Initial: true, FirstSeen: start, ChangedAt: start},
+		{Program: programs.Program{Kind: programs.App, ID: "b.desktop", Name: "Check Editor"}, Present: true, FirstSeen: start.Add(20 * time.Second), ChangedAt: start.Add(20 * time.Second)},
+	}, state: []programs.SourceState{
+		{Kind: programs.Flatpak, Polled: []programs.Polled{{Dir: "/var/lib/flatpak", Why: programs.WhyMissing}}},
+		{Kind: programs.Snap, Polled: []programs.Polled{{Dir: "/snap", Why: programs.WhyLimit}}},
+	}}
+
+	out, _ := ListPrograms{Programs: inv}.Execute(context.Background(), nil)
+
+	if !strings.Contains(out, "Installed: Check Editor (menu) on ") || strings.Contains(out, "Installed: Old") {
+		t.Errorf("%s", out)
+	}
+
+	if strings.Contains(out, "flatpak:") {
+		t.Errorf("no Flatpak on this computer is not worth saying: %s", out)
+	}
+
+	if !strings.Contains(out, "snap: looked at every 10 minutes (the system refused a file watch)") {
+		t.Errorf("a refused watch is said: %s", out)
 	}
 }

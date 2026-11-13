@@ -78,6 +78,10 @@ type Record struct {
 
 	// PreviousVersion is the version before the last update.
 	PreviousVersion string `json:"previous_version,omitempty"`
+
+	// Initial is a program that was already there when the assistant first
+	// looked at its source: not something installed since.
+	Initial bool `json:"initial,omitempty"`
 }
 
 // ChangeKind is what happened to a program between two looks.
@@ -181,4 +185,20 @@ func Reconcile(kind Kind, known []Record, seen []Program, now time.Time) (save [
 	}
 
 	return save, changes
+}
+
+/*
+ * FirstLook is Reconcile's result for the very first look at a source:
+ * everything it found was there before the assistant, so it is written
+ * down as Initial and none of it is news. The caller knows whether a look
+ * is the first (the store remembers each source's first look, even one
+ * that found nothing: a computer without Flatpak that later gets one has
+ * its first Flatpak reported as installed).
+ */
+func FirstLook(save []Record, _ []Change) ([]Record, []Change) {
+	for i := range save {
+		save[i].Initial = true
+	}
+
+	return save, nil
 }

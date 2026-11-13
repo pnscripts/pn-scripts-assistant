@@ -232,3 +232,39 @@ func TestStoppingTheInventoryTwiceOrNeverStartedIsHarmless(t *testing.T) {
 		t.Errorf("before any look: %v %v", state, err)
 	}
 }
+
+// What the first look found was there before; what came after, even a
+// second later or into a source that was empty then, was installed.
+func TestOnlyWhatCameAfterTheFirstLookIsInstalled(t *testing.T) {
+	b := quietBrain(t)
+	m := &machineInAFolder{root: t.TempDir()}
+	m.setDpkg(t, "gimp\t2.10\tii \n")
+
+	b.programs.scanner = m.scanner()
+
+	for _, k := range []programs.Kind{programs.Deb, programs.Snap} {
+		if _, err := b.lookAtPrograms(context.Background(), k); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	m.setDpkg(t, "gimp\t2.10\tii \nkrita\t5.2\tii \n")
+	m.installSnap(t, "blender", "4.5.3", "60")
+
+	for _, k := range []programs.Kind{programs.Deb, programs.Snap} {
+		changes, err := b.lookAtPrograms(context.Background(), k)
+		if err != nil || len(changes) != 1 || changes[0].Kind != programs.Added {
+			t.Fatalf("%s: %+v %v", k, changes, err)
+		}
+	}
+
+	inv := inventoryOf(t, b)
+	if !inv["deb:gimp"].Initial || inv["deb:krita"].Initial || inv["snap:blender"].Initial {
+		t.Errorf("initial: gimp %v krita %v blender %v", inv["deb:gimp"].Initial, inv["deb:krita"].Initial, inv["snap:blender"].Initial)
+	}
+
+	out, _ := tools.ListPrograms{Programs: b}.Execute(context.Background(), nil)
+	if !strings.Contains(out, "Installed: krita") || !strings.Contains(out, "Installed: blender") || strings.Contains(out, "Installed: gimp") {
+		t.Errorf("%s", out)
+	}
+}

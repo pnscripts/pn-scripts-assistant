@@ -141,15 +141,25 @@ func (b *Brain) lookAtPrograms(ctx context.Context, k programs.Kind) ([]programs
 		return nil, err
 	}
 
-	save, changes := programs.Reconcile(k, known, seen, time.Now().UTC())
+	looked, err := b.DB.ProgramSourceLooked(k)
+	if err != nil {
+		return nil, err
+	}
 
-	if err := b.DB.SavePrograms(save); err != nil {
+	now := time.Now().UTC()
+
+	save, changes := programs.Reconcile(k, known, seen, now)
+	if !looked {
+		save, changes = programs.FirstLook(save, changes)
+	}
+
+	if err := b.DB.SaveLook(k, save, now); err != nil {
 		return nil, err
 	}
 
 	// Counts only: which programs somebody has is theirs, and the log is
 	// not sealed.
-	if len(known) > 0 && len(changes) > 0 {
+	if len(changes) > 0 {
 		by := map[programs.ChangeKind]int{}
 		for _, c := range changes {
 			by[c.Kind]++

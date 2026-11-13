@@ -124,7 +124,7 @@ func (t ListPrograms) Execute(_ context.Context, raw json.RawMessage) (string, e
 		return removedPrograms(mine), nil
 	}
 
-	return programOverview(records, mine, state, time.Now()), nil
+	return programOverview(mine, state, time.Now()), nil
 }
 
 // programLabel is a program as the answer names it: name (source version).
@@ -212,15 +212,7 @@ func cappedPrograms(items []string) string {
 		fmt.Sprintf("; and %d more (ask with a longer name to see them)", len(items)-mostListed)
 }
 
-func programOverview(all, rs []programs.Record, state []programs.SourceState, now time.Time) string {
-	// The first look found what was already there: that is not news.
-	var start time.Time
-	for _, r := range all {
-		if start.IsZero() || r.FirstSeen.Before(start) {
-			start = r.FirstSeen
-		}
-	}
-
+func programOverview(rs []programs.Record, state []programs.SourceState, now time.Time) string {
 	var (
 		menu    []string
 		counts  = map[programs.Kind]int{}
@@ -246,7 +238,7 @@ func programOverview(all, rs []programs.Record, state []programs.SourceState, no
 		switch {
 		case !r.Present && r.RemovedAt != nil:
 			changes = append(changes, "Removed: "+programLabel(r)+" on "+programTime(*r.RemovedAt))
-		case r.FirstSeen.Sub(start) > time.Minute && r.ChangedAt.Equal(r.FirstSeen):
+		case !r.Initial && r.ChangedAt.Equal(r.FirstSeen):
 			changes = append(changes, "Installed: "+programLabel(r)+" on "+programTime(r.FirstSeen))
 		case r.ChangedAt.After(r.FirstSeen) && r.PreviousVersion != "" && r.PreviousVersion != r.Version:
 			changes = append(changes, fmt.Sprintf("Updated: %s (%s) from %s to %s on %s",
@@ -283,8 +275,10 @@ func programOverview(all, rs []programs.Record, state []programs.SourceState, no
 		b.WriteString(" Nothing was installed, updated or removed in the last two weeks.")
 	}
 
+	// A source that cannot be watched is said, unless it is simply not on
+	// this computer (no Flatpak installed) and has nothing in it.
 	for _, s := range state {
-		if s.Watched == 0 && len(s.Polled) > 0 {
+		if s.Watched == 0 && len(s.Polled) > 0 && (counts[s.Kind] > 0 || s.Polled[0].Why != programs.WhyMissing) {
 			fmt.Fprintf(&b, " %s: looked at every %d minutes (%s), not noticed at once.",
 				s.Kind, int(programs.DefaultOptions().PollEvery/time.Minute), s.Polled[0].Why)
 		}
