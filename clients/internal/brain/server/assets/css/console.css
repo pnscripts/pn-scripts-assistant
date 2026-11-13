@@ -6525,37 +6525,143 @@ html[data-pace="hidden"] *::after {
     color: var(--ok);
 }
 
-/* ---------- AI notice ----------
+/* ---------- Terms of use ----------
 
-   Answers come from an AI (EU AI Act article 50(1)): a small mark beside the
-   name in the top bar, on every page, and a line beside the conversation's
-   heading, where answers appear. Quiet on purpose, and never hidden: none of
-   the narrow-screen rules that drop the hint or the name may reach these. */
-.ai-badge {
-    flex: none;
-    align-self: center;
-    margin-left: -4px;
-    padding: 1px 5px;
+   The agreement shown before anything else (agreement.html), on the boot
+   screen's own background, and the card that shows the terms again on "What
+   it runs on". The page scrolls as a whole on a phone; on a desk the terms
+   scroll inside the card, so the button never leaves the screen. */
+.agreement-body {
+    height: auto;
+    min-height: 100%;
+    background:
+        radial-gradient(120% 90% at 50% 30%, #0a1a28 0%, #050c15 55%, #02060c 100%);
+}
+
+.agreement {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    min-height: 100vh;
+    padding: 32px 16px;
+}
+
+.agreement-name {
+    margin: 0;
     font-family: var(--mono);
-    font-size: 9.5px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    line-height: 1.4;
-    color: var(--accent);
-    border: 1px solid rgba(77, 208, 225, 0.4);
-    cursor: help;
-    user-select: none;
+    font-size: 14px;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--text);
+    overflow-wrap: anywhere;
 }
 
-.card-chat h2 .ai-notice {
-    margin-left: auto;
-    min-width: 0;
-    font-family: inherit;
-    font-size: 10.5px;
-    font-weight: 400;
-    letter-spacing: 0;
-    text-transform: none;
-    text-align: right;
-    color: var(--text-dim);
-    cursor: help;
+.agreement-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 760px;
+    max-height: calc(100vh - 110px);
+    padding: 20px 24px;
 }
+
+.agreement-card h2 { font-size: 11px; margin-bottom: 6px; }
+
+.agreement-version {
+    margin: 0 0 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.agreement-lead { margin: 0 0 12px; color: var(--text); }
+
+.agreement-text {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.agreement-text h3 {
+    margin: 14px 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.agreement-text h3:first-child { margin-top: 0; }
+
+.agreement-text p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.agreement-error {
+    margin: 12px 0 0;
+    font-size: 13px;
+    color: var(--danger);
+}
+
+.agreement-error[hidden] { display: none; }
+
+.agreement-foot {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
+.agreement-note {
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+}
+
+.agreement-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.agreement-actions .model-action { margin-left: 0; }
+
+button.agreement-accept {
+    flex: none;
+    min-width: 150px;
+    border-radius: 8px;
+    padding: 9px 22px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+button.agreement-accept:disabled { opacity: 0.4; cursor: default; filter: none; }
+
+@media (max-width: 560px) {
+    .agreement { padding: 20px 16px; gap: 12px; }
+    .agreement-card { max-height: none; padding: 16px; }
+    .agreement-text { overflow: visible; padding-right: 0; }
+    .agreement-actions { flex-direction: column-reverse; align-items: stretch; }
+    button.agreement-accept { width: 100%; }
+}
+
+.terms-read { margin-top: 4px; }
+
+.terms-read summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--accent);
+}
+
+.terms-read .agreement-text { margin-top: 10px; overflow: visible; }
+
+.terms-foot { margin-top: 12px; display: flex; justify-content: flex-start; }
+
+.terms-foot .model-action { margin-left: 0; }

@@ -138,15 +138,6 @@
                 <p class="brand-sub" data-i18n="cc.brandSub">command centre</p>
             </div>
         </div>
-        <!--
-            An AI, on every page: the top bar is the one thing they all share.
-            Beside the name and not inside it, so it stays when a narrow bar
-            drops the name (EU AI Act article 50(1)).
-        -->
-        <span class="ai-badge" role="note"
-              title="This assistant is an AI system: what it says and writes comes from a language model, so check what matters before you rely on it or send it. Mail it sends and documents it writes are marked as written with AI."
-              aria-label="This assistant is an AI system: what it says and writes comes from a language model, so check what matters before you rely on it or send it. Mail it sends and documents it writes are marked as written with AI."
-              data-i18n-title="cc.aiNoticeTitle" data-i18n-label="cc.aiNoticeTitle">AI</span>
 
         <div class="pill pill-status" id="status-pill">
             <span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span>
@@ -708,15 +699,7 @@
                 </div>
 
                 <div class="card card-chat" data-area="chat">
-                    <!--
-                        Answers come from an AI, said where they appear (EU AI
-                        Act article 50(1)). Small and always there: never
-                        hidden on a narrow screen. See aidisclosure_test.go.
-                    -->
-                    <h2><span data-i18n="cc.conversation">Conversation</span>
-                        <span class="ai-notice" data-i18n="cc.aiNotice"
-                              title="This assistant is an AI system: what it says and writes comes from a language model, so check what matters before you rely on it or send it. Mail it sends and documents it writes are marked as written with AI."
-                              data-i18n-title="cc.aiNoticeTitle">Answers come from AI and can be wrong.</span></h2>
+                    <h2 data-i18n="cc.conversation">Conversation</h2>
                     <div class="transcript" id="transcript">
                         <div class="boot" id="boot">
                             <p class="boot-sub" data-i18n="cc.askSomething">Ask something, or tell me to look at something.</p>
@@ -1559,6 +1542,27 @@
                         <li data-i18n="credits.programs">Speaking: Piper by Michael Hansen (MIT). Listening: whisper.cpp by the ggml authors (MIT) with the Whisper small model by OpenAI (MIT). Local models: Ollama (MIT).</li>
                     </ul>
                     <p class="note tiny" data-i18n="credits.more">Every component and its licence is listed in THIRD-PARTY-NOTICES.md, published with the program's source code.</p>
+                </div>
+
+                <!--
+                    The terms of use, readable again.
+
+                    Accepted once, before anything else (agreement.html), and
+                    kept here so they can be read at any time: what it is,
+                    what stays on this computer, that it acts for its owner
+                    and that what it sends is marked. The words come from
+                    /api/terms, the same as docs/guide/terms.md.
+                -->
+                <div class="card" id="terms-card">
+                    <h2 data-i18n="terms.title">Terms of use</h2>
+                    <p class="insight-note" id="terms-state"></p>
+                    <details class="terms-read" id="terms-read">
+                        <summary data-i18n="terms.read">Read the terms</summary>
+                        <div class="agreement-text" id="terms-card-text"></div>
+                    </details>
+                    <div class="terms-foot">
+                        <button type="button" class="model-action" id="terms-docs" data-i18n="terms.docs">Open in the documentation</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -3589,6 +3593,7 @@
 <script src="/js/pairing.js"></script>
 <script src="/js/status.js"></script>
 <script src="/js/onlyme.js"></script>
+<script src="/js/terms.js"></script>
 <script src="/js/connection.js"></script>
 <script src="/js/console.js"></script>
 <script src="/js/dashboard.js"></script>

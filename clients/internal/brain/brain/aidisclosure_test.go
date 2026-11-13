@@ -5,33 +5,23 @@ import (
 	"strings"
 	"testing"
 
-	"pn-scripts-assistant/internal/brain/aidisclosure"
 	"pn-scripts-assistant/internal/brain/llm"
 )
 
 /*
- * The first thing it says to somebody new says that it is an AI (EU AI Act
- * article 50(1): at the latest at the first interaction). The opener is the
- * model's, and is both shown and spoken (server handleGreeting speaks Text),
- * so the notice is in Text whatever the model chose to say.
+ * The first thing it says to somebody new is the model's own opener and
+ * nothing more: it behaves as an assistant, and the terms accepted before
+ * the first conversation (package terms) are where it says it is an AI.
+ * 1.0.3 put "Before anything else: I am an AI assistant..." in front of
+ * every first meeting; its owner asked for that to go (13.11.2026).
  */
-func TestTheFirstMeetingSaysItIsAnAI(t *testing.T) {
+func TestTheFirstMeetingSaysWhatTheModelSaidAndNothingMore(t *testing.T) {
 	t.Setenv("PN_TEST_WORDING", "1")
 
-	cases := []struct {
-		name, language, model, want string
-	}{
-		{"English words without it", "en", "I live on this computer. What should I call you?",
-			aidisclosure.Notice("en") + " I live on this computer. What should I call you?"},
-		{"Bulgarian owner, Bulgarian words", "bg", "Живея на този компютър. Как да ви наричам?",
-			aidisclosure.Notice("bg") + " Живея на този компютър. Как да ви наричам?"},
-		{"the model already said it", "en", "I am an AI assistant on this computer. What should I call you?",
-			"I am an AI assistant on this computer. What should I call you?"},
-		{"Bulgarian already said it", "bg", "Аз съм асистент с изкуствен интелект. Как да ви наричам?",
-			"Аз съм асистент с изкуствен интелект. Как да ви наричам?"},
-	}
-
-	for _, c := range cases {
+	for _, c := range []struct{ name, language, model string }{
+		{"English", "en", "I live on this computer. What should I call you?"},
+		{"Bulgarian", "bg", "Живея на този компютър. Как да ви наричам?"},
+	} {
 		t.Run(c.name, func(t *testing.T) {
 			b := quietBrain(t)
 			b.Cfg.Owner = ""
@@ -43,20 +33,15 @@ func TestTheFirstMeetingSaysItIsAnAI(t *testing.T) {
 
 			b.Router = llm.NewRouter(llm.ModeOpen, "ollama", phrasing{said: c.model})
 
-			g := b.GreetInWords(context.Background())
-			if g.Text != c.want {
-				t.Errorf("the first meeting opened with %q, want %q", g.Text, c.want)
-			}
-
-			if !aidisclosure.Discloses(g.Text) {
-				t.Errorf("the opener does not say it is an AI: %q", g.Text)
+			if g := b.GreetInWords(context.Background()); g.Text != c.model {
+				t.Errorf("the first meeting opened with %q, want the model's own %q", g.Text, c.model)
 			}
 		})
 	}
 }
 
-// The model is asked to say it, too: the brief and the facts name it.
-func TestTheFirstMeetingBriefAsksToSayItIsAnAI(t *testing.T) {
+// Nor is the model asked to announce it.
+func TestTheFirstMeetingBriefDoesNotAskToAnnounceAnAI(t *testing.T) {
 	t.Setenv("PN_TEST_WORDING", "1")
 
 	b := quietBrain(t)
@@ -67,12 +52,14 @@ func TestTheFirstMeetingBriefAsksToSayItIsAnAI(t *testing.T) {
 
 	_ = b.GreetInWords(context.Background())
 
-	if !strings.Contains(asked.prompt, "AI assistant") {
-		t.Errorf("the model was not told it is an AI assistant: %q", asked.prompt)
+	if asked.prompt == "" {
+		t.Fatal("the model was not asked for an opener")
 	}
 
-	if !strings.Contains(asked.prompt, "say that you are an AI") {
-		t.Errorf("the model was not asked to say it: %q", asked.prompt)
+	for _, never := range []string{"say that you are an AI", "AI assistant (a language model)"} {
+		if strings.Contains(asked.prompt, never) {
+			t.Errorf("the model was asked %q: %q", never, asked.prompt)
+		}
 	}
 }
 
@@ -88,15 +75,4 @@ func (l *listening) Chat(_ context.Context, r llm.Request) (llm.Response, error)
 	}
 
 	return llm.Response{Content: "Hello there."}, nil
-}
-
-// With no model nothing is said, and the page's own line is the notice.
-func TestTheFirstMeetingWithNoModelAddsNothing(t *testing.T) {
-	b := quietBrain(t)
-	b.Cfg.Owner = ""
-	b.Router = llm.NewRouter(llm.ModeOpen, "nobody")
-
-	if said := b.GreetInWords(context.Background()).Text; strings.Contains(said, aidisclosure.Notice("en")) {
-		t.Errorf("with no model talking, it still said %q", said)
-	}
 }

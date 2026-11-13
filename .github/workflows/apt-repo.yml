@@ -155,6 +155,13 @@ jobs:
           pn-scripts-assistant serve -addr 127.0.0.1:8894 > new.log 2>&1 &
           pid=$!
           timeout 90 bash -c 'until curl -fs http://127.0.0.1:8894/health >/dev/null; do sleep 1; done'
+          # From 1.0.4 an upgraded brain asks for the terms of use before it
+          # is used; its owner accepts them in the window, this accepts them
+          # here, with the version the program says is in force.
+          if curl -fs http://127.0.0.1:8894/api/terms > terms.json; then
+            v="$(python3 -c 'import json; print(json.load(open("terms.json"))["version"])')"
+            curl -fs -X POST -H 'Content-Type: application/json' -d "{\"version\":$v}" http://127.0.0.1:8894/api/terms > /dev/null
+          fi
           curl -fs http://127.0.0.1:8894/api/todos | tee todos.json
           grep -q 'Water the plants before the update' todos.json
           kill "$pid"; wait "$pid" || true

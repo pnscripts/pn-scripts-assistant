@@ -473,6 +473,10 @@ jobs:
 
           $p = Start-Process $exe -ArgumentList 'serve','-addr','127.0.0.1:8896' -PassThru
           Wait-Up '127.0.0.1:8896'
+          # The terms of use accepted, as its owner does once in the window, so
+          # the picture is of the console and not of the agreement before it.
+          $terms = Invoke-RestMethod http://127.0.0.1:8896/api/terms
+          Invoke-RestMethod -Method Post -Headers @{ Origin = 'http://127.0.0.1:8896' } -ContentType 'application/json' -Body (@{ version = $terms.version } | ConvertTo-Json) http://127.0.0.1:8896/api/terms | Out-Null
           Invoke-RestMethod -Method Post -Headers @{ Origin = 'http://127.0.0.1:8896' } http://127.0.0.1:8896/api/vault/recovery/kept | Out-Null
           Stop-Process -Id $p.Id
           $p.WaitForExit(20000) | Out-Null
@@ -699,6 +703,13 @@ jobs:
             try { $up = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8897/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
           }
           if (-not $up) { throw 'the installed program did not answer' }
+          # Nothing is used before the terms of use are accepted: the API says
+          # so, and opens once they are (its owner presses I accept).
+          $refused = $null
+          try { Invoke-RestMethod http://127.0.0.1:8897/api/upkeep | Out-Null } catch { $refused = $_.Exception.Response.StatusCode.value__ }
+          if ($refused -ne 403) { throw "before the terms were accepted /api/upkeep answered $refused, not 403" }
+          $terms = Invoke-RestMethod http://127.0.0.1:8897/api/terms
+          Invoke-RestMethod -Method Post -ContentType 'application/json' -Body (@{ version = $terms.version } | ConvertTo-Json) http://127.0.0.1:8897/api/terms | Out-Null
           $upkeep = Invoke-RestMethod http://127.0.0.1:8897/api/upkeep
           $row = $upkeep.items | Where-Object { $_.channel } | Select-Object -First 1
           $row | Format-List | Out-String | Write-Output

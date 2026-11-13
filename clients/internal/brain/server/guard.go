@@ -169,6 +169,7 @@ var changedAtTheDeskOnly = []string{
 	"/api/vault/",          // the recovery key
 	"/api/journey/",        // its record of what happened
 	"/api/organisation/",   // the organisation, every change
+	"/api/terms",           // accepting the terms of use
 }
 
 func decisionRoute(path string) bool {

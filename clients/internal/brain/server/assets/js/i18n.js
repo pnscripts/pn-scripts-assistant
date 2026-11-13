@@ -245,6 +245,27 @@
             'Every component and its licence is listed in THIRD-PARTY-NOTICES.md, published with the program\'s source code.',
             'Всички компоненти и техните лицензи са изброени в THIRD-PARTY-NOTICES.md, публикуван заедно с изходния код на програмата.',
         ],
+        // The terms of use: the agreement before anything else
+        // (agreement.html) and the card on "What it runs on" (terms.js).
+        // The terms themselves come from the server (package terms).
+        'terms.title': ['Terms of use', 'Условия за ползване'],
+        'terms.until': [
+            'Until you accept, it does nothing. If you do not accept, close the window.',
+            'Докато не приемете, асистентът не прави нищо. Ако не приемате, затворете прозореца.',
+        ],
+        'terms.accept': ['I accept', 'Приемам'],
+        'terms.docs': ['Open in the documentation', 'Отвори в документацията'],
+        'terms.read': ['Read the terms', 'Прочетете условията'],
+        'terms.accepted': ['Accepted on {date}, version {version}.', 'Приети на {date}, версия {version}.'],
+        'terms.unreadable': [
+            'The terms could not be loaded. Close the window and open it again.',
+            'Условията не можаха да се заредят. Затворете прозореца и го отворете отново.',
+        ],
+        'terms.changed': [
+            'The terms changed while this page was open. Read the new ones and accept again.',
+            'Условията се промениха, докато страницата беше отворена. Прочетете новите и ги приемете отново.',
+        ],
+        'terms.notSaved': ['The acceptance could not be saved.', 'Приемането не можа да се запази.'],
         'upd.later': ['Later', 'По-късно'],
         'upd.banner': ['{name} {latest} is out. You have {have}.', 'Излезе {name} {latest}, вашата версия е {have}.'],
         'upd.allCurrent': ['Everything is current.', 'Всичко е актуално.'],
@@ -1442,15 +1463,6 @@
         'cc.send': ['Send', 'Изпрати'],
         'cc.stop': ['Stop', 'Спри'],
         'cc.newConversation': ['New conversation', 'Нов разговор'],
-        // Answers come from an AI (EU AI Act article 50(1)); see aidisclosure_test.go.
-        'cc.aiNotice': [
-            'Answers come from AI and can be wrong.',
-            'Отговорите идват от изкуствен интелект и може да грешат.',
-        ],
-        'cc.aiNoticeTitle': [
-            'This assistant is an AI system: what it says and writes comes from a language model, so check what matters before you rely on it or send it. Mail it sends and documents it writes are marked as written with AI.',
-            'Този асистент е система с изкуствен интелект: каквото казва и пише, идва от езиков модел, затова проверете важното, преди да разчитате на него или да го изпратите. Писмата, които изпраща, и документите, които пише, са отбелязани като написани с изкуствен интелект.',
-        ],
         'cc.hint': [
             'Reads run on their own. Anything that changes something waits for you.',
             'Четенето става автоматично. Всичко, което променя нещо, чака вашето решение.',

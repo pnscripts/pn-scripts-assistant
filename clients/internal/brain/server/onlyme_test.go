@@ -81,6 +81,8 @@ func TestAnswerOnlyMeActsOnNothingItCannotRecognise(t *testing.T) {
 			cfg.WakeWord = "Nova"
 			cfg.OnlyMe = true
 
+			agreedTo(t, root)
+
 			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 			s := New(brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"), logger), logger)
 
@@ -136,6 +138,8 @@ func TestAnswerOnlyMeActsOnNothingItCannotRecognise(t *testing.T) {
 		cfg := config.Default()
 		cfg.Owner = "Alex"
 		cfg.WakeWord = "Nova"
+
+		agreedTo(t, root)
 
 		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 		ts := httptest.NewServer(New(brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"), logger), logger).Handler())

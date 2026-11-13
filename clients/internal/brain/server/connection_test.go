@@ -45,6 +45,8 @@ func TestTheStatusPillFollowsTheModel(t *testing.T) {
 	// A port nothing listens on: an Ollama that does not answer.
 	cfg.OllamaURL = "http://127.0.0.1:9"
 
+	agreedTo(t, root)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ts := httptest.NewServer(New(brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"), logger), logger).Handler())
 	t.Cleanup(ts.Close)

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .Name }}</title>
+    <link rel="stylesheet" href="/css/console.css">
+</head>
+<body class="agreement-body">
+<!--
+    The terms of use, before anything else.
+
+    Shown instead of the console until they are accepted, the first time the
+    program opens and again when an update brings new terms. It is where the
+    program says, once and clearly, that it is an AI system whose answers can
+    be wrong (EU AI Act article 50(1)), together with what stays on the
+    computer, that it acts for its owner and that what it sends is marked.
+    After this it behaves as an assistant and does not keep saying so.
+
+    The words come from the server (/api/terms, package terms), the same
+    sentences as docs/guide/terms.md, in both languages. One button accepts;
+    closing the window declines, and nothing has been used.
+-->
+<main class="agreement" id="agreement">
+    <p class="agreement-name">{{ .Name }}</p>
+
+    <section class="card agreement-card" aria-labelledby="agreement-title">
+        <h2 id="agreement-title" data-i18n="terms.title">Terms of use</h2>
+        <p class="agreement-version" id="agreement-version"></p>
+        <p class="agreement-lead" id="agreement-lead"></p>
+
+        <div class="agreement-text" id="agreement-text" tabindex="0"></div>
+
+        <p class="agreement-error" id="agreement-error" role="alert" hidden></p>
+
+        <div class="agreement-foot">
+            <p class="agreement-note" data-i18n="terms.until">Until you accept, it does nothing. If you do not accept, close the window.</p>
+            <div class="agreement-actions">
+                <button type="button" class="model-action" id="agreement-language" lang="bg">Български</button>
+                <button type="button" class="model-action" id="agreement-docs" data-i18n="terms.docs">Open in the documentation</button>
+                <button type="button" class="approve agreement-accept" id="agreement-accept" data-i18n="terms.accept" disabled>I accept</button>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/agreement.js"></script>
+</body>
+</html>

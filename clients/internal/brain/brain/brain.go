@@ -51,12 +51,25 @@ import (
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/tasks"
 	"pn-scripts-assistant/internal/brain/team"
+	"pn-scripts-assistant/internal/brain/terms"
 	"pn-scripts-assistant/internal/brain/tools"
 	"pn-scripts-assistant/internal/brain/voiceprint"
 )
 
 // Brain is a running assistant.
 type Brain struct {
+	// begin starts the background work; nil is the real start. Start runs it
+	// at once, or when the terms are accepted (see Agreed). A field so a test
+	// can count starts without reaching the machine's sound.
+	begin func(context.Context)
+
+	// agreement is Start waiting for the terms of use to be accepted.
+	agreement struct {
+		mu                        sync.Mutex
+		ctx                       context.Context
+		waiting, running, stopped bool
+	}
+
 	// LastStop is how the previous session ended, set by whoever started
 	// this one (see machinecare.Begin). The zero value knows nothing.
 	LastStop machinecare.LastStop
@@ -1431,8 +1444,74 @@ func (b *Brain) UseModel(name string) error {
 	return nil
 }
 
-// Start begins background work. Stop must be called to let it finish cleanly.
+/*
+ * Start begins background work, once its owner has accepted the terms of use
+ * (package terms). Stop must be called to let it finish cleanly.
+ *
+ * Before the terms are accepted nothing of its own runs: no learning, no
+ * reminders said out loud, no goals, no reading of drives, no integrations,
+ * no recogniser waiting for the microphone. The program serves only the page
+ * that shows the terms, and Agreed starts all of it when they are accepted,
+ * on the context Start was given.
+ */
 func (b *Brain) Start(ctx context.Context) {
+	b.agreement.mu.Lock()
+	defer b.agreement.mu.Unlock()
+
+	if b.agreement.stopped || b.agreement.running {
+		return
+	}
+
+	if terms.Accepted(b.Root) {
+		b.agreement.running = true
+		b.startNow(ctx)
+
+		return
+	}
+
+	b.agreement.ctx, b.agreement.waiting = ctx, true
+	b.Log.Info("waiting for the terms of use to be accepted before starting anything")
+}
+
+/*
+ * Agreed starts the background work Start held back, now that the terms are
+ * accepted. Once: a second call, a call with nothing waiting (a one-off
+ * command), or a call after the program began closing does nothing.
+ */
+func (b *Brain) Agreed() {
+	b.agreement.mu.Lock()
+	defer b.agreement.mu.Unlock()
+
+	a := &b.agreement
+	if !a.waiting || a.running || a.stopped || a.ctx.Err() != nil || !terms.Accepted(b.Root) {
+		return
+	}
+
+	a.waiting, a.running = false, true
+	b.Log.Info("the terms of use were accepted; starting")
+	b.startNow(a.ctx)
+}
+
+// Running is whether the background work has been started.
+func (b *Brain) Running() bool {
+	b.agreement.mu.Lock()
+	defer b.agreement.mu.Unlock()
+
+	return b.agreement.running
+}
+
+func (b *Brain) startNow(ctx context.Context) {
+	if b.begin != nil {
+		b.begin(ctx)
+
+		return
+	}
+
+	b.start(ctx)
+}
+
+// start is the background work itself.
+func (b *Brain) start(ctx context.Context) {
 	if b.Learner != nil {
 		b.Learner.Start(ctx)
 	}
@@ -1567,6 +1646,11 @@ func (b *Brain) Start(ctx context.Context) {
 
 // Stop waits for in-flight learning to finish.
 func (b *Brain) Stop() {
+	// And nothing held back for the terms starts on the way out.
+	b.agreement.mu.Lock()
+	b.agreement.stopped = true
+	b.agreement.mu.Unlock()
+
 	if b.Learner != nil {
 		b.Learner.Stop()
 	}

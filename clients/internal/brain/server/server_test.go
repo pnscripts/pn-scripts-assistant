@@ -39,6 +39,8 @@ func newServer(t *testing.T) (*httptest.Server, *store.DB, *brain.Brain) {
 	cfg := config.Default()
 	cfg.Owner = "Alex"
 
+	agreedTo(t, root)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	b := brain.New(db, cfg, root, filepath.Join(root, "brain.sqlite"), logger)
 

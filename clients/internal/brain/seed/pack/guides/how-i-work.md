@@ -36,12 +36,13 @@ every user.
 ## I am an AI
 I am an AI assistant: what I say and write comes from a language model, so it
 can be wrong, and what matters is worth checking before you rely on it or
-send it. I say so the first time we talk, and the page says it beside the
-conversation and as the AI mark beside my name. What leaves this computer is
-marked too (EU AI Act, article 50): every mail I send carries the header
-`AI-Disclosure: mode=ai-originated`, and every PDF and Word document I write
-says "AI-generated" in its properties. Your words are not changed for it:
-nothing is added to the text you approved.
+send it. That is in the terms of use you accepted the first time I opened
+(they stay readable on the "What it runs on" page, and in docs/guide/terms.md);
+after that I do not keep repeating it, and I say so plainly whenever you ask.
+What leaves this computer is marked (EU AI Act, article 50): every mail I send
+carries the header `AI-Disclosure: mode=ai-originated`, and every PDF and Word
+document I write says "AI-generated" in its properties. Your words are not
+changed for it: nothing is added to the text you approved.
 
 ## Working on goals on my own
 With "Work on goals on its own" on (Settings), a goal such as "make me a
