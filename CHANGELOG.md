@@ -19,7 +19,7 @@ whenever something visible changed.
   GIMP installed?" or "what was removed lately?": a removed program is
   remembered with when it went, and a reinstall is the same program coming
   back. The list is sealed in the knowledge base like everything personal;
-  nothing found is ever started. Windows follows.
+  nothing found is ever started. On Windows it does not read the programs yet.
 - **Quiet hours for heavy work.** Settings has a window for heavy work
   (for example 22:00 until 07:00). Outside it, a coding agent whose paid
   allowance is being spent faster than it renews is not started on its
