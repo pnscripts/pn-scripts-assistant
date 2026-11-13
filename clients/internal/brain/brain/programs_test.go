@@ -148,8 +148,8 @@ func TestTheInventoryNoticesRemovalAndReinstallByItself(t *testing.T) {
 
 	inv := inventoryOf(t, b)
 	for _, key := range []string{"snap:blender", "app:gimp.desktop", "deb:gimp", "deb:ffmpeg"} {
-		if !inv[key].Present {
-			t.Errorf("%s not present after the first look: %+v", key, inv)
+		if !inv[key].Present || inv[key].LastChange != "" {
+			t.Errorf("%s not present, or news, after the first look: %+v", key, inv)
 		}
 	}
 
@@ -169,7 +169,7 @@ func TestTheInventoryNoticesRemovalAndReinstallByItself(t *testing.T) {
 		return r.Present && r.Version == "4.5.4"
 	})
 
-	if r := inventoryOf(t, b)["snap:blender"]; r.RemovedAt != nil || r.PreviousVersion != "4.5.3" {
+	if r := inventoryOf(t, b)["snap:blender"]; r.RemovedAt != nil || r.PreviousVersion != "4.5.3" || r.LastChange != programs.Returned {
 		t.Errorf("returned %+v", r)
 	}
 
@@ -177,8 +177,16 @@ func TestTheInventoryNoticesRemovalAndReinstallByItself(t *testing.T) {
 	m.setDpkg(t, "gimp\t2.10.38\tii \nffmpeg\t6.1\tii \n")
 	waitForPrograms(t, "the upgrade", func() bool { return inventoryOf(t, b)["deb:gimp"].Version == "2.10.38" })
 
+	if r := inventoryOf(t, b)["deb:gimp"]; r.LastChange != programs.Updated {
+		t.Errorf("upgraded %+v", r)
+	}
+
 	m.setDpkg(t, "gimp\t2.10.38\tii \nffmpeg\t6.1\trc \n")
 	waitForPrograms(t, "the package removal", func() bool { return !inventoryOf(t, b)["deb:ffmpeg"].Present })
+
+	if r := inventoryOf(t, b)["deb:ffmpeg"]; r.LastChange != programs.Removed {
+		t.Errorf("removed %+v", r)
+	}
 
 	// A menu entry removed.
 	os.Remove(filepath.Join(m.root, "usr/share/applications/gimp.desktop"))

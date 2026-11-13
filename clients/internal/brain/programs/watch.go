@@ -47,11 +47,33 @@ const (
 	WhyNoPath   = "nothing to watch"
 )
 
-// Polled is a target looked at by the poll, and why.
+// reasons is each Why as a short code the page says in its own language.
+var reasons = map[string]string{
+	WhyMissing:  "missing",
+	WhyLimit:    "limit",
+	WhyNoEvents: "no-events",
+	WhyNoPath:   "no-path",
+}
+
+// Reasons is every code a Polled's Reason can be, sorted.
+func Reasons() []string {
+	out := make([]string, 0, len(reasons))
+	for _, code := range reasons {
+		out = append(out, code)
+	}
+
+	sort.Strings(out)
+
+	return out
+}
+
+// Polled is a target looked at by the poll, and why: Why in English, Reason
+// as one of Reasons for the page.
 type Polled struct {
-	Dir  string `json:"dir"`
-	Only string `json:"only,omitempty"`
-	Why  string `json:"why"`
+	Dir    string `json:"dir"`
+	Only   string `json:"only,omitempty"`
+	Why    string `json:"why"`
+	Reason string `json:"reason"`
 }
 
 // SourceState is how one source is kept current.
@@ -230,12 +252,12 @@ func (w *Watching) State() []SourceState {
 		if t.wd >= 0 {
 			s.Watched++
 		} else {
-			s.Polled = append(s.Polled, Polled{Dir: t.Dir, Only: t.Only, Why: t.why})
+			s.Polled = append(s.Polled, Polled{Dir: t.Dir, Only: t.Only, Why: t.why, Reason: reasons[t.why]})
 		}
 	}
 
 	for _, k := range w.noPath {
-		get(k).Polled = append(get(k).Polled, Polled{Why: WhyNoPath})
+		get(k).Polled = append(get(k).Polled, Polled{Why: WhyNoPath, Reason: reasons[WhyNoPath]})
 	}
 
 	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
