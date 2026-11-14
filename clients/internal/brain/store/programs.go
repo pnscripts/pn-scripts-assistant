@@ -194,3 +194,85 @@ func (d *DB) saveLook(kind programs.Kind, rs []programs.Record, at time.Time) er
 
 	return tx.Commit()
 }
+
+/*
+ * ProgramPermits is every standing decision about a program, by the
+ * program's row, each program's in the order a card shows them.
+ */
+func (d *DB) ProgramPermits() (map[int64][]programs.Permit, error) {
+	rows, err := d.sql().Query(`SELECT program_id, verb, answer, version, decided_at FROM program_permits ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("reading the program permits: %w", err)
+	}
+
+	defer rows.Close()
+
+	out := map[int64][]programs.Permit{}
+
+	for rows.Next() {
+		var (
+			id                 int64
+			verb, answer, when string
+			p                  programs.Permit
+		)
+
+		if err := rows.Scan(&id, &verb, &answer, &p.Version, &when); err != nil {
+			return nil, err
+		}
+
+		p.Verb, p.Answer = programs.Verb(verb), programs.Answer(answer)
+		p.At, _ = time.Parse(time.RFC3339Nano, when)
+		out[id] = append(out[id], p)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, ps := range out {
+		programs.SortPermits(ps)
+	}
+
+	return out, nil
+}
+
+/*
+ * SetProgramPermit writes one standing decision: "always" (for version),
+ * "never", or "ask", which removes the decision. The program must be
+ * remembered; a removed one may be decided about too (it counts when it is
+ * back).
+ */
+func (d *DB) SetProgramPermit(programID int64, verb programs.Verb, answer programs.Answer, version string, at time.Time) error {
+	if !programs.KnownVerb(verb) {
+		return fmt.Errorf("%q is not a use of a program", verb)
+	}
+
+	if !programs.KnownAnswer(answer) {
+		return fmt.Errorf("%q is not an answer", answer)
+	}
+
+	var n int
+	if err := d.sql().QueryRow(`SELECT COUNT(*) FROM programs WHERE id = ?`, programID).Scan(&n); err != nil {
+		return err
+	}
+
+	if n == 0 {
+		return fmt.Errorf("there is no program %d", programID)
+	}
+
+	if answer == programs.AskEach {
+		_, err := d.sql().Exec(`DELETE FROM program_permits WHERE program_id = ? AND verb = ?`, programID, string(verb))
+
+		return err
+	}
+
+	_, err := d.sql().Exec(`INSERT INTO program_permits (program_id, verb, answer, version, decided_at) VALUES (?,?,?,?,?)
+		ON CONFLICT (program_id, verb) DO UPDATE SET answer = excluded.answer, version = excluded.version,
+		decided_at = excluded.decided_at`,
+		programID, string(verb), string(answer), d.seal(version), at.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return fmt.Errorf("writing down a program permit: %w", err)
+	}
+
+	return nil
+}

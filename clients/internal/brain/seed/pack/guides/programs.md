@@ -39,11 +39,38 @@ Pick one of this computer's sources (**In the menu**, **Packages**,
 ## A program's card
 Press a program to see what was found about it: its kind, its own name,
 version, where it lives, what it starts, when it was first seen (or that it
-was already here at the first look) and what last happened to it. The card
-also says what the assistant does with it today: it knows the program is
-there and tells you about it when you ask; it does not start, change or
-remove it. Using programs for you comes in a later version, and it will ask
-you first, at this computer.
+was already here at the first look) and what last happened to it. When you ask, the
+assistant can start it, type and click in its windows and run it as a
+command; it never removes a program.
+
+## What it may do without asking
+The card has three kinds of use, each with three buttons:
+- **Start it** (opening it, as from the menu);
+- **Type and click in its windows**;
+- **Run it as a command** (with arguments, which can change anything that
+  program can).
+
+**Ask me** leaves it to your general setting (Control, How much it asks);
+typing and clicking are asked every time whatever that setting says, since a
+keystroke can send, pay or delete. **Always** does it without asking, for this
+program only. **Never** refuses it, even when everything else is allowed,
+and the assistant tells you so when you ask for it. A choice counts from the
+next step on. Choices are made at this computer, not from a phone.
+
+A program often appears more than once (a menu program and the snap or
+package it starts): a choice on either card counts, and **Never** wins.
+
+**Always** is for the version that is here when you press it. After an
+update the card says "Allowed for version 2.10. It is 3.0 now" and the
+assistant asks again until you press **Always** once more: a new version can
+do things the old one could not. On "ask every time" no **Always** is acted
+on, and the card says so.
+
+## When a program is removed
+A removed program is never used. Ask for it and the assistant says when it
+was removed ("Krita was removed from this computer on 12 Nov 2026 at
+14:03") and that it will use it again if it comes back. Its choices are kept,
+unused, and count again when it is installed again.
 
 ## MCP servers you set up in other programs
 If you already use MCP servers in **Claude Desktop**, **Claude Code**,

@@ -246,7 +246,7 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 
 	carry := func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+token) }
 
-	for _, path := range []string{"/api/mail", "/api/mail/drafts", "/api/goals", "/api/skills", "/api/rules"} {
+	for _, path := range []string{"/api/mail", "/api/mail/drafts", "/api/goals", "/api/skills", "/api/rules", "/api/programs"} {
 		*got = false
 
 		if w := ask(s, "GET", path, "192.168.1.9:4000", carry); w.Code != 200 {
@@ -261,7 +261,7 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 		"/api/providers/connect", "/api/devices/connect", "/api/tunnel", "/api/copies",
 		"/api/desktop", "/api/organisation/agents/x/state", "/api/upkeep/self", "/api/upkeep/notice",
 		"/api/rules", "/api/rules/3", "/api/rules/3/decide", "/api/rules/3/switch", "/api/machine/care/stop", "/api/machine/care/watch",
-		"/api/terms",
+		"/api/terms", "/api/programs/permit",
 	} {
 		*got = false
 

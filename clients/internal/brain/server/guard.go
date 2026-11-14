@@ -170,6 +170,7 @@ var changedAtTheDeskOnly = []string{
 	"/api/journey/",        // its record of what happened
 	"/api/organisation/",   // the organisation, every change
 	"/api/terms",           // accepting the terms of use
+	"/api/programs/",       // what another program may be made to do
 }
 
 func decisionRoute(path string) bool {

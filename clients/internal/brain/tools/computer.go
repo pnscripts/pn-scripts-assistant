@@ -1,11 +1,14 @@
 package tools
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -221,7 +224,9 @@ func (OpenApp) Execute(ctx context.Context, raw json.RawMessage) (string, error)
 	return "Opened " + name, nil
 }
 
-// desktopEntryFor finds an application's menu entry by rough name.
+// desktopEntryFor finds an application's menu entry by rough name: by the
+// file's name first ("files", "demo notes" for demo-notes.desktop), then by
+// the name the menu shows ("Demo Notes").
 func desktopEntryFor(name string) (string, bool) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -229,12 +234,21 @@ func desktopEntryFor(name string) (string, bool) {
 	}
 
 	wanted := strings.ToLower(strings.TrimSpace(name))
+	if wanted == "" {
+		return "", false
+	}
 
-	for _, dir := range []string{
+	hyphened := strings.Join(strings.Fields(wanted), "-")
+
+	dirs := []string{
 		home + "/.local/share/applications",
 		"/usr/share/applications",
 		"/var/lib/snapd/desktop/applications",
-	} {
+	}
+
+	var all []string
+
+	for _, dir := range dirs {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
 			continue
@@ -249,13 +263,51 @@ func desktopEntryFor(name string) (string, bool) {
 
 			stem := strings.ToLower(strings.TrimSuffix(file, ".desktop"))
 
-			if stem == wanted || strings.Contains(stem, wanted) {
+			if stem == wanted || strings.Contains(stem, wanted) || strings.Contains(stem, hyphened) {
 				return file, true
 			}
+
+			all = append(all, dir+"/"+file)
+		}
+	}
+
+	for _, path := range all {
+		if strings.EqualFold(menuName(path), wanted) {
+			return filepath.Base(path), true
 		}
 	}
 
 	return "", false
+}
+
+// menuName is a menu entry's untranslated Name, or empty.
+func menuName(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+
+	defer f.Close()
+
+	in := bufio.NewScanner(io.LimitReader(f, 64<<10))
+	group := ""
+
+	for in.Scan() {
+		line := strings.TrimSpace(in.Text())
+
+		if strings.HasPrefix(line, "[") {
+			group = line
+			continue
+		}
+
+		if group == "[Desktop Entry]" {
+			if v, ok := strings.CutPrefix(line, "Name="); ok {
+				return strings.TrimSpace(v)
+			}
+		}
+	}
+
+	return ""
 }
 
 /* ---------- acting ---------- */

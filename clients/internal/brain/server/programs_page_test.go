@@ -72,6 +72,18 @@ func TestTheProgramsPageSaysTheInventoryInBothLanguages(t *testing.T) {
 	look(programs.App, []programs.Program{app("gimp", "GNU Image Manipulation Program"), app("inkscape", "Inkscape")}, yesterday, false)
 	look(programs.Deb, []programs.Program{deb("gimp", "3.0"), deb("vlc", "3.0")}, now, false)
 
+	// Choices on two cards: gimp started always, never run as a command;
+	// krita (removed) never started.
+	for _, c := range []map[string]string{
+		{"kind": "deb", "id": "gimp", "verb": "start", "answer": "allow"},
+		{"kind": "deb", "id": "gimp", "verb": "change", "answer": "never"},
+		{"kind": "deb", "id": "krita", "verb": "start", "answer": "never"},
+	} {
+		if code, _ := postPermit(t, ts.URL+"/api/programs/permit", c); code != http.StatusOK {
+			t.Fatalf("%v: %d", c, code)
+		}
+	}
+
 	res, err := http.Get(ts.URL + "/api/programs")
 	if err != nil {
 		t.Fatal(err)
@@ -157,8 +169,54 @@ func TestTheProgramsPageSaysTheInventoryInBothLanguages(t *testing.T) {
 		t.Errorf("in English gimp's card is %v", en.InitialCard)
 	}
 
-	if !strings.Contains(en.CanDo, "ask you first") || !strings.Contains(en.CanDoGone, "removed on") {
+	if !strings.Contains(en.CanDo, "without asking is set below") || !strings.Contains(en.CanDoGone, "removed on") {
 		t.Errorf("in English what it can do: %q / %q", en.CanDo, en.CanDoGone)
+	}
+
+	// The card's choices: one row per kind of use, the answer chosen and
+	// what it means now.
+	may := func(m programsMay) string {
+		var out []string
+		for _, r := range m.Rows {
+			out = append(out, r.Verb+"="+r.Answer)
+		}
+
+		return strings.Join(out, " ")
+	}
+
+	if may(en.MayGimp) != "start=allow control-input=ask change=never" || en.MayGimp.Note != "" ||
+		!strings.HasPrefix(en.MayGimp.Rows[0].State, "I do it without asking. Chosen on ") ||
+		!strings.Contains(en.MayGimp.Rows[1].State, "whatever the general setting") ||
+		!strings.HasPrefix(en.MayGimp.Rows[2].State, "I never do it") ||
+		en.MayGimp.Rows[0].Label != "Start it" {
+		t.Errorf("in English gimp's choices are %+v", en.MayGimp)
+	}
+
+	if may(en.MayKrita) != "start=never control-input=ask change=ask" || !strings.Contains(en.MayKrita.Note, "kept for when it comes back") ||
+		en.MayKrita.Rows[0].State != "Never, kept for when it comes back." ||
+		en.MayKrita.Rows[2].State != "Your general setting decides (Control, How much it asks)." {
+		t.Errorf("in English krita's choices are %+v", en.MayKrita)
+	}
+
+	if !strings.Contains(en.MayAsleep.Rows[0].State, "Allowed for version 3.0. It is 3.1 now") ||
+		en.MayNotHonoured.Rows[0].State != "Your general setting asks every time, so I ask anyway." {
+		t.Errorf("an always asleep or not honoured: %+v / %+v", en.MayAsleep, en.MayNotHonoured)
+	}
+
+	if strings.Join(en.Answers, ",") != "ask,allow,never" {
+		t.Errorf("the buttons: %v", en.Answers)
+	}
+
+	// Every verb the server uses has words here.
+	for _, v := range programs.InUse {
+		found := false
+		for _, r := range en.MayGimp.Rows {
+			found = found || (r.Verb == string(v) && !strings.HasPrefix(r.Label, "prg."))
+		}
+
+		if !found {
+			t.Errorf("the verb %q has no words on the card", v)
+		}
 	}
 
 	// Every reason the server gives for polling a folder has words here.
@@ -208,7 +266,13 @@ func TestTheProgramsPageSaysTheInventoryInBothLanguages(t *testing.T) {
 		return regexp.MustCompile(`/\S+`).ReplaceAllString(s, "")
 	}
 
-	texts := []string{bg.Summary, bg.Windows, bg.NoMatch, bg.CanDo, bg.CanDoGone, bg.Long.Note}
+	texts := []string{bg.Summary, bg.Windows, bg.NoMatch, bg.CanDo, bg.CanDoGone, bg.Long.Note, bg.MayKrita.Note}
+
+	for _, m := range []programsMay{bg.MayGimp, bg.MayKrita, bg.MayAsleep, bg.MayNotHonoured} {
+		for _, r := range m.Rows {
+			texts = append(texts, r.Label, r.State)
+		}
+	}
 	texts = append(texts, bg.Why...)
 	texts = append(texts, bg.Keeping...)
 
@@ -287,26 +351,41 @@ type programsRow struct {
 	Said string `json:"said"`
 }
 
+type programsMay struct {
+	Rows []struct {
+		Verb   string `json:"verb"`
+		Label  string `json:"label"`
+		Answer string `json:"answer"`
+		State  string `json:"state"`
+	} `json:"rows"`
+	Note string `json:"note"`
+}
+
 type programsSaid struct {
-	Summary     string        `json:"summary"`
-	Changes     []programsRow `json:"changes"`
-	Removed     []programsRow `json:"removed"`
-	Search      []programsRow `json:"search"`
-	NoMatch     string        `json:"noMatch"`
-	Card        [][2]string   `json:"card"`
-	InitialCard [][2]string   `json:"initialCard"`
-	CanDo       string        `json:"canDo"`
-	CanDoGone   string        `json:"canDoGone"`
-	Reasons     []string      `json:"reasons"`
-	Why         []string      `json:"why"`
-	Keeping     []string      `json:"keeping"`
-	Many        string        `json:"many"`
-	Windows     string        `json:"windows"`
-	WinChoices  []string      `json:"winChoices"`
-	WinCard     [][2]string   `json:"winCard"`
-	WinList     []programsRow `json:"winList"`
-	OldChoices  []string      `json:"oldChoices"`
-	Long        struct {
+	Summary        string        `json:"summary"`
+	Changes        []programsRow `json:"changes"`
+	Removed        []programsRow `json:"removed"`
+	Search         []programsRow `json:"search"`
+	NoMatch        string        `json:"noMatch"`
+	Card           [][2]string   `json:"card"`
+	InitialCard    [][2]string   `json:"initialCard"`
+	CanDo          string        `json:"canDo"`
+	CanDoGone      string        `json:"canDoGone"`
+	Reasons        []string      `json:"reasons"`
+	Why            []string      `json:"why"`
+	Keeping        []string      `json:"keeping"`
+	Many           string        `json:"many"`
+	Windows        string        `json:"windows"`
+	WinChoices     []string      `json:"winChoices"`
+	WinCard        [][2]string   `json:"winCard"`
+	WinList        []programsRow `json:"winList"`
+	OldChoices     []string      `json:"oldChoices"`
+	MayGimp        programsMay   `json:"mayGimp"`
+	MayKrita       programsMay   `json:"mayKrita"`
+	MayAsleep      programsMay   `json:"mayAsleep"`
+	MayNotHonoured programsMay   `json:"mayNotHonoured"`
+	Answers        []string      `json:"answers"`
+	Long           struct {
 		Rows  int    `json:"rows"`
 		Total int    `json:"total"`
 		Note  string `json:"note"`
@@ -373,6 +452,13 @@ process.stdout.write(JSON.stringify({
     winCard: P.found(win.programs[1], win),
     winList: rows(P.list(win, 'msix', '').rows),
     oldChoices: P.choices({ programs: [] }),
+    mayGimp: P.may(find('gimp'), body),
+    mayKrita: P.may(find('krita'), body),
+    mayAsleep: P.may({ kind: 'deb', id: 'x', version: '3.1', present: true },
+        { permits: { 'deb:x': [{ verb: 'start', answer: 'allow', version: '3.0', asleep: true }] } }),
+    mayNotHonoured: P.may({ kind: 'deb', id: 'x', version: '3.0', present: true },
+        { honoured: false, permits: { 'deb:x': [{ verb: 'start', answer: 'allow', version: '3.0' }] } }),
+    answers: P.answers,
     keeping: P.keeping({ sources: [{ kind: 'app', watched: 3, polled: [
         { dir: '/usr/local/share/applications', reason: 'missing', why: 'not there' },
         { dir: '/var/lib/flatpak/exports/share/applications', reason: 'missing', why: 'not there' },

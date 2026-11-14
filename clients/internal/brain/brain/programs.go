@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/programs"
 )
 
@@ -191,3 +192,80 @@ func (b *Brain) ProgramInventory() ([]programs.Record, []programs.SourceState, e
 
 	return rs, state, nil
 }
+
+/*
+ * ProgramRuling is what the person decided about one use of a program
+ * (programs.Weigh), asked by the loop at the moment of acting. An
+ * "always" counts only when the general setting honours standing grants
+ * (permits.WhatIveAllowed or Everything), like every other standing yes:
+ * on "ask every time" it is asked, and the question says why.
+ *
+ * A failure to read the inventory decides nothing: the general setting
+ * answers, and typing into another program is still asked.
+ */
+func (b *Brain) ProgramRuling(ctx context.Context, use programs.Use) programs.Ruling {
+	if use.Empty() {
+		return programs.Ruling{Answer: programs.AskEach}
+	}
+
+	rs, err := b.DB.Programs("")
+	if err != nil {
+		b.Log.Warn("could not read the programs for a permission", "err", err)
+		return programs.Ruling{Answer: programs.AskEach}
+	}
+
+	ps, err := b.DB.ProgramPermits()
+	if err != nil {
+		b.Log.Warn("could not read the program permissions", "err", err)
+		return programs.Ruling{Answer: programs.AskEach}
+	}
+
+	if programs.NeedsPackage(rs, ps, use) {
+		use.Package = b.programScanner().PackageOf(ctx, use.Path)
+	}
+
+	r := programs.Weigh(rs, ps, use)
+
+	if r.Answer == programs.Always && b.Freedom() == permits.AskEveryTime {
+		r.Answer, r.Why = programs.AskEach, programs.WhyUndecided
+		r.Said = ""
+	}
+
+	return r
+}
+
+// ProgramPermits is every standing decision about a program, by its row.
+func (b *Brain) ProgramPermits() (map[int64][]programs.Permit, error) {
+	return b.DB.ProgramPermits()
+}
+
+/*
+ * SetProgramPermit is the person's decision from a program's card: the
+ * program by its source and id, one verb, ask/allow/never. "Always" is
+ * given to the version that is here now.
+ */
+func (b *Brain) SetProgramPermit(kind programs.Kind, id string, verb programs.Verb, answer programs.Answer) (programs.Record, error) {
+	rs, err := b.DB.Programs(kind)
+	if err != nil {
+		return programs.Record{}, err
+	}
+
+	for _, r := range rs {
+		if r.Kind != kind || r.ID != id {
+			continue
+		}
+
+		if err := b.DB.SetProgramPermit(r.RowID, verb, answer, r.Version, time.Now()); err != nil {
+			return r, err
+		}
+
+		b.Log.Info("a program's permission changed", "verb", string(verb), "answer", string(answer))
+
+		return r, nil
+	}
+
+	return programs.Record{}, ErrNoSuchProgram
+}
+
+// ErrNoSuchProgram is a card for a program the inventory does not know.
+var ErrNoSuchProgram = errors.New("there is no such program")

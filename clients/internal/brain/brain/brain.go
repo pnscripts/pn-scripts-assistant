@@ -844,7 +844,11 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		NothingAsks: func() bool { return b.Freedom() == permits.Everything },
 		Unbounded:   b.Unbounded,
-		GoalMode:    func() bool { return b.Cfg.GoalMode },
+
+		// What its person decided on each program's card, at the moment
+		// of acting. See programs.go.
+		Programs: b.ProgramRuling,
+		GoalMode: func() bool { return b.Cfg.GoalMode },
 
 		// Its user's rules, read at the moment of acting. See rules.go.
 		Rules: b.LiveRules,
@@ -961,6 +965,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Log:         logger,
 		Registry:    b.Agent.Registry,
 		MayI:        b.Agent.MayI,
+		Programs:    b.Agent.Programs,
 		NothingAsks: b.Agent.NothingAsks,
 		Unbounded:   b.Agent.Unbounded,
 		GoalMode:    b.Agent.GoalMode,
