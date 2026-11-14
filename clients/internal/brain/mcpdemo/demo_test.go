@@ -146,6 +146,26 @@ func TestTheDemoServerIsPinnedWithEveryChecksum(t *testing.T) {
 	}
 }
 
+/*
+ * The catalogue offers the reference server at the version this demo
+ * proves, so "MCP test server" in the catalogue is the server that was
+ * shown to work through the assistant, not an older one beside it.
+ */
+func TestTheCatalogueOffersTheVersionTheDemoProves(t *testing.T) {
+	entry, ok := mcp.FromCatalogue("everything")
+	if !ok {
+		t.Fatal("the reference server is not in the catalogue")
+	}
+
+	if want := pinned(t); entry.Version != want {
+		t.Errorf("the catalogue offers %s %s, the demo proves %s", packageName, entry.Version, want)
+	}
+
+	if !strings.HasSuffix(strings.Join(entry.Command, " "), packageName+"@"+entry.Version) {
+		t.Errorf("the catalogue runs %v", entry.Command)
+	}
+}
+
 // installed is the server's program, or a skip saying how to get it.
 func installed(t *testing.T) (node, entry string) {
 	t.Helper()

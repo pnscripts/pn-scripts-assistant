@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -511,6 +513,46 @@ func TestTheCatalogueIsPinned(t *testing.T) {
 		if s.Approved || s.Active {
 			t.Errorf("%s ships approved", s.ID)
 		}
+	}
+}
+
+/*
+ * The MCP project's npm servers went back to semantic versions on
+ * 11.10.2026, and npm now marks every date version (2026.8.31 and before)
+ * deprecated: "install the latest version". A catalogue entry pins an exact
+ * X.Y.Z, never a date, so what a person adds is a release that is still
+ * looked after.
+ */
+func TestTheCatalogueAsksForSemanticVersionsOnNpm(t *testing.T) {
+	exact := regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)$`)
+
+	npm := 0
+
+	for _, s := range Catalogue() {
+		if s.Recipe != "node" {
+			continue
+		}
+
+		npm++
+
+		m := exact.FindStringSubmatch(s.Version)
+		if m == nil {
+			t.Errorf("%s asks for %q, not an exact version", s.ID, s.Version)
+
+			continue
+		}
+
+		if major, _ := strconv.Atoi(m[1]); major >= 2000 {
+			t.Errorf("%s still asks for the deprecated date version %s", s.ID, s.Version)
+		}
+
+		if !strings.HasSuffix(strings.Join(s.Command, " "), "@"+s.Version) {
+			t.Errorf("%s runs %v, not the version it names (%s)", s.ID, s.Command, s.Version)
+		}
+	}
+
+	if npm == 0 {
+		t.Fatal("no npm server in the catalogue to check")
 	}
 }
 

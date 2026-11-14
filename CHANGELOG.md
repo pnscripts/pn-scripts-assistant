@@ -45,6 +45,14 @@ whenever something visible changed.
   approved, a call that waits for Approve and runs, one that is rejected and
   never reaches the server, the server given its own settings and key but
   never the assistant's, and stopped as soon as its entry is removed there.
+- **The catalogue's MCP servers are current releases.** The MCP test
+  server, Knowledge graph memory and Sequential thinking in the catalogue
+  now install 2.1.0, 2.0.1 and 2.0.0: the project went back to ordinary
+  version numbers in October and npm marks the old date versions
+  (2026.8.31) as no longer maintained. Each was started and listed its
+  tools with Node 22 before the change, and the test server runs in CI on
+  Node 24. Their licence is shown as
+  Apache-2.0 with older parts MIT, as the project now states it.
 - **A tool you name is offered.** Asking for one of a server's tools by its
   own name ("use get-sum of the everything integration") now always offers
   it; before, a server with many tools could fill the list in alphabetical
