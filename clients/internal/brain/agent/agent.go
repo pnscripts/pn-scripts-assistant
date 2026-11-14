@@ -270,6 +270,21 @@ func (l *Loop) did(conversationID int64, brief Brief, step Step, args json.RawMe
 	})
 }
 
+/*
+ * inBulgarian is the Bulgarian card to carry beside an English line, into
+ * Doing now, the steps under an answer and the record: nothing when the
+ * tool said the same in both (it has no Bulgarian card, as a tool from an
+ * integration has none), so the page shows the line as it came instead of
+ * calling English words Bulgarian.
+ */
+func inBulgarian(summary, summaryBG string) string {
+	if summaryBG == summary {
+		return ""
+	}
+
+	return summaryBG
+}
+
 // Pending is an action waiting for approval.
 type Pending struct {
 	ID      int64  `json:"id"`
@@ -302,10 +317,16 @@ type Pending struct {
 type Step struct {
 	Tool    string `json:"tool"`
 	Summary string `json:"summary"`
-	Asked   string `json:"asked,omitempty"`
-	Result  string `json:"result,omitempty"`
-	Failed  bool   `json:"failed,omitempty"`
-	Millis  int64  `json:"millis"`
+
+	// SummaryBG is the same line in Bulgarian, for a page in Bulgarian:
+	// the tool's card as the approval shows it (see tools.CardSaying).
+	// Empty when the tool has no Bulgarian card.
+	SummaryBG string `json:"summary_bg,omitempty"`
+
+	Asked  string `json:"asked,omitempty"`
+	Result string `json:"result,omitempty"`
+	Failed bool   `json:"failed,omitempty"`
+	Millis int64  `json:"millis"`
 
 	// Level is how serious the call was, weighed on what it was handed. See
 	// the risk package.
@@ -1091,8 +1112,8 @@ func (l *Loop) RunBrief(
 
 				l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+summary+"]\n"+refused)
 
-				step := Step{Tool: tool.Name(), Summary: summary, Asked: askedFor(call.Arguments),
-					Result: refused, Failed: true}
+				step := Step{Tool: tool.Name(), Summary: summary, SummaryBG: inBulgarian(summary, summaryBG),
+					Asked: askedFor(call.Arguments), Result: refused, Failed: true}
 				steps = append(steps, step)
 
 				l.did(conversationID, brief, step, call.Arguments, messages, model, choice.Why, DeedRefused)
@@ -1185,7 +1206,7 @@ func (l *Loop) RunBrief(
 				l.DB.AddMessage(conversationID, llm.RoleTool, "", "",
 					"["+summary+"]\n"+refused)
 
-				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary, SummaryBG: inBulgarian(summary, summaryBG),
 					Asked: askedFor(call.Arguments), Level: level, Result: refused, Failed: true},
 					call.Arguments, messages, model, choice.Why, DeedRefused)
 
@@ -1215,7 +1236,7 @@ func (l *Loop) RunBrief(
 
 					l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+summary+"]\n"+said)
 
-					l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+					l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary, SummaryBG: inBulgarian(summary, summaryBG),
 						Asked: askedFor(call.Arguments), Level: level, Result: said, Failed: true},
 						call.Arguments, messages, model, choice.Why, DeedRefused)
 
@@ -1237,7 +1258,7 @@ func (l *Loop) RunBrief(
 
 					l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+summary+"]\n"+said)
 
-					l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+					l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary, SummaryBG: inBulgarian(summary, summaryBG),
 						Asked: askedFor(call.Arguments), Level: level, Result: said, Failed: true},
 						call.Arguments, messages, model, choice.Why, DeedRefused)
 
@@ -1259,7 +1280,7 @@ func (l *Loop) RunBrief(
 
 				l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+summary+"]\n"+ruling.Said)
 
-				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary, SummaryBG: inBulgarian(summary, summaryBG),
 					Asked: askedFor(call.Arguments), Level: level, Result: ruling.Said, Failed: true},
 					call.Arguments, messages, model, choice.Why, DeedRefused)
 
@@ -1440,7 +1461,7 @@ func (l *Loop) RunBrief(
 
 				// Said once it has a number, so the decision, whenever it
 				// comes, settles this row (progress.Decided).
-				l.waitingOn("Waiting for you: "+summary, id)
+				l.waitingOn("Waiting for you: "+summary, inBulgarian(summary, summaryBG), id)
 
 				if answersItself {
 					if err := l.DB.AnswersItselfInQuietHours(id); err != nil {
@@ -1459,13 +1480,13 @@ func (l *Loop) RunBrief(
 				pending = append(pending, Pending{ID: id, Tool: tool.Name(), Summary: summary,
 					SummaryBG: summaryBG, AnswersItself: answersItself})
 
-				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary, SummaryBG: inBulgarian(summary, summaryBG),
 					Asked: askedFor(call.Arguments), Level: level}, call.Arguments, messages, model, choice.Why, DeedWaiting)
 
 				continue
 			}
 
-			l.usingTool(tool.Name(), summary)
+			l.usingTool(tool.Name(), summary, inBulgarian(summary, summaryBG))
 
 			/*
 			 * What it was actually asked to do, in its own words.
@@ -1490,12 +1511,13 @@ func (l *Loop) RunBrief(
 			output, evidence, err := tools.Perform(acting, tool, call.Arguments)
 
 			step := Step{
-				Tool:     tool.Name(),
-				Summary:  summary,
-				Asked:    askedFor(call.Arguments),
-				Millis:   time.Since(started).Milliseconds(),
-				Level:    level,
-				Evidence: evidence,
+				Tool:      tool.Name(),
+				Summary:   summary,
+				SummaryBG: inBulgarian(summary, summaryBG),
+				Asked:     askedFor(call.Arguments),
+				Millis:    time.Since(started).Milliseconds(),
+				Level:     level,
+				Evidence:  evidence,
 			}
 
 			if err != nil {
@@ -2520,15 +2542,15 @@ func (l *Loop) doing(kind, note string) {
 	}
 }
 
-func (l *Loop) waitingOn(note string, invocation int64) {
+func (l *Loop) waitingOn(note, bg string, invocation int64) {
 	if !l.Quietly {
-		progress.Waiting(note, invocation)
+		progress.WaitingIn(note, bg, invocation)
 	}
 }
 
-func (l *Loop) usingTool(name, note string) {
+func (l *Loop) usingTool(name, note, bg string) {
 	if !l.Quietly {
-		progress.SetTool(name, note)
+		progress.SetToolIn(name, note, bg)
 	}
 }
 

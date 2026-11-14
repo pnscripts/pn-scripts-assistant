@@ -1231,6 +1231,16 @@ var migrations = []string{
 	`
 	ALTER TABLE tool_invocations ADD COLUMN summary_bg TEXT NOT NULL DEFAULT '';
 	`,
+
+	/*
+	 * 35: the record of what was done says its line in Bulgarian too,
+	 * beside the English summary (sealed like it): the card the question
+	 * showed, or the tool's own words for a call that simply ran. Empty
+	 * for a record written before, which the page then shows as it was.
+	 */
+	`
+	ALTER TABLE deeds ADD COLUMN summary_bg TEXT NOT NULL DEFAULT '';
+	`,
 }
 
 /*

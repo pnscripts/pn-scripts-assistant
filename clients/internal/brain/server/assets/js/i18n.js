@@ -1949,6 +1949,7 @@
         'cc.step.building': ['building {1}', 'компилира {1}'],
         'cc.step.exporting': ['exporting {1}', 'експортира {1}'],
         'cc.step.workingIn': ['{1} is working in {2}', '{1} работи в {2}'],
+        'cc.step.isAnswering': ['{1} is answering', '{1} отговаря'],
 
         // The one-time recovery key notice.
         'vault.title': ['Your brain is now encrypted.', 'Мозъкът ви вече е шифрован.'],
@@ -4276,6 +4277,7 @@
         'the appointment, to your own calendar server': 'срещата, към вашия сървър за календар',
         'your mail server': 'вашия пощенски сървър',
         'an integration off this machine': 'интеграция извън компютъра',
+        'Claude (Anthropic), under your own sign-in or key': 'Claude (Anthropic), с вашия собствен вход или ключ',
     };
 
     // Each capability's name, for people rather than for the model.

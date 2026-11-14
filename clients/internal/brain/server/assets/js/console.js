@@ -137,9 +137,8 @@ function renderSteps(steps) {
 
         const name = document.createElement('span');
         name.className = 'step-what';
-        name.textContent = inBulgarian() && s.tool && window.pnToolName
-            ? window.pnToolName(s.tool)
-            : s.summary || s.tool || words('cc.didSomething');
+        name.textContent = (window.pnDidLine ? window.pnDidLine(s) : s.summary || s.tool)
+            || words('cc.didSomething');
         head.appendChild(name);
 
         // How long it took, beside what it was. The number is the difference
@@ -163,9 +162,10 @@ function renderSteps(steps) {
             t.textContent = s.tool;
             detail.appendChild(t);
 
-            // On a Bulgarian page the name above is the tool's; its own
-            // summary of what it did is kept here, as it came.
-            if (inBulgarian() && s.summary) {
+            // On a Bulgarian page the name above is the tool's own words in
+            // Bulgarian when the step carries them. When it does not, the
+            // name is the tool's, and its English summary is kept here.
+            if (inBulgarian() && s.summary && !s.summary_bg) {
                 const said = document.createElement('div');
                 said.className = 'step-tool';
                 said.textContent = s.summary;

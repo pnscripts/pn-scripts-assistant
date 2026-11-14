@@ -68,6 +68,12 @@ func fill(t *testing.T, d *DB, messages int) int64 {
 		t.Fatal(err)
 	}
 
+	// And the record of it, said in both languages like the question.
+	if _, err := d.AddDeed(Deed{ConversationID: conv, Tool: "read_file", Summary: "Read " + marker,
+		SummaryBG: "Прочитане на " + marker, Outcome: "waiting"}); err != nil {
+		t.Fatal(err)
+	}
+
 	return conv
 }
 
@@ -103,6 +109,11 @@ func checkReadsBack(t *testing.T, d *DB, conv int64, messages int) {
 
 	if one, err := d.Invocation(waiting[0].ID); err != nil || one.SummaryBG != "Прочитане на "+marker {
 		t.Fatalf("one question came back as %+v (%v)", one, err)
+	}
+
+	deeds, err := d.Deeds(DeedFilter{Conversation: conv})
+	if err != nil || len(deeds) != 1 || deeds[0].Summary != "Read "+marker || deeds[0].SummaryBG != "Прочитане на "+marker {
+		t.Fatalf("the record came back as %+v (%v)", deeds, err)
 	}
 
 	found, err := d.Search([]float32{0.25, 0.5, 0.75}, 5, 0.1)

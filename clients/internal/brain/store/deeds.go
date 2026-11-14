@@ -21,6 +21,9 @@ import (
  */
 
 // Deed is one call the assistant made, put to its owner, or refused.
+//
+// SummaryBG is the summary in Bulgarian, for a page in Bulgarian: the card
+// the approval showed, or the tool's own words. Empty when there is none.
 type Deed struct {
 	ID             int64     `json:"id"`
 	ConversationID int64     `json:"conversation_id,omitempty"`
@@ -28,6 +31,7 @@ type Deed struct {
 	TaskName       string    `json:"task_name,omitempty"`
 	Tool           string    `json:"tool"`
 	Summary        string    `json:"summary"`
+	SummaryBG      string    `json:"summary_bg,omitempty"`
 	Asked          string    `json:"asked,omitempty"`
 	Request        string    `json:"request,omitempty"`
 	Result         string    `json:"result,omitempty"`
@@ -64,11 +68,12 @@ func (d *DB) AddDeed(deed Deed) (int64, error) {
 	}
 
 	res, err := d.sql().Exec(`
-		INSERT INTO deeds (conversation_id, task_id, tool, summary, asked, request, result,
+		INSERT INTO deeds (conversation_id, task_id, tool, summary, summary_bg, asked, request, result,
 			specialist, model, model_why, outcome, level, changes, leaves, millis, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		nullID(deed.ConversationID), nullID(deed.TaskID), deed.Tool,
 		d.seal(redact.Text(truncate(deed.Summary, deedAskedLimit))),
+		d.seal(redact.Text(truncate(deed.SummaryBG, deedAskedLimit))),
 		d.seal(redact.Text(truncate(deed.Asked, deedAskedLimit))),
 		d.seal(redact.Text(truncate(deed.Request, deedRequestLimit))),
 		d.seal(redact.Text(truncate(deed.Result, deedResultLimit))),
@@ -166,7 +171,7 @@ func (d *DB) Deeds(f DeedFilter) ([]Deed, error) {
 
 	rows, err := d.sql().Query(`
 		SELECT d.id, COALESCE(d.conversation_id, 0), COALESCE(t.id, d.task_id, 0), COALESCE(t.name, ''),
-			d.tool, d.summary, d.asked, d.request, d.result, d.specialist, d.model, d.model_why,
+			d.tool, d.summary, d.summary_bg, d.asked, d.request, d.result, d.specialist, d.model, d.model_why,
 			d.outcome, d.level, d.changes, d.leaves, d.millis, d.created_at
 		FROM deeds d
 		LEFT JOIN tasks t ON t.work_conversation_id = d.conversation_id AND d.conversation_id IS NOT NULL
@@ -185,7 +190,7 @@ func (d *DB) Deeds(f DeedFilter) ([]Deed, error) {
 		var created string
 
 		if err := rows.Scan(&deed.ID, &deed.ConversationID, &deed.TaskID, &deed.TaskName,
-			&deed.Tool, &deed.Summary, &deed.Asked, &deed.Request, &deed.Result,
+			&deed.Tool, &deed.Summary, &deed.SummaryBG, &deed.Asked, &deed.Request, &deed.Result,
 			&deed.Specialist, &deed.Model, &deed.ModelWhy, &deed.Outcome, &deed.Level,
 			&changes, &deed.Leaves, &deed.Millis, &created); err != nil {
 			return nil, err

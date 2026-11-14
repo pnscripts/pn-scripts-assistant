@@ -51,7 +51,7 @@ var sealedColumns = []struct {
 	{"evidence", []string{"subject", "detail"}, nil},
 	{"activity", []string{"said", "data"}, nil},
 	{"message_sources", []string{"sources"}, nil},
-	{"deeds", []string{"summary", "asked", "request", "result", "leaves"}, nil},
+	{"deeds", []string{"summary", "asked", "request", "result", "leaves", "summary_bg"}, nil},
 	{"mail_drafts", []string{"to_addr", "subject", "body", "answers", "warning", "note"}, nil},
 	{"todos", []string{"list", "text"}, nil},
 	{"study_topics", []string{"topic", "lesson"}, nil},

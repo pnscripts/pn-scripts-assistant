@@ -54,6 +54,16 @@ type Step struct {
 	Tool string `json:"tool"`
 
 	/*
+	 * SummaryBG is the tool's own words in Bulgarian, when the step is a
+	 * tool running or a question waiting: the same card the approval shows
+	 * on a Bulgarian page. The note stays English, for the log, the tests
+	 * and an English page; of a question this is the card alone, without
+	 * "Waiting for you: ", which the page says in its language. Empty for
+	 * every other step, and for a tool with no Bulgarian card.
+	 */
+	SummaryBG string `json:"summary_bg"`
+
+	/*
 	 * SoFar is the answer as it is being written.
 	 *
 	 * The reply used to reach the page in one piece at the end, so a turn
@@ -107,6 +117,7 @@ var current struct {
 	kind       string
 	note       string
 	tool       string
+	summaryBG  string
 	soFar      string
 	round      int
 	background bool
@@ -131,6 +142,7 @@ func Begin() {
 	current.busy = true
 	current.kind = "thinking"
 	current.note = "Thinking"
+	current.summaryBG = ""
 	current.round = 0
 	current.background = false
 	current.model = ""
@@ -159,6 +171,7 @@ func Set(kind, note string) {
 	current.kind = kind
 	current.note = note
 	current.tool = ""
+	current.summaryBG = ""
 	current.background = false
 
 	model := current.model
@@ -191,6 +204,7 @@ func Progressing(kind, note string) {
 	current.kind = kind
 	current.note = note
 	current.tool = ""
+	current.summaryBG = ""
 	current.background = false
 
 	current.mu.Unlock()
@@ -201,6 +215,12 @@ func Progressing(kind, note string) {
 // SetTool reports a named tool starting, so that what is listening for it can
 // match on the name rather than guessing from the summary.
 func SetTool(name, note string) {
+	SetToolIn(name, note, "")
+}
+
+// SetToolIn is SetTool with the tool's card in Bulgarian beside the note,
+// for a page in Bulgarian (see Step.SummaryBG).
+func SetToolIn(name, note, bg string) {
 	current.mu.Lock()
 
 	if !current.busy {
@@ -211,11 +231,12 @@ func SetTool(name, note string) {
 	current.kind = "tool"
 	current.note = note
 	current.tool = name
+	current.summaryBG = bg
 	current.background = false
 	model := current.model
 	current.mu.Unlock()
 
-	remember("tool", note, name, model, false)
+	rememberAs(Entry{Kind: "tool", Note: note, Tool: name, SummaryBG: bg, Model: model})
 }
 
 /*
@@ -244,6 +265,7 @@ func setBackgroundLocked(kind, note string) (model string) {
 	current.kind = kind
 	current.note = note
 	current.tool = ""
+	current.summaryBG = ""
 	current.background = true
 
 	return current.model
@@ -271,6 +293,7 @@ func clearLocked() {
 	current.kind = ""
 	current.note = ""
 	current.tool = ""
+	current.summaryBG = ""
 	current.soFar = ""
 }
 
@@ -355,6 +378,7 @@ func Now() Step {
 		Kind:       current.kind,
 		Note:       current.note,
 		Tool:       current.tool,
+		SummaryBG:  current.summaryBG,
 		SoFar:      current.soFar,
 		Seconds:    time.Since(current.started).Seconds(),
 		Round:      current.round,

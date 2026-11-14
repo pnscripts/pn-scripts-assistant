@@ -107,6 +107,8 @@ func TestEveryStepLineHasItsBulgarian(t *testing.T) {
 		{"exporting tetris", "tools/godot.go", `"exporting "`},
 		{"running tetris", "tools/godot.go", `"running "`},
 		{"Claude Code is working in /home/you/tetris", "brain/codingagents.go", `" is working in "`},
+		{"Claude Code is answering", "brain/askclaude.go", `progress.Detail("Claude Code is answering")`},
+		{"Claude is answering", "brain/askclaude.go", `progress.Detail("Claude is answering")`},
 	}
 
 	for _, l := range lines {
