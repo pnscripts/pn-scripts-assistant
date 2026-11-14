@@ -73,9 +73,29 @@ func windowLength(window string) time.Duration {
 }
 
 // Say is the pace in a sentence, or empty when it is not known.
-func (p Pace) Say() string {
+func (p Pace) Say() string { return p.SayIn("en") }
+
+// SayIn is the pace in a sentence in a language ("en" or "bg").
+func (p Pace) SayIn(lang string) string {
 	if !p.Known {
 		return ""
+	}
+
+	if lang == "bg" {
+		window := fmt.Sprintf("%.0f ч.", p.Window.Hours())
+		if days := p.Window.Hours() / 24; p.Window >= 24*time.Hour && fmt.Sprintf("%.0f", days) == "1" {
+			window = "1 ден"
+		} else if p.Window >= 24*time.Hour {
+			window = fmt.Sprintf("%.0f дни", days)
+		}
+
+		s := fmt.Sprintf("изразходвани %.0f %% от лимита при изминали %.0f %% от периода му (%s)", p.Used, p.Elapsed, window)
+
+		if p.Ahead {
+			s += "; по-бързо от темпото: с тази скорост ще свърши, преди да се поднови"
+		}
+
+		return s
 	}
 
 	window := fmt.Sprintf("%.0f-hour", p.Window.Hours())

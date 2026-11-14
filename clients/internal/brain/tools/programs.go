@@ -70,16 +70,18 @@ type listProgramsArgs struct {
 	Removed bool   `json:"removed"`
 }
 
-func (ListPrograms) Summarize(raw json.RawMessage) string {
+func (x ListPrograms) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ListPrograms) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a listProgramsArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if strings.TrimSpace(a.Name) != "" {
-		return fmt.Sprintf("Look for %q among the programs on this computer", strings.TrimSpace(a.Name))
+		return fmt.Sprintf(Say(lang, "Look for %q among the programs on this computer", "Търсене на %q сред програмите на този компютър"), strings.TrimSpace(a.Name))
 	}
 
-	return "List the programs on this computer"
+	return Say(lang, "List the programs on this computer", "Списък на програмите на този компютър")
 }
 
 // mostListed is how many programs one answer names; the rest are counted.

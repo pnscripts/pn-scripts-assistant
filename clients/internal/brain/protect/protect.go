@@ -133,6 +133,9 @@ var BuiltIn = []Rule{
 	},
 }
 
+// yoursWhy starts the reason of a rule its owner added.
+const yoursWhy = "You asked to be told before anything here is opened: "
+
 // Choices is what a person decided, and what the brain has learned from them.
 type Choices struct {
 	// Off names built-in rules deliberately switched off — things it should
@@ -334,7 +337,7 @@ func Ask(path string) (Rule, bool) {
 			return Rule{
 				ID:   "yours",
 				What: "Something you added",
-				Why:  "You asked to be told before anything here is opened: " + extra,
+				Why:  yoursWhy + extra,
 			}, true
 		}
 	}

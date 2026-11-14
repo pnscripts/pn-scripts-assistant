@@ -70,12 +70,14 @@ func (Remind) Parameters() json.RawMessage {
 
 func (Remind) Risk() Risk { return Safe }
 
-func (Remind) Summarize(raw json.RawMessage) string {
+func (x Remind) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Remind) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a remindArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Remind you %q %s", a.What, a.When)
+	return fmt.Sprintf(Say(lang, "Remind you %q %s", "Напомняне %q, %s"), a.What, a.When)
 }
 
 type remindArgs struct {
@@ -133,7 +135,11 @@ func (ListReminders) Parameters() json.RawMessage {
 
 func (ListReminders) Risk() Risk { return Safe }
 
-func (ListReminders) Summarize(json.RawMessage) string { return "List your reminders" }
+func (x ListReminders) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListReminders) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List your reminders", "Списък на напомнянията ви")
+}
 
 func (t ListReminders) Execute(context.Context, json.RawMessage) (string, error) {
 	if t.Diary == nil {
@@ -177,14 +183,16 @@ func (ForgetReminder) Parameters() json.RawMessage {
 
 func (ForgetReminder) Risk() Risk { return Safe }
 
-func (ForgetReminder) Summarize(raw json.RawMessage) string {
+func (x ForgetReminder) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ForgetReminder) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		ID int64 `json:"id"`
 	}
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Cancel reminder %d", a.ID)
+	return fmt.Sprintf(Say(lang, "Cancel reminder %d", "Отменяне на напомняне %d"), a.ID)
 }
 
 func (t ForgetReminder) Execute(_ context.Context, raw json.RawMessage) (string, error) {

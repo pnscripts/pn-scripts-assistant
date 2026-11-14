@@ -27,7 +27,7 @@ type Hiring interface {
 	ProposeHire(ctx context.Context, request, permanence, goal string) (HireOffer, error)
 
 	// ShowHire is the proposal as it would be carried out, for the approval.
-	ShowHire(id int64, permanence, goal string) (string, bool)
+	ShowHire(id int64, permanence, goal, lang string) (string, bool)
 
 	ConfirmHire(ctx context.Context, id int64, permanence, goal string) (string, error)
 }
@@ -70,14 +70,16 @@ func (HireAgent) Parameters() json.RawMessage {
 
 func (HireAgent) Risk() Risk { return Safe }
 
-func (HireAgent) Summarize(args json.RawMessage) string {
+func (x HireAgent) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (HireAgent) SummarizeIn(args json.RawMessage, lang string) string {
 	var a struct {
 		Request string `json:"request"`
 	}
 
 	json.Unmarshal(args, &a)
 
-	return "Work out who to hire: " + a.Request
+	return Say(lang, "Work out who to hire: ", "Подбор на специалист: ") + a.Request
 }
 
 func (t HireAgent) Execute(ctx context.Context, args json.RawMessage) (string, error) {
@@ -196,18 +198,32 @@ func (ConfirmHire) Consent(args json.RawMessage) string {
 
 // Summarize is the whole proposal, as it will be carried out — not a line
 // about it. What is approved is what was read.
-func (t ConfirmHire) Summarize(args json.RawMessage) string {
+func (t ConfirmHire) Summarize(args json.RawMessage) string { return t.SummarizeIn(args, "en") }
+
+func (t ConfirmHire) SummarizeIn(args json.RawMessage, lang string) string {
 	var a confirmArgs
 
 	argsOf(args, &a)
 
 	if t.Hiring != nil {
-		if shown, ok := t.Hiring.ShowHire(a.Proposal, a.Permanence, a.Goal); ok {
+		if shown, ok := t.Hiring.ShowHire(a.Proposal, a.Permanence, a.Goal, lang); ok {
 			return shown
 		}
 	}
 
-	return fmt.Sprintf("Make hire %d (%s)", a.Proposal, a.Permanence)
+	return fmt.Sprintf(Say(lang, "Make hire %d (%s)", "Наемане по предложение %d (%s)"), a.Proposal, permanenceIn(a.Permanence, lang))
+}
+
+// permanenceIn is how long a hire is for, in the card's language.
+func permanenceIn(permanence, lang string) string {
+	switch permanence {
+	case "permanent":
+		return Say(lang, "permanent", "за постоянно")
+	case "task":
+		return Say(lang, "task", "за една задача")
+	}
+
+	return permanence
 }
 
 func (t ConfirmHire) Execute(ctx context.Context, args json.RawMessage) (string, error) {

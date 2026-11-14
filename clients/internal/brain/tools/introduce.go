@@ -75,7 +75,11 @@ func (Introduce) Parameters() json.RawMessage {
 // Safe: it describes itself and changes nothing.
 func (Introduce) Risk() Risk { return Safe }
 
-func (Introduce) Summarize(json.RawMessage) string { return "Say what it can do" }
+func (x Introduce) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (Introduce) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Say what it can do", "Представяне на това, което може")
+}
 
 /*
  * groups are the headings the tools are sorted under.

@@ -276,6 +276,9 @@ type Pending struct {
 	Tool    string `json:"tool"`
 	Summary string `json:"summary"`
 
+	// SummaryBG is the same card in Bulgarian (see tools.CardSaying).
+	SummaryBG string `json:"summary_bg,omitempty"`
+
 	// AnswersItself is a question held for the quiet hours and nothing
 	// else: it starts by itself when they open, unless answered first.
 	AnswersItself bool `json:"answers_itself,omitempty"`
@@ -1020,16 +1023,26 @@ func (l *Loop) RunBrief(
 			 * (package polish), so the rules are judged on — and the person
 			 * asked reads — the text as it will actually go.
 			 */
-			polished := ""
+			polished, polishedBG := "", ""
 
 			if p, ok := tool.(tools.Polishing); ok {
 				var result polish.Result
 
 				call.Arguments, result = p.Polish(call.Arguments)
 				polished = tools.PolishNote(result)
+				polishedBG = tools.PolishNoteIn(result, "bg")
 			}
 
 			summary := tool.Summarize(call.Arguments)
+
+			/*
+			 * The same card in Bulgarian, built beside the English one at
+			 * every step below, for a page in Bulgarian. What it is about
+			 * (the path, the command, the message) is the same in both;
+			 * the English one is what the model, the deeds and the rules
+			 * read. See tools.CardSaying.
+			 */
+			summaryBG := tools.SummaryIn(tool, call.Arguments, "bg")
 
 			/*
 			 * A safe tool reaching for something protected stops and asks.
@@ -1053,6 +1066,7 @@ func (l *Loop) RunBrief(
 
 			if ask && tool.Risk() != tools.Mutating {
 				summary = protect.Explain(summary, held, rule)
+				summaryBG = protect.ExplainIn(summaryBG, held, rule, "bg")
 			}
 
 			/*
@@ -1254,6 +1268,7 @@ func (l *Loop) RunBrief(
 
 			if ruling.Program != nil {
 				summary = programName(*ruling.Program) + ": " + summary
+				summaryBG = programName(*ruling.Program) + ": " + summaryBG
 			}
 
 			if ruling.Answer == programs.Always {
@@ -1262,6 +1277,7 @@ func (l *Loop) RunBrief(
 
 			if ruling.Why == programs.WhyUpdated {
 				summary = ruling.Said + "\n" + summary
+				summaryBG = orElse(ruling.SaidBG, ruling.Said) + "\n" + summaryBG
 			}
 
 			if ask && (free || (l.NothingAsks != nil && l.NothingAsks())) {
@@ -1288,7 +1304,8 @@ func (l *Loop) RunBrief(
 			if why := tools.ConsentFor(tool, call.Arguments); why != "" && !free {
 				ask = true
 				askedForMore = true
-				summary = "Always asked (" + why + "): " + summary
+				summary = alwaysAsked(why) + summary
+				summaryBG = alwaysAskedBG(why) + summaryBG
 			}
 
 			/*
@@ -1299,7 +1316,8 @@ func (l *Loop) RunBrief(
 			 */
 			if bound && use.Verb == programs.VerbInput && ruling.Answer != programs.Always && !free {
 				ask = true
-				summary = "Always asked (typing and clicking in another program): " + summary
+				summary = alwaysAsked(tools.TypingInAnotherProgram) + summary
+				summaryBG = alwaysAskedBG(tools.TypingInAnotherProgram) + summaryBG
 			}
 
 			/*
@@ -1319,7 +1337,8 @@ func (l *Loop) RunBrief(
 					ask = true
 					askedForMore = true
 					answer = permits.Ask
-					summary = "Always asked (" + why + "): " + summary
+					summary = alwaysAsked(why) + summary
+					summaryBG = alwaysAskedBG(why) + summaryBG
 				} else if protected && !free && (l.NothingAsks == nil || !l.NothingAsks()) {
 					/*
 					 * Something protected — keys, passwords, the vault — is
@@ -1373,7 +1392,8 @@ func (l *Loop) RunBrief(
 					ask = true
 					askedForMore = true
 					answer = permits.Ask
-					summary = "Always asked (" + why + "): " + summary
+					summary = alwaysAsked(why) + summary
+					summaryBG = alwaysAskedBG(why) + summaryBG
 				}
 			}
 
@@ -1385,31 +1405,35 @@ func (l *Loop) RunBrief(
 
 					if answersItself {
 						summary += "\n" + quiethours.StartsItself
+						summaryBG += "\n" + quiethours.StartsItselfBG
 					} else {
 						summary += "\n" + quiethours.WaitsForYou
+						summaryBG += "\n" + quiethours.WaitsForYouBG
 					}
 				}
 			}
 
 			if lines := RuleLines(verdict.Ask, verdict.Remind) + polished; lines != "" && (ask || answer == permits.Ask) {
 				summary = lines + "\n" + summary
+				summaryBG = RuleLinesIn(verdict.Ask, verdict.Remind, "bg") + polishedBG + "\n" + summaryBG
 			}
 
-			asked := summary
+			asked, askedBG := summary, summaryBG
 
 			if level.AtLeast(risk.High) {
 				asked = level.Title() + " risk: " + summary
+				askedBG = riskTitleBG(level) + summaryBG
 			}
 
 			if answer == permits.Ask || ask {
-				summary = asked
+				summary, summaryBG = asked, askedBG
 
 				// What runs after the yes must be what the question showed.
 				if p, ok := tool.(tools.Pinning); ok {
 					call.Arguments = p.Pin(call.Arguments)
 				}
 
-				id, err := l.DB.RecordInvocation(conversationID, tool.Name(), string(call.Arguments), summary, string(tools.Mutating))
+				id, err := l.DB.RecordInvocationIn(conversationID, tool.Name(), string(call.Arguments), summary, summaryBG, string(tools.Mutating))
 				if err != nil {
 					return Result{}, err
 				}
@@ -1433,7 +1457,7 @@ func (l *Loop) RunBrief(
 				}
 
 				pending = append(pending, Pending{ID: id, Tool: tool.Name(), Summary: summary,
-					AnswersItself: answersItself})
+					SummaryBG: summaryBG, AnswersItself: answersItself})
 
 				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
 					Asked: askedFor(call.Arguments), Level: level}, call.Arguments, messages, model, choice.Why, DeedWaiting)
@@ -1528,7 +1552,7 @@ func (l *Loop) RunBrief(
 		}
 
 		if len(pending) > 0 {
-			return l.awaitApproval(conversationID, resp, pending, actions, steps), nil
+			return l.awaitApproval(conversationID, resp, pending, actions, steps, askedInBulgarian(messages)), nil
 		}
 	}
 
@@ -1550,7 +1574,10 @@ func (l *Loop) EverythingAllowed() bool { return l != nil && l.Unbounded != nil 
 const askFirst = "ask_first"
 
 // awaitApproval ends the turn with the actions queued and nothing done.
-func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []Pending, actions []string, steps []Step) Result {
+//
+// Said in Bulgarian, with the Bulgarian cards, when the person asked in
+// Bulgarian: the note stays in the conversation they are reading.
+func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []Pending, actions []string, steps []Step, bg bool) Result {
 	var b strings.Builder
 
 	if text := presentable(resp.Content); text != "" {
@@ -1558,14 +1585,24 @@ func (l *Loop) awaitApproval(conversationID int64, resp llm.Response, pending []
 		b.WriteString("\n\n")
 	}
 
-	if len(pending) == 1 {
+	switch {
+	case bg && len(pending) == 1:
+		b.WriteString("Това изисква вашето одобрение, преди да го направя:\n")
+	case bg:
+		b.WriteString("Тези действия изискват вашето одобрение, преди да ги направя:\n")
+	case len(pending) == 1:
 		b.WriteString("This needs your approval before I can do it:\n")
-	} else {
+	default:
 		b.WriteString("These need your approval before I can do them:\n")
 	}
 
 	for _, p := range pending {
-		b.WriteString("  • " + p.Summary + "\n")
+		card := p.Summary
+		if bg && p.SummaryBG != "" {
+			card = p.SummaryBG
+		}
+
+		b.WriteString("  • " + card + "\n")
 	}
 
 	reply := strings.TrimSpace(b.String())
@@ -2677,4 +2714,37 @@ func programName(r programs.Record) string {
 	}
 
 	return r.ID
+}
+
+// alwaysAsked starts a card that is asked whatever the settings say.
+func alwaysAsked(why string) string { return "Always asked (" + why + "): " }
+
+// alwaysAskedBG is alwaysAsked on a Bulgarian card.
+func alwaysAskedBG(why string) string {
+	return "Винаги се пита (" + tools.ReasonIn(why, "bg") + "): "
+}
+
+// riskTitleBG starts a high or critical card in Bulgarian.
+func riskTitleBG(level risk.Level) string {
+	switch level {
+	case risk.Critical:
+		return "Критичен риск: "
+	case risk.High:
+		return "Висок риск: "
+	case risk.Medium:
+		return "Среден риск: "
+	}
+
+	return "Нисък риск: "
+}
+
+// askedInBulgarian is whether the person's last message is in Bulgarian.
+func askedInBulgarian(messages []llm.Message) bool {
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == llm.RoleUser {
+			return tools.SaysBulgarian(messages[i].Content)
+		}
+	}
+
+	return false
 }

@@ -160,37 +160,30 @@ func (s *Server) handleConnectProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	switch strings.TrimSpace(strings.ToLower(body.Provider)) {
+	/*
+	 * Typed here: the key is saved whatever the environment holds, and it is
+	 * the one the providers are rebuilt from (the named field and the list by
+	 * company together, see config.TypeSecret). An Anthropic key typed here
+	 * is also the one "ask Claude" may use.
+	 */
+	provider := strings.TrimSpace(strings.ToLower(body.Provider))
+
+	switch provider {
 	case "ollama":
 		set(&cfg.OllamaURL, body.URL)
 		set(&cfg.OllamaModel, body.Model)
 
-	case "anthropic":
-		// Typed here: the provider's key, and the one "ask Claude" may use.
+	case "anthropic", "openai", "openrouter":
 		if body.Key != nil {
-			cfg.TypeAnthropicKey(*body.Key)
+			cfg.TypeSecret(llm.KeySetting(provider), strings.TrimSpace(*body.Key))
 		}
 
-		set(&cfg.AnthropicModel, body.Model)
-
-		if body.Forget {
-			cfg.TypeAnthropicKey("")
+		if body.Model != nil {
+			cfg.ChooseModel(provider, strings.TrimSpace(*body.Model))
 		}
 
-	case "openai":
-		set(&cfg.OpenAIKey, body.Key)
-		set(&cfg.OpenAIModel, body.Model)
-
 		if body.Forget {
-			cfg.OpenAIKey = ""
-		}
-
-	case "openrouter":
-		set(&cfg.OpenRouterKey, body.Key)
-		set(&cfg.OpenRouterModel, body.Model)
-
-		if body.Forget {
-			cfg.OpenRouterKey = ""
+			cfg.TypeSecret(llm.KeySetting(provider), "")
 		}
 
 	default:

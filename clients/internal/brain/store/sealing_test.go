@@ -63,7 +63,8 @@ func fill(t *testing.T, d *DB, messages int) int64 {
 		t.Fatal(err)
 	}
 
-	if _, err := d.RecordInvocation(conv, "read_file", `{"path":"/home/x/`+marker+`"}`, "Read "+marker, "safe"); err != nil {
+	if _, err := d.RecordInvocationIn(conv, "read_file", `{"path":"/home/x/`+marker+`"}`, "Read "+marker,
+		"Прочитане на "+marker, "safe"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -92,6 +93,16 @@ func checkReadsBack(t *testing.T, d *DB, conv int64, messages int) {
 
 	if user != messages {
 		t.Fatalf("%d messages came back, want %d", user, messages)
+	}
+
+	// The waiting question's card, in both languages.
+	waiting, err := d.PendingInvocations()
+	if err != nil || len(waiting) != 1 || waiting[0].Summary != "Read "+marker || waiting[0].SummaryBG != "Прочитане на "+marker {
+		t.Fatalf("the waiting question came back as %+v (%v)", waiting, err)
+	}
+
+	if one, err := d.Invocation(waiting[0].ID); err != nil || one.SummaryBG != "Прочитане на "+marker {
+		t.Fatalf("one question came back as %+v (%v)", one, err)
 	}
 
 	found, err := d.Search([]float32{0.25, 0.5, 0.75}, 5, 0.1)

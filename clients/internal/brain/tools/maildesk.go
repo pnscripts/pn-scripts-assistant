@@ -271,7 +271,11 @@ func (MailDigest) Parameters() json.RawMessage {
 	}`)
 }
 
-func (MailDigest) Summarize(json.RawMessage) string { return "Sum up new mail" }
+func (x MailDigest) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (MailDigest) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Sum up new mail", "Обобщение на новата поща")
+}
 
 func (t MailDigest) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
 	var a struct {
@@ -399,12 +403,14 @@ type draftArgs struct {
 	Polished string `json:"polished,omitempty"`
 }
 
-func (DraftReply) Summarize(raw json.RawMessage) string {
+func (x DraftReply) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (DraftReply) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a draftArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Keep a draft to %s (not sent)\n\n%s", strings.TrimSpace(a.To+" "+a.Answers), first(a.Body, 400))
+	return fmt.Sprintf(Say(lang, "Keep a draft to %s (not sent)\n\n%s", "Запазване на чернова до %s (не се изпраща)\n\n%s"), strings.TrimSpace(a.To+" "+a.Answers), first(a.Body, 400))
 }
 
 func (t DraftReply) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -523,18 +529,20 @@ func (SendDraft) Parameters() json.RawMessage {
 
 // Summarize shows the whole draft as it will go: the approval is for these
 // words to this person, not for "a reply to Anna".
-func (t SendDraft) Summarize(raw json.RawMessage) string {
+func (t SendDraft) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t SendDraft) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a draftArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if t.Desk.Drafts == nil {
-		return fmt.Sprintf("Send draft %d", a.ID)
+		return fmt.Sprintf(Say(lang, "Send draft %d", "Изпращане на чернова %d"), a.ID)
 	}
 
 	dr, err := t.Desk.Drafts.Draft(a.ID)
 	if err != nil {
-		return fmt.Sprintf("Send draft %d (it could not be read: %v)", a.ID, err)
+		return fmt.Sprintf(Say(lang, "Send draft %d (it could not be read: %v)", "Изпращане на чернова %d (тя не можа да бъде прочетена: %v)"), a.ID, err)
 	}
 
 	body := dr.Body
@@ -542,10 +550,11 @@ func (t SendDraft) Summarize(raw json.RawMessage) string {
 		body = a.Polished
 	}
 
-	head := fmt.Sprintf("Send to %s\nSubject: %s\n\n%s", dr.To, dr.Subject, body)
+	head := fmt.Sprintf(Say(lang, "Send to %s\nSubject: %s\n\n%s", "Изпращане до %s\nТема: %s\n\n%s"), dr.To, dr.Subject, body)
 
 	if dr.Warning != "" {
-		head = "WARNING about the message this answers: " + dr.Warning + "\n\n" + head
+		head = Say(lang, "WARNING about the message this answers: ", "ПРЕДУПРЕЖДЕНИЕ за съобщението, на което се отговаря: ") +
+			dr.Warning + "\n\n" + head
 	}
 
 	return head

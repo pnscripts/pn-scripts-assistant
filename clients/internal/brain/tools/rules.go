@@ -70,17 +70,19 @@ type ruleArgs struct {
 }
 
 // Summarize is the rule as it will be kept, and what it was made from.
-func (KeepARule) Summarize(raw json.RawMessage) string {
+func (x KeepARule) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (KeepARule) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a ruleArgs
 
 	if json.Unmarshal(raw, &a) != nil || strings.TrimSpace(a.Rule) == "" {
-		return "Keep a rule"
+		return Say(lang, "Keep a rule", "Запазване на правило")
 	}
 
-	out := "Keep as your rule: " + rules.Clean(a.Rule)
+	out := Say(lang, "Keep as your rule: ", "Запазване като ваше правило: ") + rules.Clean(a.Rule)
 
 	if said := strings.TrimSpace(a.Said); said != "" {
-		out += "\nFrom what you said: " + said
+		out += Say(lang, "\nFrom what you said: ", "\nОт казаното от вас: ") + said
 	}
 
 	return out
@@ -121,7 +123,11 @@ func (MyRules) Risk() Risk { return Safe }
 
 func (MyRules) Cues() []string { return []string{"rule", "rules", "правило", "правила"} }
 
-func (MyRules) Summarize(json.RawMessage) string { return "List your rules" }
+func (x MyRules) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (MyRules) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List your rules", "Списък на правилата ви")
+}
 
 func (t MyRules) Execute(context.Context, json.RawMessage) (string, error) {
 	texts := t.Brain.RuleTexts()

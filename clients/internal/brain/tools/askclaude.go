@@ -41,6 +41,10 @@ const (
 type ClaudeWay struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+
+	// TitleBG is the same in Bulgarian, for the approval card.
+	TitleBG string `json:"title_bg,omitempty"`
+
 	Ready bool   `json:"ready"`
 	Why   string `json:"why,omitempty"`
 }
@@ -319,21 +323,26 @@ func (t AskClaude) Pin(raw json.RawMessage) json.RawMessage {
 }
 
 // Summarize is the question as its person reads it.
-func (t AskClaude) Summarize(raw json.RawMessage) string {
+func (t AskClaude) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t AskClaude) SummarizeIn(raw json.RawMessage, lang string) string {
 	a, way, docs, err := t.prepared(raw)
 	if err != nil {
-		return "Ask Claude: " + strings.TrimSpace(a.Question) + "\n(This cannot be sent: " + err.Error() + ")"
+		return Say(lang, "Ask Claude: ", "Въпрос към Claude: ") + strings.TrimSpace(a.Question) +
+			Say(lang, "\n(This cannot be sent: ", "\n(Това не може да бъде изпратено: ") + err.Error() + ")"
 	}
 
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "Ask Claude through %s (it gets no tools and nothing else on this computer):\n%s\n",
-		way.Title, strings.TrimSpace(a.Question))
+	fmt.Fprintf(&b, Say(lang, "Ask Claude through %s (it gets no tools and nothing else on this computer):\n%s\n",
+		"Въпрос към Claude чрез %s (не получава инструменти и нищо друго от този компютър):\n%s\n"),
+		wayTitleIn(way, lang), strings.TrimSpace(a.Question))
 
 	if len(docs) == 0 {
-		b.WriteString("\nNo files: only the question is sent. Nothing else goes with it.")
+		b.WriteString(Say(lang, "\nNo files: only the question is sent. Nothing else goes with it.",
+			"\nБез файлове: изпраща се само въпросът. Нищо друго не се изпраща с него."))
 
-		return b.String() + savedAs(a.SaveAs)
+		return b.String() + savedAsIn(a.SaveAs, lang)
 	}
 
 	total := 0
@@ -341,23 +350,54 @@ func (t AskClaude) Summarize(raw json.RawMessage) string {
 		total += d.Size
 	}
 
-	fmt.Fprintf(&b, "\nFiles it is given, whole (%d, %s):", len(docs), askclaude.Size(total))
+	fmt.Fprintf(&b, Say(lang, "\nFiles it is given, whole (%d, %s):", "\nФайлове, които получава изцяло (%d, %s):"),
+		len(docs), sizeIn(total, lang))
 
 	for _, d := range docs {
-		fmt.Fprintf(&b, "\n- %s (%s)", d.Path, askclaude.Size(d.Size))
+		fmt.Fprintf(&b, "\n- %s (%s)", d.Path, sizeIn(d.Size, lang))
 	}
 
-	b.WriteString("\nNothing else goes with it.")
+	b.WriteString(Say(lang, "\nNothing else goes with it.", "\nНищо друго не се изпраща с тях."))
 
-	return b.String() + savedAs(a.SaveAs)
+	return b.String() + savedAsIn(a.SaveAs, lang)
 }
 
-func savedAs(path string) string {
+// wayTitleIn is how Claude is reached, in the card's language.
+func wayTitleIn(way ClaudeWay, lang string) string {
+	if lang == "bg" && way.TitleBG != "" {
+		return way.TitleBG
+	}
+
+	return way.Title
+}
+
+// savedAsIn is the card's line about saving the answer, in a language.
+func savedAsIn(path, lang string) string {
 	if path == "" {
 		return ""
 	}
 
-	return "\n\nThen saves Claude's answer as a new file: " + path + " (nothing is there now; nothing is overwritten)."
+	return Say(lang, "\n\nThen saves Claude's answer as a new file: ", "\n\nСлед това записва отговора на Claude като нов файл: ") +
+		path + Say(lang, " (nothing is there now; nothing is overwritten).", " (там сега няма нищо; нищо не се презаписва).")
+}
+
+// sizeIn is a size as the card says it: askclaude.Size in English, with a
+// decimal comma in Bulgarian.
+func sizeIn(n int, lang string) string {
+	if lang != "bg" {
+		return askclaude.Size(n)
+	}
+
+	switch {
+	case n == 1:
+		return Say(lang, "1 byte", "1 байт")
+	case n < 1024:
+		return fmt.Sprintf(Say(lang, "%d bytes", "%d байта"), n)
+	case n < 1<<20:
+		return strings.Replace(fmt.Sprintf("%.1f", float64(n)/1024), ".", ",", 1) + Say(lang, " KB", " КБ")
+	default:
+		return strings.Replace(fmt.Sprintf("%.1f", float64(n)/(1<<20)), ".", ",", 1) + Say(lang, " MB", " МБ")
+	}
 }
 
 func (t AskClaude) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

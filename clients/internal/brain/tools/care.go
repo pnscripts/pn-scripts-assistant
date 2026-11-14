@@ -253,12 +253,14 @@ type customerArgs struct {
 	Language string `json:"language"`
 }
 
-func (CustomerReply) Summarize(raw json.RawMessage) string {
+func (x CustomerReply) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (CustomerReply) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a customerArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Write a reply to a customer: " + shortText(a.Message, 60)
+	return Say(lang, "Write a reply to a customer: ", "Писане на отговор до клиент: ") + shortText(a.Message, 60)
 }
 
 func shortText(s string, n int) string {
@@ -351,7 +353,11 @@ func (BusinessAnswers) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type": "object", "properties": {"query": {"type": "string", "description": "Words to look for"}}}`)
 }
 
-func (BusinessAnswers) Summarize(json.RawMessage) string { return "The business's answer book" }
+func (x BusinessAnswers) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (BusinessAnswers) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "The business's answer book", "Книгата с отговори на фирмата")
+}
 
 func (t BusinessAnswers) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
 	var a struct {
@@ -441,19 +447,21 @@ type careChangeArgs struct {
 	Answer   string `json:"answer"`
 }
 
-func (ChangeBusinessAnswers) Summarize(raw json.RawMessage) string {
+func (x ChangeBusinessAnswers) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ChangeBusinessAnswers) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a careChangeArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	switch a.Action {
 	case "remove":
-		return fmt.Sprintf("Remove answer %d from the answer book", a.ID)
+		return fmt.Sprintf(Say(lang, "Remove answer %d from the answer book", "Премахване на отговор %d от книгата с отговори"), a.ID)
 	case "change":
-		return fmt.Sprintf("Change answer %d in the answer book", a.ID)
+		return fmt.Sprintf(Say(lang, "Change answer %d in the answer book", "Промяна на отговор %d в книгата с отговори"), a.ID)
 	}
 
-	return "Add to the answer book: " + shortText(a.Question, 60)
+	return Say(lang, "Add to the answer book: ", "Добавяне в книгата с отговори: ") + shortText(a.Question, 60)
 }
 
 func (t ChangeBusinessAnswers) Execute(_ context.Context, raw json.RawMessage) (string, error) {

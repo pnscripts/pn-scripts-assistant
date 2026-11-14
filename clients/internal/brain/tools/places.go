@@ -99,24 +99,26 @@ func (Places) Parameters() json.RawMessage {
  */
 func (Places) Risk() Risk { return Mutating }
 
-func (Places) Summarize(raw json.RawMessage) string {
+func (x Places) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Places) SummarizeIn(raw json.RawMessage, lang string) string {
 	var args placesArgs
 
 	json.Unmarshal(raw, &args)
 
 	if start := strings.TrimSpace(args.StartLearning); start != "" {
 		if strings.EqualFold(start, "everything") {
-			return "Start learning from every drive and folder it has found"
+			return Say(lang, "Start learning from every drive and folder it has found", "Започване на ученето от всеки намерен диск и папка")
 		}
 
-		return "Start learning from " + start
+		return Say(lang, "Start learning from ", "Започване на ученето от ") + start
 	}
 
 	if strings.TrimSpace(args.ReadNow) != "" {
-		return "Read more of " + args.ReadNow
+		return Say(lang, "Read more of ", "Прочитане на още от ") + args.ReadNow
 	}
 
-	return "Check the drives and folders it looks after"
+	return Say(lang, "Check the drives and folders it looks after", "Проверка на дисковете и папките, за които се грижи")
 }
 
 type placesArgs struct {

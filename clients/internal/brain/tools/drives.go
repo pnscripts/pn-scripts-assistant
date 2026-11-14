@@ -44,7 +44,11 @@ func (ListDrives) Parameters() json.RawMessage {
 
 func (ListDrives) Risk() Risk { return Safe }
 
-func (ListDrives) Summarize(json.RawMessage) string { return "List the drives on this machine" }
+func (x ListDrives) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListDrives) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List the drives on this machine", "Списък на дисковете на този компютър")
+}
 
 func (t ListDrives) Execute(_ context.Context, _ json.RawMessage) (string, error) {
 	found, err := storage.Drives(t.Root)

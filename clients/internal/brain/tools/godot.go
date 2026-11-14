@@ -56,7 +56,11 @@ func (GodotStatus) Parameters() json.RawMessage {
 
 func (GodotStatus) Risk() Risk { return Safe }
 
-func (GodotStatus) Summarize(json.RawMessage) string { return "Check Godot" }
+func (x GodotStatus) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (GodotStatus) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Check Godot", "Проверка на Godot")
+}
 
 func (t GodotStatus) Execute(ctx context.Context, _ json.RawMessage) (string, error) {
 	engine, installed := godot.Find()
@@ -176,7 +180,9 @@ func (GodotDocs) Parameters() json.RawMessage {
 
 func (GodotDocs) Risk() Risk { return Safe }
 
-func (GodotDocs) Summarize(args json.RawMessage) string {
+func (x GodotDocs) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (GodotDocs) SummarizeIn(args json.RawMessage, lang string) string {
 	var a struct {
 		Class  string `json:"class"`
 		Method string `json:"method"`
@@ -185,10 +191,10 @@ func (GodotDocs) Summarize(args json.RawMessage) string {
 	json.Unmarshal(args, &a)
 
 	if a.Method != "" {
-		return fmt.Sprintf("Look up %s.%s in the Godot reference", a.Class, a.Method)
+		return fmt.Sprintf(Say(lang, "Look up %s.%s in the Godot reference", "Справка за %s.%s в документацията на Godot"), a.Class, a.Method)
 	}
 
-	return "Look up " + a.Class + " in the Godot reference"
+	return Say(lang, "Look up ", "Справка за ") + a.Class + Say(lang, " in the Godot reference", " в документацията на Godot")
 }
 
 func (t GodotDocs) Execute(ctx context.Context, args json.RawMessage) (string, error) {
@@ -310,7 +316,9 @@ func (GodotBuild) Parameters() json.RawMessage {
 // Mutating: it runs a program somebody wrote and can write a file.
 func (GodotBuild) Risk() Risk { return Mutating }
 
-func (GodotBuild) Summarize(args json.RawMessage) string {
+func (x GodotBuild) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (GodotBuild) SummarizeIn(args json.RawMessage, lang string) string {
 	var a struct {
 		Project string `json:"project"`
 		What    string `json:"what"`
@@ -320,10 +328,10 @@ func (GodotBuild) Summarize(args json.RawMessage) string {
 	json.Unmarshal(args, &a)
 
 	if a.What == "export" {
-		return fmt.Sprintf("Export %s to %s", filepath.Base(a.Project), a.Into)
+		return fmt.Sprintf(Say(lang, "Export %s to %s", "Експортиране на %s в %s"), filepath.Base(a.Project), a.Into)
 	}
 
-	return "Run " + filepath.Base(a.Project) + " to see whether it starts"
+	return Say(lang, "Run ", "Пускане на ") + filepath.Base(a.Project) + Say(lang, " to see whether it starts", ", за да се види дали тръгва")
 }
 
 /*

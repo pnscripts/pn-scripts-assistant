@@ -56,16 +56,18 @@ func (ReadEmail) Parameters() json.RawMessage {
 
 func (ReadEmail) Risk() Risk { return Safe }
 
-func (ReadEmail) Summarize(raw json.RawMessage) string {
+func (x ReadEmail) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ReadEmail) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a emailArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Number > 0 {
-		return fmt.Sprintf("Read email %d", a.Number)
+		return fmt.Sprintf(Say(lang, "Read email %d", "Прочитане на имейл %d"), a.Number)
 	}
 
-	return "List your recent email"
+	return Say(lang, "List your recent email", "Списък на последните ви имейли")
 }
 
 type emailArgs struct {
@@ -172,12 +174,14 @@ func (SendEmail) Risk() Risk { return Mutating }
  * summary that says "send an email to Anna" hides the only part that matters,
  * and an approval given to a summary like that is worth nothing.
  */
-func (SendEmail) Summarize(raw json.RawMessage) string {
+func (x SendEmail) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (SendEmail) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a sendArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Send to %s\nSubject: %s\n\n%s", a.To, a.Subject, a.Body)
+	return fmt.Sprintf(Say(lang, "Send to %s\nSubject: %s\n\n%s", "Изпращане до %s\nТема: %s\n\n%s"), a.To, a.Subject, a.Body)
 }
 
 type sendArgs struct {

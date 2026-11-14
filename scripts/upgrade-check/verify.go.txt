@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/paths"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/vault"
@@ -212,6 +213,25 @@ func main() {
 		if err == nil {
 			check(!strings.Contains(string(b), mark), "%s holds no personal word in its bytes", f[strings.LastIndex(f, "/")+1:])
 		}
+	}
+
+	/*
+	 * Keys in the settings file (1.1.0): an OpenAI key the old program
+	 * copied from its environment is kept (nothing proves it was not typed),
+	 * a Gemini key typed in setup survives this tree's saves, and the keys
+	 * only in this tree's environment were never written down. Read with
+	 * none of them in the environment.
+	 */
+	cfg, err := config.Load(r.Path)
+	check(err == nil, "the settings load (%v)", err)
+	check(cfg.OpenAIKey == "zz-old-env-copy-key-1111", "the key an older version saved is kept (%q)", cfg.OpenAIKey)
+	check(cfg.ProviderKeys["google"] == "zz-typed-google-key-2222", "a Gemini key typed in setup survives the saves (%q)", cfg.ProviderKeys["google"])
+	check(cfg.OpenRouterKey == "" && cfg.ProviderKeys["groq"] == "", "keys only in the environment were not saved (%q, %q)", cfg.OpenRouterKey, cfg.ProviderKeys["groq"])
+	check(cfg.OpenRouterModel == "zz-new-model", "the model chosen in this tree is saved (%q)", cfg.OpenRouterModel)
+
+	if conf, err := os.ReadFile(config.Path(r.Path)); err == nil {
+		check(!strings.Contains(string(conf), "zz-new-env") && !strings.Contains(string(conf), "zz-typed-google"),
+			"no key in the clear in the settings file")
 	}
 
 	if failures > 0 {

@@ -38,7 +38,11 @@ func (CanIRestart) Cues() []string {
 	return []string{"restart", "reboot", "рестарт", "рестартирам", "рестартирам ли", "kernel", "ядро"}
 }
 
-func (CanIRestart) Summarize(json.RawMessage) string { return "Check whether a restart is safe now" }
+func (x CanIRestart) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (CanIRestart) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Check whether a restart is safe now", "Проверка дали рестартът е безопасен сега")
+}
 
 func (t CanIRestart) Execute(ctx context.Context, _ json.RawMessage) (string, error) {
 	if t.Care == nil {
@@ -110,7 +114,11 @@ func (LeftoverProcesses) Cues() []string {
 	return []string{"leftover", "processes", "процеси", "останали"}
 }
 
-func (LeftoverProcesses) Summarize(json.RawMessage) string { return "Look for leftover processes" }
+func (x LeftoverProcesses) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (LeftoverProcesses) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Look for leftover processes", "Търсене на забравени процеси")
+}
 
 func (t LeftoverProcesses) Execute(ctx context.Context, _ json.RawMessage) (string, error) {
 	if t.Care == nil {
@@ -175,12 +183,14 @@ type stopArgs struct {
 	Command string `json:"command"`
 }
 
-func (StopLeftover) Summarize(raw json.RawMessage) string {
+func (x StopLeftover) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (StopLeftover) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a stopArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Stop the leftover process %d: %s", a.PID, a.Command)
+	return fmt.Sprintf(Say(lang, "Stop the leftover process %d: %s", "Спиране на забравения процес %d: %s"), a.PID, a.Command)
 }
 
 func (t StopLeftover) Execute(_ context.Context, raw json.RawMessage) (string, error) {

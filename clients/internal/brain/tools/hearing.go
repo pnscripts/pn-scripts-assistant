@@ -80,7 +80,11 @@ func (Hearing) Parameters() json.RawMessage {
 // Safe: it reports what was already measured and changes nothing.
 func (Hearing) Risk() Risk { return Safe }
 
-func (Hearing) Summarize(json.RawMessage) string { return "Check what it has been hearing" }
+func (x Hearing) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (Hearing) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Check what it has been hearing", "Проверка какво е чул асистентът")
+}
 
 func (t Hearing) Execute(context.Context, json.RawMessage) (string, error) {
 	if t.State == nil || t.Recent == nil {

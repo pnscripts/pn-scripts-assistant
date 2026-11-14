@@ -283,7 +283,7 @@ func (b *Brain) hireProposal(id int64) (*store.Proposal, team.Proposal, error) {
 }
 
 // ShowHire is a proposal as it would be carried out, for the approval.
-func (b *Brain) ShowHire(id int64, permanence, goal string) (string, bool) {
+func (b *Brain) ShowHire(id int64, permanence, goal, lang string) (string, bool) {
 	_, p, err := b.hireProposal(id)
 	if err != nil {
 		return "", false
@@ -293,6 +293,15 @@ func (b *Brain) ShowHire(id int64, permanence, goal string) (string, bool) {
 
 	if goal != "" {
 		p.Goal = goal
+	}
+
+	if lang == "bg" {
+		how := "за постоянно"
+		if permanence == team.TaskOnly {
+			how = "за една задача"
+		}
+
+		return fmt.Sprintf("Наемане на %s (%s) %s, предложение %d\n%s", p.Agent.Title, p.Agent.Name, how, id, p.TextIn(lang)), true
 	}
 
 	how := "permanently"

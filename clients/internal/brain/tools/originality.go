@@ -80,11 +80,13 @@ func (CheckName) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"name":{"type":"string","description":"The name to check"}},"required":["name"]}`)
 }
 
-func (CheckName) Summarize(raw json.RawMessage) string {
+func (x CheckName) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (CheckName) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Name string }
 	_ = argsOf(raw, &a)
 
-	return "Search registers and stores for the name: " + a.Name
+	return Say(lang, "Search registers and stores for the name: ", "Търсене на името в регистри и магазини: ") + a.Name
 }
 
 func (t CheckName) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -123,11 +125,13 @@ func (ClosestTitles) Parameters() json.RawMessage {
 		"required":["name","sentence"]}`)
 }
 
-func (ClosestTitles) Summarize(raw json.RawMessage) string {
+func (x ClosestTitles) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ClosestTitles) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Name, Sentence string }
 	_ = argsOf(raw, &a)
 
-	return "Search the web for the games closest to " + a.Name + ": " + a.Sentence
+	return Say(lang, "Search the web for the games closest to ", "Търсене в интернет на игрите, най-близки до ") + a.Name + ": " + a.Sentence
 }
 
 func (t ClosestTitles) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -166,11 +170,13 @@ func (ComparePictures) Parameters() json.RawMessage {
 		"required":["pictures","references"]}`)
 }
 
-func (ComparePictures) Summarize(raw json.RawMessage) string {
+func (x ComparePictures) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ComparePictures) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Pictures, References []string }
 	_ = argsOf(raw, &a)
 
-	return fmt.Sprintf("Compare %s with %s", strings.Join(a.Pictures, ", "), strings.Join(a.References, ", "))
+	return fmt.Sprintf(Say(lang, "Compare %s with %s", "Сравняване на %s с %s"), strings.Join(a.Pictures, ", "), strings.Join(a.References, ", "))
 }
 
 func (ComparePictures) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -231,11 +237,14 @@ func (CompareMelody) Parameters() json.RawMessage {
 		"required":["files"]}`)
 }
 
-func (CompareMelody) Summarize(raw json.RawMessage) string {
+func (x CompareMelody) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (CompareMelody) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Files []string }
 	_ = argsOf(raw, &a)
 
-	return "Compare the melodies in " + strings.Join(a.Files, ", ") + " with known themes"
+	return Say(lang, "Compare the melodies in ", "Сравняване на мелодиите в ") + strings.Join(a.Files, ", ") +
+		Say(lang, " with known themes", " с известни мелодии")
 }
 
 func (CompareMelody) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -296,14 +305,18 @@ func (WriteOriginalityReport) Parameters() json.RawMessage {
 		"required":["findings"]}`)
 }
 
-func (WriteOriginalityReport) Summarize(raw json.RawMessage) string {
+func (x WriteOriginalityReport) Summarize(raw json.RawMessage) string {
+	return x.SummarizeIn(raw, "en")
+}
+
+func (WriteOriginalityReport) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Title    string
 		Findings []originality.Finding
 	}
 	_ = argsOf(raw, &a)
 
-	return fmt.Sprintf("Save an originality report with %d findings", len(a.Findings))
+	return fmt.Sprintf(Say(lang, "Save an originality report with %d findings", "Запазване на доклад за оригиналност с констатации: %d"), len(a.Findings))
 }
 
 func (WriteOriginalityReport) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -362,11 +375,13 @@ func (AuditOriginality) Parameters() json.RawMessage {
 		"required":["folder"]}`)
 }
 
-func (AuditOriginality) Summarize(raw json.RawMessage) string {
+func (x AuditOriginality) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (AuditOriginality) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Folder string }
 	_ = argsOf(raw, &a)
 
-	return "Audit the originality of everything in " + a.Folder
+	return Say(lang, "Audit the originality of everything in ", "Проверка на оригиналността на всичко в ") + a.Folder
 }
 
 func (t AuditOriginality) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

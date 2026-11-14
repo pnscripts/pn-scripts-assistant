@@ -363,16 +363,18 @@ func (t asTool) Parameters() json.RawMessage {
 // Safe: it returns instructions and changes nothing. See the type's comment.
 func (t asTool) Risk() tools.Risk { return tools.Safe }
 
-func (t asTool) Summarize(json.RawMessage) string {
+func (t asTool) Summarize(args json.RawMessage) string { return t.SummarizeIn(args, "en") }
+
+func (t asTool) SummarizeIn(_ json.RawMessage, lang string) string {
 	if t.skill.Pack {
-		return "Read the " + t.skill.Name + " skill"
+		return tools.Say(lang, "Read the ", "Прочитане на умението ") + t.skill.Name + tools.Say(lang, " skill", "")
 	}
 
 	if t.skill.Builtin {
-		return fmt.Sprintf("Read the %s playbook (version %d)", t.skill.Name, t.skill.Version)
+		return fmt.Sprintf(tools.Say(lang, "Read the %s playbook (version %d)", "Прочитане на процедурата %s (версия %d)"), t.skill.Name, t.skill.Version)
 	}
 
-	return "Read how " + t.skill.Name + " is done"
+	return tools.Say(lang, "Read how ", "Прочитане как се прави ") + t.skill.Name + tools.Say(lang, " is done", "")
 }
 
 func (t asTool) Execute(_ context.Context, _ json.RawMessage) (string, error) {

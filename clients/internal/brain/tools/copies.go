@@ -61,7 +61,9 @@ func (Copies) Parameters() json.RawMessage {
 
 func (Copies) Risk() Risk { return Safe }
 
-func (Copies) Summarize(raw json.RawMessage) string {
+func (x Copies) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Copies) SummarizeIn(raw json.RawMessage, lang string) string {
 	var args struct {
 		CopyNow bool `json:"copy_now"`
 	}
@@ -69,10 +71,10 @@ func (Copies) Summarize(raw json.RawMessage) string {
 	json.Unmarshal(raw, &args)
 
 	if args.CopyNow {
-		return "Copy the brain to the places it is kept"
+		return Say(lang, "Copy the brain to the places it is kept", "Копиране на базата знания на местата, където се пазят копията ѝ")
 	}
 
-	return "Check where the brain is copied"
+	return Say(lang, "Check where the brain is copied", "Проверка къде се копира базата знания")
 }
 
 func (t Copies) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

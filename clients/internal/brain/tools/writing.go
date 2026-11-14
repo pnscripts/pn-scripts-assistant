@@ -58,17 +58,22 @@ func (WriteDocument) Parameters() json.RawMessage {
 
 func (WriteDocument) Risk() Risk { return Mutating }
 
-func (WriteDocument) Summarize(raw json.RawMessage) string {
+func (x WriteDocument) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (WriteDocument) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a writeDocArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	kind := strings.TrimPrefix(strings.ToLower(filepath.Ext(a.Path)), ".")
-	if kind == "" {
-		kind = "document"
+	switch {
+	case kind == "":
+		kind = Say(lang, "document", "документ")
+	case lang == "bg":
+		kind = "документ " + kind
 	}
 
-	return fmt.Sprintf("Write a %s to %s (%d words)\n\n%s",
+	return fmt.Sprintf(Say(lang, "Write a %s to %s (%d words)\n\n%s", "Писане на %s в %s (думи: %d)\n\n%s"),
 		kind, a.Path, len(strings.Fields(a.Text)), first(a.Text, 400))
 }
 

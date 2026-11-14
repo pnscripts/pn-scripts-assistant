@@ -66,12 +66,15 @@ type translateArgs struct {
 	From string `json:"from"`
 }
 
-func (Translate) Summarize(raw json.RawMessage) string {
+func (x Translate) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Translate) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a translateArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Translate a text of %d words into %s", len(strings.Fields(a.Text)), translate.Name(a.To))
+	return fmt.Sprintf(Say(lang, "Translate a text of %d words into %s", "Превод на текст (думи: %d) на %s"),
+		len(strings.Fields(a.Text)), languageIn(a.To, lang))
 }
 
 func (t Translate) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -127,7 +130,9 @@ func (TranslateDocument) Parameters() json.RawMessage {
 	}`)
 }
 
-func (TranslateDocument) Summarize(raw json.RawMessage) string {
+func (x TranslateDocument) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (TranslateDocument) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a translateArgs
 
 	_ = json.Unmarshal(raw, &a)
@@ -137,8 +142,26 @@ func (TranslateDocument) Summarize(raw json.RawMessage) string {
 		out = translate.Beside(a.Path, strings.ToLower(a.To))
 	}
 
-	return fmt.Sprintf("Translate %s into %s and write the translation to %s (a new file; the original is not changed)",
-		a.Path, translate.Name(strings.ToLower(a.To)), out)
+	return fmt.Sprintf(Say(lang, "Translate %s into %s and write the translation to %s (a new file; the original is not changed)",
+		"Превод на %s на %s и записване на превода в %s (нов файл; оригиналът не се променя)"),
+		a.Path, languageIn(strings.ToLower(a.To), lang), out)
+}
+
+// languageIn is a language's name in a card's language: "English" on an
+// English card, "английски" on a Bulgarian one, the code when it is not one
+// of the named languages.
+func languageIn(code, lang string) string {
+	if lang != "bg" {
+		return translate.Name(code)
+	}
+
+	for _, l := range translate.Languages {
+		if l.Code == code {
+			return l.NameBG
+		}
+	}
+
+	return code
 }
 
 func (t TranslateDocument) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -236,16 +259,18 @@ type glossaryArgs struct {
 	Remove      bool   `json:"remove"`
 }
 
-func (Glossary) Summarize(raw json.RawMessage) string {
+func (x Glossary) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Glossary) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a glossaryArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Original != "" {
-		return "Check a translation against the glossary"
+		return Say(lang, "Check a translation against the glossary", "Проверка на превод спрямо речника")
 	}
 
-	return "Show the glossary"
+	return Say(lang, "Show the glossary", "Показване на речника")
 }
 
 func (g Glossary) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -335,17 +360,21 @@ func (ChangeGlossary) Parameters() json.RawMessage {
 	}`)
 }
 
-func (ChangeGlossary) Summarize(raw json.RawMessage) string {
+func (x ChangeGlossary) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ChangeGlossary) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a glossaryArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Remove {
-		return fmt.Sprintf("Remove %q from the glossary for %s", a.Source, translate.Name(strings.ToLower(a.To)))
+		return fmt.Sprintf(Say(lang, "Remove %q from the glossary for %s", "Премахване на %q от речника за %s"),
+			a.Source, languageIn(strings.ToLower(a.To), lang))
 	}
 
-	return fmt.Sprintf("Add to the glossary: %q is always translated into %s as %q",
-		a.Source, translate.Name(strings.ToLower(a.To)), a.Target)
+	return fmt.Sprintf(Say(lang, "Add to the glossary: %q is always translated into %s as %q",
+		"Добавяне в речника: %q винаги се превежда на %s като %q"),
+		a.Source, languageIn(strings.ToLower(a.To), lang), a.Target)
 }
 
 func (c ChangeGlossary) Execute(_ context.Context, raw json.RawMessage) (string, error) {

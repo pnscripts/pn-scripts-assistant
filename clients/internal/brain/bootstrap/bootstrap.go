@@ -433,9 +433,11 @@ func hubFor(recipe string) string {
 	return "the engine's own launcher"
 }
 
-func orSize(size string) string {
+func orSize(size string) string { return orSizeIn(size, "en") }
+
+func orSizeIn(size, lang string) string {
 	if size == "" {
-		return "size not known"
+		return say(lang, "size not known", "размерът не е известен")
 	}
 
 	return size

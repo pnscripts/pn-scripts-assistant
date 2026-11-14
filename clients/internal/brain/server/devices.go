@@ -101,12 +101,12 @@ func (s *Server) handleConnectDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.Token != nil && strings.TrimSpace(*body.Token) != "" {
-		cfg.HomeAssistantToken = strings.TrimSpace(*body.Token)
+		cfg.TypeSecret("HOME_ASSISTANT_TOKEN", strings.TrimSpace(*body.Token))
 	}
 
 	if body.Forget {
 		cfg.HomeAssistantURL = ""
-		cfg.HomeAssistantToken = ""
+		cfg.TypeSecret("HOME_ASSISTANT_TOKEN", "")
 	}
 
 	if err := cfg.Save(s.brain.Root); err != nil {

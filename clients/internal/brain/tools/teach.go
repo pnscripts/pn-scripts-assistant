@@ -79,19 +79,21 @@ type skillArgs struct {
 // Summarize renders the whole skill. Somebody approving this is agreeing to
 // instructions that will be followed later, and the only honest way to show
 // that is to show it.
-func (RememberHowToDoThis) Summarize(raw json.RawMessage) string {
+func (x RememberHowToDoThis) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (RememberHowToDoThis) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a skillArgs
 
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return "Write down how something is done"
+		return Say(lang, "Write down how something is done", "Записване как се прави нещо")
 	}
 
 	var b strings.Builder
 
-	b.WriteString("Remember how to do this, as \"" + a.Name + "\"\n")
+	b.WriteString(Say(lang, "Remember how to do this, as \"", "Запомняне как се прави това, като „") + a.Name + Say(lang, "\"\n", "“\n"))
 
 	if a.When != "" {
-		b.WriteString("Used when: " + a.When + "\n")
+		b.WriteString(Say(lang, "Used when: ", "Използва се, когато: ") + a.When + "\n")
 	}
 
 	b.WriteString("\n" + strings.TrimSpace(a.How))
@@ -134,8 +136,10 @@ func (WhatIveBeenTaught) Parameters() json.RawMessage {
 
 func (WhatIveBeenTaught) Risk() Risk { return Safe }
 
-func (WhatIveBeenTaught) Summarize(json.RawMessage) string {
-	return "List what it has been taught"
+func (x WhatIveBeenTaught) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (WhatIveBeenTaught) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List what it has been taught", "Списък на наученото")
 }
 
 func (t WhatIveBeenTaught) Execute(context.Context, json.RawMessage) (string, error) {
@@ -181,14 +185,16 @@ func (ForgetHowToDoThis) Parameters() json.RawMessage {
 
 func (ForgetHowToDoThis) Risk() Risk { return Mutating }
 
-func (ForgetHowToDoThis) Summarize(raw json.RawMessage) string {
+func (x ForgetHowToDoThis) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ForgetHowToDoThis) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a skillArgs
 
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return "Forget a way of working"
+		return Say(lang, "Forget a way of working", "Забравяне на начин на работа")
 	}
 
-	return "Delete the written-down way of doing \"" + a.Name + "\""
+	return Say(lang, "Delete the written-down way of doing \"", "Изтриване на записания начин за „") + a.Name + Say(lang, "\"", "“")
 }
 
 func (t ForgetHowToDoThis) Execute(_ context.Context, raw json.RawMessage) (string, error) {

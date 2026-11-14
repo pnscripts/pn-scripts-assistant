@@ -54,7 +54,10 @@ run_env() {
 }
 
 serve() {
-    run_env /usr/bin/setsid "$1" serve > "$2" 2>&1 < /dev/null &
+    local bin="$1" log="$2"
+    shift 2
+    # Anything after the log is more environment for this run (NAME=value).
+    run_env "$@" /usr/bin/setsid "$bin" serve > "$log" 2>&1 < /dev/null &
 
     for _ in $(seq 1 60); do
         curl -s -m 2 "http://127.0.0.1:$PORT/health" > /dev/null && break
@@ -76,8 +79,16 @@ stop() {
 }
 
 echo "→ $OLD creates the brain"
-serve "$WORK/bin/old" "$WORK/old.log"
+# An OpenAI key only in the environment, and a setting saved on the Models
+# page: older versions copied that key into the settings file. Nothing can
+# prove afterwards that it was not typed, so this tree must keep it.
+serve "$WORK/bin/old" "$WORK/old.log" OPENAI_API_KEY=zz-old-env-copy-key-1111
+curl -fs -m 5 -X POST -H 'Content-Type: application/json' -d '{"provider":"openai","model":"zz-old-model"}' \
+    "http://127.0.0.1:$PORT/api/providers/connect" > /dev/null || { echo "  FAIL  the old program did not save a model"; exit 1; }
 stop
+# A Gemini key typed in setup, written as setup writes it: this tree must
+# keep it through every save (it used to be dropped by the first one).
+echo 'GOOGLE_API_KEY=zz-typed-google-key-2222' >> "$WORK/DATA/brain.conf"
 
 echo "→ $OLD fills it"
 run_env "$WORK/bin/seed"
@@ -118,7 +129,10 @@ for v in en_GB-alba-medium en_GB-jenny_dioco-medium en_GB-northern_english_male-
 done
 
 echo "→ this tree opens it"
-serve "$WORK/bin/new" "$WORK/new.log"
+# Keys only in the environment of this run: used, and never written down
+# by the saves this run makes (the voice moved, a model chosen below).
+serve "$WORK/bin/new" "$WORK/new.log" OPENAI_API_KEY=zz-new-env-openai-3333 \
+    OPENROUTER_API_KEY=zz-new-env-openrouter-4444 GROQ_API_KEY=zz-new-env-groq-5555
 
 missing=0
 
@@ -134,6 +148,9 @@ fi
 terms_version="$(curl -s -m 5 "http://127.0.0.1:$PORT/api/terms" | python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])')"
 curl -fs -m 5 -X POST -H 'Content-Type: application/json' -d "{\"version\":$terms_version,\"language\":\"en\"}" \
     "http://127.0.0.1:$PORT/api/terms" > /dev/null || { echo "  FAIL  accepting the terms"; missing=$((missing + 1)); }
+
+curl -fs -m 5 -X POST -H 'Content-Type: application/json' -d '{"provider":"openrouter","model":"zz-new-model"}' \
+    "http://127.0.0.1:$PORT/api/providers/connect" > /dev/null || { echo "  FAIL  saving a model"; missing=$((missing + 1)); }
 
 for route in conversations conversations/1 mail/drafts todos study research care books goals deeds; do
     if ! curl -s -m 5 "http://127.0.0.1:$PORT/api/$route" | grep -q ZZUPGRADEMARK; then

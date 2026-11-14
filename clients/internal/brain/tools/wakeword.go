@@ -48,17 +48,19 @@ func (SetWakeWord) Parameters() json.RawMessage {
 
 func (SetWakeWord) Risk() Risk { return Safe }
 
-func (SetWakeWord) Summarize(raw json.RawMessage) string {
+func (x SetWakeWord) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (SetWakeWord) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Word string `json:"word"`
 	}
 	argsOf(raw, &a)
 
 	if clearing(a.Word) {
-		return "Answer everything heard"
+		return Say(lang, "Answer everything heard", "Отговор на всичко чуто")
 	}
 
-	return "Only answer after hearing " + a.Word
+	return Say(lang, "Only answer after hearing ", "Отговор само след като чуе ") + a.Word
 }
 
 func (s SetWakeWord) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 /*
@@ -96,4 +97,70 @@ func Explain(what, path string, r Rule) string {
 	}
 
 	return fmt.Sprintf("%s: %s (%s). %s", what, where, strings.ToLower(r.What), r.Why)
+}
+
+/*
+ * ExplainIn is Explain in a language, for the approval card: the rule's
+ * name and reason in Bulgarian are the ones the Privacy page shows
+ * ('prv.rule.<id>' in i18n.js).
+ */
+func ExplainIn(what, path string, r Rule, lang string) string {
+	if lang != "bg" {
+		return Explain(what, path, r)
+	}
+
+	bg, ok := rulesBG[r.ID]
+
+	switch {
+	case r.ID == "yours":
+		bg = [2]string{"Нещо, което сте добавили",
+			"Помолихте да ви се казва, преди нещо тук да бъде отворено: " + strings.TrimPrefix(r.Why, yoursWhy)}
+	case !ok || strings.TrimSpace(r.What) == "":
+		return fmt.Sprintf("%s: %s", what, path)
+	}
+
+	return fmt.Sprintf("%s: %s (%s). %s", what, path, lowerFirst(bg[0]), bg[1])
+}
+
+// lowerFirst lowers the first letter of a name, unless it is part of an
+// abbreviation ("SSH ключове" stays as it is).
+func lowerFirst(s string) string {
+	runes := []rune(s)
+	if len(runes) > 1 && unicode.IsUpper(runes[1]) {
+		return s
+	}
+
+	if len(runes) > 0 {
+		runes[0] = unicode.ToLower(runes[0])
+	}
+
+	return string(runes)
+}
+
+// rulesBG is each built-in rule's name and reason in Bulgarian, as the
+// Privacy page says them.
+var rulesBG = map[string][2]string{
+	"ssh": {"SSH ключове",
+		"Частни ключове за всеки компютър, в който влизате. Копие на ключа е копие на достъпа ви до него."},
+	"env": {"Файлове с променливи на средата",
+		"Файлът .env съдържа паролите и API ключовете на проекта, към който принадлежи, като обикновен текст."},
+	"cloud": {"Облачни профили",
+		"Данни за вход в Amazon, Azure, Google и Kubernetes: достатъчни, за да се харчат пари от ваше име."},
+	"registries": {"Данни за вход в регистри и мениджъри на пакети",
+		"Docker, npm и git пазят данните си за вход нешифровани. Изтриването на инструмента не прави папката " +
+			"безопасна. Прави я празна, а празното е временно."},
+	"keys": {"Сертификати и файлове с ключове",
+		"Всичко, което завършва на .pem, .key, .p12 или .pfx, по определение е ключ."},
+	"passwords": {"Мениджъри на пароли и ключодържатели",
+		"Ключодържателят на GnuPG и хранилището на pass са оригиналите, а не тяхно копие."},
+	"databases": {"Пароли за бази данни",
+		"Файловете, в които клиентите на Postgres и MySQL пазят пароли, за да не ги въвеждате."},
+	"browsers": {"Профили на браузъри",
+		"Запазени пароли, бисквитки и сесии за всеки сайт, в който сте влезли."},
+	"brain": {"Папката на самия мозък",
+		"Файлът с настройките му пази паролата за пощата и всеки API ключ, който му е даден, като обикновен текст, " +
+			"а паметта му е всичко, което някога му е казано. Мозъкът чете паметта си със собствените си " +
+			"инструменти, а това е различно от отваряне на файла и поставяне на съдържанието му в разговор."},
+	"system": {"Файлът с паролите на системата",
+		"/etc/shadow съдържа хеша на паролата на всеки потребител. Нито една основателна заявка към асистента не се нуждае от него."},
 }

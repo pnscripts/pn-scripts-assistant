@@ -1463,8 +1463,10 @@ async function refreshApprovals() {
 
         const summary = document.createElement('p');
         // The summary is the whole point of the prompt: it is what a person
-        // actually judges, so it is rendered as text and never as markup.
-        summary.textContent = item.summary;
+        // actually judges, so it is rendered as text and never as markup. In
+        // the page's language: the same card, the words around what it is
+        // about translated (summary_bg; empty for a question asked before).
+        summary.textContent = (inBulgarian() && item.summary_bg) || item.summary;
         summary.prepend(tool);
 
         const actions = document.createElement('div');

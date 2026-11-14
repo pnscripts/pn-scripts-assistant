@@ -57,7 +57,11 @@ func (ListWaiting) Parameters() json.RawMessage {
 
 func (ListWaiting) Risk() Risk { return Safe }
 
-func (ListWaiting) Summarize(json.RawMessage) string { return "List what is waiting for you" }
+func (x ListWaiting) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListWaiting) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List what is waiting for you", "Списък на нещата, които чакат вашето решение")
+}
 
 func (t ListWaiting) Execute(ctx context.Context, _ json.RawMessage) (string, error) {
 	if t.Queue == nil {
@@ -152,21 +156,49 @@ func (DecideWaiting) Parameters() json.RawMessage {
 
 func (DecideWaiting) Risk() Risk { return Safe }
 
-func (DecideWaiting) Summarize(raw json.RawMessage) string {
+func (x DecideWaiting) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (DecideWaiting) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a decideArgs
 
 	_ = json.Unmarshal(raw, &a)
 
+	if lang == "bg" {
+		decision := a.Decision
+
+		switch a.Decision {
+		case "approve":
+			decision = Say(lang, "approve", "Одобряване")
+		case "reject":
+			decision = Say(lang, "reject", "Отхвърляне")
+		}
+
+		if a.ID > 0 {
+			return fmt.Sprintf(Say(lang, "%s item %d", "%s на елемент %d"), decision, a.ID)
+		}
+
+		switch a.Kind {
+		case "actions":
+			return decision + Say(lang, " actions waiting", " на чакащите действия")
+		case "memories":
+			return decision + Say(lang, " memories waiting", " на чакащите неща за запомняне")
+		case "", "everything":
+			return decision + Say(lang, " everything waiting", " на всичко чакащо")
+		}
+
+		return fmt.Sprintf(Say(lang, "%s %s waiting", "%s на чакащите (%s)"), decision, a.Kind)
+	}
+
 	which := a.Kind
 	if which == "" {
-		which = "everything"
+		which = Say(lang, "everything", "всичко")
 	}
 
 	if a.ID > 0 {
-		return fmt.Sprintf("%s item %d", a.Decision, a.ID)
+		return fmt.Sprintf(Say(lang, "%s item %d", "%s на елемент %d"), a.Decision, a.ID)
 	}
 
-	return fmt.Sprintf("%s %s waiting", a.Decision, which)
+	return fmt.Sprintf(Say(lang, "%s %s waiting", "%s на чакащите (%s)"), a.Decision, which)
 }
 
 type decideArgs struct {

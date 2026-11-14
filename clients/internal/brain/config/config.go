@@ -398,6 +398,15 @@ type Config struct {
 	anthropicInFile   string
 
 	/*
+	 * fromFile is what the settings file itself holds for every secret and
+	 * for the other companies' models and addresses, by setting name: what
+	 * Save writes back when the value in use only came from the environment
+	 * (see toWrite). Replaced, never changed in place, because a Config is
+	 * copied by value and the copies share the map.
+	 */
+	fromFile map[string]string
+
+	/*
 	 * The other paid providers, which all speak the OpenAI chat API.
 	 *
 	 * Kept as separate keys rather than one "API key" because they are
@@ -923,6 +932,14 @@ func LoadFrom(path string) (Config, error) {
 		}
 	}
 
+	cfg.fromFile = map[string]string{}
+
+	for _, setting := range keptFromFile() {
+		if v := values[setting]; v != "" {
+			cfg.fromFile[setting] = v
+		}
+	}
+
 	assign(&cfg.Addr, "BRAIN_ADDR")
 
 	// Under the program's name, which wins: BRAIN_ADDR is from when it was PN
@@ -1046,25 +1063,44 @@ func (c Config) Save(root string) error {
 	b.WriteString("MAIL_HOST=" + c.MailHost + "\n")
 	b.WriteString("MAIL_PORT=" + intText(c.MailPort) + "\n")
 	b.WriteString("MAIL_USER=" + c.MailUser + "\n")
-	b.WriteString("MAIL_PASSWORD=" + c.MailPassword + "\n")
+	b.WriteString("MAIL_PASSWORD=" + c.toWrite("MAIL_PASSWORD", c.MailPassword) + "\n")
 	b.WriteString("MAIL_FROM=" + c.MailFrom + "\n")
 	b.WriteString("SMTP_HOST=" + c.SMTPHost + "\n")
 	b.WriteString("SMTP_PORT=" + intText(c.SMTPPort) + "\n\n")
 	b.WriteString("CALDAV_URL=" + c.CalendarURL + "\n")
 	b.WriteString("CALDAV_USER=" + c.CalendarUser + "\n")
-	b.WriteString("CALDAV_PASSWORD=" + c.CalendarPassword + "\n\n")
+	b.WriteString("CALDAV_PASSWORD=" + c.toWrite("CALDAV_PASSWORD", c.CalendarPassword) + "\n\n")
 	b.WriteString("LLM_DEFAULT_PROVIDER=" + c.DefaultProvider + "\n")
 	b.WriteString("OLLAMA_BASE_URL=" + c.OllamaURL + "\n")
 	b.WriteString("OLLAMA_DEFAULT_MODEL=" + c.OllamaModel + "\n")
 	b.WriteString("OLLAMA_MODEL_CHOSEN=" + boolText(c.ModelChosen) + "\n")
 	b.WriteString("EMBEDDING_MODEL=" + c.EmbedModel + "\n")
-	b.WriteString("ANTHROPIC_API_KEY=" + c.anthropicKeyToWrite() + "\n")
+	b.WriteString("ANTHROPIC_API_KEY=" + c.toWrite("ANTHROPIC_API_KEY", c.AnthropicKey) + "\n")
 	b.WriteString("ANTHROPIC_MODEL=" + c.AnthropicModel + "\n")
 	b.WriteString(KeyTypedSetting + "=" + c.AnthropicKeyTyped + "\n")
-	b.WriteString("OPENAI_API_KEY=" + c.OpenAIKey + "\n")
+	b.WriteString("OPENAI_API_KEY=" + c.toWrite("OPENAI_API_KEY", c.OpenAIKey) + "\n")
 	b.WriteString("OPENAI_MODEL=" + c.OpenAIModel + "\n")
-	b.WriteString("OPENROUTER_API_KEY=" + c.OpenRouterKey + "\n")
+	b.WriteString("OPENROUTER_API_KEY=" + c.toWrite("OPENROUTER_API_KEY", c.OpenRouterKey) + "\n")
 	b.WriteString("OPENROUTER_MODEL=" + c.OpenRouterModel + "\n\n")
+
+	// The other companies, only those with something set.
+	for _, svc := range llm.Services() {
+		if named(svc.ID) {
+			continue
+		}
+
+		for _, line := range [][2]string{
+			{llm.KeySetting(svc.ID), c.ProviderKeys[svc.ID]},
+			{llm.ModelSetting(svc.ID), c.ProviderModels[svc.ID]},
+			{llm.BaseURLSetting(svc.ID), c.ProviderURLs[svc.ID]},
+		} {
+			if v := c.toWrite(line[0], line[1]); v != "" {
+				b.WriteString(line[0] + "=" + v + "\n")
+			}
+		}
+	}
+
+	b.WriteString("\n")
 	b.WriteString("BRAIN_ADDR=" + c.Addr + "\n\n")
 	b.WriteString("# Which voice reads answers aloud. Empty means the first available.\n")
 	b.WriteString("BRAIN_VOICE=" + c.Voice + "\n\n")
@@ -1072,10 +1108,10 @@ func (c Config) Save(root string) error {
 	b.WriteString("# whisper guess, which sometimes translates instead of transcribing.\n")
 	b.WriteString("BRAIN_LANGUAGE=" + c.Language + "\n\n")
 	b.WriteString("# Optional: a Brave Search API key. Without one, DuckDuckGo is scraped.\n")
-	b.WriteString("BRAVE_SEARCH_KEY=" + c.BraveKey + "\n\n")
+	b.WriteString("BRAVE_SEARCH_KEY=" + c.toWrite("BRAVE_SEARCH_KEY", c.BraveKey) + "\n\n")
 	b.WriteString("# Smart home. A long-lived access token from your Home Assistant profile.\n")
 	b.WriteString("HOME_ASSISTANT_URL=" + c.HomeAssistantURL + "\n")
-	b.WriteString("HOME_ASSISTANT_TOKEN=" + c.HomeAssistantToken + "\n")
+	b.WriteString("HOME_ASSISTANT_TOKEN=" + c.toWrite("HOME_ASSISTANT_TOKEN", c.HomeAssistantToken) + "\n")
 
 	// What is personal is sealed when the brain is (ADR 0008).
 	out := sealLines(b.String())
@@ -1088,17 +1124,122 @@ func (c Config) Save(root string) error {
 }
 
 /*
- * anthropicKeyToWrite is the Anthropic key the settings file keeps: the
- * file's own, not one that only came from the environment for this run.
- * Writing the environment's key down would make a one-off override
- * permanent, and would replace a key its person typed.
+ * toWrite is what Save writes for a setting kept from the file (see
+ * keptFromFile): the value in use, unless that value only came from the
+ * environment for this run. Then it is the file's own value, so a one-off
+ * override, somebody's shell or another tool's setup is never made
+ * permanent and never replaces what its person typed. A value typed into
+ * the assistant goes through TypeSecret, which makes it the file's own.
  */
-func (c Config) anthropicKeyToWrite() string {
-	if env := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); env != "" && c.AnthropicKey == env && c.anthropicInFile != env {
-		return c.anthropicInFile
+func (c Config) toWrite(setting, inUse string) string {
+	env := os.Getenv(setting)
+	if env == "" || (inUse != env && inUse != strings.TrimSpace(env)) {
+		return inUse
 	}
 
-	return c.AnthropicKey
+	if own := c.fromFile[setting]; own != env && own != strings.TrimSpace(env) {
+		return own
+	}
+
+	return inUse
+}
+
+// keptFromFile is every setting whose value Save takes from the file
+// rather than the environment: the secrets, and the other companies'
+// models and addresses (written only when set).
+func keptFromFile() []string {
+	out := []string{"MAIL_PASSWORD", "CALDAV_PASSWORD", "BRAVE_SEARCH_KEY", "HOME_ASSISTANT_TOKEN"}
+
+	for _, svc := range llm.Services() {
+		out = append(out, llm.KeySetting(svc.ID))
+
+		if !named(svc.ID) {
+			out = append(out, llm.ModelSetting(svc.ID), llm.BaseURLSetting(svc.ID))
+		}
+	}
+
+	return out
+}
+
+// named is whether a company has its own fields and lines (the three that
+// existed before the list of companies did).
+func named(id string) bool {
+	return id == "anthropic" || id == "openai" || id == "openrouter"
+}
+
+/*
+ * TypeSecret is its person typing a key, token or password into the
+ * assistant (setup, the Models page, Settings, Plan), or emptying it: it is
+ * used from now on and saved, whatever the environment holds. A company's
+ * key is the one its provider is built from (the named field and the list
+ * by company together); an Anthropic key is also marked as the one "ask
+ * Claude" may use.
+ */
+func (c *Config) TypeSecret(setting, value string) {
+	kept := make(map[string]string, len(c.fromFile)+1)
+	for k, v := range c.fromFile {
+		kept[k] = v
+	}
+
+	kept[setting] = value
+	c.fromFile = kept
+
+	switch setting {
+	case "MAIL_PASSWORD":
+		c.MailPassword = value
+	case "CALDAV_PASSWORD":
+		c.CalendarPassword = value
+	case "BRAVE_SEARCH_KEY":
+		c.BraveKey = value
+	case "HOME_ASSISTANT_TOKEN":
+		c.HomeAssistantToken = value
+	}
+
+	for _, svc := range llm.Services() {
+		if setting != llm.KeySetting(svc.ID) {
+			continue
+		}
+
+		keys := make(map[string]string, len(c.ProviderKeys)+1)
+		for k, v := range c.ProviderKeys {
+			keys[k] = v
+		}
+
+		keys[svc.ID] = value
+		c.ProviderKeys = keys
+
+		switch svc.ID {
+		case "anthropic":
+			c.AnthropicKey = value
+			c.anthropicInFile = value
+			c.AnthropicKeyTyped = KeyPrint(value)
+		case "openai":
+			c.OpenAIKey = value
+		case "openrouter":
+			c.OpenRouterKey = value
+		}
+	}
+}
+
+// ChooseModel is its person choosing a company's model in the assistant:
+// the named field and the list its provider is built from together.
+func (c *Config) ChooseModel(id, model string) {
+	models := make(map[string]string, len(c.ProviderModels)+1)
+	for k, v := range c.ProviderModels {
+		models[k] = v
+	}
+
+	models[id] = model
+	c.ProviderModels = models
+
+	switch id {
+	case "anthropic":
+		c.AnthropicModel = model
+	case "openai":
+		c.OpenAIModel = model
+	case "openrouter":
+		c.OpenRouterModel = model
+	}
 }
 
 // KeyTypedSetting is where the fingerprint of the Anthropic key its person
@@ -1123,19 +1264,15 @@ func KeyPrint(key string) string {
  * (or emptying it): the key is the provider's and is marked as chosen.
  */
 func (c *Config) TypeAnthropicKey(key string) {
-	key = strings.TrimSpace(key)
-
-	c.AnthropicKey = key
-	c.anthropicInFile = key
-	c.AnthropicKeyTyped = KeyPrint(key)
+	c.TypeSecret("ANTHROPIC_API_KEY", strings.TrimSpace(key))
 }
 
 /*
  * ChosenAnthropicKey is the Anthropic key its person typed into the
  * assistant, or empty. A key from the environment is never it, nor a key
- * the settings file holds without the mark of having been typed (saving the
- * settings copies the environment's key into the file, unmarked), nor one
- * whose mark is for another key.
+ * the settings file holds without the mark of having been typed (written
+ * by hand, or by an older version that copied the environment's key into
+ * the file on a save), nor one whose mark is for another key.
  */
 func (c Config) ChosenAnthropicKey() string {
 	if c.anthropicInFile == "" || c.AnthropicKeyTyped == "" || KeyPrint(c.anthropicInFile) != c.AnthropicKeyTyped {

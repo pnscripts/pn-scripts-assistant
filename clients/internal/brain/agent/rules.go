@@ -62,6 +62,35 @@ func RuleLines(asking, reminding []rules.Rule) string {
 	return b.String()
 }
 
+// RuleLinesIn is RuleLines in a language, for the approval card: the
+// rule itself as its user wrote it, the words around it translated.
+func RuleLinesIn(asking, reminding []rules.Rule, lang string) string {
+	if lang != "bg" {
+		return RuleLines(asking, reminding)
+	}
+
+	var b strings.Builder
+
+	for _, r := range asking {
+		b.WriteString("Ваше правило: „" + r.Text + "“\n")
+	}
+
+	for _, r := range reminding {
+		b.WriteString("Припомняне на ваше правило: „" + r.Text + "“\n")
+	}
+
+	return b.String()
+}
+
+// orElse is s, or else when s is empty.
+func orElse(s, otherwise string) string {
+	if s == "" {
+		return otherwise
+	}
+
+	return s
+}
+
 // BrokeAfterwards is the note added to what a call did when it turned out
 // to go against a rule.
 func BrokeAfterwards(broke []rules.Rule) string {

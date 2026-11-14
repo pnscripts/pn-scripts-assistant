@@ -56,12 +56,15 @@ func (CheckRequirements) Parameters() json.RawMessage {
 
 func (CheckRequirements) Risk() Risk { return Safe }
 
-func (CheckRequirements) Summarize(args json.RawMessage) string {
+func (x CheckRequirements) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (CheckRequirements) SummarizeIn(args json.RawMessage, lang string) string {
 	var a struct{ Package, Recipe string }
 
 	json.Unmarshal(args, &a)
 
-	return "Check what " + firstNonEmpty(a.Package, a.Recipe, "the work") + " needs"
+	return fmt.Sprintf(Say(lang, "Check what %s needs", "Проверка от какво се нуждае %s"),
+		firstNonEmpty(a.Package, a.Recipe, Say(lang, "the work", "работата")))
 }
 
 func firstNonEmpty(values ...string) string {
@@ -210,36 +213,44 @@ func (t InstallRequirement) Weight(args json.RawMessage) risk.Level {
 
 // Summarize is what would be installed, from where, how big, under what
 // terms and where it would go — the things somebody is agreeing to.
-func (t InstallRequirement) Summarize(args json.RawMessage) string {
+func (t InstallRequirement) Summarize(args json.RawMessage) string { return t.SummarizeIn(args, "en") }
+
+func (t InstallRequirement) SummarizeIn(args json.RawMessage, lang string) string {
 	var a installArgs
 
 	argsOf(args, &a)
 
+	install := Say(lang, "Install ", "Инсталиране на ")
+
 	if t.Provisioning == nil {
-		return "Install " + a.Recipe
+		return install + a.Recipe
 	}
 
 	r, ok := t.Provisioning.Recipes().Get(a.Recipe)
 	if !ok {
-		return "Install " + a.Recipe + " (no such recipe, so this will fail)"
+		return install + a.Recipe + Say(lang, " (no such recipe, so this will fail)", " (няма такава рецепта, затова ще се провали)")
 	}
 
 	s := r.Check(a.Versions)
 
-	parts := []string{"Install " + r.Title}
+	parts := []string{install + r.Title}
 
-	for _, detail := range []string{s.Size, s.Source, "licence: " + s.Licence, "cost: " + s.Cost} {
-		if strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(detail, "licence: "), "cost: ")) != "" {
-			parts = append(parts, detail)
+	for _, detail := range [][2]string{
+		{"", s.Size}, {"", s.Source},
+		{Say(lang, "licence: ", "лиценз: "), s.Licence},
+		{Say(lang, "cost: ", "цена: "), s.Cost},
+	} {
+		if strings.TrimSpace(detail[1]) != "" {
+			parts = append(parts, detail[0]+detail[1])
 		}
 	}
 
 	if s.InstallTo != "" {
-		parts = append(parts, "into "+s.InstallTo)
+		parts = append(parts, Say(lang, "into ", "в ")+s.InstallTo)
 	}
 
 	if r.NeedsRoot {
-		parts = append(parts, "asks for your password")
+		parts = append(parts, Say(lang, "asks for your password", "ще поиска паролата ви"))
 	}
 
 	return strings.Join(parts, "; ")

@@ -68,16 +68,18 @@ type proofArgs struct {
 	MaxWords int    `json:"max_words"`
 }
 
-func (Proofread) Summarize(raw json.RawMessage) string {
+func (x Proofread) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Proofread) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a proofArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Path != "" {
-		return "Proofread " + a.Path
+		return Say(lang, "Proofread ", "Коректура на ") + a.Path
 	}
 
-	return fmt.Sprintf("Proofread a text of %d words", len(strings.Fields(a.Text)))
+	return fmt.Sprintf(Say(lang, "Proofread a text of %d words", "Коректура на текст (думи: %d)"), len(strings.Fields(a.Text)))
 }
 
 func (Proofread) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -228,16 +230,18 @@ type compareArgs struct {
 	AfterPath  string `json:"after_path"`
 }
 
-func (CompareVersions) Summarize(raw json.RawMessage) string {
+func (x CompareVersions) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (CompareVersions) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a compareArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.BeforePath != "" || a.AfterPath != "" {
-		return "Compare " + a.BeforePath + " with " + a.AfterPath
+		return Say(lang, "Compare ", "Сравняване на ") + a.BeforePath + Say(lang, " with ", " с ") + a.AfterPath
 	}
 
-	return "Compare two versions of a text"
+	return Say(lang, "Compare two versions of a text", "Сравняване на две версии на текст")
 }
 
 func (CompareVersions) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

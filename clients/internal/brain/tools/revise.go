@@ -84,7 +84,9 @@ func (Revise) Parameters() json.RawMessage {
  */
 func (Revise) Risk() Risk { return Mutating }
 
-func (r Revise) Summarize(raw json.RawMessage) string {
+func (r Revise) Summarize(raw json.RawMessage) string { return r.SummarizeIn(raw, "en") }
+
+func (r Revise) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Action string `json:"action"`
 		Title  string `json:"title"`
@@ -94,16 +96,16 @@ func (r Revise) Summarize(raw json.RawMessage) string {
 
 	switch a.Action {
 	case "forget_the_last_exchange":
-		return "Forget the last thing said and the answer to it"
+		return Say(lang, "Forget the last thing said and the answer to it", "Забравяне на последно казаното и отговора на него")
 
 	case "delete_this_conversation":
-		return "Delete this whole conversation"
+		return Say(lang, "Delete this whole conversation", "Изтриване на целия този разговор")
 
 	case "rename_this_conversation":
-		return "Call this conversation " + strconv.Quote(a.Title)
+		return Say(lang, "Call this conversation ", "Преименуване на този разговор на ") + strconv.Quote(a.Title)
 	}
 
-	return "Answer the previous question again"
+	return Say(lang, "Answer the previous question again", "Нов отговор на предишния въпрос")
 }
 
 func (r Revise) Execute(_ context.Context, raw json.RawMessage) (string, error) {

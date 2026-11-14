@@ -446,12 +446,14 @@ type tableArgs struct {
 	Recipe   *sheet.Recipe `json:"recipe"`
 }
 
-func (TableSummary) Summarize(raw json.RawMessage) string {
+func (x TableSummary) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (TableSummary) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a tableArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Look over the table " + a.Path
+	return Say(lang, "Look over the table ", "Преглед на таблицата ") + a.Path
 }
 
 func (t TableSummary) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -526,12 +528,14 @@ func (CalculateTable) Parameters() json.RawMessage {
 	}`)
 }
 
-func (CalculateTable) Summarize(raw json.RawMessage) string {
+func (x CalculateTable) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (CalculateTable) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a tableArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Work out from " + filepath.Base(a.Path) + ": " + shortText(a.Question, 60)
+	return Say(lang, "Work out from ", "Изчисление от ") + filepath.Base(a.Path) + ": " + shortText(a.Question, 60)
 }
 
 func (t CalculateTable) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

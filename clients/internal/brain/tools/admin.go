@@ -58,11 +58,13 @@ type adminArgs struct {
 	Why  string   `json:"why"`
 }
 
-func (RunAsAdmin) Summarize(raw json.RawMessage) string {
+func (x RunAsAdmin) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (RunAsAdmin) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a adminArgs
 	argsOf(raw, &a)
 
-	return "As administrator (the system asks you): " + strings.Join(a.Argv, " ")
+	return Say(lang, "As administrator (the system asks you): ", "Като администратор (системата ще ви попита): ") + strings.Join(a.Argv, " ")
 }
 
 func (RunAsAdmin) Cues() []string {

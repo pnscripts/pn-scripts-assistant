@@ -23,7 +23,7 @@ import (
 type Projects interface {
 	InspectProject(dir string) string
 	ProposeProject(ctx context.Context, request, dir, pkg string) (ProjectOffer, error)
-	ShowProject(id int64) (string, bool)
+	ShowProject(id int64, lang string) (string, bool)
 	StartProject(ctx context.Context, id int64) (string, error)
 }
 
@@ -59,8 +59,10 @@ func (InspectProject) Parameters() json.RawMessage {
 
 func (InspectProject) Risk() Risk { return Safe }
 
-func (InspectProject) Summarize(raw json.RawMessage) string {
-	return "Look at " + pathOf(raw)[0]
+func (x InspectProject) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (InspectProject) SummarizeIn(raw json.RawMessage, lang string) string {
+	return Say(lang, "Look at ", "Преглед на ") + pathOf(raw)[0]
 }
 
 func (t InspectProject) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -102,12 +104,14 @@ func (PlanProject) Parameters() json.RawMessage {
 
 func (PlanProject) Risk() Risk { return Safe }
 
-func (PlanProject) Summarize(raw json.RawMessage) string {
+func (x PlanProject) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (PlanProject) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Request string }
 
 	json.Unmarshal(raw, &a)
 
-	return "Work out the project: " + a.Request
+	return Say(lang, "Work out the project: ", "Обмисляне на проекта: ") + a.Request
 }
 
 func (t PlanProject) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -184,16 +188,18 @@ func (StartProject) Consent(json.RawMessage) string {
 func (StartProject) Weight(json.RawMessage) risk.Level { return risk.High }
 
 // Summarize is the whole plan: what is approved is what was read.
-func (t StartProject) Summarize(raw json.RawMessage) string {
+func (t StartProject) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t StartProject) SummarizeIn(raw json.RawMessage, lang string) string {
 	id := proposalOf(raw)
 
 	if t.Projects != nil {
-		if shown, ok := t.Projects.ShowProject(id); ok {
+		if shown, ok := t.Projects.ShowProject(id, lang); ok {
 			return shown
 		}
 	}
 
-	return fmt.Sprintf("Start project proposal %d", id)
+	return fmt.Sprintf(Say(lang, "Start project proposal %d", "Започване на проект по предложение %d"), id)
 }
 
 func (t StartProject) Touches(raw json.RawMessage) ([]string, []string) {

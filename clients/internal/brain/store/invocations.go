@@ -19,10 +19,14 @@ const (
 
 // Invocation is one tool call that needed a person's decision.
 type Invocation struct {
-	ID        int64     `json:"id"`
-	Tool      string    `json:"tool"`
-	Arguments string    `json:"arguments"`
-	Summary   string    `json:"summary"`
+	ID        int64  `json:"id"`
+	Tool      string `json:"tool"`
+	Arguments string `json:"arguments"`
+	Summary   string `json:"summary"`
+
+	// SummaryBG is the same card in Bulgarian, or empty for a question
+	// asked before cards were said in both languages.
+	SummaryBG string    `json:"summary_bg,omitempty"`
 	Risk      string    `json:"risk"`
 	Status    string    `json:"status"`
 	Result    string    `json:"result,omitempty"`
@@ -57,6 +61,11 @@ type Invocation struct {
 // action cannot be replayed, and without the summary there is no record of what
 // the person actually agreed to.
 func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, risk string) (int64, error) {
+	return d.RecordInvocationIn(conversationID, tool, arguments, summary, "", risk)
+}
+
+// RecordInvocationIn is RecordInvocation with the card in Bulgarian too.
+func (d *DB) RecordInvocationIn(conversationID int64, tool, arguments, summary, summaryBG, risk string) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// The conversation is stored rather than discarded. It has been a
@@ -64,9 +73,9 @@ func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, ri
 	// never be traced back to what was being discussed when it was proposed.
 	res, err := d.sql().Exec(
 		`INSERT INTO tool_invocations
-		   (tool, arguments, summary, risk, status, conversation_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		tool, d.seal(arguments), d.seal(summary), risk, InvocationPending, conversationID, now, now,
+		   (tool, arguments, summary, summary_bg, risk, status, conversation_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		tool, d.seal(arguments), d.seal(summary), d.seal(summaryBG), risk, InvocationPending, conversationID, now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("recording tool call: %w", err)
@@ -78,7 +87,7 @@ func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, ri
 // PendingInvocations lists what is waiting for a decision.
 func (d *DB) PendingInvocations() ([]Invocation, error) {
 	rows, err := d.sql().Query(`
-		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, created_at,
+		SELECT id, tool, arguments, COALESCE(summary,''), summary_bg, risk, status, created_at,
 			COALESCE(conversation_id, 0), answers_itself,
 			program_id, program_verb, program_version, program_always
 		FROM tool_invocations WHERE status = ? ORDER BY id`, InvocationPending)
@@ -93,7 +102,7 @@ func (d *DB) PendingInvocations() ([]Invocation, error) {
 		var i Invocation
 		var created string
 
-		if err := rows.Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &created,
+		if err := rows.Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.SummaryBG, &i.Risk, &i.Status, &created,
 			&i.ConversationID, &i.AnswersItself,
 			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways); err != nil {
 			return nil, err
@@ -197,11 +206,11 @@ func (d *DB) Invocation(id int64) (*Invocation, error) {
 	var result sql.NullString
 
 	err := d.sql().QueryRow(`
-		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, result, created_at,
+		SELECT id, tool, arguments, COALESCE(summary,''), summary_bg, risk, status, result, created_at,
 			COALESCE(conversation_id, 0), answers_itself, answered_itself,
 			program_id, program_verb, program_version, program_always
 		FROM tool_invocations WHERE id = ?`, id).
-		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &result, &created,
+		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.SummaryBG, &i.Risk, &i.Status, &result, &created,
 			&i.ConversationID, &i.AnswersItself, &i.AnsweredItself,
 			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways)
 

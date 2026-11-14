@@ -58,14 +58,16 @@ func (ReadDocument) Parameters() json.RawMessage {
 
 func (ReadDocument) Risk() Risk { return Safe }
 
-func (ReadDocument) Summarize(raw json.RawMessage) string {
+func (x ReadDocument) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ReadDocument) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Path string `json:"path"`
 	}
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Read the document " + a.Path
+	return Say(lang, "Read the document ", "Прочитане на документа ") + a.Path
 }
 
 func (t ReadDocument) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

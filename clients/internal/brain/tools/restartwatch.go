@@ -57,16 +57,18 @@ type restartWatchArgs struct {
 	Stop  bool    `json:"stop"`
 }
 
-func (WatchForRestart) Summarize(raw json.RawMessage) string {
+func (x WatchForRestart) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (WatchForRestart) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a restartWatchArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Stop {
-		return "Stop watching for a safe restart"
+		return Say(lang, "Stop watching for a safe restart", "Спиране на наблюдението за безопасен рестарт")
 	}
 
-	return "Tell you when a restart is safe"
+	return Say(lang, "Tell you when a restart is safe", "Известие, когато рестартът е безопасен")
 }
 
 func (t WatchForRestart) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

@@ -54,11 +54,12 @@ func (b *Brain) CodingAgents() []tools.CodingAgent {
 			if u, err := b.DB.UsageOf(r.ID); err == nil {
 				now := time.Now()
 				pace := orchestrator.PaceOf(u, now)
-				a.Pace = pace.Say()
+				a.Pace, a.PaceBG = pace.Say(), pace.SayIn("bg")
 
 				// Ahead of its pace, outside the quiet hours: the work
 				// waits for a yes that says until when.
 				a.Held = quiethours.Held(b.QuietHours(), pace.Ahead, now)
+				a.HeldBG = quiethours.HeldIn(b.QuietHours(), pace.Ahead, now, "bg")
 			}
 
 			switch {

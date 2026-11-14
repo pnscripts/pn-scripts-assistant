@@ -1222,6 +1222,15 @@ var migrations = []string{
 		since TEXT NOT NULL
 	);
 	`,
+
+	/*
+	 * 34: the question's card in Bulgarian, beside the English summary,
+	 * for a page in Bulgarian (sealed like the summary). Empty for a
+	 * question asked before, which the page then shows as it was.
+	 */
+	`
+	ALTER TABLE tool_invocations ADD COLUMN summary_bg TEXT NOT NULL DEFAULT '';
+	`,
 }
 
 /*

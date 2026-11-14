@@ -66,7 +66,9 @@ func (MakeSubtitles) Parameters() json.RawMessage {
 // Mutating: it writes a file into somebody's folder.
 func (MakeSubtitles) Risk() Risk { return Mutating }
 
-func (MakeSubtitles) Summarize(args json.RawMessage) string {
+func (x MakeSubtitles) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (MakeSubtitles) SummarizeIn(args json.RawMessage, lang string) string {
 	var a struct {
 		Film string `json:"film"`
 	}
@@ -74,12 +76,12 @@ func (MakeSubtitles) Summarize(args json.RawMessage) string {
 	json.Unmarshal(args, &a)
 
 	if a.Film == "" {
-		return "Write subtitles for a film"
+		return Say(lang, "Write subtitles for a film", "Писане на субтитри за филм")
 	}
 
 	// The summary is what somebody approves, so it says exactly which file
 	// appears and where, not "make subtitles".
-	return fmt.Sprintf("Listen to %s and write %s beside it",
+	return fmt.Sprintf(Say(lang, "Listen to %s and write %s beside it", "Прослушване на %s и записване на %s до него"),
 		filepath.Base(a.Film), filepath.Base(subtitles.Path(a.Film)))
 }
 
@@ -161,8 +163,12 @@ func (FilmsWithoutSubtitles) Parameters() json.RawMessage {
 
 func (FilmsWithoutSubtitles) Risk() Risk { return Safe }
 
-func (FilmsWithoutSubtitles) Summarize(json.RawMessage) string {
-	return "List films with no subtitles"
+func (x FilmsWithoutSubtitles) Summarize(args json.RawMessage) string {
+	return x.SummarizeIn(args, "en")
+}
+
+func (FilmsWithoutSubtitles) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List films with no subtitles", "Списък на филмите без субтитри")
 }
 
 // MostFilmsToName is how many are listed by name before it stops.

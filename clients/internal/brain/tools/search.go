@@ -61,13 +61,15 @@ func (WebSearch) Parameters() json.RawMessage {
 
 func (WebSearch) Risk() Risk { return Safe }
 
-func (WebSearch) Summarize(raw json.RawMessage) string {
+func (x WebSearch) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (WebSearch) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Query string `json:"query"`
 	}
 	argsOf(raw, &a)
 
-	return "Search the web for: " + a.Query
+	return Say(lang, "Search the web for: ", "Търсене в интернет: ") + a.Query
 }
 
 // SearchResult is one hit.

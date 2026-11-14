@@ -53,7 +53,8 @@ var claudeRun sync.Mutex
 // each can now.
 func (b *Brain) ClaudeWays() []tools.ClaudeWay {
 	code := tools.ClaudeWay{ID: tools.ClaudeCodeWay, Title: "Claude Code, signed in as you",
-		Why: "Claude Code is not installed on this computer"}
+		TitleBG: "Claude Code, в който сте влезли",
+		Why:     "Claude Code is not installed on this computer"}
 
 	if r, ok := b.claudeCode(context.Background()); ok {
 		switch {
@@ -62,6 +63,7 @@ func (b *Brain) ClaudeWays() []tools.ClaudeWay {
 
 			if r.Tier == orchestrator.Metered {
 				code.Title = "Claude Code, with the API key set up in it"
+				code.TitleBG = "Claude Code с API ключа, настроен в него"
 			}
 		case r.Why != "":
 			code.Why = r.Why
@@ -70,7 +72,7 @@ func (b *Brain) ClaudeWays() []tools.ClaudeWay {
 		}
 	}
 
-	key := tools.ClaudeWay{ID: tools.ClaudeKeyWay, Title: "your own Anthropic key",
+	key := tools.ClaudeWay{ID: tools.ClaudeKeyWay, Title: "your own Anthropic key", TitleBG: "вашия собствен ключ за Anthropic",
 		Why: "no Anthropic key was typed into this assistant (a key that is only in the environment is not used)"}
 
 	b.mu.Lock()

@@ -26,11 +26,14 @@ type Polishing interface {
 
 // PolishNote is what the question shows above a polished text: what was put
 // right, and what is left for the writer.
-func PolishNote(r polish.Result) string {
+func PolishNote(r polish.Result) string { return PolishNoteIn(r, "en") }
+
+// PolishNoteIn is PolishNote in a language, for the approval card.
+func PolishNoteIn(r polish.Result, lang string) string {
 	var fixed, open []string
 
 	for _, f := range r.Findings {
-		line := polishLine(f)
+		line := polishLineIn(f, lang)
 
 		if f.Fixed {
 			fixed = append(fixed, line)
@@ -42,7 +45,7 @@ func PolishNote(r polish.Result) string {
 	var b strings.Builder
 
 	if len(fixed) > 0 {
-		b.WriteString("Polished before you see it:\n")
+		b.WriteString(Say(lang, "Polished before you see it:\n", "Изгладено, преди да го видите:\n"))
 
 		for _, l := range fixed {
 			b.WriteString("  - " + l + "\n")
@@ -50,7 +53,7 @@ func PolishNote(r polish.Result) string {
 	}
 
 	if len(open) > 0 {
-		b.WriteString("Worth a look before it goes:\n")
+		b.WriteString(Say(lang, "Worth a look before it goes:\n", "Струва си да погледнете, преди да тръгне:\n"))
 
 		for _, l := range open {
 			b.WriteString("  - " + l + "\n")
@@ -60,26 +63,26 @@ func PolishNote(r polish.Result) string {
 	return b.String()
 }
 
-func polishLine(f polish.Finding) string {
+func polishLineIn(f polish.Finding, lang string) string {
 	var what string
 
 	switch f.Key {
 	case polish.AlreadyVisible:
-		what = "taken out, the reader already sees it"
+		what = Say(lang, "taken out, the reader already sees it", "махнато, читателят вече го вижда")
 	case polish.Filler:
-		what = "taken out, it says nothing to the reader"
+		what = Say(lang, "taken out, it says nothing to the reader", "махнато, не казва нищо на читателя")
 	case polish.Repeated:
-		what = "taken out, it was said twice"
+		what = Say(lang, "taken out, it was said twice", "махнато, беше казано два пъти")
 	case polish.Slip:
-		what = "a slip"
+		what = Say(lang, "a slip", "грешка при писане")
 	case polish.Placeholder:
-		what = "left to fill in; it cannot go out like this"
+		what = Say(lang, "left to fill in; it cannot go out like this", "остава за попълване; не може да тръгне така")
 	case polish.MachineVoice:
-		what = "sounds like a machine talking about itself"
+		what = Say(lang, "sounds like a machine talking about itself", "звучи като машина, която говори за себе си")
 	case polish.WrongWeekday:
-		what = "the weekday does not match the date"
+		what = Say(lang, "the weekday does not match the date", "денят от седмицата не съвпада с датата")
 	case polish.Empty:
-		return "there is no text"
+		return Say(lang, "there is no text", "няма текст")
 	}
 
 	line := fmt.Sprintf("%q: %s", f.Found, what)
@@ -235,7 +238,11 @@ func (PolishText) Cues() []string {
 	return []string{"polish", "изглади", "публикация", "коментар"}
 }
 
-func (PolishText) Summarize(json.RawMessage) string { return "Polish a text before it goes out" }
+func (x PolishText) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (PolishText) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Polish a text before it goes out", "Изглаждане на текст, преди да бъде изпратен")
+}
 
 func (PolishText) Execute(_ context.Context, raw json.RawMessage) (string, error) {
 	var a struct {

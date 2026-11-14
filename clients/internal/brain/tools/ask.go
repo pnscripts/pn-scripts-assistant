@@ -86,7 +86,9 @@ func (Ask) Parameters() json.RawMessage {
 // brain would need approval to admit it is unsure.
 func (Ask) Risk() Risk { return Safe }
 
-func (Ask) Summarize(args json.RawMessage) string {
+func (x Ask) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (Ask) SummarizeIn(args json.RawMessage, lang string) string {
 	var a struct {
 		Question string `json:"question"`
 	}
@@ -94,10 +96,10 @@ func (Ask) Summarize(args json.RawMessage) string {
 	json.Unmarshal(args, &a)
 
 	if a.Question == "" {
-		return "Ask a question"
+		return Say(lang, "Ask a question", "Задаване на въпрос")
 	}
 
-	return "Ask: " + a.Question
+	return Say(lang, "Ask: ", "Въпрос: ") + a.Question
 }
 
 /*

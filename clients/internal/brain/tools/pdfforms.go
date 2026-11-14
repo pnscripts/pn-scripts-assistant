@@ -169,12 +169,14 @@ func (PDFFormFields) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type": "object", "properties": {"path": {"type": "string", "description": "Absolute path to the PDF"}}, "required": ["path"]}`)
 }
 
-func (PDFFormFields) Summarize(raw json.RawMessage) string {
+func (x PDFFormFields) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (PDFFormFields) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Path string }
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Read the form fields of " + a.Path
+	return Say(lang, "Read the form fields of ", "Прочитане на полетата на формуляра ") + a.Path
 }
 
 func (PDFFormFields) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -258,12 +260,14 @@ type fillArgs struct {
 	Out    string            `json:"out"`
 }
 
-func (FillPDFForm) Summarize(raw json.RawMessage) string {
+func (x FillPDFForm) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (FillPDFForm) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a fillArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Fill %d fields of %s into a new file", len(a.Values), filepath.Base(a.Path))
+	return fmt.Sprintf(Say(lang, "Fill %d fields of %s into a new file", "Попълване на полета (%d) от %s в нов файл"), len(a.Values), filepath.Base(a.Path))
 }
 
 func (FillPDFForm) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

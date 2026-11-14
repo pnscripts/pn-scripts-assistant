@@ -84,12 +84,14 @@ func (InBackground) Parameters() json.RawMessage {
  */
 func (InBackground) Risk() Risk { return Safe }
 
-func (t InBackground) Summarize(raw json.RawMessage) string {
+func (t InBackground) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t InBackground) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a backgroundArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Start, without waiting: " + a.What
+	return Say(lang, "Start, without waiting: ", "Стартиране без изчакване: ") + a.What
 }
 
 type backgroundArgs struct {
@@ -173,7 +175,11 @@ func (ListBackground) Parameters() json.RawMessage {
 
 func (ListBackground) Risk() Risk { return Safe }
 
-func (ListBackground) Summarize(json.RawMessage) string { return "Check what is running" }
+func (x ListBackground) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListBackground) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Check what is running", "Проверка какво работи в момента")
+}
 
 func (t ListBackground) Execute(context.Context, json.RawMessage) (string, error) {
 	if t.Jobs == nil {
@@ -225,14 +231,16 @@ func (StopBackground) Parameters() json.RawMessage {
 
 func (StopBackground) Risk() Risk { return Safe }
 
-func (StopBackground) Summarize(raw json.RawMessage) string {
+func (x StopBackground) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (StopBackground) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		ID int64 `json:"id"`
 	}
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Stop background job %d", a.ID)
+	return fmt.Sprintf(Say(lang, "Stop background job %d", "Спиране на фонова задача %d"), a.ID)
 }
 
 func (t StopBackground) Execute(_ context.Context, raw json.RawMessage) (string, error) {
