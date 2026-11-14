@@ -97,7 +97,7 @@ func TestForgettingAConversationKeepsTheDeedsButNotTheWords(t *testing.T) {
 
 	conv, _ := db.NewConversation("t")
 
-	db.AddDeed(Deed{ConversationID: conv, Tool: "read_file", Summary: "Read notes",
+	db.AddDeed(Deed{ConversationID: conv, Tool: "read_file", Summary: "Read notes", SummaryBG: "Прочитане на notes",
 		Request: "my private question", Asked: "path: /home/you/diary.txt", Result: "secret", Outcome: "done"})
 
 	if err := db.DeleteConversation(conv); err != nil {
@@ -113,7 +113,7 @@ func TestForgettingAConversationKeepsTheDeedsButNotTheWords(t *testing.T) {
 		t.Errorf("the conversation's words stayed: %+v", got[0])
 	}
 
-	if got[0].Summary != "Read notes" {
+	if got[0].Summary != "Read notes" || got[0].SummaryBG != "Прочитане на notes" {
 		t.Errorf("what was done was lost: %+v", got[0])
 	}
 }
@@ -167,5 +167,51 @@ func TestOldDeedsArePruned(t *testing.T) {
 
 	if left, _ := db.Deeds(DeedFilter{}); len(left) != 1 || left[0].Tool != "list_directory" {
 		t.Errorf("left %+v", left)
+	}
+}
+
+/*
+ * What was done is kept in Bulgarian beside the English, like the question
+ * it may have started as: the record on a Bulgarian page says the same card
+ * the approval showed. Bounded and scrubbed like the English line, and
+ * empty for a record written before, which the page shows as it was.
+ */
+func TestADeedIsKeptInBothLanguages(t *testing.T) {
+	db := openDeeds(t)
+
+	db.AddDeed(Deed{Tool: "write_file", Summary: "Create notes.txt", SummaryBG: "Създаване на notes.txt", Outcome: "waiting"})
+	db.AddDeed(Deed{Tool: "read_file", Summary: "Read notes.txt", Outcome: "done"})
+	db.AddDeed(Deed{Tool: "run_command", Summary: "Run: curl -H 'Authorization: Bearer sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789'",
+		SummaryBG: "Изпълнение: curl -H 'Authorization: Bearer sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789' " + strings.Repeat("я", 2000),
+		Outcome:   "done"})
+
+	got, err := db.Deeds(DeedFilter{})
+	if err != nil || len(got) != 3 {
+		t.Fatalf("%+v (%v)", got, err)
+	}
+
+	if got[2].SummaryBG != "Създаване на notes.txt" || got[2].Summary != "Create notes.txt" {
+		t.Errorf("the card: %+v", got[2])
+	}
+
+	if got[1].SummaryBG != "" {
+		t.Errorf("a record with no Bulgarian card has one: %+v", got[1])
+	}
+
+	if strings.Contains(got[0].SummaryBG, "abcdefghijklmnopqrstuvwxyz") {
+		t.Errorf("a key is kept in the Bulgarian card: %q", got[0].SummaryBG)
+	}
+
+	if n := len([]rune(got[0].SummaryBG)); n > deedAskedLimit+40 {
+		t.Errorf("the Bulgarian card is kept whole, %d letters", n)
+	}
+
+	out, _ := json.Marshal(got[2])
+	if !strings.Contains(string(out), `"summary_bg":"Създаване на notes.txt"`) {
+		t.Errorf("written as %s", out)
+	}
+
+	if out, _ := json.Marshal(got[1]); strings.Contains(string(out), "summary_bg") {
+		t.Errorf("an empty card is written: %s", out)
 	}
 }

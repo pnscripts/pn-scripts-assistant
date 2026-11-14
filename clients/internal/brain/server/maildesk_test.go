@@ -58,4 +58,10 @@ func TestDraftsAreChangedDiscardedAndRecordedWhenSent(t *testing.T) {
 	if len(deeds) != 1 || deeds[0].Tool != "send_draft" || deeds[0].Outcome != "failed" || !deeds[0].Changes {
 		t.Errorf("the press was not recorded: %+v", deeds)
 	}
+
+	// Said in both languages, like every other line of the record.
+	if len(deeds) == 1 && (deeds[0].Summary != "Send draft to anna@example.com: Re: Offer" ||
+		deeds[0].SummaryBG != "Изпращане на чернова до anna@example.com: Re: Offer") {
+		t.Errorf("the press reads %q / %q", deeds[0].Summary, deeds[0].SummaryBG)
+	}
 }

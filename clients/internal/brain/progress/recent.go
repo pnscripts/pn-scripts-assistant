@@ -41,6 +41,10 @@ type Entry struct {
 	Note string `json:"note"`
 	Tool string `json:"tool"`
 
+	// SummaryBG is the tool's own words in Bulgarian, of a tool that ran or
+	// a question that waited; see Step.SummaryBG.
+	SummaryBG string `json:"summary_bg,omitempty"`
+
 	// When it started, so the interface can say how long ago.
 	At time.Time `json:"at"`
 
@@ -94,12 +98,16 @@ var history = struct {
  * and a tool that was never called.
  */
 func remember(kind, note, tool, model string, background bool) {
-	rememberFor(kind, note, tool, model, background, 0)
+	rememberAs(Entry{Kind: kind, Note: note, Tool: tool, Model: model, Background: background})
 }
 
-// rememberFor is remember for a step that waits on a stored question: the
-// same words about another question are another step. See Waiting.
-func rememberFor(kind, note, tool, model string, background bool, invocation int64) {
+/*
+ * rememberAs is remember for a step that says more than those five things:
+ * the stored question it waits on (the same words about another question
+ * are another step, see Waiting) and the tool's card in Bulgarian (see
+ * Step.SummaryBG). When it happened and its number are set here.
+ */
+func rememberAs(step Entry) {
 	history.mu.Lock()
 	defer history.mu.Unlock()
 
@@ -120,7 +128,7 @@ func rememberFor(kind, note, tool, model string, background bool, invocation int
 	 */
 	if n := len(history.entries); n > 0 {
 		last := history.entries[n-1]
-		if last.Kind == kind && last.Note == note && last.Tool == tool && last.invocation == invocation {
+		if last.Kind == step.Kind && last.Note == step.Note && last.Tool == step.Tool && last.invocation == step.invocation {
 			history.entries[n-1].Took = 0
 
 			return
@@ -129,16 +137,13 @@ func rememberFor(kind, note, tool, model string, background bool, invocation int
 
 	history.nextID++
 
-	history.entries = append(history.entries, Entry{
-		id:         history.nextID,
-		invocation: invocation,
-		Kind:       kind,
-		Note:       note,
-		Tool:       tool,
-		At:         now,
-		Background: background,
-		Model:      model,
-	})
+	step.id = history.nextID
+	step.At = now
+	step.Took = 0
+	step.Detail = nil
+	step.Decided = ""
+
+	history.entries = append(history.entries, step)
 
 	if len(history.entries) > HowManyRecent {
 		history.entries = history.entries[len(history.entries)-HowManyRecent:]
@@ -277,6 +282,9 @@ func reword(kind, note string) {
 
 	if n := len(history.entries); n > 0 && history.entries[n-1].Kind == kind {
 		history.entries[n-1].Note = note
+
+		// Reworded, it is no longer what the Bulgarian card said.
+		history.entries[n-1].SummaryBG = ""
 		fresh = false
 	}
 

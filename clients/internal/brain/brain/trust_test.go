@@ -170,3 +170,42 @@ func deedFor(tool, args, request string) agent.Deed {
 		Outcome: agent.DeedDone,
 	}
 }
+
+/*
+ * The record says what was done in Bulgarian too: the card a call carried
+ * through the loop, and the card a question was stored with when it is
+ * decided after the turn that asked it.
+ */
+func TestADeedIsRecordedInBothLanguages(t *testing.T) {
+	b := quietBrain(t)
+
+	d := deedFor("read_file", `{"path":"/etc/hostname"}`, "как се казва тази машина?")
+	d.Step.Summary, d.Step.SummaryBG = "Read /etc/hostname", "Прочитане на /etc/hostname"
+
+	b.recordDeed(d)
+
+	asked := store.Invocation{Tool: "write_file", Arguments: `{"path":"notes.txt"}`,
+		Summary: "Create notes.txt", SummaryBG: "Създаване на notes.txt"}
+
+	b.recordDenied(asked)
+	b.recordInvocation(asked, agent.DeedDone, "", true)
+
+	deeds, err := b.DB.Deeds(store.DeedFilter{})
+	if err != nil || len(deeds) != 3 {
+		t.Fatalf("%+v (%v)", deeds, err)
+	}
+
+	if deeds[2].Summary != "Read /etc/hostname" || deeds[2].SummaryBG != "Прочитане на /etc/hostname" {
+		t.Errorf("a call: %+v", deeds[2])
+	}
+
+	for _, decided := range deeds[:2] {
+		if decided.Summary != "Create notes.txt" || decided.SummaryBG != "Създаване на notes.txt" {
+			t.Errorf("a decided question: %+v", decided)
+		}
+	}
+
+	if deeds[1].Outcome != agent.DeedRefused || deeds[0].Outcome != agent.DeedDone {
+		t.Errorf("outcomes %s, %s", deeds[1].Outcome, deeds[0].Outcome)
+	}
+}

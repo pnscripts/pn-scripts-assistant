@@ -5168,9 +5168,6 @@ html[lang="bg"] .permit-name:not(.as-typed):not(.human)::first-letter { text-tra
 @media (max-width: 860px) {
     .topbar .brand,
     .topbar .operator-text { display: none; }
-
-    .ring-turner { flex: 0 1 auto; }
-    .ring-here { max-width: 120px; }
 }
 
 .voice-dock {
@@ -5352,6 +5349,42 @@ html.has-stage .shell {
 }
 
 .ring-here:hover { color: var(--text); }
+
+/*
+ * On a narrow bar the name of the panel gives way, never a button.
+ *
+ * The turner was meant to shrink below 860px, by two lines that stood above
+ * its own rule and were overruled by it: it kept its full width, the four
+ * buttons after it were squeezed and the last of them, System, ended past
+ * the edge of a 390px phone on the Command centre, whose name is the longest
+ * most people see. Written after the rules they adjust, and with the bar's
+ * name in front, so they hold: the buttons keep their size and their place,
+ * and the panel's name is what shortens (with an ellipsis; its panel is in
+ * full view under it).
+ */
+@media (max-width: 860px) {
+    .topbar .ring-turner { flex: 0 1 auto; }
+
+    .topbar .icon-buttons,
+    .topbar .icon-button { flex: none; }
+}
+
+/* A phone: the two springs either side of the headline have nothing between
+   them once it is hidden, and each still cost a gap. The turner takes the
+   room they held and keeps to the right, beside the buttons. */
+@media (max-width: 560px) {
+    .topbar .topbar-gap { display: none; }
+    .topbar .ring-turner { margin-left: auto; }
+    .topbar .ring-here { padding: 0 4px; }
+}
+
+/* And the narrowest phones: the buttons a little closer, at the size they
+   were being squeezed to, so "Command centre" and "Команден център" are
+   said whole at 390px. */
+@media (max-width: 430px) {
+    .topbar .icon-buttons { gap: 5px; }
+    .topbar .icon-button { width: 30px; height: 30px; }
+}
 
 /* The bars are the glass the world is seen through, so a panel turning past
    goes behind them rather than across their words. Darker than they are on a

@@ -80,6 +80,16 @@ whenever something visible changed.
   message, the address) is shown exactly as it will be used, so what you
   approve is the same in both languages. Questions asked before the update
   are shown as they were.
+- **Doing now and "What I did" in Bulgarian too.** On a page in Bulgarian,
+  the line in Doing now that waits for your answer, what it becomes once you
+  approve or reject it, a running step, the steps under an answer and every
+  line of "What I did" say the action in Bulgarian, in the same words as the
+  question card beside them. An English page reads as before, and so does
+  anything recorded before this version.
+- **Fixed: the last button of the top bar was cut off on a phone.** At
+  390px the System button ended past the edge on the Command centre. The
+  four buttons now keep their place on a narrow bar; on a narrower phone the
+  panel's name shortens instead.
 - **Fixed: keys of the other companies were lost on the next save.** A
   Gemini, Groq, Mistral or other key typed in setup, a model chosen for one
   and the address of your own server were dropped from the settings the

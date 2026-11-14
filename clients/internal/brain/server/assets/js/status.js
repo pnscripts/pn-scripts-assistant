@@ -236,6 +236,7 @@ const STEP_KEYS = [
     'cc.step.building',
     'cc.step.exporting',
     'cc.step.workingIn',
+    'cc.step.isAnswering',
 ];
 
 let stepShapes = null;
@@ -281,11 +282,21 @@ function localNumber(text) {
 
 window.pnLocalNumber = localNumber;
 
+// The lines that introduce a question's card: "Waiting for you: {1}" and
+// what it becomes once decided. Their {1} is the card itself.
+const CARD_STEPS = new Set(['cc.step.waitingFor', 'cc.step.approved', 'cc.step.refused', 'cc.step.startedItself']);
+
 /*
  * stepWords says one line about a step in the page's language: the note
- * when no step is given, or the step's own headline. On a Bulgarian page a
- * tool's step is named by the tool, since its summary is the tool's own
- * English.
+ * when no step is given, or the step's own headline.
+ *
+ * A tool's summary and a question's card are the tool's own English, and
+ * the server hands the same words in Bulgarian with the step (summary_bg,
+ * the card the approval shows). On a Bulgarian page a tool's step says
+ * those, and a question says them after "Чака вашето решение: " or how it
+ * was decided, so the line and the approval card beside it read the same.
+ * A step with no Bulgarian card is named by its tool, as before, and a
+ * question asked without one is shown as it came.
  */
 window.pnStepLine = function (line, step) {
     const bg = window.pnLang && window.pnLang() === 'bg';
@@ -293,8 +304,10 @@ window.pnStepLine = function (line, step) {
 
     if (!bg) return text;
 
+    const card = (step && step.summary_bg) || '';
+
     if (step && step.tool && window.pnToolName && (step.kind === 'tool' || !step.kind)) {
-        return window.pnToolName(step.tool);
+        return card || window.pnToolName(step.tool);
     }
 
     for (const { pattern, key } of shapes()) {
@@ -306,10 +319,29 @@ window.pnStepLine = function (line, step) {
 
         m.slice(1).forEach((value, i) => { vars[i + 1] = localNumber(value); });
 
+        // The card as it was written, never reshaped as a number.
+        if (card && CARD_STEPS.has(key)) vars[1] = card;
+
         return statusWords(key, vars);
     }
 
     return text;
+};
+
+/*
+ * pnDidLine names one thing done under an answer (agent.Step) in the page's
+ * language: the tool's own summary on an English page; on a Bulgarian one
+ * the same words in Bulgarian when the step carries them (summary_bg), and
+ * the tool's name otherwise. Empty when the step says nothing at all.
+ */
+window.pnDidLine = function (did) {
+    const bg = window.pnLang && window.pnLang() === 'bg';
+    const s = did || {};
+
+    if (bg && s.summary_bg) return s.summary_bg;
+    if (bg && s.tool && window.pnToolName) return window.pnToolName(s.tool);
+
+    return s.summary || s.tool || '';
 };
 
 /*

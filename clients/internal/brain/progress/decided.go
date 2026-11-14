@@ -49,6 +49,16 @@ var decidedAs = map[string]string{
  * deciding one would then settle, or leave, the other.
  */
 func Waiting(note string, invocation int64) {
+	WaitingIn(note, "", invocation)
+}
+
+/*
+ * WaitingIn is Waiting with the question's card in Bulgarian: the card
+ * alone, as the approval shows it, without the words that introduce it.
+ * Deciding the question leaves it as it is, since "Approved: " and
+ * "Refused: " are the page's to say as well.
+ */
+func WaitingIn(note, bg string, invocation int64) {
 	current.mu.Lock()
 
 	if !current.busy {
@@ -59,12 +69,13 @@ func Waiting(note string, invocation int64) {
 	current.kind = "waiting"
 	current.note = note
 	current.tool = ""
+	current.summaryBG = bg
 	current.background = false
 
 	model := current.model
 	current.mu.Unlock()
 
-	rememberFor("waiting", note, "", model, false, invocation)
+	rememberAs(Entry{invocation: invocation, Kind: "waiting", Note: note, SummaryBG: bg, Model: model})
 }
 
 /*

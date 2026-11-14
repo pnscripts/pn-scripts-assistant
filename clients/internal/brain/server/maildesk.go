@@ -151,7 +151,8 @@ func (s *Server) handleDraftSend(w http.ResponseWriter, r *http.Request) {
 
 	deed := store.Deed{
 		Tool: "send_draft", Summary: "Send draft to " + dr.To + ": " + dr.Subject,
-		Asked: "id: " + strconv.FormatInt(id, 10), Changes: true, Leaves: "mail",
+		SummaryBG: "Изпращане на чернова до " + dr.To + ": " + dr.Subject,
+		Asked:     "id: " + strconv.FormatInt(id, 10), Changes: true, Leaves: "mail",
 		Specialist: "you, from the Mail page", Outcome: "done", Result: said,
 	}
 

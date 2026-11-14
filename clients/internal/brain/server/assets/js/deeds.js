@@ -49,19 +49,32 @@
     }
 
     /*
-     * The line a deed is known by. The tool's own summary is written in
-     * English for the model; on the Bulgarian page the capability's name is
-     * said in Bulgarian, followed by what it was given — an address, a
-     * path — which reads the same in either language.
+     * The line a deed is known by, in the page's language. The record keeps
+     * the tool's own words in Bulgarian beside the English (summary_bg, the
+     * card the approval showed), and a Bulgarian page says those. A record
+     * written before that, or by a tool with no Bulgarian card, is named by
+     * the capability in Bulgarian, followed by what it was given (an
+     * address, a path), which reads the same in either language. In full
+     * for the tooltip, which never falls back to the short form.
      */
-    function headline(d) {
-        if (!(window.pnLang && window.pnLang() === 'bg')) return d.summary || toolName(d.tool);
+    function headline(d, full) {
+        const bg = window.pnLang && window.pnLang() === 'bg';
 
-        const first = (d.asked || '').split(' · ')[0];
+        if (!bg) return d.summary || toolName(d.tool);
+        if (d.summary_bg) return d.summary_bg;
+        if (full) return d.summary || toolName(d.tool);
+
+        // "path: notes.txt · lines: 3" names what it was given. A question
+        // decided after its turn keeps the arguments as they were written
+        // ({"path": ...}), which is not a line to read: the name alone then.
+        const asked = d.asked || '';
+        const first = asked.trim().startsWith('{') ? '' : asked.split(' · ')[0];
         const value = first.includes(': ') ? first.slice(first.indexOf(': ') + 2) : '';
 
         return value ? `${toolName(d.tool)} · ${value}` : toolName(d.tool);
     }
+
+    window.pnDeedLine = headline;
 
     function field(label, value, mono) {
         const row = document.createElement('div');
@@ -95,7 +108,7 @@
         const what = document.createElement('span');
         what.className = 'deed-what';
         what.textContent = headline(d);
-        what.title = d.summary || toolName(d.tool);
+        what.title = headline(d, true);
 
         const outcome = document.createElement('span');
         outcome.className = 'deed-outcome';
