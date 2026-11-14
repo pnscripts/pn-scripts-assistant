@@ -150,7 +150,8 @@ func (s *Server) handleCalendarSettings(w http.ResponseWriter, r *http.Request) 
 	cfg := &s.brain.Cfg
 
 	if body.Remove {
-		cfg.CalendarURL, cfg.CalendarUser, cfg.CalendarPassword = "", "", ""
+		cfg.CalendarURL, cfg.CalendarUser = "", ""
+		cfg.TypeSecret("CALDAV_PASSWORD", "")
 
 		if err := cfg.Save(s.brain.Root); err != nil {
 			fail(w, http.StatusInternalServerError, "That could not be saved: "+err.Error())
@@ -181,7 +182,13 @@ func (s *Server) handleCalendarSettings(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cfg.CalendarURL, cfg.CalendarUser, cfg.CalendarPassword = cal.URL, cal.User, cal.Password
+	cfg.CalendarURL, cfg.CalendarUser = cal.URL, cal.User
+
+	// Only a password typed now is the person's to save: a blank one keeps
+	// whatever is in use, which may be the environment's for this run.
+	if body.Password != "" {
+		cfg.TypeSecret("CALDAV_PASSWORD", body.Password)
+	}
 
 	if err := cfg.Save(s.brain.Root); err != nil {
 		fail(w, http.StatusInternalServerError, "That could not be saved: "+err.Error())

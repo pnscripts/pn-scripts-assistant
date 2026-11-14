@@ -1618,7 +1618,7 @@ func (s *Server) handleMail(w http.ResponseWriter, r *http.Request) {
 	// Blank means keep what is saved, not clear it: the form never shows the
 	// password, so submitting the form must not wipe it.
 	if body.Password != "" {
-		s.brain.Cfg.MailPassword = body.Password
+		s.brain.Cfg.TypeSecret("MAIL_PASSWORD", body.Password)
 	}
 
 	if err := s.brain.Cfg.Save(s.brain.Root); err != nil {

@@ -63,6 +63,20 @@ whenever something visible changed.
   Saving any setting used to copy an ANTHROPIC_API_KEY from the environment
   into the settings file, and over a key you had typed; the file now keeps
   its own key, and the environment still overrides it for that run only.
+- **No key from the environment is written into the settings.** The same
+  now holds for every key, token and password the settings keep: OpenAI,
+  OpenRouter and every other company's key, the Brave Search key, the Home
+  Assistant token and the mail and calendar passwords. Only what you type
+  into the assistant is saved, even when it is the same as the
+  environment's. A key that an older version already copied into the
+  settings is kept: nothing can tell afterwards whether it was typed, and
+  removing a typed key would leave the assistant without its model when it
+  starts from the menu. Forget it on the Models page if you did not type it.
+- **Fixed: keys of the other companies were lost on the next save.** A
+  Gemini, Groq, Mistral or other key typed in setup, a model chosen for one
+  and the address of your own server were dropped from the settings the
+  first time any setting was saved. A key typed on the Models page now also
+  works at once instead of after a restart.
 - **The catalogue's MCP servers are current releases.** The MCP test
   server, Knowledge graph memory and Sequential thinking in the catalogue
   now install 2.1.0, 2.0.1 and 2.0.0: the project went back to ordinary
