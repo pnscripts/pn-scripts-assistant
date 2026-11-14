@@ -34,9 +34,14 @@ against the code on 9 November 2026.
   asked) and running it as a command (the program the command names; a
   program started by a script or another program is not followed). A
   package's choice is found through `dpkg-query -S` only when some package
-  has one. "Always" on a question in the conversation allows that kind of
-  action for every program; the choice for one program is on its card.
-  Scrolling is not tied to a program.
+  has one. A question about a program offers "Always for <program>" only
+  when the program is known (a window or command it cannot place offers the
+  tool-wide "Always" alone). Scrolling is not tied to a program.
+- **"Stop using other programs" covers the program tools.** It stops
+  opening, typing, clicking, scrolling and running commands. It does not
+  stop the assistant's own helpers (reading the screen, recognising text,
+  its own browser), MCP servers that are already approved, or a coding agent
+  already at work: stop those on the Organisation page.
 - **MCP servers from other programs: four programs, their own settings
   only.** Claude Desktop, Claude Code (`~/.claude.json`, or the folder
   `CLAUDE_CONFIG_DIR` names), Cursor (`~/.cursor/mcp.json`) and VS Code (the

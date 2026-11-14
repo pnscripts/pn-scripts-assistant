@@ -66,6 +66,30 @@ assistant asks again until you press **Always** once more: a new version can
 do things the old one could not. On "ask every time" no **Always** is acted
 on, and the card says so.
 
+## From the question itself
+When the assistant asks before using a program, the question names it
+("Krita: Open krita") and offers **Always for Krita**: it approves this one
+and sets that program's card to **Always** for that kind of use, for the
+version it asked about, exactly as pressing **Always** on the card would.
+Nothing else is allowed by it: not other programs, not other kinds of use.
+**Always, any program** beside it is the wider choice, for that tool with
+every program. Typing and clicking offer only the program's own **Always**,
+since they are asked whatever the general setting. A question asked for
+another reason too (installing, a rule of yours) offers neither. If the
+program was updated since it asked, nothing is set and the question keeps
+waiting: decide about the new version on its card, or approve just this once.
+
+## Stop using other programs
+At the top of the **Programs** page, **Stop using other programs** stops all
+of it with one click: nothing is opened, typed, clicked, scrolled or run in
+another program, whatever is allowed, every program's **Always** and
+"everything allowed" included, until you press **Use other programs again**.
+A question already waiting can then only be refused, and says why. The
+switch is kept when the assistant restarts. It may be pressed from a paired
+phone too; turning it back on is done at this computer. Asking "which
+programs do I have" also tells the assistant each program's choices and
+whether the switch is on.
+
 ## When a program is removed
 A removed program is never used. Ask for it and the assistant says when it
 was removed ("Krita was removed from this computer on 12 Nov 2026 at

@@ -1203,6 +1203,25 @@ var migrations = []string{
 		UNIQUE (program_id, verb)
 	);
 	`,
+
+	/*
+	 * 33: a question about another program keeps which program (its row),
+	 * which use, the version it was asked about (sealed, like the
+	 * program's own) and whether that program's own "always" would answer
+	 * it, so the approval card can offer "Always for <program>" for that
+	 * program alone. programs_stopped is "Stop using other programs": one
+	 * row while it is on, with the time it was pressed; nothing personal.
+	 */
+	`
+	ALTER TABLE tool_invocations ADD COLUMN program_id INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE tool_invocations ADD COLUMN program_verb TEXT NOT NULL DEFAULT '';
+	ALTER TABLE tool_invocations ADD COLUMN program_version TEXT NOT NULL DEFAULT '';
+	ALTER TABLE tool_invocations ADD COLUMN program_always INTEGER NOT NULL DEFAULT 0;
+	CREATE TABLE programs_stopped (
+		id    INTEGER PRIMARY KEY CHECK (id = 1),
+		since TEXT NOT NULL
+	);
+	`,
 }
 
 /*

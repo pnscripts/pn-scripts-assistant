@@ -40,7 +40,7 @@ var sealedColumns = []struct {
 	{"messages", []string{"content"}, nil},
 	{"lessons", []string{"content"}, []string{"embedding"}},
 	{"knowledge_facts", []string{"content"}, []string{"embedding"}},
-	{"tool_invocations", []string{"arguments", "summary", "result"}, nil},
+	{"tool_invocations", []string{"arguments", "summary", "result", "program_version"}, nil},
 	{"reminders", []string{"what"}, nil},
 	{"tasks", []string{"name", "goal", "done_when", "report"}, nil},
 	{"task_steps", []string{"instruction", "done_when", "answer", "evidence"}, nil},

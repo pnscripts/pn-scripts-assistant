@@ -261,7 +261,7 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 		"/api/providers/connect", "/api/devices/connect", "/api/tunnel", "/api/copies",
 		"/api/desktop", "/api/organisation/agents/x/state", "/api/upkeep/self", "/api/upkeep/notice",
 		"/api/rules", "/api/rules/3", "/api/rules/3/decide", "/api/rules/3/switch", "/api/machine/care/stop", "/api/machine/care/watch",
-		"/api/terms", "/api/programs/permit",
+		"/api/terms", "/api/programs/permit", "/api/programs/resume",
 	} {
 		*got = false
 
@@ -270,6 +270,16 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 		if w.Code != http.StatusForbidden || *got {
 			t.Errorf("a limited device was allowed to post to %s (%d)", path, w.Code)
 		}
+	}
+
+	/*
+	 * Stopping every use of other programs takes something away, so a phone
+	 * may press it (somebody away from the desk is who most needs it);
+	 * starting again is a decision and stays at the desk, above.
+	 */
+	*got = false
+	if w := ask(s, "POST", "/api/programs/stop", "192.168.1.9:4000", carry); w.Code != 200 || !*got {
+		t.Errorf("a limited device could not stop the use of other programs (%d)", w.Code)
 	}
 
 	// Talking stays a phone's to do.

@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/programs"
 )
 
 // Invocation statuses.
@@ -34,6 +36,18 @@ type Invocation struct {
 	// they open. AnsweredItself is one that was.
 	AnswersItself  bool `json:"answers_itself,omitempty"`
 	AnsweredItself bool `json:"answered_itself,omitempty"`
+
+	/*
+	 * A question about another program: its row in the programs table, the
+	 * use (a programs.Verb), the version it was asked about, and whether
+	 * that program's own "always" would answer it (nothing else asks too).
+	 * Zero for a question about no program. Served by the brain's
+	 * approval cards, which name the program; not by themselves.
+	 */
+	ProgramID      int64  `json:"-"`
+	ProgramVerb    string `json:"-"`
+	ProgramVersion string `json:"-"`
+	ProgramAlways  bool   `json:"-"`
 }
 
 // RecordInvocation stores a proposed action awaiting approval.
@@ -65,7 +79,8 @@ func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, ri
 func (d *DB) PendingInvocations() ([]Invocation, error) {
 	rows, err := d.sql().Query(`
 		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, created_at,
-			COALESCE(conversation_id, 0), answers_itself
+			COALESCE(conversation_id, 0), answers_itself,
+			program_id, program_verb, program_version, program_always
 		FROM tool_invocations WHERE status = ? ORDER BY id`, InvocationPending)
 	if err != nil {
 		return nil, err
@@ -79,7 +94,8 @@ func (d *DB) PendingInvocations() ([]Invocation, error) {
 		var created string
 
 		if err := rows.Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &created,
-			&i.ConversationID, &i.AnswersItself); err != nil {
+			&i.ConversationID, &i.AnswersItself,
+			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways); err != nil {
 			return nil, err
 		}
 
@@ -88,6 +104,28 @@ func (d *DB) PendingInvocations() ([]Invocation, error) {
 	}
 
 	return out, rows.Err()
+}
+
+/*
+ * InvocationProgram writes which program a waiting question is about (see
+ * Invocation.ProgramID). Only while it waits: a decided question keeps
+ * what it was decided about.
+ */
+func (d *DB) InvocationProgram(id, programID int64, verb programs.Verb, version string, always bool) error {
+	if programID <= 0 {
+		return fmt.Errorf("no program given for question %d", id)
+	}
+
+	if !programs.KnownVerb(verb) {
+		return fmt.Errorf("%q is not a use of a program", verb)
+	}
+
+	_, err := d.sql().Exec(
+		`UPDATE tool_invocations SET program_id = ?, program_verb = ?, program_version = ?, program_always = ?, updated_at = ?
+		 WHERE id = ? AND status = ?`,
+		programID, string(verb), d.seal(version), always, time.Now().UTC().Format(time.RFC3339), id, InvocationPending)
+
+	return err
 }
 
 // AnswersItselfInQuietHours marks a waiting question as held for the quiet
@@ -160,10 +198,12 @@ func (d *DB) Invocation(id int64) (*Invocation, error) {
 
 	err := d.sql().QueryRow(`
 		SELECT id, tool, arguments, COALESCE(summary,''), risk, status, result, created_at,
-			COALESCE(conversation_id, 0), answers_itself, answered_itself
+			COALESCE(conversation_id, 0), answers_itself, answered_itself,
+			program_id, program_verb, program_version, program_always
 		FROM tool_invocations WHERE id = ?`, id).
 		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.Risk, &i.Status, &result, &created,
-			&i.ConversationID, &i.AnswersItself, &i.AnsweredItself)
+			&i.ConversationID, &i.AnswersItself, &i.AnsweredItself,
+			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways)
 
 	if err == sql.ErrNoRows {
 		return nil, nil

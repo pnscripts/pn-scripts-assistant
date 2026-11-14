@@ -337,6 +337,8 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/machine/care", s.handleMachineCare)
 	s.mux.HandleFunc("GET /api/programs", s.handleProgramInventory)
 	s.mux.HandleFunc("POST /api/programs/permit", s.handleProgramPermit)
+	s.mux.HandleFunc("POST /api/programs/stop", s.handleProgramsStop)
+	s.mux.HandleFunc("POST /api/programs/resume", s.handleProgramsResume)
 	s.mux.HandleFunc("POST /api/machine/care/stop", s.handleStopLeftover)
 	s.mux.HandleFunc("GET /api/machine/care/watch", s.handleRestartWatchState)
 	s.mux.HandleFunc("POST /api/machine/care/watch", s.handleRestartWatch)
@@ -799,7 +801,9 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleApprovals lists actions waiting for a person to allow them.
 func (s *Server) handleApprovals(w http.ResponseWriter, r *http.Request) {
-	pending, err := s.brain.PendingApprovals()
+	// With the program each is about, so a card can offer "Always for
+	// <program>" and say when other programs are stopped.
+	pending, err := s.brain.ApprovalCards()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 
@@ -834,8 +838,31 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 		decision = "deny"
 	}
 
+	/*
+	 * "Always for <program>": that program's card gets Always for this
+	 * use and version, then the call is approved. Refused with nothing
+	 * written when it would not stand for what was asked.
+	 */
+	if decision == "always-program" {
+		invocation, err := s.brain.AlwaysForProgram(r.Context(), id)
+
+		switch {
+		case errors.Is(err, brain.ErrNoSuchQuestion):
+			fail(w, http.StatusNotFound, err.Error())
+		case invocation.Status == store.InvocationPending && err != nil:
+			// Nothing was decided: the question still waits for Approve.
+			fail(w, http.StatusConflict, err.Error())
+		case err != nil:
+			ok(w, map[string]any{"invocation": invocation, "error": err.Error()})
+		default:
+			ok(w, map[string]any{"invocation": invocation})
+		}
+
+		return
+	}
+
 	if decision != "approve" && decision != "deny" {
-		fail(w, http.StatusBadRequest, `The decision must be "approve" or "deny".`)
+		fail(w, http.StatusBadRequest, `The decision must be "approve", "deny" or "always-program".`)
 
 		return
 	}

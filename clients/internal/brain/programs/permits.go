@@ -311,6 +311,8 @@ const (
 	WhyAllowed Why = "allowed"
 	// WhyUpdated: an "always" given to an older version, asleep.
 	WhyUpdated Why = "updated"
+	// WhyStopped: its person stopped every use of other programs.
+	WhyStopped Why = "stopped"
 )
 
 /*
@@ -428,6 +430,37 @@ func GoneSentence(r Record) string {
 
 	return "Refused: " + nameOf(r) + " was removed from this computer on " + at +
 		", so it cannot be used. Say so; it will be used again if it comes back."
+}
+
+/*
+ * StoppedSentence is what the model is told when its person has stopped
+ * every use of other programs ("Stop using other programs" on the Programs
+ * page): since when, and that only they can start it again.
+ */
+func StoppedSentence(since time.Time) string {
+	return "Refused: the owner stopped all use of other programs on " + since.Local().Format("2 Jan 2006 at 15:04") +
+		", so nothing is opened, typed, clicked, scrolled or run in another program. Do not try it again; say so. " +
+		"They can turn it back on with \"Use other programs again\" on the Programs page."
+}
+
+/*
+ * Choices is everything that decides how a program may be used, for
+ * saying it (list_programs): the standing decisions by program row, how
+ * the general setting answers what is not decided, and the switch that
+ * stops all use of other programs.
+ */
+type Choices struct {
+	Permits map[int64][]Permit
+
+	// Honoured: a standing "always" is acted on (not on "ask every time").
+	Honoured bool
+	// Unasked: what is not decided runs without asking (everything is
+	// allowed); typing and clicking in another program is asked anyway.
+	Unasked bool
+
+	// Stopped since Since: nothing uses another program.
+	Stopped bool
+	Since   time.Time
 }
 
 // VerbWords is a verb as the sentences above say it.

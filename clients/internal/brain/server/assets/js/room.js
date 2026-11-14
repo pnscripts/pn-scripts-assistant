@@ -77,9 +77,13 @@
         tool.textContent = toolName(item.tool);
         row.appendChild(tool);
 
+        // Other programs stopped: a question that uses one can only be
+        // refused here, and says why.
+        if (item.programs_stopped) row.appendChild(note(T('prg.ap.stopped')));
+
         const buttons = document.createElement('div');
         buttons.className = 'agent-controls';
-        buttons.appendChild(button(T('room.approve'), () => decide(item.id, true)));
+        if (!item.programs_stopped) buttons.appendChild(button(T('room.approve'), () => decide(item.id, true)));
         buttons.appendChild(button(T('room.reject'), () => decide(item.id, false)));
         row.appendChild(buttons);
 

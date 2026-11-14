@@ -1494,42 +1494,82 @@ async function refreshApprovals() {
          * It approves this call as well: nobody clicking "always" means
          * "always, starting with the next one".
          */
-        const always = document.createElement('button');
-        always.className = 'approve-always';
-        always.textContent = words('cc.always');
-        always.title = words('cc.alwaysTitle', {
-            tool: window.pnToolName ? window.pnToolName(item.tool) : item.tool,
-        });
-        always.onclick = async () => {
-            try {
-                await api.post('/api/permissions/decide', {
-                    tool: item.tool,
-                    answer: 'allow',
-                    why: item.summary,
-                });
-            } catch (err) {
-                // Say so and do nothing else: approving the call while failing
-                // to record the permission would be the worst of both, because
-                // it looks like it worked and asks again tomorrow.
-                addMessage('error', words('cc.couldNotRecord', { why: err.message || err }),
-                    { cssClass: 'error' });
-
-                return;
-            }
-
-            decide(item.id, 'approve');
-        };
+        const toolName = window.pnToolName ? window.pnToolName(item.tool) : item.tool;
 
         /*
-         * An action that is always asked — installing, starting a project,
-         * sending something off this machine, deleting for good — cannot be
-         * allowed for good, whatever is chosen here; offering to would be a
-         * button that quietly does nothing. Its summary says it is one.
+         * Which answers this question offers (programs.js, tested in node):
+         * about one program, "Always for <name>" for that program and the
+         * version asked about; the tool-wide "always" beside it, or alone
+         * for a question about no program; nothing lasting for a question
+         * that is always asked; only Reject while other programs are
+         * stopped, with the reason.
          */
-        if (/^Always asked/.test(item.summary || '')) {
-            actions.append(approve, reject);
-        } else {
-            actions.append(approve, always, reject);
+        const offer = window.pnPrograms && window.pnPrograms.approvalChoices
+            ? window.pnPrograms.approvalChoices(item, toolName)
+            : { approve: true, forProgram: null, note: '',
+                anyProgram: /^Always asked/.test(item.summary || '') ? null
+                    : { label: words('cc.always'), title: words('cc.alwaysTitle', { tool: toolName }) } };
+
+        const buttons = [];
+
+        if (offer.approve) buttons.push(approve);
+
+        if (offer.forProgram) {
+            const mine = document.createElement('button');
+            mine.className = 'approve-always';
+            mine.classList.add('approve-program');
+            mine.textContent = offer.forProgram.label;
+            mine.title = offer.forProgram.title;
+            mine.onclick = () => alwaysForProgram(item);
+            buttons.push(mine);
+        }
+
+        /*
+         * "Yes, and stop asking me about this one."
+         *
+         * The decision belongs here, at the moment somebody is actually
+         * deciding, rather than only on a settings page they would have to
+         * think to visit. It approves this call as well: nobody clicking
+         * "always" means "always, starting with the next one". Beside a
+         * program's own Always it is the wider grant, and looks it.
+         */
+        if (offer.anyProgram) {
+            const always = document.createElement('button');
+            always.className = 'approve-always';
+            if (offer.anyProgram.secondary) always.classList.add('approve-any');
+            always.textContent = offer.anyProgram.label;
+            always.title = offer.anyProgram.title;
+            always.onclick = async () => {
+                try {
+                    await api.post('/api/permissions/decide', {
+                        tool: item.tool,
+                        answer: 'allow',
+                        why: item.summary,
+                    });
+                } catch (err) {
+                    // Say so and do nothing else: approving the call while failing
+                    // to record the permission would be the worst of both, because
+                    // it looks like it worked and asks again tomorrow.
+                    addMessage('error', words('cc.couldNotRecord', { why: err.message || err }),
+                        { cssClass: 'error' });
+
+                    return;
+                }
+
+                decide(item.id, 'approve');
+            };
+            buttons.push(always);
+        }
+
+        buttons.push(reject);
+        actions.append(...buttons);
+
+        let stoppedNote = null;
+
+        if (offer.note) {
+            stoppedNote = document.createElement('p');
+            stoppedNote.className = 'approval-stopped';
+            stoppedNote.textContent = offer.note;
         }
         /*
          * Held for the quiet hours and nothing else: it starts by itself when
@@ -1542,14 +1582,29 @@ async function refreshApprovals() {
             itself.textContent = words('cc.answersItself');
             tool.after(itself);
         }
-        card.append(summary, actions);
+        card.append(summary);
+        if (stoppedNote) card.append(stoppedNote);
+        card.append(actions);
         list.appendChild(card);
     });
 
     syncWaitingEmpty();
 }
 
-async function decide(id, decision) {
+/*
+ * "Always for <program>": the server gives that program's card Always for
+ * this use and the version asked about, then approves the call (decide,
+ * with "always-program"). Refused with nothing written (409) when the
+ * program changed since it asked: said in the page's language, and the
+ * question keeps waiting for Approve.
+ */
+function alwaysForProgram(item) {
+    return decide(item.id, 'always-program', (item.program && item.program.name) || '');
+}
+
+async function decide(id, decision, programName) {
+    const approving = decision === 'approve' || decision === 'always-program';
+
     try {
         const answer = await api.post(`/api/approvals/${id}/${decision}`);
 
@@ -1565,7 +1620,7 @@ async function decide(id, decision) {
         const done = answer.invocation || {};
         const said = (done.result || '').trim();
 
-        const note = decision === 'approve'
+        const note = approving
             ? (answer.error
                 ? words('cc.failed', { why: answer.error })
                 : (said ? words('cc.doneWith', { said }) : words('cc.done')))
@@ -1573,7 +1628,11 @@ async function decide(id, decision) {
 
         addMessage('system', note, { cssClass: 'brain' });
     } catch (err) {
-        addMessage('error', String(err.message || err), { cssClass: 'error' });
+        const why = decision === 'always-program'
+            ? words('prg.ap.failed', { name: programName || '' })
+            : String(err.message || err);
+
+        addMessage('error', why, { cssClass: 'error' });
     }
     refreshApprovals();
     refreshLessons();

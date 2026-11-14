@@ -173,6 +173,16 @@ var changedAtTheDeskOnly = []string{
 	"/api/programs/",       // what another program may be made to do
 }
 
+/*
+ * awayMayDo are exact routes a device away from the computer may post to
+ * although they sit under a desk-only prefix: each only takes something
+ * away. "Stop using other programs" is most needed by somebody who is not
+ * at the desk; starting again (/api/programs/resume) stays a decision.
+ */
+var awayMayDo = []string{
+	"/api/programs/stop",
+}
+
 func decisionRoute(path string) bool {
 	for _, prefix := range atTheDeskOnly {
 		if strings.HasPrefix(path, prefix) {
@@ -186,6 +196,12 @@ func decisionRoute(path string) bool {
 // decision is decisionRoute, plus the routes that are decisions only when
 // something is being changed.
 func decision(r *http.Request) bool {
+	for _, p := range awayMayDo {
+		if r.URL.Path == p {
+			return false
+		}
+	}
+
 	if decisionRoute(r.URL.Path) {
 		return true
 	}

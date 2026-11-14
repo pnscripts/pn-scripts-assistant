@@ -283,3 +283,14 @@ func TestThePackageOfAFileIsReadFromDpkgQuery(t *testing.T) {
 		t.Errorf("a relative path was asked about: %q %v", got, asked)
 	}
 }
+
+func TestTheStoppedSentenceSaysSinceWhenAndHowToUndoIt(t *testing.T) {
+	since := time.Date(2026, 11, 14, 9, 30, 0, 0, time.Local)
+	s := StoppedSentence(since)
+
+	for _, want := range []string{"Refused", "stopped", "14 Nov 2026 at 09:30", "Programs page", "Do not try"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("%q does not say %q", s, want)
+		}
+	}
+}

@@ -6785,3 +6785,43 @@ button.agreement-accept:disabled { opacity: 0.4; cursor: default; filter: none; 
     .program-row { flex-wrap: wrap; }
     .program-said { text-align: left; flex-basis: 100%; }
 }
+
+/*
+ * A question about one program: "Always for <name>" is the narrow standing
+ * yes and looks like the usual Always; "Always, any program" is the wider
+ * one beside it and is quieter still. Four answers wrap on a phone rather
+ * than run off the card.
+ */
+.approval-actions { flex-wrap: wrap; }
+
+.approve-always.approve-any {
+    border-style: dashed;
+    opacity: 0.7;
+}
+
+.approval-stopped {
+    margin: 4px 0 6px;
+    font-size: 12px;
+    color: var(--danger);
+}
+
+/* "Stop using other programs": a sentence and one button. */
+.programs-stop {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin: 4px 0 12px;
+    padding: 10px 12px;
+    border-left: 2px solid var(--line);
+}
+
+.programs-stop[data-stopped="true"] { border-left-color: var(--danger); }
+
+.programs-stop-said { flex: 1 1 260px; margin: 0; font-size: 12.5px; color: var(--text); }
+
+.programs-stop .model-action { margin-left: 0; }
+
+.programs-stop-note { flex-basis: 100%; margin: 0; }
+
+.programs-stop-note:empty { display: none; }

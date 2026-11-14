@@ -847,8 +847,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 
 		// What its person decided on each program's card, at the moment
 		// of acting. See programs.go.
-		Programs: b.ProgramRuling,
-		GoalMode: func() bool { return b.Cfg.GoalMode },
+		Programs:        b.ProgramRuling,
+		ProgramsStopped: b.ProgramsStopped,
+		GoalMode:        func() bool { return b.Cfg.GoalMode },
 
 		// Its user's rules, read at the moment of acting. See rules.go.
 		Rules: b.LiveRules,
@@ -973,6 +974,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		Rules:       b.Agent.Rules,
 		Did:         b.recordDeed,
 		Quietly:     true,
+
+		// "Stop using other programs" stops a task's steps too.
+		ProgramsStopped: b.Agent.ProgramsStopped,
 	}
 
 	// Every call the conversation makes is recorded with its reason too.

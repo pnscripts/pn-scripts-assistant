@@ -17,6 +17,12 @@ type ProgramKeeping interface {
 	ProgramInventory() ([]programs.Record, []programs.SourceState, error)
 }
 
+// ProgramChoosing is a keeper that also knows what each program may be
+// used for (its card's choices, the general setting, the stop switch).
+type ProgramChoosing interface {
+	ProgramChoices() (programs.Choices, error)
+}
+
 /*
  * ListPrograms is "which programs do I have", "is GIMP installed", "what
  * did the update change", "why can't you use Krita": the inventory the
@@ -31,9 +37,12 @@ func (ListPrograms) Description() string {
 	return "The programs installed on this computer, kept current by itself: menu programs (the Start " +
 		"menu on Windows), system packages, snaps and Flatpaks on Linux, installed programs and app " +
 		"packages on Windows, with versions, and what was installed, updated or removed in the last two " +
-		"weeks. name finds a program (also one that was removed, with when); kind narrows to app, deb, " +
-		"snap, flatpak, win (Windows' installed programs) or msix (app packages). Use it before saying a " +
-		"program is or is not there."
+		"weeks. name finds a program (also one that was removed, with when) and says what the owner chose " +
+		"for it: start it, type and click in its windows, run it as a command (always, never, or not " +
+		"decided); the overview names the programs with a choice of their own, and says when the owner " +
+		"stopped all use of other programs. kind narrows to app, deb, snap, flatpak, win (Windows' " +
+		"installed programs) or msix (app packages). Use it before saying a program is or is not there, " +
+		"or what you may do with it."
 }
 
 func (ListPrograms) Parameters() json.RawMessage {
@@ -105,8 +114,27 @@ func (t ListPrograms) Execute(_ context.Context, raw json.RawMessage) (string, e
 		return "", err
 	}
 
+	var choices *programs.Choices
+
+	if c, ok := t.Programs.(ProgramChoosing); ok {
+		got, err := c.ProgramChoices()
+		if err != nil {
+			return "", err
+		}
+
+		choices = &got
+	}
+
+	// Stopped is said first, whatever was asked: it decides everything else.
+	stopped := ""
+	if choices != nil && choices.Stopped {
+		stopped = "Stopped: the owner stopped all use of other programs on " + choices.Since.Local().Format("2 Jan 2006 at 15:04") +
+			"; nothing is opened, typed, clicked, scrolled or run in another program until they turn it back on " +
+			"(\"Use other programs again\" on the Programs page). "
+	}
+
 	if len(records) == 0 {
-		return "The programs on this computer have not been read yet; ask again in a minute.", nil
+		return stopped + "The programs on this computer have not been read yet; ask again in a minute.", nil
 	}
 
 	var mine []programs.Record
@@ -121,12 +149,140 @@ func (t ListPrograms) Execute(_ context.Context, raw json.RawMessage) (string, e
 
 	switch {
 	case name != "":
-		return findPrograms(mine, name), nil
+		return stopped + findPrograms(mine, name) + matchedChoices(mine, name, choices), nil
 	case a.Removed:
-		return removedPrograms(mine), nil
+		return stopped + removedPrograms(mine), nil
 	}
 
-	return programOverview(mine, state, kind, time.Now()), nil
+	return stopped + programOverview(mine, state, kind, time.Now()) + overviewChoices(mine, choices), nil
+}
+
+// mostChoices is how many programs one answer says the choices of.
+const mostChoices = 10
+
+/*
+ * choiceWords is one program's choices, verb by verb, as decided on its
+ * card or, undecided, as the general setting answers: "GIMP (menu): start
+ * it: always; type and click in its windows: not decided, asked each time;
+ * run it as a command: never". onlyDecided leaves out what is not decided.
+ * A removed program says only its decisions, kept for when it is back.
+ * Empty when there is nothing to say.
+ */
+func choiceWords(r programs.Record, c programs.Choices, onlyDecided bool) string {
+	byVerb := map[programs.Verb]programs.Permit{}
+	for _, p := range c.Permits[r.RowID] {
+		byVerb[p.Verb] = p
+	}
+
+	var parts []string
+
+	for _, v := range programs.InUse {
+		p, decided := byVerb[v]
+
+		if !decided && (onlyDecided || !r.Present) {
+			continue
+		}
+
+		var said string
+
+		switch {
+		case !decided && v != programs.VerbInput && c.Unasked:
+			said = "not decided, runs without asking"
+		case !decided && v == programs.VerbInput:
+			said = "not decided, asked each time"
+		case !decided:
+			said = "not decided, the general permissions decide"
+		case p.Answer == programs.Never:
+			said = "never"
+		case !r.Present:
+			said = "always"
+		case p.Asleep(r.Version):
+			said = "always, given to version " + p.Version + ", asked again since the update"
+		case !c.Honoured:
+			said = "always, but asked each time while every action is asked"
+		default:
+			said = "always"
+		}
+
+		parts = append(parts, programs.VerbWords(v)+": "+said)
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	if !r.Present {
+		return programLabel(r) + ": kept for when it comes back: " + strings.Join(parts, "; ")
+	}
+
+	return programLabel(r) + ": " + strings.Join(parts, "; ")
+}
+
+// matchedChoices is the choices of the programs a name found.
+func matchedChoices(rs []programs.Record, name string, c *programs.Choices) string {
+	if c == nil {
+		return ""
+	}
+
+	var lines []string
+
+	for _, r := range rs {
+		if !strings.Contains(strings.ToLower(r.Name), name) && !strings.Contains(strings.ToLower(r.ID), name) &&
+			!strings.Contains(strings.ToLower(r.Exec), name) {
+			continue
+		}
+
+		if w := choiceWords(r, *c, false); w != "" {
+			lines = append(lines, w+".")
+		}
+	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+
+	more := ""
+	if len(lines) > mostChoices {
+		more = fmt.Sprintf(" And %d more (ask with a longer name to see their choices).", len(lines)-mostChoices)
+		lines = lines[:mostChoices]
+	}
+
+	return " What the owner chose for each: " + strings.Join(lines, " ") + more
+}
+
+// overviewChoices names the programs with a choice of their own, and says
+// how the general setting answers for every other one.
+func overviewChoices(rs []programs.Record, c *programs.Choices) string {
+	if c == nil {
+		return ""
+	}
+
+	var lines []string
+
+	for _, r := range rs {
+		if w := choiceWords(r, *c, true); w != "" {
+			lines = append(lines, w+".")
+		}
+	}
+
+	undecided := "starting a program and running it as a command follow the general permissions"
+	if c.Unasked {
+		undecided = "starting a program and running it as a command run without asking"
+	}
+
+	undecided += ", and typing and clicking in one is asked each time."
+
+	if len(lines) == 0 {
+		return " No program has a choice of its own: " + undecided
+	}
+
+	more := ""
+	if len(lines) > mostListed {
+		more = fmt.Sprintf(" And %d more (ask with a name to see them).", len(lines)-mostListed)
+		lines = lines[:mostListed]
+	}
+
+	return " Choices of their own: " + strings.Join(lines, " ") + more + " Every other program: " + undecided
 }
 
 // programLabel is a program as the answer names it: name (source version).
