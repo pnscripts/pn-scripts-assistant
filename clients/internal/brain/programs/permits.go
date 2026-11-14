@@ -2,6 +2,7 @@ package programs
 
 import (
 	"context"
+	pathpkg "path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -506,7 +507,8 @@ func NeedsPackage(records []Record, permits map[int64][]Permit, u Use) bool {
  * empty when there is none or no dpkg.
  */
 func (s Scanner) PackageOf(ctx context.Context, path string) string {
-	if path == "" || !filepath.IsAbs(path) {
+	// dpkg's paths are Unix paths, whatever system reads this.
+	if path == "" || !pathpkg.IsAbs(path) {
 		return ""
 	}
 
