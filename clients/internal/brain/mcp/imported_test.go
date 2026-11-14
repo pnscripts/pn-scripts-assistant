@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/tools"
 )
 
 // importedFake is the fake server as if found in Claude Desktop's settings.
@@ -59,8 +61,14 @@ func TestAnImportedServerFollowsItsEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, ok := g.Registry.Get("mcp_fake_echo"); !ok {
+	offered, ok := g.Registry.Get("mcp_fake_echo")
+	if !ok {
 		t.Fatal("its tool was not offered")
+	}
+
+	// The server's own name for it counts as naming it (agent.Choosing).
+	if named, ok := offered.(tools.Named); !ok || len(named.OwnNames()) == 0 || named.OwnNames()[0] != "echo" {
+		t.Errorf("the tool does not carry the server's name for it: %v", offered)
 	}
 
 	// Gone from the settings.

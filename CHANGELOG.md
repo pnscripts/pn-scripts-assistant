@@ -38,6 +38,17 @@ whenever something visible changed.
   back unchanged, it works again; changed, it asks you again. One that cannot
   run as written (a shell, a value only that program fills in, the SSE
   transport) says why.
+- **Proved with the real reference server.** Every change is now checked
+  against the MCP project's own reference server (server-everything 2.1.0,
+  every dependency pinned by its checksum) on Linux and on Windows, with no
+  network: found in Claude Desktop's settings, imported, not started until
+  approved, a call that waits for Approve and runs, one that is rejected and
+  never reaches the server, the server given its own settings and key but
+  never the assistant's, and stopped as soon as its entry is removed there.
+- **A tool you name is offered.** Asking for one of a server's tools by its
+  own name ("use get-sum of the everything integration") now always offers
+  it; before, a server with many tools could fill the list in alphabetical
+  order and leave out the one you asked for.
 - **What it may do with each program, on the program's card.** When you
   ask, it can start a program, type and click in its windows and run it as
   a command; each program's card on the Programs page now has three buttons

@@ -829,6 +829,86 @@ jobs:
           Write-Output 'updated, reopened; the brain, the to-do and the setting are all there'
           Stop-Process -Id $web.Id
 
+  # The MCP acceptance demo (1.1.0): the real reference server, found in
+  # Claude Desktop's settings, imported, approved, called after Approve,
+  # never called after Reject, and stopped when its entry goes.
+  #
+  # The network is used for the toolchains and for the locked packages only
+  # (registry.npmjs.org, every file checked against its SHA-512 in
+  # package-lock.json, no install scripts run, registry signatures and
+  # provenance verified). The test itself runs with no network at all: in a
+  # network namespace with only loopback on Linux, behind a firewall rule for
+  # node and the test on Windows. No secret is used. The choice against npx
+  # or a vendored tarball is in the brain profile and in the test's comment.
+  mcp-demo:
+    name: The MCP demo on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      PN_SCRIPTS_ASSISTANT_MCP_DEMO: required
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: clients/go.mod
+          cache-dependency-path: clients/go.sum
+
+      # The server asks for Node 24 or newer; one exact release, not whatever
+      # the runner image carries this month.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.2
+          package-manager-cache: false
+
+      - name: Install the pinned server, checksums and signatures checked
+        working-directory: clients/internal/brain/mcpdemo/testdata/everything
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit signatures
+
+      # Built while the network is there; run where it is not. No cgo: the
+      # demo needs no window.
+      - name: Build the demo
+        working-directory: clients
+        env:
+          CGO_ENABLED: '0'
+        run: go test -c -o internal/brain/mcpdemo/mcpdemo.test${{ runner.os == 'Windows' && '.exe' || '' }} ./internal/brain/mcpdemo/
+
+      - name: The demo, with no network (Linux)
+        if: runner.os == 'Linux'
+        working-directory: clients/internal/brain/mcpdemo
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          unshare --map-root-user --net sh -euc '
+            ip link set lo up
+            if node -e "require(\"https\").get(\"https://registry.npmjs.org/\",()=>process.exit(0)).on(\"error\",()=>process.exit(3))"; then
+              echo "the network is still reachable"; exit 1
+            fi
+            echo "no network: only loopback"
+            ./mcpdemo.test -test.v -test.count=1
+          '
+
+      - name: The demo, with no network (Windows)
+        if: runner.os == 'Windows'
+        working-directory: clients/internal/brain/mcpdemo
+        shell: pwsh
+        run: |
+          Set-NetFirewallProfile -All -Enabled True
+          $node = (Get-Command node).Source
+          $test = Join-Path $PWD 'mcpdemo.test.exe'
+          New-NetFirewallRule -DisplayName 'mcp demo: node offline' -Direction Outbound -Action Block -Program $node | Out-Null
+          New-NetFirewallRule -DisplayName 'mcp demo: test offline' -Direction Outbound -Action Block -Program $test | Out-Null
+          & $node -e "require('https').get('https://registry.npmjs.org/',()=>process.exit(0)).on('error',()=>process.exit(3))"
+          if ($LASTEXITCODE -ne 3) { throw 'node still reaches the network' }
+          Write-Output 'no network for node or the test'
+          & $test -test.v -test.count=1
+          if ($LASTEXITCODE -ne 0) { throw "the demo failed ($LASTEXITCODE)" }
+
   scripts:
     name: Shell scripts
     runs-on: ubuntu-latest

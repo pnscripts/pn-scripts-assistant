@@ -95,6 +95,10 @@ type Choosing struct {
 	// Skill says a tool is a skill: instructions, not a capability, of which
 	// there may be a hundred. Nil is none.
 	Skill func(tool string) bool
+
+	// Names are words that name a tool and nothing else, besides its own
+	// name (an MCP server's own name for its tool). Nil is none.
+	Names func(tool string) []string
 }
 
 // MostSkills is how many skills one turn is offered, the best matches first.
@@ -192,6 +196,7 @@ func (c Choosing) choose(specs []llm.ToolSpec, message string, already map[strin
 	type ranked struct {
 		spec  llm.ToolSpec
 		claim int
+		named bool
 	}
 
 	var keep []ranked
@@ -219,13 +224,13 @@ func (c Choosing) choose(specs []llm.ToolSpec, message string, already map[strin
 
 		switch {
 		case always[spec.Name]:
-			keep = append(keep, ranked{spec, 3})
+			keep = append(keep, ranked{spec: spec, claim: 3})
 
 		case already[spec.Name]:
 			// Offered earlier in this conversation. Kept whether or not this
 			// message mentions it, because taking it away now would throw
 			// away everything the model has already read.
-			keep = append(keep, ranked{spec, 2})
+			keep = append(keep, ranked{spec: spec, claim: 2})
 
 		case c.Skill != nil && c.Skill(spec.Name) && c.cuedFor(spec.Name) != nil:
 			// A skill competes with the other skills for a few places.
@@ -237,7 +242,7 @@ func (c Choosing) choose(specs []llm.ToolSpec, message string, already map[strin
 			// A tool that asked to be offered only when it is mentioned —
 			// how a skill gets into the list without crowding it.
 			if mentions(text, c.cuedFor(spec.Name)) {
-				keep = append(keep, ranked{spec, 2})
+				keep = append(keep, ranked{spec: spec, claim: 2})
 			}
 
 		case housekeeping[spec.Name] != nil:
@@ -248,15 +253,15 @@ func (c Choosing) choose(specs []llm.ToolSpec, message string, already map[strin
 			 * model reached for last time, and it spent seven minutes on it.
 			 */
 			if !aboutSomewhere && mentions(text, housekeeping[spec.Name]) {
-				keep = append(keep, ranked{spec, 2})
+				keep = append(keep, ranked{spec: spec, claim: 2})
 			}
 
 		case mentions(text, []string{strings.ReplaceAll(spec.Name, "_", " "), spec.Name}):
 			// Named outright, which is how a task's step asks for one.
-			keep = append(keep, ranked{spec, 2})
+			keep = append(keep, ranked{spec: spec, claim: 2})
 
 		default:
-			keep = append(keep, ranked{spec, 1})
+			keep = append(keep, ranked{spec: spec, claim: 1})
 		}
 	}
 
@@ -268,13 +273,29 @@ func (c Choosing) choose(specs []llm.ToolSpec, message string, already map[strin
 			break
 		}
 
-		keep = append(keep, ranked{sk.spec, 2})
+		keep = append(keep, ranked{spec: sk.spec, claim: 2})
 	}
 
-	// The budget, spent on the strongest claims first and, within a claim, in
-	// the order the registry gave them — which is alphabetical, so the same
-	// question twice gives the same list.
-	sort.SliceStable(keep, func(i, j int) bool { return keep[i].claim > keep[j].claim })
+	/*
+	 * A tool the message names outright goes first within its claim: a
+	 * server with sixteen tools all cued by its name, or a long list kept
+	 * from earlier turns, would otherwise spend the budget in alphabetical
+	 * order and leave out the one the person asked for.
+	 */
+	for i := range keep {
+		keep[i].named = c.named(keep[i].spec.Name, text)
+	}
+
+	// The budget, spent on the strongest claims first and, within a claim, on
+	// the tools named outright, then in the order the registry gave them,
+	// which is alphabetical, so the same question twice gives the same list.
+	sort.SliceStable(keep, func(i, j int) bool {
+		if keep[i].claim != keep[j].claim {
+			return keep[i].claim > keep[j].claim
+		}
+
+		return keep[i].named && !keep[j].named
+	})
 
 	out := make([]llm.ToolSpec, 0, len(keep))
 	spent := 0
@@ -312,6 +333,22 @@ func (c Choosing) here(tool string) bool {
 	}
 
 	return true
+}
+
+// named reports whether the message names a tool outright: its own name,
+// with or without underscores, or one of the names it gave.
+func (c Choosing) named(tool, text string) bool {
+	own := []string{tool, strings.ReplaceAll(tool, "_", " ")}
+
+	if c.Names != nil {
+		for _, n := range c.Names(tool) {
+			if n = strings.ToLower(n); len(n) >= 4 {
+				own = append(own, n)
+			}
+		}
+	}
+
+	return mentions(text, own)
 }
 
 func (c Choosing) cuedFor(tool string) []string {
