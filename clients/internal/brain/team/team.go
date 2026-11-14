@@ -260,9 +260,11 @@ func BuiltIn() []Agent {
 			Tools: []string{
 				"read_file", "write_file", "edit_file", "search_files",
 				"list_directory", "run_command", "read_document", "list_drives",
+				"ask_claude",
 			},
 			Brief: "Look at the code before changing it. Change the least that will do. " +
-				"If a command would change something outside the project, say so first.",
+				"If a command would change something outside the project, say so first. " +
+				"When the user asks Claude something, use ask_claude with only the files they named.",
 		},
 		{
 			Name: "game_developer", Title: "Game developer", BuiltIn: true,

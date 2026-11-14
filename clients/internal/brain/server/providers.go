@@ -166,11 +166,15 @@ func (s *Server) handleConnectProvider(w http.ResponseWriter, r *http.Request) {
 		set(&cfg.OllamaModel, body.Model)
 
 	case "anthropic":
-		set(&cfg.AnthropicKey, body.Key)
+		// Typed here: the provider's key, and the one "ask Claude" may use.
+		if body.Key != nil {
+			cfg.TypeAnthropicKey(*body.Key)
+		}
+
 		set(&cfg.AnthropicModel, body.Model)
 
 		if body.Forget {
-			cfg.AnthropicKey = ""
+			cfg.TypeAnthropicKey("")
 		}
 
 	case "openai":

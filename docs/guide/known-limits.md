@@ -102,6 +102,15 @@ against the code on 9 November 2026.
   most accounts in June 2026, and its event stream is not documented well
   enough to read what it changed. Whether Cursor's agent is signed in is only
   known when it is asked, because asking starts its login.
+- **Asking your own Claude** is tested against stand-ins for Claude Code
+  and the Anthropic API on Linux and Windows. A real Claude Code (2.1.303,
+  Linux, 14.11.2026) accepted exactly the way it is started (no tools, no MCP
+  servers, only an empty folder's settings, its own system prompt) and was
+  sent about 620 tokens for a one-line question, so none of your personal
+  Claude Code files went with it; it has not been watched with a real Claude
+  Code on Windows. A Claude Code whose configuration lives in a folder named
+  by CLAUDE_CONFIG_DIR is seen as not signed in. Signing in or out shows
+  within a minute.
 
 ## Safety and privacy
 

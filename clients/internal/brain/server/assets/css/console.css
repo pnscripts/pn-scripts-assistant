@@ -771,7 +771,9 @@ html, body {
     margin-bottom: 9px;
 }
 
-.approval p { margin: 0 0 9px; font-size: 12.5px; line-height: 1.45; }
+/* The question is read as written: its lines (the task, each file, what is
+   saved where) stay lines, and a long path wraps instead of running out. */
+.approval p { margin: 0 0 9px; font-size: 12.5px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }
 
 .approval .tool {
     font-family: var(--mono);

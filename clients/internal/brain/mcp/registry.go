@@ -413,6 +413,12 @@ func (b *Book) HasSecret(id, name string) bool {
 
 // Catalogue is the servers this program knows, pinned, for its owner to
 // choose from. None is added, let alone approved, until they say.
+//
+// The MCP project's npm servers are semantically versioned again since
+// 11.10.2026 (npm marks the date versions deprecated); each is pinned to a
+// release at least two weeks old. Their licence is in transition from MIT
+// to Apache-2.0 (the LICENSE file of modelcontextprotocol/servers), so both
+// are named. The Python servers still publish date versions.
 func Catalogue() []Server {
 	npm := func(pkg, version string, args ...string) []string {
 		return append([]string{"npx", "-y", pkg + "@" + version}, args...)
@@ -425,16 +431,16 @@ func Catalogue() []Server {
 	return []Server{
 		{ID: "everything", Title: "MCP test server", Transport: "stdio",
 			Why:     "the protocol's own reference server, with sample tools, resources and prompts, for checking that integrations work",
-			Command: npm("@modelcontextprotocol/server-everything", "2026.8.31"), Recipe: "node",
-			Version: "2026.8.31", Licence: "MIT", Source: "npm, @modelcontextprotocol/server-everything", FromCatalogue: true},
+			Command: npm("@modelcontextprotocol/server-everything", "2.1.0"), Recipe: "node",
+			Version: "2.1.0", Licence: "Apache-2.0, older parts MIT", Source: "npm, @modelcontextprotocol/server-everything", FromCatalogue: true},
 		{ID: "memory", Title: "Knowledge graph memory", Transport: "stdio",
 			Why:     "a separate store of entities and relations a project's agents can build up",
-			Command: npm("@modelcontextprotocol/server-memory", "2026.8.31"), Recipe: "node",
-			Version: "2026.8.31", Licence: "MIT", Source: "npm, @modelcontextprotocol/server-memory", FromCatalogue: true},
+			Command: npm("@modelcontextprotocol/server-memory", "2.0.1"), Recipe: "node",
+			Version: "2.0.1", Licence: "Apache-2.0, older parts MIT", Source: "npm, @modelcontextprotocol/server-memory", FromCatalogue: true},
 		{ID: "thinking", Title: "Sequential thinking", Transport: "stdio",
 			Why:     "a structured scratchpad for working a problem through step by step",
-			Command: npm("@modelcontextprotocol/server-sequential-thinking", "2026.8.31"), Recipe: "node",
-			Version: "2026.8.31", Licence: "MIT", Source: "npm, @modelcontextprotocol/server-sequential-thinking", FromCatalogue: true},
+			Command: npm("@modelcontextprotocol/server-sequential-thinking", "2.0.0"), Recipe: "node",
+			Version: "2.0.0", Licence: "Apache-2.0, older parts MIT", Source: "npm, @modelcontextprotocol/server-sequential-thinking", FromCatalogue: true},
 		{ID: "git", Title: "Git", Transport: "stdio",
 			Why:     "reads a repository's history, diffs and branches",
 			Command: uvx("mcp-server-git", "2026.8.18"), Recipe: "uv",

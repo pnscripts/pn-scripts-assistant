@@ -22,6 +22,8 @@ var plainWords = map[string][2]string{
 		"Вградена процедура: как да ви задава по един въпрос с възможни отговори."},
 	"ask_coding_agent": {"Hands one task to Claude Code, Codex or Cursor's agent on this computer, in a folder you choose, and shows what it changed.",
 		"Възлага една задача на Claude Code, Codex или агента на Cursor на този компютър в избрана от вас папка и показва какво е променил."},
+	"ask_claude": {"Asks your own Claude (your Claude Code, or the Anthropic key you typed in) one question, with only the files you approve.",
+		"Задава един въпрос на вашия Claude (вашия Claude Code или въведения от вас ключ за Anthropic) само с файловете, които одобрите."},
 	"ask_first": {"Asks you one question, with options, when only you can decide.",
 		"Задава ви един въпрос с възможни отговори, когато решението е само ваше."},
 	"audit_originality": {"Checks a whole folder of work for names, pictures, melodies and rules that are too close to existing works.",

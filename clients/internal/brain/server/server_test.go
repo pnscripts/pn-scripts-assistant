@@ -312,7 +312,7 @@ func TestRegisteredTools(t *testing.T) {
 	// everything waiting, the brain said it would and then did nothing at all,
 	// because it had no way to reach its own queue.
 	want := []string{
-		"acquire_integration", "activate_integration", "ask_coding_agent", "ask_first", "audit_originality", "brain_copies", "business_answers", "calculate_table", "can_i_restart", "change_a_setting",
+		"acquire_integration", "activate_integration", "ask_claude", "ask_coding_agent", "ask_first", "audit_originality", "brain_copies", "business_answers", "calculate_table", "can_i_restart", "change_a_setting",
 		"change_business_answers", "change_glossary", "change_the_diary", "change_this_conversation", "check_answer", "check_claims", "check_name", "check_requirements", "click",
 		"closest_titles", "compare_melody", "compare_pictures", "compare_versions", "confirm_hire", "customer_reply", "decide_waiting",
 		"do_in_background", "draft_reply", "drive_browser", "edit_document", "edit_file", "fetch_url", "fill_pdf_form",
@@ -1873,6 +1873,43 @@ func TestAKeyIsNeverSentBack(t *testing.T) {
 
 	if seen != 2 {
 		t.Errorf("%d of the expected providers listed", seen)
+	}
+}
+
+// A key typed on the Models page is the chosen one for "ask Claude";
+// forgetting it takes that back too, and saving a model leaves it alone.
+func TestAKeyTypedOnTheModelsPageIsChosen(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "")
+
+	ts, _, b := newServer(t)
+
+	const key = "sk-ant-typed-on-the-page-5678"
+
+	send(t, ts.URL+"/api/providers/connect", `{"provider":"anthropic","key":"`+key+`"}`)
+
+	if b.Cfg.ChosenAnthropicKey() != key {
+		t.Fatalf("typed on the page, chosen %q", b.Cfg.ChosenAnthropicKey())
+	}
+
+	send(t, ts.URL+"/api/providers/connect", `{"provider":"anthropic","model":"claude-opus-5"}`)
+
+	if b.Cfg.ChosenAnthropicKey() != key {
+		t.Errorf("saving a model unmarked the key: %q", b.Cfg.ChosenAnthropicKey())
+	}
+
+	again, err := config.Load(b.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if again.ChosenAnthropicKey() != key {
+		t.Errorf("after a restart, chosen %q", again.ChosenAnthropicKey())
+	}
+
+	send(t, ts.URL+"/api/providers/connect", `{"provider":"anthropic","forget":true}`)
+
+	if b.Cfg.ChosenAnthropicKey() != "" || b.Cfg.AnthropicKey != "" {
+		t.Errorf("forgotten, still chosen %q", b.Cfg.ChosenAnthropicKey())
 	}
 }
 

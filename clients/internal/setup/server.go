@@ -882,7 +882,13 @@ func (s *Server) saveAPIKey(provider, key string) error {
 	}
 
 	// 0600: this file now holds a credential.
-	return s.writeSetting(setting, key, 0o600)
+	if provider != "anthropic" {
+		return s.writeSetting(setting, key, 0o600)
+	}
+
+	// Typed by its person: marked, in the same write, so "ask Claude" may
+	// use it (config.ChosenAnthropicKey). The mark is a fingerprint.
+	return s.writeSettings(0o600, [2]string{setting, key}, [2]string{config.KeyTypedSetting, config.KeyPrint(key)})
 }
 
 /*

@@ -1209,6 +1209,28 @@ func (l *Loop) RunBrief(
 				}
 			}
 
+			/*
+			 * A call its tool can tell will not run as asked (a file that is
+			 * not there, no Claude of its user's own): said at once, under
+			 * every setting, rather than put to its user as a question that
+			 * could only fail after the yes. See tools.Unready.
+			 */
+			if u, ok := tool.(tools.Unready); ok {
+				if why := u.Unready(call.Arguments); why != "" {
+					said := "Cannot do that as asked: " + why
+
+					messages = append(messages, toolResult(call, said))
+
+					l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+summary+"]\n"+said)
+
+					l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+						Asked: askedFor(call.Arguments), Level: level, Result: said, Failed: true},
+						call.Arguments, messages, model, choice.Why, DeedRefused)
+
+					continue
+				}
+			}
+
 			use, bound := tools.ProgramUseOf(ctx, tool, call.Arguments)
 
 			var ruling programs.Ruling

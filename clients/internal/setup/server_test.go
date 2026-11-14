@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"pn-scripts-assistant/internal/brain/config"
 	"strings"
 	"testing"
 	"time"
@@ -163,6 +164,38 @@ func TestStoresAKeyInTheEnvFileWithRestrictivePermissions(t *testing.T) {
 
 	if perm := info.Mode().Perm(); perm != 0o600 {
 		t.Errorf("the file now holds a credential; permissions are %o, want 600", perm)
+	}
+}
+
+// A key typed in setup is marked as typed, so "ask Claude" may use it; the
+// mark is a fingerprint, never the key again.
+func TestAKeyTypedInSetupIsMarkedAsChosen(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "")
+
+	server, envPath := startServer(t)
+
+	key := "sk-ant-" + strings.Repeat("b", 20)
+
+	if out := postJSON(t, server.URL()+"/api-key", `{"key":"`+key+`"}`); out["ok"] != true {
+		t.Fatalf("a well-formed key was rejected: %v", out["error"])
+	}
+
+	contents, _ := os.ReadFile(envPath)
+	if !strings.Contains(string(contents), config.KeyTypedSetting+"="+config.KeyPrint(key)) {
+		t.Fatalf("the typed key is not marked:\n%s", contents)
+	}
+
+	if strings.Count(string(contents), key) != 1 {
+		t.Error("the key is written more than once")
+	}
+
+	cfg, err := config.LoadFrom(envPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.ChosenAnthropicKey() != key {
+		t.Errorf("chosen %q", cfg.ChosenAnthropicKey())
 	}
 }
 

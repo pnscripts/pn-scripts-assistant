@@ -64,6 +64,7 @@ var serves = map[string][]string{
 	"search_files":   {"file_management", "programming", "code_review", "research", "refactoring"},
 	"list_directory": {"file_management", "programming", "research"},
 	"list_drives":    {"file_management", "machine_upkeep"},
+	"ask_claude":     {"programming", "code_review", "summarising", "research"},
 	"read_document":  {"research", "editing", "writing", "literature_review", "documentation", "legal_research", "accounting"},
 	"write_document": {"writing", "copywriting", "technical_writing", "documentation", "reporting", "editing"},
 	"edit_document":  {"writing", "editing", "documentation", "technical_writing"},
