@@ -82,6 +82,9 @@ type Brain struct {
 	// programs.go.
 	programs programKeeping
 
+	// mcpImports is the other programs' MCP settings. See mcpimport.go.
+	mcpImports mcpKeeping
+
 	DB     *store.DB
 	Router *llm.Router
 	Cfg    config.Config
@@ -1529,10 +1532,11 @@ func (b *Brain) start(ctx context.Context) {
 	 * only those: approved and switched on by its owner. In the background,
 	 * because npx fetching a server for the first time is most of a minute,
 	 * and none of that should stand between opening the window and using it.
+	 * After the first look at the other programs' MCP settings, so one whose
+	 * entry went while this program was closed is not started: see
+	 * mcpimport.go.
 	 */
-	if b.Integrations != nil {
-		go b.Integrations.Resume(ctx)
-	}
+	b.KeepMCPImports(ctx)
 
 	// The programs on this computer: read once, then watched. See
 	// programs.go.
@@ -1701,6 +1705,7 @@ func (b *Brain) Stop() {
 
 	// And the program inventory stops watching.
 	b.StopPrograms()
+	b.StopMCPImports()
 }
 
 // SystemPrompt is who this assistant is.

@@ -20,14 +20,22 @@ import (
  * what a running one offers to be read.
  */
 
-// ListIntegrations says what integrations there are and what each offers.
-type ListIntegrations struct{ Gateway *Gateway }
+/*
+ * ListIntegrations says what integrations there are and what each offers.
+ * Found, when set, is the servers found in other programs' settings and
+ * not imported, one line each (nil: none are looked for).
+ */
+type ListIntegrations struct {
+	Gateway *Gateway
+	Found   func() []string
+}
 
 func (ListIntegrations) Name() string { return "list_integrations" }
 
 func (ListIntegrations) Description() string {
 	return "List the integrations (MCP servers): which are approved and running, what each " +
-		"offers, and which could be switched on from the catalogue."
+		"offers, which could be switched on from the catalogue, and the ones found in the " +
+		"owner's other programs (Claude Desktop, Claude Code, Cursor, VS Code)."
 }
 
 func (ListIntegrations) Parameters() json.RawMessage {
@@ -44,6 +52,8 @@ func (t ListIntegrations) Execute(context.Context, json.RawMessage) (string, err
 		state := "in the catalogue, not added"
 
 		switch {
+		case v.Gone():
+			state = fmt.Sprintf("no longer in %s's settings since %s, so not used until it is back there", ClientTitle(v.From.Client), v.From.GoneSince)
 		case v.Running:
 			state = fmt.Sprintf("running (%s protocol %s), %d tools", v.Era, v.Protocol, len(v.Tools))
 		case v.Approved:
@@ -52,7 +62,15 @@ func (t ListIntegrations) Execute(context.Context, json.RawMessage) (string, err
 			state = "added, not approved"
 		}
 
-		fmt.Fprintf(&b, "%s (%s): %s; %s\n", v.Title, v.ID, state, v.Why)
+		if v.From != nil {
+			state += "; imported from " + ClientTitle(v.From.Client)
+		}
+
+		if v.Why != "" {
+			state += "; " + v.Why
+		}
+
+		fmt.Fprintf(&b, "%s (%s): %s\n", v.Title, v.ID, state)
 
 		for _, tool := range v.Tools {
 			fmt.Fprintf(&b, "  %s\n", tool.As)
@@ -63,7 +81,35 @@ func (t ListIntegrations) Execute(context.Context, json.RawMessage) (string, err
 		}
 	}
 
+	if t.Found != nil {
+		if found := t.Found(); len(found) > 0 {
+			b.WriteString("Found in the owner's other programs, not imported (the owner imports one on the " +
+				"Organisation page, under Integrations; it is then approved there):\n")
+
+			for _, line := range found {
+				b.WriteString("  " + line + "\n")
+			}
+		}
+	}
+
 	return strings.TrimSpace(b.String()), nil
+}
+
+// ClientTitle is the name people know a program by whose MCP settings are
+// imported (package mcpimport): claude-desktop is Claude Desktop.
+func ClientTitle(client string) string {
+	switch client {
+	case "claude-desktop":
+		return "Claude Desktop"
+	case "claude-code":
+		return "Claude Code"
+	case "cursor":
+		return "Cursor"
+	case "vscode":
+		return "VS Code"
+	}
+
+	return client
 }
 
 // ActivateIntegration switches on one integration from the catalogue.

@@ -45,6 +45,34 @@ there and tells you about it when you ask; it does not start, change or
 remove it. Using programs for you comes in a later version, and it will ask
 you first, at this computer.
 
+## MCP servers you set up in other programs
+If you already use MCP servers in **Claude Desktop**, **Claude Code**,
+**Cursor** or **VS Code**, the assistant finds them by itself and lists them
+on the **Organisation** page, under **Integrations**, as "Found in your other
+programs". It reads only each program's own settings file for you (Claude
+Code: your own list and the lists it keeps per folder); the files that come
+with a project folder are not read, because they come with whatever was
+downloaded.
+
+Nothing found is used until you press **Import** and then approve it, like
+any integration. A key in those settings is kept sealed and never shown.
+An imported server follows its entry there:
+- removed there (or the program's settings deleted): it stops here at once,
+  its tools are no longer offered, and it is kept, with your approval, until
+  it comes back. Ask "why can't you use my filesystem server?" and the
+  assistant says since when it is gone.
+- back unchanged: it is used again as before.
+- changed there (another program, version or address): it stops and you are
+  asked to approve it again. Only a new key: the new key is kept, nothing
+  else changes.
+- a settings file that is half written or not readable changes nothing.
+
+Some servers cannot be used as they are written there, and the page says
+why: one started through a shell, one that needs a value only that program
+fills in (such as `${env:TOKEN}`, or a question VS Code asks), an
+environment file, a fixed working folder, the old SSE transport, or more than
+one header. Add those by hand.
+
 ## Privacy
 The list is yours: the names, versions and paths are sealed in the knowledge base like
 everything personal, and the log only counts changes. Nothing on the page

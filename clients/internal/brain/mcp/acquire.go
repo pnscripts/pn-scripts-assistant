@@ -353,6 +353,10 @@ func idFor(name string) string {
 	return id
 }
 
+// IDFor is a name as an integration's id: lower-case letters and digits,
+// starting with a letter, at most 21.
+func IDFor(name string) string { return idFor(name) }
+
 func titleFor(name string) string {
 	_, last, found := strings.Cut(name, "/")
 	if !found {
