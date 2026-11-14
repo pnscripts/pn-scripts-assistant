@@ -178,10 +178,14 @@ func (b *Brain) projectProposal(id int64) (*store.Proposal, bootstrap.Proposal, 
 }
 
 // ShowProject is the proposal as it would be carried out, for the approval.
-func (b *Brain) ShowProject(id int64) (string, bool) {
+func (b *Brain) ShowProject(id int64, lang string) (string, bool) {
 	_, p, err := b.projectProposal(id)
 	if err != nil {
 		return "", false
+	}
+
+	if lang == "bg" {
+		return fmt.Sprintf("Започване на проект по предложение %d\n%s", id, p.TextIn(lang)), true
 	}
 
 	return fmt.Sprintf("Start project proposal %d\n%s", id, p.Text()), true

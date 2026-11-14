@@ -75,7 +75,11 @@ func (ListWindows) Parameters() json.RawMessage {
 
 func (ListWindows) Risk() Risk { return Safe }
 
-func (ListWindows) Summarize(json.RawMessage) string { return "List the open windows" }
+func (x ListWindows) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListWindows) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List the open windows", "Списък на отворените прозорци")
+}
 
 func (ListWindows) Execute(ctx context.Context, _ json.RawMessage) (string, error) {
 	ids, err := pointer(ctx, "search", "--onlyvisible", "--name", ".")
@@ -164,14 +168,16 @@ func (OpenApp) Parameters() json.RawMessage {
 // which program it turns out to be is not always what was meant.
 func (OpenApp) Risk() Risk { return Mutating }
 
-func (OpenApp) Summarize(raw json.RawMessage) string {
+func (x OpenApp) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (OpenApp) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Name string `json:"name"`
 	}
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Open " + a.Name
+	return Say(lang, "Open ", "Отваряне на ") + a.Name
 }
 
 func (OpenApp) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -340,21 +346,33 @@ func (Click) Parameters() json.RawMessage {
 // folder or confirm a purchase, and nothing about the click itself says which.
 func (Click) Risk() Risk { return Mutating }
 
-func (Click) Summarize(raw json.RawMessage) string {
+func (x Click) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Click) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a clickArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	kind := "Click"
+	kind := Say(lang, "Click", "Щракване")
 	if a.Double {
-		kind = "Double-click"
+		kind = Say(lang, "Double-click", "Двойно щракване")
 	}
 
 	if a.Button != "" && a.Button != "left" {
-		kind = strings.Title(a.Button) + "-click" //nolint:staticcheck
+		switch {
+		case lang == "bg" && a.Button == "right":
+			kind = "Щракване с десния бутон"
+		case lang == "bg" && a.Button == "middle":
+			kind = "Щракване със средния бутон"
+		case lang == "bg":
+			kind = "Щракване с бутон " + a.Button
+		default:
+			kind = strings.Title(a.Button) + Say(lang, "-click", "") //nolint:staticcheck
+		}
 	}
 
-	return fmt.Sprintf("%s %s, at %d across and %d down", kind, a.What, a.X, a.Y)
+	return fmt.Sprintf(Say(lang, "%s %s, at %d across and %d down", "%s върху %s, на %d по хоризонтала и %d по вертикала"),
+		kind, a.What, a.X, a.Y)
 }
 
 type clickArgs struct {
@@ -421,17 +439,19 @@ func (TypeText) Parameters() json.RawMessage {
 // message, and Return is the difference between a draft and a decision.
 func (TypeText) Risk() Risk { return Mutating }
 
-func (TypeText) Summarize(raw json.RawMessage) string {
+func (x TypeText) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (TypeText) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a typeArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Key != "" {
-		return "Press " + a.Key
+		return Say(lang, "Press ", "Натискане на ") + a.Key
 	}
 
 	// The whole text, because that is what is being agreed to.
-	return "Type into the window in front:\n\n" + a.Text
+	return Say(lang, "Type into the window in front:\n\n", "Въвеждане в прозореца отпред:\n\n") + a.Text
 }
 
 type typeArgs struct {
@@ -497,14 +517,32 @@ func (Scroll) Parameters() json.RawMessage {
  */
 func (Scroll) Risk() Risk { return Safe }
 
-func (Scroll) Summarize(raw json.RawMessage) string {
+func (x Scroll) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Scroll) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Direction string `json:"direction"`
 	}
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Scroll " + a.Direction
+	return Say(lang, "Scroll ", "Превъртане ") + scrollDirectionIn(a.Direction, lang)
+}
+
+// scrollDirectionIn is a scroll direction as a card says it.
+func scrollDirectionIn(direction, lang string) string {
+	switch direction {
+	case "up":
+		return Say(lang, "up", "нагоре")
+	case "down":
+		return Say(lang, "down", "надолу")
+	case "left":
+		return Say(lang, "left", "наляво")
+	case "right":
+		return Say(lang, "right", "надясно")
+	}
+
+	return direction
 }
 
 func (Scroll) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

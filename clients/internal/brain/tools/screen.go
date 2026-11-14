@@ -77,7 +77,9 @@ func (LookAtScreen) Parameters() json.RawMessage {
 // and never goes anywhere but the model on this machine.
 func (LookAtScreen) Risk() Risk { return Safe }
 
-func (LookAtScreen) Summarize(raw json.RawMessage) string {
+func (x LookAtScreen) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (LookAtScreen) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Question string `json:"question"`
 	}
@@ -85,10 +87,10 @@ func (LookAtScreen) Summarize(raw json.RawMessage) string {
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Question != "" {
-		return "Look at your screen: " + a.Question
+		return Say(lang, "Look at your screen: ", "Поглед към екрана ви: ") + a.Question
 	}
 
-	return "Look at your screen"
+	return Say(lang, "Look at your screen", "Поглед към екрана ви")
 }
 
 /*

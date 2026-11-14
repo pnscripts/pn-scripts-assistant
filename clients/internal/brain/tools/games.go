@@ -67,8 +67,12 @@ func (GameEngines) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)
 }
 
-func (GameEngines) Risk() Risk                       { return Safe }
-func (GameEngines) Summarize(json.RawMessage) string { return "Check which game engines are here" }
+func (GameEngines) Risk() Risk                              { return Safe }
+func (x GameEngines) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (GameEngines) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Check which game engines are here", "Проверка кои двигатели за игри има тук")
+}
 
 func (t GameEngines) Execute(context.Context, json.RawMessage) (string, error) {
 	var b strings.Builder
@@ -162,12 +166,16 @@ type docsArgs struct {
 	Topic   string `json:"topic"`
 }
 
-func (GameDocs) Summarize(raw json.RawMessage) string {
+func (x GameDocs) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (GameDocs) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a docsArgs
 
 	json.Unmarshal(raw, &a)
 
-	return "Look up " + firstNonEmpty(a.Topic, "the documentation") + " for " + firstNonEmpty(a.Project, a.Engine, "the engine")
+	return fmt.Sprintf(Say(lang, "Look up %s for %s", "Справка в документацията на %[2]s: %[1]s"),
+		firstNonEmpty(a.Topic, Say(lang, "the documentation", "общ преглед")),
+		firstNonEmpty(a.Project, a.Engine, Say(lang, "the engine", "двигателя")))
 }
 
 func (t GameDocs) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -309,12 +317,14 @@ func (GameCheck) Parameters() json.RawMessage {
 // Mutating: it runs code somebody wrote.
 func (GameCheck) Risk() Risk { return Mutating }
 
-func (GameCheck) Summarize(raw json.RawMessage) string {
+func (x GameCheck) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (GameCheck) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Project string }
 
 	json.Unmarshal(raw, &a)
 
-	return "Check " + a.Project + " (runs it headless, with no window)"
+	return Say(lang, "Check ", "Проверка на ") + a.Project + Say(lang, " (runs it headless, with no window)", " (стартира се без прозорец)")
 }
 
 func (GameCheck) Touches(raw json.RawMessage) ([]string, []string) {
@@ -386,16 +396,19 @@ type buildArgs struct {
 
 func (GameBuild) Weight(json.RawMessage) risk.Level { return risk.Medium }
 
-func (t GameBuild) Summarize(raw json.RawMessage) string {
+func (t GameBuild) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t GameBuild) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a buildArgs
 
 	json.Unmarshal(raw, &a)
 
 	if a.What == "smoke" {
-		return "Run " + a.Project + " for a few seconds, headless, and photograph it"
+		return Say(lang, "Run ", "Стартиране на ") + a.Project +
+			Say(lang, " for a few seconds, headless, and photograph it", " за няколко секунди без прозорец и снимка на екрана му")
 	}
 
-	return "Build " + a.Project + " into " + t.into(a)
+	return Say(lang, "Build ", "Компилиране на ") + a.Project + Say(lang, " into ", " в ") + t.into(a)
 }
 
 // into is where a build goes: what was asked, or the project's first output

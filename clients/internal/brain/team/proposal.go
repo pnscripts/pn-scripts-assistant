@@ -1120,44 +1120,69 @@ type NeedsApproval struct {
 func (n *NeedsApproval) Error() string { return "this hire needs its owner's approval: " + n.Why }
 
 // Text is the proposal written out for a person deciding on it.
-func (p Proposal) Text() string {
+func (p Proposal) Text() string { return p.TextIn("en") }
+
+// say is the sentence in the language asked for: Bulgarian for "bg".
+func say(lang, en, bg string) string {
+	if lang == "bg" {
+		return bg
+	}
+
+	return en
+}
+
+// TextIn is the proposal in a language ("en" or "bg"), for the approval
+// card. Only the fixed words are translated: titles, names, the model's
+// lines and what the machine reported stay as they are.
+func (p Proposal) TextIn(lang string) string {
 	var b strings.Builder
 
 	if p.Existing != nil {
-		fmt.Fprintf(&b, "Nobody new is needed: %s (%s) already does this.", p.Existing.Title, p.Existing.Name)
+		fmt.Fprintf(&b, say(lang, "Nobody new is needed: %s (%s) already does this.",
+			"Не е нужен нов човек: %s (%s) вече прави това."), p.Existing.Title, p.Existing.Name)
 
 		return b.String()
 	}
 
 	a := p.Agent
 
-	fmt.Fprintf(&b, "Proposed hire: %s, called %s\n", a.Title, a.Name)
-	fmt.Fprintf(&b, "Job: %s (%s)", p.Job.Title, p.Job.ID)
+	fmt.Fprintf(&b, say(lang, "Proposed hire: %s, called %s\n", "Предложено наемане: %s, с име %s\n"), a.Title, a.Name)
+	fmt.Fprintf(&b, say(lang, "Job: %s (%s)", "Длъжност: %s (%s)"), p.Job.Title, p.Job.ID)
 
 	if p.Seat != "" {
-		where := "a vacant seat"
+		where := say(lang, "a vacant seat", "свободно място")
 		if p.SeatIn != "" {
-			where = "a new seat in " + orElse(p.SeatUnit, p.SeatIn)
+			where = say(lang, "a new seat in ", "ново място в ") + orElse(p.SeatUnit, p.SeatIn)
 		}
 
-		fmt.Fprintf(&b, ", sitting in %s (%s)", where, p.Seat)
+		fmt.Fprintf(&b, say(lang, ", sitting in %s (%s)", ", на %s (%s)"), where, p.Seat)
 	}
 
 	b.WriteString("\n")
 
 	switch p.Permanence {
 	case Permanent:
-		b.WriteString("Permanent: saved in the organisation, available for later work.\n")
+		b.WriteString(say(lang, "Permanent: saved in the organisation, available for later work.\n",
+			"Постоянно: остава в организацията и е на разположение за следваща работа.\n"))
 	case TaskOnly:
-		b.WriteString("For one task only: recorded, and let go when the task ends.\n")
+		b.WriteString(say(lang, "For one task only: recorded, and let go when the task ends.\n",
+			"Само за една задача: записва се и се освобождава, когато задачата приключи.\n"))
 		if p.Goal != "" {
-			b.WriteString("The task: " + p.Goal + "\n")
+			b.WriteString(say(lang, "The task: ", "Задачата: ") + p.Goal + "\n")
 		}
 	default:
-		b.WriteString("Not decided yet: permanent, or for one task only?\n")
+		b.WriteString(say(lang, "Not decided yet: permanent, or for one task only?\n",
+			"Още не е решено: постоянно или само за една задача?\n"))
 	}
 
-	fmt.Fprintf(&b, "Risk: %s\n", p.Risk)
+	riskWord := p.Risk
+	if lang == "bg" {
+		if w, ok := map[string]string{"low": "нисък", "medium": "среден", "high": "висок", "critical": "критичен"}[p.Risk]; ok {
+			riskWord = w
+		}
+	}
+
+	fmt.Fprintf(&b, say(lang, "Risk: %s\n", "Риск: %s\n"), riskWord)
 
 	section := func(title string, lines []string) {
 		if len(lines) == 0 {
@@ -1171,7 +1196,7 @@ func (p Proposal) Text() string {
 		}
 	}
 
-	section("Responsible for", p.Responsibilities)
+	section(say(lang, "Responsible for", "Отговаря за"), p.Responsibilities)
 
 	var packages []string
 
@@ -1179,72 +1204,75 @@ func (p Proposal) Text() string {
 		line := fmt.Sprintf("%s %s: %s (%s)", pkg.ID, pkg.Version, pkg.Title, pkg.Work)
 
 		if len(pkg.Needs) > 0 {
-			line += "; relies on " + strings.Join(pkg.Needs, "; ")
+			line += say(lang, "; relies on ", "; разчита на ") + strings.Join(pkg.Needs, "; ")
 		}
 
 		packages = append(packages, line)
 	}
 
-	section("Capability packages", packages)
+	section(say(lang, "Capability packages", "Пакети с възможности"), packages)
 
-	model := p.Model.Uses + " model"
+	model := p.Model.Uses + say(lang, " model", " модел")
 	if p.Model.Name != "" {
-		model = p.Model.Name + " (the " + p.Model.Uses + " model)"
+		model = p.Model.Name + say(lang, " (the "+p.Model.Uses+" model)", " (модел "+p.Model.Uses+")")
 	}
 
-	section("Thinks with", []string{model + ", on " + p.Model.Provider})
+	section(say(lang, "Thinks with", "Мисли с"), []string{model + say(lang, ", on ", ", при ") + p.Model.Provider})
 
 	if a.Brief != "" {
-		section("Standing instructions", []string{strings.ReplaceAll(a.Brief, "\n", " ")})
+		section(say(lang, "Standing instructions", "Постоянни указания"), []string{strings.ReplaceAll(a.Brief, "\n", " ")})
 	}
 
-	section("Skills", p.Skills)
+	section(say(lang, "Skills", "Умения"), p.Skills)
 
 	tools := p.Tools
 	if len(tools) == 0 {
-		tools = []string{"none: its work is judgement"}
+		tools = []string{say(lang, "none: its work is judgement", "никакви: работата му е преценка")}
 	}
 
-	section("May use", []string{strings.Join(tools, ", ")})
-	section("Must not", p.Limits)
+	section(say(lang, "May use", "Може да използва"), []string{strings.Join(tools, ", ")})
+	section(say(lang, "Must not", "Не бива"), p.Limits)
 
 	var needs []string
 
 	for _, n := range p.Requires {
-		needs = append(needs, neededLine(n))
+		needs = append(needs, neededLineIn(n, lang))
 	}
 
-	section("Needs on this machine", needs)
+	section(say(lang, "Needs on this machine", "Нужно на този компютър"), needs)
 
 	var integrations []string
 
 	for _, i := range p.Integrations {
-		state := "not on the approved list"
+		state := say(lang, "not on the approved list", "не е в одобрения списък")
 
 		switch {
 		case i.State.Approved:
-			state = "approved"
+			state = say(lang, "approved", "одобрена")
 		case i.State.Known:
-			state = "on the list, not approved, so it needs your approval"
+			state = say(lang, "on the list, not approved, so it needs your approval",
+				"в списъка е, но не е одобрена, затова е нужно вашето одобрение")
 		}
 
-		where := "on this machine"
+		where := say(lang, "on this machine", "на този компютър")
 		if i.State.Remote {
-			where = "outside this machine"
+			where = say(lang, "outside this machine", "извън този компютър")
 		}
 
 		integrations = append(integrations, fmt.Sprintf("%s: %s; %s, %s", orElse(i.State.Title, i.ID), i.Why, where, state))
 	}
 
-	section("Integrations (MCP)", integrations)
-	section("It can do itself", p.Itself)
-	section("Needs you", p.You)
-	section("Needs a qualified professional", p.Professional)
+	section(say(lang, "Integrations (MCP)", "Интеграции (MCP)"), integrations)
+	section(say(lang, "It can do itself", "Може сам"), p.Itself)
+	section(say(lang, "Needs you", "Нужни сте вие"), p.You)
+	section(say(lang, "Needs a qualified professional", "Нужен е квалифициран специалист"), p.Professional)
 
 	return strings.TrimSpace(b.String())
 }
 
-func neededLine(n Needed) string {
+func neededLine(n Needed) string { return neededLineIn(n, "en") }
+
+func neededLineIn(n Needed, lang string) string {
 	s := n.Status
 
 	line := s.Title
@@ -1255,17 +1283,17 @@ func neededLine(n Needed) string {
 
 	switch {
 	case s.Ready():
-		line += fmt.Sprintf(": here (%s)", orElse(s.Version, "version not said"))
+		line += fmt.Sprintf(say(lang, ": here (%s)", ": има го (%s)"), orElse(s.Version, say(lang, "version not said", "версията не е посочена")))
 	case s.Present:
-		line += ": here, but " + s.Problem
+		line += say(lang, ": here, but ", ": има го, но ") + s.Problem
 	case s.Blocked:
 		line += ": " + s.Problem
 	default:
-		line += ": missing"
+		line += say(lang, ": missing", ": липсва")
 	}
 
 	if n.Optional {
-		line += " [optional: " + n.Why + "]"
+		line += say(lang, " [optional: ", " [по избор: ") + n.Why + "]"
 	} else {
 		line += " [" + n.Why + "]"
 	}
@@ -1284,7 +1312,7 @@ func neededLine(n Needed) string {
 		}
 
 		if !s.Installable && s.Manual != "" {
-			line += "; cannot be installed from here: " + s.Manual
+			line += say(lang, "; cannot be installed from here: ", "; не може да се инсталира оттук: ") + s.Manual
 		}
 	}
 

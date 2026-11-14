@@ -112,12 +112,29 @@ type todoArgs struct {
 	ID     int64  `json:"id"`
 }
 
-func (TodoTool) Summarize(raw json.RawMessage) string {
+func (x TodoTool) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (TodoTool) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a todoArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return strings.TrimSpace(fmt.Sprintf("To-do %s: %s %s", a.Action, a.Text, a.List))
+	action := a.Action
+
+	if lang == "bg" {
+		switch a.Action {
+		case "add":
+			action = Say(lang, "add", "добавяне")
+		case "done":
+			action = Say(lang, "done", "отбелязване като свършена")
+		case "undo":
+			action = Say(lang, "undo", "връщане като несвършена")
+		case "remove":
+			action = Say(lang, "remove", "премахване")
+		}
+	}
+
+	return strings.TrimSpace(fmt.Sprintf(Say(lang, "To-do %s: %s %s", "Задача, %s: %s %s"), action, a.Text, a.List))
 }
 
 func (t TodoTool) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -307,7 +324,11 @@ func (ListTodos) Parameters() json.RawMessage {
 	}`)
 }
 
-func (ListTodos) Summarize(json.RawMessage) string { return "Show the to-do lists" }
+func (x ListTodos) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListTodos) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Show the to-do lists", "Показване на списъците със задачи")
+}
 
 func (t ListTodos) Execute(_ context.Context, raw json.RawMessage) (string, error) {
 	var a struct {
@@ -384,7 +405,11 @@ func (WhatIsNext) Parameters() json.RawMessage {
 	}`)
 }
 
-func (WhatIsNext) Summarize(json.RawMessage) string { return "Say what is coming up" }
+func (x WhatIsNext) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (WhatIsNext) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Say what is coming up", "Какво предстои")
+}
 
 // Coming is one thing on the way, from whichever drawer it came.
 type Coming struct {
@@ -622,7 +647,11 @@ func (ReadCalendar) Parameters() json.RawMessage {
 	}`)
 }
 
-func (ReadCalendar) Summarize(json.RawMessage) string { return "Read the online calendar" }
+func (x ReadCalendar) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ReadCalendar) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Read the online calendar", "Прочитане на онлайн календара")
+}
 
 func (t ReadCalendar) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
 	var a struct {
@@ -698,7 +727,13 @@ func (WriteCalendar) Description() string {
 
 func (WriteCalendar) Parameters() json.RawMessage { return PutInTheDiary{}.Parameters() }
 
-func (WriteCalendar) Summarize(raw json.RawMessage) string {
+func (x WriteCalendar) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (WriteCalendar) SummarizeIn(raw json.RawMessage, lang string) string {
+	if lang == "bg" {
+		return strings.Replace(PutInTheDiary{}.SummarizeIn(raw, lang), "Записване в дневника", "Записване в онлайн календара", 1)
+	}
+
 	return strings.Replace(PutInTheDiary{}.Summarize(raw), "Put in the diary", "Put in your online calendar", 1)
 }
 

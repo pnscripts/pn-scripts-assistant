@@ -4,6 +4,7 @@ import (
 	"pn-scripts-assistant/internal/brain/vault"
 
 	"pn-scripts-assistant/internal/brain/redact"
+	"pn-scripts-assistant/internal/brain/tools"
 
 	"encoding/json"
 	"errors"
@@ -190,16 +191,22 @@ func (s Server) Check() error {
 }
 
 // Where says in words where it runs, for somebody approving it.
-func (s Server) Where() string {
+func (s Server) Where() string { return s.WhereIn("en") }
+
+// WhereIn is Where in a language ("en" or "bg"), for the approval card.
+func (s Server) WhereIn(lang string) string {
 	switch {
 	case s.Transport == "http" && s.Remote():
-		return "a server elsewhere, at " + s.URL + "; what it is sent leaves this machine"
+		return tools.Say(lang, "a server elsewhere, at ", "сървър другаде, на ") + s.URL +
+			tools.Say(lang, "; what it is sent leaves this machine", "; изпратеното до него напуска този компютър")
 	case s.Transport == "http":
-		return "a server on this machine, at " + s.URL
+		return tools.Say(lang, "a server on this machine, at ", "сървър на този компютър, на ") + s.URL
 	case s.Network:
-		return "a program on this machine that reaches the internet itself: " + strings.Join(s.Command, " ")
+		return tools.Say(lang, "a program on this machine that reaches the internet itself: ",
+			"програма на този компютър, която сама излиза в интернет: ") + strings.Join(s.Command, " ")
 	default:
-		return "a program on this machine, with your access to it: " + strings.Join(s.Command, " ")
+		return tools.Say(lang, "a program on this machine, with your access to it: ",
+			"програма на този компютър с вашия достъп до него: ") + strings.Join(s.Command, " ")
 	}
 }
 

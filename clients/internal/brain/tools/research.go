@@ -454,12 +454,14 @@ type researchArgs struct {
 	Language string `json:"language"`
 }
 
-func (ResearchTool) Summarize(raw json.RawMessage) string {
+func (x ResearchTool) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ResearchTool) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a researchArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Research: " + a.Question
+	return Say(lang, "Research: ", "Проучване: ") + a.Question
 }
 
 func (t ResearchTool) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -521,12 +523,14 @@ type checkClaimsArgs struct {
 	Language string   `json:"language"`
 }
 
-func (CheckClaimsTool) Summarize(raw json.RawMessage) string {
+func (x CheckClaimsTool) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (CheckClaimsTool) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a checkClaimsArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Check a text's claims against %d sources", len(a.Sources))
+	return fmt.Sprintf(Say(lang, "Check a text's claims against %d sources", "Проверка на твърденията в текст по източници (%d)"), len(a.Sources))
 }
 
 // Reaches names the hosts it would read, for Control's record.

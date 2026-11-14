@@ -230,3 +230,9 @@ against the code on 9 November 2026.
   answers, the plain list of facts the first introduction falls back to.
   Built-in skills are named in Bulgarian where they come with a Bulgarian
   description.
+- Question cards are in Bulgarian on a Bulgarian page, around what they
+  are about, which is shown as it will be used. Inside a card, what was
+  written elsewhere stays as it came: the details of a proposed hire or
+  project that the model wrote, facts a tool read (an error, a download's
+  source), and the names of skills and programs. A question asked before
+  1.1.0 is shown in English.

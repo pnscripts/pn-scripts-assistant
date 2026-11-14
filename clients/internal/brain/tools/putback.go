@@ -58,7 +58,9 @@ func (PutBack) Parameters() json.RawMessage {
  */
 func (PutBack) Risk() Risk { return Mutating }
 
-func (PutBack) Summarize(raw json.RawMessage) string {
+func (x PutBack) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (PutBack) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Path string `json:"path"`
 		List bool   `json:"list"`
@@ -67,14 +69,14 @@ func (PutBack) Summarize(raw json.RawMessage) string {
 	json.Unmarshal(raw, &a)
 
 	if a.List {
-		return "List the changes that can be undone"
+		return Say(lang, "List the changes that can be undone", "Списък на промените, които могат да бъдат отменени")
 	}
 
 	if a.Path != "" {
-		return "Put " + a.Path + " back the way it was"
+		return Say(lang, "Put ", "Връщане на ") + a.Path + Say(lang, " back the way it was", " в предишния му вид")
 	}
 
-	return "Undo the last change to a file"
+	return Say(lang, "Undo the last change to a file", "Отмяна на последната промяна във файл")
 }
 
 func (t PutBack) Execute(_ context.Context, raw json.RawMessage) (string, error) {

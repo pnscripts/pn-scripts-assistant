@@ -453,16 +453,18 @@ type recordArgs struct {
 	Keep *bool  `json:"keep"`
 }
 
-func (RecordInvoice) Summarize(raw json.RawMessage) string {
+func (x RecordInvoice) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (RecordInvoice) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a recordArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Path != "" {
-		return "Read and check the invoice " + a.Path
+		return Say(lang, "Read and check the invoice ", "Прочитане и проверка на фактурата ") + a.Path
 	}
 
-	return strings.TrimSpace("Record invoice " + a.Number)
+	return strings.TrimSpace(Say(lang, "Record invoice ", "Записване на фактура ") + a.Number)
 }
 
 func writeFindings(b *strings.Builder, fs []books.Finding) {
@@ -546,12 +548,23 @@ func (ImportInvoices) Parameters() json.RawMessage {
 	}`)
 }
 
-func (ImportInvoices) Summarize(raw json.RawMessage) string {
+func (x ImportInvoices) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ImportInvoices) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Path, Kind string }
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "Import " + a.Kind + " invoices from " + a.Path
+	if lang == "bg" {
+		switch a.Kind {
+		case "sale":
+			return Say(lang, "Import sale invoices from ", "Внасяне на фактури за продажби от ") + a.Path
+		case "purchase":
+			return Say(lang, "Import purchase invoices from ", "Внасяне на фактури за покупки от ") + a.Path
+		}
+	}
+
+	return Say(lang, "Import ", "Внасяне на фактури (") + a.Kind + Say(lang, " invoices from ", ") от ") + a.Path
 }
 
 func (t ImportInvoices) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -606,12 +619,14 @@ func (VATSummary) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type": "object", "properties": {"period": {"type": "string", "description": "2026-09, 2026-Q3 or 2026"}}, "required": ["period"]}`)
 }
 
-func (VATSummary) Summarize(raw json.RawMessage) string {
+func (x VATSummary) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (VATSummary) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Period string }
 
 	_ = json.Unmarshal(raw, &a)
 
-	return "VAT for " + a.Period
+	return Say(lang, "VAT for ", "ДДС за ") + a.Period
 }
 
 func (t VATSummary) Execute(_ context.Context, raw json.RawMessage) (string, error) {

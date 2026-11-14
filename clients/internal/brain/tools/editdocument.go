@@ -63,19 +63,21 @@ type editDocArgs struct {
 
 // Summarize shows both halves. Somebody approving a change to a contract needs
 // to see the words going out and the words going in, not that one is happening.
-func (EditDocument) Summarize(raw json.RawMessage) string {
+func (x EditDocument) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (EditDocument) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a editDocArgs
 
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return "Change a document"
+		return Say(lang, "Change a document", "Промяна на документ")
 	}
 
-	how := "the one occurrence of"
+	how := Say(lang, "the one occurrence of", "единственото срещане на")
 	if a.All {
-		how = "every occurrence of"
+		how = Say(lang, "every occurrence of", "всяко срещане на")
 	}
 
-	return fmt.Sprintf("In %s, replace %s\n  %q\nwith\n  %q",
+	return fmt.Sprintf(Say(lang, "In %s, replace %s\n  %q\nwith\n  %q", "В %s: замяна на %s\n  %q\nс\n  %q"),
 		a.Path, how, a.Find, a.Replace)
 }
 

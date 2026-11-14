@@ -52,7 +52,9 @@ func (Quieten) Parameters() json.RawMessage {
 
 func (Quieten) Risk() Risk { return Mutating }
 
-func (Quieten) Summarize(raw json.RawMessage) string {
+func (x Quieten) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Quieten) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Off bool `json:"off"`
 	}
@@ -60,10 +62,11 @@ func (Quieten) Summarize(raw json.RawMessage) string {
 	json.Unmarshal(raw, &a)
 
 	if a.Off {
-		return "Send this machine's sound back to the speakers directly"
+		return Say(lang, "Send this machine's sound back to the speakers directly", "Връщане на звука на този компютър направо към високоговорителите")
 	}
 
-	return "Send this machine's sound through the echo canceller, so the microphone stops hearing it"
+	return Say(lang, "Send this machine's sound through the echo canceller, so the microphone stops hearing it",
+		"Пропускане на звука на този компютър през потискането на ехото, за да не го чува микрофонът")
 }
 
 func (t Quieten) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

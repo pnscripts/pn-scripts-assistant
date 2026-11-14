@@ -327,6 +327,10 @@ type Ruling struct {
 	// Said is one English sentence for the model and the approval card
 	// (the loop's other refusals are English too), empty when undecided.
 	Said string
+
+	// SaidBG is the same sentence in Bulgarian where the approval card
+	// shows it (an "always" asleep after an update), else empty.
+	SaidBG string
 }
 
 /*
@@ -399,7 +403,8 @@ func Rule(matches []Record, permits map[int64][]Permit, verb Verb) Ruling {
 
 	if asleep != nil {
 		return Ruling{Answer: AskEach, Why: WhyUpdated, Program: asleep,
-			Said: nameOf(*asleep) + " was updated since it was allowed to " + VerbWords(verb) + ", so this is asked again."}
+			Said:   nameOf(*asleep) + " was updated since it was allowed to " + VerbWords(verb) + ", so this is asked again.",
+			SaidBG: "Програмата " + nameOf(*asleep) + " е обновена, откакто е разрешено " + verbWordsBG(verb) + ", затова се пита отново."}
 	}
 
 	first := present[0]
@@ -464,6 +469,28 @@ type Choices struct {
 }
 
 // VerbWords is a verb as the sentences above say it.
+// verbWordsBG is a use as Bulgarian words, for "since ... was allowed".
+func verbWordsBG(v Verb) string {
+	switch v {
+	case VerbStart:
+		return "стартирането ѝ"
+	case VerbInput:
+		return "писането и щракането в прозорците ѝ"
+	case VerbChange:
+		return "изпълнението ѝ като команда"
+	case VerbRead:
+		return "четенето от нея"
+	case VerbExport:
+		return "изнасянето от нея"
+	case VerbSend:
+		return "изпращането с нея"
+	case VerbUninstall:
+		return "деинсталирането ѝ"
+	}
+
+	return string(v)
+}
+
 func VerbWords(v Verb) string {
 	switch v {
 	case VerbStart:

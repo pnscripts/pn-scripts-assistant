@@ -43,14 +43,16 @@ func (SetAppearance) Parameters() json.RawMessage {
 
 func (SetAppearance) Risk() Risk { return Safe }
 
-func (SetAppearance) Summarize(raw json.RawMessage) string {
+func (x SetAppearance) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (SetAppearance) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Part   string `json:"part"`
 		Colour string `json:"colour"`
 	}
 	argsOf(raw, &a)
 
-	return fmt.Sprintf("Colour the %s %s", a.Part, a.Colour)
+	return fmt.Sprintf(Say(lang, "Colour the %s %s", "Цвят на частта %s: %s"), a.Part, a.Colour)
 }
 
 func (s SetAppearance) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

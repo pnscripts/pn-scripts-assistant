@@ -157,12 +157,14 @@ func (b *Brain) askToApprove(conversationID int64, name string, args json.RawMes
 	}
 
 	summary := tool.Summarize(args)
+	summaryBG := tools.SummaryIn(tool, args, "bg")
 
 	if why := tools.ConsentFor(tool, args); why != "" && !b.Unbounded() {
 		summary = "Always asked (" + why + "): " + summary
+		summaryBG = "Винаги се пита (" + tools.ReasonIn(why, "bg") + "): " + summaryBG
 	}
 
-	id, err := b.DB.RecordInvocation(conversationID, name, string(args), summary, string(tools.Mutating))
+	id, err := b.DB.RecordInvocationIn(conversationID, name, string(args), summary, summaryBG, string(tools.Mutating))
 	if err != nil {
 		return nil, err
 	}

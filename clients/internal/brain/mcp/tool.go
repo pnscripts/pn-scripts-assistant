@@ -106,7 +106,9 @@ func (w *Wrapped) Weight(json.RawMessage) risk.Level {
 	return level
 }
 
-func (w *Wrapped) Summarize(args json.RawMessage) string {
+func (w *Wrapped) Summarize(args json.RawMessage) string { return w.SummarizeIn(args, "en") }
+
+func (w *Wrapped) SummarizeIn(args json.RawMessage, lang string) string {
 	var compact bytes.Buffer
 
 	json.Compact(&compact, args)
@@ -116,7 +118,7 @@ func (w *Wrapped) Summarize(args json.RawMessage) string {
 		shown = shown[:300] + "…"
 	}
 
-	return fmt.Sprintf("%s (%s): %s %s", w.server.Title, w.server.Where(), w.def.Name, shown)
+	return fmt.Sprintf("%s (%s): %s %s", w.server.Title, w.server.WhereIn(lang), w.def.Name, shown)
 }
 
 // GrantedTo: only the agents its owner named.

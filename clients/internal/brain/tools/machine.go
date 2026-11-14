@@ -71,8 +71,10 @@ func (WhatItNeeds) Parameters() json.RawMessage {
 
 func (WhatItNeeds) Risk() Risk { return Safe }
 
-func (WhatItNeeds) Summarize(json.RawMessage) string {
-	return "look at what this machine has and is missing"
+func (x WhatItNeeds) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (WhatItNeeds) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "look at what this machine has and is missing", "преглед какво има този компютър и какво му липсва")
 }
 
 func (t WhatItNeeds) Execute(context.Context, json.RawMessage) (string, error) {
@@ -163,7 +165,9 @@ func (InstallPart) Parameters() json.RawMessage {
 
 func (InstallPart) Risk() Risk { return Mutating }
 
-func (t InstallPart) Summarize(raw json.RawMessage) string {
+func (t InstallPart) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t InstallPart) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Name string `json:"name"`
 	}
@@ -175,12 +179,12 @@ func (t InstallPart) Summarize(raw json.RawMessage) string {
 	if t.Parts != nil {
 		for _, p := range t.Parts() {
 			if p.Name == a.Name && p.Size != "" {
-				return "install " + a.Name + " (" + p.Size + ")"
+				return Say(lang, "install ", "инсталиране на ") + a.Name + " (" + p.Size + ")"
 			}
 		}
 	}
 
-	return "install " + a.Name
+	return Say(lang, "install ", "инсталиране на ") + a.Name
 }
 
 func (t InstallPart) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -264,14 +268,16 @@ func (InstallModel) Parameters() json.RawMessage {
 
 func (InstallModel) Risk() Risk { return Mutating }
 
-func (InstallModel) Summarize(raw json.RawMessage) string {
+func (x InstallModel) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (InstallModel) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Name string `json:"name"`
 	}
 
 	json.Unmarshal(raw, &a)
 
-	return "download the model " + a.Name
+	return Say(lang, "download the model ", "изтегляне на модела ") + a.Name
 }
 
 func (t InstallModel) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -321,7 +327,11 @@ func (CheckUpdates) Parameters() json.RawMessage {
 
 func (CheckUpdates) Risk() Risk { return Safe }
 
-func (CheckUpdates) Summarize(json.RawMessage) string { return "check for updates" }
+func (x CheckUpdates) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (CheckUpdates) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "check for updates", "проверка за обновления")
+}
 
 func (t CheckUpdates) Execute(ctx context.Context, _ json.RawMessage) (string, error) {
 	if t.Look == nil {
@@ -370,7 +380,9 @@ func (RemovePart) Parameters() json.RawMessage {
 
 func (RemovePart) Risk() Risk { return Mutating }
 
-func (t RemovePart) Summarize(raw json.RawMessage) string {
+func (t RemovePart) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t RemovePart) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Name string `json:"name"`
 	}
@@ -382,12 +394,12 @@ func (t RemovePart) Summarize(raw json.RawMessage) string {
 	if t.Parts != nil {
 		for _, p := range t.Parts() {
 			if p.Name == a.Name && p.Consequence != "" {
-				return "remove " + a.Name + "; then " + p.Consequence
+				return Say(lang, "remove ", "премахване на ") + a.Name + Say(lang, "; then ", "; след това ") + p.Consequence
 			}
 		}
 	}
 
-	return "remove " + a.Name + " from this machine"
+	return Say(lang, "remove ", "премахване на ") + a.Name + Say(lang, " from this machine", " от този компютър")
 }
 
 func (t RemovePart) Execute(_ context.Context, raw json.RawMessage) (string, error) {

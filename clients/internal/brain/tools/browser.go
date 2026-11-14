@@ -99,24 +99,26 @@ type browserArgs struct {
 	Path       string `json:"path"`
 }
 
-func (DriveBrowser) Summarize(raw json.RawMessage) string {
+func (x DriveBrowser) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (DriveBrowser) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a browserArgs
 	argsOf(raw, &a)
 
 	switch a.Action {
 	case "open", "navigate":
-		return "Open " + a.URL + " in the assistant's Chrome"
+		return Say(lang, "Open ", "Отваряне на ") + a.URL + Say(lang, " in the assistant's Chrome", " в Chrome на асистента")
 	case "eval":
-		return "Run in the page: " + truncateRunes(strings.Join(strings.Fields(a.Expression), " "), 160)
+		return Say(lang, "Run in the page: ", "Изпълнение в страницата: ") + truncateRunes(strings.Join(strings.Fields(a.Expression), " "), 160)
 	case "screenshot":
-		return "Photograph the page to " + a.Path
+		return Say(lang, "Photograph the page to ", "Снимка на страницата в ") + a.Path
 	case "text":
-		return "Read the page in the assistant's Chrome"
+		return Say(lang, "Read the page in the assistant's Chrome", "Прочитане на страницата в Chrome на асистента")
 	case "close":
-		return "Close a tab in the assistant's Chrome"
+		return Say(lang, "Close a tab in the assistant's Chrome", "Затваряне на раздел в Chrome на асистента")
 	}
 
-	return "List the tabs in the assistant's Chrome"
+	return Say(lang, "List the tabs in the assistant's Chrome", "Списък на разделите в Chrome на асистента")
 }
 
 // Touches: a screenshot writes where its path says; nothing else writes files.

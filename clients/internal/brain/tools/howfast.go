@@ -75,7 +75,11 @@ func (HowFast) Parameters() json.RawMessage {
 // Safe: it reports measurements and changes nothing.
 func (HowFast) Risk() Risk { return Safe }
 
-func (HowFast) Summarize(json.RawMessage) string { return "Check how quickly it is answering" }
+func (x HowFast) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (HowFast) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Check how quickly it is answering", "Проверка колко бързо отговаря")
+}
 
 func (t HowFast) Execute(context.Context, json.RawMessage) (string, error) {
 	if t.Reading == nil {

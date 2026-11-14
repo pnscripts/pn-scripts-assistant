@@ -79,18 +79,20 @@ type mailboxArgs struct {
 	Number int    `json:"number"`
 }
 
-func (ReadMailbox) Summarize(raw json.RawMessage) string {
+func (x ReadMailbox) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ReadMailbox) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a mailboxArgs
 	argsOf(raw, &a)
 
 	switch a.Action {
 	case "list":
-		return "List mail in Thunderbird's " + a.Folder
+		return Say(lang, "List mail in Thunderbird's ", "Списък на писмата в папка на Thunderbird: ") + a.Folder
 	case "read":
-		return fmt.Sprintf("Read message %d in Thunderbird's %s", a.Number, a.Folder)
+		return fmt.Sprintf(Say(lang, "Read message %d in Thunderbird's %s", "Прочитане на писмо %d от папка %s на Thunderbird"), a.Number, a.Folder)
 	}
 
-	return "List Thunderbird's mail folders"
+	return Say(lang, "List Thunderbird's mail folders", "Списък на пощенските папки в Thunderbird")
 }
 
 func (ReadMailbox) Cues() []string {

@@ -69,7 +69,9 @@
 
         // textContent, never markup: a summary is written by a tool and this
         // is the one place somebody is deciding whether to trust it.
-        what.textContent = item.summary || toolName(item.tool);
+        // In the page's language when the card was said in it.
+        const bg = Boolean(window.pnLang && window.pnLang() === 'bg');
+        what.textContent = (bg && item.summary_bg) || item.summary || toolName(item.tool);
         row.appendChild(what);
 
         const tool = document.createElement('div');

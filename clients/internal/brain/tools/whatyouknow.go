@@ -60,7 +60,11 @@ func (WhatYouKnow) Parameters() json.RawMessage {
 
 func (WhatYouKnow) Risk() Risk { return Safe }
 
-func (WhatYouKnow) Summarize(json.RawMessage) string { return "Look at what you have learned" }
+func (x WhatYouKnow) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (WhatYouKnow) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Look at what you have learned", "Преглед на наученото")
+}
 
 func (t WhatYouKnow) Execute(_ context.Context, _ json.RawMessage) (string, error) {
 	if t.Memory == nil {

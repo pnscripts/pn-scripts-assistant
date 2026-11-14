@@ -59,12 +59,14 @@ type pageArgs struct {
 	URL string `json:"url"`
 }
 
-func (ReadAPage) Summarize(raw json.RawMessage) string {
+func (x ReadAPage) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ReadAPage) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a pageArgs
 
 	json.Unmarshal(raw, &a)
 
-	return "Open " + a.URL + " in a browser"
+	return Say(lang, "Open ", "Отваряне на ") + a.URL + Say(lang, " in a browser", " в браузър")
 }
 
 func (ReadAPage) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

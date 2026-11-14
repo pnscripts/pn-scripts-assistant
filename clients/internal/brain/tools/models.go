@@ -49,7 +49,11 @@ func (ListModels) Parameters() json.RawMessage {
 
 func (ListModels) Risk() Risk { return Safe }
 
-func (ListModels) Summarize(json.RawMessage) string { return "List the models on this machine" }
+func (x ListModels) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListModels) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List the models on this machine", "Списък на моделите на този компютър")
+}
 
 func (t ListModels) Execute(ctx context.Context, _ json.RawMessage) (string, error) {
 	if t.Machine == nil {

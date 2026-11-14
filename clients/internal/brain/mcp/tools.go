@@ -42,8 +42,12 @@ func (ListIntegrations) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)
 }
 
-func (ListIntegrations) Risk() tools.Risk                 { return tools.Safe }
-func (ListIntegrations) Summarize(json.RawMessage) string { return "List the integrations" }
+func (ListIntegrations) Risk() tools.Risk                        { return tools.Safe }
+func (x ListIntegrations) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListIntegrations) SummarizeIn(_ json.RawMessage, lang string) string {
+	return tools.Say(lang, "List the integrations", "Списък на интеграциите")
+}
 
 func (t ListIntegrations) Execute(context.Context, json.RawMessage) (string, error) {
 	var b strings.Builder
@@ -148,7 +152,9 @@ func (ActivateIntegration) Consent(json.RawMessage) string { return "switching a
 
 func (ActivateIntegration) Weight(json.RawMessage) risk.Level { return risk.High }
 
-func (t ActivateIntegration) Summarize(raw json.RawMessage) string {
+func (t ActivateIntegration) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t ActivateIntegration) SummarizeIn(raw json.RawMessage, lang string) string {
 	id := integrationOf(raw)
 
 	s, ok := t.Gateway.Book.Get(id)
@@ -157,24 +163,25 @@ func (t ActivateIntegration) Summarize(raw json.RawMessage) string {
 	}
 
 	if !ok {
-		return "Switch on the integration " + id + " (not in the catalogue, so this will fail)"
+		return tools.Say(lang, "Switch on the integration ", "Включване на интеграцията ") + id +
+			tools.Say(lang, " (not in the catalogue, so this will fail)", " (не е в каталога, затова няма да успее)")
 	}
 
-	line := fmt.Sprintf("Switch on %s: %s", s.Title, s.Where())
+	line := fmt.Sprintf(tools.Say(lang, "Switch on %s: %s", "Включване на %s: %s"), s.Title, s.WhereIn(lang))
 
 	if s.Version != "" {
-		line += ", version " + s.Version
+		line += tools.Say(lang, ", version ", ", версия ") + s.Version
 	}
 
 	if s.Source != "" {
-		line += ", from " + s.Source
+		line += tools.Say(lang, ", from ", ", източник ") + s.Source
 	}
 
 	if s.Licence != "" {
-		line += ", licence " + s.Licence
+		line += tools.Say(lang, ", licence ", ", лиценз ") + s.Licence
 	}
 
-	return line + ", for your own assistant only"
+	return line + tools.Say(lang, ", for your own assistant only", ", само за вашия асистент")
 }
 
 func (t ActivateIntegration) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -227,12 +234,14 @@ func (ReadIntegration) Parameters() json.RawMessage {
 
 func (ReadIntegration) Risk() tools.Risk { return tools.Safe }
 
-func (ReadIntegration) Summarize(raw json.RawMessage) string {
+func (x ReadIntegration) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ReadIntegration) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct{ Integration, URI string }
 
 	json.Unmarshal(raw, &a)
 
-	return "Read " + a.URI + " from " + a.Integration
+	return tools.Say(lang, "Read ", "Прочитане на ") + a.URI + tools.Say(lang, " from ", " от ") + a.Integration
 }
 
 func (t ReadIntegration) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -288,13 +297,17 @@ type acquireArgs struct {
 	For  string `json:"for"`
 }
 
-func (AcquireIntegration) Summarize(raw json.RawMessage) string {
+func (x AcquireIntegration) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (AcquireIntegration) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a acquireArgs
 
 	json.Unmarshal(raw, &a)
 
-	return "Find and add an integration for " + a.Kind + ", for " + orElse(a.For, "the assistant") +
-		", from the catalogue or a trusted registry, after reviewing what it may do"
+	return tools.Say(lang, "Find and add an integration for ", "Намиране и добавяне на интеграция за ") + a.Kind +
+		tools.Say(lang, ", for ", ", за ") + orElse(a.For, tools.Say(lang, "the assistant", "асистента")) +
+		tools.Say(lang, ", from the catalogue or a trusted registry, after reviewing what it may do",
+			", от каталога или от доверен регистър, след преглед на това какво може да прави")
 }
 
 func (t AcquireIntegration) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

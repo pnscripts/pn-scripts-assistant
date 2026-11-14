@@ -93,7 +93,9 @@ func (LearnFolder) Parameters() json.RawMessage {
  */
 func (LearnFolder) Risk() Risk { return Safe }
 
-func (LearnFolder) Summarize(args json.RawMessage) string {
+func (x LearnFolder) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (LearnFolder) SummarizeIn(args json.RawMessage, lang string) string {
 	var a struct {
 		Path string `json:"path"`
 		Kind string `json:"kind"`
@@ -101,12 +103,12 @@ func (LearnFolder) Summarize(args json.RawMessage) string {
 
 	json.Unmarshal(args, &a)
 
-	what := "projects"
+	what := Say(lang, "projects", "проектите")
 	if a.Kind == "documents" {
-		what = "documents"
+		what = Say(lang, "documents", "документите")
 	}
 
-	return "Learn the " + what + " in " + a.Path
+	return Say(lang, "Learn the ", "Изучаване на ") + what + Say(lang, " in ", " в ") + a.Path
 }
 
 func (t LearnFolder) Execute(ctx context.Context, args json.RawMessage) (string, error) {

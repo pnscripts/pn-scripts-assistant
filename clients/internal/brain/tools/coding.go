@@ -60,12 +60,14 @@ func (EditFile) Parameters() json.RawMessage {
 
 func (EditFile) Risk() Risk { return Mutating }
 
-func (EditFile) Summarize(raw json.RawMessage) string {
+func (x EditFile) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (EditFile) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a editArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Replace %d characters with %d in %s",
+	return fmt.Sprintf(Say(lang, "Replace %d characters with %d in %s", "Замяна на текст в %[3]s (знаци: %[1]d преди, %[2]d след)"),
 		len(a.Old), len(a.New), a.Path)
 }
 
@@ -166,12 +168,14 @@ func (SearchFiles) Parameters() json.RawMessage {
 
 func (SearchFiles) Risk() Risk { return Safe }
 
-func (SearchFiles) Summarize(raw json.RawMessage) string {
+func (x SearchFiles) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (SearchFiles) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a searchArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Search for %q under %s", a.Text, a.Dir)
+	return fmt.Sprintf(Say(lang, "Search for %q under %s", "Търсене на %q в %s"), a.Text, a.Dir)
 }
 
 type searchArgs struct {

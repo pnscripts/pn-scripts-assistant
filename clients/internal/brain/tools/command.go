@@ -70,7 +70,9 @@ type commandArgs struct {
 // Summarize shows the exact command. A person approving this is vouching for
 // something that will run on their machine, so paraphrasing would make the
 // approval worthless.
-func (RunCommand) Summarize(raw json.RawMessage) string {
+func (x RunCommand) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (RunCommand) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a commandArgs
 	argsOf(raw, &a)
 
@@ -86,10 +88,10 @@ func (RunCommand) Summarize(raw json.RawMessage) string {
 		quoted = append(quoted, s)
 	}
 
-	out := "Run: " + strings.Join(quoted, " ")
+	out := Say(lang, "Run: ", "Изпълнение: ") + strings.Join(quoted, " ")
 
 	if a.Dir != "" {
-		out += "  (in " + a.Dir + ")"
+		out += Say(lang, "  (in ", "  (в ") + a.Dir + ")"
 	}
 
 	return out

@@ -152,6 +152,10 @@ func TestAlwaysIsForOneVerbAndOneVersion(t *testing.T) {
 		t.Errorf("always for an older version still allowed: %+v", r)
 	}
 
+	if r.SaidBG != "Програмата Firefox е обновена, откакто е разрешено стартирането ѝ, затова се пита отново." {
+		t.Errorf("in Bulgarian: %q", r.SaidBG)
+	}
+
 	// A menu entry has no version: "always" given there stays awake.
 	r = Rule(Match(all, Use{Path: "/snap/bin/firefox"}), map[int64][]Permit{1: {{Verb: VerbStart, Answer: Always}}}, VerbStart)
 	if r.Answer != Always {

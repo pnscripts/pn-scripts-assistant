@@ -144,7 +144,16 @@ func Hold(w Window, ahead bool, now time.Time) (bool, time.Time) {
 }
 
 // Say is the hold in a sentence for the person asked, said at now.
-func Say(w Window, opens, now time.Time) string {
+func Say(w Window, opens, now time.Time) string { return SayIn(w, opens, now, "en") }
+
+// SayIn is the hold in a sentence in a language ("en" or "bg").
+func SayIn(w Window, opens, now time.Time, lang string) string {
+	if lang == "bg" {
+		return fmt.Sprintf("Задържано за тихите ви часове (от %s до %s): лимитът му се изразходва по-бързо, "+
+			"отколкото се подновява, затова тежката работа изчаква до %s %s. Отговорете с „да“, за да започне веднага.",
+			w.From(), w.To(), hhmm(opens.Hour()*60+opens.Minute()), dayOfIn(opens, now, lang))
+	}
+
 	return fmt.Sprintf("Held for your quiet hours (%s to %s): its allowance is being spent faster than it renews, "+
 		"so heavy work waits until %s %s. Say yes to start it now anyway.",
 		w.From(), w.To(), hhmm(opens.Hour()*60+opens.Minute()), dayOf(opens, now))
@@ -163,6 +172,10 @@ func Say(w Window, opens, now time.Time) string {
 const (
 	StartsItself = "If you have not answered by then, it starts by itself when they open."
 	WaitsForYou  = "It does not start by itself: answer it when you want it to run."
+
+	// The same two in Bulgarian, for the approval card on a Bulgarian page.
+	StartsItselfBG = "Ако дотогава не сте отговорили, започва автоматично, когато настъпят тихите часове."
+	WaitsForYouBG  = "Не започва автоматично: отговорете, когато искате да се изпълни."
 )
 
 // OpenNow says whether the saved setting is a window and it is open at now:
@@ -178,6 +191,11 @@ func OpenNow(setting string, now time.Time) bool {
 // setting, or empty when it is not held (no window, a window that cannot be
 // read, an allowance on pace, or the window open).
 func Held(setting string, ahead bool, now time.Time) string {
+	return HeldIn(setting, ahead, now, "en")
+}
+
+// HeldIn is Held in a language ("en" or "bg").
+func HeldIn(setting string, ahead bool, now time.Time, lang string) string {
 	w, err := Parse(setting)
 	if err != nil {
 		return ""
@@ -188,7 +206,7 @@ func Held(setting string, ahead bool, now time.Time) string {
 		return ""
 	}
 
-	return Say(w, opens, now)
+	return SayIn(w, opens, now, lang)
 }
 
 // Waits says whether work nobody asked for at that moment waits at now under
@@ -240,10 +258,20 @@ func Waiting(setting string, now time.Time) string {
 }
 
 // dayOf is "today" or "tomorrow" for when, said at now.
-func dayOf(when, now time.Time) string {
+func dayOf(when, now time.Time) string { return dayOfIn(when, now, "en") }
+
+func dayOfIn(when, now time.Time, lang string) string {
 	ny, nm, nd := now.Date()
 	if wy, wm, wd := when.Date(); wy != ny || wm != nm || wd != nd {
+		if lang == "bg" {
+			return "утре"
+		}
+
 		return "tomorrow"
+	}
+
+	if lang == "bg" {
+		return "днес"
 	}
 
 	return "today"

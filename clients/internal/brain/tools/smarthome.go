@@ -26,7 +26,11 @@ func (ListDevices) Parameters() json.RawMessage {
 
 func (ListDevices) Risk() Risk { return Safe }
 
-func (ListDevices) Summarize(json.RawMessage) string { return "List smart-home devices" }
+func (x ListDevices) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (ListDevices) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "List smart-home devices", "Списък на устройствата в умния дом")
+}
 
 func (l ListDevices) Execute(ctx context.Context, _ json.RawMessage) (string, error) {
 	devices, err := l.Home.Devices(ctx)
@@ -89,7 +93,9 @@ type deviceArgs struct {
 
 // Summarize names the device and what will happen to it, because "adjust a
 // device" tells the person approving nothing they need.
-func (SetDevice) Summarize(raw json.RawMessage) string {
+func (x SetDevice) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (SetDevice) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a deviceArgs
 	argsOf(raw, &a)
 
@@ -100,13 +106,13 @@ func (SetDevice) Summarize(raw json.RawMessage) string {
 	if strings.HasPrefix(a.ID, "lock.") {
 		switch verb {
 		case "off", "lock":
-			return "LOCK " + a.ID
+			return Say(lang, "LOCK ", "ЗАКЛЮЧВАНЕ на ") + a.ID
 		case "on", "unlock":
-			return "UNLOCK " + a.ID + ": this physically unlocks a door"
+			return Say(lang, "UNLOCK ", "ОТКЛЮЧВАНЕ на ") + a.ID + Say(lang, ": this physically unlocks a door", ": това наистина отключва врата")
 		}
 	}
 
-	return fmt.Sprintf("Set %s to %s", a.ID, a.State)
+	return fmt.Sprintf(Say(lang, "Set %s to %s", "Задаване на %s в състояние %s"), a.ID, a.State)
 }
 
 func (s SetDevice) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

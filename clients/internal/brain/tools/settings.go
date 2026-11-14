@@ -112,28 +112,30 @@ func (Settings) Parameters() json.RawMessage {
  */
 func (Settings) Risk() Risk { return Mutating }
 
-func (Settings) Summarize(raw json.RawMessage) string {
+func (x Settings) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (Settings) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a settingArgs
 
 	json.Unmarshal(raw, &a)
 
 	if a.Voice != "" {
-		return "Speak with the " + a.Voice + " voice"
+		return fmt.Sprintf(Say(lang, "Speak with the %s voice", "Говорене с гласа %s"), a.Voice)
 	}
 
 	if a.Loudness != "" {
-		return "Speak " + a.Loudness + ", its own voice only"
+		return fmt.Sprintf(Say(lang, "Speak %s, its own voice only", "Сила на собствения глас: %s"), a.Loudness)
 	}
 
 	if a.Setting == "" {
-		return "Check how the settings stand"
+		return Say(lang, "Check how the settings stand", "Преглед на настройките")
 	}
 
 	if a.On == nil || !*a.On {
-		return "Switch off: " + plainName(a.Setting)
+		return Say(lang, "Switch off: ", "Изключване: ") + plainNameIn(a.Setting, lang)
 	}
 
-	return "Switch on: " + plainName(a.Setting)
+	return Say(lang, "Switch on: ", "Включване: ") + plainNameIn(a.Setting, lang)
 }
 
 type settingArgs struct {
@@ -225,18 +227,21 @@ func yesNo(what string, on bool) string {
 
 // plainName is what a switch is called in a sentence somebody reads before
 // agreeing to it.
-func plainName(key string) string {
+func plainName(key string) string { return plainNameIn(key, "en") }
+
+// plainNameIn is a switch's name in a language, for its approval card.
+func plainNameIn(key, lang string) string {
 	switch key {
 	case "speak_aloud":
-		return "speaking answers aloud"
+		return Say(lang, "speaking answers aloud", "четене на отговорите на глас")
 	case "name_every":
-		return "needing my name every time"
+		return Say(lang, "needing my name every time", "изискване на името ми всеки път")
 	case "only_me":
-		return "answering only your voice"
+		return Say(lang, "answering only your voice", "отговаряне само на вашия глас")
 	case "keep_quiet":
-		return "turning other sound down while I talk"
+		return Say(lang, "turning other sound down while I talk", "намаляване на другия звук, докато говоря")
 	case "cancel_room":
-		return "hearing what this machine plays"
+		return Say(lang, "hearing what this machine plays", "чуване на това, което компютърът възпроизвежда")
 	}
 
 	return key

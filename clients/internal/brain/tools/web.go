@@ -54,13 +54,15 @@ func (FetchURL) Parameters() json.RawMessage {
 
 func (FetchURL) Risk() Risk { return Safe }
 
-func (FetchURL) Summarize(raw json.RawMessage) string {
+func (x FetchURL) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (FetchURL) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		URL string `json:"url"`
 	}
 	argsOf(raw, &a)
 
-	return "Fetch " + a.URL
+	return Say(lang, "Fetch ", "Прочитане на ") + a.URL
 }
 
 // GuardTarget refuses anything that is not a public web address.

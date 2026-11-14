@@ -44,13 +44,15 @@ func (ReadFile) Parameters() json.RawMessage {
 
 func (ReadFile) Risk() Risk { return Safe }
 
-func (ReadFile) Summarize(raw json.RawMessage) string {
+func (x ReadFile) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ReadFile) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Path string `json:"path"`
 	}
 	argsOf(raw, &a)
 
-	return "Read " + a.Path
+	return Say(lang, "Read ", "Прочитане на ") + a.Path
 }
 
 func (ReadFile) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -113,13 +115,15 @@ func (ListDirectory) Parameters() json.RawMessage {
 
 func (ListDirectory) Risk() Risk { return Safe }
 
-func (ListDirectory) Summarize(raw json.RawMessage) string {
+func (x ListDirectory) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (ListDirectory) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Path string `json:"path"`
 	}
 	argsOf(raw, &a)
 
-	return "List " + a.Path
+	return Say(lang, "List ", "Списък на съдържанието на ") + a.Path
 }
 
 // MaxEntries caps a listing. A home directory or node_modules can hold tens of
@@ -211,21 +215,23 @@ func (WriteFile) Parameters() json.RawMessage {
 
 func (WriteFile) Risk() Risk { return Mutating }
 
-func (WriteFile) Summarize(raw json.RawMessage) string {
+func (x WriteFile) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (WriteFile) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 	}
 	argsOf(raw, &a)
 
-	action := "Create"
+	action := Say(lang, "Create", "Създаване на")
 	if _, err := os.Stat(a.Path); err == nil {
 		// Overwriting is a different decision from creating, and the person
 		// approving needs to know which one they are agreeing to.
-		action = "OVERWRITE"
+		action = Say(lang, "OVERWRITE", "ПРЕЗАПИСВАНЕ на")
 	}
 
-	return fmt.Sprintf("%s %s (%d bytes)", action, a.Path, len(a.Content))
+	return fmt.Sprintf(Say(lang, "%s %s (%d bytes)", "%s %s (%d байта)"), action, a.Path, len(a.Content))
 }
 
 func (WriteFile) Execute(ctx context.Context, raw json.RawMessage) (string, error) {

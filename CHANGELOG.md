@@ -72,6 +72,14 @@ whenever something visible changed.
   settings is kept: nothing can tell afterwards whether it was typed, and
   removing a typed key would leave the assistant without its model when it
   starts from the menu. Forget it on the Models page if you did not type it.
+- **Questions in Bulgarian.** On a page in Bulgarian, the question card
+  for every action is in Bulgarian: what it wants to do, why it always asks
+  (installing, sending in your name, a command that deletes for good, a
+  protected file), a program updated since you allowed it, your rules, the
+  risk and the quiet hours. What it is about (the file, the command, the
+  message, the address) is shown exactly as it will be used, so what you
+  approve is the same in both languages. Questions asked before the update
+  are shown as they were.
 - **Fixed: keys of the other companies were lost on the next save.** A
   Gemini, Groq, Mistral or other key typed in setup, a model chosen for one
   and the address of your own server were dropped from the settings the

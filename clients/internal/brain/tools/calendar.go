@@ -63,16 +63,18 @@ type lookArgs struct {
 	Days int    `json:"days"`
 }
 
-func (WhatIsOn) Summarize(raw json.RawMessage) string {
+func (x WhatIsOn) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (WhatIsOn) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a lookArgs
 
 	json.Unmarshal(raw, &a)
 
 	if a.From == "" {
-		return "Look at today's diary"
+		return Say(lang, "Look at today's diary", "Преглед на днешния дневник")
 	}
 
-	return "Look at the diary from " + a.From
+	return Say(lang, "Look at the diary from ", "Преглед на дневника от ") + a.From
 }
 
 func (t WhatIsOn) Execute(_ context.Context, raw json.RawMessage) (string, error) {
@@ -237,27 +239,29 @@ type eventArgs struct {
 
 // Summarize shows the whole event. "Put something in the diary" is a thing
 // nobody can check; a day, a time and a name is.
-func (PutInTheDiary) Summarize(raw json.RawMessage) string {
+func (x PutInTheDiary) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (PutInTheDiary) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a eventArgs
 
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return "Put something in the diary"
+		return Say(lang, "Put something in the diary", "Записване в дневника")
 	}
 
 	at, err := ParseWhen(a.Starts, time.Now())
 	when := a.Starts
 
 	if err == nil {
-		when = at.Format("Mon 2 Jan 15:04")
+		when = cardDay(at, lang, true)
 
 		if a.AllDay {
-			when = at.Format("Mon 2 Jan") + ", all day"
+			when = cardDay(at, lang, false) + Say(lang, ", all day", ", целия ден")
 		} else if a.Minutes > 0 {
-			when += " to " + at.Add(time.Duration(a.Minutes)*time.Minute).Format("15:04")
+			when += Say(lang, " to ", " до ") + at.Add(time.Duration(a.Minutes)*time.Minute).Format("15:04")
 		}
 	}
 
-	out := "Put in the diary: " + when + ", " + a.Title
+	out := Say(lang, "Put in the diary: ", "Записване в дневника: ") + when + ", " + a.Title
 
 	if a.Place != "" {
 		out += " (" + a.Place + ")"
@@ -353,29 +357,63 @@ func (ChangeTheDiary) Parameters() json.RawMessage {
 
 func (ChangeTheDiary) Risk() Risk { return Mutating }
 
-func (t ChangeTheDiary) Summarize(raw json.RawMessage) string {
+func (t ChangeTheDiary) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t ChangeTheDiary) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a eventArgs
 
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return "Change the diary"
+		return Say(lang, "Change the diary", "Промяна в дневника")
 	}
 
 	existing, _ := t.DB.Event(a.ID)
 
-	what := fmt.Sprintf("event %d", a.ID)
+	what := fmt.Sprintf(Say(lang, "event %d", "събитие %d"), a.ID)
 	if existing != nil {
-		what = "\"" + existing.Title + "\" on " + existing.Starts.Format("Mon 2 Jan 15:04")
+		what = "\"" + existing.Title + "\"" + Say(lang, " on ", ", ") + cardDay(existing.Starts, lang, true)
 	}
 
 	if a.Cancel {
-		return "Take " + what + " out of the diary"
+		return Say(lang, "Take ", "Премахване на ") + what + Say(lang, " out of the diary", " от дневника")
 	}
 
 	if a.Starts != "" {
-		return "Move " + what + " to " + a.Starts
+		return Say(lang, "Move ", "Преместване на ") + what + Say(lang, " to ", " за ") + a.Starts
 	}
 
-	return "Change " + what
+	return Say(lang, "Change ", "Промяна на ") + what
+}
+
+// cardDayLayout is how an approval card names a day in English.
+const (
+	cardDayLayout     = "Mon 2 Jan"
+	cardDayTimeLayout = "Mon 2 Jan 15:04"
+)
+
+// cardWeekdays are the days of the week as a Bulgarian card says them,
+// from Sunday.
+var cardWeekdays = [7]string{"нд", "пн", "вт", "ср", "чт", "пт", "сб"}
+
+/*
+ * cardDay is a day (and its time) as an approval card says it: "Mon 2 Jan
+ * 15:04" in English, "пн, 2.01, 15:04" in Bulgarian, where Go's own names
+ * of days and months would be English.
+ */
+func cardDay(at time.Time, lang string, withTime bool) string {
+	if lang != "bg" {
+		if withTime {
+			return at.Format(cardDayTimeLayout)
+		}
+
+		return at.Format(cardDayLayout)
+	}
+
+	day := cardWeekdays[at.Weekday()] + ", " + at.Format("2.01")
+	if withTime {
+		day += ", " + at.Format("15:04")
+	}
+
+	return day
 }
 
 func (t ChangeTheDiary) Execute(_ context.Context, raw json.RawMessage) (string, error) {

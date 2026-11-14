@@ -374,12 +374,30 @@ type lessonArgs struct {
 	Minutes  int    `json:"minutes"`
 }
 
-func (LessonTool) Summarize(raw json.RawMessage) string {
+func (x LessonTool) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (LessonTool) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a lessonArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return strings.TrimSpace("Lesson on " + a.Topic + " " + a.Level)
+	return strings.TrimSpace(Say(lang, "Lesson on ", "Урок по ") + a.Topic + " " + levelIn(a.Level, lang))
+}
+
+// levelIn is a lesson's level in the card's language.
+func levelIn(level, lang string) string {
+	switch level {
+	case "child":
+		return Say(lang, "child", "(за дете)")
+	case "beginner":
+		return Say(lang, "beginner", "(за начинаещи)")
+	case "intermediate":
+		return Say(lang, "intermediate", "(средно ниво)")
+	case "advanced":
+		return Say(lang, "advanced", "(за напреднали)")
+	}
+
+	return level
 }
 
 func (l LessonTool) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -434,16 +452,18 @@ type quizArgs struct {
 	Review   bool   `json:"review"`
 }
 
-func (QuizTool) Summarize(raw json.RawMessage) string {
+func (x QuizTool) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (QuizTool) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a quizArgs
 
 	_ = json.Unmarshal(raw, &a)
 
 	if a.Review {
-		return strings.TrimSpace("Review the questions due again " + a.Topic)
+		return strings.TrimSpace(Say(lang, "Review the questions due again ", "Преговор на въпросите за повторение ") + a.Topic)
 	}
 
-	return strings.TrimSpace(fmt.Sprintf("%d practice questions on %s %s", max(a.Count, 1), a.Topic, a.Level))
+	return strings.TrimSpace(fmt.Sprintf(Say(lang, "%d practice questions on %s %s", "Въпроси за упражнение (%d) по %s %s"), max(a.Count, 1), a.Topic, a.Level))
 }
 
 func (q QuizTool) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -514,12 +534,14 @@ type checkArgs struct {
 	Answer   string `json:"answer"`
 }
 
-func (CheckAnswer) Summarize(raw json.RawMessage) string {
+func (x CheckAnswer) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (CheckAnswer) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a checkArgs
 
 	_ = json.Unmarshal(raw, &a)
 
-	return fmt.Sprintf("Mark the answer to question %d", a.Question)
+	return fmt.Sprintf(Say(lang, "Mark the answer to question %d", "Оценяване на отговора на въпрос %d"), a.Question)
 }
 
 func (c CheckAnswer) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -593,7 +615,11 @@ func (StudyProgress) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type": "object", "properties": {}}`)
 }
 
-func (StudyProgress) Summarize(json.RawMessage) string { return "Learning progress" }
+func (x StudyProgress) Summarize(args json.RawMessage) string { return x.SummarizeIn(args, "en") }
+
+func (StudyProgress) SummarizeIn(_ json.RawMessage, lang string) string {
+	return Say(lang, "Learning progress", "Напредък в ученето")
+}
 
 func (s StudyProgress) Execute(context.Context, json.RawMessage) (string, error) {
 	topics, err := s.With.Book.StudyTopics(s.With.now())

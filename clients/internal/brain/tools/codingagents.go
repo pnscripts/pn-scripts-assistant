@@ -41,6 +41,11 @@ type CodingAgent struct {
 	// and until when: see the quiethours package. A held call is always
 	// asked, and the yes starts it anyway.
 	Held string `json:"held,omitempty"`
+
+	// PaceBG and HeldBG are the same two sentences in Bulgarian, for the
+	// approval card on a Bulgarian page.
+	PaceBG string `json:"pace_bg,omitempty"`
+	HeldBG string `json:"held_bg,omitempty"`
 }
 
 // AgentChange is one file an agent added, changed or removed.
@@ -182,32 +187,39 @@ func (t AskCodingAgent) chosen(name string) (CodingAgent, bool) {
 
 // Summarize says which agent, how far it may reach, where, and the task
 // word for word: the person saying yes is agreeing to all four.
-func (t AskCodingAgent) Summarize(raw json.RawMessage) string {
+func (t AskCodingAgent) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t AskCodingAgent) SummarizeIn(raw json.RawMessage, lang string) string {
 	a := readAgentArgs(raw)
 
 	title, pace, held := a.Agent, "", ""
 	if agent, ok := t.chosen(a.Agent); ok {
 		title, pace, held = agent.Title, agent.Pace, agent.Held
+
+		if lang == "bg" {
+			pace, held = agent.PaceBG, agent.HeldBG
+		}
 	}
 
 	if title == "" {
-		title = "a coding agent"
+		title = Say(lang, "a coding agent", "агент за програмиране")
 	}
 
 	var reach string
 
 	switch a.Access {
 	case ReachRead:
-		reach = "only reads " + a.Folder + " and answers"
+		reach = Say(lang, "only reads ", "само чете ") + a.Folder + Say(lang, " and answers", " и отговаря")
 	case ReachFolder:
-		reach = "may change files in " + a.Folder + "; runs no commands"
+		reach = Say(lang, "may change files in ", "може да променя файлове в ") + a.Folder + Say(lang, "; runs no commands", "; не изпълнява команди")
 	case ReachFull:
-		reach = "FULL ACCESS: may run any command and change any file you can, starting in " + a.Folder
+		reach = Say(lang, "FULL ACCESS: may run any command and change any file you can, starting in ",
+			"ПЪЛЕН ДОСТЪП: може да изпълнява всяка команда и да променя всеки файл, до който имате достъп, като започва от ") + a.Folder
 	default:
-		reach = "unknown access " + a.Access
+		reach = Say(lang, "unknown access ", "непознат достъп ") + a.Access
 	}
 
-	out := fmt.Sprintf("Ask %s (%s):\n%s", title, reach, strings.TrimSpace(a.Task))
+	out := fmt.Sprintf(Say(lang, "Ask %s (%s):\n%s", "Задача за %s (%s):\n%s"), title, reach, strings.TrimSpace(a.Task))
 
 	// Its allowance, so whoever says yes knows what the work spends.
 	if pace != "" {

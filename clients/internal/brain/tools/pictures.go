@@ -62,11 +62,13 @@ type pictureArgs struct {
 	Wide bool   `json:"wide"`
 }
 
-func (t MakeAPicture) Summarize(raw json.RawMessage) string {
+func (t MakeAPicture) Summarize(raw json.RawMessage) string { return t.SummarizeIn(raw, "en") }
+
+func (t MakeAPicture) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a pictureArgs
 
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return "Make a picture"
+		return Say(lang, "Make a picture", "Създаване на изображение")
 	}
 
 	/*
@@ -76,17 +78,21 @@ func (t MakeAPicture) Summarize(raw json.RawMessage) string {
 	 * revealing sentence they will write all week, and whether it stays on
 	 * this machine is the one thing worth knowing before saying yes.
 	 */
-	where := "on this machine"
+	where := Say(lang, "on this machine", "на този компютър")
 
 	if painter, err := t.Studio.Painter(); err == nil {
-		where = painter.Name()
+		name := painter.Name()
 
-		if !strings.Contains(where, "this machine") {
-			where = "by " + where + ", which means sending the description there"
+		switch {
+		case !strings.Contains(name, "this machine"):
+			where = fmt.Sprintf(Say(lang, "by %s, which means sending the description there",
+				"чрез %s, което означава, че описанието се изпраща там"), name)
+		case lang != "bg":
+			where = name
 		}
 	}
 
-	return "Make a picture " + where + ":\n  " + a.What
+	return Say(lang, "Make a picture ", "Създаване на изображение ") + where + ":\n  " + a.What
 }
 
 func (t MakeAPicture) Execute(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -167,11 +173,13 @@ type videoArgs struct {
 	Sound    string   `json:"sound"`
 }
 
-func (MakeAVideo) Summarize(raw json.RawMessage) string {
+func (x MakeAVideo) Summarize(raw json.RawMessage) string { return x.SummarizeIn(raw, "en") }
+
+func (MakeAVideo) SummarizeIn(raw json.RawMessage, lang string) string {
 	var a videoArgs
 
 	if err := json.Unmarshal(raw, &a); err != nil {
-		return "Make a video"
+		return Say(lang, "Make a video", "Създаване на видео")
 	}
 
 	names := make([]string, 0, len(a.Pictures))
@@ -180,11 +188,11 @@ func (MakeAVideo) Summarize(raw json.RawMessage) string {
 		names = append(names, filepath.Base(p))
 	}
 
-	out := fmt.Sprintf("Make a video from %d pictures: %s",
+	out := fmt.Sprintf(Say(lang, "Make a video from %d pictures: %s", "Създаване на видео (изображения: %d): %s"),
 		len(a.Pictures), strings.Join(names, ", "))
 
 	if a.Sound != "" {
-		out += "\nwith " + filepath.Base(a.Sound) + " underneath"
+		out += Say(lang, "\nwith ", "\nсъс звук ") + filepath.Base(a.Sound) + Say(lang, " underneath", "")
 	}
 
 	return out
