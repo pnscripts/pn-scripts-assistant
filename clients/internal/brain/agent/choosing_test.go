@@ -182,6 +182,55 @@ func TestAToolAskedForByNameIsOffered(t *testing.T) {
 	}
 }
 
+/*
+ * A tool named outright wins over tools that are only cued by a shared word
+ * or kept from earlier in the conversation. Found by the MCP demo: a server
+ * with sixteen tools, all cued by its name, spent the budget in alphabetical
+ * order, so "use get-sum of the everything integration" was never offered
+ * get-sum and the model said it had no such tool.
+ */
+func TestAToolNamedOutrightWinsOverCuedNeighbours(t *testing.T) {
+	var specs []llm.ToolSpec
+
+	cues := map[string][]string{}
+	own := map[string][]string{}
+
+	for i := 0; i < 40; i++ {
+		name := fmt.Sprintf("mcp_demo_tool_%02d", i)
+		specs = append(specs, llm.ToolSpec{Name: name, Description: strings.Repeat("a tool of the demo server. ", 12),
+			Parameters: json.RawMessage(`{"type":"object"}`)})
+		cues[name] = []string{"integration", "demo", fmt.Sprintf("tool-%02d", i)}
+		own[name] = []string{fmt.Sprintf("tool-%02d", i)}
+	}
+
+	last := "mcp_demo_tool_39"
+
+	c := Choosing{
+		Cued:  func(tool string) []string { return cues[tool] },
+		Names: func(tool string) []string { return own[tool] },
+	}
+
+	// Only the server named: the budget runs out before the last tool.
+	if names(c.choose(specs, "use the demo integration", nil))[last] {
+		t.Fatal("the budget did not run out, so this test proves nothing")
+	}
+
+	// Named: offered, even with every other tool already offered.
+	already := map[string]bool{}
+	for _, spec := range specs[:39] {
+		already[spec.Name] = true
+	}
+
+	if !names(c.choose(specs, "use tool-39 of the demo integration", already))[last] {
+		t.Error("a tool named outright lost its place to tools only cued or kept")
+	}
+
+	// By its name here too, without a Names list.
+	if !names(Choosing{Cued: c.Cued}.choose(specs, "call mcp_demo_tool_39 please", already))[last] {
+		t.Error("a tool named by its own name lost its place")
+	}
+}
+
 func names(specs []llm.ToolSpec) map[string]bool {
 	out := map[string]bool{}
 

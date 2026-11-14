@@ -1,0 +1,9 @@
+{
+  "name": "pn-scripts-assistant-mcp-demo",
+  "description": "The MCP reference server the demo test runs, pinned with every dependency's checksum in package-lock.json. Installed by CI with npm ci --ignore-scripts; never shipped.",
+  "private": true,
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@modelcontextprotocol/server-everything": "2.1.0"
+  }
+}

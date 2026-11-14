@@ -66,6 +66,16 @@ type Cued interface {
 }
 
 /*
+ * Named is a tool with names of its own besides Name: an MCP server's own
+ * name for its tool ("get-sum" for mcp_everything_get_sum). A message that
+ * says one is asking for this tool, and it is offered before tools that are
+ * only cued by a shared word.
+ */
+type Named interface {
+	OwnNames() []string
+}
+
+/*
  * Registry holds the tools available to a brain.
  *
  * Locked, because it is no longer built once and read forever: a skill can be

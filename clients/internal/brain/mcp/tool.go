@@ -160,6 +160,13 @@ func (w *Wrapped) Cues() []string {
 	return cues
 }
 
+// OwnNames: the server's own name for the tool, as a person would say it.
+func (w *Wrapped) OwnNames() []string {
+	name := strings.ToLower(w.def.Name)
+
+	return []string{name, strings.NewReplacer("-", " ", "_", " ").Replace(name)}
+}
+
 // MostResult is as much of an answer as is handed on.
 const MostResult = 12000
 

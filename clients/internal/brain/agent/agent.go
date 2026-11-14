@@ -675,6 +675,7 @@ func (l *Loop) RunBrief(
 			Needs: l.needsFor,
 			Cued:  l.cuesFor,
 			Skill: l.isSkill,
+			Names: l.namesFor,
 		}.choose(
 			l.offerable(brief),
 			lastUserMessage(messages),
@@ -2556,6 +2557,17 @@ func (l *Loop) cuesFor(name string) []string {
 
 	if cued, ok := tool.(tools.Cued); ok {
 		return cued.Cues()
+	}
+
+	return nil
+}
+
+// namesFor is a tool's own names besides its Name, when it has any.
+func (l *Loop) namesFor(name string) []string {
+	if tool, ok := l.Registry.Get(name); ok {
+		if named, ok := tool.(tools.Named); ok {
+			return named.OwnNames()
+		}
 	}
 
 	return nil
