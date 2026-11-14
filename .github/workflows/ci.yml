@@ -906,7 +906,8 @@ jobs:
           & $node -e "require('https').get('https://registry.npmjs.org/',()=>process.exit(0)).on('error',()=>process.exit(3))"
           if ($LASTEXITCODE -ne 3) { throw 'node still reaches the network' }
           Write-Output 'no network for node or the test'
-          & $test -test.v -test.count=1
+          # Quoted: PowerShell splits a bare -test.v at the dot.
+          & $test '-test.v' '-test.count=1'
           if ($LASTEXITCODE -ne 0) { throw "the demo failed ($LASTEXITCODE)" }
 
   scripts:
