@@ -88,7 +88,33 @@ type Server struct {
 
 	// FromCatalogue marks one that shipped with this program.
 	FromCatalogue bool `json:"from_catalogue,omitempty"`
+
+	// From is the other program's settings it was imported from, and
+	// followed since: nil for one added here.
+	From *Origin `json:"from,omitempty"`
 }
+
+/*
+ * Origin is where an imported integration was found: one entry in another
+ * program's settings (Claude Desktop, Claude Code, Cursor, VS Code). Print
+ * is the entry's fingerprint without its secrets, so a change there is
+ * noticed. GoneSince is set while the entry is no longer there: the
+ * integration is then kept, with its approval, but never started, and
+ * WasActive says whether it ran before, so it can run again when the entry
+ * comes back unchanged.
+ */
+type Origin struct {
+	Client    string `json:"client"`
+	File      string `json:"file"`
+	Scope     string `json:"scope,omitempty"`
+	Name      string `json:"name"`
+	Print     string `json:"print"`
+	GoneSince string `json:"gone_since,omitempty"`
+	WasActive bool   `json:"was_active,omitempty"`
+}
+
+// Gone is whether the entry it was imported from is no longer there.
+func (s Server) Gone() bool { return s.From != nil && s.From.GoneSince != "" }
 
 var validID = regexp.MustCompile(`^[a-z][a-z0-9]{1,20}$`)
 

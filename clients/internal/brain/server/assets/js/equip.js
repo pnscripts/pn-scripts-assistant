@@ -363,7 +363,8 @@
 
                 let state = T('org.int.catalogue');
 
-                if (v.running) state = T('org.int.running', { era: v.era || '', protocol: v.protocol || '' });
+                if (v.from && v.from.gone_since) state = T('org.int.goneBadge');
+                else if (v.running) state = T('org.int.running', { era: v.era || '', protocol: v.protocol || '' });
                 else if (v.approved) state = T('org.int.stopped');
                 else if (v.listed) state = T('org.int.added');
 
@@ -377,6 +378,17 @@
                     + (v.licence ? ' · ' + T('org.licence', { licence: v.licence }) : '')));
 
                 if (v.missing) item.appendChild(node('p', 'note tiny equip-limit', T('org.int.missing', { what: v.missing })));
+
+                const gone = !!(v.from && v.from.gone_since);
+
+                if (v.from) {
+                    item.appendChild(node('p', 'note tiny', T('org.int.from', { client: clientTitle(v.from.client) })));
+                }
+
+                if (gone) {
+                    item.appendChild(node('p', 'note tiny equip-limit',
+                        T('org.int.gone', { client: clientTitle(v.from.client), when: whenSaid(v.from.gone_since) })));
+                }
 
                 if (v.approved) {
                     item.appendChild(node('p', 'note tiny', T('org.int.granted', { list: (v.agents || []).join(', ') || T('org.int.nobody') })));
@@ -393,7 +405,7 @@
                     actions.appendChild(button(T('org.int.approve'), () => act(v.id, 'approve', { agents: ['assistant'] })));
                 }
 
-                if (v.approved && !v.running) actions.appendChild(button(T('org.startIt'), () => act(v.id, 'activate')));
+                if (v.approved && !v.running && !gone) actions.appendChild(button(T('org.startIt'), () => act(v.id, 'activate')));
                 if (v.running) actions.appendChild(button(T('org.int.stop'), () => act(v.id, 'deactivate')));
                 if (v.approved) actions.appendChild(button(T('org.int.revoke'), () => act(v.id, 'revoke')));
                 if (v.listed) actions.appendChild(button(T('org.int.remove'), () => act(v.id, 'remove')));
@@ -401,9 +413,113 @@
                 item.appendChild(actions);
                 list.appendChild(item);
             }
+
+            found(body);
         } catch (err) {
             list.textContent = err.message;
         }
+    }
+
+    /* ---------- found in the user's other programs ---------- */
+
+    // A program's name, the same in every language.
+    function clientTitle(client) {
+        return named('org.imp.c.' + client, client);
+    }
+
+    function whenSaid(iso) {
+        const d = new Date(iso);
+
+        if (isNaN(d)) return iso;
+
+        return d.toLocaleString(bg() ? 'bg-BG' : 'en-GB',
+            { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function countSaid(n) {
+        return new Intl.NumberFormat(bg() ? 'bg-BG' : 'en-GB').format(n);
+    }
+
+    async function importFound(key) {
+        const said = el('int-said');
+
+        try {
+            said.textContent = '';
+            await post('/api/integrations/import', { key });
+            integrations();
+        } catch (err) {
+            said.textContent = err.message;
+        }
+    }
+
+    // What /api/integrations found in the other programs' settings.
+    function found(body) {
+        const box = el('int-found');
+        const files = el('int-found-files');
+
+        if (!box || !files) return;
+
+        box.textContent = '';
+
+        const list = body.found || [];
+
+        if (!list.length) box.appendChild(node('p', 'note', T('org.imp.none')));
+
+        for (const f of list) {
+            const item = node('div', 'equip-item');
+            const head = node('div', 'equip-head');
+
+            head.append(node('span', 'equip-title', f.name), node('span', 'org-kind', clientTitle(f.client)));
+
+            if (f.leaves_the_machine) head.appendChild(node('span', 'org-risk org-risk-high', T('org.int.leaves')));
+
+            item.appendChild(head);
+
+            if (f.scope) item.appendChild(node('p', 'note tiny', T('org.imp.folder', { folder: f.scope })));
+
+            const server = f.server || {};
+
+            if (!f.problem) {
+                item.appendChild(node('p', 'note tiny', whereWords({
+                    transport: server.transport, url: server.url, command: server.command,
+                    network: server.network, leaves_the_machine: f.leaves_the_machine,
+                })));
+            }
+
+            // What is kept sealed, by the name the person wrote there: a
+            // setting's name, or the header's.
+            if (!f.problem && (server.secrets || []).length) {
+                const names = server.header ? [server.header] : server.secrets;
+
+                item.appendChild(node('p', 'note tiny', T('org.imp.secrets', { names: names.join(', ') })));
+            }
+
+            if (f.problem) {
+                const why = named('org.imp.p.' + f.problem, f.problem).replace('{detail}', f.detail || '');
+
+                item.appendChild(node('p', 'note tiny equip-limit', T('org.imp.cannot', { why })));
+            }
+
+            const actions = node('div', 'org-actions');
+
+            if (f.imported) {
+                item.appendChild(node('p', 'note tiny', T('org.imp.imported', { id: f.imported })));
+            } else if (!f.problem) {
+                actions.appendChild(button(T('org.imp.import'), () => importFound(f.key)));
+            }
+
+            if (actions.childNodes.length) item.appendChild(actions);
+
+            box.appendChild(item);
+        }
+
+        const said = (body.found_files || []).map((f) => {
+            const key = 'org.imp.f.' + f.state;
+
+            return named(key, f.state).replace('{client}', clientTitle(f.client)).replace('{n}', countSaid(f.count));
+        });
+
+        files.textContent = said.length ? T('org.imp.files', { list: said.join(' · ') }) + ' ' + T('org.imp.watched') : '';
     }
 
     /* ---------- a task's evidence ---------- */

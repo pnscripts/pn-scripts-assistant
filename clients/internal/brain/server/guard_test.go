@@ -214,7 +214,7 @@ func TestDecisionsStayAtTheDesk(t *testing.T) {
 		"/api/paired/abc", "/api/places", "/api/parts/install", "/api/models/use",
 		"/api/organisation/hire/4/confirm", "/api/provision/install", "/api/projects/propose",
 		"/api/projects/7/start", "/api/integrations/memory/activate", "/api/integrations/own",
-		"/api/integrations/memory/secret",
+		"/api/integrations/memory/secret", "/api/integrations/import",
 	} {
 		*got = false
 

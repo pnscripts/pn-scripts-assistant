@@ -7,8 +7,10 @@ import (
 	"strings"
 
 	"pn-scripts-assistant/internal/brain/bootstrap"
+	"pn-scripts-assistant/internal/brain/brain"
 	"pn-scripts-assistant/internal/brain/capability"
 	"pn-scripts-assistant/internal/brain/mcp"
+	"pn-scripts-assistant/internal/brain/mcpimport"
 	"pn-scripts-assistant/internal/brain/provision"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/team"
@@ -329,7 +331,40 @@ func (s *Server) handleIntegrations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok(w, map[string]any{"integrations": g.List(), "events": g.Events("", 30)})
+	found, files, watch := s.brain.MCPImports()
+
+	ok(w, map[string]any{"integrations": g.List(), "events": g.Events("", 30),
+		"found": found, "found_files": files, "found_watch": watch,
+		"problems": mcpimport.Problems(), "file_states": brain.MCPFileStates()})
+}
+
+/*
+ * handleImportIntegration makes one server found in another program's
+ * settings an integration, not approved. Its owner's, at the desk.
+ */
+func (s *Server) handleImportIntegration(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Key string `json:"key"`
+	}
+
+	if !decode(w, r, &body) {
+		return
+	}
+
+	if s.brain.Integrations == nil {
+		fail(w, http.StatusNotFound, "this build has no integrations")
+
+		return
+	}
+
+	imported, err := s.brain.ImportMCP(body.Key)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"imported": imported.ID, "integrations": s.brain.Integrations.List()})
 }
 
 /*

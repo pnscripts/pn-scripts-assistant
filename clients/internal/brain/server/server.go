@@ -378,6 +378,7 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/resources/policy", s.handlePolicy)
 	s.mux.HandleFunc("POST /api/resources/refresh", s.handleRefresh)
 	s.mux.HandleFunc("POST /api/integrations/own", s.handleOwnIntegration)
+	s.mux.HandleFunc("POST /api/integrations/import", s.handleImportIntegration)
 	s.mux.HandleFunc("POST /api/integrations/{id}/{action}", s.handleIntegration)
 
 	s.mux.HandleFunc("GET /api/team", s.handleTeam)

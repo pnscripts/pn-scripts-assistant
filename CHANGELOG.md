@@ -28,6 +28,16 @@ whenever something visible changed.
   frameworks). Installs, updates and removals are noticed within seconds
   from Windows' own folder and registry change notices; the Programs page
   offers only the sources the computer has.
+- **It uses the MCP servers you already set up.** Servers set up in Claude
+  Desktop, Claude Code, Cursor or VS Code are found by themselves and listed
+  under Integrations, "Found in your other programs", within seconds of being
+  added there. Import one with a button; it is then an integration like any
+  other, approved by you before it runs, its key sealed. It follows its entry
+  there: removed there, it stops at once and its tools are no longer offered
+  (kept until it comes back, and the assistant says since when it is gone);
+  back unchanged, it works again; changed, it asks you again. One that cannot
+  run as written (a shell, a value only that program fills in, the SSE
+  transport) says why.
 - **A Programs page.** Programs in the menu shows how many programs are
   installed (menu programs, packages, snaps, Flatpaks), how the list stays
   current, what was installed, updated, removed or installed again in the

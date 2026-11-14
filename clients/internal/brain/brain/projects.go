@@ -70,7 +70,7 @@ func (b *Brain) organisationTools() []tools.Tool {
 		tools.GameDocs{Games: games},
 		tools.GameCheck{Games: games},
 		tools.GameBuild{Games: games},
-		mcp.ListIntegrations{Gateway: b.Integrations},
+		mcp.ListIntegrations{Gateway: b.Integrations, Found: b.foundNotImported},
 		mcp.ActivateIntegration{Gateway: b.Integrations},
 		mcp.ReadIntegration{Gateway: b.Integrations},
 		mcp.AcquireIntegration{Gateway: b.Integrations},

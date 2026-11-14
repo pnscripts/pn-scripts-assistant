@@ -27,6 +27,17 @@ against the code on 9 November 2026.
   Flatpak is installed), or one the system refuses to watch, is looked at
   every 10 minutes instead of at once. Menu entries more than three folders
   deep are not read.
+- **MCP servers from other programs: four programs, their own settings
+  only.** Claude Desktop, Claude Code (`~/.claude.json`, or the folder
+  `CLAUDE_CONFIG_DIR` names), Cursor (`~/.cursor/mcp.json`) and VS Code (the
+  default profile's `mcp.json`) are read. Project files (`.mcp.json`,
+  `.cursor/mcp.json`, `.vscode/mcp.json`), other VS Code profiles, VS Code
+  Insiders and VSCodium, Claude Desktop installed from the Microsoft Store
+  (its settings live inside the package), and the Windows on-device agent
+  registry (`odr.exe`, a preview) are not. A server written to start through
+  a shell (`cmd /c npx …` is common on Windows), with a variable only that
+  program fills in, an environment file, a working folder, the SSE transport
+  or several headers is listed with the reason and not imported.
 
 ## On Windows
 

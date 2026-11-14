@@ -199,9 +199,39 @@ func (g *Gateway) Add(id string) (Server, error) {
 
 // AddOwn adds one its owner wrote, not approved. Never reached from a model.
 func (g *Gateway) AddOwn(s Server) error {
-	s.Approved, s.Active, s.FromCatalogue = false, false, false
+	s.Approved, s.Active, s.FromCatalogue, s.From = false, false, false, nil
 
 	return g.Book.Put(s)
+}
+
+/*
+ * Import adds one found in another program's settings, not approved, with
+ * the secrets that entry carried kept in the secrets file. Its owner asked
+ * for it at the desk; never reached from a model.
+ */
+func (g *Gateway) Import(s Server, secrets map[string]string) error {
+	if s.From == nil {
+		return fmt.Errorf("%s was not found in another program's settings", s.ID)
+	}
+
+	if _, taken := g.Book.Get(s.ID); taken {
+		return fmt.Errorf("there is already an integration called %s", s.ID)
+	}
+
+	s.Approved, s.ApprovedAt, s.Active, s.FromCatalogue = false, "", false, false
+	s.From.GoneSince, s.From.WasActive = "", false
+
+	if err := g.Book.Put(s); err != nil {
+		return err
+	}
+
+	if err := g.keepSecrets(s, secrets); err != nil {
+		return err
+	}
+
+	g.note(s.ID, "imported", "", "from "+s.From.Client+" ("+s.From.File+"); "+s.Where())
+
+	return nil
 }
 
 /*
@@ -290,6 +320,12 @@ const HowLongAServerMayTakeToStart = 3 * time.Minute
  */
 func (g *Gateway) Activate(ctx context.Context, id string) (View, error) {
 	s, ok := g.Book.Get(id)
+
+	// Gone from the settings it was imported from: kept, never started.
+	if ok && s.Gone() {
+		return View{}, fmt.Errorf("%s is no longer in the settings it came from (since %s); it is used again if it comes back",
+			s.Title, s.From.GoneSince)
+	}
 
 	free := g.Unbounded != nil && g.Unbounded()
 
@@ -488,6 +524,145 @@ func (g *Gateway) Deactivate(id string) {
 
 	g.Book.Change(id, func(s *Server) { s.Active = false })
 	g.note(id, "deactivated", "", "")
+}
+
+/*
+ * Following an imported integration's entry in the other program's
+ * settings (package mcpimport decides; these act).
+ *
+ * EntryGone: the entry is no longer there. The server is stopped and its
+ * tools are taken away at once; the integration, its approval and its
+ * record stay, dormant, and Activate refuses it while it is gone.
+ */
+func (g *Gateway) EntryGone(id string, at time.Time) error {
+	s, ok := g.Book.Get(id)
+	if !ok || s.From == nil {
+		return fmt.Errorf("%s was not imported", id)
+	}
+
+	if s.Gone() {
+		return nil
+	}
+
+	wasActive := s.Active
+
+	g.Deactivate(id)
+
+	_, err := g.Book.Change(id, func(s *Server) {
+		s.Active = false
+		s.From.GoneSince = at.UTC().Format(time.RFC3339)
+		s.From.WasActive = wasActive
+	})
+	if err == nil {
+		g.note(id, "gone from "+s.From.Client, "", "kept, not used, until it comes back")
+	}
+
+	return err
+}
+
+/*
+ * EntryBack: the entry is there again, unchanged. The integration is
+ * usable again with the approval it had, and started again when it was
+ * running when the entry went.
+ */
+func (g *Gateway) EntryBack(ctx context.Context, id string) error {
+	s, ok := g.Book.Get(id)
+	if !ok || s.From == nil {
+		return fmt.Errorf("%s was not imported", id)
+	}
+
+	if !s.Gone() {
+		return nil
+	}
+
+	again := s.From.WasActive && s.Approved
+
+	if _, err := g.Book.Change(id, func(s *Server) { s.From.GoneSince, s.From.WasActive = "", false }); err != nil {
+		return err
+	}
+
+	g.note(id, "back in "+s.From.Client, "", "")
+
+	if again {
+		_, err := g.Activate(ctx, id)
+
+		return err
+	}
+
+	return nil
+}
+
+/*
+ * EntryChanged: the entry was changed in the other program. What it runs
+ * or where it is may be different now, so the new definition replaces the
+ * old one and the approval is withdrawn: its owner is asked again. Who it
+ * was granted to and which tools only read are kept for that new yes.
+ */
+func (g *Gateway) EntryChanged(next Server, secrets map[string]string) error {
+	s, ok := g.Book.Get(next.ID)
+	if !ok || s.From == nil || next.From == nil {
+		return fmt.Errorf("%s was not imported", next.ID)
+	}
+
+	g.Deactivate(next.ID)
+
+	next.Approved, next.ApprovedAt, next.Active, next.FromCatalogue = false, "", false, false
+	next.Agents, next.ReadOnly, next.Hidden = s.Agents, s.ReadOnly, s.Hidden
+	next.From.GoneSince, next.From.WasActive = "", false
+
+	if err := g.Book.Put(next); err != nil {
+		return err
+	}
+
+	if err := g.keepSecrets(next, secrets); err != nil {
+		return err
+	}
+
+	g.note(next.ID, "changed in "+next.From.Client, "", "approve it again; "+next.Where())
+
+	return nil
+}
+
+/*
+ * EntrySecrets: only a secret in the entry changed (a new key). The user
+ * follows that entry, so the new value is kept; nothing else changes.
+ */
+func (g *Gateway) EntrySecrets(id string, secrets map[string]string) error {
+	s, ok := g.Book.Get(id)
+	if !ok || s.From == nil {
+		return fmt.Errorf("%s was not imported", id)
+	}
+
+	return g.keepSecrets(s, secrets)
+}
+
+// keepSecrets writes a server's secrets, and removes the ones it no longer has.
+func (g *Gateway) keepSecrets(s Server, secrets map[string]string) error {
+	for _, name := range s.Secrets {
+		if err := g.Book.SetSecret(s.ID, name, secrets[name]); err != nil {
+			return err
+		}
+	}
+
+	for name := range g.Book.secretsFor(s.ID) {
+		if !listedIn(s.Secrets, name) {
+			if err := g.Book.SetSecret(s.ID, name, ""); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// SecretsOf is one imported server's secrets, only for comparing them with
+// what its entry carries now: never shown, logged or given to a model.
+func (g *Gateway) SecretsOf(id string) map[string]string {
+	if s, ok := g.Book.Get(id); !ok || s.From == nil {
+		return nil
+	}
+
+	return g.Book.secretsFor(id)
 }
 
 // Revoke withdraws approval as well as stopping it.
