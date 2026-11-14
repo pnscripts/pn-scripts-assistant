@@ -198,3 +198,190 @@ func TestTypingIntoAProgramIsAskedUnderEverythingUnlessItsCardSaysAlways(t *test
 		t.Errorf("the program's always did not let typing run (%d, %d)", ran, len(res.Pending))
 	}
 }
+
+/*
+ * "Stop using other programs" (design every-program 3 point 7): one switch
+ * refuses every tool that uses another program, before anything can allow
+ * it: the general setting, everything allowed, the program's own Always.
+ */
+func TestStoppedRefusesEveryProgramToolWhateverIsAllowed(t *testing.T) {
+	since := time.Date(2026, 11, 14, 9, 30, 0, 0, time.Local)
+
+	for _, verb := range []programs.Verb{programs.VerbStart, programs.VerbInput, programs.VerbChange} {
+		weighed := false
+		ruling := programs.Ruling{Answer: programs.Always, Why: programs.WhyAllowed, Program: krita(true)}
+
+		ran, res, told := programTurn(t, verb, ruling, func(l *Loop) {
+			l.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Allow }
+			l.NothingAsks = func() bool { return true }
+			l.Unbounded = func() bool { return true }
+			l.ProgramsStopped = func() (time.Time, bool) { return since, true }
+
+			inner := l.Programs
+			l.Programs = func(ctx context.Context, u programs.Use) programs.Ruling {
+				weighed = true
+				return inner(ctx, u)
+			}
+		})
+
+		if ran != 0 || len(res.Pending) != 0 {
+			t.Fatalf("%s: a stopped program tool ran (%d) or asked (%d)", verb, ran, len(res.Pending))
+		}
+
+		if weighed {
+			t.Errorf("%s: the card was weighed although everything is stopped", verb)
+		}
+
+		if !strings.Contains(strings.Join(told, "\n"), programs.StoppedSentence(since)) {
+			t.Errorf("%s: the model was not told why: %q", verb, told)
+		}
+	}
+}
+
+// A tool that acts in other programs' windows without naming one (scroll)
+// is stopped too.
+type scrollingSomewhere struct{ counted }
+
+func (scrollingSomewhere) Risk() tools.Risk                 { return tools.Safe }
+func (s scrollingSomewhere) Name() string                   { return s.counted.name }
+func (scrollingSomewhere) Description() string              { return "scroll" }
+func (scrollingSomewhere) Parameters() json.RawMessage      { return json.RawMessage(`{"type":"object"}`) }
+func (scrollingSomewhere) Summarize(json.RawMessage) string { return "Scroll" }
+func (scrollingSomewhere) ActsInOtherPrograms()             {}
+func (s scrollingSomewhere) Execute(ctx context.Context, a json.RawMessage) (string, error) {
+	return s.counted.Execute(ctx, a)
+}
+
+func TestStoppedRefusesScrollingInOtherProgramsAndNothingElse(t *testing.T) {
+	scrolled, read := 0, 0
+	loop, db := newLoop(t, scrollingSomewhere{counted{name: "scroll", ran: &scrolled}}, counted{name: "read_notes", ran: &read})
+	loop.ProgramsStopped = func() (time.Time, bool) { return time.Now(), true }
+	loop.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Allow }
+
+	conv, _ := db.NewConversation("t")
+
+	if _, err := loop.RunBrief(context.Background(), conv, askingFor("scroll"), nil, Brief{WithTools: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := loop.RunBrief(context.Background(), conv, askingFor("read_notes"), nil, Brief{WithTools: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	if scrolled != 0 {
+		t.Errorf("scrolling in another program ran while stopped")
+	}
+
+	if read != 1 {
+		t.Errorf("a tool that uses no other program was stopped too (%d)", read)
+	}
+}
+
+func TestNotStoppedChangesNothing(t *testing.T) {
+	ruling := programs.Ruling{Answer: programs.Always, Why: programs.WhyAllowed, Program: krita(true)}
+
+	ran, _, _ := programTurn(t, programs.VerbStart, ruling, func(l *Loop) {
+		l.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Ask }
+		l.ProgramsStopped = func() (time.Time, bool) { return time.Time{}, false }
+	})
+
+	if ran != 1 {
+		t.Errorf("the switch off stopped an allowed program (%d)", ran)
+	}
+}
+
+/*
+ * The question about a program carries which program and version it is
+ * about, and whether that program's own Always would stop it being asked,
+ * so the approval card can offer "Always for Krita" for exactly that.
+ */
+func TestAQuestionAboutAProgramCarriesTheProgram(t *testing.T) {
+	k := krita(true)
+	k.RowID, k.Version = 7, "5.2.1"
+
+	cases := []struct {
+		name   string
+		verb   programs.Verb
+		setup  func(*Loop)
+		always bool
+	}{
+		{"start asked by the setting", programs.VerbStart, func(l *Loop) {
+			l.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Ask }
+		}, true},
+		{"typing, asked whatever the setting", programs.VerbInput, func(l *Loop) {
+			l.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Allow }
+			l.NothingAsks = func() bool { return true }
+		}, true},
+		{"asked for its own reason too", programs.VerbChange, func(l *Loop) {
+			l.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Ask }
+		}, false},
+	}
+
+	for _, c := range cases {
+		ran := 0
+
+		var tool tools.Tool = usingAProgram{counted{name: "open_app", ran: &ran}, c.verb}
+		if !c.always {
+			tool = consentingProgram{usingAProgram{counted{name: "open_app", ran: &ran}, c.verb}}
+		}
+
+		loop, db := newLoop(t, tool)
+		loop.Programs = func(context.Context, programs.Use) programs.Ruling {
+			return programs.Ruling{Answer: programs.AskEach, Program: k}
+		}
+		c.setup(loop)
+
+		conv, _ := db.NewConversation("t")
+
+		res, err := loop.RunBrief(context.Background(), conv, askingFor("open_app"), nil, Brief{WithTools: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(res.Pending) != 1 {
+			if c.always {
+				t.Fatalf("%s: not asked: %+v", c.name, res.Pending)
+			}
+
+			continue
+		}
+
+		inv, err := db.Invocation(res.Pending[0].ID)
+		if err != nil || inv == nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+
+		if inv.ProgramID != 7 || inv.ProgramVerb != string(c.verb) || inv.ProgramVersion != "5.2.1" {
+			t.Errorf("%s: the question does not carry the program: %+v", c.name, inv)
+		}
+
+		if inv.ProgramAlways != c.always {
+			t.Errorf("%s: whether the program's Always would help = %v, want %v", c.name, inv.ProgramAlways, c.always)
+		}
+	}
+}
+
+// consentingProgram is always asked for a reason of its own (like
+// installing), which a program's Always cannot take away.
+type consentingProgram struct{ usingAProgram }
+
+func (consentingProgram) Consent(json.RawMessage) string { return "installing software" }
+
+func TestAQuestionAboutNoKnownProgramCarriesNone(t *testing.T) {
+	ran := 0
+	loop, db := newLoop(t, usingAProgram{counted{name: "open_app", ran: &ran}, programs.VerbStart})
+	loop.Programs = func(context.Context, programs.Use) programs.Ruling { return programs.Ruling{Answer: programs.AskEach} }
+	loop.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Ask }
+
+	conv, _ := db.NewConversation("t")
+
+	res, err := loop.RunBrief(context.Background(), conv, askingFor("open_app"), nil, Brief{WithTools: true})
+	if err != nil || len(res.Pending) != 1 {
+		t.Fatalf("not asked: %v %+v", err, res.Pending)
+	}
+
+	inv, _ := db.Invocation(res.Pending[0].ID)
+	if inv.ProgramID != 0 || inv.ProgramAlways {
+		t.Errorf("a question about no known program names one: %+v", inv)
+	}
+}

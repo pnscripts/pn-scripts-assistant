@@ -185,3 +185,19 @@ func TestAMenuProgramIsFoundByTheNameAPersonUses(t *testing.T) {
 		t.Error("an empty name found an entry")
 	}
 }
+
+// Every tool that acts in or with another program is stopped by "Stop
+// using other programs"; tools of the assistant's own are not.
+func TestWhichToolsUseOtherPrograms(t *testing.T) {
+	for _, tool := range []Tool{OpenApp{}, RunCommand{}, TypeText{}, Click{}, Scroll{}} {
+		if !UsesOtherPrograms(tool) {
+			t.Errorf("%s uses other programs", tool.Name())
+		}
+	}
+
+	for _, tool := range []Tool{ListPrograms{}, ListWindows{}} {
+		if UsesOtherPrograms(tool) {
+			t.Errorf("%s does not use another program", tool.Name())
+		}
+	}
+}

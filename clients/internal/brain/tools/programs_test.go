@@ -216,3 +216,147 @@ func TestWindowsProgramsAreListedAndAskedForByTheirSource(t *testing.T) {
 		t.Error("an unknown source must be refused")
 	}
 }
+
+// choosing is an inventory that also knows each program's choices.
+type choosing struct {
+	inventory
+	choices programs.Choices
+}
+
+func (c choosing) ProgramChoices() (programs.Choices, error) { return c.choices, nil }
+
+// withRows numbers the sample's records, as the store does.
+func withRows(inv inventory) inventory {
+	for i := range inv.records {
+		inv.records[i].RowID = int64(i + 1)
+	}
+
+	return inv
+}
+
+func rowOf(t *testing.T, inv inventory, kind programs.Kind, id string) programs.Record {
+	t.Helper()
+
+	for _, r := range inv.records {
+		if r.Kind == kind && r.ID == id {
+			return r
+		}
+	}
+
+	t.Fatalf("no %s %s", kind, id)
+
+	return programs.Record{}
+}
+
+/*
+ * list_programs says what each program may be used for: start it, type
+ * and click in it, run it as a command, each as decided on its card or,
+ * undecided, as the general setting answers.
+ */
+func TestAskingForAProgramSaysItsChoices(t *testing.T) {
+	inv := withRows(sampleInventory())
+	gimpMenu := rowOf(t, inv, programs.App, "gimp.desktop")
+	gimpDeb := rowOf(t, inv, programs.Deb, "gimp")
+
+	c := choosing{inventory: inv, choices: programs.Choices{Honoured: true, Permits: map[int64][]programs.Permit{
+		gimpMenu.RowID: {{Verb: programs.VerbStart, Answer: programs.Always}},
+		gimpDeb.RowID: {
+			{Verb: programs.VerbInput, Answer: programs.Always, Version: "2.10.30"},
+			{Verb: programs.VerbChange, Answer: programs.Never},
+		},
+	}}}
+
+	out, err := ListPrograms{Programs: c}.Execute(context.Background(), json.RawMessage(`{"name":"gimp"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, want := range []string{
+		"GIMP (menu): start it: always; type and click in its windows: not decided, asked each time; run it as a command: not decided, the general permissions decide",
+		"gimp (deb 2.10.36): start it: not decided, the general permissions decide; type and click in its windows: always, given to version 2.10.30, asked again since the update; run it as a command: never",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+func TestUndecidedChoicesFollowTheGeneralSetting(t *testing.T) {
+	inv := withRows(sampleInventory())
+	ff := rowOf(t, inv, programs.Snap, "firefox")
+
+	everything := choosing{inventory: inv, choices: programs.Choices{Honoured: true, Unasked: true}}
+	out, _ := ListPrograms{Programs: everything}.Execute(context.Background(), json.RawMessage(`{"name":"firefox"}`))
+
+	// Typing and clicking is asked whatever the setting.
+	if !strings.Contains(out, "start it: not decided, runs without asking; type and click in its windows: not decided, asked each time; run it as a command: not decided, runs without asking") {
+		t.Errorf("everything allowed: %s", out)
+	}
+
+	askEvery := choosing{inventory: inv, choices: programs.Choices{Permits: map[int64][]programs.Permit{
+		ff.RowID: {{Verb: programs.VerbStart, Answer: programs.Always, Version: "146.0"}},
+	}}}
+	out, _ = ListPrograms{Programs: askEvery}.Execute(context.Background(), json.RawMessage(`{"name":"firefox"}`))
+
+	if !strings.Contains(out, "start it: always, but asked each time while every action is asked") {
+		t.Errorf("ask every time: %s", out)
+	}
+}
+
+func TestARemovedProgramsChoicesAreSaidKept(t *testing.T) {
+	inv := withRows(sampleInventory())
+	krita := rowOf(t, inv, programs.Deb, "krita")
+
+	c := choosing{inventory: inv, choices: programs.Choices{Honoured: true, Permits: map[int64][]programs.Permit{
+		krita.RowID: {{Verb: programs.VerbStart, Answer: programs.Never}},
+	}}}
+
+	out, _ := ListPrograms{Programs: c}.Execute(context.Background(), json.RawMessage(`{"name":"krita"}`))
+	if !strings.Contains(out, "krita (deb 5.2): kept for when it comes back: start it: never") {
+		t.Errorf("%s", out)
+	}
+}
+
+func TestTheOverviewNamesOnlyTheProgramsWithAChoice(t *testing.T) {
+	inv := withRows(sampleInventory())
+	blender := rowOf(t, inv, programs.Flatpak, "org.blender.Blender")
+
+	out, _ := ListPrograms{Programs: choosing{inventory: inv, choices: programs.Choices{Honoured: true}}}.Execute(context.Background(), nil)
+	if !strings.Contains(out, "No program has a choice of its own") {
+		t.Errorf("no choices: %s", out)
+	}
+
+	c := choosing{inventory: inv, choices: programs.Choices{Honoured: true, Permits: map[int64][]programs.Permit{
+		blender.RowID: {{Verb: programs.VerbChange, Answer: programs.Always, Version: "4.5"}},
+	}}}
+
+	out, _ = ListPrograms{Programs: c}.Execute(context.Background(), nil)
+	if !strings.Contains(out, "Choices of their own: Blender (flatpak 4.5): run it as a command: always.") {
+		t.Errorf("%s", out)
+	}
+
+	if strings.Contains(out, "GIMP (menu): start it") {
+		t.Errorf("a program without a choice was listed: %s", out)
+	}
+}
+
+func TestListProgramsSaysWhenEverythingIsStopped(t *testing.T) {
+	since := time.Date(2026, 11, 14, 9, 30, 0, 0, time.Local)
+	c := choosing{inventory: withRows(sampleInventory()), choices: programs.Choices{Honoured: true, Stopped: true, Since: since}}
+
+	for _, args := range []string{``, `{"name":"gimp"}`, `{"removed":true}`} {
+		out, _ := ListPrograms{Programs: c}.Execute(context.Background(), json.RawMessage(args))
+
+		if !strings.HasPrefix(out, "Stopped: the owner stopped all use of other programs on 14 Nov 2026 at 09:30") {
+			t.Errorf("%s: %s", args, out)
+		}
+	}
+}
+
+// An inventory without choices (older callers) still answers as before.
+func TestListProgramsWithoutChoicesAnswersAsBefore(t *testing.T) {
+	out, _ := ListPrograms{Programs: sampleInventory()}.Execute(context.Background(), json.RawMessage(`{"name":"gimp"}`))
+	if strings.Contains(out, "start it") {
+		t.Errorf("%s", out)
+	}
+}

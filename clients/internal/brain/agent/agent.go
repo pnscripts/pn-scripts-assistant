@@ -118,6 +118,14 @@ type Loop struct {
 	 */
 	Programs func(ctx context.Context, use programs.Use) programs.Ruling
 
+	/*
+	 * ProgramsStopped is "Stop using other programs": since when its person
+	 * stopped every use of other programs, and whether they did. Every tool
+	 * that uses one (tools.UsesOtherPrograms) is refused while it is on,
+	 * before anything else can allow it. Nil is never stopped.
+	 */
+	ProgramsStopped func() (time.Time, bool)
+
 	// GoalMode is whether its owner agreed to goal mode: only the four
 	// questions of tools.GoalModeAsks are asked. Nil is off.
 	GoalMode func() bool
@@ -1177,6 +1185,29 @@ func (l *Loop) RunBrief(
 			 * the version that is here runs without asking. Weighed after
 			 * the tool's own refusal, so a refused tool stays refused.
 			 */
+			/*
+			 * "Stop using other programs" comes first: one switch, and
+			 * nothing below (everything allowed, a program's own Always)
+			 * can open it again. Only its person can, on the Programs page.
+			 */
+			if tools.UsesOtherPrograms(tool) && l.ProgramsStopped != nil {
+				if since, stopped := l.ProgramsStopped(); stopped {
+					said := programs.StoppedSentence(since)
+
+					l.Log.Info("refused: other programs are stopped", "tool", tool.Name())
+
+					messages = append(messages, toolResult(call, said))
+
+					l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+summary+"]\n"+said)
+
+					l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+						Asked: askedFor(call.Arguments), Level: level, Result: said, Failed: true},
+						call.Arguments, messages, model, choice.Why, DeedRefused)
+
+					continue
+				}
+			}
+
 			use, bound := tools.ProgramUseOf(ctx, tool, call.Arguments)
 
 			var ruling programs.Ruling
@@ -1222,8 +1253,18 @@ func (l *Loop) RunBrief(
 			 * After the setting rather than before, so that nothing above can
 			 * clear it — and after refusals, so a refused tool stays refused.
 			 */
+			/*
+			 * askedForMore is whether something other than the general
+			 * setting and the program's own card makes this a question (a
+			 * protected file, consent, goal mode, a rule, the tool itself):
+			 * then the program's Always would not answer it, and the
+			 * approval card does not offer it.
+			 */
+			askedForMore := protected
+
 			if why := tools.ConsentFor(tool, call.Arguments); why != "" && !free {
 				ask = true
+				askedForMore = true
 				summary = "Always asked (" + why + "): " + summary
 			}
 
@@ -1253,6 +1294,7 @@ func (l *Loop) RunBrief(
 
 				if why := tools.GoalModeAsks(tool, call.Arguments, inside); why != "" {
 					ask = true
+					askedForMore = true
 					answer = permits.Ask
 					summary = "Always asked (" + why + "): " + summary
 				} else if protected && !free && (l.NothingAsks == nil || !l.NothingAsks()) {
@@ -1287,6 +1329,7 @@ func (l *Loop) RunBrief(
 			 */
 			if len(verdict.Ask) > 0 {
 				ask = true
+				askedForMore = true
 				answer = permits.Ask
 			}
 
@@ -1305,6 +1348,7 @@ func (l *Loop) RunBrief(
 			if a, ok := tool.(tools.AlwaysAsking); ok {
 				if why := a.AlwaysAsks(call.Arguments); why != "" {
 					ask = true
+					askedForMore = true
 					answer = permits.Ask
 					summary = "Always asked (" + why + "): " + summary
 				}
@@ -1353,6 +1397,14 @@ func (l *Loop) RunBrief(
 
 				if answersItself {
 					if err := l.DB.AnswersItselfInQuietHours(id); err != nil {
+						return Result{}, err
+					}
+				}
+
+				// Which program it is about, so its card's Always can be
+				// given from the question itself, to that program alone.
+				if bound && ruling.Program != nil && ruling.Program.Present && ruling.Program.RowID > 0 {
+					if err := l.DB.InvocationProgram(id, ruling.Program.RowID, use.Verb, ruling.Program.Version, !askedForMore); err != nil {
 						return Result{}, err
 					}
 				}

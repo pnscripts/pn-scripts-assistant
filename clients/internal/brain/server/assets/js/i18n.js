@@ -182,6 +182,47 @@
             'Only at this computer: what another program may be made to do is changed here, not from a phone.',
             'Само на този компютър: какво може да се прави с друга програма се променя тук, не от телефон.',
         ],
+        'prg.stop.on': ['Stop using other programs', 'Спри използването на други програми'],
+        'prg.stop.off': ['Use other programs again', 'Използвай отново други програми'],
+        'prg.stop.running': [
+            'Opening, typing and clicking in, scrolling and running other programs follow the choices made for each program. One click stops all of it.',
+            'Отварянето на други програми, писането и щракването в тях, превъртането и пускането им следват избора за всяка програма. Едно щракване спира всичко това.',
+        ],
+        'prg.stop.stopped': [
+            'Stopped since {when}: I open, type, click, scroll and run nothing in other programs, whatever is allowed, until you use them again.',
+            'Спряно от {when}: не отварям, не пиша, не щраквам, не превъртам и не пускам нищо в други програми, каквото и да е разрешено, докато не ги включите отново.',
+        ],
+        'prg.stop.desk': [
+            'Only at this computer: using other programs again is decided here, not from a phone.',
+            'Само на този компютър: отново използване на други програми се разрешава тук, не от телефон.',
+        ],
+        'prg.stop.failed': ['That did not work. Try again.', 'Това не стана. Опитайте отново.'],
+        'prg.mayStopped': [
+            'Other programs are stopped now, so none of this is done until you use them again.',
+            'Използването на други програми е спряно, затова нищо от това не се прави, докато не го включите отново.',
+        ],
+        'prg.ap.always': ['Always for {name}', 'Винаги за {name}'],
+        'prg.ap.alwaysTitle': [
+            'Approve this, and stop asking about this use of {name}: {verb}. Only {name}, only version {version}; I ask again after an update.',
+            'Одобри това и не питай повече за тази употреба на {name}: {verb}. Само за {name}, само за версия {version}; след обновяване питам отново.',
+        ],
+        'prg.ap.alwaysTitlePlain': [
+            'Approve this, and stop asking about this use of {name}: {verb}. Only {name}.',
+            'Одобри това и не питай повече за тази употреба на {name}: {verb}. Само за {name}.',
+        ],
+        'prg.ap.any': ['Always, any program', 'Винаги, за всяка програма'],
+        'prg.ap.anyTitle': [
+            'Approve this, and stop asking about “{tool}” with any program',
+            'Одобри това и не питай повече за „{tool}“ с която и да е програма',
+        ],
+        'prg.ap.stopped': [
+            'You stopped me using other programs. Use them again on the Programs page to approve this.',
+            'Спряхте ми използването на други програми. Включете го отново от страница „Програми“, за да одобрите това.',
+        ],
+        'prg.ap.failed': [
+            'Not allowed for good: {name} changed since I asked. Decide on its card on the Programs page, or approve just this once.',
+            'Не е разрешено завинаги: {name} се промени, след като попитах. Решете от картата ѝ на страница „Програми“ или одобрете само този път.',
+        ],
         'prg.canDoGone': [
             'It was removed on {when}, so I do not use it. If it comes back, it shows up here again by itself.',
             'Премахната е на {when}, затова не я използвам. Ако бъде върната, ще се появи тук отново сама.',

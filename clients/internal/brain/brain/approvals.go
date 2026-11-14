@@ -110,6 +110,18 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 	}
 
 	/*
+	 * "Stop using other programs" pressed while this waited: a yes given
+	 * now does not reopen what the switch closed, however it was given
+	 * (the card, decide_waiting out loud, the quiet hours by themselves).
+	 */
+	if why := b.stoppedFor(tool); why != "" {
+		b.DB.CompleteInvocation(id, store.InvocationFailed, why)
+		invocation.Status, invocation.Result = store.InvocationFailed, why
+
+		return *invocation, errors.New(why)
+	}
+
+	/*
 	 * And it learns the answer, so it does not ask twice about the same file.
 	 *
 	 * This is the whole point of asking rather than refusing. A question put a

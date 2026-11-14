@@ -276,3 +276,49 @@ func (d *DB) SetProgramPermit(programID int64, verb programs.Verb, answer progra
 
 	return nil
 }
+
+/*
+ * StopPrograms is "Stop using other programs": on from at until it is
+ * undone. Pressed again while on, it keeps the first time, so "since"
+ * says when the use really stopped.
+ */
+func (d *DB) StopPrograms(at time.Time) error {
+	_, err := d.sql().Exec(`INSERT INTO programs_stopped (id, since) VALUES (1, ?) ON CONFLICT (id) DO NOTHING`,
+		at.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return fmt.Errorf("stopping the use of other programs: %w", err)
+	}
+
+	return nil
+}
+
+// UseProgramsAgain undoes StopPrograms; undoing what is not on is fine.
+func (d *DB) UseProgramsAgain() error {
+	if _, err := d.sql().Exec(`DELETE FROM programs_stopped`); err != nil {
+		return fmt.Errorf("using other programs again: %w", err)
+	}
+
+	return nil
+}
+
+// ProgramsStopped is since when every use of other programs is stopped,
+// and whether it is.
+func (d *DB) ProgramsStopped() (time.Time, bool, error) {
+	var since string
+
+	err := d.sql().QueryRow(`SELECT since FROM programs_stopped WHERE id = 1`).Scan(&since)
+	if err == sql.ErrNoRows {
+		return time.Time{}, false, nil
+	}
+
+	if err != nil {
+		return time.Time{}, false, err
+	}
+
+	at, err := time.Parse(time.RFC3339Nano, since)
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("reading when the use of other programs stopped: %w", err)
+	}
+
+	return at, true, nil
+}

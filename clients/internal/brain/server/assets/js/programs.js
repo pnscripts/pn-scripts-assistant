@@ -275,10 +275,68 @@
             return { verb, label: VERB[verb] ? T(VERB[verb]) : verb, answer, state };
         });
 
-        return { rows, note: p.present ? '' : T('prg.mayGone') };
+        const notes = [];
+        if (!p.present) notes.push(T('prg.mayGone'));
+        if (body && body.stopped_since) notes.push(T('prg.mayStopped'));
+
+        return { rows, note: notes.join(' ') };
     }
 
-    window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, may, why, reasons: Object.keys(WHY), answers: ANSWERS };
+    /*
+     * "Stop using other programs": the sentence and the button for the
+     * switch, from the server's stopped_since (null when not stopped).
+     */
+    function stopping(body) {
+        const since = body && body.stopped_since;
+
+        if (since) {
+            return { stopped: true, said: T('prg.stop.stopped', { when: when(since) }), button: T('prg.stop.off') };
+        }
+
+        return { stopped: false, said: T('prg.stop.running'), button: T('prg.stop.on') };
+    }
+
+    /*
+     * The answers a waiting question offers, from GET /api/approvals: a
+     * question about one program offers "Always for <name>" (that program
+     * only, the version asked about) when its Always would answer it; the
+     * tool-wide Always is offered beside it as "Always, any program", or
+     * alone as before for a question about no program, and never for a
+     * question that is always asked. While other programs are stopped a
+     * question that uses one can only be refused, and says why.
+     */
+    function approvalChoices(item, toolName) {
+        const p = item && item.program;
+        const alwaysAsked = /^Always asked/.test((item && item.summary) || '');
+        const out = { approve: true, forProgram: null, anyProgram: null, note: '' };
+
+        if (item && item.programs_stopped) {
+            out.approve = false;
+            out.note = T('prg.ap.stopped');
+            return out;
+        }
+
+        if (p && p.always) {
+            const verb = VERB[p.verb] ? T(VERB[p.verb]).toLowerCase() : p.verb;
+            const vars = { name: p.name, verb, version: p.version };
+
+            out.forProgram = {
+                label: T('prg.ap.always', vars),
+                title: T(p.version ? 'prg.ap.alwaysTitle' : 'prg.ap.alwaysTitlePlain', vars),
+            };
+        }
+
+        if (!alwaysAsked) {
+            out.anyProgram = p
+                ? { label: T('prg.ap.any'), title: T('prg.ap.anyTitle', { tool: toolName }), secondary: true }
+                : { label: T('cc.always'), title: T('cc.alwaysTitle', { tool: toolName }), secondary: false };
+        }
+
+        return out;
+    }
+
+    window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, may, why, stopping, approvalChoices,
+        reasons: Object.keys(WHY), answers: ANSWERS };
 
     // ---- drawing ----
 
@@ -441,10 +499,56 @@
         await load();
     }
 
+    // The switch: its sentence, its button, and why a press failed.
+    let stopSaying = '';
+
+    function drawStop() {
+        const box = el('programs-stop');
+        if (!box) return;
+
+        const s = stopping(last);
+        box.dataset.stopped = String(s.stopped);
+        say('programs-stop-said', s.said);
+
+        const b = el('programs-stop-button');
+        if (b) {
+            b.textContent = s.button;
+            b.classList.toggle('danger', !s.stopped);
+        }
+
+        say('programs-stop-note', stopSaying);
+    }
+
+    async function pressStop() {
+        const resume = !!(last && last.stopped_since);
+        stopSaying = '';
+
+        try {
+            const res = await fetch(resume ? '/api/programs/resume' : '/api/programs/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: '{}',
+            });
+
+            if (!res.ok) {
+                stopSaying = T(res.status === 403 ? 'prg.stop.desk' : 'prg.stop.failed');
+                drawStop();
+                return;
+            }
+        } catch (err) {
+            stopSaying = T('prg.stop.failed');
+            drawStop();
+            return;
+        }
+
+        await load();
+    }
+
     function draw() {
         if (!last) return;
 
         say('programs-summary', summary(last));
+        drawStop();
 
         const keep = el('programs-keeping');
         if (keep) {
@@ -505,6 +609,7 @@
         });
 
         el('programs-choice')?.addEventListener('change', draw);
+        el('programs-stop-button')?.addEventListener('click', pressStop);
         el('programs-search')?.addEventListener('input', draw);
         el('programs-card-close')?.addEventListener('click', () => {
             chosen = null;

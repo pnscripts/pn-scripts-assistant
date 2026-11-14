@@ -49,6 +49,21 @@ whenever something visible changed.
   program is never used: asked for it, the assistant says when it was
   removed, and its choices are kept for when it comes back. Changed at the
   computer only, not from a phone.
+- **"Always for Krita" on the question itself.** A question about one
+  program now offers Always for that program alone: it approves the step and
+  sets the program's card to Always for that kind of use and that version,
+  nothing wider. "Always, any program" stays beside it for the tool as a
+  whole. Typing and clicking in a program can now be allowed for good from
+  the question, for that program only.
+- **Stop using other programs.** One button at the top of the Programs page
+  stops every opening, typing, clicking, scrolling and command in another
+  program, whatever is allowed, until "Use other programs again". It is kept
+  across restarts, waiting questions can then only be refused, and it can be
+  pressed from a paired phone (turning it back on is done at the computer).
+- **It knows what you chose for each program.** Asked about a program, the
+  assistant now says what it may do with it (start it, type and click in it,
+  run it as a command: always, never or not decided), which programs have a
+  choice of their own, and whether other programs are stopped.
 - **A Programs page.** Programs in the menu shows how many programs are
   installed (menu programs, packages, snaps, Flatpaks), how the list stays
   current, what was installed, updated, removed or installed again in the

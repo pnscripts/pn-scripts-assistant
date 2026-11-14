@@ -39,6 +39,32 @@ func ProgramUseOf(ctx context.Context, t Tool, args json.RawMessage) (programs.U
 	return b.ProgramUse(ctx, args), true
 }
 
+/*
+ * ActsInOtherPrograms is a tool that acts in other programs' windows
+ * without saying which one (scroll): nothing to weigh against a card, but
+ * stopped like the rest by "Stop using other programs".
+ */
+type ActsInOtherPrograms interface {
+	ActsInOtherPrograms()
+}
+
+// UsesOtherPrograms is whether a tool opens, types or clicks in, scrolls,
+// or runs another program: every one of them is stopped by "Stop using
+// other programs". Tools that only read (list_windows, list_programs)
+// are not.
+func UsesOtherPrograms(t Tool) bool {
+	if _, ok := t.(ProgramBound); ok {
+		return true
+	}
+
+	_, ok := t.(ActsInOtherPrograms)
+
+	return ok
+}
+
+// Scrolling moves another program's window.
+func (Scroll) ActsInOtherPrograms() {}
+
 // The places a tool finds a program; tests replace them.
 var (
 	findDesktopEntry = desktopEntryFor

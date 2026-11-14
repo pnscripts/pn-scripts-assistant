@@ -64,7 +64,44 @@ func (s *Server) handleProgramInventory(w http.ResponseWriter, r *http.Request) 
 		"permits": cardPermits(records, decided), "verbs": programs.InUse,
 		// Whether a standing "always" is acted on: not on "ask every time".
 		"honoured": s.brain.Freedom() != permits.AskEveryTime,
+		// Since when every use of other programs is stopped; null when not.
+		"stopped_since": stoppedSince(s.brain),
 	})
+}
+
+func stoppedSince(b *brain.Brain) any {
+	since, stopped := b.ProgramsStopped()
+	if !stopped {
+		return nil
+	}
+
+	return since
+}
+
+/*
+ * handleProgramsStop is "Stop using other programs": one click, nothing to
+ * send, every tool that uses another program refused until resumed. A
+ * phone may press it too (guard, awayMayDo): it only takes something away.
+ */
+func (s *Server) handleProgramsStop(w http.ResponseWriter, r *http.Request) {
+	if err := s.brain.StopUsingPrograms(); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"stopped_since": stoppedSince(s.brain)})
+}
+
+// handleProgramsResume is "Use other programs again", at the desk only.
+func (s *Server) handleProgramsResume(w http.ResponseWriter, r *http.Request) {
+	if err := s.brain.UseProgramsAgain(); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	ok(w, map[string]any{"stopped_since": stoppedSince(s.brain)})
 }
 
 // cardPermit is one standing decision as a card shows it: asleep is an

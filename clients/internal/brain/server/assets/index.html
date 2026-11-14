@@ -920,6 +920,11 @@
                     <h2 data-i18n="prg.title">Programs on this computer</h2>
                     <p class="note" data-i18n="prg.lead">What is installed, kept current by itself: a program installed, updated or removed shows up here within seconds. Read only: nothing here starts or changes a program.</p>
                     <p class="programs-summary" id="programs-summary" role="status" aria-live="polite" data-i18n="prg.looking">Looking…</p>
+                    <div class="programs-stop" id="programs-stop" data-stopped="false">
+                        <p class="programs-stop-said" id="programs-stop-said" role="status" aria-live="polite"></p>
+                        <button type="button" class="model-action danger" id="programs-stop-button" data-i18n="prg.stop.on">Stop using other programs</button>
+                        <p class="note programs-stop-note" id="programs-stop-note" role="status" aria-live="polite"></p>
+                    </div>
                     <h3 data-i18n="prg.keepTitle">How it stays current</h3>
                     <ul class="programs-keeping" id="programs-keeping"></ul>
                 </div>
