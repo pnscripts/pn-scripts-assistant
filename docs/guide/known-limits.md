@@ -27,6 +27,16 @@ against the code on 9 November 2026.
   Flatpak is installed), or one the system refuses to watch, is looked at
   every 10 minutes instead of at once. Menu entries more than three folders
   deep are not read.
+- **Choices per program: three kinds of use.** A program's card decides
+  starting it, typing and clicking in its windows (the window under the
+  click, or the one in front for typing, read from X11; on Wayland and
+  Windows the window's program is not known, so typing and clicking are
+  asked) and running it as a command (the program the command names; a
+  program started by a script or another program is not followed). A
+  package's choice is found through `dpkg-query -S` only when some package
+  has one. "Always" on a question in the conversation allows that kind of
+  action for every program; the choice for one program is on its card.
+  Scrolling is not tied to a program.
 - **MCP servers from other programs: four programs, their own settings
   only.** Claude Desktop, Claude Code (`~/.claude.json`, or the folder
   `CLAUDE_CONFIG_DIR` names), Cursor (`~/.cursor/mcp.json`) and VS Code (the

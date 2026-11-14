@@ -27,6 +27,7 @@ import (
 	"pn-scripts-assistant/internal/brain/pace"
 	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/polish"
+	"pn-scripts-assistant/internal/brain/programs"
 	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/protect"
 	"pn-scripts-assistant/internal/brain/quiethours"
@@ -107,6 +108,15 @@ type Loop struct {
 	 * gates that are meant to agree.
 	 */
 	MayI func(who, tool string, changesSomething bool, level risk.Level) permits.Answer
+
+	/*
+	 * Programs weighs a call that uses another program against what its
+	 * person decided on that program's card (package programs, Rule), at
+	 * the moment of acting, so a choice made on the Programs page counts
+	 * for the very next call. Nil weighs nothing: the general setting
+	 * decides, and typing into another program is still asked.
+	 */
+	Programs func(ctx context.Context, use programs.Use) programs.Ruling
 
 	// GoalMode is whether its owner agreed to goal mode: only the four
 	// questions of tools.GoalModeAsks are asked. Nil is off.
@@ -1159,6 +1169,47 @@ func (l *Loop) RunBrief(
 				continue
 			}
 
+			/*
+			 * Another program, and what its person decided on its card
+			 * (package programs, permits): a removed program is never used
+			 * and the answer says since when; a "never" is refused like a
+			 * standing decision, whatever else is allowed; an "always" for
+			 * the version that is here runs without asking. Weighed after
+			 * the tool's own refusal, so a refused tool stays refused.
+			 */
+			use, bound := tools.ProgramUseOf(ctx, tool, call.Arguments)
+
+			var ruling programs.Ruling
+			if bound && l.Programs != nil {
+				ruling = l.Programs(ctx, use)
+			}
+
+			if ruling.Answer == programs.Never {
+				l.Log.Info("refused by a program's card", "tool", tool.Name(), "why", string(ruling.Why))
+
+				messages = append(messages, toolResult(call, ruling.Said))
+
+				l.DB.AddMessage(conversationID, llm.RoleTool, "", "", "["+summary+"]\n"+ruling.Said)
+
+				l.did(conversationID, brief, Step{Tool: tool.Name(), Summary: summary,
+					Asked: askedFor(call.Arguments), Level: level, Result: ruling.Said, Failed: true},
+					call.Arguments, messages, model, choice.Why, DeedRefused)
+
+				continue
+			}
+
+			if ruling.Program != nil {
+				summary = programName(*ruling.Program) + ": " + summary
+			}
+
+			if ruling.Answer == programs.Always {
+				answer = permits.Allow
+			}
+
+			if ruling.Why == programs.WhyUpdated {
+				summary = ruling.Said + "\n" + summary
+			}
+
 			if ask && (free || (l.NothingAsks != nil && l.NothingAsks())) {
 				ask = false
 			}
@@ -1174,6 +1225,17 @@ func (l *Loop) RunBrief(
 			if why := tools.ConsentFor(tool, call.Arguments); why != "" && !free {
 				ask = true
 				summary = "Always asked (" + why + "): " + summary
+			}
+
+			/*
+			 * Typing and clicking in another program's windows is asked
+			 * whatever the general setting, like the things above: a
+			 * keystroke can send, pay or delete, and nothing about it says
+			 * which. Only that program's own "always" lets it run unasked.
+			 */
+			if bound && use.Verb == programs.VerbInput && ruling.Answer != programs.Always && !free {
+				ask = true
+				summary = "Always asked (typing and clicking in another program): " + summary
 			}
 
 			/*
@@ -2521,3 +2583,12 @@ func without(specs []llm.ToolSpec, never []string) []llm.ToolSpec {
 }
 
 func listed(names []string, name string) bool { return tools.Listed(names, name) }
+
+// programName is how an approval names the program it is about.
+func programName(r programs.Record) string {
+	if r.Name != "" {
+		return r.Name
+	}
+
+	return r.ID
+}

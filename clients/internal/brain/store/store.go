@@ -1183,6 +1183,26 @@ var migrations = []string{
 	`
 	ALTER TABLE programs ADD COLUMN last_change TEXT NOT NULL DEFAULT '';
 	`,
+
+	/*
+	 * 32: what the assistant may do with each program (package programs,
+	 * permits): one row per program and kind of use, only for a standing
+	 * decision ("always" or "never"; asking each time is no row). Kept when
+	 * the program is removed, dormant until it comes back. The version an
+	 * "always" was given to is sealed like the program's own; the row id,
+	 * the verb and the answer say nothing without the programs table.
+	 */
+	`
+	CREATE TABLE program_permits (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		program_id INTEGER NOT NULL REFERENCES programs(id),
+		verb       TEXT NOT NULL,
+		answer     TEXT NOT NULL,
+		version    TEXT NOT NULL DEFAULT '',
+		decided_at TEXT NOT NULL,
+		UNIQUE (program_id, verb)
+	);
+	`,
 }
 
 /*

@@ -140,8 +140,47 @@
         'prg.f.beforePlain': ['Already here when I first looked', 'Вече беше тук при първия ми преглед'],
         'prg.f.last': ['Last change', 'Последна промяна'],
         'prg.canDo': [
-            'I know it is here and can tell you about it when you ask. I do not start it, change it or remove it. Using programs for you comes in a later version, and then I will ask you first, at this computer.',
-            'Знам, че е тук, и мога да ви кажа за нея, когато попитате. Не я стартирам, не я променям и не я премахвам. Използването на програми за вас идва в следваща версия и тогава първо ще ви питам, на този компютър.',
+            'When you ask, I can start it, type and click in its windows and run it as a command. I never remove it. What I may do without asking is set below, for this program only.',
+            'Когато ме помолите, мога да я стартирам, да пиша и щраквам в прозорците ѝ и да я изпълнявам като команда. Никога не я премахвам. Какво мога да правя, без да питам, се задава по-долу, само за тази програма.',
+        ],
+        'prg.cardMayTitle': ['What I may do without asking', 'Какво мога да правя, без да питам'],
+        'prg.verb.start': ['Start it', 'Да я стартирам'],
+        'prg.verb.control-input': ['Type and click in its windows', 'Да пиша и щраквам в прозорците ѝ'],
+        'prg.verb.change': ['Run it as a command', 'Да я изпълнявам като команда'],
+        'prg.ans.ask': ['Ask me', 'Питай ме'],
+        'prg.ans.allow': ['Always', 'Винаги'],
+        'prg.ans.never': ['Never', 'Никога'],
+        'prg.state.general': [
+            'Your general setting decides (Control, How much it asks).',
+            'Решава общата ви настройка („Контрол“, „Колко пита“).',
+        ],
+        'prg.state.askInput': [
+            'I ask you each time, whatever the general setting: a keystroke can send, pay or delete.',
+            'Питам ви всеки път, каквато и да е общата настройка: едно натискане на клавиш може да изпрати, плати или изтрие.',
+        ],
+        'prg.state.allow': ['I do it without asking. Chosen on {when}.', 'Правя го, без да питам. Избрано на {when}.'],
+        'prg.state.asleep': [
+            'Allowed for version {from}. It is {to} now, so I ask again until you press Always.',
+            'Разрешено за версия {from}. Сега е {to}, затова питам отново, докато не натиснете „Винаги“.',
+        ],
+        'prg.state.notHonoured': [
+            'Your general setting asks every time, so I ask anyway.',
+            'Общата ви настройка е да питам всеки път, затова питам въпреки това.',
+        ],
+        'prg.state.never': [
+            'I never do it, and I say so when you ask for it.',
+            'Никога не го правя и ви казвам това, когато ме помолите.',
+        ],
+        'prg.state.keptAllow': ['Always, kept for when it comes back.', 'Винаги, запазено за момента, в който бъде върната.'],
+        'prg.state.keptNever': ['Never, kept for when it comes back.', 'Никога, запазено за момента, в който бъде върната.'],
+        'prg.mayGone': [
+            'It was removed, so I do not use it. These choices are kept for when it comes back.',
+            'Премахната е, затова не я използвам. Тези избори се пазят за момента, в който бъде върната.',
+        ],
+        'prg.mayFailed': ['That was not saved. Try again.', 'Това не беше запазено. Опитайте отново.'],
+        'prg.mayDesk': [
+            'Only at this computer: what another program may be made to do is changed here, not from a phone.',
+            'Само на този компютър: какво може да се прави с друга програма се променя тук, не от телефон.',
         ],
         'prg.canDoGone': [
             'It was removed on {when}, so I do not use it. If it comes back, it shows up here again by itself.',

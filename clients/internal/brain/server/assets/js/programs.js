@@ -230,7 +230,55 @@
         return p.present ? T('prg.canDo') : T('prg.canDoGone', { when: when(p.removed_at || p.changed_at) });
     }
 
-    window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, why, reasons: Object.keys(WHY) };
+    // The kinds of use a card decides, in the server's order (an older
+    // server sends none: these three).
+    const VERBS = ['start', 'control-input', 'change'];
+
+    // Each kind of use, and its name for a person.
+    const VERB = {
+        start: 'prg.verb.start',
+        'control-input': 'prg.verb.control-input',
+        change: 'prg.verb.change',
+    };
+
+    // The answers, in the order the buttons stand, and their words.
+    const ANSWERS = ['ask', 'allow', 'never'];
+    const ANSWER = { ask: 'prg.ans.ask', allow: 'prg.ans.allow', never: 'prg.ans.never' };
+
+    /*
+     * What the assistant may do with a program without asking: one row per
+     * kind of use, with the answer chosen and what it means now. An
+     * "always" given to an older version sleeps (the server says asleep);
+     * on "ask every time" no "always" is acted on (honoured false); a
+     * removed program's choices are kept for when it comes back, and said
+     * as kept, not as done.
+     */
+    function may(p, body) {
+        const verbs = body && Array.isArray(body.verbs) && body.verbs.length ? body.verbs : VERBS;
+        const decided = (body && body.permits && body.permits[p.kind + ':' + p.id]) || [];
+        const honoured = !(body && body.honoured === false);
+
+        const rows = verbs.map((verb) => {
+            const d = decided.find((x) => x.verb === verb);
+            const answer = d ? d.answer : 'ask';
+            let state;
+
+            if (!p.present && answer === 'never') state = T('prg.state.keptNever');
+            else if (!p.present && answer === 'allow') state = T('prg.state.keptAllow');
+            else if (answer === 'never') state = T('prg.state.never');
+            else if (answer === 'allow' && d.asleep) state = T('prg.state.asleep', { from: d.version || '?', to: p.version || '?' });
+            else if (answer === 'allow' && !honoured) state = T('prg.state.notHonoured');
+            else if (answer === 'allow') state = T('prg.state.allow', { when: when(d.at) });
+            else if (verb === 'control-input') state = T('prg.state.askInput');
+            else state = T('prg.state.general');
+
+            return { verb, label: VERB[verb] ? T(VERB[verb]) : verb, answer, state };
+        });
+
+        return { rows, note: p.present ? '' : T('prg.mayGone') };
+    }
+
+    window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, may, why, reasons: Object.keys(WHY), answers: ANSWERS };
 
     // ---- drawing ----
 
@@ -273,6 +321,7 @@
 
     function open(p) {
         chosen = p;
+        saying = '';
         drawCard();
 
         const card = el('programs-card');
@@ -308,6 +357,88 @@
         }
 
         say('programs-card-can', canDo(now));
+        drawMay(now);
+    }
+
+    // The card's choices: three buttons per kind of use, the chosen one
+    // pressed; a press is saved at once and the card drawn again from the
+    // server's answer.
+    let saying = '';
+
+    function drawMay(p) {
+        const box = el('programs-card-may');
+        if (!box) return;
+
+        const m = may(p, last);
+        box.textContent = '';
+
+        for (const r of m.rows) {
+            const item = document.createElement('div');
+            item.className = 'permit program-permit';
+            item.dataset.decision = r.answer === 'never' ? 'refuse' : r.answer;
+
+            const text = document.createElement('span');
+            text.className = 'permit-text';
+
+            const name = document.createElement('span');
+            name.className = 'permit-name as-typed';
+            name.textContent = r.label;
+            text.appendChild(name);
+
+            const what = document.createElement('span');
+            what.className = 'program-permit-state';
+            what.textContent = r.state;
+            text.appendChild(what);
+
+            item.appendChild(text);
+
+            const group = document.createElement('div');
+            group.className = 'program-permit-choices';
+            group.setAttribute('role', 'group');
+            group.setAttribute('aria-label', r.label);
+
+            for (const answer of ANSWERS) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'model-action';
+                b.dataset.answer = answer;
+                b.textContent = T(ANSWER[answer]);
+                b.setAttribute('aria-pressed', String(answer === r.answer));
+                b.addEventListener('click', () => decide(p, r.verb, answer));
+                group.appendChild(b);
+            }
+
+            item.appendChild(group);
+            box.appendChild(item);
+        }
+
+        say('programs-card-may-note', [m.note, saying].filter(Boolean).join(' '));
+    }
+
+    async function decide(p, verb, answer) {
+        saying = '';
+
+        try {
+            const res = await fetch('/api/programs/permit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ kind: p.kind, id: p.id, verb, answer }),
+            });
+
+            if (!res.ok) {
+                // The server's reason is English; the page says it in
+                // its own words, with the code for a phone (403).
+                saying = T(res.status === 403 ? 'prg.mayDesk' : 'prg.mayFailed');
+                drawCard();
+                return;
+            }
+        } catch (err) {
+            saying = T('prg.mayFailed');
+            drawCard();
+            return;
+        }
+
+        await load();
     }
 
     function draw() {
@@ -377,6 +508,7 @@
         el('programs-search')?.addEventListener('input', draw);
         el('programs-card-close')?.addEventListener('click', () => {
             chosen = null;
+            saying = '';
             drawCard();
         });
 

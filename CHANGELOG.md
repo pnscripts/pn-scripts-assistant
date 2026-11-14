@@ -38,14 +38,24 @@ whenever something visible changed.
   back unchanged, it works again; changed, it asks you again. One that cannot
   run as written (a shell, a value only that program fills in, the SSE
   transport) says why.
+- **What it may do with each program, on the program's card.** When you
+  ask, it can start a program, type and click in its windows and run it as
+  a command; each program's card on the Programs page now has three buttons
+  for each of those: Ask me, Always, Never. Never refuses it even with
+  everything allowed; Always runs it without asking, for that program only,
+  and only for the version that was there (after an update it asks again).
+  Typing and clicking in another program are now asked every time, whatever
+  the general setting, unless that program's card says Always. A removed
+  program is never used: asked for it, the assistant says when it was
+  removed, and its choices are kept for when it comes back. Changed at the
+  computer only, not from a phone.
 - **A Programs page.** Programs in the menu shows how many programs are
   installed (menu programs, packages, snaps, Flatpaks), how the list stays
   current, what was installed, updated, removed or installed again in the
   last 14 days, and every program by kind with a search, removed ones too.
   Pressing a program opens its card: what was found about it (version,
   where it lives, what it starts, when it was first seen, what last
-  happened to it) and what the assistant does with it today, which is to
-  know it is there and never to start, change or remove it. In English and
+  happened to it) and what the assistant may do with it. In English and
   Bulgarian, on a phone too, with a guide in both languages.
 - **Quiet hours for heavy work.** Settings has a window for heavy work
   (for example 22:00 until 07:00). Outside it, a coding agent whose paid
