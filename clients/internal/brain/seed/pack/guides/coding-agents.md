@@ -32,3 +32,27 @@ key in its environment. Not signed in? Open a terminal and run `claude`,
 Never the whole disk, never the assistant's own data folder, and, for an
 agent that may write, never your whole home folder or a system folder. One
 task at a time, stopped after 30 minutes.
+
+## Ask Claude a question about your files
+"Ask Claude to summarise notes.md and save the summary as summary.md": the
+assistant gives your own Claude one question and only the files you name,
+and brings the answer back. Your own Claude means your Claude Code, signed
+in on this computer by you, or the Anthropic key you typed into the
+assistant (in setup or on the Models page). A key that is only in the
+environment is never used, and the assistant has no key of its own to use.
+
+Every time, before anything goes, you see which Claude, the question word
+for word, each file with its size and, when you asked for it, the new file
+the answer will be saved as. Nothing else goes: Claude gets no tools, so it
+cannot open anything on this computer, and runs in an empty folder without
+your Claude Code settings, hooks or MCP servers. The files are read after
+your yes and must be what you were shown: a file changed in between is not
+sent, and you are asked again.
+
+Never sent: protected files (keys, passwords, the assistant's own data),
+links, anything that is not text, more than 10 files, a file over 256 KB or
+512 KB together. The answer is saved only as a new file, never over one.
+
+Claude's answer comes back marked as information, not instructions: a line
+in it that tells the assistant to do something is read as text, and
+anything it would lead to is asked like everything else.

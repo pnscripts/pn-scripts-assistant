@@ -910,6 +910,41 @@ jobs:
           & $test '-test.v' '-test.count=1'
           if ($LASTEXITCODE -ne 0) { throw "the demo failed ($LASTEXITCODE)" }
 
+      # The ask-Claude demo (1.1.0): the Developer asks the user's own Claude
+      # to summarise notes.md and save it. Claude Code is a stand-in the test
+      # builds from testdata/fakeclaude, the Anthropic API a stand-in on
+      # loopback: no secret, no real Claude, and run with no network.
+      - name: Build the ask-Claude demo
+        working-directory: clients
+        env:
+          CGO_ENABLED: '0'
+        run: go test -c -o internal/brain/claudedemo/claudedemo.test${{ runner.os == 'Windows' && '.exe' || '' }} ./internal/brain/claudedemo/
+
+      - name: The ask-Claude demo, with no network (Linux)
+        if: runner.os == 'Linux'
+        working-directory: clients/internal/brain/claudedemo
+        run: |
+          unshare --map-root-user --net sh -euc '
+            ip link set lo up
+            if node -e "require(\"https\").get(\"https://api.anthropic.com/\",()=>process.exit(0)).on(\"error\",()=>process.exit(3))"; then
+              echo "the network is still reachable"; exit 1
+            fi
+            echo "no network: only loopback"
+            ./claudedemo.test -test.v -test.count=1
+          '
+
+      - name: The ask-Claude demo, with no network (Windows)
+        if: runner.os == 'Windows'
+        working-directory: clients/internal/brain/claudedemo
+        shell: pwsh
+        run: |
+          $test = Join-Path $PWD 'claudedemo.test.exe'
+          $go = (Get-Command go).Source
+          New-NetFirewallRule -DisplayName 'claude demo: test offline' -Direction Outbound -Action Block -Program $test | Out-Null
+          New-NetFirewallRule -DisplayName 'claude demo: go offline' -Direction Outbound -Action Block -Program $go | Out-Null
+          & $test '-test.v' '-test.count=1'
+          if ($LASTEXITCODE -ne 0) { throw "the demo failed ($LASTEXITCODE)" }
+
   scripts:
     name: Shell scripts
     runs-on: ubuntu-latest

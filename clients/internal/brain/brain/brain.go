@@ -528,6 +528,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// The coding agents on this machine — Claude Code, Codex, Cursor's
 		// agent — asked for one task in a folder. See codingagents.go.
 		tools.AskCodingAgent{Agents: b},
+		tools.AskClaude{Claude: b},
 
 		// Looking after the machine: restart readiness, leftovers. See
 		// machinecare.go.

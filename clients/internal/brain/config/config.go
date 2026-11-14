@@ -9,6 +9,8 @@ package config
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -383,6 +385,17 @@ type Config struct {
 	EmbedModel     string
 	AnthropicKey   string
 	AnthropicModel string
+
+	/*
+	 * AnthropicKeyTyped is the fingerprint (KeyPrint) of the Anthropic key
+	 * its person typed into the assistant, written beside it as
+	 * ANTHROPIC_KEY_TYPED. Only such a key is ever given to "ask Claude":
+	 * see ChosenAnthropicKey. anthropicInFile is the key the settings file
+	 * itself holds, which the environment may override for the model
+	 * provider but never for that.
+	 */
+	AnthropicKeyTyped string
+	anthropicInFile   string
 
 	/*
 	 * The other paid providers, which all speak the OpenAI chat API.
@@ -876,6 +889,10 @@ func LoadFrom(path string) (Config, error) {
 	assign(&cfg.EmbedModel, "EMBEDDING_MODEL")
 	assign(&cfg.AnthropicKey, "ANTHROPIC_API_KEY")
 	assign(&cfg.AnthropicModel, "ANTHROPIC_MODEL")
+	// From the file only: neither the mark nor the key it marks is taken
+	// from the environment.
+	cfg.AnthropicKeyTyped = strings.TrimSpace(values[KeyTypedSetting])
+	cfg.anthropicInFile = strings.TrimSpace(values["ANTHROPIC_API_KEY"])
 	assign(&cfg.OpenAIKey, "OPENAI_API_KEY")
 	assign(&cfg.OpenAIModel, "OPENAI_MODEL")
 	assign(&cfg.OpenRouterKey, "OPENROUTER_API_KEY")
@@ -1041,8 +1058,9 @@ func (c Config) Save(root string) error {
 	b.WriteString("OLLAMA_DEFAULT_MODEL=" + c.OllamaModel + "\n")
 	b.WriteString("OLLAMA_MODEL_CHOSEN=" + boolText(c.ModelChosen) + "\n")
 	b.WriteString("EMBEDDING_MODEL=" + c.EmbedModel + "\n")
-	b.WriteString("ANTHROPIC_API_KEY=" + c.AnthropicKey + "\n")
+	b.WriteString("ANTHROPIC_API_KEY=" + c.anthropicKeyToWrite() + "\n")
 	b.WriteString("ANTHROPIC_MODEL=" + c.AnthropicModel + "\n")
+	b.WriteString(KeyTypedSetting + "=" + c.AnthropicKeyTyped + "\n")
 	b.WriteString("OPENAI_API_KEY=" + c.OpenAIKey + "\n")
 	b.WriteString("OPENAI_MODEL=" + c.OpenAIModel + "\n")
 	b.WriteString("OPENROUTER_API_KEY=" + c.OpenRouterKey + "\n")
@@ -1067,6 +1085,64 @@ func (c Config) Save(root string) error {
 	}
 
 	return nil
+}
+
+/*
+ * anthropicKeyToWrite is the Anthropic key the settings file keeps: the
+ * file's own, not one that only came from the environment for this run.
+ * Writing the environment's key down would make a one-off override
+ * permanent, and would replace a key its person typed.
+ */
+func (c Config) anthropicKeyToWrite() string {
+	if env := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")); env != "" && c.AnthropicKey == env && c.anthropicInFile != env {
+		return c.anthropicInFile
+	}
+
+	return c.AnthropicKey
+}
+
+// KeyTypedSetting is where the fingerprint of the Anthropic key its person
+// typed into the assistant is kept.
+const KeyTypedSetting = "ANTHROPIC_KEY_TYPED"
+
+// KeyPrint is a key's fingerprint: enough to tell whether the key in the
+// file is the one that was typed, and nothing about the key itself.
+func KeyPrint(key string) string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return ""
+	}
+
+	sum := sha256.Sum256([]byte("pn-scripts-assistant typed key\x00" + key))
+
+	return hex.EncodeToString(sum[:16])
+}
+
+/*
+ * TypeAnthropicKey is its person typing an Anthropic key into the assistant
+ * (or emptying it): the key is the provider's and is marked as chosen.
+ */
+func (c *Config) TypeAnthropicKey(key string) {
+	key = strings.TrimSpace(key)
+
+	c.AnthropicKey = key
+	c.anthropicInFile = key
+	c.AnthropicKeyTyped = KeyPrint(key)
+}
+
+/*
+ * ChosenAnthropicKey is the Anthropic key its person typed into the
+ * assistant, or empty. A key from the environment is never it, nor a key
+ * the settings file holds without the mark of having been typed (saving the
+ * settings copies the environment's key into the file, unmarked), nor one
+ * whose mark is for another key.
+ */
+func (c Config) ChosenAnthropicKey() string {
+	if c.anthropicInFile == "" || c.AnthropicKeyTyped == "" || KeyPrint(c.anthropicInFile) != c.AnthropicKeyTyped {
+		return ""
+	}
+
+	return c.anthropicInFile
 }
 
 // Personal reports whether a setting is a secret, or says who somebody is.

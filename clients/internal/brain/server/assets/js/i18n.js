@@ -4282,6 +4282,7 @@
     const TOOLS = {
         acquire_integration: ['Find and add an integration', 'Намиране и добавяне на интеграция'],
         activate_integration: ['Switch an integration on', 'Включване на интеграция'],
+        ask_claude: ['Ask your own Claude', 'Въпрос към вашия Claude'],
         ask_coding_agent: ['Ask a coding agent', 'Задача за агент за код'],
         ask_first: ['Ask you a question', 'Въпрос към вас'],
         audit_originality: ['Check a catalogue for originality', 'Проверка на каталог за оригиналност'],

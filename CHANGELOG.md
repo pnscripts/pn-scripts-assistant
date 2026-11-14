@@ -45,6 +45,24 @@ whenever something visible changed.
   approved, a call that waits for Approve and runs, one that is rejected and
   never reaches the server, the server given its own settings and key but
   never the assistant's, and stopped as soon as its entry is removed there.
+- **Ask your own Claude about your files.** "Ask Claude to summarise
+  notes.md and save the summary as summary.md": the Developer (and the
+  assistant itself) gives one question and only the files you name to your
+  own Claude, your Claude Code signed in on this computer or the Anthropic
+  key you typed into the assistant, and brings the answer back. A key that
+  is only in the environment is never used. Every hand-off is asked, even
+  with everything allowed, and the question shows which Claude, the question
+  word for word, every file with its size and the new file the answer will
+  be saved as. Claude gets no tools and nothing else from the computer; a
+  file changed after you were asked is not sent; protected files, links and
+  anything that is not text never go; the answer is saved only as a new
+  file. It comes back marked as information, not instructions. Something
+  that cannot be done as asked (no Claude of your own, a missing or
+  protected file) is now said at once instead of being asked about first.
+- **An Anthropic key in the environment is not written into the settings.**
+  Saving any setting used to copy an ANTHROPIC_API_KEY from the environment
+  into the settings file, and over a key you had typed; the file now keeps
+  its own key, and the environment still overrides it for that run only.
 - **The catalogue's MCP servers are current releases.** The MCP test
   server, Knowledge graph memory and Sequential thinking in the catalogue
   now install 2.1.0, 2.0.1 and 2.0.0: the project went back to ordinary
