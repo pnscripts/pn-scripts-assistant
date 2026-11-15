@@ -26,7 +26,11 @@ func TestASettingThatLoadsOtherCodeIsRefused(t *testing.T) {
   "python":  {"command": "uvx", "args": ["server-y"], "env": {"PYTHONSTARTUP": "/tmp/x.py"}},
   "bash":    {"command": "npx", "args": ["-y", "server-x"], "env": {"bash_env": "/tmp/x.sh"}},
   "java":    {"command": "java", "args": ["-jar", "s.jar"], "env": {"JAVA_TOOL_OPTIONS": "-javaagent:/tmp/x.jar"}},
-  "plain":   {"command": "npx", "args": ["-y", "server-x"], "env": {"LOG_LEVEL": "debug", "PATH": "/home/you/.nvm/bin:/usr/bin"}}
+  "pypath":  {"command": "uvx", "args": ["server-y"], "env": {"PYTHONPATH": "/tmp/x"}},
+  "npmrc":   {"command": "npx", "args": ["-y", "server-x"], "env": {"npm_config_registry": "https://registry.example.com/"}},
+  "index":   {"command": "uvx", "args": ["server-y"], "env": {"UV_INDEX_URL": "https://pypi.example.com/simple"}},
+  "plain":   {"command": "npx", "args": ["-y", "server-x"], "env": {"LOG_LEVEL": "debug", "PATH": "/home/you/.nvm/bin:/usr/bin"}},
+  "pathkey": {"command": "npx", "args": ["-y", "server-x"], "env": {"PATH": "AKIAZZZZZZZZZZZZZZZZ:/tmp/x"}}
 }}`
 
 	fs, err := Read(Place{ClaudeDesktop, "/c.json"}, []byte(raw), home)
@@ -35,7 +39,8 @@ func TestASettingThatLoadsOtherCodeIsRefused(t *testing.T) {
 	}
 
 	for name, variable := range map[string]string{"node": "NODE_OPTIONS", "preload": "LD_PRELOAD", "dyld": "DYLD_INSERT_LIBRARIES",
-		"python": "PYTHONSTARTUP", "bash": "bash_env", "java": "JAVA_TOOL_OPTIONS"} {
+		"python": "PYTHONSTARTUP", "bash": "bash_env", "java": "JAVA_TOOL_OPTIONS",
+		"pypath": "PYTHONPATH", "npmrc": "npm_config_registry", "index": "UV_INDEX_URL"} {
 		f := one(t, fs, name)
 
 		if f.Problem != ProblemLoader || f.Detail != variable {
@@ -45,6 +50,12 @@ func TestASettingThatLoadsOtherCodeIsRefused(t *testing.T) {
 		if _, err := Imported(f, "x"+name); err == nil {
 			t.Errorf("%s was imported", name)
 		}
+	}
+
+	// Where programs are looked for is always shown, never taken for a
+	// key by the look of its value and hidden.
+	if f := one(t, fs, "pathkey"); f.Problem != "" || f.Server.Env["PATH"] != "AKIAZZZZZZZZZZZZZZZZ:/tmp/x" || len(f.Server.Secrets) != 0 {
+		t.Errorf("a PATH shaped like a key was hidden: %+v", f)
 	}
 
 	// Ordinary settings are kept, to be shown with their values.
@@ -62,7 +73,9 @@ func TestAKeyInTheCommandOrTheAddressIsRefusedAndNotShown(t *testing.T) {
   "shape":    {"command": "npx", "args": ["-y", "server-x", "ghp_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]},
   "query":    {"type": "http", "url": "https://mcp.example.com/mcp?token=zz-plain-value-3"},
   "userinfo": {"type": "http", "url": "https://app:hunter3zz@mcp.example.com/mcp"},
-  "fine":     {"command": "npx", "args": ["-y", "server-x", "--port", "8080", "--key-file", "/home/you/key.pem"]},
+  "header":   {"command": "npx", "args": ["-y", "mcp-remote", "https://mcp.example.com/mcp", "--header", "Authorization: Bearer zz-plain-value-4"]},
+  "folder":   {"command": "npx", "args": ["-y", "server-x", "--api-key", "zz-plain-value-5"], "cwd": "/home/you/server"},
+  "fine":     {"command": "npx", "args": ["-y", "server-x", "--port", "8080", "--key-file", "/home/you/key.pem", "--max-tokens", "4096", "--author", "you", "--keyboard", "us"]},
   "fineurl":  {"type": "http", "url": "https://mcp.example.com/mcp?version=2"}
 }}`
 
@@ -71,7 +84,13 @@ func TestAKeyInTheCommandOrTheAddressIsRefusedAndNotShown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{"postgres", "flag", "joined", "shape", "query", "userinfo"} {
+	// One with another reason first keeps that reason, and its key is
+	// taken out of what is listed all the same.
+	if f := one(t, fs, "folder"); f.Problem != ProblemFolder {
+		t.Errorf("folder: problem %q, want %q", f.Problem, ProblemFolder)
+	}
+
+	for _, name := range []string{"postgres", "flag", "joined", "shape", "query", "userinfo", "header"} {
 		f := one(t, fs, name)
 
 		if f.Problem != ProblemCredential {
@@ -86,7 +105,7 @@ func TestAKeyInTheCommandOrTheAddressIsRefusedAndNotShown(t *testing.T) {
 	// Nothing that is shown, or fingerprinted, carries the key.
 	shown, _ := json.Marshal(fs)
 
-	for _, key := range []string{"hunter2zz", "zz-plain-value-1", "zz-plain-value-2", "ghp_zzzz", "zz-plain-value-3", "hunter3zz"} {
+	for _, key := range []string{"hunter2zz", "zz-plain-value-1", "zz-plain-value-2", "ghp_zzzz", "zz-plain-value-3", "hunter3zz", "zz-plain-value-4", "zz-plain-value-5"} {
 		if strings.Contains(string(shown), key) {
 			t.Errorf("%s is in what is shown: %s", key, shown)
 		}

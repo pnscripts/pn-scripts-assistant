@@ -37,9 +37,12 @@ against the code on 9 November 2026.
   `timeout`, `stdbuf` and a shell given one command (`sh -c "..."`, its first
   command); what a longer shell line or a script starts after that is not
   seen, so a "never" does not reach it. "Always" answers only for the program
-  itself: the file its name runs, or one where the system installs programs.
-  A file elsewhere that only shares the name is asked about and is not shown
-  under the program's name, and a menu entry that starts its program through
+  itself, run plainly: the file its name runs here (the first one found where
+  programs are looked for, your own folders such as `~/.local/bin` included).
+  Run through any of those wrappers, or as administrator, a program can be
+  refused by its card and is never allowed by it, so it is asked about. A
+  file elsewhere that only shares the name (in `/opt` too) is asked about and
+  is not shown under the program's name, and a menu entry that starts its program through
   another one (`flatpak`, `python3`, `sh`, `env`, `java` and the like) is
   known by its menu entry, Flatpak or snap, not by that other program's file.
   An "always" on a menu entry has no version to follow, so it stays after an

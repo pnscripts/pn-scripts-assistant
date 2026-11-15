@@ -49,8 +49,8 @@ func TestACommandSaysWhichProgramItRuns(t *testing.T) {
 		want programs.Use
 	}{
 		{[]string{"git", "status"}, programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/git", Name: "git"}},
-		{[]string{"env", "LANG=C", "git", "log"}, programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/git", Name: "git"}},
-		{[]string{"/opt/krita/bin/krita", "--export"}, programs.Use{Verb: programs.VerbChange, Path: "/opt/krita/bin/krita", Name: "krita"}},
+		{[]string{"env", "LANG=C", "git", "log"}, programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/git", Name: "git", Wrapped: true}},
+		{[]string{"/opt/krita/bin/krita", "--export"}, programs.Use{Verb: programs.VerbChange, Path: "/opt/krita/bin/krita", Name: "krita", Elsewhere: true}},
 		{[]string{"flatpak", "run", "--branch=stable", "org.gimp.GIMP", "-i"}, programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/flatpak", Flatpak: "org.gimp.GIMP", Name: "flatpak"}},
 		{[]string{"snap", "run", "chromium.chromedriver"}, programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/snap", Snap: "chromium", Name: "snap"}},
 		{[]string{"gtk-launch", "org.kde.krita.desktop"}, programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/gtk-launch", Desktop: "org.kde.krita.desktop", Name: "gtk-launch"}},

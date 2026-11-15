@@ -25,9 +25,13 @@ func TestACommandIsSeenThroughWhatWrapsIt(t *testing.T) {
 		"env": "/usr/bin/env", "sh": "/bin/sh", "nohup": "/usr/bin/nohup", "timeout": "/usr/bin/timeout",
 	})
 
-	firefox := programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/firefox", Name: "firefox"}
+	// Wrapped: the program is named so its card can refuse; no card
+	// allows what came inside a wrapper.
+	firefox := programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/firefox", Name: "firefox", Wrapped: true}
 	flatpak := programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/flatpak", Flatpak: "org.mozilla.firefox", Name: "flatpak"}
 	snap := programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/snap", Snap: "firefox", Name: "snap"}
+	wrappedFlatpak := flatpak
+	wrappedFlatpak.Wrapped = true
 
 	for _, c := range []struct {
 		argv []string
@@ -52,7 +56,12 @@ func TestACommandIsSeenThroughWhatWrapsIt(t *testing.T) {
 		{[]string{"nohup", "env", "A=1", "sh", "-c", "nice firefox"}, firefox},
 		{[]string{"flatpak", "run", "--branch", "stable", "org.mozilla.firefox"}, flatpak},
 		{[]string{"flatpak", "--user", "run", "--command", "sh", "--env=A=1", "org.mozilla.firefox", "-c", "x"}, flatpak},
-		{[]string{"env", "-i", "flatpak", "run", "--arch", "x86_64", "org.mozilla.firefox"}, flatpak},
+		{[]string{"env", "-i", "flatpak", "run", "--arch", "x86_64", "org.mozilla.firefox"}, wrappedFlatpak},
+		{[]string{"sh", "-ce", "firefox"}, firefox},
+		{[]string{"bash", "--norc", "-o", "errexit", "-c", "firefox"}, firefox},
+		{[]string{"env", "PATH=/tmp/x", "firefox"}, firefox},
+		{[]string{"env", "LD_PRELOAD=/tmp/evil.so", "firefox"}, firefox},
+		{[]string{"firefox", "--new-window"}, programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/firefox", Name: "firefox"}},
 		{[]string{"snap", "run", "--hook", "configure", "firefox"}, snap},
 		{[]string{"snap", "run", "-r", "12", "firefox.geckodriver"}, snap},
 		// A shell running a script is the shell; nothing is guessed.
@@ -88,7 +97,10 @@ func TestAFileThatOnlySharesAProgramsNameIsSaidToBeElsewhere(t *testing.T) {
 	}{
 		{[]string{"gimp", "-i"}, "", "/usr/bin/gimp", false},
 		{[]string{"/usr/bin/gimp"}, "", "/usr/bin/gimp", false},
-		{[]string{"/opt/gimp-3/bin/gimp"}, "", "/opt/gimp-3/bin/gimp", false},
+		// Not the file its name runs, wherever it lies: /opt folders are
+		// often the person's own.
+		{[]string{"/opt/gimp-3/bin/gimp"}, "", "/opt/gimp-3/bin/gimp", true},
+		{[]string{"/usr/lib/gimp/gimp"}, "", "/usr/lib/gimp/gimp", true},
 		{[]string{"/home/you/bin/gimp-link/gimp"}, "", "/home/you/bin/gimp-link/gimp", false},
 		{[]string{"/home/you/.local/bin/tool"}, "", "/home/you/.local/bin/tool", false},
 		{[]string{"/tmp/cloned-repo/gimp"}, "", "/tmp/cloned-repo/gimp", true},
@@ -107,6 +119,18 @@ func TestAFileThatOnlySharesAProgramsNameIsSaidToBeElsewhere(t *testing.T) {
 
 		if got.Path != c.path || got.Elsewhere != c.elsewhere || got.Name != "gimp" && got.Name != "tool" {
 			t.Errorf("%v in %q: %+v, want the file %s, elsewhere %v", c.argv, c.dir, got, c.path, c.elsewhere)
+		}
+	}
+
+	// A starter that is itself elsewhere names nothing: "/tmp/x/flatpak
+	// run org.gimp.GIMP" is some file called flatpak.
+	for _, argv := range [][]string{
+		{"/tmp/x/flatpak", "run", "org.gimp.GIMP"}, {"./snap", "run", "firefox"}, {"/tmp/x/gtk-launch", "org.gnome.gedit"},
+	} {
+		raw, _ := json.Marshal(map[string]any{"argv": argv, "dir": "/tmp/x"})
+
+		if got, _ := ProgramUseOf(context.Background(), RunCommand{}, raw); !got.Elsewhere || got.Flatpak != "" || got.Snap != "" || got.Desktop != "" {
+			t.Errorf("%v named a program through a starter that is elsewhere: %+v", argv, got)
 		}
 	}
 
@@ -136,8 +160,14 @@ func TestRunningAsAdministratorSaysWhichProgramItRuns(t *testing.T) {
 
 	got, bound := ProgramUseOf(context.Background(), RunAsAdmin{}, json.RawMessage(`{"argv":["env","-i","firefox"]}`))
 
-	if want := (programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/firefox", Name: "firefox"}); !bound || got != want {
+	if want := (programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/firefox", Name: "firefox", Wrapped: true}); !bound || got != want {
 		t.Errorf("run_as_admin: %+v, want %+v", got, want)
+	}
+
+	// As administrator is itself a wrapper: a program's "always" never
+	// answers for running it as root, its "never" still refuses.
+	if got, _ := ProgramUseOf(context.Background(), RunAsAdmin{}, json.RawMessage(`{"argv":["firefox"]}`)); !got.Wrapped || got.Path != "/usr/bin/firefox" {
+		t.Errorf("run_as_admin of a plain command is not wrapped: %+v", got)
 	}
 }
 

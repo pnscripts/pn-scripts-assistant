@@ -145,7 +145,8 @@ type Record struct {
 	LastChange ChangeKind `json:"last_change,omitempty"`
 
 	// byNameOnly is set by Match on a record that shares only a name with
-	// what is about to be used.
+	// what is about to be used, or whose program is reached through a
+	// wrapper: it can refuse and never allows.
 	byNameOnly bool
 }
 

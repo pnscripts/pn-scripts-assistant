@@ -161,3 +161,57 @@ func TestAFlatpakIsReadOnlyFromWhereFlatpaksAreInstalled(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * A program reached through something that wraps it earns no "always".
+ *
+ * Found by the second pass of the 1.1.0 security review: once a command
+ * was read through env or a shell to name its program, that program's
+ * "Always" ran the whole line (sh -c "gimp; anything else", env
+ * LD_PRELOAD=... gimp). A wrapped use can be refused by the program's
+ * card and is never allowed by it, whichever clue names the program.
+ */
+func TestAWrappedUseIsRefusedByACardAndNeverAllowedByIt(t *testing.T) {
+	gimp := rec(41, App, "gimp.desktop", "GIMP", "", true)
+	gimp.Exec = "gimp"
+
+	entry := rec(43, App, "org.gimp.GIMP.desktop", "GIMP", "", true)
+	entry.Exec = "/usr/bin/flatpak"
+
+	fox := rec(45, App, "firefox_firefox.desktop", "Firefox", "", true)
+	fox.Exec = "/snap/bin/firefox"
+
+	all := []Record{gimp, rec(42, Deb, "gimp", "gimp", "2.10", true), entry,
+		rec(44, Flatpak, "org.gimp.GIMP", "GIMP", "2.10.38", true), fox, rec(46, Snap, "firefox", "Firefox", "132.0", true)}
+
+	always, never := map[int64][]Permit{}, map[int64][]Permit{}
+
+	for _, r := range all {
+		always[r.RowID] = []Permit{{Verb: VerbChange, Answer: Always, Version: r.Version}}
+		never[r.RowID] = []Permit{{Verb: VerbChange, Answer: Never}}
+	}
+
+	for _, use := range []Use{
+		{Verb: VerbChange, Path: "/usr/bin/gimp", Name: "gimp", Wrapped: true},
+		{Verb: VerbChange, Path: "/usr/bin/gimp", Package: "gimp", Name: "gimp", Wrapped: true},
+		{Verb: VerbChange, Path: "/usr/bin/flatpak", Flatpak: "org.gimp.GIMP", Name: "flatpak", Wrapped: true},
+		{Verb: VerbChange, Path: "/usr/bin/snap", Snap: "firefox", Name: "snap", Wrapped: true},
+		{Verb: VerbChange, Path: "/snap/bin/firefox", Name: "firefox", Wrapped: true},
+		{Verb: VerbChange, Desktop: "gimp.desktop", Name: "gtk-launch", Wrapped: true},
+	} {
+		if r := Weigh(all, always, use); r.Answer != AskEach || r.Program != nil {
+			t.Errorf("wrapped, %+v was allowed or named by a card: %+v", use, r)
+		}
+
+		if r := Weigh(all, never, use); r.Answer != Never {
+			t.Errorf("wrapped, %+v was not refused by a never: %+v", use, r)
+		}
+
+		// Not wrapped, the same clues are the program itself.
+		use.Wrapped = false
+
+		if r := Weigh(all, always, use); r.Answer != Always {
+			t.Errorf("not wrapped, %+v lost its Always: %+v", use, r)
+		}
+	}
+}

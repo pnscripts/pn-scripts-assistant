@@ -185,11 +185,13 @@ whenever something visible changed.
   answered for any file with the same name (a file called gimp in a
   downloaded folder ran unasked and was shown as GIMP), and for everything a
   starter such as flatpak or python3 runs when a menu entry starts through
-  it; "Always" now answers only for the program itself. A "never" is no
-  longer stepped around by `env -i`, `nohup`, `nice`, `timeout`, `sh -c` or
-  options of `flatpak run`. Commands as administrator follow the program's
-  card and "Stop using other programs", and nothing that acts in another
-  program starts in the background. A yes to a waiting question is weighed
+  it; "Always" now answers only for the program itself, run plainly. A
+  "never" is no longer stepped around by `env -i`, `nohup`, `nice`,
+  `timeout`, `sh -c` or options of `flatpak run`, and a program run through
+  such a wrapper or as administrator is asked about whatever its card
+  allows. Commands as administrator are stopped by "Stop using other
+  programs" and by a "never", and nothing that acts in another program
+  starts in the background. A yes to a waiting question is weighed
   against the program's card again when it is given: a "never" set, or the
   program removed, in the meantime refuses it. An MCP server found in
   another program is refused when a setting would make it load other code or

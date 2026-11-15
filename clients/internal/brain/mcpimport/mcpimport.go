@@ -357,10 +357,13 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 	 * and kept as plain words, which is no place for a password. In a
 	 * setting (env) or a header it is sealed instead.
 	 */
-	if f.Problem == "" && (credentialIn(e.Args) || credentialInAddress(s.URL)) {
-		f.Problem = ProblemCredential
+	if credentialIn(e.Args) || credentialInAddress(e.URL) {
+		// Whatever else is wrong with it, the key is not listed.
+		if f.Problem == "" {
+			f.Problem = ProblemCredential
+		}
 
-		if s.Transport == "stdio" {
+		if len(s.Command) > 1 {
 			s.Command = s.Command[:1]
 		}
 
@@ -370,7 +373,9 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 	// The settings, split into what may be shown and what is a secret.
 	if s.Transport == "stdio" {
 		for k, v := range e.Env {
-			if Secret(k, v) {
+			// Where programs and the home folder are is always shown,
+			// whatever its value looks like.
+			if !shownAlways(k) && Secret(k, v) {
 				s.Secrets = append(s.Secrets, k)
 				f.Secrets[k] = v
 			} else {
@@ -452,16 +457,32 @@ func loadsOtherCode(name string) bool {
 	n := strings.ToUpper(name)
 
 	switch n {
-	case "NODE_OPTIONS", "PYTHONSTARTUP", "PYTHONINSPECT", "BASH_ENV", "ENV", "PERL5OPT", "PERL5DB", "RUBYOPT",
+	case "NODE_OPTIONS", "NODE_PATH", "PYTHONSTARTUP", "PYTHONINSPECT", "PYTHONPATH", "PYTHONHOME",
+		"PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL", "UV_INDEX_URL", "UV_EXTRA_INDEX_URL", "UV_DEFAULT_INDEX", "UV_INDEX",
+		"CLASSPATH", "PERL5LIB", "RUBYLIB", "GEM_PATH", "GEM_HOME",
+		"BASH_ENV", "ENV", "PERL5OPT", "PERL5DB", "RUBYOPT",
 		"JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "DOTNET_STARTUP_HOOKS", "PROMPT_COMMAND",
 		"GIT_SSH", "GIT_SSH_COMMAND", "GIT_EXTERNAL_DIFF", "BROWSER", "EDITOR", "VISUAL", "PAGER":
 		return true
 	}
 
-	return strings.HasPrefix(n, "LD_") || strings.HasPrefix(n, "DYLD_")
+	return strings.HasPrefix(n, "LD_") || strings.HasPrefix(n, "DYLD_") || strings.HasPrefix(n, "NPM_CONFIG_")
 }
 
-var credentialFlag = regexp.MustCompile(`(?i)^--?[a-z0-9_.-]*(key|token|secret|passw|pwd|credential|bearer|auth)[a-z0-9_.-]*$`)
+// A flag named for a credential: one of these as a whole word of its name
+// (--api-key, --auth-token; not --max-tokens, --author, --keyboard).
+// shownAlways is a setting that is never kept as a secret: it decides
+// which programs are found, so its value belongs on the card.
+func shownAlways(name string) bool {
+	n := strings.ToUpper(name)
+
+	return n == "PATH" || n == "HOME"
+}
+
+var credentialFlag = regexp.MustCompile(`(?i)^--?([a-z0-9]+[_.-])*(key|apikey|token|secret|password|passwd|pwd|pass|credential|credentials|bearer|auth|authorization)([_.-][a-z0-9]+)*$`)
+
+// A header written out as an argument ("Authorization: Bearer ...").
+var credentialHeader = regexp.MustCompile(`(?i)(^|\s)(authorization|proxy-authorization|x-api-key|api-key|cookie)\s*:|bearer\s+\S`)
 
 // A flag whose value is a file or a name, not the credential itself.
 var credentialElsewhere = regexp.MustCompile(`(?i)(file|path|dir|name|env|var|type|url|uri|endpoint|method|mode|scope)s?$`)
@@ -474,7 +495,7 @@ var credentialElsewhere = regexp.MustCompile(`(?i)(file|path|dir|name|env|var|ty
  */
 func credentialIn(args []string) bool {
 	for i, a := range args {
-		if secretValue.MatchString(a) || userInURL.MatchString(a) || credentialInAddress(a) {
+		if secretValue.MatchString(a) || userInURL.MatchString(a) || credentialInAddress(a) || credentialHeader.MatchString(a) {
 			return true
 		}
 

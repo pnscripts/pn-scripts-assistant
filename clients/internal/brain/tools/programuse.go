@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -120,7 +119,13 @@ func (RunAsAdmin) ProgramUse(_ context.Context, raw json.RawMessage) programs.Us
 
 	_ = json.Unmarshal(raw, &a)
 
-	return commandUse(a.Argv, "")
+	u := commandUse(a.Argv, "")
+
+	// As administrator is itself a wrapper: a program's "always" was not
+	// given for running it as root. Its "never" still refuses.
+	u.Wrapped = !u.Empty()
+
+	return u
 }
 
 /*
@@ -129,35 +134,29 @@ func (RunAsAdmin) ProgramUse(_ context.Context, raw json.RawMessage) programs.Us
  * <entry>` name the program they start.
  *
  * A program given by its place rather than its name is said to be
- * Elsewhere unless it is the file that name runs here or lies where only
- * the system writes: a file called gimp in a downloaded folder shares a
- * name with GIMP and nothing else. A place given from the folder the
- * command runs in ("./gimp") is always elsewhere.
+ * Elsewhere unless it is the file that name runs here: a file called gimp
+ * in a downloaded folder shares a name with GIMP and nothing else. A place
+ * given from the folder the command runs in ("./gimp") is always
+ * elsewhere.
  */
 func commandUse(argv []string, dir string) programs.Use {
 	u := programs.Use{Verb: programs.VerbChange}
 
-	argv = unwrapped(argv)
+	inside := unwrapped(argv)
 
-	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
+	if len(inside) == 0 || strings.TrimSpace(inside[0]) == "" {
 		return u
 	}
 
-	first := filepath.Base(argv[0])
+	/*
+	 * Read through a wrapper, the program is named so that its card can
+	 * refuse it, and no card allows it: env can change which file runs
+	 * and what it loads, and a shell line can run anything after it.
+	 */
+	u.Wrapped = len(inside) != len(argv)
+	argv = inside
 
-	switch first {
-	case "flatpak":
-		u.Flatpak = ranBy(argv, flatpakValued)
-	case "snap":
-		u.Snap = ranBy(argv, snapValued)
-		if s, _, ok := strings.Cut(u.Snap, "."); ok {
-			u.Snap = s
-		}
-	case "gtk-launch":
-		if len(argv) > 1 {
-			u.Desktop = argv[1]
-		}
-	}
+	first := filepath.Base(argv[0])
 
 	switch {
 	case filepath.IsAbs(argv[0]):
@@ -177,6 +176,25 @@ func commandUse(argv []string, dir string) programs.Use {
 	}
 
 	u.Name = first
+
+	// A starter that is itself some file elsewhere names nothing.
+	if u.Elsewhere {
+		return u
+	}
+
+	switch first {
+	case "flatpak":
+		u.Flatpak = ranBy(argv, flatpakValued)
+	case "snap":
+		u.Snap = ranBy(argv, snapValued)
+		if s, _, ok := strings.Cut(u.Snap, "."); ok {
+			u.Snap = s
+		}
+	case "gtk-launch":
+		if len(argv) > 1 {
+			u.Desktop = argv[1]
+		}
+	}
 
 	return u
 }
@@ -317,13 +335,19 @@ func insideOf(argv []string) ([]string, bool) {
 
 		return rest, true
 	case "sh", "bash", "dash", "zsh", "ksh":
-		for i, word := range rest {
+		for i := 0; i < len(rest); i++ {
+			word := rest[i]
+
 			if !strings.HasPrefix(word, "-") || word == "--" {
 				break
 			}
 
-			// "-c", or letters that end in it ("-lc", "-ec").
-			if !strings.HasPrefix(word, "--") && strings.HasSuffix(word, "c") {
+			if strings.HasPrefix(word, "--") {
+				continue
+			}
+
+			// "-c", or letters with it among them ("-lc", "-ce").
+			if strings.Contains(word[1:], "c") {
 				if i+1 >= len(rest) {
 					return argv, false
 				}
@@ -333,6 +357,11 @@ func insideOf(argv []string) ([]string, bool) {
 				}
 
 				return argv, false
+			}
+
+			// "-o errexit": the option's name is the next word.
+			if strings.HasSuffix(word, "o") {
+				i++
 			}
 		}
 	}
@@ -381,13 +410,12 @@ var sameFile = func(a, b string) bool {
 }
 
 /*
- * elsewhere is whether a program file, given by its place, only shares
- * its name with the program of that name: it is not the file the name
- * runs here (links followed), and it does not lie where only the system
- * writes. See programs.Use.Elsewhere.
+ * elsewhere is whether a program file, given by its place, is another
+ * file than the one its name runs here (links followed): it then only
+ * shares that program's name. See programs.Use.Elsewhere.
  */
 func elsewhere(path string) bool {
-	if path == "" || inSystemFolder(path) {
+	if path == "" {
 		return false
 	}
 
@@ -398,37 +426,11 @@ func elsewhere(path string) bool {
 	return true
 }
 
-// inSystemFolder is whether a file lies where programs are installed for
-// the whole machine, which takes the administrator to write.
-func inSystemFolder(path string) bool {
-	if runtime.GOOS == "windows" {
-		p := strings.ToLower(filepath.Clean(path))
-
-		for _, name := range []string{"ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "SystemRoot"} {
-			if dir := strings.ToLower(filepath.Clean(os.Getenv(name))); len(dir) > 3 && strings.HasPrefix(p, dir+`\`) {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	p := filepath.ToSlash(filepath.Clean(path))
-
-	for _, dir := range []string{"/usr/", "/bin/", "/sbin/", "/opt/", "/snap/", "/var/lib/flatpak/", "/var/lib/snapd/", "/nix/store/"} {
-		if strings.HasPrefix(p, dir) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // Typing goes to the window in front.
 func (TypeText) ProgramUse(ctx context.Context, _ json.RawMessage) programs.Use {
 	path, flatpak := windowProgram(ctx, false, 0, 0)
 
-	return programs.Use{Verb: programs.VerbInput, Path: path, Flatpak: flatpak, Elsewhere: elsewhere(path)}
+	return windowUse(path, flatpak)
 }
 
 // A click goes to the window under the point.
@@ -439,7 +441,14 @@ func (Click) ProgramUse(ctx context.Context, raw json.RawMessage) programs.Use {
 
 	path, flatpak := windowProgram(ctx, true, a.X, a.Y)
 
-	return programs.Use{Verb: programs.VerbInput, Path: path, Flatpak: flatpak, Elsewhere: elsewhere(path)}
+	return windowUse(path, flatpak)
+}
+
+// windowUse is typing or clicking in a window of the program at path. A
+// Flatpak's window is known by the application its sandbox names, whose
+// program file is a place inside the sandbox.
+func windowUse(path, flatpak string) programs.Use {
+	return programs.Use{Verb: programs.VerbInput, Path: path, Flatpak: flatpak, Elsewhere: flatpak == "" && elsewhere(path)}
 }
 
 /*

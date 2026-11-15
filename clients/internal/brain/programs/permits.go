@@ -123,6 +123,12 @@ type Use struct {
 	// called gimp in a downloaded folder. It shares a name with a program
 	// and nothing else, so no card's "always" answers for it.
 	Elsewhere bool `json:"elsewhere,omitempty"`
+
+	// Wrapped is said by the tool when the program was read through
+	// something that wraps it (env, a shell given a command, nohup, as
+	// administrator): the wrapper can change what runs or run more than
+	// the program, so a card can refuse a wrapped use and never allows it.
+	Wrapped bool `json:"wrapped,omitempty"`
 }
 
 // Empty is a use with no clue at all.
@@ -216,6 +222,13 @@ func Match(records []Record, u Use) []Record {
 					add(o)
 				}
 			}
+		}
+	}
+
+	// Wrapped, every record is one that can only refuse.
+	if u.Wrapped {
+		for i := range out {
+			out[i].byNameOnly = true
 		}
 	}
 
