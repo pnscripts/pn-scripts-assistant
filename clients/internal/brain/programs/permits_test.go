@@ -206,6 +206,12 @@ func TestVerbsAndAnswersAreKnown(t *testing.T) {
 }
 
 func TestPathsAreReadForSnapsAndFlatpaks(t *testing.T) {
+	// The person's own Flatpaks are under their home, wherever that is.
+	was := flatpakHomes
+	t.Cleanup(func() { flatpakHomes = was })
+
+	flatpakHomes = func() []string { return []string{"/var/lib/flatpak", "/home/you/.local/share/flatpak"} }
+
 	cases := map[string][2]string{
 		"/snap/bin/code":                  {"code", ""},
 		"/snap/bin/chromium.chromedriver": {"chromium", ""},

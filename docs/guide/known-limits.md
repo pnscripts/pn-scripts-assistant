@@ -33,12 +33,26 @@ against the code on 9 November 2026.
   Windows the window's program is not known, so typing and clicking are
   asked) and running it as a command (the program the command names; a
   program started by a script or another program is not followed). A
+  command is read through `env`, `nohup`, `setsid`, `nice`, `ionice`,
+  `timeout`, `stdbuf` and a shell given one command (`sh -c "..."`, its first
+  command); what a longer shell line or a script starts after that is not
+  seen, so a "never" does not reach it. "Always" answers only for the program
+  itself: the file its name runs, or one where the system installs programs.
+  A file elsewhere that only shares the name is asked about and is not shown
+  under the program's name, and a menu entry that starts its program through
+  another one (`flatpak`, `python3`, `sh`, `env`, `java` and the like) is
+  known by its menu entry, Flatpak or snap, not by that other program's file.
+  An "always" on a menu entry has no version to follow, so it stays after an
+  update; on a snap, a Flatpak or a package it is asked again after one.
+  Typing approved at the desk goes to the window in front at that moment; a
+  "never" on that window's program still refuses it. A
   package's choice is found through `dpkg-query -S` only when some package
   has one. A question about a program offers "Always for <program>" only
   when the program is known (a window or command it cannot place offers the
   tool-wide "Always" alone). Scrolling is not tied to a program.
 - **"Stop using other programs" covers the program tools.** It stops
-  opening, typing, clicking, scrolling and running commands. It does not
+  opening, typing, clicking, scrolling and running commands, as administrator
+  too, and none of these is started in the background. It does not
   stop the assistant's own helpers (reading the screen, recognising text,
   its own browser), MCP servers that are already approved, or a coding agent
   already at work: stop those on the Organisation page.
@@ -52,7 +66,15 @@ against the code on 9 November 2026.
   registry (`odr.exe`, a preview) are not. A server written to start through
   a shell (`cmd /c npx …` is common on Windows), with a variable only that
   program fills in, an environment file, a working folder, the SSE transport
-  or several headers is listed with the reason and not imported.
+  or several headers is listed with the reason and not imported. So is one
+  whose settings would make it load other code (`NODE_OPTIONS`, `LD_PRELOAD`,
+  `PYTHONSTARTUP` and the like), and one with a key or password written into
+  its command or address: put the key in a setting (`env`) or a header there
+  and it is kept sealed here. Every other setting is shown with its value on
+  the card. An imported program is treated as one that may reach the
+  internet, so it is held back while privacy keeps everything on this
+  computer. Its command and the settings that are not secrets are kept as
+  plain words in the integrations file.
 
 ## On Windows
 

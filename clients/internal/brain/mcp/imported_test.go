@@ -135,8 +135,9 @@ func TestAnImportedServerFollowsItsEntry(t *testing.T) {
 		t.Error("a new key stopped the server")
 	}
 
-	// Changed: stopped, asked again, grants and read-only marks kept, and
-	// a secret it no longer has is removed.
+	// Changed: stopped, asked again, grants kept, and a secret it no
+	// longer has is removed. The "only reads" marks are dropped (1.1.0
+	// security review): they were given to what ran before the change.
 	if _, err := g.MarkReadOnly("fake", []string{"echo"}); err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +152,7 @@ func TestAnImportedServerFollowsItsEntry(t *testing.T) {
 	}
 
 	got, _ = g.Book.Get("fake")
-	if got.Approved || got.Active || len(got.Command) != 3 || got.From.Print != "p2" || len(got.ReadOnly) != 1 {
+	if got.Approved || got.Active || len(got.Command) != 3 || got.From.Print != "p2" || len(got.ReadOnly) != 0 {
 		t.Errorf("changed as %+v", got)
 	}
 

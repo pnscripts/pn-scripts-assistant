@@ -180,6 +180,23 @@ whenever something visible changed.
   in until the page was reloaded. A line you had opened stays open, and what
   the two of you said is never changed. On a Bulgarian page a step in Doing
   now that says only how long it took reads "0 мс", not "0ms".
+- **Security review of the program cards and imported servers.** Before
+  release an independent review found, and this fixes: a program's "Always"
+  answered for any file with the same name (a file called gimp in a
+  downloaded folder ran unasked and was shown as GIMP), and for everything a
+  starter such as flatpak or python3 runs when a menu entry starts through
+  it; "Always" now answers only for the program itself. A "never" is no
+  longer stepped around by `env -i`, `nohup`, `nice`, `timeout`, `sh -c` or
+  options of `flatpak run`. Commands as administrator follow the program's
+  card and "Stop using other programs", and nothing that acts in another
+  program starts in the background. A yes to a waiting question is weighed
+  against the program's card again when it is given: a "never" set, or the
+  program removed, in the meantime refuses it. An MCP server found in
+  another program is refused when a setting would make it load other code or
+  when a key is written into its command or address; its other settings are
+  shown with their values, it is treated as a program that may reach the
+  internet, and after its entry changes its tools are no longer taken to
+  "only read" until you say so again.
 
 ## 1.0.4 (2026-11-13)
 

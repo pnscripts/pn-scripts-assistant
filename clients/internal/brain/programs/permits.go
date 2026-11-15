@@ -2,6 +2,7 @@ package programs
 
 import (
 	"context"
+	"os"
 	pathpkg "path"
 	"path/filepath"
 	"runtime"
@@ -116,6 +117,12 @@ type Use struct {
 	// Name is what the person or the model called it, tried only when no
 	// other clue matched (so a removed program can still be named).
 	Name string `json:"name,omitempty"`
+
+	// Elsewhere is said by the tool when the file at Path is not the one
+	// its name runs here, nor in a folder only the system writes: a file
+	// called gimp in a downloaded folder. It shares a name with a program
+	// and nothing else, so no card's "always" answers for it.
+	Elsewhere bool `json:"elsewhere,omitempty"`
 }
 
 // Empty is a use with no clue at all.
@@ -140,6 +147,13 @@ func Match(records []Record, u Use) []Record {
 		}
 	}
 
+	// byNameOnly adds a record that shares only a name with the use: it
+	// can refuse (a "never", a removal), and never allows (Rule).
+	byNameOnly := func(r Record) {
+		r.byNameOnly = true
+		add(r)
+	}
+
 	desktop := strings.TrimSuffix(u.Desktop, ".desktop")
 	snap, flatpak := u.Snap, u.Flatpak
 
@@ -161,8 +175,12 @@ func Match(records []Record, u Use) []Record {
 			switch {
 			case desktop != "" && strings.EqualFold(id, desktop):
 				add(r)
-			case u.Path != "" && r.Exec != "" && sameProgram(r.Exec, u.Path):
-				add(r)
+			case u.Path != "" && r.Exec != "" && !startsOthers(r.Exec) && sameProgram(r.Exec, u.Path):
+				if u.Elsewhere {
+					byNameOnly(r)
+				} else {
+					add(r)
+				}
 			case flatpak != "" && strings.EqualFold(id, flatpak):
 				add(r)
 			}
@@ -210,12 +228,46 @@ func Match(records []Record, u Use) []Record {
 	for _, r := range records {
 		id := strings.ToLower(strings.TrimSuffix(r.ID, ".desktop"))
 
-		if id == name || strings.ToLower(r.Name) == name || strings.ToLower(filepath.Base(r.Exec)) == name {
-			add(r)
+		if id == name || strings.ToLower(r.Name) == name || (!startsOthers(r.Exec) && strings.ToLower(filepath.Base(r.Exec)) == name) {
+			byNameOnly(r)
 		}
 	}
 
 	return out
+}
+
+/*
+ * startsOthers is whether a menu entry's Exec is a program that only
+ * starts or interprets another: "flatpak run org.gimp.GIMP", "python3
+ * /usr/share/tool/main.py", "sh -c ...", "env X=1 tool". Such an entry is
+ * known by its menu id (and its Flatpak or snap), never by that file:
+ * otherwise GIMP's card would answer for everything flatpak runs.
+ */
+func startsOthers(exec string) bool {
+	base := strings.ToLower(exec)
+
+	if i := strings.LastIndexAny(base, `/\`); i >= 0 {
+		base = base[i+1:]
+	}
+
+	base = strings.TrimSuffix(base, ".exe")
+
+	switch base {
+	case "env", "sh", "bash", "dash", "zsh", "fish", "ksh", "busybox",
+		"flatpak", "snap", "gtk-launch", "gio", "xdg-open", "dex", "kioclient", "kioclient5",
+		"sudo", "pkexec", "nohup", "setsid", "nice", "ionice", "timeout", "stdbuf", "systemd-run",
+		"java", "javaw", "mono", "dotnet", "wine", "wine64", "electron", "deno", "bun",
+		"cmd", "powershell", "pwsh", "wscript", "cscript", "rundll32", "explorer", "msiexec":
+		return true
+	}
+
+	for _, family := range []string{"python", "perl", "ruby", "node", "php", "lua", "electron"} {
+		if rest, ok := strings.CutPrefix(base, family); ok && strings.Trim(rest, "0123456789.-w") == "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // sameProgram is whether a menu entry's Exec (absolute or a bare name)
@@ -274,22 +326,44 @@ func snapOfPath(path string) string {
 	return ""
 }
 
-// flatpakOfPath is the Flatpak application a program file belongs to:
-// .../exports/bin/<id> or .../app/<id>/<arch>/...
+// flatpakHomes is where Flatpaks are installed: for the machine, and for
+// the person the program runs as. Tests replace it.
+var flatpakHomes = func() []string {
+	homes := []string{"/var/lib/flatpak"}
+
+	if data := os.Getenv("XDG_DATA_HOME"); filepath.IsAbs(data) {
+		homes = append(homes, filepath.Join(data, "flatpak"))
+	} else if home, err := os.UserHomeDir(); err == nil && home != "" {
+		homes = append(homes, filepath.Join(home, ".local", "share", "flatpak"))
+	}
+
+	return homes
+}
+
+/*
+ * flatpakOfPath is the Flatpak application a program file belongs to:
+ * <home>/exports/bin/<id> or <home>/app/<id>/<arch>/..., where <home> is
+ * one of the two places Flatpaks are installed. The same words further
+ * down some other folder name nothing: anybody can make such a folder.
+ */
 func flatpakOfPath(path string) string {
 	p := filepath.ToSlash(filepath.Clean(path))
 
-	if i := strings.Index(p, "/flatpak/exports/bin/"); i >= 0 {
-		id := p[i+len("/flatpak/exports/bin/"):]
-		if id != "" && !strings.Contains(id, "/") {
+	for _, home := range flatpakHomes() {
+		rest, ok := strings.CutPrefix(p, strings.TrimRight(filepath.ToSlash(filepath.Clean(home)), "/")+"/")
+		if !ok {
+			continue
+		}
+
+		if id, ok := strings.CutPrefix(rest, "exports/bin/"); ok && id != "" && !strings.Contains(id, "/") {
 			return id
 		}
-	}
 
-	if i := strings.Index(p, "/flatpak/app/"); i >= 0 {
-		id, more, _ := strings.Cut(p[i+len("/flatpak/app/"):], "/")
-		if id != "" && more != "" {
-			return id
+		if app, ok := strings.CutPrefix(rest, "app/"); ok {
+			id, more, _ := strings.Cut(app, "/")
+			if id != "" && more != "" {
+				return id
+			}
 		}
 	}
 
@@ -341,7 +415,8 @@ type Ruling struct {
  * the version that is here on any present record = allowed; an "always"
  * for another version = asked again (asleep until given again); nothing =
  * undecided. A removed record's permits are dormant: they count only when
- * it is back.
+ * it is back. A record that shares only a name with the use (Match) can
+ * refuse and never allows, and the question is not shown under its name.
  */
 func Rule(matches []Record, permits map[int64][]Permit, verb Verb) Ruling {
 	if len(matches) == 0 {
@@ -369,10 +444,14 @@ func Rule(matches []Record, permits map[int64][]Permit, verb Verb) Ruling {
 		return Ruling{Answer: Never, Why: WhyGone, Program: &gone, Said: GoneSentence(gone)}
 	}
 
-	var allowed, asleep *Record
+	var allowed, asleep, known *Record
 
 	for i := range present {
 		r := present[i]
+
+		if !r.byNameOnly && known == nil {
+			known = &r
+		}
 
 		for _, p := range permits[r.RowID] {
 			if p.Verb != verb {
@@ -384,6 +463,8 @@ func Rule(matches []Record, permits map[int64][]Permit, verb Verb) Ruling {
 				return Ruling{Answer: Never, Why: WhyRefused, Program: &r,
 					Said: "Refused: the owner has set " + nameOf(r) + " to never " + VerbWords(verb) +
 						". Do not try it again; say so and offer something else. They can change it on its card on the Programs page."}
+			case r.byNameOnly:
+				// A shared name earns no "always", awake or asleep.
 			case p.Answer == Always && p.Asleep(r.Version):
 				if asleep == nil {
 					asleep = &r
@@ -407,9 +488,13 @@ func Rule(matches []Record, permits map[int64][]Permit, verb Verb) Ruling {
 			SaidBG: "Програмата " + nameOf(*asleep) + " е обновена, откакто е разрешено " + verbWordsBG(verb) + ", затова се пита отново."}
 	}
 
-	first := present[0]
+	// Something that only shares a name with a program is not shown as
+	// that program on the question either.
+	if known == nil {
+		return Ruling{Answer: AskEach}
+	}
 
-	return Ruling{Answer: AskEach, Program: &first}
+	return Ruling{Answer: AskEach, Program: known}
 }
 
 func removedAt(r Record) time.Time {

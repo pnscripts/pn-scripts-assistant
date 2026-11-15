@@ -122,6 +122,19 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 	}
 
 	/*
+	 * And the program's own card, again: a "never" set, or the program
+	 * removed, while this waited is not overruled by a yes to a question
+	 * asked before. For typing and clicking it is the window that is in
+	 * front, or under the point, now.
+	 */
+	if why := b.refusedByItsCard(ctx, tool, json.RawMessage(invocation.Arguments)); why != "" {
+		b.DB.CompleteInvocation(id, store.InvocationFailed, why)
+		invocation.Status, invocation.Result = store.InvocationFailed, why
+
+		return *invocation, errors.New(why)
+	}
+
+	/*
 	 * And it learns the answer, so it does not ask twice about the same file.
 	 *
 	 * This is the whole point of asking rather than refusing. A question put a

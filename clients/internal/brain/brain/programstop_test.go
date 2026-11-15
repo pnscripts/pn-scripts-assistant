@@ -29,7 +29,7 @@ func (o openingDemo) Execute(context.Context, json.RawMessage) (string, error) {
 }
 
 func (openingDemo) ProgramUse(context.Context, json.RawMessage) programs.Use {
-	return programs.Use{Verb: programs.VerbStart, Name: "demo"}
+	return programs.Use{Verb: programs.VerbStart, Package: "demo", Name: "demo"}
 }
 
 // demoProgram writes one program into the brain's inventory.
@@ -111,12 +111,12 @@ func TestAlwaysForTheProgramOnTheApprovalCard(t *testing.T) {
 		t.Fatalf("the program's card was not given Always for 1.0: %+v", got)
 	}
 
-	if r := b.ProgramRuling(context.Background(), programs.Use{Verb: programs.VerbStart, Name: "demo"}); r.Answer != programs.Always {
+	if r := b.ProgramRuling(context.Background(), programs.Use{Verb: programs.VerbStart, Package: "demo", Name: "demo"}); r.Answer != programs.Always {
 		t.Errorf("the next call is not allowed: %+v", r)
 	}
 
 	// Only other uses of the program stay as they were.
-	if r := b.ProgramRuling(context.Background(), programs.Use{Verb: programs.VerbChange, Name: "demo"}); r.Answer != programs.AskEach {
+	if r := b.ProgramRuling(context.Background(), programs.Use{Verb: programs.VerbChange, Package: "demo", Name: "demo"}); r.Answer != programs.AskEach {
 		t.Errorf("Always for starting it allowed running it as a command: %+v", r)
 	}
 
@@ -300,5 +300,69 @@ func TestProgramChoicesFollowTheSettings(t *testing.T) {
 	b.StopUsingPrograms()
 	if c, _ = b.ProgramChoices(); !c.Stopped || c.Since.IsZero() {
 		t.Errorf("stopped: %+v", c)
+	}
+}
+
+/*
+ * A yes is weighed against the program's card again when it is given.
+ *
+ * Found by the 1.1.0 security review: a "never" set on the program's card,
+ * or the program removed, while a question about it waited was not looked
+ * at when the question was approved, so the call ran.
+ */
+func TestAYesDoesNotOutliveANeverOrARemoval(t *testing.T) {
+	b, ran := demoBrain(t)
+	demo := demoProgram(t, b, "1.0")
+
+	id := askedAbout(t, b, demo, true)
+
+	if _, err := b.SetProgramPermit(programs.Deb, "demo", programs.VerbStart, programs.Never); err != nil {
+		t.Fatal(err)
+	}
+
+	inv, err := b.Decide(context.Background(), id, true)
+	if err == nil || !strings.Contains(err.Error(), "never") || *ran != 0 {
+		t.Fatalf("approved over a never set while it waited: %v (ran %d)", err, *ran)
+	}
+
+	if inv.Status != store.InvocationFailed || !strings.Contains(inv.Result, "never") {
+		t.Errorf("the refused question is %s: %q", inv.Status, inv.Result)
+	}
+
+	// "Always for Demo" on a second question is refused the same way,
+	// and writes nothing over the never.
+	second := askedAbout(t, b, demo, true)
+
+	if _, err := b.AlwaysForProgram(context.Background(), second); err == nil || *ran != 0 {
+		t.Errorf("Always for the program ran over a never: %v (ran %d)", err, *ran)
+	}
+
+	if ps, _ := b.ProgramPermits(); len(ps[demo.RowID]) != 1 || ps[demo.RowID][0].Answer != programs.Never {
+		t.Errorf("the never was changed: %+v", ps[demo.RowID])
+	}
+
+	// Asking each time again, the next yes runs.
+	if _, err := b.SetProgramPermit(programs.Deb, "demo", programs.VerbStart, programs.AskEach); err != nil {
+		t.Fatal(err)
+	}
+
+	third := askedAbout(t, b, demo, true)
+
+	if _, err := b.Decide(context.Background(), third, true); err != nil || *ran != 1 {
+		t.Fatalf("a yes with nothing against it did not run: %v (ran %d)", err, *ran)
+	}
+
+	// The program is removed while a fourth question waits.
+	fourth := askedAbout(t, b, demo, true)
+
+	known, _ := b.DB.Programs(programs.Deb)
+	save, _ := programs.Reconcile(programs.Deb, known, nil, time.Now())
+
+	if err := b.DB.SavePrograms(save); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := b.Decide(context.Background(), fourth, true); err == nil || !strings.Contains(err.Error(), "was removed") || *ran != 1 {
+		t.Fatalf("approved for a program removed while it waited: %v (ran %d)", err, *ran)
 	}
 }

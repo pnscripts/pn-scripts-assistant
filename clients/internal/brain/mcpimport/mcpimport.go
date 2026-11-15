@@ -34,6 +34,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -131,12 +132,20 @@ const (
 	ProblemHeaders   = "headers"   // more than one header
 	ProblemNothing   = "nothing"   // neither a program nor an address
 	ProblemInvalid   = "invalid"   // the program or the address cannot be used safely
+
+	// ProblemLoader: a setting that makes the program load other code
+	// (Detail names it), so the command shown is not all that would run.
+	ProblemLoader = "loader"
+	// ProblemCredential: a key or password written into the command or
+	// the address, where it would be shown and kept as plain words.
+	ProblemCredential = "credential"
 )
 
 // Problems is every code a Found's Problem can be, sorted.
 func Problems() []string {
 	out := []string{ProblemShell, ProblemVariable, ProblemInput, ProblemEnvFile, ProblemFolder,
-		ProblemSSE, ProblemTransport, ProblemHeaders, ProblemNothing, ProblemInvalid}
+		ProblemSSE, ProblemTransport, ProblemHeaders, ProblemNothing, ProblemInvalid,
+		ProblemLoader, ProblemCredential}
 
 	sort.Strings(out)
 
@@ -296,6 +305,10 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 	case kind == "stdio" || (kind == "" && e.Command != ""):
 		s.Transport = "stdio"
 		s.Command = append([]string{e.Command}, e.Args...)
+
+		// Nothing says a program somebody else set up stays on this
+		// machine: it is treated as one that reaches out.
+		s.Network = true
 	case kind != "":
 		f.Problem, f.Detail = ProblemTransport, kind
 	default:
@@ -319,6 +332,39 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 
 	if f.Problem == "" && s.Transport == "http" && len(e.Headers) > 1 {
 		f.Problem = ProblemHeaders
+	}
+
+	if f.Problem == "" && s.Transport == "stdio" {
+		names := make([]string, 0, len(e.Env))
+		for k := range e.Env {
+			names = append(names, k)
+		}
+
+		sort.Strings(names)
+
+		for _, k := range names {
+			if loadsOtherCode(k) {
+				f.Problem, f.Detail = ProblemLoader, k
+
+				break
+			}
+		}
+	}
+
+	/*
+	 * A key in the command or the address is refused, and taken out of
+	 * what is listed: the command is shown on the card and with every use
+	 * and kept as plain words, which is no place for a password. In a
+	 * setting (env) or a header it is sealed instead.
+	 */
+	if f.Problem == "" && (credentialIn(e.Args) || credentialInAddress(s.URL)) {
+		f.Problem = ProblemCredential
+
+		if s.Transport == "stdio" {
+			s.Command = s.Command[:1]
+		}
+
+		s.URL = ""
 	}
 
 	// The settings, split into what may be shown and what is a secret.
@@ -395,6 +441,82 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 	f.Print = fingerprint(s)
 
 	return f
+}
+
+/*
+ * loadsOtherCode is whether a setting's name is one a program, its
+ * language or the system reads to load code that is not on the command
+ * line: with it, the command on the card is not all that would run.
+ */
+func loadsOtherCode(name string) bool {
+	n := strings.ToUpper(name)
+
+	switch n {
+	case "NODE_OPTIONS", "PYTHONSTARTUP", "PYTHONINSPECT", "BASH_ENV", "ENV", "PERL5OPT", "PERL5DB", "RUBYOPT",
+		"JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "DOTNET_STARTUP_HOOKS", "PROMPT_COMMAND",
+		"GIT_SSH", "GIT_SSH_COMMAND", "GIT_EXTERNAL_DIFF", "BROWSER", "EDITOR", "VISUAL", "PAGER":
+		return true
+	}
+
+	return strings.HasPrefix(n, "LD_") || strings.HasPrefix(n, "DYLD_")
+}
+
+var credentialFlag = regexp.MustCompile(`(?i)^--?[a-z0-9_.-]*(key|token|secret|passw|pwd|credential|bearer|auth)[a-z0-9_.-]*$`)
+
+// A flag whose value is a file or a name, not the credential itself.
+var credentialElsewhere = regexp.MustCompile(`(?i)(file|path|dir|name|env|var|type|url|uri|endpoint|method|mode|scope)s?$`)
+
+/*
+ * credentialIn is whether a command's arguments carry a key or a
+ * password: a value shaped like a known kind of key, an address with a
+ * password in it, or the value of a flag named for one (--api-key X,
+ * --token=X; not --key-file, whose value is a place).
+ */
+func credentialIn(args []string) bool {
+	for i, a := range args {
+		if secretValue.MatchString(a) || userInURL.MatchString(a) || credentialInAddress(a) {
+			return true
+		}
+
+		flag, value, joined := strings.Cut(a, "=")
+
+		if !strings.HasPrefix(flag, "-") || !credentialFlag.MatchString(flag) || credentialElsewhere.MatchString(flag) {
+			continue
+		}
+
+		if joined && value != "" {
+			return true
+		}
+
+		if !joined && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// credentialInAddress is whether an address carries a password before its
+// host, or a key among its questions (?token=...).
+func credentialInAddress(address string) bool {
+	if userInURL.MatchString(address) {
+		return true
+	}
+
+	u, err := url.Parse(address)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+
+	for name, values := range u.Query() {
+		for _, v := range values {
+			if v != "" && (secretName.MatchString(name) || secretValue.MatchString(v)) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // headerSecret is the secret a header's value is kept under.

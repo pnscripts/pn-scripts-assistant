@@ -201,6 +201,10 @@ func (s Server) WhereIn(lang string) string {
 			tools.Say(lang, "; what it is sent leaves this machine", "; изпратеното до него напуска този компютър")
 	case s.Transport == "http":
 		return tools.Say(lang, "a server on this machine, at ", "сървър на този компютър, на ") + s.URL
+	case s.Network && s.From != nil:
+		// Set up in another program: nothing says it stays here.
+		return tools.Say(lang, "a program on this machine, set up in another program; it may reach the internet: ",
+			"програма на този компютър, настроена в друга програма; възможно е да излиза в интернет: ") + strings.Join(s.Command, " ")
 	case s.Network:
 		return tools.Say(lang, "a program on this machine that reaches the internet itself: ",
 			"програма на този компютър, която сама излиза в интернет: ") + strings.Join(s.Command, " ")

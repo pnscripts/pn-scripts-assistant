@@ -342,9 +342,17 @@
 
         if (v.transport === 'http' && v.leaves_the_machine) return T('org.int.whereRemote', { url: v.url || '' });
         if (v.transport === 'http') return T('org.int.whereLocal', { url: v.url || '' });
+        if (v.network && v.from) return T('org.int.whereImported', { command });
         if (v.network) return T('org.int.whereNetwork', { command });
 
         return T('org.int.whereProgram', { command });
+    }
+
+    // The settings a program is given beside its secrets, as NAME=value.
+    function settingsOf(v) {
+        const env = v.env || {};
+
+        return Object.keys(env).sort().map((name) => name + '=' + env[name]).join(', ');
     }
 
     async function integrations() {
@@ -376,6 +384,10 @@
                 item.appendChild(node('p', 'note', v.why || ''));
                 item.appendChild(node('p', 'note tiny', whereWords(v) + (v.version ? ' · ' + v.version : '')
                     + (v.licence ? ' · ' + T('org.licence', { licence: v.licence }) : '')));
+
+                // Every setting it is given, with its value: a setting can
+                // change what the command above runs.
+                if (settingsOf(v)) item.appendChild(node('p', 'note tiny', T('org.imp.settings', { list: settingsOf(v) })));
 
                 if (v.missing) item.appendChild(node('p', 'note tiny equip-limit', T('org.int.missing', { what: v.missing })));
 
@@ -482,8 +494,12 @@
             if (!f.problem) {
                 item.appendChild(node('p', 'note tiny', whereWords({
                     transport: server.transport, url: server.url, command: server.command,
-                    network: server.network, leaves_the_machine: f.leaves_the_machine,
+                    network: server.network, leaves_the_machine: f.leaves_the_machine, from: true,
                 })));
+            }
+
+            if (!f.problem && settingsOf(server)) {
+                item.appendChild(node('p', 'note tiny', T('org.imp.settings', { list: settingsOf(server) })));
             }
 
             // What is kept sealed, by the name the person wrote there: a

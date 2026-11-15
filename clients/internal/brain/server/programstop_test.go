@@ -26,7 +26,7 @@ func (s startingDemo) Execute(context.Context, json.RawMessage) (string, error) 
 }
 
 func (startingDemo) ProgramUse(context.Context, json.RawMessage) programs.Use {
-	return programs.Use{Verb: programs.VerbStart, Name: "demo"}
+	return programs.Use{Verb: programs.VerbStart, Package: "demo", Name: "demo"}
 }
 
 func demoAsked(t *testing.T, db *store.DB, always bool) (programs.Record, int64) {

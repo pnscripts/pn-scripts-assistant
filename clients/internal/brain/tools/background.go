@@ -134,6 +134,17 @@ func (t InBackground) Execute(_ context.Context, raw json.RawMessage) (string, e
 				"ask for it directly and it will be shown for approval first", a.Tool)
 	}
 
+	/*
+	 * Nor is anything that acts in or with another program (scrolling is
+	 * the one that asks nobody): its program's card and "Stop using other
+	 * programs" are weighed where it is asked for directly, and here they
+	 * would not be.
+	 */
+	if UsesOtherPrograms(tool) {
+		return "", fmt.Errorf(
+			"%s acts in another program, so it is not started in the background; ask for it directly", a.Tool)
+	}
+
 	if tool.Name() == "do_in_background" {
 		return "", fmt.Errorf("that would start itself")
 	}

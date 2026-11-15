@@ -2,6 +2,7 @@ package brain
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -71,6 +72,25 @@ func (b *Brain) stoppedFor(tool tools.Tool) string {
 
 	if since, stopped := b.ProgramsStopped(); stopped {
 		return programs.StoppedSentence(since)
+	}
+
+	return ""
+}
+
+/*
+ * refusedByItsCard is why a call that uses another program may not run
+ * now, by that program's card: set to never for this use, or removed.
+ * Empty when the card has nothing against it, and for a tool that uses
+ * no other program.
+ */
+func (b *Brain) refusedByItsCard(ctx context.Context, tool tools.Tool, args json.RawMessage) string {
+	use, bound := tools.ProgramUseOf(ctx, tool, args)
+	if !bound {
+		return ""
+	}
+
+	if r := b.ProgramRuling(ctx, use); r.Answer == programs.Never {
+		return r.Said
 	}
 
 	return ""
@@ -209,6 +229,11 @@ func (b *Brain) AlwaysForProgram(ctx context.Context, id int64) (store.Invocatio
 
 	if tool, ok := b.Agent.Registry.Get(inv.Tool); ok {
 		if why := b.stoppedFor(tool); why != "" {
+			return *inv, errors.New(why)
+		}
+
+		// A never on the card is not written over from a question's card.
+		if why := b.refusedByItsCard(ctx, tool, json.RawMessage(inv.Arguments)); why != "" {
 			return *inv, errors.New(why)
 		}
 	}

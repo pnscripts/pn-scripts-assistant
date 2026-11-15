@@ -300,7 +300,12 @@ func (b *Brain) MCPImports() ([]MCPFound, []MCPFile, []programs.SourceState) {
 		v := MCPFound{Found: f, Key: f.Key(), Title: f.Client.Title(), Imported: imported[f.Key()]}
 
 		if f.Problem == "" {
-			v.Where, v.Leaves = f.Server.Where(), f.Server.Remote()
+			// Described as what it would be once imported: set up in
+			// another program.
+			as := f.Server
+			as.From = &mcp.Origin{Client: string(f.Client), File: f.File, Scope: f.Scope, Name: f.Name}
+
+			v.Where, v.Leaves = as.Where(), as.Remote()
 		}
 
 		out = append(out, v)
