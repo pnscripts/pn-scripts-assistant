@@ -173,6 +173,13 @@ whenever something visible changed.
   says so out loud and in the conversation you asked in. It watches for 4
   hours unless you say otherwise (at most 12), one watch at a time, stops
   when you say or when the program closes, and never restarts anything.
+- **A conversation already on the page follows the language.** Switching
+  the page's language now says the conversation again too: who said each
+  message, what was done under an answer and how long each thing took, and
+  the list of sources. Before, they kept the language they were first drawn
+  in until the page was reloaded. A line you had opened stays open, and what
+  the two of you said is never changed. On a Bulgarian page a step in Doing
+  now that says only how long it took reads "0 мс", not "0ms".
 
 ## 1.0.4 (2026-11-13)
 

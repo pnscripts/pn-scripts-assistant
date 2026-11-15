@@ -322,7 +322,7 @@ var bilingualScripts = []string{
 	"tasks.js", "team.js",
 	"devices.js", "pairing.js",
 	"protection.js", "voiceprint.js",
-	"programs.js",
+	"programs.js", "transcript.js",
 }
 
 // Literals in those scripts that are code, not words a person reads.

@@ -268,16 +268,24 @@ function localNumber(text) {
 
     if (!bg) return value;
 
-    const took = value.match(/^(?:(\d+)m )?(\d+(?:\.\d+)?)(ms|s)$/);
+    const took = bulgarianDuration(value);
 
-    if (took) {
-        const unit = took[3] === 'ms' ? 'мс' : 'с';
-        const rest = `${took[2].replace('.', ',')} ${unit}`;
-
-        return took[1] ? `${took[1]} мин ${rest}` : rest;
-    }
+    if (took) return took;
 
     return /^[\d.]+k?$/.test(value) ? value.replace('.', ',').replace(/k$/, ' хил.') : value;
+}
+
+// "1m 05s", "1.5s" or "80ms" as Bulgarian writes it, or nothing when the
+// text is not a duration and only a duration.
+function bulgarianDuration(value) {
+    const took = String(value).match(/^(?:(\d+)m )?(\d+(?:\.\d+)?)(ms|s)$/);
+
+    if (!took) return '';
+
+    const unit = took[3] === 'ms' ? 'мс' : 'с';
+    const rest = `${took[2].replace('.', ',')} ${unit}`;
+
+    return took[1] ? `${took[1]} мин ${rest}` : rest;
 }
 
 window.pnLocalNumber = localNumber;
@@ -325,7 +333,9 @@ window.pnStepLine = function (line, step) {
         return statusWords(key, vars);
     }
 
-    return text;
+    // A line that is only how long something took ("0ms" under a step that
+    // said nothing else) has no words to match, and is still a duration.
+    return bulgarianDuration(text) || text;
 };
 
 /*
