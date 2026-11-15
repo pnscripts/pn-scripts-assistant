@@ -85,7 +85,10 @@ func TestServersInOtherProgramsAreFoundImportedAndFollowed(t *testing.T) {
 	}
 
 	fsys := byName["filesystem"]
-	if fsys.Problem != "" || fsys.Title != "Claude Desktop" || fsys.Imported != "" || fsys.Leaves || !strings.Contains(fsys.Where, "npx") {
+	// A program set up elsewhere is not known to stay on this machine
+	// (1.1.0 security review): it is shown as one that may reach out.
+	if fsys.Problem != "" || fsys.Title != "Claude Desktop" || fsys.Imported != "" || !fsys.Leaves ||
+		!strings.Contains(fsys.Where, "npx") || !strings.Contains(fsys.Where, "may reach the internet") {
 		t.Errorf("filesystem found as %+v", fsys)
 	}
 

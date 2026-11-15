@@ -3897,6 +3897,10 @@
             'a program on this machine that reaches the internet itself: {command}',
             'програма на този компютър, която сама излиза в интернет: {command}',
         ],
+        'org.int.whereImported': [
+            'a program on this machine, set up in another program; it may reach the internet: {command}',
+            'програма на този компютър, настроена в друга програма; възможно е да излиза в интернет: {command}',
+        ],
         'org.int.whereProgram': [
             'a program on this machine, with your access to it: {command}',
             'програма на този компютър, с вашите права за достъп: {command}',
@@ -3964,6 +3968,15 @@
             'изпраща повече от едно поле в заглавката; добавете го ръчно',
         ],
         'org.imp.p.nothing': ['it names neither a program nor an address', 'не посочва нито програма, нито адрес'],
+        'org.imp.p.loader': [
+            'its setting {detail} makes it load other code than the command shows',
+            'настройката {detail} го кара да зарежда и друг код освен показаната команда',
+        ],
+        'org.imp.p.credential': [
+            'a key or password is written into its command or address; put it in a setting (env) or a header there, where it is kept sealed here',
+            'в командата или адреса му е записан ключ или парола; преместете го там в настройка (env) или в поле на заглавката, които тук се пазят запечатани',
+        ],
+        'org.imp.settings': ['settings it is given: {list}', 'настройки, които получава: {list}'],
         'org.imp.p.invalid': ['it cannot be run safely as written ({detail})', 'не може да се стартира безопасно така ({detail})'],
         'org.imp.files': ['Where I look: {list}', 'Къде търся: {list}'],
         'org.imp.f.read': ['{client}: found {n}', '{client}: намерени {n}'],

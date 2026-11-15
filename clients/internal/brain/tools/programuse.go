@@ -109,49 +109,84 @@ func (RunCommand) ProgramUse(_ context.Context, raw json.RawMessage) programs.Us
 
 	_ = json.Unmarshal(raw, &a)
 
-	return commandUse(a.Argv)
+	return commandUse(a.Argv, a.Dir)
+}
+
+// As administrator is a command like any other: its program's card and
+// "Stop using other programs" decide it before the system is asked.
+func (RunAsAdmin) ProgramUse(_ context.Context, raw json.RawMessage) programs.Use {
+	var a adminArgs
+
+	_ = json.Unmarshal(raw, &a)
+
+	u := commandUse(a.Argv, "")
+
+	// As administrator is itself a wrapper: a program's "always" was not
+	// given for running it as root. Its "never" still refuses.
+	u.Wrapped = !u.Empty()
+
+	return u
 }
 
 /*
- * commandUse is the program a command line runs: past env and its
- * settings; `flatpak run <id>`, `snap run <name>` and `gtk-launch <entry>`
- * name the program they start.
+ * commandUse is the program a command line runs, seen through what wraps
+ * it (unwrapped): `flatpak run <id>`, `snap run <name>` and `gtk-launch
+ * <entry>` name the program they start.
+ *
+ * A program given by its place rather than its name is said to be
+ * Elsewhere unless it is the file that name runs here: a file called gimp
+ * in a downloaded folder shares a name with GIMP and nothing else. A place
+ * given from the folder the command runs in ("./gimp") is always
+ * elsewhere.
  */
-func commandUse(argv []string) programs.Use {
+func commandUse(argv []string, dir string) programs.Use {
 	u := programs.Use{Verb: programs.VerbChange}
 
-	for len(argv) > 0 && (filepath.Base(argv[0]) == "env") {
-		argv = argv[1:]
+	inside, wrapped := unwrapped(argv)
 
-		for len(argv) > 0 && strings.Contains(argv[0], "=") && !strings.HasPrefix(argv[0], "-") {
-			argv = argv[1:]
-		}
-	}
-
-	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
+	if len(inside) == 0 || strings.TrimSpace(inside[0]) == "" {
 		return u
 	}
 
+	/*
+	 * Read through a wrapper, the program is named so that its card can
+	 * refuse it, and no card allows it: env can change which file runs
+	 * and what it loads, and a shell line can run anything after it.
+	 */
+	u.Wrapped = wrapped
+	argv = inside
+
 	first := filepath.Base(argv[0])
-	after := func(word string) string {
-		for i, a := range argv[1:] {
-			if a == word {
-				for _, b := range argv[i+2:] {
-					if !strings.HasPrefix(b, "-") {
-						return b
-					}
-				}
-			}
+
+	switch {
+	case filepath.IsAbs(argv[0]):
+		u.Path = filepath.Clean(argv[0])
+		u.Elsewhere = elsewhere(u.Path)
+	case strings.ContainsAny(argv[0], `/\`):
+		u.Path = filepath.Clean(argv[0])
+		if filepath.IsAbs(dir) {
+			u.Path = filepath.Join(dir, argv[0])
 		}
 
-		return ""
+		u.Elsewhere = true
+	default:
+		if p, ok := lookProgram(argv[0]); ok {
+			u.Path = p
+		}
+	}
+
+	u.Name = first
+
+	// A starter that is itself some file elsewhere names nothing.
+	if u.Elsewhere {
+		return u
 	}
 
 	switch first {
 	case "flatpak":
-		u.Flatpak = after("run")
+		u.Flatpak = ranBy(argv, flatpakValued)
 	case "snap":
-		u.Snap = after("run")
+		u.Snap = ranBy(argv, snapValued)
 		if s, _, ok := strings.Cut(u.Snap, "."); ok {
 			u.Snap = s
 		}
@@ -161,22 +196,243 @@ func commandUse(argv []string) programs.Use {
 		}
 	}
 
-	if filepath.IsAbs(argv[0]) {
-		u.Path = argv[0]
-	} else if p, ok := lookProgram(argv[0]); ok {
-		u.Path = p
+	return u
+}
+
+// Options of `flatpak run` and `snap run` (and of flatpak itself) whose
+// value is the next word: the program's name is not one of those.
+var (
+	flatpakValued = map[string]bool{
+		"--installation": true, "--arch": true, "--command": true, "--cwd": true, "--branch": true,
+		"--runtime": true, "--runtime-version": true, "--env": true, "--env-fd": true, "--filesystem": true,
+		"--nofilesystem": true, "--share": true, "--unshare": true, "--socket": true, "--nosocket": true,
+		"--device": true, "--nodevice": true, "--allow": true, "--disallow": true, "--persist": true,
+		"--own-name": true, "--talk-name": true, "--no-talk-name": true, "--system-own-name": true,
+		"--system-talk-name": true, "--system-no-talk-name": true, "--add-policy": true, "--remove-policy": true,
+		"--instance-id-fd": true, "--app-path": true, "--usr-path": true, "--parent-pid": true,
+		"--a11y-own-name": true, "--unset-env": true,
+	}
+	snapValued = map[string]bool{"--hook": true, "-r": true, "--command": true, "--experimental-gdbserver": true}
+)
+
+// ranBy is the program `<tool> ... run [options] <name>` runs: the first
+// word after "run" that is neither an option nor an option's value.
+func ranBy(argv []string, valued map[string]bool) string {
+	ran := false
+
+	for i := 1; i < len(argv); i++ {
+		a := argv[i]
+
+		switch {
+		case !ran && a == "run":
+			ran = true
+		case valued[a]:
+			i++
+		case strings.HasPrefix(a, "-"):
+		case ran:
+			return a
+		}
 	}
 
-	u.Name = first
+	return ""
+}
 
-	return u
+/*
+ * unwrapped is a command line without what only wraps its program: env
+ * and its settings and options, nohup, setsid, nice, ionice, timeout,
+ * stdbuf, time, and a shell given one command to run (`sh -c "..."`: the
+ * first command of the line), and whether anything wrapped it at all:
+ * said by the wrappers found, never told from how many words are left.
+ * What a script or a longer shell line starts further on is not followed;
+ * the guide's known limits say so.
+ */
+func unwrapped(argv []string) (inside []string, wrapped bool) {
+	for depth := 0; depth < 12 && len(argv) > 0; depth++ {
+		rest, was := insideOf(argv)
+		if !was {
+			return argv, wrapped
+		}
+
+		argv, wrapped = rest, true
+	}
+
+	return argv, wrapped
+}
+
+// insideOf is what one wrapper runs, and whether argv starts with one.
+func insideOf(argv []string) ([]string, bool) {
+	rest := argv[1:]
+
+	// skip drops the options in front: every word starting with "-",
+	// and the next word too for the ones in valued.
+	skip := func(valued string) []string {
+		for len(rest) > 0 && strings.HasPrefix(rest[0], "-") && rest[0] != "-" {
+			word := rest[0]
+			rest = rest[1:]
+
+			if word == "--" {
+				break
+			}
+
+			if len(word) == 2 && strings.Contains(valued, word[1:]) && len(rest) > 0 {
+				rest = rest[1:]
+			}
+		}
+
+		return rest
+	}
+
+	// again is env's own words once more, with a line it was told to
+	// split put in front: the line may open with settings too.
+	again := func(split, after []string) []string {
+		return append(append([]string{"env"}, split...), after...)
+	}
+
+	switch filepath.Base(argv[0]) {
+	case "env":
+		for len(rest) > 0 {
+			word := rest[0]
+
+			switch {
+			case word == "-S" || word == "--split-string":
+				if len(rest) < 2 {
+					return nil, true
+				}
+
+				return again(strings.Fields(rest[1]), rest[2:]), true
+			case strings.HasPrefix(word, "--split-string="):
+				return again(strings.Fields(strings.TrimPrefix(word, "--split-string=")), rest[1:]), true
+			case strings.HasPrefix(word, "-S") && !strings.HasPrefix(word, "--"):
+				return again(strings.Fields(word[2:]), rest[1:]), true
+			case word == "--":
+				return rest[1:], true
+			case word == "-u" || word == "-C" || word == "--unset" || word == "--chdir":
+				rest = rest[1:]
+				if len(rest) > 0 {
+					rest = rest[1:]
+				}
+			case strings.HasPrefix(word, "-"), strings.Contains(word, "="):
+				rest = rest[1:]
+			default:
+				return rest, true
+			}
+		}
+
+		return nil, true
+	case "nohup", "setsid", "time":
+		return skip(""), true
+	case "nice":
+		return skip("n"), true
+	case "ionice":
+		return skip("cn"), true
+	case "stdbuf":
+		return skip("ioe"), true
+	case "timeout":
+		rest = skip("sk")
+
+		// The time allowed stands before the command.
+		if len(rest) > 0 {
+			rest = rest[1:]
+		}
+
+		return rest, true
+	case "sh", "bash", "dash", "zsh", "ksh":
+		for i := 0; i < len(rest); i++ {
+			word := rest[i]
+
+			if !strings.HasPrefix(word, "-") || word == "--" {
+				break
+			}
+
+			if strings.HasPrefix(word, "--") {
+				continue
+			}
+
+			// "-c", or letters with it among them ("-lc", "-ce").
+			if strings.Contains(word[1:], "c") {
+				if i+1 >= len(rest) {
+					return argv, false
+				}
+
+				if inside := firstCommand(rest[i+1]); len(inside) > 0 {
+					return inside, true
+				}
+
+				return argv, false
+			}
+
+			// "-o errexit": the option's name is the next word.
+			if strings.HasSuffix(word, "o") {
+				i++
+			}
+		}
+	}
+
+	return argv, false
+}
+
+// firstCommand is the first command of a shell line as words: up to the
+// first sign that ends it, without settings in front, "exec" and quotes
+// around a word.
+func firstCommand(line string) []string {
+	if i := strings.IndexAny(line, ";&|\n()<>`"); i >= 0 {
+		line = line[:i]
+	}
+
+	words := strings.Fields(line)
+
+	for len(words) > 0 {
+		word := strings.Trim(words[0], `'"`)
+
+		if word != "exec" && word != "command" && !(strings.Contains(word, "=") && !strings.ContainsAny(word, `/\`)) {
+			break
+		}
+
+		words = words[1:]
+	}
+
+	for i := range words {
+		words[i] = strings.Trim(words[i], `'"`)
+	}
+
+	return words
+}
+
+// sameFile is whether two paths are one file, links followed. Tests
+// replace it.
+var sameFile = func(a, b string) bool {
+	ra, err := filepath.EvalSymlinks(a)
+	if err != nil {
+		return false
+	}
+
+	rb, err := filepath.EvalSymlinks(b)
+
+	return err == nil && ra == rb
+}
+
+/*
+ * elsewhere is whether a program file, given by its place, is another
+ * file than the one its name runs here (links followed): it then only
+ * shares that program's name. See programs.Use.Elsewhere.
+ */
+func elsewhere(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	if p, ok := lookProgram(filepath.Base(path)); ok && (p == path || sameFile(p, path)) {
+		return false
+	}
+
+	return true
 }
 
 // Typing goes to the window in front.
 func (TypeText) ProgramUse(ctx context.Context, _ json.RawMessage) programs.Use {
 	path, flatpak := windowProgram(ctx, false, 0, 0)
 
-	return programs.Use{Verb: programs.VerbInput, Path: path, Flatpak: flatpak}
+	return windowUse(path, flatpak)
 }
 
 // A click goes to the window under the point.
@@ -187,7 +443,14 @@ func (Click) ProgramUse(ctx context.Context, raw json.RawMessage) programs.Use {
 
 	path, flatpak := windowProgram(ctx, true, a.X, a.Y)
 
-	return programs.Use{Verb: programs.VerbInput, Path: path, Flatpak: flatpak}
+	return windowUse(path, flatpak)
+}
+
+// windowUse is typing or clicking in a window of the program at path. A
+// Flatpak's window is known by the application its sandbox names, whose
+// program file is a place inside the sandbox.
+func windowUse(path, flatpak string) programs.Use {
+	return programs.Use{Verb: programs.VerbInput, Path: path, Flatpak: flatpak, Elsewhere: flatpak == "" && elsewhere(path)}
 }
 
 /*

@@ -323,17 +323,27 @@
 
     /* ---------- integrations ---------- */
 
+    // What the last thing asked of an integration came to, said on its
+    // own card: the line under the whole list is a screen away from the
+    // button that was pressed.
+    let saidOn = null;
+
     async function act(id, action, body) {
         const said = el('int-said');
 
+        saidOn = action === 'activate' ? { id, text: T('org.intStarting', { id }) } : null;
+        said.textContent = '';
+
+        if (saidOn) integrations();
+
         try {
-            said.textContent = action === 'activate' ? T('org.intStarting', { id }) : '';
             await post('/api/integrations/' + encodeURIComponent(id) + '/' + action, body);
-            said.textContent = '';
-            integrations();
+            saidOn = null;
         } catch (err) {
-            said.textContent = err.message;
+            saidOn = { id, text: err.message, failed: true };
         }
+
+        integrations();
     }
 
     // Where an integration runs, as mcp.Server.Where says it in English.
@@ -342,9 +352,17 @@
 
         if (v.transport === 'http' && v.leaves_the_machine) return T('org.int.whereRemote', { url: v.url || '' });
         if (v.transport === 'http') return T('org.int.whereLocal', { url: v.url || '' });
+        if (v.network && v.from) return T('org.int.whereImported', { command });
         if (v.network) return T('org.int.whereNetwork', { command });
 
         return T('org.int.whereProgram', { command });
+    }
+
+    // The settings a program is given beside its secrets, as NAME=value.
+    function settingsOf(v) {
+        const env = v.env || {};
+
+        return Object.keys(env).sort().map((name) => name + '=' + env[name]).join(', ');
     }
 
     async function integrations() {
@@ -377,6 +395,10 @@
                 item.appendChild(node('p', 'note tiny', whereWords(v) + (v.version ? ' · ' + v.version : '')
                     + (v.licence ? ' · ' + T('org.licence', { licence: v.licence }) : '')));
 
+                // Every setting it is given, with its value: a setting can
+                // change what the command above runs.
+                if (settingsOf(v)) item.appendChild(node('p', 'note tiny', T('org.imp.settings', { list: settingsOf(v) })));
+
                 if (v.missing) item.appendChild(node('p', 'note tiny equip-limit', T('org.int.missing', { what: v.missing })));
 
                 const gone = !!(v.from && v.from.gone_since);
@@ -397,6 +419,10 @@
                 for (const t of v.tools || []) {
                     item.appendChild(node('p', 'note tiny', T(t.read_only ? 'org.int.readsOnly' : 'org.int.asksFirst') + ' · ' + t.as
                         + (t.description ? ': ' + t.description : '') + (t.hint ? ' (' + t.hint + ')' : '')));
+                }
+
+                if (saidOn && saidOn.id === v.id) {
+                    item.appendChild(node('p', saidOn.failed ? 'note tiny equip-limit' : 'note tiny', saidOn.text));
                 }
 
                 const actions = node('div', 'org-actions');
@@ -482,8 +508,12 @@
             if (!f.problem) {
                 item.appendChild(node('p', 'note tiny', whereWords({
                     transport: server.transport, url: server.url, command: server.command,
-                    network: server.network, leaves_the_machine: f.leaves_the_machine,
+                    network: server.network, leaves_the_machine: f.leaves_the_machine, from: true,
                 })));
+            }
+
+            if (!f.problem && settingsOf(server)) {
+                item.appendChild(node('p', 'note tiny', T('org.imp.settings', { list: settingsOf(server) })));
             }
 
             // What is kept sealed, by the name the person wrote there: a

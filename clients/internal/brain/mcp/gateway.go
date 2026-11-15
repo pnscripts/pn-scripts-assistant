@@ -596,7 +596,9 @@ func (g *Gateway) EntryBack(ctx context.Context, id string) error {
  * EntryChanged: the entry was changed in the other program. What it runs
  * or where it is may be different now, so the new definition replaces the
  * old one and the approval is withdrawn: its owner is asked again. Who it
- * was granted to and which tools only read are kept for that new yes.
+ * was granted to is kept for that new yes. Which tools "only read" is not:
+ * that was said of what ran before, and a tool of the same name may write
+ * now, so each is asked about again until it is marked anew.
  */
 func (g *Gateway) EntryChanged(next Server, secrets map[string]string) error {
 	s, ok := g.Book.Get(next.ID)
@@ -607,7 +609,7 @@ func (g *Gateway) EntryChanged(next Server, secrets map[string]string) error {
 	g.Deactivate(next.ID)
 
 	next.Approved, next.ApprovedAt, next.Active, next.FromCatalogue = false, "", false, false
-	next.Agents, next.ReadOnly, next.Hidden = s.Agents, s.ReadOnly, s.Hidden
+	next.Agents, next.ReadOnly, next.Hidden = s.Agents, nil, s.Hidden
 	next.From.GoneSince, next.From.WasActive = "", false
 
 	if err := g.Book.Put(next); err != nil {

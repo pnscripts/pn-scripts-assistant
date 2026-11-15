@@ -143,6 +143,11 @@ type Record struct {
 	// removed, returned or updated; empty for one that was already there at
 	// the first look and has not changed since.
 	LastChange ChangeKind `json:"last_change,omitempty"`
+
+	// byNameOnly is set by Match on a record that shares only a name with
+	// what is about to be used, or whose program is reached through a
+	// wrapper: it can refuse and never allows.
+	byNameOnly bool
 }
 
 // ChangeKind is what happened to a program between two looks.

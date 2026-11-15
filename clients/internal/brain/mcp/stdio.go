@@ -41,6 +41,23 @@ type Stdio struct {
 	failed error
 }
 
+// cachesOf is the folders in the home that the runtime starting a server
+// keeps its downloads in: npm's for npx, npm and node, uv's for uvx and uv,
+// none for anything else.
+func cachesOf(program, home string) []string {
+	name := strings.TrimSuffix(strings.ToLower(filepath.Base(strings.ReplaceAll(program, `\`, "/"))), ".exe")
+	name = strings.TrimSuffix(name, ".cmd")
+
+	switch name {
+	case "npx", "npm", "node", "pnpm", "yarn", "bunx", "bun":
+		return []string{filepath.Join(home, ".npm"), filepath.Join(home, ".cache")}
+	case "uvx", "uv":
+		return []string{filepath.Join(home, ".cache"), filepath.Join(home, ".local", "share", "uv")}
+	}
+
+	return nil
+}
+
 // StartStdio starts a server program.
 func StartStdio(argv []string, env []string, dir string) (*Stdio, error) {
 	if len(argv) == 0 {
@@ -60,6 +77,16 @@ func StartStdio(argv []string, env []string, dir string) (*Stdio, error) {
 	if home != "" {
 		writable = append(writable, filepath.Join(home, ".npm"), filepath.Join(home, ".cache"),
 			filepath.Join(home, ".local", "share", "uv"))
+
+		/*
+		 * A folder that is not there cannot be opened to the server, and
+		 * the server may not make it: on a home where npm had never run,
+		 * "npx -y ..." died saying it could not write its logs. The
+		 * folders this server's runtime keeps are made first.
+		 */
+		for _, cache := range cachesOf(argv[0], home) {
+			_ = os.MkdirAll(cache, 0o700)
+		}
 	}
 
 	cmd, err := sandbox.Command(context.Background(), sandbox.Spec{Dir: dir, Env: env, Writable: writable}, argv...)
