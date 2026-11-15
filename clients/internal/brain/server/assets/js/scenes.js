@@ -84,6 +84,11 @@ const stage = startStage({
 // (No stage where there is no WebGL: the page is flat and has no bar name.)
 window.addEventListener('pn-language', () => { if (stage) stage.retitle(); });
 
+// And once the page's words are first filled in: this script runs before
+// that (i18n.js fills them when the document is ready), so the first name
+// written was the English the markup carries.
+document.addEventListener('DOMContentLoaded', () => { if (stage) stage.retitle(); });
+
 /*
  * Everything waiting, on the button that shows every panel.
  *

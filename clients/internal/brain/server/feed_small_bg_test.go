@@ -282,4 +282,11 @@ func TestTheTopBarsNameIsSaidAgainWhenTheLanguageChanges(t *testing.T) {
 	if at < 0 || !strings.Contains(scenes[at:at+120], "stage.retitle()") {
 		t.Error("scenes.js does not ask the stage to say where it is again when the language changes")
 	}
+
+	// And after the page's words are first filled in, which happens after
+	// this script has run (seen in the real window: English until a turn).
+	ready := strings.Index(scenes, "document.addEventListener('DOMContentLoaded'")
+	if ready < 0 || !strings.Contains(scenes[ready:ready+120], "stage.retitle()") {
+		t.Error("scenes.js does not say the name again once the page's words are filled in")
+	}
 }
