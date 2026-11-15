@@ -442,6 +442,17 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 		}
 	}
 
+	// What cannot be used is listed by its program's name alone: its card
+	// shows no more than the reason, and a key can sit anywhere in a
+	// command or an address this program did not take apart.
+	if f.Problem != "" {
+		if len(s.Command) > 1 {
+			s.Command = s.Command[:1]
+		}
+
+		s.URL, s.Env = "", nil
+	}
+
 	f.Server = s
 	f.Print = fingerprint(s)
 

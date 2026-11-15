@@ -238,6 +238,17 @@ func TestTheFileAMenuEntryNamesInFullIsItsProgram(t *testing.T) {
 		}
 	}
 
+	// A menu entry with a place given from some folder ("bin/tool") is
+	// not a file anybody can point at: a command with the same words is
+	// whatever lies in the folder it runs in.
+	odd := rec(52, App, "tool.desktop", "Tool", "", true)
+	odd.Exec = "bin/tool"
+
+	if r := Weigh([]Record{odd}, map[int64][]Permit{52: {{Verb: VerbChange, Answer: Always}}},
+		Use{Verb: VerbChange, Path: "bin/tool", Name: "tool", Elsewhere: true}); r.Answer != AskEach || r.Program != nil {
+		t.Errorf("a place given from a folder was answered by a card: %+v", r)
+	}
+
 	for _, use := range []Use{
 		{Verb: VerbChange, Path: "/tmp/x/code", Name: "code", Elsewhere: true},
 		{Verb: VerbChange, Path: "/usr/share/code/code", Name: "code", Elsewhere: true, Wrapped: true},

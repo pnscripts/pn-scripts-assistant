@@ -185,7 +185,7 @@ func Match(records []Record, u Use) []Record {
 				// A file elsewhere shares only the name with an entry
 				// that says a bare name; an entry that names this very
 				// file in full is this program.
-				if u.Elsewhere && !filepath.IsAbs(r.Exec) && !strings.ContainsAny(r.Exec, `/\`) {
+				if u.Elsewhere && !(namedInFull(r.Exec) && namedInFull(u.Path)) {
 					byNameOnly(r)
 				} else {
 					add(r)
@@ -284,6 +284,12 @@ func startsOthers(exec string) bool {
 	}
 
 	return false
+}
+
+// namedInFull is a file given by its whole place, from the root (or a
+// Windows drive), not from whatever folder something runs in.
+func namedInFull(path string) bool {
+	return filepath.IsAbs(path) || (len(path) > 2 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
 }
 
 // sameProgram is whether a menu entry's Exec (absolute or a bare name)

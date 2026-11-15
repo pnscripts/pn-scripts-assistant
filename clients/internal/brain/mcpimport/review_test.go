@@ -75,6 +75,8 @@ func TestAKeyInTheCommandOrTheAddressIsRefusedAndNotShown(t *testing.T) {
   "userinfo": {"type": "http", "url": "https://app:hunter3zz@mcp.example.com/mcp"},
   "header":   {"command": "npx", "args": ["-y", "mcp-remote", "https://mcp.example.com/mcp", "--header", "Authorization: Bearer zz-plain-value-4"]},
   "folder":   {"command": "npx", "args": ["-y", "server-x", "--api-key", "zz-plain-value-5"], "cwd": "/home/you/server"},
+  "shell":    {"command": "sh", "args": ["-c", "tool --api-key zz-plain-value-6"]},
+  "oldway":   {"type": "sse", "url": "https://old.example.com/sse/zz-plain-value-7"},
   "fine":     {"command": "npx", "args": ["-y", "server-x", "--port", "8080", "--key-file", "/home/you/key.pem", "--max-tokens", "4096", "--author", "you", "--keyboard", "us"]},
   "fineurl":  {"type": "http", "url": "https://mcp.example.com/mcp?version=2"}
 }}`
@@ -105,7 +107,10 @@ func TestAKeyInTheCommandOrTheAddressIsRefusedAndNotShown(t *testing.T) {
 	// Nothing that is shown, or fingerprinted, carries the key.
 	shown, _ := json.Marshal(fs)
 
-	for _, key := range []string{"hunter2zz", "zz-plain-value-1", "zz-plain-value-2", "ghp_zzzz", "zz-plain-value-3", "hunter3zz", "zz-plain-value-4", "zz-plain-value-5"} {
+	for _, key := range []string{"hunter2zz", "zz-plain-value-1", "zz-plain-value-2", "ghp_zzzz", "zz-plain-value-3", "hunter3zz", "zz-plain-value-4", "zz-plain-value-5",
+		// Whatever cannot be used is listed by its program's name alone:
+		// its card shows no more, and a key may sit anywhere in the rest.
+		"zz-plain-value-6", "zz-plain-value-7"} {
 		if strings.Contains(string(shown), key) {
 			t.Errorf("%s is in what is shown: %s", key, shown)
 		}
