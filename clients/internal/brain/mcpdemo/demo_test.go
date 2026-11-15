@@ -547,7 +547,10 @@ func TestTheAssistantUsesAServerImportedFromClaudeDesktop(t *testing.T) {
 		}
 	}
 
-	if found.Key == "" || found.Problem != "" || found.Leaves {
+	// Importable, and said to be a program that may reach the internet:
+	// nothing in another program's settings says it stays on this machine
+	// (1.1.0 security review).
+	if found.Key == "" || found.Problem != "" || !found.Leaves {
 		t.Fatalf("not found as importable: %+v (all: %+v)", found, listed.Found)
 	}
 

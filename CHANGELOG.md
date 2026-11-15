@@ -199,6 +199,11 @@ whenever something visible changed.
   shown with their values, it is treated as a program that may reach the
   internet, and after its entry changes its tools are no longer taken to
   "only read" until you say so again.
+- **Fixed: an integration started with npx or uvx would not start on a
+  computer where npm or uv had never run.** It said only that npm could not
+  write its log folder. The folder its runtime keeps downloads in is now
+  there before the server starts. What starting an integration came to is
+  said on its own card, under the button you pressed, not below the list.
 
 ## 1.0.4 (2026-11-13)
 

@@ -289,7 +289,8 @@ func startsOthers(exec string) bool {
 // namedInFull is a file given by its whole place, from the root (or a
 // Windows drive), not from whatever folder something runs in.
 func namedInFull(path string) bool {
-	return filepath.IsAbs(path) || (len(path) > 2 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+	return filepath.IsAbs(path) || strings.HasPrefix(path, "/") || strings.HasPrefix(path, `\\`) ||
+		(len(path) > 2 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
 }
 
 // sameProgram is whether a menu entry's Exec (absolute or a bare name)

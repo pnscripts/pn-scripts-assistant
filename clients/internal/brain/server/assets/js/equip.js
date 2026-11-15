@@ -323,17 +323,27 @@
 
     /* ---------- integrations ---------- */
 
+    // What the last thing asked of an integration came to, said on its
+    // own card: the line under the whole list is a screen away from the
+    // button that was pressed.
+    let saidOn = null;
+
     async function act(id, action, body) {
         const said = el('int-said');
 
+        saidOn = action === 'activate' ? { id, text: T('org.intStarting', { id }) } : null;
+        said.textContent = '';
+
+        if (saidOn) integrations();
+
         try {
-            said.textContent = action === 'activate' ? T('org.intStarting', { id }) : '';
             await post('/api/integrations/' + encodeURIComponent(id) + '/' + action, body);
-            said.textContent = '';
-            integrations();
+            saidOn = null;
         } catch (err) {
-            said.textContent = err.message;
+            saidOn = { id, text: err.message, failed: true };
         }
+
+        integrations();
     }
 
     // Where an integration runs, as mcp.Server.Where says it in English.
@@ -409,6 +419,10 @@
                 for (const t of v.tools || []) {
                     item.appendChild(node('p', 'note tiny', T(t.read_only ? 'org.int.readsOnly' : 'org.int.asksFirst') + ' · ' + t.as
                         + (t.description ? ': ' + t.description : '') + (t.hint ? ' (' + t.hint + ')' : '')));
+                }
+
+                if (saidOn && saidOn.id === v.id) {
+                    item.appendChild(node('p', saidOn.failed ? 'note tiny equip-limit' : 'note tiny', saidOn.text));
                 }
 
                 const actions = node('div', 'org-actions');
