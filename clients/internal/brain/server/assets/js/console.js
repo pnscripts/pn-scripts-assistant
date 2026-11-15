@@ -113,91 +113,6 @@ function clearBoot() {
 }
 
 /*
- * renderSteps draws what the assistant did, one openable line each.
- *
- * The chips it replaces said "Search the web" and stopped there, which is a
- * category of action rather than an action: a tool called with the wrong
- * argument and a tool that is merely slow produced the same chip. Each line
- * here opens onto what was actually asked for and what came back, so watching
- * it work does not mean trusting a summary.
- *
- * Closed by default. Somebody reading an answer has not asked for four
- * screens of tool output, and the whole point of the summary is that it is
- * usually enough.
- */
-function renderSteps(steps) {
-    const box = document.createElement('div');
-    box.className = 'steps';
-
-    steps.forEach((s) => {
-        const row = document.createElement('details');
-        row.className = 'step' + (s.failed ? ' failed' : '');
-
-        const head = document.createElement('summary');
-
-        const name = document.createElement('span');
-        name.className = 'step-what';
-        name.textContent = (window.pnDidLine ? window.pnDidLine(s) : s.summary || s.tool)
-            || words('cc.didSomething');
-        head.appendChild(name);
-
-        // How long it took, beside what it was. The number is the difference
-        // between "it is thinking" and "it is stuck", and it is never visible
-        // anywhere else once the answer has arrived.
-        const time = document.createElement('span');
-        time.className = 'step-time';
-        time.textContent = s.millis >= 1000
-            ? words('cc.seconds', { n: decimal(s.millis / 1000, 1) })
-            : words('cc.millis', { n: s.millis || 0 });
-        head.appendChild(time);
-
-        row.appendChild(head);
-
-        const detail = document.createElement('div');
-        detail.className = 'step-detail';
-
-        if (s.tool) {
-            const t = document.createElement('div');
-            t.className = 'step-tool';
-            t.textContent = s.tool;
-            detail.appendChild(t);
-
-            // On a Bulgarian page the name above is the tool's own words in
-            // Bulgarian when the step carries them. When it does not, the
-            // name is the tool's, and its English summary is kept here.
-            if (inBulgarian() && s.summary && !s.summary_bg) {
-                const said = document.createElement('div');
-                said.className = 'step-tool';
-                said.textContent = s.summary;
-                detail.appendChild(said);
-            }
-        }
-
-        if (s.asked) {
-            const a = document.createElement('pre');
-            a.className = 'step-asked';
-            // textContent throughout: a tool result can hold a web page it
-            // just fetched, and rendering that as markup would turn something
-            // the model read into script running in this console.
-            a.textContent = s.asked;
-            detail.appendChild(a);
-        }
-
-        if (s.result) {
-            const r = document.createElement('pre');
-            r.className = 'step-result';
-            r.textContent = s.result;
-            detail.appendChild(r);
-        }
-
-        row.appendChild(detail);
-        box.appendChild(row);
-    });
-
-    return box;
-}
-
-/*
  * renderSources lists what an answer was built from, numbered as it cites.
  *
  * Kept by the program, not reported by the model (see the cite package): a
@@ -308,9 +223,6 @@ function openSource(where, web, button) {
     });
 }
 
-// The three speakers that are not the assistant, named in the page's language.
-const WHO = { you: 'cc.who.you', error: 'cc.who.error', system: 'cc.who.system' };
-
 function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps = [], answers = true, sources = [] } = {}) {
     clearBoot();
 
@@ -319,7 +231,7 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps =
 
     const label = document.createElement('div');
     label.className = 'who';
-    label.textContent = WHO[who] ? words(WHO[who]) : who;
+    label.textContent = window.pnTranscript.who(who);
     wrap.appendChild(label);
 
     const body = document.createElement('div');
@@ -339,8 +251,11 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps =
      * an answer replayed from history, or one that came back from a place
      * that only ever recorded the summary.
      */
+    let stepsBox = null;
+
     if (steps.length) {
-        wrap.appendChild(renderSteps(steps));
+        stepsBox = window.pnTranscript.steps(steps);
+        wrap.appendChild(stepsBox);
     } else if (actions.length) {
         const row = document.createElement('div');
         row.className = 'actions';
@@ -353,9 +268,33 @@ function addMessage(who, text, { cssClass = '', meta = '', actions = [], steps =
         wrap.appendChild(row);
     }
 
+    let sourcesBox = null;
+
     if (sources && sources.length) {
-        wrap.appendChild(renderSources(sources));
+        sourcesBox = renderSources(sources);
+        wrap.appendChild(sourcesBox);
     }
+
+    /*
+     * Said again when the page's language changes (transcript.js): who said
+     * it and what was done under it there, and here the list of sources,
+     * left open if somebody had opened it. What was said is never touched.
+     */
+    window.pnTranscript.keep(wrap, {
+        label,
+        who,
+        steps,
+        box: stepsBox,
+        also: () => {
+            if (!sourcesBox) return;
+
+            const fresh = renderSources(sources);
+
+            fresh.open = sourcesBox.open;
+            sourcesBox.replaceWith(fresh);
+            sourcesBox = fresh;
+        },
+    });
 
     // A question asked the one way (ask.Show): its answers become buttons.
     if (answers && cssClass.includes('brain')) {
