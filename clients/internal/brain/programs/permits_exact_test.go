@@ -215,3 +215,35 @@ func TestAWrappedUseIsRefusedByACardAndNeverAllowedByIt(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * A menu entry that names its program file in full is that file, wherever
+ * the bare name leads: Code's entry says /usr/share/code/code while
+ * "code" on the path is a small starter script. The tool calls that file
+ * elsewhere (it is not what the name runs), and it is still exactly the
+ * card's program.
+ */
+func TestTheFileAMenuEntryNamesInFullIsItsProgram(t *testing.T) {
+	code := rec(51, App, "code.desktop", "Code", "", true)
+	code.Exec = "/usr/share/code/code"
+
+	always := map[int64][]Permit{51: {{Verb: VerbChange, Answer: Always}, {Verb: VerbInput, Answer: Always}}}
+
+	for _, use := range []Use{
+		{Verb: VerbChange, Path: "/usr/share/code/code", Name: "code", Elsewhere: true},
+		{Verb: VerbInput, Path: "/usr/share/code/code", Elsewhere: true},
+	} {
+		if r := Weigh([]Record{code}, always, use); r.Answer != Always || r.Program == nil {
+			t.Errorf("%+v is the file the menu entry names and lost its Always: %+v", use, r)
+		}
+	}
+
+	for _, use := range []Use{
+		{Verb: VerbChange, Path: "/tmp/x/code", Name: "code", Elsewhere: true},
+		{Verb: VerbChange, Path: "/usr/share/code/code", Name: "code", Elsewhere: true, Wrapped: true},
+	} {
+		if r := Weigh([]Record{code}, always, use); r.Answer != AskEach || r.Program != nil {
+			t.Errorf("%+v was answered by Code's card: %+v", use, r)
+		}
+	}
+}

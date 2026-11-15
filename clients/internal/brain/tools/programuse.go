@@ -142,7 +142,7 @@ func (RunAsAdmin) ProgramUse(_ context.Context, raw json.RawMessage) programs.Us
 func commandUse(argv []string, dir string) programs.Use {
 	u := programs.Use{Verb: programs.VerbChange}
 
-	inside := unwrapped(argv)
+	inside, wrapped := unwrapped(argv)
 
 	if len(inside) == 0 || strings.TrimSpace(inside[0]) == "" {
 		return u
@@ -153,7 +153,7 @@ func commandUse(argv []string, dir string) programs.Use {
 	 * refuse it, and no card allows it: env can change which file runs
 	 * and what it loads, and a shell line can run anything after it.
 	 */
-	u.Wrapped = len(inside) != len(argv)
+	u.Wrapped = wrapped
 	argv = inside
 
 	first := filepath.Base(argv[0])
@@ -241,20 +241,22 @@ func ranBy(argv []string, valued map[string]bool) string {
  * unwrapped is a command line without what only wraps its program: env
  * and its settings and options, nohup, setsid, nice, ionice, timeout,
  * stdbuf, time, and a shell given one command to run (`sh -c "..."`: the
- * first command of the line). What a script or a longer shell line starts
- * further on is not followed; the guide's known limits say so.
+ * first command of the line), and whether anything wrapped it at all:
+ * said by the wrappers found, never told from how many words are left.
+ * What a script or a longer shell line starts further on is not followed;
+ * the guide's known limits say so.
  */
-func unwrapped(argv []string) []string {
+func unwrapped(argv []string) (inside []string, wrapped bool) {
 	for depth := 0; depth < 12 && len(argv) > 0; depth++ {
-		rest, wrapped := insideOf(argv)
-		if !wrapped {
-			return argv
+		rest, was := insideOf(argv)
+		if !was {
+			return argv, wrapped
 		}
 
-		argv = rest
+		argv, wrapped = rest, true
 	}
 
-	return argv
+	return argv, wrapped
 }
 
 // insideOf is what one wrapper runs, and whether argv starts with one.

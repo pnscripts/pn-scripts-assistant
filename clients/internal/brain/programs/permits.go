@@ -182,7 +182,10 @@ func Match(records []Record, u Use) []Record {
 			case desktop != "" && strings.EqualFold(id, desktop):
 				add(r)
 			case u.Path != "" && r.Exec != "" && !startsOthers(r.Exec) && sameProgram(r.Exec, u.Path):
-				if u.Elsewhere {
+				// A file elsewhere shares only the name with an entry
+				// that says a bare name; an entry that names this very
+				// file in full is this program.
+				if u.Elsewhere && !filepath.IsAbs(r.Exec) && !strings.ContainsAny(r.Exec, `/\`) {
 					byNameOnly(r)
 				} else {
 					add(r)
