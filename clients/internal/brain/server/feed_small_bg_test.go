@@ -245,3 +245,41 @@ func TestTheConversationsRedrawIsLoadedBeforeTheConsole(t *testing.T) {
 		t.Error("transcript.js is loaded before status.js, whose words it says")
 	}
 }
+
+/*
+ * The name on the top bar follows the page's language.
+ *
+ * Found in the real window with a Bulgarian system language: every panel
+ * was Bulgarian and the bar above them said "Command centre", until the
+ * first turn. The stage writes the name when it turns, and the language
+ * arrives after the first drawing (the program says which, once it has
+ * answered), so the name stayed as first drawn. The stage now says where
+ * it is again when asked (retitle), and the page asks on a change of
+ * language. Proven in the harness, which reads the bar before and after a
+ * switch; this keeps the two ends joined.
+ */
+func TestTheTopBarsNameIsSaidAgainWhenTheLanguageChanges(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "stage", "stage.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stage := string(raw)
+
+	back := stage[strings.LastIndex(stage, "\n    return {"):]
+
+	if !strings.Contains(back, "retitle: sayWhere,") {
+		t.Error("the stage does not hand back a way to say where it is again (retitle)")
+	}
+
+	scenes := readAsset(t, filepath.Join("js", "scenes.js"))
+
+	if !strings.Contains(scenes, "const stage = startStage({") {
+		t.Fatal("scenes.js no longer keeps the stage it starts")
+	}
+
+	at := strings.Index(scenes, "window.addEventListener('pn-language'")
+	if at < 0 || !strings.Contains(scenes[at:at+120], "stage.retitle()") {
+		t.Error("scenes.js does not ask the stage to say where it is again when the language changes")
+	}
+}

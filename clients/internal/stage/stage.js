@@ -1328,5 +1328,8 @@ export function startStage(options) {
         },
         openOverview,
         closeOverview,
+        // The name of the panel in front, said again: its words can change
+        // (another language) without the stage having turned.
+        retitle: sayWhere,
     };
 }

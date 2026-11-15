@@ -179,7 +179,9 @@ whenever something visible changed.
   the list of sources. Before, they kept the language they were first drawn
   in until the page was reloaded. A line you had opened stays open, and what
   the two of you said is never changed. On a Bulgarian page a step in Doing
-  now that says only how long it took reads "0 мс", not "0ms".
+  now that says only how long it took reads "0 мс", not "0ms". The name of
+  the panel on the top bar follows the language too: with a Bulgarian system
+  language it said "Command centre" until the first turn.
 - **Security review of the program cards and imported servers.** Before
   release an independent review found, and this fixes: a program's "Always"
   answered for any file with the same name (a file called gimp in a

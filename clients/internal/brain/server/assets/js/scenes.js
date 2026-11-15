@@ -55,7 +55,7 @@ function statusColour() {
     return getComputedStyle(document.documentElement).getPropertyValue(`--status-${status}`).trim();
 }
 
-startStage({
+const stage = startStage({
     frame: document.querySelector('.main'),
     panels: [...entryOf.keys()],
     fill: true,
@@ -78,6 +78,11 @@ startStage({
         next: document.getElementById('stage-next'),
     },
 });
+
+// The name on the bar is the page's own word for the panel, and the page's
+// language can arrive after the first drawing: said again when it changes.
+// (No stage where there is no WebGL: the page is flat and has no bar name.)
+window.addEventListener('pn-language', () => { if (stage) stage.retitle(); });
 
 /*
  * Everything waiting, on the button that shows every panel.
