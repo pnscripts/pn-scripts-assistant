@@ -115,3 +115,37 @@ func TestAHeldQuestionCanStopAnsweringItself(t *testing.T) {
 		t.Fatalf("%+v", pending)
 	}
 }
+
+// Who asked is kept with a held question, so it can be judged again as
+// theirs when the quiet hours open (1.1.0 security review).
+func TestAHeldQuestionRemembersWhoAsked(t *testing.T) {
+	db := open(t)
+
+	id, err := db.RecordInvocation(7, "run_command", `{"argv":["ls"]}`, "Run ls", "mutating")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.AnswersItselfInQuietHoursFor(id, "developer"); err != nil {
+		t.Fatal(err)
+	}
+
+	waiting, err := db.WaitingForQuietHours()
+	if err != nil || len(waiting) != 1 || waiting[0].AskedAs != "developer" {
+		t.Fatalf("waiting: %+v, %v", waiting, err)
+	}
+
+	if one, err := db.Invocation(id); err != nil || one.AskedAs != "developer" || !one.AnswersItself {
+		t.Fatalf("read back: %+v, %v", one, err)
+	}
+
+	// One marked the old way was asked by nobody in particular.
+	old, _ := db.RecordInvocation(7, "run_command", `{"argv":["ls"]}`, "Run ls", "mutating")
+	if err := db.AnswersItselfInQuietHours(old); err != nil {
+		t.Fatal(err)
+	}
+
+	if one, _ := db.Invocation(old); one.AskedAs != "" {
+		t.Fatalf("asked as %q", one.AskedAs)
+	}
+}

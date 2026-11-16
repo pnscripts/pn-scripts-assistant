@@ -39,6 +39,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 
 	"pn-scripts-assistant/internal/brain/mcp"
 )
@@ -357,7 +358,7 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 	 * and kept as plain words, which is no place for a password. In a
 	 * setting (env) or a header it is sealed instead.
 	 */
-	if credentialIn(e.Args) || credentialInAddress(e.URL) {
+	if credentialIn(e.Command, e.Args) || credentialInAddress(e.URL) {
 		// Whatever else is wrong with it, the key is not listed.
 		if f.Problem == "" {
 			f.Problem = ProblemCredential
@@ -454,7 +455,7 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 	}
 
 	f.Server = s
-	f.Print = fingerprint(s)
+	f.Print = fingerprint(s, f.Secrets)
 
 	return f
 }
@@ -480,8 +481,6 @@ func loadsOtherCode(name string) bool {
 	return strings.HasPrefix(n, "LD_") || strings.HasPrefix(n, "DYLD_") || strings.HasPrefix(n, "NPM_CONFIG_")
 }
 
-// A flag named for a credential: one of these as a whole word of its name
-// (--api-key, --auth-token; not --max-tokens, --author, --keyboard).
 // shownAlways is a setting that is never kept as a secret: it decides
 // which programs are found, so its value belongs on the card.
 func shownAlways(name string) bool {
@@ -490,42 +489,201 @@ func shownAlways(name string) bool {
 	return n == "PATH" || n == "HOME"
 }
 
-var credentialFlag = regexp.MustCompile(`(?i)^--?([a-z0-9]+[_.-])*(key|apikey|token|secret|password|passwd|pwd|pass|credential|credentials|bearer|auth|authorization)([_.-][a-z0-9]+)*$`)
-
-// A header written out as an argument ("Authorization: Bearer ...").
-var credentialHeader = regexp.MustCompile(`(?i)(^|\s)(authorization|proxy-authorization|x-api-key|api-key|cookie)\s*:|bearer\s+\S`)
-
-// A flag whose value is a file or a name, not the credential itself.
-var credentialElsewhere = regexp.MustCompile(`(?i)(file|path|dir|name|env|var|type|url|uri|endpoint|method|mode|scope)s?$`)
+// The words of a flag's name that say its value is a credential.
+var credentialWords = map[string]bool{
+	"key": true, "apikey": true, "token": true, "secret": true, "password": true, "passwd": true, "pwd": true,
+	"pass": true, "passphrase": true, "credential": true, "credentials": true, "bearer": true, "auth": true,
+	"authorization": true,
+}
 
 /*
- * credentialIn is whether a command's arguments carry a key or a
- * password: a value shaped like a known kind of key, an address with a
- * password in it, or the value of a flag named for one (--api-key X,
- * --token=X; not --key-file, whose value is a place).
+ * The words after it that say the value is something else: a place or a
+ * name (--key-file, --token-env), or a number, a choice or a switch
+ * about credentials (--token-limit, --key-bindings, --pass-through).
  */
-func credentialIn(args []string) bool {
-	for i, a := range args {
-		if secretValue.MatchString(a) || userInURL.MatchString(a) || credentialInAddress(a) || credentialHeader.MatchString(a) {
-			return true
+var notTheCredential = map[string]bool{
+	"file": true, "path": true, "dir": true, "name": true, "env": true, "var": true, "type": true, "url": true,
+	"uri": true, "endpoint": true, "method": true, "mode": true, "scope": true,
+	"limit": true, "count": true, "budget": true, "length": true, "size": true, "max": true, "min": true,
+	"ttl": true, "expiry": true, "expiration": true, "timeout": true, "lifetime": true, "cache": true,
+	"binding": true, "bind": true, "through": true, "thru": true, "format": true, "algorithm": true,
+	"required": true, "enabled": true, "disabled": true, "prefix": true, "header": true, "location": true,
+}
+
+// Words that make a flag a switch, whatever follows them.
+var switchWords = map[string]bool{"no": true, "disable": true, "skip": true, "without": true, "ignore": true,
+	"enable": true, "require": true, "allow": true, "insecure": true}
+
+/*
+ * flagWords is a flag's name as lower-case words: split at "-", "_" and
+ * ".", and where a capital follows a small letter (--accessToken is
+ * access, token; --API_KEY is api, key).
+ */
+func flagWords(flag string) []string {
+	var (
+		words []string
+		cur   []rune
+	)
+
+	end := func() {
+		if len(cur) > 0 {
+			words = append(words, strings.ToLower(string(cur)))
+			cur = cur[:0]
+		}
+	}
+
+	var last rune
+
+	for _, c := range strings.TrimLeft(flag, "-") {
+		switch {
+		case c == '-' || c == '_' || c == '.':
+			end()
+		case unicode.IsUpper(c) && unicode.IsLower(last):
+			end()
+			cur = append(cur, c)
+		default:
+			cur = append(cur, c)
 		}
 
-		flag, value, joined := strings.Cut(a, "=")
+		last = c
+	}
 
-		if !strings.HasPrefix(flag, "-") || !credentialFlag.MatchString(flag) || credentialElsewhere.MatchString(flag) {
+	end()
+
+	return words
+}
+
+/*
+ * credentialFlag is whether a flag is named for a credential that is its
+ * value: a credential word among its words (--api-key, --auth-token,
+ * --accessToken; not --max-tokens, --author, --keyboard), unless the
+ * words after it say the value is something else. A plural (--key-files,
+ * --token-limits) counts as its word.
+ */
+func credentialFlag(flag string) bool {
+	if !strings.HasPrefix(flag, "-") {
+		return false
+	}
+
+	words := flagWords(flag)
+
+	for i, w := range words {
+		// "--no-auth", "--skip-token-check": a switch about credentials.
+		if switchWords[w] {
+			return false
+		}
+
+		if !credentialWords[w] {
 			continue
 		}
 
-		if joined && value != "" {
-			return true
+		value := true
+
+		for _, after := range words[i+1:] {
+			if notTheCredential[after] || notTheCredential[strings.TrimSuffix(after, "s")] {
+				value = false
+
+				break
+			}
 		}
 
-		if !joined && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+		if value {
 			return true
 		}
 	}
 
 	return false
+}
+
+// A header written out as an argument ("Authorization: Bearer ...").
+var credentialHeader = regexp.MustCompile(`(?i)(^|\s)(authorization|proxy-authorization|x-api-key|api-key|cookie)\s*:`)
+
+// "Bearer" and what follows it, which is a key when it is shaped like
+// one: a digit in it, or 20 characters and more ("bearer tokens" in a
+// description is words).
+var afterBearer = regexp.MustCompile(`(?i)\bbearer\s+(\S+)`)
+
+func bearerKey(arg string) bool {
+	for _, m := range afterBearer.FindAllStringSubmatch(arg, -1) {
+		if len(m[1]) >= 20 || strings.ContainsAny(m[1], "0123456789") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// A value that is plainly not a key: a switch or a number.
+var plainValue = regexp.MustCompile(`(?i)^(true|false|yes|no|on|off|none|null|auto|-?[0-9]+([.,][0-9]+)?)$`)
+
+// Programs whose own "-p" names a package or a Python, before the
+// program they run is named.
+var packageRunners = map[string]bool{"npx": true, "bunx": true, "pnpx": true, "uvx": true, "uv": true, "pnpm": true, "npm": true, "yarn": true, "pipx": true}
+
+// After "-p": a port, ports mapped, a version, or a place.
+var notAPassword = regexp.MustCompile(`^([0-9]+([.:][0-9]+)*|[.~]?[/\\].*|\.\.?|[A-Za-z]:[/\\].*)$`)
+
+/*
+ * credentialIn is whether a command's arguments carry a key or a
+ * password: a value shaped like a known kind of key, an address with a
+ * password in it, the value of a flag named for one (--api-key X,
+ * --token=X, --accessToken=X; not --key-file, whose value is a place,
+ * nor --token-limit, whose value is a number), or the word after "-p",
+ * the short flag for a password (sshpass, mongosh and many servers),
+ * unless it is a number, ports, a place, or a package runner's own "-p"
+ * before the program it runs.
+ */
+func credentialIn(program string, args []string) bool {
+	runner := packageRunners[strings.ToLower(strings.TrimSuffix(filepath.Base(strings.ReplaceAll(program, `\`, "/")), ".exe"))]
+
+	for i, a := range args {
+		// A runner's own options end at the first word that is not one
+		// (the package, or the program to run).
+		if runner && !strings.HasPrefix(a, "-") && (i == 0 || !runnersValue(args[i-1])) {
+			runner = false
+		}
+
+		if keyShaped(a) || userInURL.MatchString(a) || credentialInAddress(a) || credentialHeader.MatchString(a) || bearerKey(a) {
+			return true
+		}
+
+		if a == "-p" && !runner && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && !notAPassword.MatchString(args[i+1]) {
+			return true
+		}
+
+		flag, value, joined := strings.Cut(a, "=")
+
+		if !credentialFlag(flag) {
+			continue
+		}
+
+		if joined && value != "" && !plainValue.MatchString(value) {
+			return true
+		}
+
+		if !joined && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && !plainValue.MatchString(args[i+1]) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// runnersValue is whether a package runner's option takes the next word
+// as its value (-p <package>, --package <package>, --python <version>).
+func runnersValue(option string) bool {
+	switch option {
+	case "-p", "--package", "--python", "--from", "--with", "-c", "--call", "--index", "--registry":
+		return true
+	}
+
+	return false
+}
+
+// keyShaped is a value that starts like a known kind of key. "Bearer "
+// is weighed by what follows it (bearerKey).
+func keyShaped(v string) bool {
+	return secretValue.MatchString(v) && !strings.HasPrefix(v, "Bearer ")
 }
 
 // credentialInAddress is whether an address carries a password before its
@@ -596,10 +754,17 @@ func unresolved(v string) (string, bool) {
 	return "${" + m[1] + "}", strings.HasPrefix(m[1], "input:")
 }
 
-// fingerprint is a server's definition without its secret values: a
-// changed command, address, setting or secret name changes it, a new key
-// does not.
-func fingerprint(s mcp.Server) string {
+/*
+ * fingerprint is a server's definition without its keys: a changed
+ * command, address, setting or secret name changes it, a new key under a
+ * name that says it is one (API_KEY, a header) does not.
+ *
+ * A setting hidden only for the look of its value ("sk-...", under a
+ * name that says nothing) is not known to be a key, so its value counts,
+ * as a digest: changed, the entry is a changed one and is asked about
+ * again, like any other setting.
+ */
+func fingerprint(s mcp.Server, values map[string]string) string {
 	keys := make([]string, 0, len(s.Env))
 	for k := range s.Env {
 		keys = append(keys, k)
@@ -621,6 +786,11 @@ func fingerprint(s mcp.Server) string {
 
 	for _, k := range s.Secrets {
 		b.WriteString("secret " + k + "\n")
+
+		if s.Transport == "stdio" && !secretName.MatchString(k) {
+			sum := sha256.Sum256([]byte(values[k]))
+			b.WriteString("value " + hex.EncodeToString(sum[:]) + "\n")
+		}
 	}
 
 	sum := sha256.Sum256([]byte(b.String()))

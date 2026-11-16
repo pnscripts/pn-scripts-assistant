@@ -28,31 +28,40 @@ against the code on 9 November 2026.
   every 10 minutes instead of at once. Menu entries more than three folders
   deep are not read.
 - **Choices per program: three kinds of use.** A program's card decides
-  starting it, typing and clicking in its windows (the window under the
-  click, or the one in front for typing, read from X11; on Wayland and
-  Windows the window's program is not known, so typing and clicking are
-  asked) and running it as a command (the program the command names; a
-  program started by a script or another program is not followed). A
-  command is read through `env`, `nohup`, `setsid`, `nice`, `ionice`,
-  `timeout`, `stdbuf` and a shell given one command (`sh -c "..."`, its first
-  command); what a longer shell line or a script starts after that is not
-  seen, so a "never" does not reach it. "Always" answers only for the program
-  itself, run plainly: the file its name runs here (the first one found where
-  programs are looked for, your own folders such as `~/.local/bin` included).
-  Run through any of those wrappers, or as administrator, a program can be
-  refused by its card and is never allowed by it, so it is asked about. A
-  file elsewhere that only shares the name (in `/opt` too) is asked about and
-  is not shown under the program's name, and a menu entry that starts its program through
-  another one (`flatpak`, `python3`, `sh`, `env`, `java` and the like) is
-  known by its menu entry, Flatpak or snap, not by that other program's file.
-  An "always" on a menu entry has no version to follow, so it stays after an
-  update; on a snap, a Flatpak or a package it is asked again after one.
-  Typing approved at the desk goes to the window in front at that moment; a
-  "never" on that window's program still refuses it. A
-  package's choice is found through `dpkg-query -S` only when some package
-  has one. A question about a program offers "Always for <program>" only
-  when the program is known (a window or command it cannot place offers the
-  tool-wide "Always" alone). Scrolling is not tied to a program.
+  starting it, typing and clicking in its windows (the window under the click,
+  or the one in front for typing, read from X11; on Wayland and Windows the
+  window's program is not known, so typing and clicking are asked) and running
+  it as a command (the program the command names; a program started by a
+  script file or by another program is not followed). A command is read
+  through `env`, `nohup`, `setsid`, `nice`, `ionice`, `timeout`, `stdbuf`,
+  `sudo`, `doas`, `pkexec`, `xargs`, `busybox`, `script -c`, `systemd-run`,
+  `eval` and a shell given a line (`sh -c "..."`). A "never" reaches every
+  command of such a line, the lines inside it too, and every program a
+  one-line script names (`python3 -c`, `perl -e`, `node -e`, `php -r`); it
+  does not reach what a script file starts, a name the line puts together
+  while it runs (from a variable, or in pieces), or a command handed to
+  `find -exec` and the like. "Always" answers only for the program itself, run
+  plainly: the file its name runs here (the first one found where programs are
+  looked for, your own folders such as `~/.local/bin` included). Run through
+  any of those wrappers, or as administrator, a program can be refused by its
+  card and is never allowed by it, so it is asked about. A file elsewhere that
+  only shares the name (in `/opt` too) is asked about and is not shown under
+  the program's name, and a menu entry that starts its program through another
+  one (`flatpak`, `python3`, `sh`, `env`, `java` and the like) is known by its
+  menu entry, Flatpak or snap, not by that other program's file. An "always"
+  on a menu entry, which has no version, is given to its Exec line and to the
+  file that line really starts (where it is, its size and its times; its
+  contents are not read): after an update, a changed Exec line, or a
+  same-named file put earlier where programs are looked for, it is asked
+  again, and an "always" given by 1.1.0 is asked about once. On a snap, a
+  Flatpak or a package it is asked again after an update. A Windows program
+  that states no version has nothing of the kind to follow yet, so its
+  "always" stays. Typing approved at the desk goes to the window in front at
+  that moment; a "never" on that window's program still refuses it. A
+  package's choice is found through `dpkg-query -S` only when some package has
+  one. A question about a program offers "Always for <program>" only when the
+  program is known (a window or command it cannot place offers the tool-wide
+  "Always" alone). Scrolling is not tied to a program.
 - **"Stop using other programs" covers the program tools.** It stops
   opening, typing, clicking, scrolling and running commands, as administrator
   too, and none of these is started in the background. It does not

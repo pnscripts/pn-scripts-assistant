@@ -385,3 +385,76 @@ func TestAQuestionAboutNoKnownProgramCarriesNone(t *testing.T) {
 		t.Errorf("a question about no known program names one: %+v", inv)
 	}
 }
+
+// alsoRunning is a tool whose call starts more than the program it names.
+type alsoRunning struct{ usingAProgram }
+
+func (alsoRunning) AlsoRuns(context.Context, json.RawMessage) []programs.Use {
+	return []programs.Use{{Verb: programs.VerbChange, Name: "echo", Wrapped: true}, {Verb: programs.VerbChange, Name: "krita", Wrapped: true}}
+}
+
+/*
+ * Leftover of the 1.1.0 security review: a "never" on a program's card
+ * refuses a call that would start it after its first command too (the
+ * rest of a shell line), under any setting; without one, nothing changes.
+ */
+func TestANeverOnAnyProgramOfTheLineRefusesTheCall(t *testing.T) {
+	turn := func(refuse bool) (int, Result, [][]programs.Use, []string) {
+		t.Helper()
+
+		ran := 0
+		loop, db := newLoop(t, alsoRunning{usingAProgram{counted{name: "open_app", ran: &ran}, programs.VerbChange}})
+
+		var weighed [][]programs.Use
+
+		loop.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Allow }
+		loop.NothingAsks = func() bool { return true }
+		loop.Programs = func(context.Context, programs.Use) programs.Ruling { return programs.Ruling{Answer: programs.AskEach} }
+		loop.AlsoRefused = func(_ context.Context, uses []programs.Use) programs.Ruling {
+			weighed = append(weighed, uses)
+
+			if refuse {
+				return programs.Ruling{Answer: programs.Never, Why: programs.WhyRefused, Program: krita(true), Said: "Refused: the owner has set Krita to never run it as a command."}
+			}
+
+			return programs.Ruling{Answer: programs.AskEach}
+		}
+
+		conv, _ := db.NewConversation("t")
+
+		res, err := loop.RunBrief(context.Background(), conv, askingFor("open_app"), nil, Brief{WithTools: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		msgs, _ := db.History(conv)
+
+		var told []string
+
+		for _, m := range msgs {
+			if m.Role == llm.RoleTool {
+				told = append(told, m.Content)
+			}
+		}
+
+		return ran, res, weighed, told
+	}
+
+	ran, res, weighed, told := turn(true)
+
+	if ran != 0 || len(res.Pending) != 0 {
+		t.Fatalf("a call that starts a refused program ran (%d) or was asked about (%d)", ran, len(res.Pending))
+	}
+
+	if len(weighed) != 1 || len(weighed[0]) != 2 || weighed[0][1].Name != "krita" {
+		t.Errorf("weighed %+v", weighed)
+	}
+
+	if !strings.Contains(strings.Join(told, "\n"), "set Krita to never") {
+		t.Errorf("the model was not told why: %q", told)
+	}
+
+	if ran, _, _, _ := turn(false); ran != 1 {
+		t.Errorf("with nothing against it, it ran %d times", ran)
+	}
+}

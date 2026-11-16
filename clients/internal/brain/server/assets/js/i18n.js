@@ -163,6 +163,10 @@
             'Allowed for version {from}. It is {to} now, so I ask again until you press Always.',
             'Разрешено за версия {from}. Сега е {to}, затова питам отново, докато не натиснете „Винаги“.',
         ],
+        'prg.state.asleepEntry': [
+            'Allowed before its menu entry or the file it starts changed, so I ask again until you press Always.',
+            'Разрешено, преди записът ѝ в менюто или файлът, който той стартира, да се промени, затова питам отново, докато не натиснете „Винаги“.',
+        ],
         'prg.state.notHonoured': [
             'Your general setting asks every time, so I ask anyway.',
             'Общата ви настройка е да питам всеки път, затова питам въпреки това.',
@@ -209,6 +213,10 @@
         'prg.ap.alwaysTitlePlain': [
             'Approve this, and stop asking about this use of {name}: {verb}. Only {name}.',
             'Одобри това и не питай повече за тази употреба на {name}: {verb}. Само за {name}.',
+        ],
+        'prg.ap.alwaysTitleEntry': [
+            'Approve this, and stop asking about this use of {name}: {verb}. Only {name}; I ask again if its menu entry or the file it starts changes.',
+            'Одобри това и не питай повече за тази употреба на {name}: {verb}. Само за {name}; питам отново, ако записът ѝ в менюто или файлът, който той стартира, се промени.',
         ],
         'prg.ap.any': ['Always, any program', 'Винаги, за всяка програма'],
         'prg.ap.anyTitle': [
@@ -3911,6 +3919,10 @@
         'org.int.readsOnly': ['reads only', 'само чете'],
         'org.int.asksFirst': ['asks first', 'първо пита'],
         'org.int.approve': ['Approve for my assistant', 'Одобри за асистента ми'],
+        'org.int.changed': [
+            'Not approved: it changed after this page showed it. It is shown here as it is now. Look at it again before approving it.',
+            'Не е одобрена: интеграцията е променена, след като тази страница я показа. Тук вече е показана както е сега. Прегледайте я отново, преди да я одобрите.',
+        ],
         'org.int.stop': ['Stop it', 'Спри'],
         'org.int.revoke': ['Withdraw approval', 'Оттегли одобрението'],
         'org.int.remove': ['Remove', 'Премахни'],
@@ -3940,6 +3952,10 @@
         ],
         'org.imp.imported': ['imported as {id}', 'внесен като {id}'],
         'org.imp.import': ['Import', 'Внеси'],
+        'org.imp.changed': [
+            'Not imported: it changed in the other program\'s settings after this page showed it. It is shown here as it is now. Look at it again, then import it if you still want it.',
+            'Не е внесен: записът е променен в настройките на другата програма, след като тази страница го показа. Тук вече е показан както е сега. Прегледайте го отново и го внесете, ако още го искате.',
+        ],
         'org.imp.cannot': ['Cannot be used as written there: {why}', 'Не може да се използва така, както е записан там: {why}'],
         'org.imp.p.shell': [
             'it runs a shell ({detail}); a shell could run anything under its name',

@@ -129,6 +129,512 @@ func (RunAsAdmin) ProgramUse(_ context.Context, raw json.RawMessage) programs.Us
 }
 
 /*
+ * AlsoRunning is a tool whose call can start more programs than the one
+ * ProgramUse names: the other commands of a shell line, the programs a
+ * one-line script names. Each is said as a use that can only be refused
+ * (Wrapped): a "never" on any of their cards, or a removal, refuses the
+ * whole call; no card's "always" answers for them.
+ */
+type AlsoRunning interface {
+	AlsoRuns(ctx context.Context, args json.RawMessage) []programs.Use
+}
+
+// AlsoRunsOf is the other programs a call would start, nil for a tool
+// that says none.
+func AlsoRunsOf(ctx context.Context, t Tool, args json.RawMessage) []programs.Use {
+	a, ok := t.(AlsoRunning)
+	if !ok {
+		return nil
+	}
+
+	return a.AlsoRuns(ctx, args)
+}
+
+func (RunCommand) AlsoRuns(_ context.Context, raw json.RawMessage) []programs.Use {
+	var a commandArgs
+
+	_ = json.Unmarshal(raw, &a)
+
+	return alsoRun(a.Argv, a.Dir)
+}
+
+func (RunAsAdmin) AlsoRuns(_ context.Context, raw json.RawMessage) []programs.Use {
+	var a adminArgs
+
+	_ = json.Unmarshal(raw, &a)
+
+	return alsoRun(a.Argv, "")
+}
+
+/*
+ * alsoRun is every program a command line names beyond its first: each
+ * command of a shell line (`sh -c "a; b && c"`, `script -c`, `eval`, and
+ * the lines inside those), seen through what wraps it, and every word of a
+ * one-line script (`python3 -c`, `perl -e`, `node -e`) that is a program
+ * here. Each one once. A plain command says none.
+ */
+func alsoRun(argv []string, dir string) []programs.Use {
+	var out []programs.Use
+
+	seen := map[programs.Use]bool{}
+	tried := map[string]bool{}
+
+	add := func(cmd []string) bool {
+		key := strings.Join(cmd, "\x00")
+		if tried[key] {
+			return false
+		}
+
+		tried[key] = true
+
+		u := commandUse(cmd, dir)
+		u.Wrapped = true
+
+		if !u.Empty() && !seen[u] {
+			seen[u] = true
+			out = append(out, u)
+		}
+
+		return true
+	}
+
+	var walk func(argv []string, depth int)
+
+	walk = func(argv []string, depth int) {
+		for step := 0; step < 12 && len(argv) > 0 && depth < 8; step++ {
+			if line, ok := lineOf(argv); ok {
+				for _, cmd := range commandsOf(line, 0) {
+					if add(cmd) {
+						walk(cmd, depth+1)
+					}
+				}
+
+				return
+			}
+
+			if code, ok := codeOf(argv); ok {
+				for _, word := range programWords(code) {
+					add([]string{word})
+				}
+
+				return
+			}
+
+			rest, was := insideOf(argv)
+			if !was {
+				return
+			}
+
+			argv = rest
+		}
+	}
+
+	walk(argv, 0)
+
+	return out
+}
+
+// The shells that run a line given after -c.
+var shellNames = map[string]bool{"sh": true, "bash": true, "dash": true, "zsh": true, "ksh": true, "fish": true, "ash": true}
+
+/*
+ * lineOf is the shell line a command hands over to be run: a shell's
+ * `-c "..."` (also among other letters, "-lc"), `script -c "..."`, and
+ * whether there is one.
+ */
+func lineOf(argv []string) (string, bool) {
+	if len(argv) == 0 {
+		return "", false
+	}
+
+	rest := argv[1:]
+
+	switch base := filepath.Base(argv[0]); {
+	case shellNames[base]:
+		for i := 0; i < len(rest); i++ {
+			word := rest[i]
+
+			if !strings.HasPrefix(word, "-") || word == "--" {
+				break
+			}
+
+			if strings.HasPrefix(word, "--") {
+				continue
+			}
+
+			// "-c", or letters with it among them ("-lc", "-ce").
+			if strings.Contains(word[1:], "c") {
+				if i+1 >= len(rest) {
+					return "", false
+				}
+
+				return rest[i+1], true
+			}
+
+			// "-o errexit": the option's name is the next word.
+			if strings.HasSuffix(word, "o") {
+				i++
+			}
+		}
+	case base == "script":
+		for i := 0; i < len(rest); i++ {
+			word := rest[i]
+
+			switch {
+			case word == "--":
+				return "", false
+			case strings.HasPrefix(word, "--command="):
+				return strings.TrimPrefix(word, "--command="), true
+			case word == "--command":
+				if i+1 < len(rest) {
+					return rest[i+1], true
+				}
+
+				return "", false
+			case strings.HasPrefix(word, "--"):
+				if !strings.Contains(word, "=") && scriptValued[word] {
+					i++
+				}
+			case strings.HasPrefix(word, "-") && len(word) > 1:
+				// Letters together ("-qc"): the last one may take the
+				// next word, and "c" takes the line.
+				last := word[len(word)-1]
+
+				if i := strings.IndexByte(word[1:], 'c'); i >= 0 && i+2 < len(word) {
+					// "-cfirefox": the line is the rest of the word.
+					return word[i+2:], true
+				}
+
+				if last == 'c' {
+					if i+1 < len(rest) {
+						return rest[i+1], true
+					}
+
+					return "", false
+				}
+
+				if strings.IndexByte("IOBTmEo", last) >= 0 {
+					i++
+				}
+			}
+		}
+	}
+
+	return "", false
+}
+
+var scriptValued = map[string]bool{"--log-in": true, "--log-out": true, "--log-io": true, "--log-timing": true,
+	"--logging-format": true, "--echo": true, "--output-limit": true}
+
+// Words a shell command may open with that are not its program.
+var shellKeywords = map[string]bool{"if": true, "then": true, "else": true, "elif": true, "fi": true, "do": true, "done": true,
+	"while": true, "until": true, "for": true, "case": true, "esac": true, "in": true, "!": true, "{": true, "}": true,
+	"time": true, "exec": true, "command": true, "builtin": true, "function": true}
+
+/*
+ * commandsOf is every command of a shell line, as words: split where a
+ * shell ends a command (; & | newline, brackets), quotes honoured, what is
+ * substituted ($(...), backquotes, inside double quotes too) read as
+ * commands of its own, redirections and their files left out, settings
+ * and keywords in front dropped, and a line given to eval read again.
+ * Quotes that never close are read as if they were not there, so nothing
+ * hides behind a broken line.
+ */
+func commandsOf(line string, depth int) [][]string {
+	if depth > 8 {
+		return nil
+	}
+
+	var (
+		out    [][]string
+		words  []string
+		cur    strings.Builder
+		any    bool // a word is open (an empty quoted one too)
+		skip   bool // the next word is a redirection's file
+		nested []string
+	)
+
+	endWord := func() {
+		if !any {
+			return
+		}
+
+		if skip {
+			skip = false
+		} else {
+			words = append(words, cur.String())
+		}
+
+		cur.Reset()
+
+		any = false
+	}
+
+	endCommand := func() {
+		endWord()
+
+		skip = false
+
+		for len(words) > 0 {
+			w := words[0]
+
+			if w == "eval" {
+				nested = append(nested, strings.Join(words[1:], " "))
+				words = nil
+
+				break
+			}
+
+			if !shellKeywords[w] && !(strings.Contains(w, "=") && !strings.ContainsAny(w, `/\`) && !strings.HasPrefix(w, "=")) {
+				break
+			}
+
+			words = words[1:]
+		}
+
+		if len(words) > 0 {
+			out = append(out, words)
+		}
+
+		words = nil
+	}
+
+	// closing is where the substitution opened before i ends: the
+	// matching bracket (nested ones counted) or the next backquote.
+	closing := func(i int, backquote bool) int {
+		open := 1
+
+		for j := i; j < len(line); j++ {
+			switch c := line[j]; {
+			case c == '\\':
+				j++
+			case backquote && c == '`':
+				return j
+			case !backquote && c == '(':
+				open++
+			case !backquote && c == ')':
+				if open--; open == 0 {
+					return j
+				}
+			}
+		}
+
+		return -1
+	}
+
+	quote := byte(0)
+
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+
+		// What is substituted is a line of its own, in or out of
+		// double quotes.
+		if quote != '\'' && (c == '`' || (c == '$' && i+1 < len(line) && line[i+1] == '(')) {
+			from := i + 1
+			if c == '$' {
+				from = i + 2
+			}
+
+			if end := closing(from, c == '`'); end >= 0 {
+				nested = append(nested, line[from:end])
+				any = true
+				i = end
+
+				continue
+			}
+		}
+
+		switch {
+		case quote == '\'':
+			if c == '\'' {
+				quote = 0
+			} else {
+				cur.WriteByte(c)
+			}
+		case quote == '"':
+			switch {
+			case c == '"':
+				quote = 0
+			case c == '\\' && i+1 < len(line):
+				i++
+				cur.WriteByte(line[i])
+			default:
+				cur.WriteByte(c)
+			}
+		case c == '\'' || c == '"':
+			quote, any = c, true
+		case c == '\\' && i+1 < len(line):
+			i++
+
+			if line[i] != '\n' {
+				cur.WriteByte(line[i])
+
+				any = true
+			}
+		case c == ' ' || c == '\t':
+			endWord()
+		case c == ';' || c == '&' || c == '|' || c == '\n' || c == '(' || c == ')' || c == '`':
+			endCommand()
+		case c == '<' || c == '>':
+			// "2>file", ">>file", ">&2": the number before it and the
+			// file after it are no words of the command.
+			if any && strings.Trim(cur.String(), "0123456789") == "" {
+				cur.Reset()
+
+				any = false
+			}
+
+			endWord()
+
+			for i+1 < len(line) && (line[i+1] == '>' || line[i+1] == '<' || line[i+1] == '&') {
+				i++
+			}
+
+			skip = true
+		default:
+			cur.WriteByte(c)
+
+			any = true
+		}
+	}
+
+	// A quote that never closed: nothing may hide behind it.
+	if quote != 0 {
+		return commandsOf(strings.NewReplacer(`'`, " ", `"`, " ").Replace(line), depth+1)
+	}
+
+	endCommand()
+
+	for _, n := range nested {
+		out = append(out, commandsOf(n, depth+1)...)
+	}
+
+	return out
+}
+
+// The option after which a language's program takes its code on the
+// command line, by the program's name without its version.
+var codeOptions = map[string]string{"python": "c", "pypy": "c", "perl": "eE", "ruby": "e", "node": "ep", "nodejs": "ep",
+	"php": "r", "lua": "e", "bun": "e", "deno": ""}
+
+/*
+ * codeOf is the code a language's program is given on its command line
+ * (`python3 -c "..."`, `perl -e`, `node -e`, `php -r`, `deno eval`), and
+ * whether there is any before the first word that is not an option.
+ */
+func codeOf(argv []string) (string, bool) {
+	if len(argv) < 2 {
+		return "", false
+	}
+
+	base := strings.ToLower(strings.TrimSuffix(filepath.Base(argv[0]), ".exe"))
+	family := strings.TrimRight(base, "0123456789.-")
+
+	letters, known := codeOptions[family]
+	if !known {
+		return "", false
+	}
+
+	rest := argv[1:]
+
+	if family == "deno" {
+		if rest[0] == "eval" && len(rest) > 1 {
+			return strings.Join(rest[1:], " "), true
+		}
+
+		return "", false
+	}
+
+	var code []string
+
+	for i := 0; i < len(rest); i++ {
+		word := rest[i]
+
+		if !strings.HasPrefix(word, "-") || word == "-" || word == "--" {
+			break
+		}
+
+		if word == "--eval" || word == "--print" || word == "--execute" || word == "--run" {
+			if i+1 < len(rest) {
+				code = append(code, rest[i+1])
+				i++
+			}
+
+			continue
+		}
+
+		if strings.HasPrefix(word, "--") {
+			if _, v, ok := strings.Cut(word, "="); ok && (strings.HasPrefix(word, "--eval=") || strings.HasPrefix(word, "--print=")) {
+				code = append(code, v)
+			}
+
+			continue
+		}
+
+		// "-c code", "-ne code": the code letter last, the code next.
+		if strings.IndexByte(letters, word[len(word)-1]) >= 0 && i+1 < len(rest) {
+			code = append(code, rest[i+1])
+			i++
+
+			// Python runs the code and takes the rest as its arguments.
+			if family == "python" || family == "pypy" {
+				break
+			}
+		}
+	}
+
+	if len(code) == 0 {
+		return "", false
+	}
+
+	return strings.Join(code, "\n"), true
+}
+
+/*
+ * programWords is every word of a piece of code that is a program here:
+ * a file given by its whole place, or a name found where programs are
+ * looked for. What the code does with it is not read; naming it is
+ * enough for its card's "never" to refuse.
+ */
+func programWords(code string) []string {
+	var out []string
+
+	seen := map[string]bool{}
+
+	for _, word := range strings.FieldsFunc(code, func(r rune) bool {
+		return !(r == '_' || r == '.' || r == '/' || r == '+' || r == '-' || r == '~' ||
+			(r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z'))
+	}) {
+		if seen[word] || strings.HasPrefix(word, "-") {
+			continue
+		}
+
+		seen[word] = true
+
+		if filepath.IsAbs(word) {
+			if info, err := statProgram(word); err == nil && !info.IsDir() {
+				out = append(out, word)
+			}
+
+			continue
+		}
+
+		if strings.Contains(word, "/") {
+			continue
+		}
+
+		if _, ok := lookProgram(word); ok {
+			out = append(out, word)
+		}
+	}
+
+	return out
+}
+
+// statProgram looks at a file named in code; tests replace it.
+var statProgram = os.Stat
+
+/*
  * commandUse is the program a command line runs, seen through what wraps
  * it (unwrapped): `flatpak run <id>`, `snap run <name>` and `gtk-launch
  * <entry>` name the program they start.
@@ -336,39 +842,77 @@ func insideOf(argv []string) ([]string, bool) {
 		}
 
 		return rest, true
-	case "sh", "bash", "dash", "zsh", "ksh":
-		for i := 0; i < len(rest); i++ {
-			word := rest[i]
+	case "sudo", "doas", "pkexec":
+		rest = pastOptions(rest, "CDghpRrTtUu", "--user", "--group", "--host", "--prompt", "--chdir", "--chroot",
+			"--role", "--type", "--other-user", "--close-from", "--command-timeout")
 
-			if !strings.HasPrefix(word, "-") || word == "--" {
-				break
-			}
+		// Settings may stand before the command (sudo A=1 tool).
+		for len(rest) > 0 && strings.Contains(rest[0], "=") && !strings.ContainsAny(rest[0], `/\`) {
+			rest = rest[1:]
+		}
 
-			if strings.HasPrefix(word, "--") {
-				continue
-			}
+		return rest, true
+	case "xargs":
+		return pastOptions(rest, "adEILnPs", "--max-args", "--max-procs", "--delimiter", "--arg-file", "--max-chars",
+			"--max-lines", "--process-slot-var"), true
+	case "systemd-run":
+		return pastOptions(rest, "upEMH", "--unit", "--property", "--slice", "--setenv", "--uid", "--gid", "--nice",
+			"--working-directory", "--description", "--machine", "--host", "--service-type", "--on-active", "--on-boot",
+			"--on-startup", "--on-unit-active", "--on-unit-inactive", "--on-calendar", "--on-clock-change",
+			"--on-timezone-change", "--timer-property", "--path-property", "--socket-property", "--background",
+			"--json", "--slice-inherit", "--expand-environment"), true
+	case "busybox":
+		// "busybox sh -c ...": the applet is the command.
+		if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
+			return rest, true
+		}
+	}
 
-			// "-c", or letters with it among them ("-lc", "-ce").
-			if strings.Contains(word[1:], "c") {
-				if i+1 >= len(rest) {
-					return argv, false
-				}
-
-				if inside := firstCommand(rest[i+1]); len(inside) > 0 {
-					return inside, true
-				}
-
-				return argv, false
-			}
-
-			// "-o errexit": the option's name is the next word.
-			if strings.HasSuffix(word, "o") {
-				i++
-			}
+	// A shell given one line, and script -c: the line's first command.
+	if line, ok := lineOf(argv); ok {
+		if inside := firstCommand(line); len(inside) > 0 {
+			return inside, true
 		}
 	}
 
 	return argv, false
+}
+
+/*
+ * pastOptions is a wrapper's words after its own options: every word
+ * starting with "-" up to "--" or the first that does not, and the next
+ * word too after an option that takes a value: a letter of short (alone
+ * or last among letters together) or one of long written without "=".
+ */
+func pastOptions(rest []string, short string, long ...string) []string {
+	valued := map[string]bool{}
+	for _, l := range long {
+		valued[l] = true
+	}
+
+	for len(rest) > 0 && strings.HasPrefix(rest[0], "-") && rest[0] != "-" {
+		word := rest[0]
+		rest = rest[1:]
+
+		if word == "--" {
+			break
+		}
+
+		takes := false
+
+		if strings.HasPrefix(word, "--") {
+			takes = valued[word]
+		} else if i := strings.IndexAny(word[1:], short); i >= 0 {
+			// The value is the rest of the word when letters follow.
+			takes = i+2 == len(word)
+		}
+
+		if takes && len(rest) > 0 {
+			rest = rest[1:]
+		}
+	}
+
+	return rest
 }
 
 // firstCommand is the first command of a shell line as words: up to the
@@ -384,7 +928,8 @@ func firstCommand(line string) []string {
 	for len(words) > 0 {
 		word := strings.Trim(words[0], `'"`)
 
-		if word != "exec" && word != "command" && !(strings.Contains(word, "=") && !strings.ContainsAny(word, `/\`)) {
+		if word != "exec" && word != "command" && word != "eval" && word != "builtin" &&
+			!(strings.Contains(word, "=") && !strings.ContainsAny(word, `/\`)) {
 			break
 		}
 

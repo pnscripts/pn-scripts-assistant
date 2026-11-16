@@ -139,9 +139,23 @@ func (b *Brain) stillAnswersItself(inv store.Invocation) string {
 	changes := tool.Risk() == tools.Mutating
 	level := tools.LevelOf(tool, args)
 
+	/*
+	 * Judged as the one who asked. A question held before that was kept
+	 * (or the assistant's own) has no name: a "never" given to any one of
+	 * the team for this tool then leaves it to its user, since nobody can
+	 * say it was not theirs.
+	 */
+	if inv.AskedAs == "" && b.Permits != nil {
+		for _, g := range b.Permits.List() {
+			if g.Who != "" && g.Tool == tool.Name() && g.Answer == permits.Refuse {
+				return "its user told one of the team never to do this, and it may have been theirs"
+			}
+		}
+	}
+
 	answer := permits.Ask
 	if b.Agent.MayI != nil {
-		answer = b.Agent.MayI("", tool.Name(), changes, level)
+		answer = b.Agent.MayI(inv.AskedAs, tool.Name(), changes, level)
 	} else if !changes {
 		answer = permits.Allow
 	}

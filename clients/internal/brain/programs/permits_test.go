@@ -8,8 +8,17 @@ import (
 	"time"
 )
 
+// asItIs stands for a menu entry's fingerprint as whoever read the record
+// found it (Pin): an "always" given to it is awake.
+const asItIs = "pin:as-it-is"
+
 func rec(row int64, kind Kind, id, name, version string, present bool) Record {
 	r := Record{Program: Program{Kind: kind, ID: id, Name: name, Version: version}, RowID: row, Present: present}
+
+	if kind == App && version == "" {
+		r.Pin = asItIs
+	}
+
 	if !present {
 		at := time.Date(2026, 11, 12, 14, 3, 0, 0, time.Local)
 		r.RemovedAt = &at
@@ -90,7 +99,7 @@ func TestARemovedProgramIsNeverUsedAndTheAnswerSaysSinceWhen(t *testing.T) {
 	m := Match(all, Use{Name: "krita"})
 
 	// Even an "always" given before it went is dormant.
-	permits := map[int64][]Permit{5: {{Verb: VerbStart, Answer: Always}}}
+	permits := map[int64][]Permit{5: {{Verb: VerbStart, Answer: Always, Version: asItIs}}}
 
 	r := Rule(m, permits, VerbStart)
 	if r.Answer != Never || r.Why != WhyGone {
@@ -108,7 +117,7 @@ func TestAProgramThatCameBackIsUsedAgainWithItsKeptDecisions(t *testing.T) {
 	all[4].Present, all[4].RemovedAt, all[4].LastChange = true, nil, Returned
 	m := Match(all, Use{Desktop: "org.kde.krita.desktop"})
 
-	r := Rule(m, map[int64][]Permit{5: {{Verb: VerbStart, Answer: Always}}}, VerbStart)
+	r := Rule(m, map[int64][]Permit{5: {{Verb: VerbStart, Answer: Always, Version: asItIs}}}, VerbStart)
 	if r.Answer != Always || r.Why != WhyAllowed {
 		t.Errorf("a program back again lost its decision: %+v", r)
 	}
@@ -117,7 +126,7 @@ func TestAProgramThatCameBackIsUsedAgainWithItsKeptDecisions(t *testing.T) {
 func TestNeverWinsOverAlwaysOnAnotherCardOfTheSameProgram(t *testing.T) {
 	m := Match(inventory(), Use{Desktop: "firefox_firefox.desktop"})
 	permits := map[int64][]Permit{
-		1: {{Verb: VerbStart, Answer: Always}},
+		1: {{Verb: VerbStart, Answer: Always, Version: asItIs}},
 		2: {{Verb: VerbStart, Answer: Never, Version: "132.0"}},
 	}
 
@@ -156,8 +165,9 @@ func TestAlwaysIsForOneVerbAndOneVersion(t *testing.T) {
 		t.Errorf("in Bulgarian: %q", r.SaidBG)
 	}
 
-	// A menu entry has no version: "always" given there stays awake.
-	r = Rule(Match(all, Use{Path: "/snap/bin/firefox"}), map[int64][]Permit{1: {{Verb: VerbStart, Answer: Always}}}, VerbStart)
+	// A menu entry has no version: its "always" is given to its
+	// fingerprint and stays awake while that is the same (pin_test.go).
+	r = Rule(Match(all, Use{Path: "/snap/bin/firefox"}), map[int64][]Permit{1: {{Verb: VerbStart, Answer: Always, Version: asItIs}}}, VerbStart)
 	if r.Answer != Always {
 		t.Errorf("always on a menu entry slept: %+v", r)
 	}

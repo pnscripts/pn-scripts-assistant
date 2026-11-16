@@ -215,3 +215,69 @@ func TestWhatAHeldQuestionDidIsSaidInItsUsersLanguage(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * A held question is judged again as the one who asked it.
+ *
+ * Found by the 1.1.0 security review: the second judging asked the
+ * permissions with nobody's name, so a "never" given to one of the team
+ * ("the developer never asks a coding agent") was not seen and the call
+ * its user had refused for them ran by itself when the quiet hours opened.
+ */
+func TestAHeldQuestionIsJudgedAsTheOneWhoAsked(t *testing.T) {
+	var jobs []orchestrator.Job
+
+	b := agentBrain(t, fakeAgent{jobs: &jobs})
+	b.SetQuietHours(inside())
+	everythingAllowedHere(b)
+
+	if err := b.Permits.RememberFor("developer", "ask_coding_agent", permits.Refuse, "test"); err != nil {
+		t.Fatal(err)
+	}
+
+	heldBy := func(who string) store.Invocation {
+		t.Helper()
+
+		inv, _ := heldQuestion(t, b, tools.ReachRead)
+
+		if err := b.DB.AnswersItselfInQuietHoursFor(inv.ID, who); err != nil {
+			t.Fatal(err)
+		}
+
+		return inv
+	}
+
+	// The developer's: refused for them, so left to its user.
+	theirs := heldBy("developer")
+
+	if n := b.AnswerHeldQuestions(context.Background()); n != 0 || len(jobs) != 0 {
+		t.Fatalf("answered against a never given to the one who asked: %d, %d jobs", n, len(jobs))
+	}
+
+	if left, _ := b.DB.Invocation(theirs.ID); left.Status != store.InvocationPending || left.AnswersItself {
+		t.Fatalf("not left to its user: %+v", left)
+	}
+
+	// Asked before who asked was kept: nobody can say it was not the
+	// developer's, so a never given to anybody leaves it to its user too.
+	unknown := heldBy("")
+
+	if n := b.AnswerHeldQuestions(context.Background()); n != 0 || len(jobs) != 0 {
+		t.Fatalf("answered although it may have been the developer's: %d, %d jobs", n, len(jobs))
+	}
+
+	if left, _ := b.DB.Invocation(unknown.ID); left.Status != store.InvocationPending || left.AnswersItself {
+		t.Fatalf("not left to its user: %+v", left)
+	}
+
+	// Somebody else's: the developer's never is not theirs.
+	others := heldBy("researcher")
+
+	if n := b.AnswerHeldQuestions(context.Background()); n != 1 || len(jobs) != 1 {
+		t.Fatalf("a question nobody refused did not answer itself: %d, %d jobs", n, len(jobs))
+	}
+
+	if got, _ := b.DB.Invocation(others.ID); !got.AnsweredItself {
+		t.Fatalf("%+v", got)
+	}
+}

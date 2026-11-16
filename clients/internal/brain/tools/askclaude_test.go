@@ -298,3 +298,70 @@ func TestTheAnswerIsSavedOnlyAsTheNewFileTheCardNamed(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Found by the 1.1.0 security review (F13): the answer could be saved
+ * into a protected folder through a folder that is a link to it, since
+ * only the path as written was checked.
+ */
+func TestTheAnswerIsNotSavedIntoAProtectedFolderThroughALink(t *testing.T) {
+	home := claudeHome(t)
+
+	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(home, "elsewhere"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if os.Symlink(filepath.Join(home, ".ssh"), filepath.Join(home, "shared")) != nil ||
+		os.Symlink(filepath.Join(home, "elsewhere"), filepath.Join(home, "work")) != nil {
+		t.Skip("this system does not let the test make links")
+	}
+
+	c := &claudes{code: true}
+	tool := AskClaude{Claude: c, Home: home, Protected: func(p string) bool { return strings.Contains(p, ".ssh") }}
+
+	args, _ := json.Marshal(map[string]any{"question": "Summarise notes.md.", "files": []string{"notes.md"}, "save_as": "shared/authorized_keys"})
+
+	if why := tool.Unready(args); !strings.Contains(why, "protected") {
+		t.Errorf("saving through a link into a protected folder: %q", why)
+	}
+
+	if _, err := tool.Execute(context.Background(), tool.Pin(args)); err == nil || len(c.asked) != 0 {
+		t.Errorf("it ran: %v (asked %d)", err, len(c.asked))
+	}
+
+	if _, err := os.Lstat(filepath.Join(home, ".ssh", "authorized_keys")); err == nil {
+		t.Fatal("a file was written into the protected folder")
+	}
+
+	// A linked folder that is not protected: saved, and the card names
+	// the place the file really lands in.
+	args, _ = json.Marshal(map[string]any{"question": "Summarise notes.md.", "files": []string{"notes.md"}, "save_as": "work/summary.md"})
+	pinned := tool.Pin(args)
+
+	real, err := filepath.EvalSymlinks(filepath.Join(home, "elsewhere"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	target := filepath.Join(real, "summary.md")
+
+	if s := tool.Summarize(pinned); !strings.Contains(s, "Then saves Claude's answer as a new file: "+target) {
+		t.Errorf("the card does not name the real place:\n%s", s)
+	}
+
+	if w, _ := tool.Touches(pinned); len(w) != 1 || w[0] != target {
+		t.Errorf("touches %v, want %s", w, target)
+	}
+
+	if out, err := tool.Execute(context.Background(), pinned); err != nil || !strings.Contains(out, "Saved Claude's answer as a new file: "+target) {
+		t.Fatalf("%v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(target); err != nil {
+		t.Errorf("not saved where the card said: %v", err)
+	}
+}

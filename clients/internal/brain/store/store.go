@@ -1241,6 +1241,16 @@ var migrations = []string{
 	`
 	ALTER TABLE deeds ADD COLUMN summary_bg TEXT NOT NULL DEFAULT '';
 	`,
+
+	/*
+	 * 36: a question held for the quiet hours remembers which of the team
+	 * asked it (an agent's id, not personal), so that when they open it is
+	 * judged again as theirs: a "never" given to that one is then seen.
+	 * Empty for the assistant itself and for a question held before.
+	 */
+	`
+	ALTER TABLE tool_invocations ADD COLUMN asked_as TEXT NOT NULL DEFAULT '';
+	`,
 }
 
 /*

@@ -9,6 +9,38 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
+## Unreleased
+
+- **A program's "never" reaches the whole line.** A command is now also
+  read through `sudo`, `doas`, `pkexec`, `xargs`, `busybox`, `script -c`,
+  `systemd-run` and `eval`, and a "never" on a program's card refuses a
+  command that would start it anywhere in a shell line (after the first
+  command, inside a nested line, in what is substituted) or that a
+  one-line script names (`python3 -c`, `perl -e`, `node -e`, `php -r`).
+- **"Always" on a menu program follows what it was given for.** A menu
+  entry has no version, so its "always" used to stay whatever happened.
+  It is now given to the entry's Exec line and to the file that line
+  really starts: after an update, a changed Exec line, or a same-named
+  file put earlier where programs are looked for, you are asked again and
+  the question says why. An "always" you gave a menu program in 1.1.0 is
+  asked about once.
+- **Import and Approve are for the card you saw.** If an MCP server's
+  entry is rewritten between the page showing it and your click, it is
+  not imported or approved; the page shows it as it is now and says so.
+- **MCP entries: keys seen, look-alikes let through.** A key after `-p`
+  and flags written like `--accessToken=...` are now recognised as keys
+  in a command, and `--token-limit`, `--key-bindings`, `--pass-through`
+  or a description that mentions bearer tokens no longer stop an entry
+  from being imported. A setting kept sealed only because its value looks
+  like a key is asked about again when that value changes.
+- **Asking your own Claude: linked folders are followed first.** A file
+  reached through a folder that is a link is checked, shown and read
+  where it really is, so a protected file cannot be handed over, or an
+  answer saved into a protected folder, through such a link.
+- **Quiet hours: a held question is judged as the one who asked.** A
+  "never" you gave one member of the team is now seen when a question of
+  theirs, held for the quiet hours, comes up to answer itself.
+
 ## 1.1.0 (2026-11-16)
 
 - **It knows which programs you have (Linux).** It reads the programs on

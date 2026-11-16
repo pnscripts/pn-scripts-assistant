@@ -325,6 +325,24 @@ func (b *Brain) MCPImports() ([]MCPFound, []MCPFile, []programs.SourceState) {
  * again first, so what is imported is what is there now.
  */
 func (b *Brain) ImportMCP(key string) (mcp.Server, error) {
+	return b.importMCP(key, "", false)
+}
+
+// ErrMCPChanged is an import of an entry that is no longer what its card
+// showed.
+var ErrMCPChanged = errors.New("that server changed in the other program's settings since it was shown; look at it again before importing it")
+
+/*
+ * ImportMCPShown is ImportMCP for the card its owner was looking at:
+ * print is the fingerprint that card carried (mcpimport.Found.Print). The
+ * settings are read again, and an entry that is no longer the one shown
+ * is not imported: ErrMCPChanged.
+ */
+func (b *Brain) ImportMCPShown(key, print string) (mcp.Server, error) {
+	return b.importMCP(key, print, true)
+}
+
+func (b *Brain) importMCP(key, print string, asShown bool) (mcp.Server, error) {
 	g := b.Integrations
 	if g == nil {
 		return mcp.Server{}, errors.New("this build has no integrations")
@@ -333,7 +351,16 @@ func (b *Brain) ImportMCP(key string) (mcp.Server, error) {
 	b.mcpImports.look.Lock()
 	defer b.mcpImports.look.Unlock()
 
-	found, _, _ := b.readMCPSettings()
+	found, files, _ := b.readMCPSettings()
+
+	// What was just read is what the page shows next: an import refused
+	// because the entry changed is followed by the entry as it is now,
+	// without waiting for the watch.
+	b.mcpImports.mu.Lock()
+	if b.mcpImports.looked {
+		b.mcpImports.found, b.mcpImports.files = found, files
+	}
+	b.mcpImports.mu.Unlock()
 
 	for _, f := range found {
 		if f.Key() != key {
@@ -344,6 +371,10 @@ func (b *Brain) ImportMCP(key string) (mcp.Server, error) {
 			if s.From != nil && mcpimport.OriginKey(s.From) == key {
 				return mcp.Server{}, fmt.Errorf("%s is already imported, as %s", f.Name, s.ID)
 			}
+		}
+
+		if asShown && (print == "" || f.Print != print) {
+			return mcp.Server{}, ErrMCPChanged
 		}
 
 		s, err := mcpimport.Imported(f, mcpimport.FreeID(f.Name, g.Known))

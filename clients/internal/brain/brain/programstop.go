@@ -93,6 +93,10 @@ func (b *Brain) refusedByItsCard(ctx context.Context, tool tools.Tool, args json
 		return r.Said
 	}
 
+	if r := b.AlsoRefused(ctx, tools.AlsoRunsOf(ctx, tool, args)); r.Answer == programs.Never {
+		return r.Said
+	}
+
 	return ""
 }
 
@@ -148,7 +152,7 @@ func (b *Brain) ApprovalCards() ([]ApprovalCard, error) {
 
 			if r, ok := byRow[inv.ProgramID]; ok && r.Present {
 				card.Program = &ApprovalProgram{Kind: r.Kind, ID: r.ID, Name: programName(r),
-					Verb: programs.Verb(inv.ProgramVerb), Version: inv.ProgramVersion, Always: inv.ProgramAlways}
+					Verb: programs.Verb(inv.ProgramVerb), Version: versionShown(inv.ProgramVersion), Always: inv.ProgramAlways}
 			}
 		}
 
@@ -176,6 +180,16 @@ func (b *Brain) programsByRow() (map[int64]programs.Record, error) {
 	}
 
 	return out, nil
+}
+
+// versionShown is a version as a card names it: a menu entry's
+// fingerprint is not one.
+func versionShown(v string) string {
+	if programs.IsPin(v) {
+		return ""
+	}
+
+	return v
 }
 
 func programName(r programs.Record) string {
@@ -245,10 +259,16 @@ func (b *Brain) AlwaysForProgram(ctx context.Context, id int64) (store.Invocatio
 
 	r, ok := byRow[inv.ProgramID]
 
+	// A menu entry as it is at this moment.
+	r.Pin = programs.Pin(r, findsProgram)
+
 	switch {
 	case !ok || !r.Present:
 		return *inv, fmt.Errorf("%s is not on this computer any more, so it was not allowed", programName(r))
-	case r.Version != inv.ProgramVersion:
+	case r.Version == "" && r.Kind == programs.App && (r.Pin == "" || r.Pin != inv.ProgramVersion):
+		return *inv, fmt.Errorf("%s changed since this was asked (its menu entry or the file it starts); decide about it as it is now on its card on the Programs page",
+			programName(r))
+	case r.Version != "" && r.Version != inv.ProgramVersion, r.Version == "" && r.Kind != programs.App && inv.ProgramVersion != "":
 		return *inv, fmt.Errorf("%s was updated from %s to %s since this was asked; decide about the new version on its card on the Programs page",
 			programName(r), inv.ProgramVersion, r.Version)
 	}

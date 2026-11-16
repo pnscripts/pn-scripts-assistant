@@ -271,7 +271,7 @@ func startsOthers(exec string) bool {
 	switch base {
 	case "env", "sh", "bash", "dash", "zsh", "fish", "ksh", "busybox",
 		"flatpak", "snap", "gtk-launch", "gio", "xdg-open", "dex", "kioclient", "kioclient5",
-		"sudo", "pkexec", "nohup", "setsid", "nice", "ionice", "timeout", "stdbuf", "systemd-run",
+		"sudo", "doas", "pkexec", "nohup", "setsid", "nice", "ionice", "timeout", "stdbuf", "systemd-run", "xargs", "script",
 		"java", "javaw", "mono", "dotnet", "wine", "wine64", "electron", "deno", "bun",
 		"cmd", "powershell", "pwsh", "wscript", "cscript", "rundll32", "explorer", "msiexec":
 		return true
@@ -488,7 +488,7 @@ func Rule(matches []Record, permits map[int64][]Permit, verb Verb) Ruling {
 						". Do not try it again; say so and offer something else. They can change it on its card on the Programs page."}
 			case r.byNameOnly:
 				// A shared name earns no "always", awake or asleep.
-			case p.Answer == Always && p.Asleep(r.Version):
+			case p.Answer == Always && p.AsleepOn(r):
 				if asleep == nil {
 					asleep = &r
 				}
@@ -503,6 +503,16 @@ func Rule(matches []Record, permits map[int64][]Permit, verb Verb) Ruling {
 	if allowed != nil {
 		return Ruling{Answer: Always, Why: WhyAllowed, Program: allowed,
 			Said: "Allowed always for " + nameOf(*allowed) + " (" + VerbWords(verb) + ")."}
+	}
+
+	if asleep != nil && asleep.followsItsPin() {
+		// A menu entry has no version to name: what changed is the entry
+		// or the file it starts.
+		return Ruling{Answer: AskEach, Why: WhyUpdated, Program: asleep,
+			Said: nameOf(*asleep) + " changed (its menu entry or the file it starts) since it was allowed to " + VerbWords(verb) +
+				", so this is asked again.",
+			SaidBG: "Програмата " + nameOf(*asleep) + " е променена (записът ѝ в менюто или файлът, който той стартира), откакто е разрешено " +
+				verbWordsBG(verb) + ", затова се пита отново."}
 	}
 
 	if asleep != nil {

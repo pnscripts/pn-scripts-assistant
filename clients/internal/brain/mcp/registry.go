@@ -6,6 +6,8 @@ import (
 	"pn-scripts-assistant/internal/brain/redact"
 	"pn-scripts-assistant/internal/brain/tools"
 
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -112,6 +115,52 @@ type Origin struct {
 	Print     string `json:"print"`
 	GoneSince string `json:"gone_since,omitempty"`
 	WasActive bool   `json:"was_active,omitempty"`
+}
+
+/*
+ * Shown is the fingerprint of what an approval card shows of a server:
+ * how it is reached, the command or the address, its settings, the names
+ * of its secrets, whether it reaches out, and the entry it was imported
+ * from. A yes carries it back, so a server that changed after the card
+ * was drawn is not approved unseen. Who may use it and whether it runs
+ * are not part of it, and no secret's value is.
+ */
+func (s Server) Shown() string {
+	var b strings.Builder
+
+	line := func(kind string, values ...string) {
+		b.WriteString(kind)
+
+		for _, v := range values {
+			b.WriteString(" " + strconv.Itoa(len(v)) + ":" + v)
+		}
+
+		b.WriteString("\n")
+	}
+
+	line("server", s.ID, s.Transport, s.URL, s.Header, strconv.FormatBool(s.Network))
+	line("command", s.Command...)
+
+	names := make([]string, 0, len(s.Env))
+	for k := range s.Env {
+		names = append(names, k)
+	}
+
+	sort.Strings(names)
+
+	for _, k := range names {
+		line("setting", k, s.Env[k])
+	}
+
+	line("secrets", s.Secrets...)
+
+	if s.From != nil {
+		line("from", s.From.Client, s.From.File, s.From.Scope, s.From.Name, s.From.Print)
+	}
+
+	sum := sha256.Sum256([]byte(b.String()))
+
+	return hex.EncodeToString(sum[:12])
 }
 
 // Gone is whether the entry it was imported from is no longer there.

@@ -119,6 +119,14 @@ type Loop struct {
 	Programs func(ctx context.Context, use programs.Use) programs.Ruling
 
 	/*
+	 * AlsoRefused weighs the other programs a call would start (the rest
+	 * of a shell line, the programs a one-line script names;
+	 * tools.AlsoRunning) against their cards: a "never" on any of them,
+	 * or a removal, refuses the call. It never allows. Nil weighs nothing.
+	 */
+	AlsoRefused func(ctx context.Context, uses []programs.Use) programs.Ruling
+
+	/*
 	 * ProgramsStopped is "Stop using other programs": since when its person
 	 * stopped every use of other programs, and whether they did. Every tool
 	 * that uses one (tools.UsesOtherPrograms) is refused while it is on,
@@ -1273,6 +1281,15 @@ func (l *Loop) RunBrief(
 				ruling = l.Programs(ctx, use)
 			}
 
+			// A never on any other program the call would start.
+			if ruling.Answer != programs.Never && l.AlsoRefused != nil {
+				if others := tools.AlsoRunsOf(ctx, tool, call.Arguments); len(others) > 0 {
+					if r := l.AlsoRefused(ctx, others); r.Answer == programs.Never {
+						ruling = r
+					}
+				}
+			}
+
 			if ruling.Answer == programs.Never {
 				l.Log.Info("refused by a program's card", "tool", tool.Name(), "why", string(ruling.Why))
 
@@ -1464,7 +1481,7 @@ func (l *Loop) RunBrief(
 				l.waitingOn("Waiting for you: "+summary, inBulgarian(summary, summaryBG), id)
 
 				if answersItself {
-					if err := l.DB.AnswersItselfInQuietHours(id); err != nil {
+					if err := l.DB.AnswersItselfInQuietHoursFor(id, brief.As); err != nil {
 						return Result{}, err
 					}
 				}
@@ -1472,7 +1489,7 @@ func (l *Loop) RunBrief(
 				// Which program it is about, so its card's Always can be
 				// given from the question itself, to that program alone.
 				if bound && ruling.Program != nil && ruling.Program.Present && ruling.Program.RowID > 0 {
-					if err := l.DB.InvocationProgram(id, ruling.Program.RowID, use.Verb, ruling.Program.Version, !askedForMore); err != nil {
+					if err := l.DB.InvocationProgram(id, ruling.Program.RowID, use.Verb, ruling.Program.Follows(), !askedForMore); err != nil {
 						return Result{}, err
 					}
 				}
