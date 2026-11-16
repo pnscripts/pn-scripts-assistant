@@ -41,6 +41,11 @@ type Invocation struct {
 	AnswersItself  bool `json:"answers_itself,omitempty"`
 	AnsweredItself bool `json:"answered_itself,omitempty"`
 
+	// AskedAs is which of the team asked a question held for the quiet
+	// hours (empty for the assistant itself, and for one held before this
+	// was kept): it is judged again as theirs when they open.
+	AskedAs string `json:"-"`
+
 	/*
 	 * A question about another program: its row in the programs table, the
 	 * use (a programs.Verb), the version it was asked about, and whether
@@ -88,7 +93,7 @@ func (d *DB) RecordInvocationIn(conversationID int64, tool, arguments, summary, 
 func (d *DB) PendingInvocations() ([]Invocation, error) {
 	rows, err := d.sql().Query(`
 		SELECT id, tool, arguments, COALESCE(summary,''), summary_bg, risk, status, created_at,
-			COALESCE(conversation_id, 0), answers_itself,
+			COALESCE(conversation_id, 0), answers_itself, asked_as,
 			program_id, program_verb, program_version, program_always
 		FROM tool_invocations WHERE status = ? ORDER BY id`, InvocationPending)
 	if err != nil {
@@ -103,7 +108,7 @@ func (d *DB) PendingInvocations() ([]Invocation, error) {
 		var created string
 
 		if err := rows.Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.SummaryBG, &i.Risk, &i.Status, &created,
-			&i.ConversationID, &i.AnswersItself,
+			&i.ConversationID, &i.AnswersItself, &i.AskedAs,
 			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways); err != nil {
 			return nil, err
 		}
@@ -141,9 +146,15 @@ func (d *DB) InvocationProgram(id, programID int64, verb programs.Verb, version 
 // hours and nothing else, so it is approved by itself when they open unless
 // its user answers first. A question already decided is left as it is.
 func (d *DB) AnswersItselfInQuietHours(id int64) error {
+	return d.AnswersItselfInQuietHoursFor(id, "")
+}
+
+// AnswersItselfInQuietHoursFor is AnswersItselfInQuietHours with which of
+// the team asked, so the question is judged again as theirs.
+func (d *DB) AnswersItselfInQuietHoursFor(id int64, who string) error {
 	_, err := d.sql().Exec(
-		`UPDATE tool_invocations SET answers_itself = 1, updated_at = ? WHERE id = ? AND status = ?`,
-		time.Now().UTC().Format(time.RFC3339), id, InvocationPending)
+		`UPDATE tool_invocations SET answers_itself = 1, asked_as = ?, updated_at = ? WHERE id = ? AND status = ?`,
+		who, time.Now().UTC().Format(time.RFC3339), id, InvocationPending)
 
 	return err
 }
@@ -207,11 +218,11 @@ func (d *DB) Invocation(id int64) (*Invocation, error) {
 
 	err := d.sql().QueryRow(`
 		SELECT id, tool, arguments, COALESCE(summary,''), summary_bg, risk, status, result, created_at,
-			COALESCE(conversation_id, 0), answers_itself, answered_itself,
+			COALESCE(conversation_id, 0), answers_itself, answered_itself, asked_as,
 			program_id, program_verb, program_version, program_always
 		FROM tool_invocations WHERE id = ?`, id).
 		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.SummaryBG, &i.Risk, &i.Status, &result, &created,
-			&i.ConversationID, &i.AnswersItself, &i.AnsweredItself,
+			&i.ConversationID, &i.AnswersItself, &i.AnsweredItself, &i.AskedAs,
 			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways)
 
 	if err == sql.ErrNoRows {

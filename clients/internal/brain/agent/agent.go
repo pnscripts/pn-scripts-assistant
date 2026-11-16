@@ -1464,7 +1464,7 @@ func (l *Loop) RunBrief(
 				l.waitingOn("Waiting for you: "+summary, inBulgarian(summary, summaryBG), id)
 
 				if answersItself {
-					if err := l.DB.AnswersItselfInQuietHours(id); err != nil {
+					if err := l.DB.AnswersItselfInQuietHoursFor(id, brief.As); err != nil {
 						return Result{}, err
 					}
 				}
