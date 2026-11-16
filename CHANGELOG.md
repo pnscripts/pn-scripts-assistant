@@ -9,7 +9,7 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
-## Unreleased
+## 1.1.0 (2026-11-16)
 
 - **It knows which programs you have (Linux).** It reads the programs on
   the computer (menu programs, system packages through dpkg-query, snaps and

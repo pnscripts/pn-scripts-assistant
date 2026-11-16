@@ -125,6 +125,27 @@ AMD). What it does not do yet is written down in
 - **Integrations, gated.** MCP servers, approved one by one, granted per agent
   and per project, confined to their own folders, with every call recorded. See
   [ADR 0004](docs/decisions/0004-hire-equip-and-confine.md).
+- **Uses the MCP servers you already set up.** Servers set up in Claude
+  Desktop, Claude Code, Cursor or VS Code are found by themselves and listed
+  under Integrations. Import one with a button and approve it before it runs;
+  its key is sealed, and it follows its entry there: removed there, it stops
+  at once; changed, it asks you again.
+- **Knows which programs you have, and asks what it may do with each.** On
+  Linux and Windows it keeps a list of the installed programs with their
+  versions and notices installs, updates and removals within seconds. Each
+  program's card on the Programs page says whether it may start it, type and
+  click in its windows or run it as a command: Ask me, Always (for that
+  version only) or Never. One button stops every use of other programs.
+- **Asks your own Claude about your files.** "Ask Claude to summarise
+  notes.md and save the summary as summary.md" gives one question and only
+  the files you name to your own Claude (Claude Code signed in on this
+  computer, or the Anthropic key you typed into the assistant). Every
+  hand-off is asked, the question shows exactly what goes, and the answer is
+  saved only as a new file.
+- **Keeps heavy work for the quiet hours.** Set a window (for example 22:00
+  until 07:00) and goals that start themselves, the reading of the places it
+  learns from and a coding agent that is spending its allowance too fast wait
+  for it; one press or your yes starts any of them at once.
 - **Stays out of the way.** A minute after you stop using the window it rests:
   no timers, no animation, one quiet connection that wakes it when something
   happens. Untouched, it costs about 2 % of one core, minimised about 0.5 %
