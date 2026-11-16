@@ -248,12 +248,21 @@ func (t AskClaude) saveTarget(named string) (string, error) {
 		return "", fmt.Errorf("%s is protected and is not written to", path)
 	}
 
-	if _, err := os.Lstat(path); err == nil {
-		return "", fmt.Errorf("%s already exists; the answer is only saved as a new file", path)
+	// Where it would really land, the folders that are links followed:
+	// that place is what is protected or not, and what the card names.
+	real, err := askclaude.Real(path)
+	if err != nil {
+		return "", fmt.Errorf("there is no folder %s to save the answer in", filepath.Dir(path))
 	}
 
-	if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() {
-		return "", fmt.Errorf("there is no folder %s to save the answer in", filepath.Dir(path))
+	if real != path && t.protected()(real) {
+		return "", fmt.Errorf("%s is protected and is not written to", real)
+	}
+
+	path = real
+
+	if _, err := os.Lstat(path); err == nil {
+		return "", fmt.Errorf("%s already exists; the answer is only saved as a new file", path)
 	}
 
 	return path, nil
@@ -270,6 +279,10 @@ func (t AskClaude) Touches(raw json.RawMessage) (writes []string, runsIn []strin
 	path, err := askclaude.Resolve(a.SaveAs, t.home())
 	if err != nil {
 		return []string{a.SaveAs}, nil
+	}
+
+	if real, err := askclaude.Real(path); err == nil {
+		path = real
 	}
 
 	return []string{path}, nil

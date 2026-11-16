@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -118,39 +119,25 @@ func Gather(named []string, home string, protected func(string) bool) ([]Doc, er
 			return nil, fmt.Errorf("%s is protected (keys, passwords or the assistant's own knowledge) and is never given to Claude", path)
 		}
 
-		info, err := os.Lstat(path)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return nil, fmt.Errorf("there is no file %s", path)
+		// Where the file really is, the folders that are links followed:
+		// that place is what is protected or not, and what is shown.
+		if real, err := Real(path); err == nil && real != path {
+			if seen[real] {
+				return nil, fmt.Errorf("%s is named twice", real)
 			}
 
-			return nil, fmt.Errorf("%s cannot be read: %v", path, err)
+			seen[real] = true
+
+			if protected != nil && protected(real) {
+				return nil, fmt.Errorf("%s is protected (keys, passwords or the assistant's own knowledge) and is never given to Claude", real)
+			}
+
+			path = real
 		}
 
-		if info.Mode()&os.ModeSymlink != 0 {
-			return nil, fmt.Errorf("%s is a link; name the file it points at", path)
-		}
-
-		if !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("%s is not a file", path)
-		}
-
-		if info.Size() > MostFileBytes {
-			return nil, fmt.Errorf("%s is %d KB, larger than the %d KB one file may be", path, info.Size()>>10, MostFileBytes>>10)
-		}
-
-		raw, err := os.ReadFile(path)
+		raw, err := readWhole(path)
 		if err != nil {
-			return nil, fmt.Errorf("%s cannot be read: %v", path, err)
-		}
-
-		// Read again in case it grew between the look and the read.
-		if len(raw) > MostFileBytes {
-			return nil, fmt.Errorf("%s is %d KB, larger than the %d KB one file may be", path, len(raw)>>10, MostFileBytes>>10)
-		}
-
-		if !utf8.Valid(raw) || bytes.IndexByte(raw, 0) >= 0 {
-			return nil, fmt.Errorf("%s is not text; only text files can be given to Claude", path)
+			return nil, err
 		}
 
 		total += len(raw)
@@ -164,6 +151,112 @@ func Gather(named []string, home string, protected func(string) bool) ([]Doc, er
 	}
 
 	return docs, nil
+}
+
+/*
+ * Real is where a file really is: its folder with every link in it
+ * followed, and its own name left as it is (the file itself is never
+ * followed: a link is refused where it is read, and a new file is made
+ * with a name nothing has yet). A path with no linked folder in it is
+ * returned exactly as it was given. An error when the folder is not there.
+ */
+func Real(path string) (string, error) {
+	dir, base := filepath.Dir(path), filepath.Base(path)
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		return "", err
+	}
+
+	if !info.IsDir() {
+		return "", fmt.Errorf("%s is not a folder", dir)
+	}
+
+	if !throughALink(dir) {
+		return path, nil
+	}
+
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(real, base), nil
+}
+
+// throughALink is whether a folder, or any folder above it, is a link.
+func throughALink(dir string) bool {
+	for {
+		if info, err := os.Lstat(dir); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return true
+		}
+
+		up := filepath.Dir(dir)
+		if up == dir {
+			return false
+		}
+
+		dir = up
+	}
+}
+
+/*
+ * readWhole reads one text file, whole, or says why not: a link (what it
+ * points at is not what was named), anything that is not a regular file, a
+ * file over its limit. The file is opened without following a link and
+ * what was opened is compared with what was looked at, so a file swapped
+ * for a link in between is not read.
+ */
+func readWhole(path string) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("there is no file %s", path)
+		}
+
+		return nil, fmt.Errorf("%s cannot be read: %v", path, err)
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("%s is a link; name the file it points at", path)
+	}
+
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a file", path)
+	}
+
+	if info.Size() > MostFileBytes {
+		return nil, fmt.Errorf("%s is %d KB, larger than the %d KB one file may be", path, info.Size()>>10, MostFileBytes>>10)
+	}
+
+	f, err := os.OpenFile(path, os.O_RDONLY|noFollow, 0)
+	if err != nil {
+		return nil, fmt.Errorf("%s cannot be read: %v", path, err)
+	}
+
+	defer f.Close()
+
+	opened, err := f.Stat()
+	if err != nil || !os.SameFile(info, opened) {
+		return nil, fmt.Errorf("%s changed while it was being read; ask again", path)
+	}
+
+	// One byte more than the limit, in case it grew between the look and
+	// the read.
+	raw, err := io.ReadAll(io.LimitReader(f, MostFileBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("%s cannot be read: %v", path, err)
+	}
+
+	if len(raw) > MostFileBytes {
+		return nil, fmt.Errorf("%s is %d KB, larger than the %d KB one file may be", path, len(raw)>>10, MostFileBytes>>10)
+	}
+
+	if !utf8.Valid(raw) || bytes.IndexByte(raw, 0) >= 0 {
+		return nil, fmt.Errorf("%s is not text; only text files can be given to Claude", path)
+	}
+
+	return raw, nil
 }
 
 // Sums is each file's fingerprint, by its path.
