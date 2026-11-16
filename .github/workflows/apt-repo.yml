@@ -124,6 +124,15 @@ jobs:
           pn-scripts-assistant serve -addr 127.0.0.1:8894 > old.log 2>&1 &
           pid=$!
           timeout 90 bash -c 'until curl -fs http://127.0.0.1:8894/health >/dev/null; do sleep 1; done'
+          # From 1.0.4 a new brain asks for the terms of use before anything
+          # else answers; its owner accepts them in the window, this accepts
+          # them here. An older previous version has no such page. (The
+          # release of 1.1.0 was the first whose previous version asked, and
+          # this step failed on the to-do it could not add.)
+          if curl -fs http://127.0.0.1:8894/api/terms > terms-old.json; then
+            v="$(python3 -c 'import json; print(json.load(open("terms-old.json"))["version"])')"
+            curl -fs -X POST -H 'Content-Type: application/json' -d "{\"version\":$v}" http://127.0.0.1:8894/api/terms > /dev/null
+          fi
           curl -fs -X POST -H 'Content-Type: application/json' -d '{"text":"Water the plants before the update"}' http://127.0.0.1:8894/api/todos
           kill "$pid"; wait "$pid" || true
 
@@ -155,10 +164,12 @@ jobs:
           pn-scripts-assistant serve -addr 127.0.0.1:8894 > new.log 2>&1 &
           pid=$!
           timeout 90 bash -c 'until curl -fs http://127.0.0.1:8894/health >/dev/null; do sleep 1; done'
-          # From 1.0.4 an upgraded brain asks for the terms of use before it
-          # is used; its owner accepts them in the window, this accepts them
-          # here, with the version the program says is in force.
-          if curl -fs http://127.0.0.1:8894/api/terms > terms.json; then
+          # A brain that came from before 1.0.4 asks for the terms of use
+          # after the upgrade; its owner accepts them in the window, this
+          # accepts them here, with the version the program says is in force.
+          # One that accepted them in the previous version is not asked again.
+          curl -fs http://127.0.0.1:8894/api/terms > terms.json
+          if [ "$(python3 -c 'import json; print(json.load(open("terms.json"))["accepted"])')" != True ]; then
             v="$(python3 -c 'import json; print(json.load(open("terms.json"))["version"])')"
             curl -fs -X POST -H 'Content-Type: application/json' -d "{\"version\":$v}" http://127.0.0.1:8894/api/terms > /dev/null
           fi
