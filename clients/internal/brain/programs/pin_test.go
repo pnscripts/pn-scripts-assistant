@@ -159,7 +159,9 @@ func TestAMenuEntrysFingerprintFollowsItsExecLineAndItsFile(t *testing.T) {
 
 	// A file the Exec line names by its whole place counts too: a script
 	// started by an interpreter.
-	script := filepath.Join(m.dir, "tool.py")
+	// Written with forward slashes: a backslash is an escape in a menu
+	// entry, and this test runs on Windows too.
+	script := filepath.ToSlash(filepath.Join(m.dir, "tool.py"))
 
 	if err := os.WriteFile(script, []byte("print(1)\n"), 0o644); err != nil {
 		t.Fatal(err)
