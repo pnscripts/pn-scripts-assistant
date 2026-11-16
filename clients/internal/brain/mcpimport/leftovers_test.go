@@ -120,6 +120,7 @@ func TestFlagsThatOnlyShareAWordWithAKeyAreNotRefused(t *testing.T) {
   "through":    {"command": "npx", "args": ["-y", "server-x", "--pass-through", "stdio"]},
   "described":  {"command": "npx", "args": ["-y", "server-x", "--description", "Signs in with bearer tokens and keeps nothing"]},
   "switch":     {"command": "npx", "args": ["-y", "server-x", "--auth", "true", "--no-auth-cache", "--secret-length", "32"]},
+  "negated":    {"command": "npx", "args": ["-y", "server-x", "--no-auth", "stdio", "--skip-token-check", "fast", "--disable-password-prompt", "always"]},
   "package":    {"command": "npx", "args": ["-y", "-p", "@example/server-x", "server-x"]},
   "port":       {"command": "node", "args": ["server.js", "-p", "8080"]},
   "project":    {"command": "node", "args": ["server.js", "-p", "./tsconfig.json"]},
@@ -131,7 +132,7 @@ func TestFlagsThatOnlyShareAWordWithAKeyAreNotRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{"limit", "limitcamel", "bindings", "through", "described", "switch", "package", "port", "project", "python"} {
+	for _, name := range []string{"limit", "limitcamel", "bindings", "through", "described", "switch", "negated", "package", "port", "project", "python"} {
 		f := one(t, fs, name)
 
 		if f.Problem != "" {

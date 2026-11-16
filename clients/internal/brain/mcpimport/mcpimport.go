@@ -510,6 +510,10 @@ var notTheCredential = map[string]bool{
 	"required": true, "enabled": true, "disabled": true, "prefix": true, "header": true, "location": true,
 }
 
+// Words that make a flag a switch, whatever follows them.
+var switchWords = map[string]bool{"no": true, "disable": true, "skip": true, "without": true, "ignore": true,
+	"enable": true, "require": true, "allow": true, "insecure": true}
+
 /*
  * flagWords is a flag's name as lower-case words: split at "-", "_" and
  * ".", and where a capital follows a small letter (--accessToken is
@@ -564,6 +568,11 @@ func credentialFlag(flag string) bool {
 	words := flagWords(flag)
 
 	for i, w := range words {
+		// "--no-auth", "--skip-token-check": a switch about credentials.
+		if switchWords[w] {
+			return false
+		}
+
 		if !credentialWords[w] {
 			continue
 		}
