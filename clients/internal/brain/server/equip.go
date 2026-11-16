@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -345,6 +346,10 @@ func (s *Server) handleIntegrations(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleImportIntegration(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Key string `json:"key"`
+
+		// Print is the fingerprint the card carried when Import was
+		// pressed: what is imported is what was shown, or nothing.
+		Print string `json:"print"`
 	}
 
 	if !decode(w, r, &body) {
@@ -357,7 +362,19 @@ func (s *Server) handleImportIntegration(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	imported, err := s.brain.ImportMCP(body.Key)
+	if strings.TrimSpace(body.Print) == "" {
+		fail(w, http.StatusBadRequest, "say which entry was shown: its fingerprint is missing")
+
+		return
+	}
+
+	imported, err := s.brain.ImportMCPShown(body.Key, body.Print)
+	if errors.Is(err, brain.ErrMCPChanged) {
+		fail(w, http.StatusConflict, err.Error())
+
+		return
+	}
+
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 
@@ -388,6 +405,9 @@ func (s *Server) handleIntegration(w http.ResponseWriter, r *http.Request) {
 		Tools  []string `json:"tools"`
 		Name   string   `json:"name"`
 		Value  string   `json:"value"`
+
+		// Shown is the fingerprint of the card Approve was pressed on.
+		Shown string `json:"shown"`
 	}
 
 	if r.ContentLength > 0 && !decode(w, r, &body) {
@@ -400,7 +420,18 @@ func (s *Server) handleIntegration(w http.ResponseWriter, r *http.Request) {
 	case "add":
 		_, err = g.Add(id)
 	case "approve":
-		_, err = g.Approve(id, body.Agents)
+		if strings.TrimSpace(body.Shown) == "" {
+			fail(w, http.StatusBadRequest, "say which card was shown: its fingerprint is missing")
+
+			return
+		}
+
+		_, err = g.ApproveShown(id, body.Agents, body.Shown)
+		if errors.Is(err, mcp.ErrChangedSinceShown) {
+			fail(w, http.StatusConflict, err.Error())
+
+			return
+		}
 	case "activate":
 		_, err = g.Activate(r.Context(), id)
 	case "deactivate":

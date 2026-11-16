@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -89,6 +90,10 @@ type View struct {
 	SecretSet []string   `json:"secrets_set,omitempty"`
 	Missing   string     `json:"missing,omitempty"`
 	Listed    bool       `json:"listed"`
+
+	// Shown is the fingerprint of what this card shows (Server.Shown): an
+	// approval carries it back.
+	Shown string `json:"shown"`
 }
 
 // ToolView is one of its tools, as offered here.
@@ -147,7 +152,7 @@ func (g *Gateway) List() []View {
 }
 
 func (g *Gateway) view(s Server, listed bool) View {
-	v := View{Server: s, Place: s.Where(), Leaves: s.Remote(), Listed: listed}
+	v := View{Server: s, Place: s.Where(), Leaves: s.Remote(), Listed: listed, Shown: s.Shown()}
 
 	for _, name := range s.Secrets {
 		if g.Book.HasSecret(s.ID, name) {
@@ -256,6 +261,52 @@ func (g *Gateway) Approve(id string, agents []string) (Server, error) {
 	})
 	if err != nil {
 		return Server{}, err
+	}
+
+	g.note(id, "approved", "", "for "+strings.Join(agents, ", ")+"; "+s.Where())
+
+	return s, nil
+}
+
+// ErrChangedSinceShown is an approval for a card that no longer shows
+// what the integration is.
+var ErrChangedSinceShown = errors.New("this integration changed since it was shown; look at it again before approving it")
+
+/*
+ * ApproveShown is Approve for the card its owner was looking at: shown is
+ * that card's fingerprint (View.Shown), compared with the integration as
+ * it is at the moment it is approved, under the book's lock. One that
+ * changed in between (an imported entry followed, a hand edit) is left as
+ * it was and ErrChangedSinceShown says so.
+ */
+func (g *Gateway) ApproveShown(id string, agents []string, shown string) (Server, error) {
+	if _, err := g.Add(id); err != nil {
+		return Server{}, err
+	}
+
+	if len(agents) == 0 {
+		agents = []string{"assistant"}
+	}
+
+	changed := false
+
+	s, err := g.Book.Change(id, func(s *Server) {
+		if shown == "" || s.Shown() != shown {
+			changed = true
+
+			return
+		}
+
+		s.Approved = true
+		s.ApprovedAt = time.Now().UTC().Format(time.RFC3339)
+		s.Agents = agents
+	})
+	if err != nil {
+		return Server{}, err
+	}
+
+	if changed {
+		return Server{}, ErrChangedSinceShown
 	}
 
 	g.note(id, "approved", "", "for "+strings.Join(agents, ", ")+"; "+s.Where())

@@ -559,7 +559,7 @@ func TestTheAssistantUsesAServerImportedFromClaudeDesktop(t *testing.T) {
 		Imported string `json:"imported"`
 	}
 
-	if code, raw := d.post("/api/integrations/import", `{"key":`+quote(found.Key)+`}`, &imported); code != http.StatusOK || imported.Imported == "" {
+	if code, raw := d.post("/api/integrations/import", `{"key":`+quote(found.Key)+`,"print":`+quote(found.Print)+`}`, &imported); code != http.StatusOK || imported.Imported == "" {
 		t.Fatalf("import: %d %s", code, raw)
 	}
 
@@ -580,7 +580,27 @@ func TestTheAssistantUsesAServerImportedFromClaudeDesktop(t *testing.T) {
 	}
 
 	// 3. Approved and switched on: the real server's tools.
-	if code, raw := d.post("/api/integrations/"+id+"/approve", "", nil); code != http.StatusOK {
+	// The yes carries the fingerprint of the card it is pressed on, as the
+	// page sends it; without one nothing is approved.
+	if code, raw := d.post("/api/integrations/"+id+"/approve", "", nil); code != http.StatusBadRequest {
+		t.Fatalf("approved without saying which card was shown: %d %s", code, raw)
+	}
+
+	var cardsShown struct {
+		Integrations []mcp.View `json:"integrations"`
+	}
+
+	d.get("/api/integrations", &cardsShown)
+
+	shown := ""
+
+	for _, v := range cardsShown.Integrations {
+		if v.ID == id {
+			shown = v.Shown
+		}
+	}
+
+	if code, raw := d.post("/api/integrations/"+id+"/approve", `{"shown":`+quote(shown)+`}`, nil); code != http.StatusOK {
 		t.Fatalf("approve: %d %s", code, raw)
 	}
 

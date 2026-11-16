@@ -95,23 +95,23 @@ func TestServersInOtherProgramsAreListedAndImported(t *testing.T) {
 		t.Errorf("old %+v", old)
 	}
 
-	code, body := postBody(t, ts.URL+"/api/integrations/import", `{"key":`+quote(old.Key)+`}`)
+	code, body := postBody(t, ts.URL+"/api/integrations/import", `{"key":`+quote(old.Key)+`,"print":`+quote(old.Print)+`}`)
 	if code != 400 || !strings.Contains(body["error"].(string), "sse") {
 		t.Errorf("the old transport was imported: %d %v", code, body)
 	}
 
-	code, body = postBody(t, ts.URL+"/api/integrations/import", `{"key":`+quote(memory.Key)+`}`)
+	code, body = postBody(t, ts.URL+"/api/integrations/import", `{"key":`+quote(memory.Key)+`,"print":`+quote(memory.Print)+`}`)
 	// "memory" is a catalogue server's id: the imported one gets its own.
 	if code != 200 || body["imported"] != "memory2" {
 		t.Fatalf("import: %d %v", code, body)
 	}
 
-	code, _ = postBody(t, ts.URL+"/api/integrations/import", `{"key":`+quote(memory.Key)+`}`)
+	code, _ = postBody(t, ts.URL+"/api/integrations/import", `{"key":`+quote(memory.Key)+`,"print":`+quote(memory.Print)+`}`)
 	if code != 400 {
 		t.Error("imported twice")
 	}
 
-	code, _ = postBody(t, ts.URL+"/api/integrations/import", `{"key":"nothing"}`)
+	code, _ = postBody(t, ts.URL+"/api/integrations/import", `{"key":"nothing","print":"0"}`)
 	if code != 400 {
 		t.Error("an entry that is not there was imported")
 	}

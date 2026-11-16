@@ -74,7 +74,13 @@
 
         const answer = await res.json().catch(() => ({}));
 
-        if (!res.ok) throw new Error(answer.error || T('org.failed'));
+        if (!res.ok) {
+            const err = new Error(answer.error || T('org.failed'));
+
+            err.status = res.status;
+
+            throw err;
+        }
 
         return answer;
     }
@@ -340,7 +346,9 @@
             await post('/api/integrations/' + encodeURIComponent(id) + '/' + action, body);
             saidOn = null;
         } catch (err) {
-            saidOn = { id, text: err.message, failed: true };
+            // Changed since its card was drawn: said in the page's words,
+            // on the card as it is now.
+            saidOn = { id, text: err.status === 409 ? T('org.int.changed') : err.message, failed: true };
         }
 
         integrations();
@@ -428,7 +436,7 @@
                 const actions = node('div', 'org-actions');
 
                 if (!v.approved) {
-                    actions.appendChild(button(T('org.int.approve'), () => act(v.id, 'approve', { agents: ['assistant'] })));
+                    actions.appendChild(button(T('org.int.approve'), () => act(v.id, 'approve', { agents: ['assistant'], shown: v.shown })));
                 }
 
                 if (v.approved && !v.running && !gone) actions.appendChild(button(T('org.startIt'), () => act(v.id, 'activate')));
@@ -466,15 +474,18 @@
         return new Intl.NumberFormat(bg() ? 'bg-BG' : 'en-GB').format(n);
     }
 
-    async function importFound(key) {
+    // Import carries the fingerprint of the card it was pressed on: an
+    // entry rewritten since is not imported (409), and is drawn again.
+    async function importFound(key, print) {
         const said = el('int-said');
 
         try {
             said.textContent = '';
-            await post('/api/integrations/import', { key });
+            await post('/api/integrations/import', { key, print });
             integrations();
         } catch (err) {
-            said.textContent = err.message;
+            await integrations();
+            said.textContent = err.status === 409 ? T('org.imp.changed') : err.message;
         }
     }
 
@@ -535,7 +546,7 @@
             if (f.imported) {
                 item.appendChild(node('p', 'note tiny', T('org.imp.imported', { id: f.imported })));
             } else if (!f.problem) {
-                actions.appendChild(button(T('org.imp.import'), () => importFound(f.key)));
+                actions.appendChild(button(T('org.imp.import'), () => importFound(f.key, f.print)));
             }
 
             if (actions.childNodes.length) item.appendChild(actions);
