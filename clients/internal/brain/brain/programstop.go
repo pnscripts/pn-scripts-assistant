@@ -93,6 +93,10 @@ func (b *Brain) refusedByItsCard(ctx context.Context, tool tools.Tool, args json
 		return r.Said
 	}
 
+	if r := b.AlsoRefused(ctx, tools.AlsoRunsOf(ctx, tool, args)); r.Answer == programs.Never {
+		return r.Said
+	}
+
 	return ""
 }
 

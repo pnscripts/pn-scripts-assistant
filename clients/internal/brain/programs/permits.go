@@ -271,7 +271,7 @@ func startsOthers(exec string) bool {
 	switch base {
 	case "env", "sh", "bash", "dash", "zsh", "fish", "ksh", "busybox",
 		"flatpak", "snap", "gtk-launch", "gio", "xdg-open", "dex", "kioclient", "kioclient5",
-		"sudo", "pkexec", "nohup", "setsid", "nice", "ionice", "timeout", "stdbuf", "systemd-run",
+		"sudo", "doas", "pkexec", "nohup", "setsid", "nice", "ionice", "timeout", "stdbuf", "systemd-run", "xargs", "script",
 		"java", "javaw", "mono", "dotnet", "wine", "wine64", "electron", "deno", "bun",
 		"cmd", "powershell", "pwsh", "wscript", "cscript", "rundll32", "explorer", "msiexec":
 		return true

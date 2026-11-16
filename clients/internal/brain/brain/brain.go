@@ -849,6 +849,7 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 		// What its person decided on each program's card, at the moment
 		// of acting. See programs.go.
 		Programs:        b.ProgramRuling,
+		AlsoRefused:     b.AlsoRefused,
 		ProgramsStopped: b.ProgramsStopped,
 		GoalMode:        func() bool { return b.Cfg.GoalMode },
 

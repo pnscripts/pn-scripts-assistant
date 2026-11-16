@@ -234,6 +234,68 @@ func (b *Brain) ProgramRuling(ctx context.Context, use programs.Use) programs.Ru
 	return r
 }
 
+/*
+ * AlsoRefused weighs the other programs a call would start (the rest of a
+ * shell line, the programs a one-line script names) against their cards,
+ * all at once: the first "never", or removal, among them, which refuses
+ * the call; otherwise nothing. It never allows: those uses came through a
+ * wrapper. With no "never" on any card and nothing removed there is
+ * nothing to find, and nothing more is read.
+ */
+func (b *Brain) AlsoRefused(ctx context.Context, uses []programs.Use) programs.Ruling {
+	undecided := programs.Ruling{Answer: programs.AskEach}
+
+	if len(uses) == 0 {
+		return undecided
+	}
+
+	ps, err := b.DB.ProgramPermits()
+	if err != nil {
+		b.Log.Warn("could not read the program permissions", "err", err)
+		return undecided
+	}
+
+	rs, err := b.DB.Programs("")
+	if err != nil {
+		b.Log.Warn("could not read the programs for a permission", "err", err)
+		return undecided
+	}
+
+	could := false
+
+	for _, r := range rs {
+		if !r.Present {
+			could = true
+			break
+		}
+
+		for _, p := range ps[r.RowID] {
+			if p.Answer == programs.Never {
+				could = true
+			}
+		}
+	}
+
+	if !could {
+		return undecided
+	}
+
+	for _, use := range uses {
+		// Through a wrapper, whatever the tool said: refused or nothing.
+		use.Wrapped = true
+
+		if programs.NeedsPackage(rs, ps, use) {
+			use.Package = b.programScanner().PackageOf(ctx, use.Path)
+		}
+
+		if r := programs.Weigh(rs, ps, use); r.Answer == programs.Never {
+			return r
+		}
+	}
+
+	return undecided
+}
+
 // ProgramPermits is every standing decision about a program, by its row.
 func (b *Brain) ProgramPermits() (map[int64][]programs.Permit, error) {
 	return b.DB.ProgramPermits()
