@@ -117,7 +117,14 @@ func cardPermits(records []programs.Record, decided map[int64][]programs.Permit)
 
 	for _, r := range records {
 		for _, p := range decided[r.RowID] {
-			out[r.Key()] = append(out[r.Key()], cardPermit{Permit: p, Asleep: p.Asleep(r.Version)})
+			asleep := p.AsleepOn(r)
+
+			// A menu entry's fingerprint is not a version to show.
+			if programs.IsPin(p.Version) {
+				p.Version = ""
+			}
+
+			out[r.Key()] = append(out[r.Key()], cardPermit{Permit: p, Asleep: asleep})
 		}
 	}
 

@@ -203,6 +203,12 @@ func TestTheProgramsPageSaysTheInventoryInBothLanguages(t *testing.T) {
 		t.Errorf("an always asleep or not honoured: %+v / %+v", en.MayAsleep, en.MayNotHonoured)
 	}
 
+	// A menu entry has no version: its sleeping always says what changed,
+	// and names no version (1.1.0 security review, F6).
+	if en.MayAsleepEntry.Rows[0].State != "Allowed before its menu entry or the file it starts changed, so I ask again until you press Always." {
+		t.Errorf("an always asleep on a menu entry: %+v", en.MayAsleepEntry)
+	}
+
 	if strings.Join(en.Answers, ",") != "ask,allow,never" {
 		t.Errorf("the buttons: %v", en.Answers)
 	}
@@ -268,7 +274,11 @@ func TestTheProgramsPageSaysTheInventoryInBothLanguages(t *testing.T) {
 
 	texts := []string{bg.Summary, bg.Windows, bg.NoMatch, bg.CanDo, bg.CanDoGone, bg.Long.Note, bg.MayKrita.Note}
 
-	for _, m := range []programsMay{bg.MayGimp, bg.MayKrita, bg.MayAsleep, bg.MayNotHonoured} {
+	if bg.MayAsleepEntry.Rows[0].State != "Разрешено, преди записът ѝ в менюто или файлът, който той стартира, да се промени, затова питам отново, докато не натиснете „Винаги“." {
+		t.Errorf("an always asleep on a menu entry, in Bulgarian: %+v", bg.MayAsleepEntry)
+	}
+
+	for _, m := range []programsMay{bg.MayGimp, bg.MayKrita, bg.MayAsleep, bg.MayAsleepEntry, bg.MayNotHonoured} {
 		for _, r := range m.Rows {
 			texts = append(texts, r.Label, r.State)
 		}
@@ -383,6 +393,7 @@ type programsSaid struct {
 	MayGimp        programsMay   `json:"mayGimp"`
 	MayKrita       programsMay   `json:"mayKrita"`
 	MayAsleep      programsMay   `json:"mayAsleep"`
+	MayAsleepEntry programsMay   `json:"mayAsleepEntry"`
 	MayNotHonoured programsMay   `json:"mayNotHonoured"`
 	Answers        []string      `json:"answers"`
 	Long           struct {
@@ -456,6 +467,8 @@ process.stdout.write(JSON.stringify({
     mayKrita: P.may(find('krita'), body),
     mayAsleep: P.may({ kind: 'deb', id: 'x', version: '3.1', present: true },
         { permits: { 'deb:x': [{ verb: 'start', answer: 'allow', version: '3.0', asleep: true }] } }),
+    mayAsleepEntry: P.may({ kind: 'app', id: 'x.desktop', present: true },
+        { permits: { 'app:x.desktop': [{ verb: 'start', answer: 'allow', asleep: true }] } }),
     mayNotHonoured: P.may({ kind: 'deb', id: 'x', version: '3.0', present: true },
         { honoured: false, permits: { 'deb:x': [{ verb: 'start', answer: 'allow', version: '3.0' }] } }),
     answers: P.answers,

@@ -248,7 +248,9 @@
     /*
      * What the assistant may do with a program without asking: one row per
      * kind of use, with the answer chosen and what it means now. An
-     * "always" given to an older version sleeps (the server says asleep);
+     * "always" given to an older version sleeps (the server says asleep),
+     * and so does one on a menu entry, which has no version, once the
+     * entry or the file it starts has changed;
      * on "ask every time" no "always" is acted on (honoured false); a
      * removed program's choices are kept for when it comes back, and said
      * as kept, not as done.
@@ -266,6 +268,7 @@
             if (!p.present && answer === 'never') state = T('prg.state.keptNever');
             else if (!p.present && answer === 'allow') state = T('prg.state.keptAllow');
             else if (answer === 'never') state = T('prg.state.never');
+            else if (answer === 'allow' && d.asleep && !p.version) state = T('prg.state.asleepEntry');
             else if (answer === 'allow' && d.asleep) state = T('prg.state.asleep', { from: d.version || '?', to: p.version || '?' });
             else if (answer === 'allow' && !honoured) state = T('prg.state.notHonoured');
             else if (answer === 'allow') state = T('prg.state.allow', { when: when(d.at) });
@@ -322,7 +325,9 @@
 
             out.forProgram = {
                 label: T('prg.ap.always', vars),
-                title: T(p.version ? 'prg.ap.alwaysTitle' : 'prg.ap.alwaysTitlePlain', vars),
+                // A menu entry has no version: its Always follows the entry
+                // and the file it starts instead.
+                title: T(p.version ? 'prg.ap.alwaysTitle' : (p.kind === 'app' ? 'prg.ap.alwaysTitleEntry' : 'prg.ap.alwaysTitlePlain'), vars),
             };
         }
 

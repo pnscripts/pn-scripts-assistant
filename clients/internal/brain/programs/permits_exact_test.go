@@ -29,8 +29,8 @@ func gimpWithAlways() ([]Record, map[int64][]Permit) {
 	at := time.Date(2026, 11, 15, 9, 0, 0, 0, time.UTC)
 
 	return []Record{bare, full}, map[int64][]Permit{
-		21: {{Verb: VerbChange, Answer: Always, At: at}, {Verb: VerbInput, Answer: Always, At: at}},
-		22: {{Verb: VerbChange, Answer: Always, At: at}},
+		21: {{Verb: VerbChange, Answer: Always, Version: asItIs, At: at}, {Verb: VerbInput, Answer: Always, Version: asItIs, At: at}},
+		22: {{Verb: VerbChange, Answer: Always, Version: asItIs, At: at}},
 	}
 }
 
@@ -101,9 +101,9 @@ func TestAProgramThatStartsOthersIsNotKnownByItsFile(t *testing.T) {
 	all := []Record{gimp, rec(32, Flatpak, "org.gimp.GIMP", "GIMP", "2.10.38", true), script, shell}
 
 	always := map[int64][]Permit{
-		31: {{Verb: VerbChange, Answer: Always}},
-		33: {{Verb: VerbChange, Answer: Always}},
-		34: {{Verb: VerbChange, Answer: Always}},
+		31: {{Verb: VerbChange, Answer: Always, Version: asItIs}},
+		33: {{Verb: VerbChange, Answer: Always, Version: asItIs}},
+		34: {{Verb: VerbChange, Answer: Always, Version: asItIs}},
 	}
 
 	if r := Weigh(all, always, Use{Verb: VerbChange, Path: "/usr/bin/flatpak", Flatpak: "org.gimp.GIMP", Name: "flatpak"}); r.Answer != Always {
@@ -187,7 +187,7 @@ func TestAWrappedUseIsRefusedByACardAndNeverAllowedByIt(t *testing.T) {
 	always, never := map[int64][]Permit{}, map[int64][]Permit{}
 
 	for _, r := range all {
-		always[r.RowID] = []Permit{{Verb: VerbChange, Answer: Always, Version: r.Version}}
+		always[r.RowID] = []Permit{{Verb: VerbChange, Answer: Always, Version: r.Follows()}}
 		never[r.RowID] = []Permit{{Verb: VerbChange, Answer: Never}}
 	}
 
@@ -227,7 +227,7 @@ func TestTheFileAMenuEntryNamesInFullIsItsProgram(t *testing.T) {
 	code := rec(51, App, "code.desktop", "Code", "", true)
 	code.Exec = "/usr/share/code/code"
 
-	always := map[int64][]Permit{51: {{Verb: VerbChange, Answer: Always}, {Verb: VerbInput, Answer: Always}}}
+	always := map[int64][]Permit{51: {{Verb: VerbChange, Answer: Always, Version: asItIs}, {Verb: VerbInput, Answer: Always, Version: asItIs}}}
 
 	for _, use := range []Use{
 		{Verb: VerbChange, Path: "/usr/share/code/code", Name: "code", Elsewhere: true},
@@ -244,7 +244,7 @@ func TestTheFileAMenuEntryNamesInFullIsItsProgram(t *testing.T) {
 	odd := rec(52, App, "tool.desktop", "Tool", "", true)
 	odd.Exec = "bin/tool"
 
-	if r := Weigh([]Record{odd}, map[int64][]Permit{52: {{Verb: VerbChange, Answer: Always}}},
+	if r := Weigh([]Record{odd}, map[int64][]Permit{52: {{Verb: VerbChange, Answer: Always, Version: asItIs}}},
 		Use{Verb: VerbChange, Path: "bin/tool", Name: "tool", Elsewhere: true}); r.Answer != AskEach || r.Program != nil {
 		t.Errorf("a place given from a folder was answered by a card: %+v", r)
 	}

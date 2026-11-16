@@ -1489,7 +1489,7 @@ func (l *Loop) RunBrief(
 				// Which program it is about, so its card's Always can be
 				// given from the question itself, to that program alone.
 				if bound && ruling.Program != nil && ruling.Program.Present && ruling.Program.RowID > 0 {
-					if err := l.DB.InvocationProgram(id, ruling.Program.RowID, use.Verb, ruling.Program.Version, !askedForMore); err != nil {
+					if err := l.DB.InvocationProgram(id, ruling.Program.RowID, use.Verb, ruling.Program.Follows(), !askedForMore); err != nil {
 						return Result{}, err
 					}
 				}

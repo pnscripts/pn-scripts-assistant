@@ -163,6 +163,10 @@
             'Allowed for version {from}. It is {to} now, so I ask again until you press Always.',
             'Разрешено за версия {from}. Сега е {to}, затова питам отново, докато не натиснете „Винаги“.',
         ],
+        'prg.state.asleepEntry': [
+            'Allowed before its menu entry or the file it starts changed, so I ask again until you press Always.',
+            'Разрешено, преди записът ѝ в менюто или файлът, който той стартира, да се промени, затова питам отново, докато не натиснете „Винаги“.',
+        ],
         'prg.state.notHonoured': [
             'Your general setting asks every time, so I ask anyway.',
             'Общата ви настройка е да питам всеки път, затова питам въпреки това.',
@@ -209,6 +213,10 @@
         'prg.ap.alwaysTitlePlain': [
             'Approve this, and stop asking about this use of {name}: {verb}. Only {name}.',
             'Одобри това и не питай повече за тази употреба на {name}: {verb}. Само за {name}.',
+        ],
+        'prg.ap.alwaysTitleEntry': [
+            'Approve this, and stop asking about this use of {name}: {verb}. Only {name}; I ask again if its menu entry or the file it starts changes.',
+            'Одобри това и не питай повече за тази употреба на {name}: {verb}. Само за {name}; питам отново, ако записът ѝ в менюто или файлът, който той стартира, се промени.',
         ],
         'prg.ap.any': ['Always, any program', 'Винаги, за всяка програма'],
         'prg.ap.anyTitle': [

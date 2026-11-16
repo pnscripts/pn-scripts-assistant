@@ -144,6 +144,10 @@ type Record struct {
 	// the first look and has not changed since.
 	LastChange ChangeKind `json:"last_change,omitempty"`
 
+	// Pin is a menu entry's fingerprint as it is now (Pin), set by whoever
+	// read the record for a decision; never stored.
+	Pin string `json:"-"`
+
 	// byNameOnly is set by Match on a record that shares only a name with
 	// what is about to be used, or whose program is reached through a
 	// wrapper: it can refuse and never allows.

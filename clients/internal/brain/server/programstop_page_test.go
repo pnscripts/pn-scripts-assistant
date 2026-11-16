@@ -112,6 +112,17 @@ func TestTheStopSwitchAndTheApprovalAnswersInBothLanguages(t *testing.T) {
 		t.Errorf("in Bulgarian a question about Demo offers %+v", bg.Offers["demo"])
 	}
 
+	// A menu entry has no version: its Always says what it follows instead
+	// (1.1.0 security review, F6).
+	if e := en.Offers["entry"]; e.ForProgram == nil || !strings.Contains(e.ForProgram.Title, "I ask again if its menu entry or the file it starts changes") ||
+		strings.Contains(e.ForProgram.Title, "version") {
+		t.Errorf("in English a question about a menu entry offers %+v", e.ForProgram)
+	}
+
+	if e := bg.Offers["entry"]; e.ForProgram == nil || !strings.Contains(e.ForProgram.Title, "питам отново, ако записът ѝ в менюто или файлът, който той стартира, се промени") {
+		t.Errorf("in Bulgarian a question about a menu entry offers %+v", e.ForProgram)
+	}
+
 	// Typing into Demo: always asked, so only Demo's own Always.
 	typing := en.Offers["typing"]
 	if typing.ForProgram == nil || typing.AnyProgram != nil {
@@ -200,6 +211,7 @@ process.stdout.write(JSON.stringify({
         typing: P.approvalChoices(typing, 'zz_start_demo'),
         plain: P.approvalChoices(plain, 'remember'),
         other: P.approvalChoices(other, 'zz_start_demo'),
+        entry: P.approvalChoices(Object.assign({}, card, { program: { kind: 'app', id: 'demo.desktop', name: 'Demo', verb: 'start', always: true } }), 'zz_start_demo'),
         stopped: P.approvalChoices(stoppedCard, 'zz_start_demo'),
     },
 }));

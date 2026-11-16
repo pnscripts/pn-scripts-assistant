@@ -198,7 +198,10 @@ func choiceWords(r programs.Record, c programs.Choices, onlyDecided bool) string
 			said = "never"
 		case !r.Present:
 			said = "always"
-		case p.Asleep(r.Version):
+		case p.AsleepOn(r) && r.Kind == programs.App && r.Version == "":
+			// A menu entry has no version to name.
+			said = "always, asked again since its menu entry or the file it starts changed"
+		case p.AsleepOn(r):
 			said = "always, given to version " + p.Version + ", asked again since the update"
 		case !c.Honoured:
 			said = "always, but asked each time while every action is asked"

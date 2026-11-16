@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"pn-scripts-assistant/internal/brain/exe"
 	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/programs"
 )
@@ -181,6 +182,15 @@ func (b *Brain) ProgramInventory() ([]programs.Record, []programs.SourceState, e
 		return nil, nil, err
 	}
 
+	// A menu entry with an "always" is shown with its fingerprint as it
+	// is now, so whoever shows it can tell an "always" that sleeps.
+	ps, err := b.DB.ProgramPermits()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rs = programs.Pinned(rs, ps, findsProgram)
+
 	b.programs.mu.Lock()
 	w := b.programs.watching
 	b.programs.mu.Unlock()
@@ -224,7 +234,15 @@ func (b *Brain) ProgramRuling(ctx context.Context, use programs.Use) programs.Ru
 		use.Package = b.programScanner().PackageOf(ctx, use.Path)
 	}
 
-	r := programs.Weigh(rs, ps, use)
+	// A menu entry's "always" is weighed against the entry and the file
+	// it starts as they are at this moment.
+	r := programs.Weigh(programs.Pinned(rs, ps, findsProgram), ps, use)
+
+	// The program a question is about carries what an "always" given
+	// from that question would be given to.
+	if r.Program != nil && r.Program.Pin == "" {
+		r.Program.Pin = programs.Pin(*r.Program, findsProgram)
+	}
 
 	if r.Answer == programs.Always && b.Freedom() == permits.AskEveryTime {
 		r.Answer, r.Why = programs.AskEach, programs.WhyUndecided
@@ -304,7 +322,8 @@ func (b *Brain) ProgramPermits() (map[int64][]programs.Permit, error) {
 /*
  * SetProgramPermit is the person's decision from a program's card: the
  * program by its source and id, one verb, ask/allow/never. "Always" is
- * given to the version that is here now.
+ * given to the version that is here now, or, for a menu entry, which has
+ * none, to its fingerprint as it is now (programs.Pin).
  */
 func (b *Brain) SetProgramPermit(kind programs.Kind, id string, verb programs.Verb, answer programs.Answer) (programs.Record, error) {
 	rs, err := b.DB.Programs(kind)
@@ -317,7 +336,9 @@ func (b *Brain) SetProgramPermit(kind programs.Kind, id string, verb programs.Ve
 			continue
 		}
 
-		if err := b.DB.SetProgramPermit(r.RowID, verb, answer, r.Version, time.Now()); err != nil {
+		r.Pin = programs.Pin(r, findsProgram)
+
+		if err := b.DB.SetProgramPermit(r.RowID, verb, answer, r.Follows(), time.Now()); err != nil {
 			return r, err
 		}
 
@@ -328,6 +349,10 @@ func (b *Brain) SetProgramPermit(kind programs.Kind, id string, verb programs.Ve
 
 	return programs.Record{}, ErrNoSuchProgram
 }
+
+// findsProgram finds a bare name the way a command is found (exe.Look):
+// what a menu entry's fingerprint follows is the file that would run.
+func findsProgram(names ...string) (string, bool) { return exe.Look(names...) }
 
 // ErrNoSuchProgram is a card for a program the inventory does not know.
 var ErrNoSuchProgram = errors.New("there is no such program")

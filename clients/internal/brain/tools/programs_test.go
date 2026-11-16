@@ -258,8 +258,15 @@ func TestAskingForAProgramSaysItsChoices(t *testing.T) {
 	gimpMenu := rowOf(t, inv, programs.App, "gimp.desktop")
 	gimpDeb := rowOf(t, inv, programs.Deb, "gimp")
 
+	// The menu entry as it is now: its always was given to this.
+	for i := range inv.records {
+		if inv.records[i].RowID == gimpMenu.RowID {
+			inv.records[i].Pin = "pin:as-it-is"
+		}
+	}
+
 	c := choosing{inventory: inv, choices: programs.Choices{Honoured: true, Permits: map[int64][]programs.Permit{
-		gimpMenu.RowID: {{Verb: programs.VerbStart, Answer: programs.Always}},
+		gimpMenu.RowID: {{Verb: programs.VerbStart, Answer: programs.Always, Version: "pin:as-it-is"}},
 		gimpDeb.RowID: {
 			{Verb: programs.VerbInput, Answer: programs.Always, Version: "2.10.30"},
 			{Verb: programs.VerbChange, Answer: programs.Never},
@@ -278,6 +285,39 @@ func TestAskingForAProgramSaysItsChoices(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}
+	}
+}
+
+// A menu entry's always given to what the entry was, not what it is now
+// (1.1.0 security review, F6): said as asked again, with no version named.
+func TestAnAlwaysOnAChangedMenuEntryIsSaidAsAskedAgain(t *testing.T) {
+	inv := withRows(sampleInventory())
+	gimpMenu := rowOf(t, inv, programs.App, "gimp.desktop")
+
+	for i := range inv.records {
+		if inv.records[i].RowID == gimpMenu.RowID {
+			inv.records[i].Pin = "pin:as-it-is-now"
+		}
+	}
+
+	c := choosing{inventory: inv, choices: programs.Choices{Honoured: true, Permits: map[int64][]programs.Permit{
+		gimpMenu.RowID: {
+			{Verb: programs.VerbStart, Answer: programs.Always, Version: "pin:as-it-was"},
+			{Verb: programs.VerbChange, Answer: programs.Always},
+		},
+	}}}
+
+	out, err := ListPrograms{Programs: c}.Execute(context.Background(), json.RawMessage(`{"name":"gimp"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := "GIMP (menu): start it: always, asked again since its menu entry or the file it starts changed; " +
+		"type and click in its windows: not decided, asked each time; " +
+		"run it as a command: always, asked again since its menu entry or the file it starts changed"
+
+	if !strings.Contains(out, want) || strings.Contains(out, "pin:") {
+		t.Errorf("missing %q, or a fingerprint is said, in:\n%s", want, out)
 	}
 }
 
