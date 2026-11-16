@@ -3,6 +3,7 @@ package brain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -269,5 +270,50 @@ func TestAServerWhoseEntryWentIsNotResumed(t *testing.T) {
 
 	if got := importedServer(t, b, "gone"); !got.From.WasActive || got.Active {
 		t.Errorf("gone as %+v %+v", got, got.From)
+	}
+}
+
+/*
+ * A refused Import leaves the page with the entry as it is now.
+ *
+ * Found walking the page as a person (16.11.2026): the entry was rewritten,
+ * Import answered that it had changed and that it was now shown as it is,
+ * and the list still showed the old one until the watch caught up, so a
+ * second Import was refused the same way. What the import itself read is
+ * what the next listing shows.
+ */
+func TestARefusedImportShowsTheEntryAsItIsNow(t *testing.T) {
+	b := quietBrain(t)
+	home := t.TempDir()
+
+	env := mcpimport.Env{GOOS: "linux", Home: home}
+	b.mcpImports.env = &env
+
+	desktop := filepath.Join(home, ".config", "Claude", "claude_desktop_config.json")
+	writeSettings(t, desktop, `{"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "first-thing"]}}}`)
+
+	// Looked at once, as the watch does; nothing looks again by itself here.
+	b.lookAtMCPSettings(context.Background())
+
+	shown, _, _ := b.MCPImports()
+	if len(shown) != 1 || !strings.Contains(shown[0].Where, "first-thing") {
+		t.Fatalf("shown %+v", shown)
+	}
+
+	writeSettings(t, desktop, `{"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "second-thing"]}}}`)
+
+	if _, err := b.ImportMCPShown(shown[0].Key, shown[0].Print); !errors.Is(err, ErrMCPChanged) {
+		t.Fatalf("a changed entry: %v", err)
+	}
+
+	now, _, _ := b.MCPImports()
+	if len(now) != 1 || !strings.Contains(now[0].Where, "second-thing") || now[0].Print == shown[0].Print {
+		t.Fatalf("after the refusal the entry is still shown as it was: %+v", now)
+	}
+
+	// Pressed again on what is shown now, it is imported.
+	s, err := b.ImportMCPShown(now[0].Key, now[0].Print)
+	if err != nil || len(s.Command) != 3 || s.Command[2] != "second-thing" {
+		t.Fatalf("import of the entry as it is now: %+v, %v", s, err)
 	}
 }

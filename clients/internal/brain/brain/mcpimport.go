@@ -351,7 +351,16 @@ func (b *Brain) importMCP(key, print string, asShown bool) (mcp.Server, error) {
 	b.mcpImports.look.Lock()
 	defer b.mcpImports.look.Unlock()
 
-	found, _, _ := b.readMCPSettings()
+	found, files, _ := b.readMCPSettings()
+
+	// What was just read is what the page shows next: an import refused
+	// because the entry changed is followed by the entry as it is now,
+	// without waiting for the watch.
+	b.mcpImports.mu.Lock()
+	if b.mcpImports.looked {
+		b.mcpImports.found, b.mcpImports.files = found, files
+	}
+	b.mcpImports.mu.Unlock()
 
 	for _, f := range found {
 		if f.Key() != key {
