@@ -901,6 +901,24 @@ jobs:
           CGO_ENABLED: '0'
         run: go test -c -o internal/brain/mcpdemo/mcpdemo.test${{ runner.os == 'Windows' && '.exe' || '' }} ./internal/brain/mcpdemo/
 
+      - name: Install the pinned official client, checksums and signatures checked
+        working-directory: clients/internal/brain/mcpofficial/testdata/client
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit signatures
+
+      # The program a person installs, without the window: mcp opens none.
+      # Installed and built here, before the first step that takes the
+      # network away: on Windows the rule that blocks node stays for the rest
+      # of the job.
+      - name: Build the program and the official client's test
+        working-directory: clients
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          go build -o internal/brain/mcpofficial/under-test${{ runner.os == 'Windows' && '.exe' || '' }} ./cmd/pn-scripts-assistant
+          go test -c -o internal/brain/mcpofficial/mcpofficial.test${{ runner.os == 'Windows' && '.exe' || '' }} ./internal/brain/mcpofficial/
+
       - name: The demo, with no network (Linux)
         if: runner.os == 'Linux'
         working-directory: clients/internal/brain/mcpdemo
@@ -939,21 +957,6 @@ jobs:
       # 2026-07-28 revision only). It checks every answer against the
       # protocol's definitions itself. The project's conformance suite asks
       # servers over HTTP only (its issue 258); this server has streams only.
-      - name: Install the pinned official client, checksums and signatures checked
-        working-directory: clients/internal/brain/mcpofficial/testdata/client
-        run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          npm audit signatures
-
-      # The program a person installs, without the window: mcp opens none.
-      - name: Build the program and the official client's test
-        working-directory: clients
-        env:
-          CGO_ENABLED: '0'
-        run: |
-          go build -o internal/brain/mcpofficial/under-test${{ runner.os == 'Windows' && '.exe' || '' }} ./cmd/pn-scripts-assistant
-          go test -c -o internal/brain/mcpofficial/mcpofficial.test${{ runner.os == 'Windows' && '.exe' || '' }} ./internal/brain/mcpofficial/
-
       - name: The official client asks the assistant, with no network (Linux)
         if: runner.os == 'Linux'
         working-directory: clients/internal/brain/mcpofficial
