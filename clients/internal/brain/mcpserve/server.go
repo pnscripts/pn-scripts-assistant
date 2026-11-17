@@ -126,6 +126,16 @@ const (
 	DefaultAtOnce = 8
 )
 
+/*
+ * KeepFor is how long a current client may keep the description of this
+ * server and its list of tools before asking again (ttlMs). Neither changes
+ * while the process lives, and both are the same for everyone who asks
+ * (cacheScope "public": nothing of the user's is in them). They change only
+ * when the program is updated, so what a client kept from the version
+ * before is at most this old.
+ */
+const KeepFor = 5 * time.Minute
+
 type request struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id"`
@@ -498,8 +508,11 @@ func (se *session) answer(ctx context.Context, req request) (result map[string]a
 		return nil, failure
 	}
 
+	keeps := false
+
 	switch req.Method {
 	case "server/discover":
+		keeps = true
 		result = map[string]any{
 			"supportedVersions": Versions(),
 			"capabilities":      capabilities(),
@@ -508,6 +521,7 @@ func (se *session) answer(ctx context.Context, req request) (result map[string]a
 	case "ping":
 		result = map[string]any{}
 	case "tools/list":
+		keeps = true
 		result = map[string]any{"tools": se.s.list()}
 	case "tools/call":
 		result, failure = se.s.call(ctx, req.Params, who)
@@ -521,6 +535,12 @@ func (se *session) answer(ctx context.Context, req request) (result map[string]a
 	if modern {
 		result["resultType"] = "complete"
 		result["_meta"] = map[string]any{metaServer: se.s.info()}
+
+		// The current protocol requires both on what a client may keep.
+		if keeps {
+			result["ttlMs"] = KeepFor.Milliseconds()
+			result["cacheScope"] = "public"
+		}
 	}
 
 	return result, nil

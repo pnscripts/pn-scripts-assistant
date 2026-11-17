@@ -20,7 +20,11 @@ whenever something visible changed.
   It passes each question to the running assistant on this computer only,
   and says so when none is running or the terms of use are not accepted.
   Nothing from memory, mail, files or conversations is offered. Guide:
-  "Other programs asking the assistant".
+  "Other programs asking the assistant". Every build is asked by the MCP
+  project's own client (@modelcontextprotocol/client 2.4.0) in both the
+  2025 and the 2026-07-28 form of the protocol; its first run found that
+  the current form was sent a list of tools without the two caching fields
+  it requires, which that client refuses, and they are sent now.
 - **The assistant's own entry is not offered for import.** After that
   set-up, "Found in your other programs" lists the entry as the assistant
   itself, with nothing to import.
