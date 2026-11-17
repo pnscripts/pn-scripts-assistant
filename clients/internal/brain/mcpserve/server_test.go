@@ -244,6 +244,60 @@ func TestACurrentClientIsServedWithoutAHandshake(t *testing.T) {
 	}
 }
 
+/*
+ * What a current client may keep, it is told how long and for whom: the
+ * 2026-07-28 revision requires ttlMs and cacheScope on server/discover and
+ * on tools/list, and the official client refuses a list without them (found
+ * by package mcpofficial, 17.11.2026). The list and the description are the
+ * same for everyone who asks and hold nothing of the user's. A tool's answer
+ * is never one to keep, and an older client is sent neither field.
+ */
+func TestACurrentClientIsToldHowLongTheListKeeps(t *testing.T) {
+	s, _ := demo()
+
+	got := talk(t, s,
+		`{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{`+modernMeta+`}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{`+modernMeta+`}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"text":"hi"},`+modernMeta+`}}`,
+	)
+
+	for _, id := range []string{"1", "2"} {
+		result := got[id].Result
+
+		ttl, isNumber := result["ttlMs"].(float64)
+		if !isNumber || ttl < 0 || ttl != float64(int64(ttl)) {
+			t.Errorf("request %s: ttlMs is a whole number of milliseconds, zero or more: %v", id, result["ttlMs"])
+		}
+
+		if ttl > float64(time.Hour/time.Millisecond) {
+			t.Errorf("request %s: a list kept for %v ms outlives an update of the program by too long", id, ttl)
+		}
+
+		if result["cacheScope"] != "public" {
+			t.Errorf("request %s: the same for everyone, so public: %v", id, result["cacheScope"])
+		}
+	}
+
+	for _, field := range []string{"ttlMs", "cacheScope"} {
+		if _, has := got["3"].Result[field]; has {
+			t.Errorf("a tool's answer is not one to keep: %v", got["3"].Result)
+		}
+	}
+
+	older := talk(t, s,
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"Cursor","version":"3"}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
+	)
+
+	for id, a := range older {
+		for _, field := range []string{"ttlMs", "cacheScope", "resultType"} {
+			if _, has := a.Result[field]; has {
+				t.Errorf("an older client is sent what its protocol has (request %s): %v", id, a.Result)
+			}
+		}
+	}
+}
+
 // A version it does not speak is refused with the ones it does, the way a
 // current client expects, so it can ask again.
 func TestAVersionItDoesNotSpeakIsRefusedWithTheOnesItDoes(t *testing.T) {

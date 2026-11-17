@@ -1,0 +1,9 @@
+{
+  "name": "pn-scripts-assistant-mcp-official-client",
+  "description": "The MCP project's own TypeScript client, which the test starts against \"pn-scripts-assistant mcp\", pinned with every dependency's checksum in package-lock.json. Installed by CI with npm ci --ignore-scripts; never shipped.",
+  "private": true,
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0"
+  }
+}
