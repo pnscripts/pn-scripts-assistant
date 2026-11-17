@@ -11,6 +11,22 @@ whenever something visible changed.
 
 ## Unreleased
 
+- **Other programs can ask the assistant.** `pn-scripts-assistant mcp`
+  makes the assistant a Model Context Protocol server for Claude Code
+  (`claude mcp add pn-scripts-assistant -- pn-scripts-assistant mcp`),
+  Claude Desktop and Cursor. For now they can ask two things, both only
+  reading: whether the assistant is running, and which programs are
+  installed on this computer (search by name, removed ones with their day).
+  It passes each question to the running assistant on this computer only,
+  and says so when none is running or the terms of use are not accepted.
+  Nothing from memory, mail, files or conversations is offered. Guide:
+  "Other programs asking the assistant".
+- **The assistant's own entry is not offered for import.** After that
+  set-up, "Found in your other programs" lists the entry as the assistant
+  itself, with nothing to import.
+- **A shell is a shell however its name is capitalised.** An MCP entry in
+  another program that starts `CMD.EXE` or `PowerShell.Exe` is refused as a
+  shell, as `cmd.exe` already was.
 - **A program's "never" reaches the whole line.** A command is now also
   read through `sudo`, `doas`, `pkexec`, `xargs`, `busybox`, `script -c`,
   `systemd-run` and `eval`, and a "never" on a program's card refuses a

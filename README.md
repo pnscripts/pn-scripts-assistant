@@ -125,6 +125,10 @@ AMD). What it does not do yet is written down in
 - **Integrations, gated.** MCP servers, approved one by one, granted per agent
   and per project, confined to their own folders, with every call recorded. See
   [ADR 0004](docs/decisions/0004-hire-equip-and-confine.md).
+- **Claude Code, Claude Desktop and Cursor can ask it.** Add
+  `pn-scripts-assistant mcp` to one of them and it can ask the running
+  assistant whether a program is installed here, in which version, and what
+  was removed. Two read-only questions for now; nothing personal is offered.
 - **Uses the MCP servers you already set up.** Servers set up in Claude
   Desktop, Claude Code, Cursor or VS Code are found by themselves and listed
   under Integrations. Import one with a button and approve it before it runs;
