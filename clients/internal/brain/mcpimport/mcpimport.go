@@ -140,13 +140,17 @@ const (
 	// ProblemCredential: a key or password written into the command or
 	// the address, where it would be shown and kept as plain words.
 	ProblemCredential = "credential"
+
+	// ProblemSelf: the entry starts this program as a server for that
+	// one ("pn-scripts-assistant mcp"): it would be asking itself.
+	ProblemSelf = "self"
 )
 
 // Problems is every code a Found's Problem can be, sorted.
 func Problems() []string {
 	out := []string{ProblemShell, ProblemVariable, ProblemInput, ProblemEnvFile, ProblemFolder,
 		ProblemSSE, ProblemTransport, ProblemHeaders, ProblemNothing, ProblemInvalid,
-		ProblemLoader, ProblemCredential}
+		ProblemLoader, ProblemCredential, ProblemSelf}
 
 	sort.Strings(out)
 
@@ -286,6 +290,10 @@ func Read(p Place, raw []byte, home string) ([]Found, error) {
 	return out, nil
 }
 
+// OwnProgram is this program's file name, without ".exe" and in small
+// letters, as an entry that starts it for another program names it.
+const OwnProgram = "pn-scripts-assistant"
+
 var shells = map[string]bool{"sh": true, "bash": true, "zsh": true, "dash": true, "fish": true, "ksh": true,
 	"cmd": true, "powershell": true, "pwsh": true}
 
@@ -317,9 +325,14 @@ func convert(p Place, scope, name string, e entry, home string) Found {
 	}
 
 	if f.Problem == "" && s.Transport == "stdio" {
-		base := strings.ToLower(strings.TrimSuffix(filepath.Base(strings.ReplaceAll(e.Command, `\`, "/")), ".exe"))
+		base := strings.TrimSuffix(strings.ToLower(filepath.Base(strings.ReplaceAll(e.Command, `\`, "/"))), ".exe")
 		if shells[base] {
 			f.Problem, f.Detail = ProblemShell, base
+		}
+
+		// This program, set up there so that program can ask it.
+		if base == OwnProgram && len(e.Args) > 0 && e.Args[0] == "mcp" {
+			f.Problem = ProblemSelf
 		}
 	}
 
