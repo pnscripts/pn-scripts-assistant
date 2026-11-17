@@ -1,0 +1,232 @@
+package mcpserve_test
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	"pn-scripts-assistant/internal/brain/mcp"
+)
+
+/*
+ * The server, started as a program and talked to by a real client.
+ *
+ * The other tests hand Serve its lines directly. Here it is a process with
+ * real pipes, and the client is the one this program itself uses for other
+ * people's servers (package mcp), which asks the current question first and
+ * falls back to the older handshake: both ends were written from the
+ * specification apart, and here they have to agree.
+ */
+
+func standIn(t *testing.T) string {
+	t.Helper()
+
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Fatalf("the test builds its stand-in with go: %v", err)
+	}
+
+	name := "pn-scripts-assistant-mcp"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+
+	bin := filepath.Join(t.TempDir(), name)
+
+	cmd := exec.Command(gobin, "build", "-o", bin, "./testdata/standin")
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("building the stand-in: %v\n%s", err, out)
+	}
+
+	return bin
+}
+
+func running(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/version":
+			fmt.Fprint(w, `{"product":"PN Scripts Assistant","version":"1.1.0","platform":"linux/amd64"}`)
+		case "/api/terms":
+			fmt.Fprint(w, `{"accepted":true}`)
+		case "/api/programs":
+			fmt.Fprint(w, `{"programs":[{"kind":"deb","id":"gimp","name":"gimp","version":"2.10.36","present":true}]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+
+	t.Cleanup(ts.Close)
+
+	return ts
+}
+
+func TestARealClientFindsItCurrentAndUsesItsTools(t *testing.T) {
+	bin, ts := standIn(t), running(t)
+
+	stdio, err := mcp.StartStdio([]string{bin}, []string{"PN_SCRIPTS_ASSISTANT_API_URL=" + ts.URL}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := mcp.NewClient(stdio)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	if err := client.Connect(ctx); err != nil {
+		t.Fatalf("connecting: %v\nit said: %s", err, stdio.Said())
+	}
+
+	if client.Era() != "modern" || client.Version() != mcp.Modern {
+		t.Errorf("found %s %s, want the current protocol", client.Era(), client.Version())
+	}
+
+	if got := client.Server(); got.Name != "pn-scripts-assistant" || got.Version != "stand-in" {
+		t.Errorf("who it says it is: %+v", got)
+	}
+
+	if !strings.Contains(client.Instructions(), "PN Scripts Assistant") {
+		t.Errorf("instructions: %q", client.Instructions())
+	}
+
+	tools, err := client.Tools(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var names []string
+
+	for _, tool := range tools {
+		names = append(names, tool.Name)
+
+		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint == nil || !*tool.Annotations.ReadOnlyHint {
+			t.Errorf("%s does not say it only reads", tool.Name)
+		}
+	}
+
+	if strings.Join(names, ",") != "assistant_status,list_programs" {
+		t.Errorf("tools: %v", names)
+	}
+
+	result, err := client.CallTool(ctx, "list_programs", json.RawMessage(`{"search":"gimp"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result.IsError || len(result.Content) != 1 || !strings.HasSuffix(result.Content[0].Text, "\n- gimp 2.10.36 (deb)") {
+		t.Errorf("the call: %+v", result)
+	}
+
+	// A tool that could not do it comes back as an answer marked failed.
+	result, err = client.CallTool(ctx, "list_programs", json.RawMessage(`{"limit":5000}`))
+	if err != nil || !result.IsError || !strings.Contains(result.Content[0].Text, "limit is from 1 to 200") {
+		t.Errorf("a refused call: %+v %v", result, err)
+	}
+
+	if err := client.Healthy(ctx); err != nil {
+		t.Errorf("after a refused call: %v", err)
+	}
+}
+
+// An older client's whole conversation, written to the program by hand the
+// way Claude Desktop and Cursor write it, and the program ending when its
+// input closes.
+func TestAnOlderClientsConversationOverRealPipes(t *testing.T) {
+	bin, ts := standIn(t), running(t)
+
+	cmd := exec.Command(bin)
+	cmd.Env = []string{"PN_SCRIPTS_ASSISTANT_API_URL=" + ts.URL}
+
+	in, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	lines := bufio.NewReader(out)
+
+	ask := func(line string) map[string]any {
+		t.Helper()
+
+		if _, err := io.WriteString(in, line+"\n"); err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := lines.ReadString('\n')
+		if err != nil {
+			t.Fatalf("no answer to %s: %v", line, err)
+		}
+
+		var answer struct {
+			Result map[string]any `json:"result"`
+		}
+
+		if err := json.Unmarshal([]byte(got), &answer); err != nil || answer.Result == nil {
+			t.Fatalf("answer to %s: %q", line, got)
+		}
+
+		return answer.Result
+	}
+
+	hello := ask(`{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"roots":{}},"clientInfo":{"name":"claude-ai","version":"0.1.0"}}}`)
+	if hello["protocolVersion"] != "2025-06-18" {
+		t.Errorf("the handshake: %v", hello)
+	}
+
+	if _, err := io.WriteString(in, `{"jsonrpc":"2.0","method":"notifications/initialized"}`+"\n"); err != nil {
+		t.Fatal(err)
+	}
+
+	if list := ask(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`); len(list["tools"].([]any)) != 2 {
+		t.Errorf("the list: %v", list)
+	}
+
+	status := ask(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"assistant_status","arguments":{}}}`)
+	if text := status["content"].([]any)[0].(map[string]any)["text"].(string); !strings.Contains(text, "PN Scripts Assistant 1.1.0 is running") {
+		t.Errorf("status: %v", status)
+	}
+
+	in.Close()
+
+	ended := make(chan error, 1)
+
+	go func() { ended <- cmd.Wait() }()
+
+	select {
+	case err := <-ended:
+		if err != nil {
+			t.Errorf("it ended with %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		cmd.Process.Kill()
+		t.Fatal("it kept running after its input closed")
+	}
+
+	if rest, _ := io.ReadAll(lines); len(rest) != 0 {
+		t.Errorf("it wrote more than its answers: %q", rest)
+	}
+}

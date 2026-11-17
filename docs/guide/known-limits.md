@@ -68,6 +68,17 @@ against the code on 9 November 2026.
   stop the assistant's own helpers (reading the screen, recognising text,
   its own browser), MCP servers that are already approved, or a coding agent
   already at work: stop those on the Organisation page.
+- **Other programs asking the assistant: two questions, this computer
+  only.** `pn-scripts-assistant mcp` (for Claude Code, Claude Desktop,
+  Cursor) answers whether the assistant is running and which programs are
+  installed, and nothing else yet: nothing from memory, mail, files or
+  conversations, and nothing that changes anything. It needs the assistant
+  running, and asks it only on this computer's own address
+  (`--api http://127.0.0.1:<port>` when the port was changed; the address in
+  an encrypted settings file is not read). What it answers is passed by the
+  asking program to the model it uses, usually a service on the internet.
+  The assistant does not yet show who asked or keep a record of it. On
+  Windows give the program's full path in the entry.
 - **MCP servers from other programs: four programs, their own settings
   only.** Claude Desktop, Claude Code (`~/.claude.json`, or the folder
   `CLAUDE_CONFIG_DIR` names), Cursor (`~/.cursor/mcp.json`) and VS Code (the

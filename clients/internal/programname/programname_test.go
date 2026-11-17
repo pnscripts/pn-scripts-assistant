@@ -22,7 +22,7 @@ import (
 
 // subcommands are the program's commands, as main.go dispatches them, and the
 // two companion programs' names.
-const subcommands = `app|serve|rewrite-paths|ingest|mic-test|drives|move|tidy|start-over|promote|copies|places|status|menu|setup|start-again|unlock|read-log|window-check|update|version|help|cli|doctor`
+const subcommands = `app|serve|rewrite-paths|ingest|mic-test|drives|move|tidy|start-over|promote|copies|places|status|menu|setup|start-again|unlock|read-log|window-check|update|mcp|version|help|cli|doctor`
 
 // asCommand is "brain <command>": the old name typed as if it were a program.
 // The word before it is captured to tell "the brain status" from a command.

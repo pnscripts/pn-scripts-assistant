@@ -429,6 +429,28 @@ jobs:
           grep -q "with its icon" window-check.txt
           grep -q "follows a DPI change and hides its page when minimised" window-check.txt
 
+      # Claude Code, Claude Desktop and Cursor start "pn-scripts-assistant mcp"
+      # and talk to it over its standard streams. The Windows program is built
+      # for a window, not a console, so this proves it still reads its input
+      # and writes its answers when another program holds both ends: an older
+      # client's whole conversation, written as that client writes it. Nothing
+      # serves at the address given, which the tool has to say in words; and
+      # the output must be those three answers and not one line more.
+      - name: Another program can ask it over its streams
+        shell: bash
+        run: |
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"assistant_status","arguments":{}}}' > mcp-in.txt
+          build/windows/PN-Scripts-Assistant/pn-scripts-assistant.exe mcp --api http://127.0.0.1:9 < mcp-in.txt > mcp-out.txt 2> mcp-err.txt || { cat mcp-out.txt mcp-err.txt; exit 1; }
+          cat mcp-out.txt
+          test "$(wc -l < mcp-out.txt)" -eq 3
+          grep -q '"protocolVersion":"2025-06-18"' mcp-out.txt
+          grep -q '"name":"list_programs"' mcp-out.txt
+          grep -q 'PN Scripts Assistant is not running on this computer' mcp-out.txt
+
       # The picture of the Windows window for the product page: the program a
       # person downloads, in its own window on a real Windows, photographed
       # from the screen with its frame and title bar. A portable copy in a

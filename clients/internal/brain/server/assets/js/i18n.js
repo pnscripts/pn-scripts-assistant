@@ -3992,6 +3992,10 @@
             'a key or password is written into its command or address; put it in a setting (env) or a header there, where it is kept sealed here',
             'в командата или адреса му е записан ключ или парола; преместете го там в настройка (env) или в поле на заглавката, които тук се пазят запечатани',
         ],
+        'org.imp.p.self': [
+            'it is this assistant, set up there so that program can ask me; there is nothing to import',
+            'това е самият асистент, добавен там, за да може онази програма да ме пита; няма какво да се внася',
+        ],
         'org.imp.settings': ['settings it is given: {list}', 'настройки, които получава: {list}'],
         'org.imp.p.invalid': ['it cannot be run safely as written ({detail})', 'не може да се стартира безопасно така ({detail})'],
         'org.imp.files': ['Where I look: {list}', 'Къде търся: {list}'],

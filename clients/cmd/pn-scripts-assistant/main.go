@@ -138,6 +138,17 @@ func main() {
 	// loaded. The release runs it on a real Windows (window_check.go).
 	case "window-check":
 		err = runWindowCheck(os.Args[2:])
+	// Not typed by people: another program (Claude Code, Claude Desktop,
+	// Cursor) starts this and talks to it over its standard streams. Nothing
+	// else may be written to standard output on this path (mcp.go).
+	case "mcp":
+		if err := runMCP(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "pn-scripts-assistant mcp: %v\n", err)
+			os.Exit(1)
+		}
+
+		return
+
 	// Which copy is this. The first question anybody is asked when they
 	// report something, and until now there was no way to answer it.
 	case "update":
@@ -281,6 +292,7 @@ func usageTo(w io.Writer) {
   pn-scripts-assistant read-log           this program's log, its sealed lines opened
   pn-scripts-assistant version            which copy of the program this is
   pn-scripts-assistant update [--check]   look for a newer version and install it the way this copy was installed
+  pn-scripts-assistant mcp                for Claude Code, Claude Desktop or Cursor to start: lets them ask the running assistant
 
 `)
 }
