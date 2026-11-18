@@ -10,7 +10,11 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
+	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/otherprograms"
+	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/store"
 )
 
@@ -22,6 +26,7 @@ type outsidePage struct {
 			Label   string
 			Allowed bool
 			State   string
+			Means   string
 		}
 		Recent []struct{ When, Who, What, Outcome string }
 		None   string
@@ -37,7 +42,7 @@ type outsidePage struct {
 	}
 	Unnamed string
 	Deeds   []struct {
-		Chip, Said, Title, Trait, Went, Result string
+		Chip, Said, Title, Trait, Went, Result, Asked string
 	}
 	Tool      struct{ Chip, Trait, Went string }
 	Mine      struct{ Chip, Result string }
@@ -100,7 +105,7 @@ func TestThePageSaysWhoAskedAndWhatMayBeAskedInBothLanguages(t *testing.T) {
 
 	// The switch, off: one fixed line and one switch, not allowed.
 	if en.Off.Fixed.Label != "Whether I am running, and which version I am" || en.Off.Fixed.State != "Always answered" ||
-		len(en.Off.Rows) != 1 || en.Off.Rows[0].ID != "programs" || en.Off.Rows[0].Allowed ||
+		len(en.Off.Rows) != 3 || en.Off.Rows[0].ID != "programs" || en.Off.Rows[0].Allowed || en.Off.Rows[0].Means != "" ||
 		en.Off.Rows[0].Label != "Which programs are installed on this computer" ||
 		en.Off.Rows[0].State != "Not allowed. A program that asks is told to ask you." ||
 		len(en.Off.Recent) != 0 || en.Off.None != "No program has asked anything yet." {
@@ -314,7 +319,7 @@ const upper = (o) => o && typeof o === 'object' && !Array.isArray(o)
     : (Array.isArray(o) ? o.map(upper) : o);
 const record = (d) => {
     const a = P.askedBy(d);
-    return { chip: a ? a.chip : '', said: a ? a.said : '', title: a ? a.title : '', trait: a ? a.trait : '', went: a ? a.went : '', result: P.outsideResult(d) };
+    return { chip: a ? a.chip : '', said: a ? a.said : '', title: a ? a.title : '', trait: a ? a.trait : '', went: a ? a.went : '', result: P.outsideResult(d), asked: P.outsideAsked(d) };
 };
 process.stdout.write(JSON.stringify(upper({
     off: P.outside(json('off.json')),
@@ -340,4 +345,251 @@ process.stdout.write(JSON.stringify(upper({
 	}
 
 	return said
+}
+
+/*
+ * The two switches of 1.2.0 step 4 and what they put on the record, as
+ * the page says them in both languages: what allowing each one means
+ * (read before it is ticked), a question and its answer, a search and
+ * how much it found, each refusal in its own words, and the one line for
+ * a program that asked too much.
+ */
+func TestThePageSaysAskingAndSearchingInBothLanguages(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node is not installed")
+	}
+
+	ts, db, b := newServer(t)
+
+	model := &onThisComputer{said: "Maria, on weekdays."}
+	b.Router = llm.NewRouter(llm.ModeOpen, llm.Local, model)
+
+	remembered(t, b, model, "accountant", "Alex's accountant is Maria")
+
+	read := func(path string) []byte {
+		t.Helper()
+
+		res, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer res.Body.Close()
+		raw, _ := io.ReadAll(res.Body)
+
+		return raw
+	}
+
+	off := read("/api/outside")
+
+	question := `{"tool":"ask_assistant","arguments":{"question":"Who is the accountant?"},"client":{"name":"Cursor","version":"3.0"}}`
+	search := `{"tool":"search_memory","arguments":{"query":"accountant"},"client":{"name":"Cursor","version":"3.0"}}`
+
+	// Both refused, both allowed, both answered; then a model that fails.
+	post(t, ts.URL+"/api/outside/ask", question)
+	post(t, ts.URL+"/api/outside/ask", search)
+	post(t, ts.URL+"/api/outside/allow", `{"subject":"ask","allowed":true}`)
+	post(t, ts.URL+"/api/outside/allow", `{"subject":"memory","allowed":true}`)
+	post(t, ts.URL+"/api/outside/ask", question)
+	post(t, ts.URL+"/api/outside/ask", search)
+
+	b.Router = llm.NewRouter(llm.ModeOpen, llm.Local, &onThisComputer{said: " "})
+
+	post(t, ts.URL+"/api/outside/ask", question)
+
+	// And the one line for a program that asked too much.
+	tooMany, _ := otherprograms.TooMany()
+	if err := b.AskedFromOutside("assistant_status", "loop 1", "", "refused", tooMany); err != nil {
+		t.Fatal(err)
+	}
+
+	on := read("/api/outside")
+	deeds := read("/api/deeds?since=all")
+
+	en := outsidePageSays(t, "en-GB", off, on, []byte(`[{},{}]`), deeds)
+	bg := outsidePageSays(t, "bg-BG", off, on, []byte(`[{},{}]`), deeds)
+
+	// The switches, in the page's order, each off, the two new ones with
+	// what allowing them means.
+	if len(en.Off.Rows) != 3 || en.Off.Rows[1].ID != "ask" || en.Off.Rows[2].ID != "memory" ||
+		en.Off.Rows[1].Label != "Questions to me, answered in words" || en.Off.Rows[2].Label != "Searching what I remember about you" ||
+		en.Off.Rows[1].Allowed || en.Off.Rows[2].Allowed ||
+		!strings.Contains(en.Off.Rows[1].Means, "I do nothing for the program that asks") ||
+		!strings.Contains(en.Off.Rows[1].Means, "nothing about you unless the next switch is on too") ||
+		!strings.Contains(en.Off.Rows[2].Means, "goes to that program and to the model it uses, which may be on the internet") ||
+		!strings.Contains(en.Off.Rows[2].Means, "never the whole memory") {
+		t.Errorf("in English, off: %+v", en.Off.Rows)
+	}
+
+	if bg.Off.Rows[1].Label != "Въпроси към мен, на които отговарям с думи" || bg.Off.Rows[2].Label != "Търсене в това, което помня за вас" ||
+		!strings.Contains(bg.Off.Rows[1].Means, "Не върша нищо за програмата, която пита") ||
+		!strings.Contains(bg.Off.Rows[2].Means, "може да е в интернет") {
+		t.Errorf("in Bulgarian, off: %+v", bg.Off.Rows)
+	}
+
+	if !en.On.Rows[1].Allowed || !en.On.Rows[2].Allowed || en.On.Rows[0].Allowed || !strings.HasPrefix(en.On.Rows[2].State, "Allowed since ") {
+		t.Errorf("in English, on: %+v", en.On.Rows)
+	}
+
+	// The last five questions, newest first.
+	for i, want := range []struct{ what, outcome, whatBG, outcomeBG string }{
+		{"whether I am running", "Not answered", "дали работя", "Без отговор"},
+		{"a question to me", "Not answered", "въпрос към мен", "Без отговор"},
+		{"what I remember", "Answered", "какво помня", "Отговорено"},
+		{"a question to me", "Answered", "въпрос към мен", "Отговорено"},
+		{"what I remember", "Not answered", "какво помня", "Без отговор"},
+	} {
+		if got := en.On.Recent[i]; got.What != want.what || got.Outcome != want.outcome {
+			t.Errorf("in English, question %d: %+v", i, got)
+		}
+
+		if got := bg.On.Recent[i]; got.What != want.whatBG || got.Outcome != want.outcomeBG {
+			t.Errorf("in Bulgarian, question %d: %+v", i, got)
+		}
+	}
+
+	// The record, newest first: too many, no answer, a search, an answer,
+	// a search refused, a question refused.
+	if len(en.Deeds) != 6 {
+		t.Fatalf("the record: %+v", en.Deeds)
+	}
+
+	for i, want := range []struct{ asked, result, askedBG, resultBG string }{
+		{"", "Not answered: other programs asked more than 30 questions in a minute. The ones over that are refused and not listed one by one.",
+			"", "Без отговор: другите програми зададоха повече от 30 въпроса за една минута. Въпросите над тази граница получават отказ и не се изброяват един по един."},
+		{"The question: Who is the accountant?", "No answer: the model on this computer did not give one.",
+			"Въпросът: Who is the accountant?", "Без отговор: моделът на този компютър не даде такъв."},
+		{"Searched for: accountant", "Things I remember that I told it: 1.", "Търсено: accountant", "Неща от паметта ми, които ѝ казах: 1."},
+		{"The question: Who is the accountant?", "My answer: Maria, on weekdays.", "Въпросът: Who is the accountant?", "Моят отговор: Maria, on weekdays."},
+		{"", "Not answered: other programs may not search what I remember. You can allow it on the Programs page, under “What other programs may ask”.",
+			"", "Без отговор: другите програми нямат право да търсят в това, което помня. Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“."},
+		{"", "Not answered: other programs may not ask me questions. You can allow it on the Programs page, under “What other programs may ask”.",
+			"", "Без отговор: другите програми нямат право да ми задават въпроси. Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“."},
+	} {
+		if got := en.Deeds[i]; got.Asked != want.asked || got.Result != want.result || got.Trait != "A question from another program" {
+			t.Errorf("in English, record %d: %+v", i, got)
+		}
+
+		if got := bg.Deeds[i]; got.Asked != want.askedBG || got.Result != want.resultBG {
+			t.Errorf("in Bulgarian, record %d: %+v", i, got)
+		}
+	}
+
+	// What was found went to that program. An answer to a question is
+	// made first and taken by the program after, which the record cannot
+	// see: it says the answer was made for it. A refusal and a question
+	// the model did not answer went nowhere.
+	for i, went := range []string{"", "", "the answer went to that program", "the answer was made for that program to take", "", ""} {
+		if en.Deeds[i].Went != went {
+			t.Errorf("record %d, where the answer went: %q, want %q", i, en.Deeds[i].Went, went)
+		}
+	}
+
+	if bg.Deeds[3].Went != "отговорът беше приготвен, за да го вземе тази програма" {
+		t.Errorf("in Bulgarian, an answer made for a program: %q", bg.Deeds[3].Went)
+	}
+
+	// The page's words for the number are the record's number.
+	if !strings.Contains(tooMany, "more than 30 questions in a minute") || otherprograms.MostAMinute != 30 {
+		t.Errorf("the page says 30 a minute, the door answers %d: %q", otherprograms.MostAMinute, tooMany)
+	}
+
+	// No dash and, the question and the names apart, no English on the
+	// Bulgarian page.
+	latin := regexp.MustCompile(`[a-zA-Z]{3,}`)
+	theirs := strings.NewReplacer("Who is the accountant?", "", "accountant", "", "Maria, on weekdays.", "", "Cursor", "", "loop", "")
+
+	var said []string
+	for _, r := range bg.On.Rows {
+		said = append(said, r.Label, r.State, r.Means)
+	}
+
+	for _, r := range bg.On.Recent {
+		said = append(said, r.Who, r.What, r.Outcome)
+	}
+
+	for _, d := range bg.Deeds {
+		said = append(said, d.Chip, d.Trait, d.Went, d.Result, d.Asked)
+	}
+
+	for _, s := range said {
+		if latin.MatchString(theirs.Replace(s)) {
+			t.Errorf("English left in Bulgarian: %q", s)
+		}
+
+		if strings.ContainsAny(s, "–—") {
+			t.Errorf("a dash in what the page says: %q", s)
+		}
+	}
+
+	_ = db
+}
+
+// A question given up because the person asked something is said so on
+// the record in both languages, with the words the brain writes for it.
+func TestThePageSaysAQuestionGaveWayToThePerson(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node is not installed")
+	}
+
+	ts, db, b := newServer(t)
+
+	model := &onThisComputer{said: "never said", hold: make(chan struct{})}
+	b.Router = llm.NewRouter(llm.ModeOpen, llm.Local, model)
+
+	if err := b.AllowOutside(otherprograms.Ask, true); err != nil {
+		t.Fatal(err)
+	}
+
+	ticket, err := b.AskForOutside("Cursor 3.0", "A slow one?")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	progress.StartedATurn()
+
+	b.OutsideAnswer(t.Context(), ticket, 5*time.Second)
+
+	progress.FinishedATurn()
+
+	// And one taken back by its switch while the model had it.
+	if _, err := b.AskForOutside("Cursor 3.0", "Another slow one?"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := b.AllowOutside(otherprograms.Ask, false); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; len(theirs(t, db)) != 2; i++ {
+		if i > 300 {
+			t.Fatalf("the record: %+v", theirs(t, db))
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	res, err := http.Get(ts.URL + "/api/deeds?since=all")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer res.Body.Close()
+	deeds, _ := io.ReadAll(res.Body)
+
+	state := []byte(`{"subjects":[],"recent":[]}`)
+
+	en := outsidePageSays(t, "en-GB", state, state, []byte(`[{},{}]`), deeds)
+	bg := outsidePageSays(t, "bg-BG", state, state, []byte(`[{},{}]`), deeds)
+
+	if len(en.Deeds) != 2 || en.Deeds[1].Result != "No answer: you asked me something, and that comes first." ||
+		en.Deeds[1].Asked != "The question: A slow one?" || en.Deeds[1].Went != "" ||
+		en.Deeds[0].Result != "No answer: this was switched off while I was answering." || en.Deeds[0].Went != "" {
+		t.Errorf("in English: %+v", en.Deeds)
+	}
+
+	if len(bg.Deeds) != 2 || bg.Deeds[1].Result != "Без отговор: вие ме попитахте нещо, а това е с предимство." ||
+		bg.Deeds[0].Result != "Без отговор: това беше изключено, докато отговарях." {
+		t.Errorf("in Bulgarian: %+v", bg.Deeds)
+	}
 }

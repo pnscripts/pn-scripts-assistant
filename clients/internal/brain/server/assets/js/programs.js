@@ -365,8 +365,15 @@
 
     // Each switch, and each question, in words (literal keys: a test reads
     // them from this file).
-    const SUBJECT = { programs: 'out.programs' };
-    const QUESTION = { assistant_status: 'out.q.status', list_programs: 'out.q.programs' };
+    const SUBJECT = { programs: 'out.programs', ask: 'out.ask', memory: 'out.memory' };
+    const QUESTION = { assistant_status: 'out.q.status', list_programs: 'out.q.programs', ask_assistant: 'out.q.ask', search_memory: 'out.q.memory' };
+
+    // What turning a switch on means, said under it before it is turned:
+    // none for the list of programs, whose name says it all.
+    const MEANS = { ask: 'out.askMeans', memory: 'out.memoryMeans' };
+
+    // A question refused because its switch is off, by its tool.
+    const REFUSED = { list_programs: 'out.rec.refused', ask_assistant: 'out.rec.refusedAsk', search_memory: 'out.rec.refusedMemory' };
 
     // How one of the assistant's own tools ended (the record's words).
     const ENDED = { done: 'outcome.done', failed: 'outcome.failed', waiting: 'outcome.waiting', refused: 'outcome.refused' };
@@ -392,6 +399,7 @@
             label: T(SUBJECT[s.id]),
             allowed: !!s.allowed,
             state: s.allowed ? T('out.on', { when: when(s.since) }) : T('out.off'),
+            means: MEANS[s.id] ? T(MEANS[s.id]) : '',
         }));
 
         // One of the questions, answered or not; or one of the assistant's
@@ -442,7 +450,10 @@
             trait: question ? T('out.trait') : '',
             // An answer given to another program is in that program's
             // hands: the record does not say it stayed on this machine.
-            went: question && item.outcome === 'done' ? T('out.went') : '',
+            // The answer to a question put to the assistant is made first
+            // and fetched by the program after: the record cannot know
+            // that it was, so it says what it knows.
+            went: question && item.outcome === 'done' ? T(item.tool === 'ask_assistant' ? 'out.ready' : 'out.went') : '',
         };
     }
 
@@ -454,12 +465,51 @@
     function outsideResult(d) {
         if (!d || !d.asked_by || !QUESTION[d.tool]) return '';
 
-        if (d.outcome === 'refused') return T('out.rec.refused');
+        const result = String(d.result || '');
 
-        if (d.tool === 'list_programs') {
-            const n = String(d.result || '').replace(/\D/g, '');
-            return n ? T('out.rec.told', { n: count(Number(n)) }) : '';
+        if (d.outcome === 'refused') {
+            // Refused for being one of too many in a minute, whatever was
+            // asked; or because its switch is off.
+            const many = result.match(/more than (\d+) questions in a minute/);
+            if (many) return T('out.rec.tooMany', { n: many[1] });
+
+            return REFUSED[d.tool] ? T(REFUSED[d.tool]) : '';
         }
+
+        if (d.tool === 'list_programs' || d.tool === 'search_memory') {
+            const n = result.replace(/\D/g, '');
+            if (!n) return '';
+
+            return T(d.tool === 'list_programs' ? 'out.rec.told' : 'out.rec.found', { n: count(Number(n)) });
+        }
+
+        if (d.tool === 'ask_assistant') {
+            // Given up for the person's own question, taken back with its
+            // switch, or the model gave nothing.
+            if (d.outcome !== 'done' && /my user asked me something/.test(result)) return T('out.rec.gaveWay');
+            if (d.outcome !== 'done' && /switched off while I was answering/.test(result)) return T('out.rec.takenBack');
+            if (d.outcome !== 'done') return T('out.rec.noAnswer');
+
+            // The model's own words, under the page's word for them.
+            return T('out.rec.answer', { text: result.replace(/^Answer: /, '') });
+        }
+
+        return '';
+    }
+
+    /*
+     * What another program gave with its question (the question itself,
+     * what it searched for), with the page's word before it: the record
+     * keeps an English one. Empty when there is nothing to reword, and
+     * the record's own line is then shown.
+     */
+    function outsideAsked(d) {
+        if (!d || !d.asked_by || !QUESTION[d.tool]) return '';
+
+        const asked = String(d.asked || '');
+
+        if (d.tool === 'ask_assistant' && asked.startsWith('Question: ')) return T('out.rec.question', { text: asked.slice(10) });
+        if (d.tool === 'search_memory' && asked.startsWith('Search: ')) return T('out.rec.search', { text: asked.slice(8) });
 
         return '';
     }
@@ -476,7 +526,7 @@
     }
 
     window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, may, why, stopping, approvalChoices,
-        outside, askedBy, outsideResult, turnedWhere,
+        outside, askedBy, outsideResult, outsideAsked, turnedWhere,
         reasons: Object.keys(WHY), answers: ANSWERS };
 
     // ---- drawing ----
@@ -748,6 +798,15 @@
                 state.textContent = r.state;
 
                 item.append(label, state);
+
+                // What allowing it means, read before the box is ticked.
+                if (r.means) {
+                    const means = document.createElement('span');
+                    means.className = 'outside-means';
+                    means.textContent = r.means;
+                    item.appendChild(means);
+                }
+
                 list.appendChild(item);
             }
         }

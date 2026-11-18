@@ -111,8 +111,16 @@ func TestWhichProgramsAreInstalledIsNotToldUntilAllowedAtTheDesk(t *testing.T) {
 	var state outsideState
 
 	getJSON(t, ts.URL+"/api/outside", &state)
-	if len(state.Subjects) != 1 || state.Subjects[0].ID != "programs" || state.Subjects[0].Allowed || state.Subjects[0].Since != nil {
-		t.Fatalf("the switch on a new brain: %+v", state.Subjects)
+	// Three switches since 1.2.0 step 4 (programs, ask, memory), every one
+	// off on a new brain.
+	if len(state.Subjects) != 3 || state.Subjects[0].ID != "programs" || state.Subjects[1].ID != "ask" || state.Subjects[2].ID != "memory" {
+		t.Fatalf("the switches on a new brain: %+v", state.Subjects)
+	}
+
+	for _, each := range state.Subjects {
+		if each.Allowed || each.Since != nil {
+			t.Fatalf("%s is on, on a new brain: %+v", each.ID, state.Subjects)
+		}
 	}
 
 	if len(state.Recent) != 1 || state.Recent[0].By != "claude-code 2.1.0" || state.Recent[0].Outcome != "refused" || state.Recent[0].At == "" {
@@ -126,8 +134,10 @@ func TestWhichProgramsAreInstalledIsNotToldUntilAllowedAtTheDesk(t *testing.T) {
 	}
 
 	json.Unmarshal([]byte(body), &state)
-	if len(state.Subjects) != 1 || !state.Subjects[0].Allowed || state.Subjects[0].Since == nil {
-		t.Fatalf("the switch after allowing: %s", body)
+	// Allowing one allows that one and no other.
+	if len(state.Subjects) != 3 || !state.Subjects[0].Allowed || state.Subjects[0].Since == nil ||
+		state.Subjects[1].Allowed || state.Subjects[2].Allowed {
+		t.Fatalf("the switches after allowing the list of programs: %s", body)
 	}
 
 	code, body = post(t, ts.URL+"/api/outside/ask", ask)
@@ -280,7 +290,8 @@ func TestTheDoorTakesOnlyTheQuestionsThereAre(t *testing.T) {
 	}
 
 	for name, body := range map[string]string{
-		"a switch there is not": `{"subject":"memory","allowed":true}`,
+		"a switch there is not": `{"subject":"files","allowed":true}`,
+		"a switch in capitals":  `{"subject":"Memory","allowed":true}`,
 		"no switch":             `{"allowed":true}`,
 		"no answer":             `{"subject":"programs"}`,
 		"something extra":       `{"subject":"programs","allowed":true,"for":"everybody"}`,
@@ -560,7 +571,7 @@ func TestANameThatLooksSealedIsJustAName(t *testing.T) {
 	var state outsideState
 
 	getJSON(t, ts.URL+"/api/outside", &state)
-	if len(state.Subjects) != 1 || len(state.Recent) != 2 || state.Recent[0].By != otherprograms.Unnamed || state.Recent[1].By != "x" {
+	if len(state.Subjects) != 3 || len(state.Recent) != 2 || state.Recent[0].By != otherprograms.Unnamed || state.Recent[1].By != "x" {
 		t.Errorf("the card after such a name: %+v", state)
 	}
 

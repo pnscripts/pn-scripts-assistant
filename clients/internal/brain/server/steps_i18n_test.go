@@ -84,6 +84,7 @@ func TestEveryStepLineHasItsBulgarian(t *testing.T) {
 		{"kept the recording: turn-12.wav", "speech/server.go", `"kept the recording: "`},
 		{"unfamiliar: Sam", "speech/server.go", `"unfamiliar: "`},
 		{"Learning from the last conversation", "learning/worker.go", `"Learning from the last conversation"`},
+		{"Answering a question from another program", "brain/outside.go", `"Answering a question from another program"`},
 		{"Reading /home/you/notes.txt", "brain/learn_intent.go", `"Reading "+target.Path`},
 		{"Learning from notes: 3000 things, about 50 minutes", "brain/learn_intent.go", `"Learning from %s: %d things, about %d minutes"`},
 		{"Learning from notes: 12 of 3000", "brain/learn_intent.go", `"Learning from %s: %d of %d"`},

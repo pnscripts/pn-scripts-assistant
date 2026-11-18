@@ -19,18 +19,32 @@
 package otherprograms
 
 import (
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 	"unicode"
 )
 
 // Subject is one thing its person may let other programs ask about.
 type Subject string
 
-// Programs is which programs are installed on this computer.
-const Programs Subject = "programs"
+const (
+	// Programs is which programs are installed on this computer.
+	Programs Subject = "programs"
+
+	// Ask is a question put to the assistant itself, answered in words by
+	// the model on this computer. It does nothing for the program that
+	// asked, and knows nothing of its person unless Memory is on too.
+	Ask Subject = "ask"
+
+	// Memory is searching what the assistant remembers. The only switch
+	// that hands out what is personal, so it is the last on the page.
+	Memory Subject = "memory"
+)
 
 // Subjects is every switch, in the order the page shows them.
-func Subjects() []Subject { return []Subject{Programs} }
+func Subjects() []Subject { return []Subject{Programs, Ask, Memory} }
 
 // Known reports whether s is a switch.
 func Known(s Subject) bool {
@@ -54,6 +68,16 @@ type question struct {
 var questions = []question{
 	{"assistant_status", "", "Another program asked whether I am running", "Друга програма попита дали работя"},
 	{"list_programs", Programs, "Another program asked which programs are installed", "Друга програма попита кои програми са инсталирани"},
+	{"ask_assistant", Ask, "Another program asked me a question", "Друга програма ми зададе въпрос"},
+	{"search_memory", Memory, "Another program searched what I remember", "Друга програма потърси в това, което помня"},
+}
+
+// said is how one switch is spoken of: what other programs "may (not)
+// ask ...", in English and in Bulgarian.
+var said = map[Subject][2]string{
+	Programs: {"ask which programs are installed", "да питат кои програми са инсталирани"},
+	Ask:      {"ask me questions", "да ми задават въпроси"},
+	Memory:   {"search what I remember", "да търсят в това, което помня"},
 }
 
 // Tools is every question other programs may ask, by the name of its tool.
@@ -92,30 +116,122 @@ func Asked(tool string) (en, bg string) {
 // NotAllowed is what the record says of a question refused because its
 // switch is off, in English and in Bulgarian.
 func NotAllowed(s Subject) (en, bg string) {
-	if s == Programs {
-		return "Not answered: other programs may not ask which programs are installed. " +
-				"You can allow it on the Programs page, under \"What other programs may ask\".",
-			"Без отговор: другите програми нямат право да питат кои програми са инсталирани. " +
-				"Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“."
+	how, known := said[s]
+	if !known {
+		return "", ""
 	}
 
-	return "", ""
+	return "Not answered: other programs may not " + how[0] + ". " +
+			"You can allow it on the Programs page, under \"What other programs may ask\".",
+		"Без отговор: другите програми нямат право " + how[1] + ". " +
+			"Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“."
 }
 
 // Switched is how the record says a switch was turned, in English and in
 // Bulgarian.
 func Switched(s Subject, allowed bool) (en, bg string) {
-	if s != Programs {
+	how, known := said[s]
+	if !known {
 		return "", ""
 	}
 
 	if allowed {
-		return "Other programs may now ask which programs are installed",
-			"Другите програми вече могат да питат кои програми са инсталирани"
+		return "Other programs may now " + how[0], "Другите програми вече могат " + how[1]
 	}
 
-	return "Other programs may no longer ask which programs are installed",
-		"Другите програми вече не могат да питат кои програми са инсталирани"
+	return "Other programs may no longer " + how[0], "Другите програми вече не могат " + how[1]
+}
+
+/*
+ * How much other programs may ask, whatever is allowed.
+ *
+ * A program that asks in a loop would fill the record of what was done and
+ * keep the computer busy, so the door answers a fixed number of questions
+ * a minute, from all programs together: the name a program gives is its
+ * own word, and a limit for each name would be no limit at all. The
+ * questions over it are refused, and the first of them in a minute is
+ * written on the record, so its person sees that it happened without the
+ * record filling with it.
+ */
+
+// MostAMinute is how many questions other programs are answered in one
+// minute, all of them together.
+const MostAMinute = 30
+
+// TooMany is what the record says of the questions refused for being too
+// many, in English and in Bulgarian.
+func TooMany() (en, bg string) {
+	n := strconv.Itoa(MostAMinute)
+
+	return "Not answered: other programs asked more than " + n + " questions in a minute. " +
+			"The ones over that are refused and not listed one by one.",
+		"Без отговор: другите програми зададоха повече от " + n + " въпроса за една минута. " +
+			"Въпросите над тази граница получават отказ и не се изброяват един по един."
+}
+
+// Pace counts the questions of the minute. Its zero value is ready.
+type Pace struct {
+	mu     sync.Mutex
+	since  time.Time
+	asked  int
+	listed bool
+}
+
+/*
+ * Next counts one question asked at now. It reports whether it is within
+ * the minute's number, and for one that is not, whether it is the first
+ * refused in this minute (the one the record keeps).
+ */
+func (p *Pace) Next(now time.Time) (within, first bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// A clock set back starts a new minute too: it never locks the door.
+	if p.since.IsZero() || now.Sub(p.since) >= time.Minute || now.Before(p.since) {
+		p.since, p.asked, p.listed = now, 0, false
+	}
+
+	if p.asked < MostAMinute {
+		p.asked++
+
+		return true, false
+	}
+
+	first = !p.listed
+	p.listed = true
+
+	return false, first
+}
+
+// How long a question to the assistant and a search of its memory may be,
+// in characters.
+const (
+	MostQuestion = 2000
+	MostSearch   = 200
+)
+
+/*
+ * Words is text another program sent to be read by the assistant (a
+ * question, a search), made safe to keep and to show: nothing invisible or
+ * direction-changing, no stacked marks, lines kept as lines for a question
+ * and at most the given number of characters. Empty when nothing readable
+ * is left.
+ */
+func Words(s string, most int) string {
+	var lines []string
+
+	for _, line := range strings.Split(strings.ReplaceAll(s, "\r", "\n"), "\n") {
+		if line = shown(line, most); line != "" {
+			lines = append(lines, line)
+		}
+	}
+
+	out := []rune(strings.Join(lines, "\n"))
+	if len(out) > most {
+		out = out[:most]
+	}
+
+	return strings.TrimSpace(string(out))
 }
 
 // Unnamed is recorded for a program that gave no name that can be shown.

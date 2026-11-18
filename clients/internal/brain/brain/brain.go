@@ -58,6 +58,10 @@ import (
 
 // Brain is a running assistant.
 type Brain struct {
+	// outside is the question from another program being answered, or the
+	// last one answered (outside.go).
+	outside outsideAnswers
+
 	// begin starts the background work; nil is the real start. Start runs it
 	// at once, or when the terms are accepted (see Agreed). A field so a test
 	// can count starts without reaching the machine's sound.
@@ -1673,6 +1677,9 @@ func (b *Brain) start(ctx context.Context) {
 
 // Stop waits for in-flight learning to finish.
 func (b *Brain) Stop() {
+	// A question from another program still being answered is given up.
+	b.stopOutside()
+
 	// And nothing held back for the terms starts on the way out.
 	b.agreement.mu.Lock()
 	b.agreement.stopped = true

@@ -159,7 +159,7 @@ func TestARealClientFindsItCurrentAndUsesItsTools(t *testing.T) {
 		}
 	}
 
-	if strings.Join(names, ",") != "assistant_status,list_programs" {
+	if strings.Join(names, ",") != "assistant_status,list_programs,ask_assistant,search_memory" {
 		t.Errorf("tools: %v", names)
 	}
 
@@ -247,7 +247,7 @@ func TestAnOlderClientsConversationOverRealPipes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if list := ask(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`); len(list["tools"].([]any)) != 2 {
+	if list := ask(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`); len(list["tools"].([]any)) != 4 {
 		t.Errorf("the list: %v", list)
 	}
 

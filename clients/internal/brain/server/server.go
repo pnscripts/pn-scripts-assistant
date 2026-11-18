@@ -32,6 +32,7 @@ import (
 	"pn-scripts-assistant/internal/brain/desktop"
 	"pn-scripts-assistant/internal/brain/machine"
 	"pn-scripts-assistant/internal/brain/models"
+	"pn-scripts-assistant/internal/brain/otherprograms"
 	"pn-scripts-assistant/internal/brain/pace"
 	"pn-scripts-assistant/internal/brain/pair"
 	"pn-scripts-assistant/internal/brain/progress"
@@ -45,6 +46,10 @@ import (
 
 // Server serves the interface and the API.
 type Server struct {
+	// outsidePace counts the questions other programs asked this minute
+	// (outside.go).
+	outsidePace otherprograms.Pace
+
 	brain  *brain.Brain
 	log    *slog.Logger
 	mux    *http.ServeMux

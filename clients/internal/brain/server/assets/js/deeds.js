@@ -187,7 +187,12 @@
             body.appendChild(field(T('deeds.left'), window.pnLeavesWhat ? window.pnLeavesWhat(d.leaves) : d.leaves));
         }
 
-        if (d.asked) body.appendChild(field(T('deeds.asked'), d.asked, true));
+        // What another program gave with its question is said with the
+        // page's word before it; everything else as the record keeps it.
+        const gave = asker && window.pnPrograms.outsideAsked ? window.pnPrograms.outsideAsked(d) : '';
+
+        if (gave) body.appendChild(field(T('deeds.asked'), gave));
+        else if (d.asked) body.appendChild(field(T('deeds.asked'), d.asked, true));
         // What a question from another program came to is said in the
         // page's language; everything else is the tool's own words.
         const came = asker && window.pnPrograms.outsideResult ? window.pnPrograms.outsideResult(d) : '';

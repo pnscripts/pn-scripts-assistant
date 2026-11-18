@@ -55,6 +55,13 @@ try {
   told.wrong = await call('list_programs', { limit: 'many' });
   told.unknown = await call('no_such_tool', {});
 
+  // A question to the assistant itself, and a search of what it remembers.
+  told.asked = await call('ask_assistant', { question: 'What is the capital of Bulgaria?' });
+  told.fetched = await call('ask_assistant', { answer_to: '0123456789abcdef0123456789abcdef' });
+  told.both = await call('ask_assistant', { question: 'One?', answer_to: '0123456789abcdef0123456789abcdef' });
+  told.remembered = await call('search_memory', { query: 'accountant', limit: 2 });
+  told.nothingToFind = await call('search_memory', {});
+
   // Three at once: each is answered once, to the one who asked.
   told.together = await Promise.all([call('assistant_status', {}), call('list_programs', { search: 'gimp' }), call('assistant_status', {})]);
 } catch (e) {
