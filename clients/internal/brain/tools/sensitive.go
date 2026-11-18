@@ -109,3 +109,27 @@ func ConversationOf(ctx context.Context) int64 {
 
 	return id
 }
+
+type askedByKey struct{}
+
+/*
+ * AskedBy marks a call as asked for by another program, by the name that
+ * program gave itself (package otherprograms). The loop puts everything such a
+ * call would change to its person, with the name on the question, and the
+ * record keeps it. An empty name marks nothing.
+ */
+func AskedBy(ctx context.Context, by string) context.Context {
+	if by == "" {
+		return ctx
+	}
+
+	return context.WithValue(ctx, askedByKey{}, by)
+}
+
+// AskedByOf is the program a call was asked for by, or empty for a call
+// from the desk.
+func AskedByOf(ctx context.Context) string {
+	by, _ := ctx.Value(askedByKey{}).(string)
+
+	return by
+}

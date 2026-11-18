@@ -1251,6 +1251,24 @@ var migrations = []string{
 	`
 	ALTER TABLE tool_invocations ADD COLUMN asked_as TEXT NOT NULL DEFAULT '';
 	`,
+
+	/*
+	 * 37: which program asked, for a question another program put through
+	 * the MCP server: on the record of what was done and on a question
+	 * waiting for its person (the name the program gave itself, sealed
+	 * like the words around it; empty for everything asked at the desk).
+	 * outside_may is what other programs may ask about: one row for each
+	 * thing its person allowed, with the time. No row is not allowed, so
+	 * an upgraded brain starts with everything off.
+	 */
+	`
+	ALTER TABLE deeds ADD COLUMN asked_by TEXT NOT NULL DEFAULT '';
+	ALTER TABLE tool_invocations ADD COLUMN asked_by TEXT NOT NULL DEFAULT '';
+	CREATE TABLE outside_may (
+		subject TEXT PRIMARY KEY,
+		since   TEXT NOT NULL
+	);
+	`,
 }
 
 /*

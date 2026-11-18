@@ -129,6 +129,8 @@ AMD). What it does not do yet is written down in
   `pn-scripts-assistant mcp` to one of them and it can ask the running
   assistant whether a program is installed here, in which version, and what
   was removed. Two read-only questions for now; nothing personal is offered.
+  The list of programs is off until you allow it on the Programs page, and
+  every question is on the record with the name of the program that asked.
 - **Uses the MCP servers you already set up.** Servers set up in Claude
   Desktop, Claude Code, Cursor or VS Code are found by themselves and listed
   under Integrations. Import one with a button and approve it before it runs;

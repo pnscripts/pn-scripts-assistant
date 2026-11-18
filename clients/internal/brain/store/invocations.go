@@ -57,6 +57,11 @@ type Invocation struct {
 	ProgramVerb    string `json:"-"`
 	ProgramVersion string `json:"-"`
 	ProgramAlways  bool   `json:"-"`
+
+	// AskedBy is the program that asked for it, by the name it gave
+	// itself, when another program did (package otherprograms). Empty for a
+	// question that came from the desk.
+	AskedBy string `json:"asked_by,omitempty"`
 }
 
 // RecordInvocation stores a proposed action awaiting approval.
@@ -94,7 +99,7 @@ func (d *DB) PendingInvocations() ([]Invocation, error) {
 	rows, err := d.sql().Query(`
 		SELECT id, tool, arguments, COALESCE(summary,''), summary_bg, risk, status, created_at,
 			COALESCE(conversation_id, 0), answers_itself, asked_as,
-			program_id, program_verb, program_version, program_always
+			program_id, program_verb, program_version, program_always, asked_by
 		FROM tool_invocations WHERE status = ? ORDER BY id`, InvocationPending)
 	if err != nil {
 		return nil, err
@@ -109,7 +114,7 @@ func (d *DB) PendingInvocations() ([]Invocation, error) {
 
 		if err := rows.Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.SummaryBG, &i.Risk, &i.Status, &created,
 			&i.ConversationID, &i.AnswersItself, &i.AskedAs,
-			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways); err != nil {
+			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways, &i.AskedBy); err != nil {
 			return nil, err
 		}
 
@@ -138,6 +143,23 @@ func (d *DB) InvocationProgram(id, programID int64, verb programs.Verb, version 
 		`UPDATE tool_invocations SET program_id = ?, program_verb = ?, program_version = ?, program_always = ?, updated_at = ?
 		 WHERE id = ? AND status = ?`,
 		programID, string(verb), d.seal(version), always, time.Now().UTC().Format(time.RFC3339), id, InvocationPending)
+
+	return err
+}
+
+/*
+ * InvocationAskedBy writes which program asked for a waiting question (see
+ * Invocation.AskedBy). Only while it waits: who asked is settled when the
+ * question is put, and nothing after the answer changes it.
+ */
+func (d *DB) InvocationAskedBy(id int64, by string) error {
+	if by == "" {
+		return fmt.Errorf("no program named for question %d", id)
+	}
+
+	_, err := d.sql().Exec(
+		`UPDATE tool_invocations SET asked_by = ?, updated_at = ? WHERE id = ? AND status = ?`,
+		d.seal(by), time.Now().UTC().Format(time.RFC3339), id, InvocationPending)
 
 	return err
 }
@@ -219,11 +241,11 @@ func (d *DB) Invocation(id int64) (*Invocation, error) {
 	err := d.sql().QueryRow(`
 		SELECT id, tool, arguments, COALESCE(summary,''), summary_bg, risk, status, result, created_at,
 			COALESCE(conversation_id, 0), answers_itself, answered_itself, asked_as,
-			program_id, program_verb, program_version, program_always
+			program_id, program_verb, program_version, program_always, asked_by
 		FROM tool_invocations WHERE id = ?`, id).
 		Scan(&i.ID, &i.Tool, &i.Arguments, &i.Summary, &i.SummaryBG, &i.Risk, &i.Status, &result, &created,
 			&i.ConversationID, &i.AnswersItself, &i.AnsweredItself, &i.AskedAs,
-			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways)
+			&i.ProgramID, &i.ProgramVerb, &i.ProgramVersion, &i.ProgramAlways, &i.AskedBy)
 
 	if err == sql.ErrNoRows {
 		return nil, nil

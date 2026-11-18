@@ -1523,6 +1523,21 @@ async function refreshApprovals() {
             itself.textContent = words('cc.answersItself');
             tool.after(itself);
         }
+
+        /*
+         * Another program asked for this (through "pn-scripts-assistant
+         * mcp"): the card says which, by the name it gave itself, above
+         * the question. One line, so the answers stay in view. The words
+         * are programs.js's (tested in node).
+         */
+        if (offer.askedBy) {
+            const by = document.createElement('span');
+            by.className = 'approval-asker';
+            by.textContent = offer.askedBy.label;
+            by.title = offer.askedBy.title;
+            tool.after(by);
+        }
+
         card.append(summary);
         if (stoppedNote) card.append(stoppedNote);
         card.append(actions);

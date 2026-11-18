@@ -77,8 +77,11 @@ against the code on 9 November 2026.
   (`--api http://127.0.0.1:<port>` when the port was changed; the address in
   an encrypted settings file is not read). What it answers is passed by the
   asking program to the model it uses, usually a service on the internet.
-  The assistant does not yet show who asked or keep a record of it. On
-  Windows give the program's full path in the entry.
+  The list of programs is off until you allow it on the Programs page.
+  Every question is on the record with the name the asking program gave;
+  that name is the program's own word and nothing checks it, and any
+  program running as you on this computer can ask the same way, under any
+  name. On Windows give the program's full path in the entry.
 - **MCP servers from other programs: four programs, their own settings
   only.** Claude Desktop, Claude Code (`~/.claude.json`, or the folder
   `CLAUDE_CONFIG_DIR` names), Cursor (`~/.cursor/mcp.json`) and VS Code (the

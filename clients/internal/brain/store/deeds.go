@@ -44,6 +44,11 @@ type Deed struct {
 	Leaves         string    `json:"leaves,omitempty"`
 	Millis         int64     `json:"millis"`
 	CreatedAt      time.Time `json:"created_at"`
+
+	// AskedBy is the program that asked, by the name it gave itself, for
+	// a question put through the MCP server (package otherprograms). Empty for
+	// everything asked at the desk.
+	AskedBy string `json:"asked_by,omitempty"`
 }
 
 // How much of a call's arguments, result and request is kept: enough to
@@ -69,8 +74,8 @@ func (d *DB) AddDeed(deed Deed) (int64, error) {
 
 	res, err := d.sql().Exec(`
 		INSERT INTO deeds (conversation_id, task_id, tool, summary, summary_bg, asked, request, result,
-			specialist, model, model_why, outcome, level, changes, leaves, millis, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			specialist, model, model_why, outcome, level, changes, leaves, millis, created_at, asked_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		nullID(deed.ConversationID), nullID(deed.TaskID), deed.Tool,
 		d.seal(redact.Text(truncate(deed.Summary, deedAskedLimit))),
 		d.seal(redact.Text(truncate(deed.SummaryBG, deedAskedLimit))),
@@ -79,6 +84,7 @@ func (d *DB) AddDeed(deed Deed) (int64, error) {
 		d.seal(redact.Text(truncate(deed.Result, deedResultLimit))),
 		deed.Specialist, deed.Model, deed.ModelWhy, deed.Outcome, deed.Level, changes,
 		d.seal(deed.Leaves), deed.Millis, now.UTC().Format(time.RFC3339Nano),
+		d.seal(redact.Text(truncate(deed.AskedBy, 120))),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("recording what was done: %w", err)
@@ -129,6 +135,9 @@ type DeedFilter struct {
 	// Conversation keeps one conversation's calls; zero is every one.
 	Conversation int64
 
+	// Outside keeps only what another program asked for.
+	Outside bool
+
 	// Limit is the most returned, newest first; zero is a hundred.
 	Limit int
 }
@@ -167,12 +176,18 @@ func (d *DB) Deeds(f DeedFilter) ([]Deed, error) {
 		args = append(args, f.Conversation)
 	}
 
+	// The name is sealed, and a sealed name is never empty: empty is kept
+	// as it is, so this can be asked of the database.
+	if f.Outside {
+		where = append(where, "d.asked_by <> ''")
+	}
+
 	args = append(args, limit)
 
 	rows, err := d.sql().Query(`
 		SELECT d.id, COALESCE(d.conversation_id, 0), COALESCE(t.id, d.task_id, 0), COALESCE(t.name, ''),
 			d.tool, d.summary, d.summary_bg, d.asked, d.request, d.result, d.specialist, d.model, d.model_why,
-			d.outcome, d.level, d.changes, d.leaves, d.millis, d.created_at
+			d.outcome, d.level, d.changes, d.leaves, d.millis, d.created_at, d.asked_by
 		FROM deeds d
 		LEFT JOIN tasks t ON t.work_conversation_id = d.conversation_id AND d.conversation_id IS NOT NULL
 		WHERE `+strings.Join(where, " AND ")+`
@@ -192,7 +207,7 @@ func (d *DB) Deeds(f DeedFilter) ([]Deed, error) {
 		if err := rows.Scan(&deed.ID, &deed.ConversationID, &deed.TaskID, &deed.TaskName,
 			&deed.Tool, &deed.Summary, &deed.SummaryBG, &deed.Asked, &deed.Request, &deed.Result,
 			&deed.Specialist, &deed.Model, &deed.ModelWhy, &deed.Outcome, &deed.Level,
-			&changes, &deed.Leaves, &deed.Millis, &created); err != nil {
+			&changes, &deed.Leaves, &deed.Millis, &created, &deed.AskedBy); err != nil {
 			return nil, err
 		}
 

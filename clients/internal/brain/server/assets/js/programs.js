@@ -311,11 +311,26 @@
     function approvalChoices(item, toolName) {
         const p = item && item.program;
         const alwaysAsked = /^Always asked/.test((item && item.summary) || '');
-        const out = { approve: true, forProgram: null, anyProgram: null, note: '' };
+        const out = { approve: true, forProgram: null, anyProgram: null, note: '', askedBy: null };
 
         if (item && item.programs_stopped) {
             out.approve = false;
             out.note = T('prg.ap.stopped');
+            return out;
+        }
+
+        /*
+         * Another program asked for it: the card says who, and offers
+         * yes or no for this once. Nothing lasting: an "always" given
+         * here would be given to whatever program asks next.
+         */
+        if (item && item.asked_by) {
+            const who = askedBy(item);
+
+            // One line on the card, so the answers stay in view; the rest
+            // is said when the line is pointed at. The question itself
+            // already starts "Always asked (another program asked for it)".
+            out.askedBy = { label: who.chip, title: who.title + ' ' + T('out.ap.note') };
             return out;
         }
 
@@ -340,7 +355,117 @@
         return out;
     }
 
+    /*
+     * Other programs asking (GET /api/outside, package otherprograms on the
+     * server). A program that speaks the Model Context Protocol asks
+     * through "pn-scripts-assistant mcp"; each question arrives with the
+     * name that program gave itself. The switches say what they may ask;
+     * the record and the cards say who did.
+     */
+
+    // Each switch, and each question, in words (literal keys: a test reads
+    // them from this file).
+    const SUBJECT = { programs: 'out.programs' };
+    const QUESTION = { assistant_status: 'out.q.status', list_programs: 'out.q.programs' };
+
+    // How one of the assistant's own tools ended (the record's words).
+    const ENDED = { done: 'outcome.done', failed: 'outcome.failed', waiting: 'outcome.waiting', refused: 'outcome.refused' };
+
+    // The name a program gave, or the words for one that gave none
+    // (outside.Unnamed on the server).
+    function caller(by, lower) {
+        if (by && by !== 'unnamed') return by;
+        return T(lower ? 'out.unnamedLower' : 'out.unnamed');
+    }
+
+    /*
+     * The switches and the last questions as the page says them: the one
+     * thing always answered, each switch with its state, and who asked
+     * what lately and whether it was answered.
+     */
+    function outside(state) {
+        const subjects = state && Array.isArray(state.subjects) ? state.subjects : [];
+        const asked = state && Array.isArray(state.recent) ? state.recent : [];
+
+        const rows = subjects.filter((s) => SUBJECT[s.id]).map((s) => ({
+            id: s.id,
+            label: T(SUBJECT[s.id]),
+            allowed: !!s.allowed,
+            state: s.allowed ? T('out.on', { when: when(s.since) }) : T('out.off'),
+        }));
+
+        // One of the questions, answered or not; or one of the assistant's
+        // own tools another program asked for, which is named as that tool
+        // and ends as any tool does.
+        const recent = asked.map((a) => {
+            const question = !!QUESTION[a.tool];
+            const tool = window.pnToolName ? window.pnToolName(a.tool) : a.tool;
+
+            return {
+                when: when(a.at),
+                who: caller(a.by),
+                what: question ? T(QUESTION[a.tool]) : T('out.q.tool', { tool }),
+                outcome: question
+                    ? (a.outcome === 'done' ? T('out.answered') : T('out.notAnswered'))
+                    : T(ENDED[a.outcome] || 'outcome.failed'),
+                answered: a.outcome === 'done' || a.outcome === 'waiting',
+            };
+        });
+
+        return {
+            fixed: { label: T('out.status'), state: T('out.always') },
+            rows,
+            recent,
+            none: recent.length ? '' : T('out.none'),
+        };
+    }
+
+    /*
+     * Who asked, for a deed or a waiting question another program asked
+     * for (asked_by): the short line, what it means, and what kind of
+     * record it is. Nothing for anything asked at the desk.
+     */
+    function askedBy(item) {
+        const by = item && item.asked_by;
+        if (!by) return null;
+
+        // One of the questions other programs ask, as against one of the
+        // assistant's own tools run because another program asked.
+        const question = !!QUESTION[item.tool] && !item.changes_something;
+
+        return {
+            chip: T('out.askedBy', { who: caller(by, true) }),
+            // Inside the record: the name and what a name is worth. A
+            // program that gave none is said once, not twice.
+            said: by === 'unnamed' ? caller(by) + '.' : caller(by) + '. ' + T('out.askedByTitle'),
+            title: by === 'unnamed' ? T('out.unnamedTitle') : T('out.askedByTitle'),
+            trait: question ? T('out.trait') : '',
+            // An answer given to another program is in that program's
+            // hands: the record does not say it stayed on this machine.
+            went: question && item.outcome === 'done' ? T('out.went') : '',
+        };
+    }
+
+    /*
+     * What a question from another program came to, in the page's
+     * language: the record keeps it in English. Empty for a deed from the
+     * desk, whose result is the tool's own.
+     */
+    function outsideResult(d) {
+        if (!d || !d.asked_by || !QUESTION[d.tool]) return '';
+
+        if (d.outcome === 'refused') return T('out.rec.refused');
+
+        if (d.tool === 'list_programs') {
+            const n = String(d.result || '').replace(/\D/g, '');
+            return n ? T('out.rec.told', { n: count(Number(n)) }) : '';
+        }
+
+        return '';
+    }
+
     window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, may, why, stopping, approvalChoices,
+        outside, askedBy, outsideResult,
         reasons: Object.keys(WHY), answers: ANSWERS };
 
     // ---- drawing ----
@@ -549,11 +674,144 @@
         await load();
     }
 
+    /*
+     * "What other programs may ask": the switches, and the last questions
+     * with who asked. Its own answer (GET /api/outside), so a fault there
+     * says so on this card and leaves the rest of the page as it is.
+     */
+    let lastOutside = null;
+    let outsideFailed = false;
+    let outsideSaying = '';
+
+    // What was last drawn, so the page's own refresh every half minute
+    // does not rebuild a switch somebody has their hand on.
+    let outsideDrawn = '';
+
+    function drawOutside() {
+        const card = el('outside-card');
+        if (!card) return;
+
+        const now = JSON.stringify([lastOutside, outsideFailed, outsideSaying, bg()]);
+        if (now === outsideDrawn) return;
+
+        outsideDrawn = now;
+
+        if (outsideFailed || !lastOutside) {
+            say('outside-note', outsideFailed ? T('out.failed') : '');
+            card.dataset.ready = 'false';
+            return;
+        }
+
+        card.dataset.ready = 'true';
+
+        const o = outside(lastOutside);
+
+        say('outside-fixed-label', o.fixed.label);
+        say('outside-fixed-state', o.fixed.state);
+
+        const list = el('outside-switches');
+        if (list) {
+            list.textContent = '';
+
+            for (const r of o.rows) {
+                const item = document.createElement('li');
+                item.className = 'outside-row';
+                item.dataset.allowed = String(r.allowed);
+
+                const label = document.createElement('label');
+                label.className = 'outside-switch';
+
+                const box = document.createElement('input');
+                box.type = 'checkbox';
+                box.id = 'outside-' + r.id;
+                box.checked = r.allowed;
+                box.addEventListener('change', () => setOutside(r.id, box.checked));
+
+                const name = document.createElement('span');
+                name.textContent = r.label;
+
+                label.append(box, name);
+
+                const state = document.createElement('span');
+                state.className = 'outside-state';
+                state.textContent = r.state;
+
+                item.append(label, state);
+                list.appendChild(item);
+            }
+        }
+
+        const recent = el('outside-recent');
+        if (recent) {
+            recent.textContent = '';
+
+            for (const a of o.recent) {
+                const line = document.createElement('div');
+                line.className = 'outside-asked';
+                line.dataset.answered = String(a.answered);
+
+                for (const [cls, text] of [['outside-when', a.when], ['outside-who', a.who], ['outside-what', a.what], ['outside-outcome', a.outcome]]) {
+                    const part = document.createElement('span');
+                    part.className = cls;
+                    part.textContent = text;
+                    line.appendChild(part);
+                }
+
+                recent.appendChild(line);
+            }
+        }
+
+        say('outside-recent-note', o.none || T('out.recentNote'));
+        say('outside-note', outsideSaying);
+    }
+
+    async function loadOutside() {
+        try {
+            const res = await fetch('/api/outside', { headers: { Accept: 'application/json' } });
+
+            if (!res.ok) throw new Error(String(res.status));
+
+            const body = await res.json();
+            lastOutside = body && body.data ? body.data : body;
+            outsideFailed = false;
+        } catch (err) {
+            outsideFailed = true;
+        }
+
+        drawOutside();
+    }
+
+    async function setOutside(subject, allowed) {
+        outsideSaying = '';
+
+        try {
+            const res = await fetch('/api/outside/allow', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ subject, allowed }),
+            });
+
+            if (!res.ok) {
+                outsideSaying = T(res.status === 403 ? 'out.desk' : 'out.notKept');
+            } else {
+                const body = await res.json();
+                lastOutside = body && body.data ? body.data : body;
+            }
+        } catch (err) {
+            outsideSaying = T('out.notKept');
+        }
+
+        // Drawn from what the assistant keeps, so a switch that was not
+        // kept goes back to where it was.
+        drawOutside();
+    }
+
     function draw() {
         if (!last) return;
 
         say('programs-summary', summary(last));
         drawStop();
+        drawOutside();
 
         const keep = el('programs-keeping');
         if (keep) {
@@ -606,6 +864,8 @@
         } catch (err) {
             say('programs-summary', T('prg.failed'));
         }
+
+        await loadOutside();
     }
 
     function wire() {

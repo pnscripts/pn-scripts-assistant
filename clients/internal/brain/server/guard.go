@@ -171,6 +171,7 @@ var changedAtTheDeskOnly = []string{
 	"/api/organisation/",   // the organisation, every change
 	"/api/terms",           // accepting the terms of use
 	"/api/programs/",       // what another program may be made to do
+	"/api/outside/",        // what other programs may ask, and asking as one
 }
 
 /*
@@ -181,6 +182,26 @@ var changedAtTheDeskOnly = []string{
  */
 var awayMayDo = []string{
 	"/api/programs/stop",
+}
+
+/*
+ * onThisComputerOnly are routes nothing away from this computer may use,
+ * whatever its rights: the door other programs ask through. A question
+ * there is recorded as asked by "another program on this computer", which
+ * a device elsewhere is not.
+ */
+var onThisComputerOnly = []string{
+	"/api/outside/ask",
+}
+
+func hereOnly(path string) bool {
+	for _, p := range onThisComputerOnly {
+		if path == p {
+			return true
+		}
+	}
+
+	return false
 }
 
 func decisionRoute(path string) bool {
@@ -300,6 +321,12 @@ func (s *Server) Guard(next http.Handler) http.Handler {
 
 		if who.Known {
 			s.paired.Seen(who.Device.ID, fromAddress(r))
+
+			if hereOnly(r.URL.Path) {
+				fail(w, http.StatusForbidden, "only a program on the computer it runs on asks here")
+
+				return
+			}
 
 			if who.Device.Can != pair.Full && decision(r) {
 				fail(w, http.StatusForbidden,

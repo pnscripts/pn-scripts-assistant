@@ -9,6 +9,7 @@ import (
 
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/mcpserve"
+	"pn-scripts-assistant/internal/brain/otherprograms"
 	"pn-scripts-assistant/internal/brain/programs"
 )
 
@@ -40,7 +41,7 @@ func asked(t *testing.T, address, tool, arguments string) (string, error) {
 }
 
 func TestOtherProgramsAreToldWhichProgramsAreHere(t *testing.T) {
-	ts, db, _ := newServer(t)
+	ts, db, b := newServer(t)
 
 	now := time.Now().UTC()
 
@@ -62,6 +63,12 @@ func TestOtherProgramsAreToldWhichProgramsAreHere(t *testing.T) {
 
 	apps, _ := programs.Reconcile(programs.App, nil, []programs.Program{{Kind: programs.App, ID: "gimp.desktop", Name: "GIMP", Exec: "gimp"}}, now)
 	if err := db.SavePrograms(apps); err != nil {
+		t.Fatal(err)
+	}
+
+	// Its user allowed other programs to ask which programs are installed
+	// (off until then: server/outside_test.go).
+	if err := b.AllowOutside(otherprograms.Programs, true); err != nil {
 		t.Fatal(err)
 	}
 

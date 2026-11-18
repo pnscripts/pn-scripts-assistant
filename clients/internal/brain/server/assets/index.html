@@ -929,6 +929,26 @@
                     <ul class="programs-keeping" id="programs-keeping"></ul>
                 </div>
 
+                <!-- What other programs may ask (programs.js, GET /api/outside):
+                     a program that speaks the Model Context Protocol asks
+                     through "pn-scripts-assistant mcp". Off until allowed
+                     here; every question is on the record with who asked. -->
+                <div class="card card-wide outside-card" id="outside-card" data-ready="false">
+                    <h2 data-i18n="out.title">What other programs may ask</h2>
+                    <p class="note" data-i18n="out.lead">Programs you connect to me, such as Claude Code, Claude Desktop or Cursor, can ask me questions. What they may ask is decided here, and only here. Every question is written in “What I did”, with the name the program gave.</p>
+                    <ul class="outside-list">
+                        <li class="outside-row outside-fixed">
+                            <span class="outside-label" id="outside-fixed-label" data-i18n="out.status">Whether I am running, and which version I am</span>
+                            <span class="outside-state" id="outside-fixed-state" data-i18n="out.always">Always answered</span>
+                        </li>
+                    </ul>
+                    <ul class="outside-list" id="outside-switches"></ul>
+                    <p class="note outside-note" id="outside-note" role="status" aria-live="polite"></p>
+                    <h3 data-i18n="out.recentTitle">Last questions</h3>
+                    <div class="outside-recent" id="outside-recent"></div>
+                    <p class="note" id="outside-recent-note"></p>
+                </div>
+
                 <div class="card card-wide programs-card" id="programs-card" hidden>
                     <div class="study-head">
                         <h2 id="programs-card-name"></h2>

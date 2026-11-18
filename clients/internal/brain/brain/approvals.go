@@ -101,6 +101,10 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 		return *invocation, nil
 	}
 
+	// What another program asked for is still that program's request when
+	// it runs after the yes: the tool, and anything it starts, is told.
+	ctx = tools.AskedBy(ctx, invocation.AskedBy)
+
 	tool, ok := b.Agent.Registry.Get(invocation.Tool)
 	if !ok {
 		b.DB.CompleteInvocation(id, store.InvocationFailed, "the tool no longer exists")

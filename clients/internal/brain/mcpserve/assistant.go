@@ -1,6 +1,7 @@
 package mcpserve
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -24,12 +25,18 @@ import (
  * uses, so everything that program refuses is refused here too (the terms
  * of use not accepted, above all).
  *
- * This first list only reads, and only what is about the computer rather
- * than its owner: whether the assistant is running, and which programs are
+ * The list only reads, and only what is about the computer rather than
+ * its owner: whether the assistant is running, and which programs are
  * installed. Nothing from memory, mail, files or conversations is offered,
- * and nothing that changes anything. Whatever a tool answers goes to the
- * program that asked and on to whatever model it uses, which is why the
- * list is this short until asking can be shown and decided at the desk.
+ * and nothing that changes anything.
+ *
+ * Every question goes through one door of the running assistant (POST
+ * /api/outside/ask, package otherprograms) with the name the asking program
+ * gave: there it is checked against what its user allowed other programs
+ * to ask, written on the record with who asked, and only then answered.
+ * Whatever a tool answers goes to the program that asked and on to
+ * whatever model it uses, which is why everything but "is it running" is
+ * off until its user turns it on at the desk.
  */
 
 // DefaultAddress is where the program serves unless told otherwise
@@ -114,8 +121,9 @@ func New(address, version string) *Server {
 		Version: version,
 		Instructions: "PN Scripts Assistant is a desktop assistant running on this computer. " +
 			"These tools ask it about the computer: whether it is running, and which programs are installed, " +
-			"were updated or were removed. They only read. If a tool says the assistant is not running or " +
-			"its terms of use are not accepted, tell the user: only they can start it or accept them.",
+			"were updated or were removed. They only read. Every question is shown to its user with the name of " +
+			"the program that asked. If a tool says the assistant is not running, its terms of use are not accepted, " +
+			"or its user has not allowed the question, tell the user: only they can start it, accept them or allow it.",
 		Tools: []Tool{
 			{
 				Name:  "assistant_status",
@@ -130,6 +138,7 @@ func New(address, version string) *Server {
 				Name:  "list_programs",
 				Title: "Programs on this computer",
 				Description: "Lists the programs PN Scripts Assistant knows are installed on this computer, by name, " +
+					"once its user has allowed other programs to ask that (off until they do). " +
 					"with version and source (app = menu entry, deb, snap, flatpak; on Windows win, app, msix). " +
 					"Use search to find one program instead of reading the whole list. Removed programs it remembers " +
 					"are listed with include_removed, each with the day it was removed. Names and versions are what the " +
@@ -172,6 +181,50 @@ func (a *assistant) get(ctx context.Context, path string, into any) error {
 		return err
 	}
 
+	return a.answered(ctx, req, into)
+}
+
+/*
+ * ask puts one question through the assistant's door, with who is asking
+ * (the name the program gave, as it gave it: the assistant makes it safe
+ * to show before it keeps it) and what the assistant needs to answer.
+ */
+func (a *assistant) ask(ctx context.Context, tool string, arguments any, who Caller, into any) error {
+	body, err := json.Marshal(map[string]any{
+		"tool":      tool,
+		"arguments": arguments,
+		"client":    map[string]string{"name": who.Name, "version": who.Version},
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.url+"/api/outside/ask", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	return a.answered(ctx, req, into)
+}
+
+// errNoDoor is an assistant running that has no door: one from before
+// other programs' questions were shown at the desk.
+var errNoDoor = errors.New("The PN Scripts Assistant running on this computer is older than this server and cannot be asked that. " +
+	"Update it (it says how under \"What it runs on\"), start it again, then ask again.")
+
+/*
+ * answered sends a request to the assistant and reads its answer into
+ * into.
+ *
+ * What comes back is used only when it is the assistant's own JSON. A
+ * refusal is passed on in the assistant's words when it gave them as it
+ * always does ({"error": ...}), cut to a line; a question its user has
+ * not allowed is said in this program's own words; anything else on that
+ * port is named as not the assistant and none of its text is passed on.
+ */
+func (a *assistant) answered(ctx context.Context, req *http.Request, into any) error {
 	req.Header.Set("Accept", "application/json")
 
 	res, err := a.http.Do(req)
@@ -195,10 +248,18 @@ func (a *assistant) get(ctx context.Context, path string, into any) error {
 		return a.errNotIt()
 	}
 
+	// The door is not there: the mux of an assistant from before it
+	// answers 404 (or 405) in plain text.
+	if req.Method == http.MethodPost && (res.StatusCode == http.StatusNotFound || res.StatusCode == http.StatusMethodNotAllowed) {
+		return errNoDoor
+	}
+
 	if res.StatusCode != http.StatusOK {
 		var refusal struct {
-			Error string `json:"error"`
-			Terms string `json:"terms"`
+			Error   string `json:"error"`
+			Terms   string `json:"terms"`
+			Outside string `json:"outside"`
+			Subject string `json:"subject"`
 		}
 
 		if json.Unmarshal(raw, &refusal) != nil || refusal.Error == "" {
@@ -208,6 +269,10 @@ func (a *assistant) get(ctx context.Context, path string, into any) error {
 		if refusal.Terms == "not accepted" {
 			return errors.New("PN Scripts Assistant is running, but its terms of use have not been accepted yet. " +
 				"The user opens its window and accepts them; then ask again.")
+		}
+
+		if refusal.Outside == "not allowed" {
+			return notAllowed(refusal.Subject)
 		}
 
 		return fmt.Errorf("PN Scripts Assistant refused (%d): %s", res.StatusCode, printable(refusal.Error, 300))
@@ -220,7 +285,20 @@ func (a *assistant) get(ctx context.Context, path string, into any) error {
 	return nil
 }
 
-func (a *assistant) status(ctx context.Context, _ json.RawMessage, _ Caller) (string, error) {
+// notAllowed is a question the assistant's user has not allowed other
+// programs to ask, said so that a model passes it on and stops asking.
+func notAllowed(subject string) error {
+	what := "that"
+	if subject == "programs" {
+		what = "which programs are installed"
+	}
+
+	return fmt.Errorf("PN Scripts Assistant is running, but its user has not allowed other programs to ask %s. "+
+		"Only the user can allow it: in the assistant's window, on the Programs page, under \"What other programs may ask\". "+
+		"Tell them so, and do not ask again until they say they did. The question was written on the assistant's record.", what)
+}
+
+func (a *assistant) status(ctx context.Context, _ json.RawMessage, who Caller) (string, error) {
 	var version struct {
 		Product  string `json:"product"`
 		Version  string `json:"version"`
@@ -255,6 +333,18 @@ func (a *assistant) status(ctx context.Context, _ json.RawMessage, _ Caller) (st
 			"the user opens its window and accepts them.", nil
 	}
 
+	/*
+	 * The question is put through the door so that it is on the record
+	 * with who asked. Whether that worked changes nothing in the answer:
+	 * the program is running, which is all this tool says, and an
+	 * assistant from before the door existed is running too.
+	 */
+	var noted struct {
+		Noted bool `json:"noted"`
+	}
+
+	_ = a.ask(ctx, "assistant_status", struct{}{}, who, &noted)
+
 	return said + " Its terms of use are accepted, so it answers.", nil
 }
 
@@ -273,7 +363,7 @@ const (
 	mostListed    = 200
 )
 
-func (a *assistant) programs(ctx context.Context, arguments json.RawMessage, _ Caller) (string, error) {
+func (a *assistant) programs(ctx context.Context, arguments json.RawMessage, who Caller) (string, error) {
 	asked := struct {
 		Search         string `json:"search"`
 		Kind           string `json:"kind"`
@@ -301,9 +391,11 @@ func (a *assistant) programs(ctx context.Context, arguments json.RawMessage, _ C
 		return "", errors.New("search is at most 100 characters: part of a program's name")
 	}
 
-	path, only := "/api/programs", ""
+	// Only the source goes to the assistant: searching and cutting the
+	// list to length are done here.
+	only, given := "", map[string]string{}
 	if kind := strings.TrimSpace(asked.Kind); kind != "" {
-		path += "?kind=" + url.QueryEscape(kind)
+		given["kind"] = kind
 
 		// The counts are then that source's alone, and the answer says so.
 		only = " (" + printable(kind, 20) + " only)"
@@ -313,7 +405,7 @@ func (a *assistant) programs(ctx context.Context, arguments json.RawMessage, _ C
 		Programs *[]program `json:"programs"`
 	}
 
-	if err := a.get(ctx, path, &answer); err != nil {
+	if err := a.ask(ctx, "list_programs", given, who, &answer); err != nil {
 		return "", err
 	}
 

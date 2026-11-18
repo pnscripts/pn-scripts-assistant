@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -54,16 +55,53 @@ func standIn(t *testing.T) string {
 	return bin
 }
 
-func running(t *testing.T) *httptest.Server {
+// asked is who a stand-in assistant was asked by through its door:
+// "<tool> by <name>/<version>".
+type asked struct {
+	mu    sync.Mutex
+	asked []string
+}
+
+func (a *asked) all() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return append([]string(nil), a.asked...)
+}
+
+// running is a stand-in assistant, and who asked it.
+func running(t *testing.T) (*httptest.Server, *asked) {
 	t.Helper()
 
+	kept := &asked{}
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/api/v1/version":
+		switch r.Method + " " + r.URL.Path {
+		case "GET /api/v1/version":
 			fmt.Fprint(w, `{"product":"PN Scripts Assistant","version":"1.1.0","platform":"linux/amd64"}`)
-		case "/api/terms":
+		case "GET /api/terms":
 			fmt.Fprint(w, `{"accepted":true}`)
-		case "/api/programs":
+		case "POST /api/outside/ask":
+			var q struct {
+				Tool   string `json:"tool"`
+				Client struct {
+					Name    string `json:"name"`
+					Version string `json:"version"`
+				} `json:"client"`
+			}
+
+			json.NewDecoder(r.Body).Decode(&q)
+
+			kept.mu.Lock()
+			kept.asked = append(kept.asked, q.Tool+" by "+q.Client.Name+"/"+q.Client.Version)
+			kept.mu.Unlock()
+
+			if q.Tool == "assistant_status" {
+				fmt.Fprint(w, `{"noted":true}`)
+
+				return
+			}
+
 			fmt.Fprint(w, `{"programs":[{"kind":"deb","id":"gimp","name":"gimp","version":"2.10.36","present":true}]}`)
 		default:
 			http.NotFound(w, r)
@@ -72,11 +110,12 @@ func running(t *testing.T) *httptest.Server {
 
 	t.Cleanup(ts.Close)
 
-	return ts
+	return ts, kept
 }
 
 func TestARealClientFindsItCurrentAndUsesItsTools(t *testing.T) {
-	bin, ts := standIn(t), running(t)
+	bin := standIn(t)
+	ts, kept := running(t)
 
 	stdio, err := mcp.StartStdio([]string{bin}, []string{"PN_SCRIPTS_ASSISTANT_API_URL=" + ts.URL}, t.TempDir())
 	if err != nil {
@@ -133,6 +172,12 @@ func TestARealClientFindsItCurrentAndUsesItsTools(t *testing.T) {
 		t.Errorf("the call: %+v", result)
 	}
 
+	// The assistant was told who asked: the name this client gives with
+	// every request of the current protocol.
+	if got, want := strings.Join(kept.all(), ", "), "list_programs by "+mcp.ClientName+"/"+mcp.ClientVersion; got != want {
+		t.Errorf("who the assistant was told asked: %q, want %q", got, want)
+	}
+
 	// A tool that could not do it comes back as an answer marked failed.
 	result, err = client.CallTool(ctx, "list_programs", json.RawMessage(`{"limit":5000}`))
 	if err != nil || !result.IsError || !strings.Contains(result.Content[0].Text, "limit is from 1 to 200") {
@@ -148,7 +193,8 @@ func TestARealClientFindsItCurrentAndUsesItsTools(t *testing.T) {
 // way Claude Desktop and Cursor write it, and the program ending when its
 // input closes.
 func TestAnOlderClientsConversationOverRealPipes(t *testing.T) {
-	bin, ts := standIn(t), running(t)
+	bin := standIn(t)
+	ts, kept := running(t)
 
 	cmd := exec.Command(bin)
 	cmd.Env = []string{"PN_SCRIPTS_ASSISTANT_API_URL=" + ts.URL}
@@ -208,6 +254,12 @@ func TestAnOlderClientsConversationOverRealPipes(t *testing.T) {
 	status := ask(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"assistant_status","arguments":{}}}`)
 	if text := status["content"].([]any)[0].(map[string]any)["text"].(string); !strings.Contains(text, "PN Scripts Assistant 1.1.0 is running") {
 		t.Errorf("status: %v", status)
+	}
+
+	// The assistant was told who asked: the name given once, in the
+	// handshake, still goes with a call made later.
+	if got := strings.Join(kept.all(), ", "); got != "assistant_status by claude-ai/0.1.0" {
+		t.Errorf("who the assistant was told asked: %q", got)
 	}
 
 	in.Close()
