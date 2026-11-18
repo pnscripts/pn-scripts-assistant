@@ -19,6 +19,9 @@
 package otherprograms
 
 import (
+	"bytes"
+	"encoding/json"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,10 +44,19 @@ const (
 	// Memory is searching what the assistant remembers. The only switch
 	// that hands out what is personal, so it is the last on the page.
 	Memory Subject = "memory"
+
+	/*
+	 * Permit is another program putting its own permission question to
+	 * the assistant's person: "may I run this command, may I write this
+	 * file". The assistant passes the question on and the answer back; it
+	 * never answers one itself. The last on the page: with it on, a yes
+	 * given here lets that other program act on the computer.
+	 */
+	Permit Subject = "permissions"
 )
 
 // Subjects is every switch, in the order the page shows them.
-func Subjects() []Subject { return []Subject{Programs, Ask, Memory} }
+func Subjects() []Subject { return []Subject{Programs, Ask, Memory, Permit} }
 
 // Known reports whether s is a switch.
 func Known(s Subject) bool {
@@ -70,7 +82,12 @@ var questions = []question{
 	{"list_programs", Programs, "Another program asked which programs are installed", "Друга програма попита кои програми са инсталирани"},
 	{"ask_assistant", Ask, "Another program asked me a question", "Друга програма ми зададе въпрос"},
 	{"search_memory", Memory, "Another program searched what I remember", "Друга програма потърси в това, което помня"},
+	{PermissionTool, Permit, "Another program asked whether it may do something", "Друга програма попита дали може да направи нещо"},
 }
+
+// PermissionTool is the tool another program puts its permission
+// questions through (Claude Code: --permission-prompt-tool).
+const PermissionTool = "permission_prompt"
 
 // said is how one switch is spoken of: what other programs "may (not)
 // ask ...", in English and in Bulgarian.
@@ -78,6 +95,7 @@ var said = map[Subject][2]string{
 	Programs: {"ask which programs are installed", "да питат кои програми са инсталирани"},
 	Ask:      {"ask me questions", "да ми задават въпроси"},
 	Memory:   {"search what I remember", "да търсят в това, което помня"},
+	Permit:   {"put their permission questions to you", "да ви задават своите въпроси за разрешение"},
 }
 
 // Tools is every question other programs may ask, by the name of its tool.
@@ -299,4 +317,301 @@ func shown(s string, most int) string {
 	}
 
 	return strings.TrimSpace(string(out))
+}
+
+/*
+ * A permission question of another program.
+ *
+ * Claude Code, run with --permission-prompt-tool, hands its tool the name
+ * of what it wants to use and what it would give it. The assistant puts
+ * that to its person in one line, and the line is all the person reads
+ * before saying yes or no, so it is built here, from what was asked alone:
+ * the thing that matters first (the command, the file, the address), said
+ * the same way every time, and when something was too long to show the
+ * line says so and how long it was. Nothing in it is the other program's
+ * own description of what it is doing: a model wrote that.
+ */
+
+// How much of a permission question is read and shown.
+const (
+	// MostPermissionTool is the longest name of what is asked about.
+	MostPermissionTool = 120
+
+	// MostPermissionShown is how many characters of a command, a path or
+	// an address the question shows; what is longer is said to be cut.
+	MostPermissionShown = 1500
+
+	// MostPermissionsWaiting is how many permission questions wait for an
+	// answer at once. One over is refused at once: a program that asks in
+	// a loop must not bury the desk in cards.
+	MostPermissionsWaiting = 3
+)
+
+// PermissionAsks is what the question is about: the name another program
+// gave of the thing it wants to use, safe to show, or empty when nothing
+// readable is left of it.
+func PermissionAsks(tool string) string { return shown(tool, MostPermissionTool) }
+
+// what one known tool of Claude Code wants, and the field that says it.
+type permissionOf struct {
+	field  string
+	en, bg string
+}
+
+var permissionsOf = map[string]permissionOf{
+	"Bash":         {"command", "Wants to run this command: ", "Иска да изпълни тази команда: "},
+	"PowerShell":   {"command", "Wants to run this command: ", "Иска да изпълни тази команда: "},
+	"Write":        {"file_path", "Wants to write this file: ", "Иска да запише този файл: "},
+	"Edit":         {"file_path", "Wants to change this file: ", "Иска да промени този файл: "},
+	"MultiEdit":    {"file_path", "Wants to change this file: ", "Иска да промени този файл: "},
+	"NotebookEdit": {"notebook_path", "Wants to change this file: ", "Иска да промени този файл: "},
+	"Read":         {"file_path", "Wants to read this file: ", "Иска да прочете този файл: "},
+	"WebFetch":     {"url", "Wants to open this address: ", "Иска да отвори този адрес: "},
+	"WebSearch":    {"query", "Wants to search the web for: ", "Иска да потърси в интернет: "},
+}
+
+/*
+ * PermissionLine is one permission question as its person reads it, in
+ * English and in Bulgarian. tool is what PermissionAsks gave; input is
+ * what the program would give that tool, as it sent it.
+ *
+ * The line is what a yes is given to, so it hides nothing it knows of: a
+ * line break inside a command is shown as a mark (a second line of a
+ * command is a second command), characters that cannot be shown are
+ * counted and said, what was too long is said to be cut, and whatever
+ * else the program would give the tool besides the one thing shown is
+ * named after it (a switch such as "run without the sandbox" with its
+ * value).
+ *
+ * cut is how long each text of the input really is, in characters, where
+ * what was sent here is shorter (the MCP server sends a long text cut):
+ * the line then says the real length, not the length of what arrived.
+ */
+func PermissionLine(tool string, input json.RawMessage, cut map[string]int) (en, bg string) {
+	var fields map[string]json.RawMessage
+
+	// Not an object: said as it came, below.
+	_ = json.Unmarshal(input, &fields)
+
+	if of, known := permissionsOf[tool]; known {
+		var value string
+
+		if json.Unmarshal(fields[of.field], &value) == nil {
+			if value, note, noteBG := cutShown(value, cut[of.field]); value != "" {
+				also, alsoBG := alsoGiven(fields, of.field, cut)
+
+				return of.en + value + note + also, of.bg + value + noteBG + alsoBG
+			}
+		}
+	}
+
+	en, bg = "Wants to use "+tool, "Иска да използва "+tool
+
+	// A tool of an MCP server is named mcp__<server>__<tool>.
+	if rest, is := strings.CutPrefix(tool, "mcp__"); is {
+		if server, name, both := strings.Cut(rest, "__"); both && server != "" && name != "" {
+			en = "Wants to use the tool " + name + " of " + server
+			bg = "Иска да използва инструмента " + name + " на " + server
+		}
+	}
+
+	var compact bytes.Buffer
+
+	if len(bytes.TrimSpace(input)) == 0 || json.Compact(&compact, input) != nil {
+		return en + ".", bg + "."
+	}
+
+	given, note, noteBG := cutShown(compact.String(), 0)
+	if given == "" || given == "{}" || given == "null" {
+		return en + ".", bg + "."
+	}
+
+	// What was sent here cut is not seen in the middle of what is shown:
+	// each such text is named with its real length.
+	sentCut, sentCutBG := cutNamed(cut)
+
+	return en + ", with: " + given + note + sentCut, bg + ", със следното: " + given + noteBG + sentCutBG
+}
+
+// cutNamed says which texts of an input arrived cut, each with its real
+// length, for a tool whose whole input is shown.
+func cutNamed(cut map[string]int) (en, bg string) {
+	names := make([]string, 0, len(cut))
+
+	for name := range cut {
+		if shown(name, 40) != "" {
+			names = append(names, name)
+		}
+	}
+
+	if len(names) == 0 {
+		return "", ""
+	}
+
+	sort.Strings(names)
+
+	var partsEN, partsBG []string
+
+	for i, name := range names {
+		if i == mostAlso {
+			more := strconv.Itoa(len(names) - mostAlso)
+
+			partsEN = append(partsEN, "and "+more+" more")
+			partsBG = append(partsBG, "и още "+more)
+
+			break
+		}
+
+		n := strconv.Itoa(cut[name])
+
+		partsEN = append(partsEN, shown(name, 40)+" (length "+n+")")
+		partsBG = append(partsBG, shown(name, 40)+" (дължина "+n+")")
+	}
+
+	return " (texts shown cut, read them in the program that asks: " + strings.Join(partsEN, ", ") + ")",
+		" (текстове, показани съкратено, прочетете ги в програмата, която пита: " + strings.Join(partsBG, ", ") + ")"
+}
+
+// LineBreak stands where a command, a path or an address had a line
+// break: on the card everything is one line, and a break must be seen.
+const LineBreak = "↵"
+
+/*
+ * cutShown is a value on one line, safe to show, at most
+ * MostPermissionShown characters, and the words that say what the line
+ * does not show as it came: that it was cut (really is its true length
+ * when what arrived was cut already), and that characters which cannot be
+ * shown were left out.
+ */
+func cutShown(value string, really int) (out, note, noteBG string) {
+	// A break is kept as its mark, with a space either side: every
+	// character that starts a new line or page, not the two usual ones
+	// alone.
+	const mark = " " + LineBreak + " "
+
+	marked := strings.NewReplacer("\r\n", mark, "\n", mark, "\r", mark, "\v", mark, "\f", mark,
+		"\u0085", mark, "\u2028", mark, "\u2029", mark).Replace(value)
+
+	whole := shown(marked, len(marked))
+
+	// What shown leaves out and does not replace: anything but spaces,
+	// which it only gathers.
+	left := 0
+
+	for _, r := range marked {
+		if !unicode.IsSpace(r) {
+			left++
+		}
+	}
+
+	for _, r := range whole {
+		if !unicode.IsSpace(r) {
+			left--
+		}
+	}
+
+	out = shown(marked, MostPermissionShown)
+
+	// As long as it really is: what arrived, or more when it was sent cut.
+	n := len([]rune(whole))
+	if really > n {
+		n = really
+	}
+
+	if n > len([]rune(out)) {
+		count := strconv.Itoa(n)
+
+		note = " (cut here: " + count + " characters in all, read the rest in the program that asks)"
+		noteBG = " (съкратено тук: общо " + count + " знака, останалото прочетете в програмата, която пита)"
+	}
+
+	if left > 0 {
+		count := strconv.Itoa(left)
+
+		note += " (characters that cannot be shown were left out: " + count + ")"
+		noteBG += " (пропуснати са знаци, които не могат да се покажат: " + count + ")"
+	}
+
+	return out, note, noteBG
+}
+
+// mostAlso is how many other fields of an input are named on the line.
+const mostAlso = 8
+
+/*
+ * alsoGiven names what else a known tool would be given besides the one
+ * thing the line shows: each by its name, a switch with its value, a text
+ * with its length in characters. Never the text itself: a model wrote it (a
+ * "description" of the command is not the command).
+ */
+func alsoGiven(fields map[string]json.RawMessage, shownField string, cut map[string]int) (en, bg string) {
+	names := make([]string, 0, len(fields))
+
+	for name := range fields {
+		if name != shownField && shown(name, 40) != "" {
+			names = append(names, name)
+		}
+	}
+
+	if len(names) == 0 {
+		return "", ""
+	}
+
+	// Switches that are on come first, so that many other names cannot
+	// push one out of the few that are listed; then by name.
+	on := func(name string) bool {
+		var flag bool
+
+		return json.Unmarshal(fields[name], &flag) == nil && flag
+	}
+
+	sort.Slice(names, func(i, j int) bool {
+		if a, b := on(names[i]), on(names[j]); a != b {
+			return a
+		}
+
+		return names[i] < names[j]
+	})
+
+	var partsEN, partsBG []string
+
+	for i, name := range names {
+		if i == mostAlso {
+			more := strconv.Itoa(len(names) - mostAlso)
+
+			partsEN = append(partsEN, "and "+more+" more")
+			partsBG = append(partsBG, "и още "+more)
+
+			break
+		}
+
+		var (
+			flag bool
+			text string
+		)
+
+		label := shown(name, 40)
+
+		switch raw := fields[name]; {
+		case json.Unmarshal(raw, &flag) == nil:
+			partsEN = append(partsEN, label+": "+strconv.FormatBool(flag))
+			partsBG = append(partsBG, label+": "+map[bool]string{true: "да", false: "не"}[flag])
+		case json.Unmarshal(raw, &text) == nil:
+			length := len([]rune(text))
+			if cut[name] > length {
+				length = cut[name]
+			}
+
+			n := strconv.Itoa(length)
+
+			partsEN = append(partsEN, label+" (length "+n+")")
+			partsBG = append(partsBG, label+" (дължина "+n+")")
+		default:
+			partsEN = append(partsEN, label)
+			partsBG = append(partsBG, label)
+		}
+	}
+
+	return " (also given, not shown here: " + strings.Join(partsEN, ", ") + ")",
+		" (подадено е и следното, което не се показва тук: " + strings.Join(partsBG, ", ") + ")"
 }

@@ -154,12 +154,22 @@ func TestARealClientFindsItCurrentAndUsesItsTools(t *testing.T) {
 	for _, tool := range tools {
 		names = append(names, tool.Name)
 
+		// The one tool a yes through which lets another program act says
+		// nothing of only reading; every other says it.
+		if tool.Name == "permission_prompt" {
+			if tool.Annotations != nil && tool.Annotations.ReadOnlyHint != nil && *tool.Annotations.ReadOnlyHint {
+				t.Errorf("%s says it only reads", tool.Name)
+			}
+
+			continue
+		}
+
 		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint == nil || !*tool.Annotations.ReadOnlyHint {
 			t.Errorf("%s does not say it only reads", tool.Name)
 		}
 	}
 
-	if strings.Join(names, ",") != "assistant_status,list_programs,ask_assistant,search_memory" {
+	if strings.Join(names, ",") != "assistant_status,list_programs,ask_assistant,search_memory,permission_prompt" {
 		t.Errorf("tools: %v", names)
 	}
 
@@ -247,7 +257,7 @@ func TestAnOlderClientsConversationOverRealPipes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if list := ask(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`); len(list["tools"].([]any)) != 4 {
+	if list := ask(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`); len(list["tools"].([]any)) != 5 {
 		t.Errorf("the list: %v", list)
 	}
 

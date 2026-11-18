@@ -42,8 +42,18 @@ type outsidePage struct {
 	}
 	Unnamed string
 	Deeds   []struct {
-		Chip, Said, Title, Trait, Went, Result, Asked string
+		Chip, Said, Title, Trait, Went, Result, Asked, Decided string
 	}
+
+	// Every waiting question as its card says it, and what the page says
+	// after a permission card was answered.
+	Cards []struct {
+		Tool    string
+		Approve bool
+		Lasting bool
+		AskedBy *struct{ Label, Title string }
+	}
+	Permit    struct{ Yes, No, Gone, Unrecorded, Full, Other, Again string }
 	Tool      struct{ Chip, Trait, Went string }
 	Mine      struct{ Chip, Result string }
 	Turned    []string
@@ -105,7 +115,7 @@ func TestThePageSaysWhoAskedAndWhatMayBeAskedInBothLanguages(t *testing.T) {
 
 	// The switch, off: one fixed line and one switch, not allowed.
 	if en.Off.Fixed.Label != "Whether I am running, and which version I am" || en.Off.Fixed.State != "Always answered" ||
-		len(en.Off.Rows) != 3 || en.Off.Rows[0].ID != "programs" || en.Off.Rows[0].Allowed || en.Off.Rows[0].Means != "" ||
+		len(en.Off.Rows) != 4 || en.Off.Rows[0].ID != "programs" || en.Off.Rows[0].Allowed || en.Off.Rows[0].Means != "" ||
 		en.Off.Rows[0].Label != "Which programs are installed on this computer" ||
 		en.Off.Rows[0].State != "Not allowed. A program that asks is told to ask you." ||
 		len(en.Off.Recent) != 0 || en.Off.None != "No program has asked anything yet." {
@@ -319,7 +329,7 @@ const upper = (o) => o && typeof o === 'object' && !Array.isArray(o)
     : (Array.isArray(o) ? o.map(upper) : o);
 const record = (d) => {
     const a = P.askedBy(d);
-    return { chip: a ? a.chip : '', said: a ? a.said : '', title: a ? a.title : '', trait: a ? a.trait : '', went: a ? a.went : '', result: P.outsideResult(d), asked: P.outsideAsked(d) };
+    return { chip: a ? a.chip : '', said: a ? a.said : '', title: a ? a.title : '', trait: a ? a.trait : '', went: a ? a.went : '', result: P.outsideResult(d), asked: P.outsideAsked(d), decided: a ? (a.decided || '') : '' };
 };
 process.stdout.write(JSON.stringify(upper({
     off: P.outside(json('off.json')),
@@ -327,6 +337,20 @@ process.stdout.write(JSON.stringify(upper({
     card: P.approvalChoices(cards[0], 'write_file'),
     desk: P.approvalChoices(cards[1], 'write_file'),
     deeds: deeds.map(record),
+    cards: cards.filter((c) => c && c.tool).map((c) => {
+        const o = P.approvalChoices(c, c.tool);
+        return { tool: window.pnToolName(c.tool), approve: o.approve, lasting: !!(o.forProgram || o.anyProgram), askedBy: o.askedBy };
+    }),
+    permit: {
+        yes: P.permitDecided({ tool: 'permission_prompt', result: 'Allowed on its card: the program was told it may.' }, true),
+        no: P.permitDecided({ tool: 'permission_prompt', result: 'Not allowed on its card: the program was told it may not.' }, false),
+        gone: P.permitDecided({ tool: 'permission_prompt', result: 'Not answered: the program stopped waiting before anybody answered.' }, true, 'nobody waits'),
+        other: P.permitDecided({ tool: 'write_file' }, true),
+        // A second press on a card already allowed is refused by the server; the page still says what the first did.
+        again: P.permitDecided({ tool: 'permission_prompt', result: 'Allowed on its card: the program was told it may.' }, false, 'that action was already done and cannot be decided again'),
+        unrecorded: P.permitDecided({ tool: 'permission_prompt', result: 'Not allowed: the answer could not be written on the record, so the program was told no.' }, true, 'not recorded'),
+        full: P.outsideResult({ tool: 'permission_prompt', asked_by: 'x', outcome: 'refused', result: 'Not answered: 3 permission questions were waiting already, and no more wait at once.' }),
+    },
     turned,
     elsewhere: P.turnedWhere({ tool: 'write_file' }),
     mine: record({ tool: 'write_file', summary: 'Write notes.txt', outcome: 'done', result: 'wrote 3 lines' }),
@@ -411,7 +435,7 @@ func TestThePageSaysAskingAndSearchingInBothLanguages(t *testing.T) {
 
 	// The switches, in the page's order, each off, the two new ones with
 	// what allowing them means.
-	if len(en.Off.Rows) != 3 || en.Off.Rows[1].ID != "ask" || en.Off.Rows[2].ID != "memory" ||
+	if len(en.Off.Rows) != 4 || en.Off.Rows[1].ID != "ask" || en.Off.Rows[2].ID != "memory" ||
 		en.Off.Rows[1].Label != "Questions to me, answered in words" || en.Off.Rows[2].Label != "Searching what I remember about you" ||
 		en.Off.Rows[1].Allowed || en.Off.Rows[2].Allowed ||
 		!strings.Contains(en.Off.Rows[1].Means, "I do nothing for the program that asks") ||
@@ -497,7 +521,7 @@ func TestThePageSaysAskingAndSearchingInBothLanguages(t *testing.T) {
 	// No dash and, the question and the names apart, no English on the
 	// Bulgarian page.
 	latin := regexp.MustCompile(`[a-zA-Z]{3,}`)
-	theirs := strings.NewReplacer("Who is the accountant?", "", "accountant", "", "Maria, on weekdays.", "", "Cursor", "", "loop", "")
+	theirs := strings.NewReplacer("Who is the accountant?", "", "accountant", "", "Maria, on weekdays.", "", "Cursor", "", "loop", "", "Claude Code", "")
 
 	var said []string
 	for _, r := range bg.On.Rows {
@@ -591,5 +615,183 @@ func TestThePageSaysAQuestionGaveWayToThePerson(t *testing.T) {
 	if len(bg.Deeds) != 2 || bg.Deeds[1].Result != "Без отговор: вие ме попитахте нещо, а това е с предимство." ||
 		bg.Deeds[0].Result != "Без отговор: това беше изключено, докато отговарях." {
 		t.Errorf("in Bulgarian: %+v", bg.Deeds)
+	}
+}
+
+/*
+ * Another program's permission questions (1.2.0 step 5) as the page says
+ * them in both languages: the switch and what turning it on means, the
+ * card of a question that waits, what the page says once it is answered,
+ * the last questions, and each ending on the record with who decided.
+ */
+func TestThePageSaysAPermissionQuestionInBothLanguages(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node is not installed")
+	}
+
+	ts, _, _ := newServer(t)
+	permitWaits(t, 700*time.Millisecond)
+
+	read := func(path string) []byte {
+		t.Helper()
+
+		res, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer res.Body.Close()
+		raw, _ := io.ReadAll(res.Body)
+
+		return raw
+	}
+
+	off := read("/api/outside")
+
+	// Refused while off; then allowed, refused and left unanswered.
+	post(t, ts.URL+"/api/outside/ask", permitBash)
+	post(t, ts.URL+"/api/outside/allow", `{"subject":"permissions","allowed":true}`)
+
+	var cards []byte
+
+	for _, decision := range []string{"approve", "deny", ""} {
+		asked := askTheDoor(t, ts.URL, permitBash)
+		card := permitCards(t, ts.URL, 1)[0]
+
+		if decision == "" {
+			cards = read("/api/approvals")
+		} else {
+			post(t, ts.URL+"/api/approvals/"+itoa(card.ID)+"/"+decision, `{}`)
+		}
+
+		doorAnswered(t, asked)
+	}
+
+	post(t, ts.URL+"/api/outside/ask",
+		`{"tool":"permission_prompt","arguments":{"tool_name":"AskUserQuestion","input":{}},"client":{"name":"claude-code","version":"2.1.303"}}`)
+
+	on := read("/api/outside")
+	deeds := read("/api/deeds?since=all")
+
+	en := outsidePageSays(t, "en-GB", off, on, cards, deeds)
+	bg := outsidePageSays(t, "bg-BG", off, on, cards, deeds)
+
+	// The switch: the last of four, off, with what turning it on means.
+	if len(en.Off.Rows) != 4 || en.Off.Rows[3].ID != "permissions" || en.Off.Rows[3].Allowed ||
+		en.Off.Rows[3].Label != "Their own permission questions, put to you here" ||
+		!strings.Contains(en.Off.Rows[3].Means, "I answer none of them myself") ||
+		!strings.Contains(en.Off.Rows[3].Means, "a question nobody answers in ten minutes is a no") ||
+		!strings.Contains(en.Off.Rows[3].Means, "at most three wait at once") ||
+		!strings.Contains(en.Off.Rows[3].Means, "A yes on the card lets that program do it, once") ||
+		!strings.Contains(en.Off.Rows[3].Means, "not what it will write into a file") || !en.On.Rows[3].Allowed {
+		t.Errorf("the switch in English: %+v", en.Off.Rows)
+	}
+
+	if bg.Off.Rows[3].Label != "Техните въпроси за разрешение, зададени на вас тук" ||
+		!strings.Contains(bg.Off.Rows[3].Means, "Аз не отговарям на нито един от тях") ||
+		!strings.Contains(bg.Off.Rows[3].Means, "въпрос без отговор до десет минути означава „не“") ||
+		!strings.Contains(bg.Off.Rows[3].Means, "едновременно чакат най-много три") ||
+		!strings.Contains(bg.Off.Rows[3].Means, "Отговор „да“ на картата позволява на тази програма да го направи, еднократно") {
+		t.Errorf("the switch in Bulgarian: %+v", bg.Off.Rows)
+	}
+
+	// What the switch says of itself is what the code does.
+	if otherprograms.MostPermissionsWaiting != 3 || permitWaitDefault != 10*time.Minute {
+		t.Errorf("the page says three at once and ten minutes; the code: %d and %s", otherprograms.MostPermissionsWaiting, permitWaitDefault)
+	}
+
+	// The card: named as what it is, who asked, yes or no and nothing
+	// lasting.
+	if len(en.Cards) != 1 || en.Cards[0].Tool != "Permission question of another program" || !en.Cards[0].Approve || en.Cards[0].Lasting ||
+		en.Cards[0].AskedBy == nil || en.Cards[0].AskedBy.Label != "Asked by claude-code 2.1.303" ||
+		!strings.Contains(en.Cards[0].AskedBy.Title, "a yes lets it do this once, and I do nothing myself") {
+		t.Errorf("the card in English: %+v", en.Cards)
+	}
+
+	if len(bg.Cards) != 1 || bg.Cards[0].Tool != "Въпрос за разрешение от друга програма" || bg.Cards[0].Lasting ||
+		bg.Cards[0].AskedBy == nil || bg.Cards[0].AskedBy.Label != "Поискано от claude-code 2.1.303" ||
+		!strings.Contains(bg.Cards[0].AskedBy.Title, "с „да“ тя може да го направи еднократно, а аз не върша нищо") {
+		t.Errorf("the card in Bulgarian: %+v", bg.Cards)
+	}
+
+	// After the card is answered.
+	if en.Permit.Yes != "Allowed. The program was told it may, this once." || en.Permit.No != "Not allowed. The program was told it may not." ||
+		!strings.HasPrefix(en.Permit.Gone, "The program that asked is no longer waiting") || en.Permit.Other != "" {
+		t.Errorf("after the answer, in English: %+v", en.Permit)
+	}
+
+	if en.Permit.Again != en.Permit.Yes || bg.Permit.Again != bg.Permit.Yes {
+		t.Errorf("a second press on a card already allowed: %q / %q", en.Permit.Again, bg.Permit.Again)
+	}
+
+	// A yes that could not be recorded is not said as "nobody waits"; and
+	// one more than may wait has its own line on the record.
+	if !strings.HasPrefix(en.Permit.Unrecorded, "I could not write the answer on the record, so the program was told no") ||
+		!strings.HasPrefix(bg.Permit.Unrecorded, "Не успях да запиша отговора") ||
+		en.Permit.Full != "Not answered: three permission questions were waiting already, and no more wait at once." ||
+		bg.Permit.Full != "Без отговор: вече чакаха три въпроса за разрешение, а повече не чакат едновременно." {
+		t.Errorf("unrecorded and full: %+v / %+v", en.Permit, bg.Permit)
+	}
+
+	if bg.Permit.Yes != "Разрешено. Програмата получи отговор, че може, само този път." ||
+		bg.Permit.No != "Не е разрешено. Програмата получи отговор, че не може." ||
+		!strings.HasPrefix(bg.Permit.Gone, "Програмата, която попита, вече не чака") {
+		t.Errorf("after the answer, in Bulgarian: %+v", bg.Permit)
+	}
+
+	// The last questions (five), newest first: not passed on, unanswered,
+	// refused, allowed, refused with the switch off.
+	if len(en.On.Recent) != 5 {
+		t.Fatalf("the last questions: %+v", en.On.Recent)
+	}
+
+	for i, outcome := range []string{"Not allowed", "Not allowed", "Not allowed", "Allowed", "Not allowed"} {
+		if r := en.On.Recent[i]; r.Outcome != outcome || r.What != "whether it may do something" || r.Who != "claude-code 2.1.303" {
+			t.Errorf("last question %d in English: %+v", i, r)
+		}
+	}
+
+	if r := bg.On.Recent[3]; r.Outcome != "Разрешено" || r.What != "дали може да направи нещо" {
+		t.Errorf("the allowed one in Bulgarian: %+v", r)
+	}
+
+	// The record, newest first, each ending in its own words and with
+	// who decided.
+	want := []struct{ en, bg, decidedEN, decidedBG string }{
+		{"Not answered: I pass on a program’s permission questions only, not the questions it wants to ask you itself.",
+			"Без отговор: предавам само въпросите за разрешение на една програма, не и въпросите, които тя иска да ви зададе сама.", "", ""},
+		{"Not allowed: nobody answered in time, and a question without an answer is a no.",
+			"Не е разрешено: никой не отговори навреме, а въпрос без отговор означава „не“.",
+			"Decided by nobody: not allowed", "Никой не реши: не е разрешено"},
+		{"Not allowed on its card: the program was told it may not.", "Не е разрешено на картата: програмата получи отговор, че не може.",
+			"Decided on its card, at this computer", "Решено на картата, на този компютър"},
+		{"Allowed on its card: the program was told it may.", "Разрешено на картата: програмата получи отговор, че може.",
+			"Decided on its card, at this computer", "Решено на картата, на този компютър"},
+		{"Not answered: other programs may not put their permission questions to you. You can allow it on the Programs page, under “What other programs may ask”.",
+			"Без отговор: другите програми нямат право да ви задават своите въпроси за разрешение. Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“.", "", ""},
+	}
+
+	if len(en.Deeds) != len(want) || len(bg.Deeds) != len(want) {
+		t.Fatalf("the record: %d lines in English, %d in Bulgarian", len(en.Deeds), len(bg.Deeds))
+	}
+
+	for i, w := range want {
+		if en.Deeds[i].Result != w.en || en.Deeds[i].Decided != w.decidedEN || en.Deeds[i].Trait != "A question from another program" {
+			t.Errorf("line %d in English: %+v", i, en.Deeds[i])
+		}
+
+		if bg.Deeds[i].Result != w.bg || bg.Deeds[i].Decided != w.decidedBG || bg.Deeds[i].Trait != "Въпрос от друга програма" {
+			t.Errorf("line %d in Bulgarian: %+v", i, bg.Deeds[i])
+		}
+	}
+
+	// What was asked, whole, under the page's word for it.
+	if en.Deeds[3].Asked != `What I was given: {"tool_name":"Bash","input":{"command":"rm -rf node_modules"}}` ||
+		bg.Deeds[3].Asked != `Какво получих: {"tool_name":"Bash","input":{"command":"rm -rf node_modules"}}` {
+		t.Errorf("what was asked: %q / %q", en.Deeds[3].Asked, bg.Deeds[3].Asked)
+	}
+
+	if en.Deeds[3].Went != "the answer went to that program" {
+		t.Errorf("where the yes went: %q", en.Deeds[3].Went)
 	}
 }

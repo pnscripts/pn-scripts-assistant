@@ -322,6 +322,9 @@ func (h Habit) Settled(enough int) bool {
 }
 
 // Habits is what has been decided about each tool, most-decided first.
+// Only what its person asked for themselves: an answer given by itself in
+// the quiet hours is not theirs, and a yes to what another program asked
+// for is for that once, never the start of a standing answer.
 func (d *DB) Habits() ([]Habit, error) {
 	rows, err := d.sql().Query(`
 		SELECT tool,
@@ -329,7 +332,7 @@ func (d *DB) Habits() ([]Habit, error) {
 		       COUNT(*) FILTER (WHERE status = ?)       AS refused,
 		       MAX(COALESCE(decided_at, updated_at))    AS last
 		FROM tool_invocations
-		WHERE status <> ? AND answered_itself = 0
+		WHERE status <> ? AND answered_itself = 0 AND COALESCE(asked_by, '') = ''
 		GROUP BY tool
 		ORDER BY approved + refused DESC, tool`,
 		InvocationApproved, InvocationDone, InvocationDenied, InvocationPending)

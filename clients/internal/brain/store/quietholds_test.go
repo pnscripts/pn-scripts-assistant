@@ -149,3 +149,53 @@ func TestAHeldQuestionRemembersWhoAsked(t *testing.T) {
 		t.Fatalf("asked as %q", one.AskedAs)
 	}
 }
+
+/*
+ * What another program asked for is not a habit of the person's. A yes on
+ * such a card is for that once (nothing lasting is offered there), so four
+ * of them must not turn into the suggestion "stop asking about this": for
+ * one of the assistant's own tools, or for another program's permission
+ * questions, where a standing answer would not even be read. Found while
+ * building those (1.2.0 step 5); the cards another program asked for
+ * counted since step 3.
+ */
+func TestWhatAnotherProgramAskedForIsNotAHabit(t *testing.T) {
+	db := open(t)
+
+	for i := 0; i < 4; i++ {
+		theirs, _ := db.RecordInvocation(0, "write_file", `{}`, "Write notes.txt", "mutating")
+		if err := db.InvocationAskedBy(theirs, "claude-code"); err != nil {
+			t.Fatal(err)
+		}
+
+		permit, _ := db.RecordInvocation(0, "permission_prompt", `{}`, "Wants to run this command: ls", "mutating")
+		if err := db.InvocationAskedBy(permit, "claude-code"); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, id := range []int64{theirs, permit} {
+			if moved, err := db.DecideInvocation(id, InvocationApproved); err != nil || !moved {
+				t.Fatal(err)
+			}
+
+			if err := db.CompleteInvocation(id, InvocationDone, "done"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	// And one the person asked for themselves, which is theirs.
+	own, _ := db.RecordInvocation(0, "write_file", `{}`, "Write mine.txt", "mutating")
+	if moved, err := db.DecideInvocation(own, InvocationApproved); err != nil || !moved {
+		t.Fatal(err)
+	}
+
+	habits, err := db.Habits()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(habits) != 1 || habits[0].Tool != "write_file" || habits[0].Approved != 1 || habits[0].Refused != 0 {
+		t.Fatalf("what another program asked for counted as its user's habit: %+v", habits)
+	}
+}

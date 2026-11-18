@@ -715,3 +715,46 @@ func itoa(i int) string {
 
 	return string(b)
 }
+
+/*
+ * Told to stop (the context ends: a signal to the program) while its
+ * input is still open and a call is in hand, the server stops: the call is
+ * given up and Serve returns. It used to wait in the read of the next
+ * line, so a program told to end stayed until its client closed the pipe,
+ * with a question in hand still waiting at the assistant's desk. Found by
+ * the walk of 1.2.0 step 5 ("timeout" ended nothing).
+ */
+func TestToldToStopItStopsThoughItsInputIsStillOpen(t *testing.T) {
+	s, started := demo()
+
+	in, feed := io.Pipe()
+	defer feed.Close()
+
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+
+	done := make(chan error, 1)
+
+	go func() { done <- s.Serve(ctx, in, io.Discard) }()
+
+	go io.WriteString(feed, `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"a client","version":"1"}}}`+"\n"+
+		`{"jsonrpc":"2.0","method":"notifications/initialized"}`+"\n"+
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"waits","arguments":{}}}`+"\n")
+
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the call never started")
+	}
+
+	stop()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("stopping is not a failure of the streams: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("told to stop, it went on waiting for its input")
+	}
+}

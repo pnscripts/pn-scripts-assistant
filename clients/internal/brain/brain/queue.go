@@ -27,6 +27,12 @@ func (b *Brain) PendingActions() ([]tools.QueueItem, error) {
 	out := make([]tools.QueueItem, 0, len(rows))
 
 	for _, row := range rows {
+		// Another program's permission question is answered on its card
+		// and nowhere else: "approve everything waiting" leaves it.
+		if IsPermitQuestion(row) {
+			continue
+		}
+
 		summary := strings.TrimSpace(row.Summary)
 		if summary == "" {
 			summary = row.Tool
@@ -56,6 +62,12 @@ func (b *Brain) PendingLessons() ([]tools.QueueItem, error) {
 
 // DecideAction answers one proposed action and says what became of it.
 func (b *Brain) DecideAction(ctx context.Context, id int64, approve bool) (string, error) {
+	// Not by number either: only the card answers another program's
+	// permission question (permit.go).
+	if waiting, err := b.DB.Invocation(id); err == nil && waiting != nil && IsPermitQuestion(*waiting) {
+		return "", errPermitOnTheCard
+	}
+
 	invocation, err := b.Decide(ctx, id, approve)
 	if err != nil {
 		return "", err

@@ -223,6 +223,31 @@
             'What I find goes to that program and to the model it uses, which may be on the internet. A few short pieces for each search, never the whole memory; a piece can name the file it was learned from. With this on, my answers to their questions use what I remember too.',
             'Намереното отива при тази програма и при модела, който тя използва, а той може да е в интернет. По няколко кратки откъса на търсене, никога цялата памет; откъсът може да посочва файла, от който е научен. Когато това е включено, и отговорите ми на техните въпроси използват това, което помня.',
         ],
+        'out.permits': ['Their own permission questions, put to you here', 'Техните въпроси за разрешение, зададени на вас тук'],
+        'out.permitsMeans': [
+            'For Claude Code started with my permission tool: when it needs permission to run a command or change a file, the question waits here for you, with the name the program gave. I answer none of them myself, a question nobody answers in ten minutes is a no, and at most three wait at once. A yes on the card lets that program do it, once. I show what it asks to use, not what it will write into a file.',
+            'За Claude Code, пуснат с моя инструмент за разрешения: когато му трябва разрешение да изпълни команда или да промени файл, въпросът ви чака тук, с името, което програмата даде. Аз не отговарям на нито един от тях, въпрос без отговор до десет минути означава „не“, а едновременно чакат най-много три. Отговор „да“ на картата позволява на тази програма да го направи, еднократно. Показвам какво иска да използва, а не какво ще запише във файл.',
+        ],
+        'out.permitYes': ['Allowed', 'Разрешено'],
+        'out.permitNo': ['Not allowed', 'Не е разрешено'],
+        'out.permitOnCard': ['Decided on its card, at this computer', 'Решено на картата, на този компютър'],
+        'out.permitByNobody': ['Decided by nobody: not allowed', 'Никой не реши: не е разрешено'],
+        'out.permit.yes': [
+            'Allowed. The program was told it may, this once.',
+            'Разрешено. Програмата получи отговор, че може, само този път.',
+        ],
+        'out.permit.no': [
+            'Not allowed. The program was told it may not.',
+            'Не е разрешено. Програмата получи отговор, че не може.',
+        ],
+        'out.permit.unrecorded': [
+            'I could not write the answer on the record, so the program was told no. Nothing was allowed.',
+            'Не успях да запиша отговора, затова програмата получи отговор „не“. Нищо не е разрешено.',
+        ],
+        'out.permit.gone': [
+            'The program that asked is no longer waiting, so nobody was told anything. Nothing was allowed.',
+            'Програмата, която попита, вече не чака, затова никой не получи отговор. Нищо не е разрешено.',
+        ],
         'out.on': ['Allowed since {when}.', 'Разрешено от {when}.'],
         'out.off': [
             'Not allowed. A program that asks is told to ask you.',
@@ -240,6 +265,7 @@
         'out.q.programs': ['which programs are installed', 'кои програми са инсталирани'],
         'out.q.ask': ['a question to me', 'въпрос към мен'],
         'out.q.memory': ['what I remember', 'какво помня'],
+        'out.q.permit': ['whether it may do something', 'дали може да направи нещо'],
         'out.q.tool': ['asked for: {tool}', 'поиска: {tool}'],
         'out.unnamed': ['A program that gave no name', 'Програма, която не каза името си'],
         'out.unnamedLower': ['a program that gave no name', 'програма, която не каза името си'],
@@ -268,6 +294,33 @@
             'Not answered: other programs may not search what I remember. You can allow it on the Programs page, under “What other programs may ask”.',
             'Без отговор: другите програми нямат право да търсят в това, което помня. Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“.',
         ],
+        'out.rec.refusedPermit': [
+            'Not answered: other programs may not put their permission questions to you. You can allow it on the Programs page, under “What other programs may ask”.',
+            'Без отговор: другите програми нямат право да ви задават своите въпроси за разрешение. Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“.',
+        ],
+        'out.rec.permitYes': ['Allowed on its card: the program was told it may.', 'Разрешено на картата: програмата получи отговор, че може.'],
+        'out.rec.permitNo': ['Not allowed on its card: the program was told it may not.', 'Не е разрешено на картата: програмата получи отговор, че не може.'],
+        'out.rec.permitFull': [
+            'Not answered: three permission questions were waiting already, and no more wait at once.',
+            'Без отговор: вече чакаха три въпроса за разрешение, а повече не чакат едновременно.',
+        ],
+        'out.rec.permitUnanswered': [
+            'Not allowed: nobody answered in time, and a question without an answer is a no.',
+            'Не е разрешено: никой не отговори навреме, а въпрос без отговор означава „не“.',
+        ],
+        'out.rec.permitGone': [
+            'Not answered: the program stopped waiting before anybody answered.',
+            'Без отговор: програмата спря да чака, преди някой да отговори.',
+        ],
+        'out.rec.permitTakenBack': [
+            'Not allowed: the question was taken back before anybody answered.',
+            'Не е разрешено: въпросът беше оттеглен, преди някой да отговори.',
+        ],
+        'out.rec.permitNotOne': [
+            'Not answered: I pass on a program’s permission questions only, not the questions it wants to ask you itself.',
+            'Без отговор: предавам само въпросите за разрешение на една програма, не и въпросите, които тя иска да ви зададе сама.',
+        ],
+        'out.rec.permitAsked': ['What I was given: {text}', 'Какво получих: {text}'],
         'out.rec.tooMany': [
             'Not answered: other programs asked more than {n} questions in a minute. The ones over that are refused and not listed one by one.',
             'Без отговор: другите програми зададоха повече от {n} въпроса за една минута. Въпросите над тази граница получават отказ и не се изброяват един по един.',
@@ -292,6 +345,10 @@
         'out.ap.note': [
             'Another program asked for this through me. The answer is for this once: nothing lasting is offered for what another program asks.',
             'Друга програма поиска това чрез мен. Отговорът важи само за този път: за искане от друга програма не се предлага трайно разрешение.',
+        ],
+        'out.ap.permit': [
+            'This is that program’s own permission question. The answer given here goes back to it: a yes lets it do this once, and I do nothing myself. Nothing lasting is offered.',
+            'Това е въпрос за разрешение на самата програма. Отговорът, даден тук, се връща при нея: с „да“ тя може да го направи еднократно, а аз не върша нищо. Не се предлага трайно разрешение.',
         ],
         'out.desk': [
             'Only at this computer: what other programs may ask is decided here, not from another device.',
@@ -4443,6 +4500,7 @@
         confirm_hire: ['Confirm a new specialist', 'Потвърждаване на специалист'],
         customer_reply: ['Write a reply to a customer', 'Отговор на клиент'],
         decide_waiting: ['Decide what is waiting', 'Решение по чакащи действия'],
+        permission_prompt: ['Permission question of another program', 'Въпрос за разрешение от друга програма'],
         draft_reply: ['Draft a reply', 'Чернова на отговор'],
         do_in_background: ['Work in the background', 'Работа във фонов режим'],
         drive_browser: ['Use its own browser', 'Работа със собствен браузър'],

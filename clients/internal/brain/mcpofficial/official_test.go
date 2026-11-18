@@ -373,6 +373,15 @@ func running(t *testing.T) (*httptest.Server, *asked) {
 				}
 
 				return
+			case "permission_prompt":
+				// Its user said yes to the command and no to the file.
+				if strings.Contains(string(q.Arguments), `"Bash"`) {
+					fmt.Fprint(w, `{"behavior":"allow"}`)
+				} else {
+					fmt.Fprint(w, `{"behavior":"deny","ended":"refused"}`)
+				}
+
+				return
 			case "search_memory":
 				fmt.Fprint(w, `{"found":[{"category":"note","content":"The accountant is Maria"},{"category":"note","content":"Paid on the first"}]}`)
 
@@ -429,6 +438,10 @@ type called struct {
 			Text string `json:"text"`
 		} `json:"content"`
 		IsError bool `json:"isError"`
+
+		// Claude Code reads a permission tool's answer only when it is
+		// one block of text with nothing structured beside it.
+		Structured json.RawMessage `json:"structuredContent"`
 	} `json:"answer"`
 	Refused *refusal `json:"refused"`
 }
@@ -485,6 +498,8 @@ type told struct {
 	Both          called   `json:"both"`
 	Remembered    called   `json:"remembered"`
 	NothingToFind called   `json:"nothingToFind"`
+	Permitted     called   `json:"permitted"`
+	NotPermitted  called   `json:"notPermitted"`
 	Together      []called `json:"together"`
 
 	ClosedInMs int   `json:"closedInMs"`
@@ -667,6 +682,17 @@ func TestTheOfficialClientUsesTheAssistant(t *testing.T) {
 						t.Errorf("%s reaches the client without its title or description", each.Name)
 					}
 
+					// The one tool that carries a permission question: its
+					// arguments are Claude Code's to choose, and a yes
+					// through it lets that program act.
+					if each.Name == "permission_prompt" {
+						if _, closed := each.InputSchema["additionalProperties"]; each.InputSchema["type"] != "object" || closed || each.Annotations["readOnlyHint"] == true {
+							t.Errorf("%s: %v %v", each.Name, each.InputSchema, each.Annotations)
+						}
+
+						continue
+					}
+
 					if each.InputSchema["type"] != "object" || each.InputSchema["additionalProperties"] != false {
 						t.Errorf("%s: a closed object says what it takes: %v", each.Name, each.InputSchema)
 					}
@@ -727,6 +753,26 @@ func TestTheOfficialClientUsesTheAssistant(t *testing.T) {
 
 			if text, failed := got.NothingToFind.said(t, "a search for nothing"); !failed || !strings.Contains(text, "search_memory takes query") {
 				t.Errorf("a search with nothing to look for: %q (failed %v)", text, failed)
+			}
+
+			// A permission question: one block of text, a line of JSON in
+			// the form Claude Code reads, and nothing structured beside it.
+			for _, c := range []struct {
+				what   string
+				got    called
+				wanted string
+			}{
+				{"a yes", got.Permitted, `{"behavior":"allow","updatedInput":{"command":"ls -la"}}`},
+				{"a no", got.NotPermitted, `{"behavior":"deny","message":"The answer given on its card in PN Scripts Assistant's window was no. Do not try to do the same thing another way; ask the user what they want instead."}`},
+			} {
+				text, failed := c.got.said(t, "permission_prompt, "+c.what)
+				if failed || text != c.wanted {
+					t.Errorf("%s to a permission question: %q (failed %v)", c.what, text, failed)
+				}
+
+				if c.got.Answer != nil && (len(c.got.Answer.Content) != 1 || len(c.got.Answer.Structured) != 0) {
+					t.Errorf("%s: not one block of text alone: %+v", c.what, c.got.Answer)
+				}
 			}
 
 			if len(got.Together) != 3 {

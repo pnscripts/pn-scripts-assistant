@@ -91,6 +91,12 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 		With(map[string]any{"invocation": id, "tool": invocation.Tool, "approved": approve,
 			"itself": invocation.AnsweredItself}))
 
+	// Another program's permission question: nothing is carried out here,
+	// the answer goes back to the program that waits for it (permit.go).
+	if IsPermitQuestion(*invocation) {
+		return b.decidePermit(*invocation, approve)
+	}
+
 	if !approve {
 		invocation.Status = store.InvocationDenied
 

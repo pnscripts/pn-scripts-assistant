@@ -111,9 +111,10 @@ func TestWhichProgramsAreInstalledIsNotToldUntilAllowedAtTheDesk(t *testing.T) {
 	var state outsideState
 
 	getJSON(t, ts.URL+"/api/outside", &state)
-	// Three switches since 1.2.0 step 4 (programs, ask, memory), every one
-	// off on a new brain.
-	if len(state.Subjects) != 3 || state.Subjects[0].ID != "programs" || state.Subjects[1].ID != "ask" || state.Subjects[2].ID != "memory" {
+	// Four switches since 1.2.0 step 5 (programs, ask, memory,
+	// permissions), every one off on a new brain.
+	if len(state.Subjects) != 4 || state.Subjects[0].ID != "programs" || state.Subjects[1].ID != "ask" || state.Subjects[2].ID != "memory" ||
+		state.Subjects[3].ID != "permissions" {
 		t.Fatalf("the switches on a new brain: %+v", state.Subjects)
 	}
 
@@ -135,7 +136,7 @@ func TestWhichProgramsAreInstalledIsNotToldUntilAllowedAtTheDesk(t *testing.T) {
 
 	json.Unmarshal([]byte(body), &state)
 	// Allowing one allows that one and no other.
-	if len(state.Subjects) != 3 || !state.Subjects[0].Allowed || state.Subjects[0].Since == nil ||
+	if len(state.Subjects) != 4 || !state.Subjects[0].Allowed || state.Subjects[0].Since == nil ||
 		state.Subjects[1].Allowed || state.Subjects[2].Allowed {
 		t.Fatalf("the switches after allowing the list of programs: %s", body)
 	}
@@ -571,7 +572,7 @@ func TestANameThatLooksSealedIsJustAName(t *testing.T) {
 	var state outsideState
 
 	getJSON(t, ts.URL+"/api/outside", &state)
-	if len(state.Subjects) != 3 || len(state.Recent) != 2 || state.Recent[0].By != otherprograms.Unnamed || state.Recent[1].By != "x" {
+	if len(state.Subjects) != 4 || len(state.Recent) != 2 || state.Recent[0].By != otherprograms.Unnamed || state.Recent[1].By != "x" {
 		t.Errorf("the card after such a name: %+v", state)
 	}
 
