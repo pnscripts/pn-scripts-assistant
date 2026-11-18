@@ -207,12 +207,22 @@
         ],
         'out.title': ['What other programs may ask', 'Какво могат да питат другите програми'],
         'out.lead': [
-            'Programs you connect to me, such as Claude Code, Claude Desktop or Cursor, can ask me questions. What they may ask is decided here, at this computer. Every question, and every change of a switch, is written in “What I did”.',
-            'Програмите, които свържете с мен, например Claude Code, Claude Desktop или Cursor, могат да ми задават въпроси. Какво имат право да питат се решава тук, на този компютър. Всеки въпрос и всяка промяна на превключвател се записват в „Какво направих“.',
+            'Programs you connect to me, such as Claude Code, Claude Desktop or Cursor, can ask me questions. What they may ask is decided here, at this computer. Every question, and every change of a switch, is written in “What I did”. At most 30 questions a minute are answered; the ones over that are refused and written as one line.',
+            'Програмите, които свържете с мен, например Claude Code, Claude Desktop или Cursor, могат да ми задават въпроси. Какво имат право да питат се решава тук, на този компютър. Всеки въпрос и всяка промяна на превключвател се записват в „Какво направих“. Отговарям на най-много 30 въпроса в минута; въпросите над тази граница получават отказ и се записват с един ред.',
         ],
         'out.status': ['Whether I am running, and which version I am', 'Дали работя и коя версия съм'],
         'out.always': ['Always answered', 'Винаги се отговаря'],
         'out.programs': ['Which programs are installed on this computer', 'Кои програми са инсталирани на този компютър'],
+        'out.ask': ['Questions to me, answered in words', 'Въпроси към мен, на които отговарям с думи'],
+        'out.askMeans': [
+            'I answer with the model on this computer, one question at a time, and your own questions first. I do nothing for the program that asks, and I tell it nothing about you unless the next switch is on too.',
+            'Отговарям с модела на този компютър, по един въпрос наведнъж, а вашите въпроси са с предимство. Не върша нищо за програмата, която пита, и не ѝ казвам нищо за вас, освен ако и следващият превключвател е включен.',
+        ],
+        'out.memory': ['Searching what I remember about you', 'Търсене в това, което помня за вас'],
+        'out.memoryMeans': [
+            'What I find goes to that program and to the model it uses, which may be on the internet. A few short pieces for each search, never the whole memory; a piece can name the file it was learned from. With this on, my answers to their questions use what I remember too.',
+            'Намереното отива при тази програма и при модела, който тя използва, а той може да е в интернет. По няколко кратки откъса на търсене, никога цялата памет; откъсът може да посочва файла, от който е научен. Когато това е включено, и отговорите ми на техните въпроси използват това, което помня.',
+        ],
         'out.on': ['Allowed since {when}.', 'Разрешено от {when}.'],
         'out.off': [
             'Not allowed. A program that asks is told to ask you.',
@@ -228,6 +238,8 @@
         'out.notAnswered': ['Not answered', 'Без отговор'],
         'out.q.status': ['whether I am running', 'дали работя'],
         'out.q.programs': ['which programs are installed', 'кои програми са инсталирани'],
+        'out.q.ask': ['a question to me', 'въпрос към мен'],
+        'out.q.memory': ['what I remember', 'какво помня'],
         'out.q.tool': ['asked for: {tool}', 'поиска: {tool}'],
         'out.unnamed': ['A program that gave no name', 'Програма, която не каза името си'],
         'out.unnamedLower': ['a program that gave no name', 'програма, която не каза името си'],
@@ -243,11 +255,40 @@
         'out.trait': ['A question from another program', 'Въпрос от друга програма'],
         'out.atDesk': ['Changed at this computer', 'Променено на този компютър'],
         'out.went': ['the answer went to that program', 'отговорът отиде при тази програма'],
+        'out.ready': ['the answer was made for that program to take', 'отговорът беше приготвен, за да го вземе тази програма'],
         'out.rec.refused': [
             'Not answered: other programs may not ask which programs are installed. You can allow it on the Programs page, under “What other programs may ask”.',
             'Без отговор: другите програми нямат право да питат кои програми са инсталирани. Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“.',
         ],
+        'out.rec.refusedAsk': [
+            'Not answered: other programs may not ask me questions. You can allow it on the Programs page, under “What other programs may ask”.',
+            'Без отговор: другите програми нямат право да ми задават въпроси. Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“.',
+        ],
+        'out.rec.refusedMemory': [
+            'Not answered: other programs may not search what I remember. You can allow it on the Programs page, under “What other programs may ask”.',
+            'Без отговор: другите програми нямат право да търсят в това, което помня. Можете да го разрешите на страницата „Програми“, в „Какво могат да питат другите програми“.',
+        ],
+        'out.rec.tooMany': [
+            'Not answered: other programs asked more than {n} questions in a minute. The ones over that are refused and not listed one by one.',
+            'Без отговор: другите програми зададоха повече от {n} въпроса за една минута. Въпросите над тази граница получават отказ и не се изброяват един по един.',
+        ],
         'out.rec.told': ['Programs I told it about: {n}.', 'Програми, за които ѝ казах: {n}.'],
+        'out.rec.found': ['Things I remember that I told it: {n}.', 'Неща от паметта ми, които ѝ казах: {n}.'],
+        'out.rec.answer': ['My answer: {text}', 'Моят отговор: {text}'],
+        'out.rec.noAnswer': [
+            'No answer: the model on this computer did not give one.',
+            'Без отговор: моделът на този компютър не даде такъв.',
+        ],
+        'out.rec.takenBack': [
+            'No answer: this was switched off while I was answering.',
+            'Без отговор: това беше изключено, докато отговарях.',
+        ],
+        'out.rec.gaveWay': [
+            'No answer: you asked me something, and that comes first.',
+            'Без отговор: вие ме попитахте нещо, а това е с предимство.',
+        ],
+        'out.rec.question': ['The question: {text}', 'Въпросът: {text}'],
+        'out.rec.search': ['Searched for: {text}', 'Търсено: {text}'],
         'out.ap.note': [
             'Another program asked for this through me. The answer is for this once: nothing lasting is offered for what another program asks.',
             'Друга програма поиска това чрез мен. Отговорът важи само за този път: за искане от друга програма не се предлага трайно разрешение.',
@@ -1968,6 +2009,7 @@
         'cc.step.answering': ['Answering', 'Отговаря'],
         'cc.step.doing': ['Doing it', 'Изпълнява'],
         'cc.step.lastConversation': ['Learning from the last conversation', 'Учи от последния разговор'],
+        'cc.step.otherProgram': ['Answering a question from another program', 'Отговаря на въпрос от друга програма'],
         'cc.step.voicesApart': ['Fetching what tells voices apart', 'Изтегля това, по което различава гласовете'],
         'cc.step.waitingFor': ['Waiting for you: {1}', 'Чака вашето решение: {1}'],
         'cc.step.approved': ['Approved: {1}', 'Одобрено: {1}'],

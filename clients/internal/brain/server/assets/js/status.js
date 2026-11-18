@@ -237,6 +237,7 @@ const STEP_KEYS = [
     'cc.step.exporting',
     'cc.step.workingIn',
     'cc.step.isAnswering',
+    'cc.step.otherProgram',
 ];
 
 let stepShapes = null;

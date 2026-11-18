@@ -14,12 +14,13 @@ whenever something visible changed.
 - **Other programs can ask the assistant.** `pn-scripts-assistant mcp`
   makes the assistant a Model Context Protocol server for Claude Code
   (`claude mcp add pn-scripts-assistant -- pn-scripts-assistant mcp`),
-  Claude Desktop and Cursor. For now they can ask two things, both only
-  reading: whether the assistant is running, and which programs are
-  installed on this computer (search by name, removed ones with their day).
+  Claude Desktop and Cursor. They can ask whether the assistant is
+  running and which programs are installed on this computer (search by
+  name, removed ones with their day), and, when you allow it, the two
+  things further down. Nothing they ask changes anything.
   It passes each question to the running assistant on this computer only,
   and says so when none is running or the terms of use are not accepted.
-  Nothing from memory, mail, files or conversations is offered. Guide:
+  No file, mail or conversation is handed over. Guide:
   "Other programs asking the assistant". Every build is asked by the MCP
   project's own client (@modelcontextprotocol/client 2.4.0) in both the
   2025 and the 2026-07-28 form of the protocol; its first run found that
@@ -39,6 +40,26 @@ whenever something visible changed.
   for beyond these questions is put to you first, with who asked on its
   card and yes or no for that once, whatever you have allowed for
   yourself; another program can never give that yes.
+- **Other programs can ask the assistant a question and search what it
+  remembers, when you allow it.** Two more switches on the card "What
+  other programs may ask", each off until you turn it on, and each saying
+  under it what turning it on means. "Questions to me, answered in words":
+  the assistant answers with the model on this computer and no other, one
+  question at a time and yours first (a program's question still with the
+  model is given up the moment you ask something); it does nothing for the
+  program that asks, learns nothing from the question, and knows nothing
+  about you unless the second switch is on too. "Searching what I remember about
+  you": a search hands over the few remembered things closest to it (5, at
+  most 10), each cut short, never the whole memory; a remembered thing can
+  name the file it was learned from. A slow answer is fetched by the asking
+  program with a ticket, so a program that gives up after a minute still
+  gets it. Turning a switch off also takes back a question in hand and an
+  answer not yet fetched. Each question with the start of its answer, and
+  each search with how much it handed over, is in "What I did" with who
+  asked.
+- **A program that asks in a loop is stopped.** At most 30 questions a
+  minute are answered, from all programs together; the ones over that are
+  refused and written on the record as one line.
 - **The assistant's own entry is not offered for import.** After that
   set-up, "Found in your other programs" lists the entry as the assistant
   itself, with nothing to import.

@@ -68,22 +68,35 @@ against the code on 9 November 2026.
   stop the assistant's own helpers (reading the screen, recognising text,
   its own browser), MCP servers that are already approved, or a coding agent
   already at work: stop those on the Organisation page.
-- **Other programs asking the assistant: two questions, this computer
+- **Other programs asking the assistant: four questions, this computer
   only.** `pn-scripts-assistant mcp` (for Claude Code, Claude Desktop,
-  Cursor) answers whether the assistant is running and which programs are
-  installed, and nothing else yet: nothing from memory, mail, files or
-  conversations, and nothing that changes anything. It needs the assistant
+  Cursor) answers whether the assistant is running, which programs are
+  installed, a question to the assistant itself (in words, by the model on
+  this computer only, one at a time, with no tools: it does nothing for the
+  program) and a search of what it remembers (a few short pieces a search).
+  No file, mail or conversation is handed over as such, and nothing that
+  changes anything; what was remembered from them can be, and a remembered
+  thing can name the file it came from. An answer that takes longer than
+  most of a minute is fetched by the asking program with a ticket; an
+  answer nobody fetches is dropped after 15 minutes or when the next
+  question is taken. The ticket is all that guards an answer: any program
+  on this computer that has it can fetch it. The record keeps the question
+  and the first 600 characters of the answer. With no model on this computer a question is not answered, and
+  the memory cannot be searched. At most 30 questions a minute are
+  answered, from all programs together. It needs the assistant
   running, and asks it only on this computer's own address
   (`--api http://127.0.0.1:<port>` when the port was changed; the address in
   an encrypted settings file is not read). What it answers is passed by the
   asking program to the model it uses, usually a service on the internet.
-  The list of programs is off until you allow it on the Programs page.
+  Everything but whether it is running is off until you allow it on the
+  Programs page, each thing by its own switch.
   Every question is on the record with the name the asking program gave;
   that name is the program's own word and nothing checks it. The switch
   and the record are for programs that ask through `pn-scripts-assistant
   mcp`: a program running under your account on this computer can reach
   the assistant's own address as its window does, so it can ask under any
-  name, read the list of programs there, or turn the switch itself. Every
+  name, read the list of programs or search the memory there, or turn a
+  switch itself. Every
   change of the switch is on the record. On Windows give the program's
   full path in the entry.
 - **MCP servers from other programs: four programs, their own settings

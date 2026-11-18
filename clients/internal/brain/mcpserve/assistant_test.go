@@ -169,7 +169,7 @@ func TestItOffersAShortFixedListThatOnlyReads(t *testing.T) {
 		}
 	}
 
-	if got := strings.Join(names, ","); got != "assistant_status,list_programs" {
+	if got := strings.Join(names, ","); got != "assistant_status,list_programs,ask_assistant,search_memory" {
 		t.Errorf("the tools offered: %s", got)
 	}
 
