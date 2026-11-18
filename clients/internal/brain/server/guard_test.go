@@ -262,6 +262,7 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 		"/api/desktop", "/api/organisation/agents/x/state", "/api/upkeep/self", "/api/upkeep/notice",
 		"/api/rules", "/api/rules/3", "/api/rules/3/decide", "/api/rules/3/switch", "/api/machine/care/stop", "/api/machine/care/watch",
 		"/api/terms", "/api/programs/permit", "/api/programs/resume",
+		"/api/outside/allow", "/api/outside/ask",
 	} {
 		*got = false
 
@@ -551,5 +552,50 @@ func TestAnswersAreNotCached(t *testing.T) {
 
 	if w := ask(s, "GET", "/js/console.js", "127.0.0.1:5000", nil); w.Header().Get("Cache-Control") == "no-store" {
 		t.Error("the page's own files were kept out of the cache too")
+	}
+}
+
+/*
+ * The door other programs ask through is for programs on this computer. A
+ * paired device elsewhere, even one with every right, is not "another
+ * program on this computer": what it asked would be on the record under
+ * whatever name it chose.
+ */
+func TestOnlyThisComputerAsksAsAnotherProgram(t *testing.T) {
+	s, got := guarded(t, config.ReachNetwork)
+
+	code, _, _ := s.paired.Offer(pair.Full)
+	_, token, _ := s.paired.Accept(code, "laptop", "192.168.1.9")
+
+	carry := func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+token) }
+
+	*got = false
+
+	if w := ask(s, "POST", "/api/outside/ask", "192.168.1.9:4000", carry); w.Code != http.StatusForbidden || *got {
+		t.Errorf("a device elsewhere asked as another program (%d)", w.Code)
+	}
+
+	// Nor does it decide what other programs may ask: that switch is set
+	// at this computer, whatever a device's rights.
+	*got = false
+
+	if w := ask(s, "POST", "/api/outside/allow", "192.168.1.9:4000", carry); w.Code != http.StatusForbidden || *got {
+		t.Errorf("a device elsewhere set what other programs may ask (%d)", w.Code)
+	}
+
+	// It may see how the switch stands.
+	*got = false
+
+	if w := ask(s, "GET", "/api/outside", "192.168.1.9:4000", carry); w.Code != 200 || !*got {
+		t.Errorf("a device with every right could not see the switch (%d)", w.Code)
+	}
+
+	// And from this computer both are open.
+	for _, path := range []string{"/api/outside/ask", "/api/outside/allow"} {
+		*got = false
+
+		if w := ask(s, "POST", path, "127.0.0.1:5000", nil); w.Code != 200 || !*got {
+			t.Errorf("this computer could not post to %s (%d)", path, w.Code)
+		}
 	}
 }

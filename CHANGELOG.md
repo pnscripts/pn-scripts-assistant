@@ -25,6 +25,20 @@ whenever something visible changed.
   2025 and the 2026-07-28 form of the protocol; its first run found that
   the current form was sent a list of tools without the two caching fields
   it requires, which that client refuses, and they are sent now.
+- **You decide what other programs may ask, and see who asked.** The
+  Programs page has a new card, "What other programs may ask". Whether the
+  assistant is running is always answered; the list of installed programs
+  is off until you switch it on there, on a new installation and after an
+  update alike, and a program that asks while it is off is told to ask you.
+  The switch is set at this computer, never from another device or a web
+  page, and every change of it is on the record. Every question from
+  another program is written in "What I did" with "Asked by" and the name
+  the program gave, answered or not, and the last five are listed under
+  the switch. A program is told a program's name, version and source,
+  never where it is or how it is started. Whatever another program asks
+  for beyond these questions is put to you first, with who asked on its
+  card and yes or no for that once, whatever you have allowed for
+  yourself; another program can never give that yes.
 - **The assistant's own entry is not offered for import.** After that
   set-up, "Found in your other programs" lists the entry as the assistant
   itself, with nothing to import.

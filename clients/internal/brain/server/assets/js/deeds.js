@@ -116,6 +116,23 @@
 
         head.append(time, what, outcome);
 
+        /*
+         * Asked by another program (through "pn-scripts-assistant mcp"):
+         * said on the line itself, with the name that program gave, so
+         * what was done for somebody else is told apart at a glance from
+         * what was done for the person reading. The words are programs.js's
+         * (tested in node).
+         */
+        const asker = d.asked_by && window.pnPrograms && window.pnPrograms.askedBy ? window.pnPrograms.askedBy(d) : null;
+
+        if (asker) {
+            const by = document.createElement('span');
+            by.className = 'deed-asker';
+            by.textContent = asker.chip;
+            by.title = asker.title;
+            head.appendChild(by);
+        }
+
         if (d.leaves) {
             const left = document.createElement('span');
             left.className = 'deed-leaves';
@@ -137,16 +154,29 @@
 
         if (d.task_name) body.appendChild(field(T('deeds.task'), d.task_name));
 
-        body.appendChild(field(T('deeds.who'), d.specialist || T('deeds.you')));
+        // A switch for what other programs may ask says where it was
+        // changed, which is all that can be known of who.
+        const where = window.pnPrograms && window.pnPrograms.turnedWhere ? window.pnPrograms.turnedWhere(d) : '';
+
+        body.appendChild(field(T('deeds.who'), where || d.specialist || T('deeds.you')));
+
+        if (asker) {
+            body.appendChild(field(T('deeds.askedBy'), asker.said));
+        }
 
         if (d.model) body.appendChild(field(T('deeds.model'), d.model));
         if (d.model_why) body.appendChild(field(T('deeds.modelWhy'), d.model_why));
 
-        const traits = [toolName(d.tool), d.changes_something ? T('deeds.changes') : T('deeds.looks')];
+        // A question from another program is not one of the assistant's
+        // own tools, and is named as what it is.
+        const traits = [(asker && asker.trait) || toolName(d.tool), d.changes_something ? T('deeds.changes') : T('deeds.looks')];
 
         if (d.level) traits.push(T('deeds.risk') + ': ' + T('risk.' + d.level));
         if (d.millis) traits.push(T('deeds.took', { t: took(d.millis) }));
-        if (!d.leaves && (d.outcome === 'done' || d.outcome === 'failed')) traits.push(T('deeds.stayedTrait'));
+        // What another program was told is in that program's hands, and
+        // the record says so instead of "stayed on this machine".
+        if (asker && asker.went) traits.push(asker.went);
+        else if (!d.leaves && (d.outcome === 'done' || d.outcome === 'failed')) traits.push(T('deeds.stayedTrait'));
 
         const line = document.createElement('p');
         line.className = 'deed-traits';
@@ -158,7 +188,12 @@
         }
 
         if (d.asked) body.appendChild(field(T('deeds.asked'), d.asked, true));
-        if (d.result) body.appendChild(field(T('deeds.result'), d.result, true));
+        // What a question from another program came to is said in the
+        // page's language; everything else is the tool's own words.
+        const came = asker && window.pnPrograms.outsideResult ? window.pnPrograms.outsideResult(d) : '';
+
+        if (came) body.appendChild(field(T('deeds.result'), came));
+        else if (d.result) body.appendChild(field(T('deeds.result'), d.result, true));
 
         item.appendChild(body);
 

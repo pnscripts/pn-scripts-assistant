@@ -82,6 +82,22 @@ func main() {
 	}
 	check(err == nil && found, "deeds: %d, summary/request/result readable (%v)", len(deeds), err)
 
+	// Since 1.2.0: a deed says which program asked for it, and what other
+	// programs may ask is decided at the desk. An older brain has neither:
+	// nothing it did was asked by another program, and after the upgrade
+	// nothing is allowed until its person allows it.
+	asked := 0
+	for _, d := range deeds {
+		if d.AskedBy != "" {
+			asked++
+		}
+	}
+	theirs, err := db.Deeds(store.DeedFilter{Outside: true})
+	check(err == nil && asked == 0 && len(theirs) == 0, "deeds: none of the older ones says another program asked (%d, %d, %v)", asked, len(theirs), err)
+
+	may, err := db.OutsideAllowed()
+	check(err == nil && len(may) == 0, "other programs: nothing may be asked after the upgrade until it is allowed (%v, %v)", may, err)
+
 	drafts, err := db.Drafts("", 0)
 	check(err == nil && len(drafts) == 1 && has(drafts[0].Subject) && has(drafts[0].Body), "mail drafts: %d (%v)", len(drafts), err)
 

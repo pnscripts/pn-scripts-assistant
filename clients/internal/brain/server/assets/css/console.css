@@ -6860,3 +6860,82 @@ button.agreement-accept:disabled { opacity: 0.4; cursor: default; filter: none; 
 .programs-stop-note { flex-basis: 100%; margin: 0; }
 
 .programs-stop-note:empty { display: none; }
+
+/* ---------- Other programs asking ----------
+
+   "What other programs may ask" on the Programs page: one line that is
+   always answered, the switches, and the last questions with who asked.
+   And "asked by" on a line of the record and on a waiting question. */
+.outside-list { list-style: none; margin: 0; padding: 0; }
+
+.outside-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 14px;
+    padding: 9px 12px;
+    border-left: 2px solid var(--line);
+    margin: 0 0 6px;
+}
+
+.outside-row[data-allowed="true"] { border-left-color: var(--warn); }
+
+.outside-label,
+.outside-switch { flex: 1 1 260px; min-width: 0; font-size: 12.5px; color: var(--text); }
+
+.outside-switch { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+
+.outside-switch input { flex: none; margin: 0; position: relative; top: 2px; }
+
+.outside-state { flex: 1 1 220px; min-width: 0; font-size: 12px; color: var(--text-dim); }
+
+.outside-row[data-allowed="true"] .outside-state { color: var(--warn); }
+
+.outside-note { color: var(--danger); margin: 0 0 6px; }
+
+.outside-note:empty { display: none; }
+
+.outside-card[data-ready="false"] .outside-list,
+.outside-card[data-ready="false"] h3,
+.outside-card[data-ready="false"] .outside-recent { display: none; }
+
+.outside-asked {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+}
+
+.outside-when { flex: none; font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); min-width: 118px; }
+
+.outside-who { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+
+.outside-what { flex: 1 1 180px; min-width: 0; color: var(--text-dim); }
+
+.outside-outcome { flex: none; font-size: 10.5px; color: var(--text-dim); }
+
+.outside-asked[data-answered="false"] .outside-outcome { color: var(--warn); }
+
+.deed-asker {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10.5px;
+    color: var(--accent);
+    border: 1px solid var(--line);
+    padding: 0 6px;
+    border-radius: 2px;
+}
+
+.approval .approval-asker {
+    display: block;
+    margin: 0 0 5px;
+    font-size: 12px;
+    color: var(--accent);
+    overflow-wrap: anywhere;
+}

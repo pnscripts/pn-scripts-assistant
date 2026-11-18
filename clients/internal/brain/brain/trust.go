@@ -39,6 +39,7 @@ func (b *Brain) recordDeed(d agent.Deed) {
 		Outcome:        d.Outcome,
 		Level:          string(d.Step.Level),
 		Millis:         d.Step.Millis,
+		AskedBy:        d.AskedBy,
 	}
 
 	if b.Agent != nil && b.Agent.Registry != nil {
@@ -100,6 +101,7 @@ func (b *Brain) recordInvocation(inv store.Invocation, outcome, leaves string, c
 		Outcome:        outcome,
 		Changes:        changes,
 		Leaves:         leaves,
+		AskedBy:        inv.AskedBy,
 	})
 	if err != nil {
 		b.Log.Warn("could not record a decided action", "tool", inv.Tool, "error", err)

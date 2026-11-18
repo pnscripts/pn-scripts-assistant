@@ -109,3 +109,51 @@ func ConversationOf(ctx context.Context) int64 {
 
 	return id
 }
+
+type askedByKey struct{}
+
+/*
+ * AskedBy marks a call as asked for by another program, by the name that
+ * program gave itself (package otherprograms). The loop puts everything such a
+ * call would change to its person, with the name on the question, and the
+ * record keeps it. An empty name marks nothing.
+ */
+func AskedBy(ctx context.Context, by string) context.Context {
+	if by == "" {
+		return ctx
+	}
+
+	return context.WithValue(ctx, askedByKey{}, by)
+}
+
+// AskedByOf is the program a call was asked for by, or empty for a call
+// from the desk.
+func AskedByOf(ctx context.Context) string {
+	by, _ := ctx.Value(askedByKey{}).(string)
+
+	return by
+}
+
+/*
+ * OpenToOtherPrograms is implemented by a tool that a turn another program
+ * asked for may run without a question to the person.
+ *
+ * Closed unless opened: how a tool is classed at the desk says nothing
+ * here. Reading a file, the mail or the memory is "safe" for the person's
+ * own request and is still handing what is theirs to somebody else; a few
+ * tools classed safe write (a to-do, a reminder, a hire). So a tool is
+ * open to other programs only when it says so itself, and whoever opens
+ * one answers the question "would the person mind any program asking
+ * this, any number of times?".
+ */
+type OpenToOtherPrograms interface {
+	OpenToOtherPrograms() bool
+}
+
+// IsOpenToOtherPrograms reports whether a tool says other programs may
+// have it run without a question.
+func IsOpenToOtherPrograms(t Tool) bool {
+	o, ok := t.(OpenToOtherPrograms)
+
+	return ok && o.OpenToOtherPrograms()
+}

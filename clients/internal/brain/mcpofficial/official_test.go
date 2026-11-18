@@ -280,10 +280,14 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// clientName is what the official client calls itself (ask.mjs).
+const clientName = "the official client"
+
 // asked is what the stand-in assistant was asked, in order.
 type asked struct {
 	mu    sync.Mutex
 	every []string
+	who   []string
 }
 
 func (a *asked) note(r *http.Request) {
@@ -291,6 +295,21 @@ func (a *asked) note(r *http.Request) {
 	defer a.mu.Unlock()
 
 	a.every = append(a.every, r.Method+" "+r.URL.Path)
+}
+
+// by keeps who a question through the door was asked by.
+func (a *asked) by(name string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.who = append(a.who, name)
+}
+
+func (a *asked) whoAsked() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return append([]string(nil), a.who...)
 }
 
 func (a *asked) all() []string {
@@ -310,12 +329,41 @@ func running(t *testing.T) (*httptest.Server, *asked) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seen.note(r)
 
-		switch r.URL.Path {
-		case "/api/v1/version":
+		switch r.Method + " " + r.URL.Path {
+		case "GET /api/v1/version":
 			fmt.Fprint(w, `{"product":"PN Scripts Assistant","version":"1.1.0","platform":"linux/amd64"}`)
-		case "/api/terms":
+		case "GET /api/terms":
 			fmt.Fprint(w, `{"accepted":true}`)
-		case "/api/programs":
+		case "POST /api/outside/ask":
+			// The assistant's one door for other programs (package
+			// outside), with its user having allowed the list of programs.
+			var q struct {
+				Tool      string          `json:"tool"`
+				Arguments json.RawMessage `json:"arguments"`
+				Client    struct {
+					Name    string `json:"name"`
+					Version string `json:"version"`
+				} `json:"client"`
+			}
+
+			dec := json.NewDecoder(r.Body)
+			dec.DisallowUnknownFields()
+
+			if err := dec.Decode(&q); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprint(w, `{"error":"That request could not be read."}`)
+
+				return
+			}
+
+			seen.by(q.Client.Name)
+
+			if q.Tool == "assistant_status" {
+				fmt.Fprint(w, `{"noted":true}`)
+
+				return
+			}
+
 			fmt.Fprint(w, `{"programs":[`+
 				`{"kind":"deb","id":"gimp","name":"gimp","version":"2.10.36","present":true},`+
 				`{"kind":"snap","id":"krita","name":"krita","version":"5.2.2","present":true}]}`)
@@ -652,9 +700,24 @@ func TestTheOfficialClientUsesTheAssistant(t *testing.T) {
 				t.Errorf("the assistant was never asked")
 			}
 
+			// Reading, and the one door every question goes through to be
+			// written down with who asked (it changes nothing else).
 			for _, each := range all {
-				if !strings.HasPrefix(each, "GET ") {
+				if !strings.HasPrefix(each, "GET ") && each != "POST /api/outside/ask" {
 					t.Errorf("the assistant was asked to change something: %s", each)
+				}
+			}
+
+			// And the assistant heard who asked: the name the official
+			// client gave, with every question.
+			who := seen.whoAsked()
+			if len(who) == 0 {
+				t.Errorf("no question went through the door")
+			}
+
+			for _, name := range who {
+				if name != clientName {
+					t.Errorf("the assistant was told %q asked, the client calls itself %q", name, clientName)
 				}
 			}
 		})

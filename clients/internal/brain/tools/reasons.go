@@ -49,7 +49,12 @@ var reasonsBG = map[string]string{
 	AskDeleting:                                                            "изтриване на файлове извън папката на целта",
 	AskSystemWide:                                                          "промяна на цялата система",
 	TypingInAnotherProgram:                                                 "писане и щракане в друга програма",
+	AskedByAnotherProgram:                                                  "поискано от друга програма",
 }
+
+// AskedByAnotherProgram is why what another program asked for is always
+// put to the person at the desk (see the agent loop, and AskedBy).
+const AskedByAnotherProgram = "another program asked for it"
 
 // TypingInAnotherProgram is why typing and clicking in another program's
 // windows is always asked (see the agent loop).

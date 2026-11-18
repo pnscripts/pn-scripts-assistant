@@ -249,6 +249,16 @@ const (
 	DeedRefused = "refused"
 )
 
+/*
+ * NotForAnotherProgram are tools a turn another program asked for may
+ * never use, under any setting: saying yes to what is waiting is the
+ * person's own. At the desk decide_waiting needs no approval because the
+ * sentence that asks for it is the approval; from another program there
+ * is no such sentence, and a program that could call it would approve the
+ * very questions the loop puts to the person on its behalf.
+ */
+var NotForAnotherProgram = []string{"decide_waiting"}
+
 // Deed is one call as Did hears of it.
 type Deed struct {
 	ConversationID int64
@@ -259,6 +269,10 @@ type Deed struct {
 	Model          string
 	ModelWhy       string
 	Outcome        string
+
+	// AskedBy is the program that asked for the turn, when another
+	// program did (Brief.AskedBy).
+	AskedBy string
 }
 
 func (l *Loop) did(conversationID int64, brief Brief, step Step, args json.RawMessage, messages []llm.Message, model, why, outcome string) {
@@ -275,6 +289,7 @@ func (l *Loop) did(conversationID int64, brief Brief, step Step, args json.RawMe
 		Model:          model,
 		ModelWhy:       why,
 		Outcome:        outcome,
+		AskedBy:        brief.AskedBy,
 	})
 }
 
@@ -515,6 +530,14 @@ type Brief struct {
 	Never []string
 
 	/*
+	 * AskedBy is the program that asked for this turn, by the name it gave
+	 * itself, when another program did (package otherprograms); empty for a turn
+	 * from the desk. The same as tools.AskedBy on the context: whichever
+	 * is set, both are from then on.
+	 */
+	AskedBy string
+
+	/*
 	 * As is who is acting, by the name the roster knows them by.
 	 *
 	 * Empty is the owner's own assistant answering the owner. It reaches the
@@ -643,6 +666,14 @@ func (l *Loop) RunBrief(
 	brief Brief,
 ) (result Result, err error) {
 	maxTokens, withTools, choice := brief.MaxTokens, brief.WithTools, brief.Choice
+
+	// Who asked travels both ways: on the brief for the record, on the
+	// context for every tool and every turn started from this one.
+	if brief.AskedBy == "" {
+		brief.AskedBy = tools.AskedByOf(ctx)
+	} else {
+		ctx = tools.AskedBy(ctx, brief.AskedBy)
+	}
 
 	var actions []string
 
@@ -1021,6 +1052,20 @@ func (l *Loop) RunBrief(
 			 * limit that is only a shorter menu is a convention rather than a
 			 * rule.
 			 */
+			/*
+			 * And what no other program may do through this one: say yes
+			 * for the person (NotForAnotherProgram). Unlike the turn's own
+			 * list above, "everything allowed" does not lift it: that
+			 * setting is the person's trust in their own requests.
+			 */
+			if brief.AskedBy != "" && listed(NotForAnotherProgram, call.Name) {
+				messages = append(messages, toolResult(call,
+					"Refused: another program asked for this. Only the person at this computer decides what is waiting, "+
+						"at the computer. Say what is waiting and leave it to them."))
+
+				continue
+			}
+
 			if !free && listed(brief.Never, call.Name) {
 				messages = append(messages, toolResult(call,
 					"That is the owner's own decision to make, not this job's. "+
@@ -1414,6 +1459,24 @@ func (l *Loop) RunBrief(
 			}
 
 			/*
+			 * What another program asked for (through the MCP server) is
+			 * its person's to decide, whatever is allowed at the desk:
+			 * they allowed their own requests, not everybody's. Closed
+			 * unless opened: only a tool that says it is open to other
+			 * programs runs without the question (tools.OpenToOtherPrograms),
+			 * because "safe" at the desk still reads what is the person's.
+			 * Nothing lasting is offered on the card either (askedForMore),
+			 * and the record says who it was for.
+			 */
+			if brief.AskedBy != "" && !tools.IsOpenToOtherPrograms(tool) {
+				ask = true
+				askedForMore = true
+				answer = permits.Ask
+				summary = alwaysAsked(tools.AskedByAnotherProgram) + summary
+				summaryBG = alwaysAskedBG(tools.AskedByAnotherProgram) + summaryBG
+			}
+
+			/*
 			 * Whether it would be asked without the quiet hours: settled
 			 * here, after everything that can ask (permissions, consent,
 			 * goal mode, rules) and before the tool's own "always". A call
@@ -1474,6 +1537,12 @@ func (l *Loop) RunBrief(
 				id, err := l.DB.RecordInvocationIn(conversationID, tool.Name(), string(call.Arguments), summary, summaryBG, string(tools.Mutating))
 				if err != nil {
 					return Result{}, err
+				}
+
+				if brief.AskedBy != "" {
+					if err := l.DB.InvocationAskedBy(id, brief.AskedBy); err != nil {
+						return Result{}, err
+					}
 				}
 
 				// Said once it has a number, so the decision, whenever it
@@ -2680,11 +2749,18 @@ func (l *Loop) offerable(brief Brief) []llm.ToolSpec {
 	 * offering others had the model call them and be refused, step after
 	 * step. Found by the end-to-end goal.
 	 */
-	if l.EverythingAllowed() {
-		return onlyThese(l.specs(), brief.Only)
+	// A turn another program asked for is never offered what only the
+	// person may do, whatever the setting.
+	all := l.specs()
+	if brief.AskedBy != "" {
+		all = without(all, NotForAnotherProgram)
 	}
 
-	return l.granted(without(onlyThese(l.specs(), brief.Only), brief.Never), brief)
+	if l.EverythingAllowed() {
+		return onlyThese(all, brief.Only)
+	}
+
+	return l.granted(without(onlyThese(all, brief.Only), brief.Never), brief)
 }
 
 // granted drops the tools this agent has not been granted, or that the work's
