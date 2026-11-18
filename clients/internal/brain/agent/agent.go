@@ -249,6 +249,16 @@ const (
 	DeedRefused = "refused"
 )
 
+/*
+ * NotForAnotherProgram are tools a turn another program asked for may
+ * never use, under any setting: saying yes to what is waiting is the
+ * person's own. At the desk decide_waiting needs no approval because the
+ * sentence that asks for it is the approval; from another program there
+ * is no such sentence, and a program that could call it would approve the
+ * very questions the loop puts to the person on its behalf.
+ */
+var NotForAnotherProgram = []string{"decide_waiting"}
+
 // Deed is one call as Did hears of it.
 type Deed struct {
 	ConversationID int64
@@ -1042,6 +1052,20 @@ func (l *Loop) RunBrief(
 			 * limit that is only a shorter menu is a convention rather than a
 			 * rule.
 			 */
+			/*
+			 * And what no other program may do through this one: say yes
+			 * for the person (NotForAnotherProgram). Unlike the turn's own
+			 * list above, "everything allowed" does not lift it: that
+			 * setting is the person's trust in their own requests.
+			 */
+			if brief.AskedBy != "" && listed(NotForAnotherProgram, call.Name) {
+				messages = append(messages, toolResult(call,
+					"Refused: another program asked for this. Only the person at this computer decides what is waiting, "+
+						"at the computer. Say what is waiting and leave it to them."))
+
+				continue
+			}
+
 			if !free && listed(brief.Never, call.Name) {
 				messages = append(messages, toolResult(call,
 					"That is the owner's own decision to make, not this job's. "+
@@ -2723,11 +2747,18 @@ func (l *Loop) offerable(brief Brief) []llm.ToolSpec {
 	 * offering others had the model call them and be refused, step after
 	 * step. Found by the end-to-end goal.
 	 */
-	if l.EverythingAllowed() {
-		return onlyThese(l.specs(), brief.Only)
+	// A turn another program asked for is never offered what only the
+	// person may do, whatever the setting.
+	all := l.specs()
+	if brief.AskedBy != "" {
+		all = without(all, NotForAnotherProgram)
 	}
 
-	return l.granted(without(onlyThese(l.specs(), brief.Only), brief.Never), brief)
+	if l.EverythingAllowed() {
+		return onlyThese(all, brief.Only)
+	}
+
+	return l.granted(without(onlyThese(all, brief.Only), brief.Never), brief)
 }
 
 // granted drops the tools this agent has not been granted, or that the work's

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"pn-scripts-assistant/internal/brain/llm"
 	"pn-scripts-assistant/internal/brain/permits"
 	"pn-scripts-assistant/internal/brain/risk"
 	"pn-scripts-assistant/internal/brain/tools"
@@ -153,5 +154,77 @@ func TestAToolIsToldWhoAsked(t *testing.T) {
 
 	if ran != 1 || heard != "Cursor 3.0" {
 		t.Errorf("ran %d, heard %q", ran, heard)
+	}
+}
+
+/*
+ * Another program cannot say yes for the person. The tool that carries out
+ * what is waiting is the person's own (said out loud at the desk it needs
+ * no approval, since the sentence is the approval); a turn another program
+ * asked for is refused it under every setting, "everything allowed" too,
+ * and is not offered it. Otherwise a program could ask for something, be
+ * put to the person, and approve its own question.
+ */
+func TestAnotherProgramCannotApproveWhatIsWaiting(t *testing.T) {
+	for name, allow := range map[string]func(*Loop){
+		"as it comes": func(*Loop) {},
+		"everything allowed": func(l *Loop) {
+			l.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Allow }
+			l.NothingAsks = func() bool { return true }
+			l.Unbounded = func() bool { return true }
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ran := 0
+			loop, db := newLoop(t, counted{name: "decide_waiting", ran: &ran})
+			allow(loop)
+
+			conv, _ := db.NewConversation("t")
+			model := askingFor("decide_waiting")
+
+			res, err := loop.RunBrief(tools.AskedBy(context.Background(), "claude-code 2.1.0"), conv, model, nil, Brief{WithTools: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if ran != 0 || len(res.Pending) != 0 {
+				t.Fatalf("it decided what was waiting (%d times, %d questions)", ran, len(res.Pending))
+			}
+
+			// Not offered, and told why when it names it anyway.
+			for _, req := range model.seen {
+				for _, spec := range req.Tools {
+					if spec.Name == "decide_waiting" {
+						t.Error("a turn another program asked for was offered decide_waiting")
+					}
+				}
+			}
+
+			msgs, _ := db.History(conv)
+
+			var told string
+			for _, m := range model.seen[len(model.seen)-1].Messages {
+				if m.Role == llm.RoleTool {
+					told += m.Content
+				}
+			}
+
+			if !strings.Contains(told, "Only the person at this computer decides what is waiting") {
+				t.Errorf("the refusal does not say whose decision it is: %q (%d messages kept)", told, len(msgs))
+			}
+		})
+	}
+
+	// From the desk the same tool runs, as it always did.
+	ran := 0
+	loop, db := newLoop(t, counted{name: "decide_waiting", ran: &ran})
+	conv, _ := db.NewConversation("t")
+
+	if _, err := loop.RunBrief(context.Background(), conv, askingFor("decide_waiting"), nil, Brief{WithTools: true}); err != nil || ran != 1 {
+		t.Errorf("from the desk: ran %d times (%v)", ran, err)
+	}
+
+	if len(NotForAnotherProgram) != 1 || NotForAnotherProgram[0] != "decide_waiting" {
+		t.Errorf("what another program may never use: %v", NotForAnotherProgram)
 	}
 }
