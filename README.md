@@ -130,6 +130,10 @@ AMD). What it does not do yet is written down in
   assistant whether a program is installed here, in which version, and what
   was removed; put it a question it answers in words with the model on this
   computer; or search what it remembers about you. Nothing changes anything.
+  Claude Code run without a window can also put its own permission
+  questions to you in the assistant's window (`--permission-prompt-tool`):
+  the assistant answers none of them, and the answer given on the card
+  there goes back.
   Each of these is off until you allow it on the Programs page, by its own
   switch, and every question is on the record with the name of the program
   that asked.

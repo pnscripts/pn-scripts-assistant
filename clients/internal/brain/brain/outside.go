@@ -85,6 +85,11 @@ func (b *Brain) AllowOutside(subject otherprograms.Subject, allowed bool) error 
 		b.takeBackOutside()
 	}
 
+	// The questions that wait at the desk are closed with their switch.
+	if changed && !allowed && subject == otherprograms.Permit {
+		b.takeBackPermits(false)
+	}
+
 	return nil
 }
 

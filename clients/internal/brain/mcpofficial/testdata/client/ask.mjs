@@ -62,6 +62,11 @@ try {
   told.remembered = await call('search_memory', { query: 'accountant', limit: 2 });
   told.nothingToFind = await call('search_memory', {});
 
+  // A permission question, as Claude Code hands one to its permission
+  // tool: answered with one block of text, a line of JSON.
+  told.permitted = await call('permission_prompt', { tool_name: 'Bash', input: { command: 'ls -la' }, tool_use_id: 'toolu_01' });
+  told.notPermitted = await call('permission_prompt', { tool_name: 'Write', input: { file_path: '/home/you/a.txt', content: 'x' }, tool_use_id: 'toolu_02' });
+
   // Three at once: each is answered once, to the one who asked.
   told.together = await Promise.all([call('assistant_status', {}), call('list_programs', { search: 'gimp' }), call('assistant_status', {})]);
 } catch (e) {

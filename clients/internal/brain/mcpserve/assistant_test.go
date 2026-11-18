@@ -141,7 +141,15 @@ func run(t *testing.T, s *Server, tool, arguments string) (string, error) {
 	return "", nil
 }
 
-// The list it offers is short and fixed, and every tool only reads.
+/*
+ * The list it offers is short and fixed, and every tool only reads, but
+ * one: permission_prompt carries another program's permission question to
+ * the assistant's user and their answer back (1.2.0 step 5). A yes through
+ * it lets the asking program act, so it does not say it only reads; and
+ * its arguments are what Claude Code hands a permission tool, which may
+ * grow, so that object is not closed (only its three known fields are
+ * read).
+ */
 func TestItOffersAShortFixedListThatOnlyReads(t *testing.T) {
 	s := New("http://127.0.0.1:1", "1.2.3")
 
@@ -149,6 +157,35 @@ func TestItOffersAShortFixedListThatOnlyReads(t *testing.T) {
 
 	for _, tool := range s.Tools {
 		names = append(names, tool.Name)
+
+		if len(tool.Description) < 40 {
+			t.Errorf("%s says too little about itself: %q", tool.Name, tool.Description)
+		}
+
+		if tool.Name == PermissionTool {
+			var schema struct {
+				Type       string                     `json:"type"`
+				Properties map[string]json.RawMessage `json:"properties"`
+				Required   []string                   `json:"required"`
+				Additional *bool                      `json:"additionalProperties"`
+			}
+
+			if err := json.Unmarshal(tool.InputSchema, &schema); err != nil || schema.Type != "object" || schema.Additional != nil ||
+				len(schema.Properties) != 3 || strings.Join(schema.Required, ",") != "tool_name" {
+				t.Errorf("%s: its arguments are what Claude Code hands a permission tool: %s (%v)", tool.Name, tool.InputSchema, err)
+			}
+
+			if tool.ReadOnly {
+				t.Errorf("%s says it only reads, and a yes through it lets another program act", tool.Name)
+			}
+
+			if !strings.Contains(tool.Description, "Not a tool for a model to call") ||
+				!strings.Contains(tool.Description, "--permission-prompt-tool mcp__pn-scripts-assistant__permission_prompt") {
+				t.Errorf("%s does not say what it is for: %q", tool.Name, tool.Description)
+			}
+
+			continue
+		}
 
 		if !tool.ReadOnly {
 			t.Errorf("%s is not marked as only reading", tool.Name)
@@ -163,13 +200,9 @@ func TestItOffersAShortFixedListThatOnlyReads(t *testing.T) {
 			schema.Additional == nil || *schema.Additional {
 			t.Errorf("%s: its arguments are a closed object: %s (%v)", tool.Name, tool.InputSchema, err)
 		}
-
-		if len(tool.Description) < 40 {
-			t.Errorf("%s says too little about itself: %q", tool.Name, tool.Description)
-		}
 	}
 
-	if got := strings.Join(names, ","); got != "assistant_status,list_programs,ask_assistant,search_memory" {
+	if got := strings.Join(names, ","); got != "assistant_status,list_programs,ask_assistant,search_memory,permission_prompt" {
 		t.Errorf("the tools offered: %s", got)
 	}
 

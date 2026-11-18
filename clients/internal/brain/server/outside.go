@@ -256,6 +256,85 @@ func (s *Server) handleOutsideAsk(w http.ResponseWriter, r *http.Request) {
 
 	case "ask_assistant":
 		s.outsideAnswer(w, r, by, given, notAllowed)
+
+	case otherprograms.PermissionTool:
+		s.outsidePermit(w, r, by, given, notAllowed)
+	}
+}
+
+/*
+ * permitWait is how long the door holds a permission question of another
+ * program open for its person's answer. Claude Code waits half an hour for
+ * a tool that says nothing, so this is well under it; a question nobody
+ * answered by then is answered no. A variable so a test does not wait.
+ */
+var permitWait = permitWaitDefault
+
+// permitWaitDefault is what the page and the guides say of it ("ten
+// minutes"); a test keeps them together.
+const permitWaitDefault = 10 * time.Minute
+
+// notAPermission is what Claude Code calls the questions it wants to put
+// to its user itself: they need the user's words back, which this door
+// does not carry.
+const notAPermission = "AskUserQuestion"
+
+/*
+ * outsidePermit puts a permission question of another program to the
+ * assistant's person and answers with what they said. Every ending but
+ * their own yes is "deny", with how it ended, so the program can say why.
+ */
+func (s *Server) outsidePermit(w http.ResponseWriter, r *http.Request, by string, given outsideAsked, notAllowed func()) {
+	denied := func(ended string) {
+		ok(w, map[string]any{"behavior": "deny", "ended": ended})
+	}
+
+	if given.permitTool == notAPermission {
+		const why = "Not answered: I pass on a program's permission questions only, not the questions it wants to ask you itself."
+
+		if err := s.brain.AskedFromOutside(otherprograms.PermissionTool, by, "", agent.DeedRefused, why); err != nil {
+			s.log.Warn("could not record a question another program asked", "tool", otherprograms.PermissionTool, "error", err)
+		}
+
+		denied("not a permission")
+
+		return
+	}
+
+	// The person may take minutes: the connection is given the time.
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(permitWait + time.Minute))
+
+	allowed, ended, err := s.brain.AskPermissionForOutside(r.Context(), by, given.permitTool, given.permitInput, given.permitCut, permitWait)
+
+	switch {
+	case errors.Is(err, brain.ErrOutsideNotAllowed):
+		// Switched off between the door's own look and the brain's.
+		notAllowed()
+	case errors.Is(err, brain.ErrPermitsFull):
+		// On the record like every refusal; the minute's number bounds
+		// how many such lines a program can write.
+		full := fmt.Sprintf("Not answered: %d permission questions were waiting already, and no more wait at once.", otherprograms.MostPermissionsWaiting)
+
+		if err := s.brain.AskedFromOutside(otherprograms.PermissionTool, by, "", agent.DeedRefused, full); err != nil {
+			s.log.Warn("could not record a question another program asked", "tool", otherprograms.PermissionTool, "error", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", "60")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error":   "Too many permission questions are waiting for the assistant's user already.",
+			"outside": "permits full",
+		})
+	case errors.Is(err, brain.ErrNoPermission):
+		fail(w, http.StatusBadRequest, "tool_name is what permission is asked for: it had nothing readable in it.")
+	case err != nil:
+		s.log.Warn("a permission question of another program could not be put to its user", "error", err)
+		fail(w, http.StatusInternalServerError, "The question could not be put to the assistant's user.")
+	case allowed:
+		ok(w, map[string]any{"behavior": "allow"})
+	default:
+		denied(string(ended))
 	}
 }
 
@@ -266,6 +345,14 @@ type outsideAsked struct {
 	limit    int
 	question string
 	answerTo string
+
+	// A permission question: what it is about, and what would be given.
+	permitTool  string
+	permitInput json.RawMessage
+
+	// How long each text of the input really is, where the MCP server
+	// sent it cut.
+	permitCut map[string]int
 }
 
 // kindLine is the source asked for, as the record keeps it.
@@ -294,6 +381,13 @@ func outsideGiven(tool string, raw json.RawMessage) (outsideAsked, string) {
 			Limit    *int    `json:"limit"`
 			Question *string `json:"question"`
 			AnswerTo *string `json:"answer_to"`
+
+			// A permission question, as Claude Code hands it to its
+			// permission tool.
+			ToolName  *string         `json:"tool_name"`
+			Input     json.RawMessage `json:"input"`
+			ToolUseID *string         `json:"tool_use_id"`
+			Cut       json.RawMessage `json:"cut"`
 		}
 	)
 
@@ -308,7 +402,8 @@ func outsideGiven(tool string, raw json.RawMessage) (outsideAsked, string) {
 
 	if (arguments.Kind != nil && tool != "list_programs") ||
 		((arguments.Query != nil || arguments.Limit != nil) && tool != "search_memory") ||
-		((arguments.Question != nil || arguments.AnswerTo != nil) && tool != "ask_assistant") {
+		((arguments.Question != nil || arguments.AnswerTo != nil) && tool != "ask_assistant") ||
+		((arguments.ToolName != nil || arguments.Input != nil || arguments.ToolUseID != nil || arguments.Cut != nil) && tool != otherprograms.PermissionTool) {
 		return given, notThose
 	}
 
@@ -334,6 +429,39 @@ func outsideGiven(tool string, raw json.RawMessage) (outsideAsked, string) {
 		if arguments.Limit != nil {
 			if given.limit = *arguments.Limit; given.limit < 1 || given.limit > brain.OutsideFacts {
 				return given, fmt.Sprintf("limit is from 1 to %d.", brain.OutsideFacts)
+			}
+		}
+
+	case otherprograms.PermissionTool:
+		const takes = "tool_name is what permission is asked for, input is what it would be given (an object)."
+
+		if arguments.ToolName == nil || len(*arguments.ToolName) > 4*otherprograms.MostPermissionTool {
+			return given, takes
+		}
+
+		if given.permitTool = otherprograms.PermissionAsks(*arguments.ToolName); given.permitTool == "" {
+			return given, "tool_name is what permission is asked for: it had nothing readable in it."
+		}
+
+		if raw := bytes.TrimSpace(arguments.Input); len(raw) > 0 && string(raw) != "null" {
+			if raw[0] != '{' || !json.Valid(raw) {
+				return given, takes
+			}
+
+			given.permitInput = json.RawMessage(raw)
+		}
+
+		// A few lengths, each of a text that long: anything else is not
+		// a length.
+		if raw := bytes.TrimSpace(arguments.Cut); len(raw) > 0 && string(raw) != "null" {
+			if json.Unmarshal(raw, &given.permitCut) != nil || len(given.permitCut) > 64 {
+				return given, takes
+			}
+
+			for name, length := range given.permitCut {
+				if length < 1 || length > 1<<30 || len(name) > 200 {
+					return given, takes
+				}
 			}
 		}
 
@@ -496,7 +624,7 @@ func (s *Server) handleOutsideAllow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := strictly(w, r, &asked); err != nil || asked.Allowed == nil || !otherprograms.Known(otherprograms.Subject(asked.Subject)) {
-		fail(w, http.StatusBadRequest, "Say which (programs, ask or memory) and whether it is allowed (true or false).")
+		fail(w, http.StatusBadRequest, "Say which (programs, ask, memory or permissions) and whether it is allowed (true or false).")
 
 		return
 	}

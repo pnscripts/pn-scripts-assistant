@@ -177,6 +177,8 @@
         // the record says so instead of "stayed on this machine".
         if (asker && asker.went) traits.push(asker.went);
         else if (!d.leaves && (d.outcome === 'done' || d.outcome === 'failed')) traits.push(T('deeds.stayedTrait'));
+        // Where another program's permission question was decided.
+        if (asker && asker.decided) traits.push(asker.decided);
 
         const line = document.createElement('p');
         line.className = 'deed-traits';

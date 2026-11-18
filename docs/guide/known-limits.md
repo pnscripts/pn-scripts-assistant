@@ -99,6 +99,31 @@ against the code on 9 November 2026.
   switch itself. Every
   change of the switch is on the record. On Windows give the program's
   full path in the entry.
+- **Claude Code's permission questions: asked through the assistant, only
+  for runs without a window.** With the switch "Their own permission
+  questions, put to you here" on, Claude Code started as `claude -p ...
+  --permission-prompt-tool mcp__pn-scripts-assistant__permission_prompt`
+  puts each permission question on a card in the assistant's window, and
+  only the answer given there goes back; the assistant answers none, a question
+  nobody answers in ten minutes is a no, at most three wait at once. The
+  card shows what Claude Code asks to use (the command, the file, the
+  address), not what it will write into a file, and a command over 1,500
+  characters is shown cut; a line break in a command is shown as ↵ and
+  whatever else the tool would be given is named, not shown. A question
+  refused because three already wait, or because of too many in a minute,
+  is on the record as refused. Nothing is said out loud when a question
+  arrives: it appears under "Waiting for you" within a few seconds. The
+  questions Claude Code wants to ask you itself are not carried. It was
+  built from Claude Code's documentation and from what its 2.1.303 release
+  hands a permission tool, and tested with a stand-in for it and with the
+  MCP project's own client; a signed-in Claude Code session was not part of
+  the tests. As with every question from another program, the name on the
+  card is the program's own word, and a program running under your account
+  can reach the assistant's own address as its window does, so it could
+  answer a card there too, or turn the switch on itself; that includes
+  Claude Code itself if you let it run commands that do so. The record
+  therefore says a question was answered "on its card", not "by you". The
+  switch is for programs that ask the way they are meant to.
 - **MCP servers from other programs: four programs, their own settings
   only.** Claude Desktop, Claude Code (`~/.claude.json`, or the folder
   `CLAUDE_CONFIG_DIR` names), Cursor (`~/.cursor/mcp.json`) and VS Code (the

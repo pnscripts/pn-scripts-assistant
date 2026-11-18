@@ -34,6 +34,12 @@ import (
  * personal. Nothing from mail, files or conversations is offered, and
  * nothing that changes anything.
  *
+ * One tool is not a question to the assistant at all: permission_prompt
+ * carries another program's own permission question ("may I run this
+ * command") to the assistant's user and their answer back. Claude Code
+ * calls it when started with --permission-prompt-tool. The assistant
+ * answers none itself; behind its own switch like the rest.
+ *
  * Every question goes through one door of the running assistant (POST
  * /api/outside/ask, package otherprograms) with the name the asking program
  * gave: there it is checked against what its user allowed other programs
@@ -108,6 +114,10 @@ type assistant struct {
 	// patient waits for a question the assistant's model is answering:
 	// the door holds it open for most of a minute (see askAssistant).
 	patient *http.Client
+
+	// permitting waits for a person: the door holds a permission question
+	// open until its user answers it at the desk (see permit).
+	permitting *http.Client
 }
 
 // mostAnswer bounds what is read from the assistant: a few thousand
@@ -125,6 +135,8 @@ func New(address, version string) *Server {
 		url:     strings.TrimRight(address, "/"),
 		http:    &http.Client{Timeout: 30 * time.Second, CheckRedirect: stay},
 		patient: &http.Client{Timeout: PatientFor, CheckRedirect: stay},
+
+		permitting: &http.Client{Timeout: PermitPatientFor, CheckRedirect: stay},
 	}
 
 	return &Server{
@@ -133,7 +145,9 @@ func New(address, version string) *Server {
 		Instructions: "PN Scripts Assistant is a desktop assistant running on this computer. " +
 			"These tools ask it: whether it is running, which programs are installed, were updated or were removed, " +
 			"a question it answers in words with the model on this computer, and a search of what it remembers about its user. " +
-			"They only read; it does nothing for you. Every question is shown to its user with the name of " +
+			"They only read; it does nothing for you. permission_prompt is not for you to call: Claude Code calls it, " +
+			"when its user started it that way, to put its permission questions to that user in the assistant's window. " +
+			"Every question is shown to its user with the name of " +
 			"the program that asked. If a tool says the assistant is not running, its terms of use are not accepted, " +
 			"or its user has not allowed the question, tell the user: only they can start it, accept them or allow it.",
 		Tools: []Tool{
@@ -195,6 +209,25 @@ func New(address, version string) *Server {
 				ReadOnly: true,
 				Run:      a.searchMemory,
 			},
+			{
+				Name:  PermissionTool,
+				Title: "Put a permission question to the user of PN Scripts Assistant",
+				Description: "Not a tool for a model to call. Claude Code calls it by itself when its user started it with " +
+					"--permission-prompt-tool mcp__pn-scripts-assistant__permission_prompt: each time Claude Code needs permission " +
+					"to use a tool, the question is shown in PN Scripts Assistant's window with the name of the program that asks, " +
+					"and the answer given on its card there comes back, once the user has allowed other programs to put such questions to them (off until they do). " +
+					"PN Scripts Assistant answers none itself, and a question nobody answers within ten minutes is a no. " +
+					"The answer is one line of JSON: {\"behavior\":\"allow\"} with the input given back, or {\"behavior\":\"deny\",\"message\":\"...\"}.",
+				// Open to more than these three: Claude Code decides what
+				// it sends, and a field it adds later must not turn every
+				// question into a refusal. Only these are read.
+				InputSchema: json.RawMessage(`{"type":"object","properties":{` +
+					`"tool_name":{"type":"string","description":"The tool permission is asked for."},` +
+					`"input":{"type":"object","description":"What that tool would be given."},` +
+					`"tool_use_id":{"type":"string","description":"The number of that use, as the asking program keeps it."}` +
+					`},"required":["tool_name"]}`),
+				Run: a.permit,
+			},
 		},
 	}
 }
@@ -206,6 +239,17 @@ func New(address, version string) *Server {
  * under the minute after which the programs that ask give up on a call.
  */
 const PatientFor = 50 * time.Second
+
+// PermissionTool is the tool Claude Code is pointed at with
+// --permission-prompt-tool (a test in package server keeps it the door's).
+const PermissionTool = "permission_prompt"
+
+/*
+ * PermitPatientFor is how long this server waits on the assistant for a
+ * person's answer to a permission question. The door holds one open for
+ * ten minutes and then answers no; this is a little more.
+ */
+const PermitPatientFor = 11 * time.Minute
 
 // mostSaid is how much of an answer is passed on, in characters: more
 // than the assistant's model is let write for another program.
@@ -261,8 +305,11 @@ func (a *assistant) ask(ctx context.Context, tool string, arguments any, who Cal
 
 	req.Header.Set("Content-Type", "application/json")
 
-	if tool == "ask_assistant" {
+	switch tool {
+	case "ask_assistant":
 		return a.answeredBy(a.patient, ctx, req, into)
+	case PermissionTool:
+		return a.answeredBy(a.permitting, ctx, req, into)
 	}
 
 	return a.answered(ctx, req, into)
@@ -343,6 +390,9 @@ func (a *assistant) answeredBy(client *http.Client, ctx context.Context, req *ht
 		case "gave way":
 			return errors.New("PN Scripts Assistant stopped answering that question because its user asked it something, and its user comes first. " +
 				"Ask the question again in about half a minute.")
+		case "permits full":
+			return errors.New("PN Scripts Assistant is running, but as many permission questions as it shows at once are waiting for its user already. " +
+				"Tell the user they wait in the assistant's window, and ask again when some are answered.")
 		case "busy":
 			return errors.New("PN Scripts Assistant is answering another question now, and answers one at a time. " +
 				"Ask again in about half a minute.")
@@ -370,6 +420,8 @@ func notAllowed(subject string) error {
 		what = "ask it questions"
 	case "memory":
 		what = "search what it remembers"
+	case "permissions":
+		what = "put their permission questions to them"
 	}
 
 	return fmt.Errorf("PN Scripts Assistant is running, but its user has not allowed other programs to %s. "+
@@ -716,4 +768,174 @@ func (a *assistant) searchMemory(ctx context.Context, arguments json.RawMessage,
 	}
 
 	return b.String(), nil
+}
+
+/*
+ * A permission question of the program that started this server.
+ *
+ * Claude Code hands its permission tool {tool_name, input, tool_use_id}
+ * and reads one block of text back: {"behavior":"allow"} (with the input
+ * to use) or {"behavior":"deny","message":...}. So whatever happens here
+ * is answered in that form, and everything that is not the user's own yes
+ * is a deny that says why: the assistant not running, its switch off, a
+ * question nobody answered. An error would be a deny too, but one Claude
+ * Code words itself; these are ours, so that its model can tell the user
+ * what to do.
+ */
+
+// How much of a permission question is sent on to the assistant: its door
+// reads a few thousand bytes, and shows less.
+const (
+	permitWhole  = 6000  // an input this short goes as it came
+	permitString = 1200  // otherwise each text in it is cut to this many characters
+	permitMost   = 12000 // and what is still longer goes as a note of its size
+	permitEcho   = 30000 // an input longer than this is not given back with a yes
+)
+
+func deny(message string) (string, error) {
+	out, err := json.Marshal(map[string]string{"behavior": "deny", "message": message})
+
+	return string(out), err
+}
+
+func (a *assistant) permit(ctx context.Context, arguments json.RawMessage, who Caller) (string, error) {
+	var asked struct {
+		ToolName string          `json:"tool_name"`
+		Input    json.RawMessage `json:"input"`
+	}
+
+	if err := json.Unmarshal(arguments, &asked); err != nil || strings.TrimSpace(asked.ToolName) == "" {
+		return deny("PN Scripts Assistant was not told what permission is asked for (tool_name), so it asked its user nothing.")
+	}
+
+	input := bytes.TrimSpace(asked.Input)
+	if len(input) == 0 || string(input) == "null" {
+		input = nil
+	} else if input[0] != '{' {
+		return deny("PN Scripts Assistant was given an input that is not an object, so it asked its user nothing.")
+	}
+
+	given := map[string]any{"tool_name": asked.ToolName}
+	if input != nil {
+		shown, cut := permitShown(input)
+
+		given["input"] = shown
+
+		if len(cut) > 0 {
+			given["cut"] = cut
+		}
+	}
+
+	var answer struct {
+		Behavior string `json:"behavior"`
+		Ended    string `json:"ended"`
+	}
+
+	if err := a.ask(ctx, PermissionTool, given, who, &answer); err != nil {
+		return deny(printable(err.Error(), 700))
+	}
+
+	switch answer.Behavior {
+	case "allow":
+		// The input goes back as it came: older versions of Claude Code
+		// refuse a yes without it. A very long one is left out, which the
+		// versions since 2.1.207 read as "unchanged".
+		allowed := map[string]any{"behavior": "allow"}
+		if input != nil && len(input) <= permitEcho {
+			allowed["updatedInput"] = json.RawMessage(input)
+		}
+
+		out, err := json.Marshal(allowed)
+
+		return string(out), err
+	case "deny":
+		return deny(permitDenied(answer.Ended))
+	}
+
+	return deny(a.errNotIt().Error())
+}
+
+// permitDenied is why a permission question was answered no, said so
+// that a model passes it on and does not try the same thing another way.
+func permitDenied(ended string) string {
+	switch ended {
+	case "refused":
+		return "The answer given on its card in PN Scripts Assistant's window was no. Do not try to do the same thing another way; ask the user what they want instead."
+	case "unanswered":
+		return "Nobody answered this question in PN Scripts Assistant's window within ten minutes, and a question without an answer is a no. " +
+			"Tell the user it waited for them there, and try again only when they say so."
+	case "taken back":
+		return "The question was taken back before anybody answered: the user turned permission questions from other programs off, or closed PN Scripts Assistant. That is a no."
+	case "gone":
+		return "The question was closed before anybody answered it, because the program that asked stopped waiting. That is a no."
+	case "unrecorded":
+		return "PN Scripts Assistant could not write the answer on its record, and gives no yes it cannot record. That is a no; tell the user."
+	case "not a permission":
+		return "PN Scripts Assistant passes on permission questions only. It cannot carry a question of yours to the user and their words back: ask it in your answer instead."
+	}
+
+	return "PN Scripts Assistant did not say yes. That is a no."
+}
+
+/*
+ * permitShown is an input as it is sent to the assistant to be shown: as
+ * it came when short, otherwise with each long text in it cut, and when
+ * even that is too much, a note of its size. With it goes how long each
+ * cut text really is, in characters: the assistant's user decides on what
+ * they are shown, so the card says what was cut and how long it was.
+ */
+func permitShown(input json.RawMessage) (json.RawMessage, map[string]int) {
+	// Measured as it will travel: on the way to the assistant "<", ">"
+	// and "&" are written as six bytes each, and an input full of them
+	// (a page of HTML) would pass what the door reads.
+	travels := func(raw json.RawMessage) int {
+		out, err := json.Marshal(raw)
+		if err != nil {
+			return permitMost + 1
+		}
+
+		return len(out)
+	}
+
+	if travels(input) <= permitWhole {
+		return input, nil
+	}
+
+	tooLong := func() json.RawMessage {
+		out, _ := json.Marshal(map[string]string{
+			"too_long_to_show": fmt.Sprintf("%d bytes in all; read it in the program that asks", len(input)),
+		})
+
+		return out
+	}
+
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(input, &fields) != nil {
+		return tooLong(), nil
+	}
+
+	cut := map[string]int{}
+
+	for name, raw := range fields {
+		var text string
+
+		switch {
+		case json.Unmarshal(raw, &text) == nil:
+			if all := []rune(text); len(all) > permitString && len(cut) < 64 && len(name) <= 200 {
+				cut[name] = len(all)
+				fields[name], _ = json.Marshal(string(all[:permitString]))
+			} else if len(all) > permitString {
+				fields[name], _ = json.Marshal(fmt.Sprintf("(left out: %d characters)", len(all)))
+			}
+		case len(raw) > permitString:
+			fields[name], _ = json.Marshal(fmt.Sprintf("(left out: %d bytes)", len(raw)))
+		}
+	}
+
+	out, err := json.Marshal(fields)
+	if err != nil || travels(out) > permitMost {
+		return tooLong(), nil
+	}
+
+	return out, cut
 }

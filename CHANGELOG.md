@@ -57,6 +57,29 @@ whenever something visible changed.
   answer not yet fetched. Each question with the start of its answer, and
   each search with how much it handed over, is in "What I did" with who
   asked.
+- **Claude Code's permission questions can wait for you in the
+  assistant's window.** A fourth switch on the card "What other programs
+  may ask": "Their own permission questions, put to you here", off until
+  you turn it on. Claude Code run without a window
+  (`claude -p ... --permission-prompt-tool
+  mcp__pn-scripts-assistant__permission_prompt`) then puts each permission
+  question under "Waiting for you" with who asks and what for: the command
+  it wants to run, the file it wants to write, change or read, the address
+  it wants to open. Approve or Reject on the card goes back to it. The
+  assistant answers none of them itself (no model, no rule, no "everything
+  allowed"), and neither does "approve everything waiting" or a paired
+  device: the answer is the one given on the card. A line break inside a
+  command is shown as ↵, a command too long to show is said to be cut, and
+  whatever else the tool would be given is named. A yes is for that once; a question nobody answers within ten
+  minutes is a no; at most three wait at once; turning the switch off or
+  closing the assistant answers the waiting ones no. Each question and how
+  it ended (allowed or refused on its card, nobody answered) is in "What I
+  did" with who asked. As with everything at the assistant's own address, a
+  program running under your account could answer a card too; see "Known
+  limits".
+- **`pn-scripts-assistant mcp` ends when it is told to.** Sent a signal to
+  stop while its client still held its input open, it went on waiting for
+  the next line. It now stops at once and gives up what it has in hand.
 - **A program that asks in a loop is stopped.** At most 30 questions a
   minute are answered, from all programs together; the ones over that are
   refused and written on the record as one line.

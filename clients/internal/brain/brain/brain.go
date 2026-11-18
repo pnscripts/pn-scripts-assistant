@@ -62,6 +62,13 @@ type Brain struct {
 	// last one answered (outside.go).
 	outside outsideAnswers
 
+	// permits is the permission questions of other programs that wait for
+	// their answer (permit.go).
+	permits permitsWaiting
+
+	// leftPermits closes, once, what an earlier run left of them.
+	leftPermits sync.Once
+
 	// begin starts the background work; nil is the real start. Start runs it
 	// at once, or when the terms are accepted (see Agreed). A field so a test
 	// can count starts without reaching the machine's sound.
@@ -1488,6 +1495,11 @@ func (b *Brain) Start(ctx context.Context) {
 		return
 	}
 
+	// Permission questions of other programs left waiting by a run that
+	// ended without closing them are closed: nobody waits for them now.
+	// Whatever the terms: a card nobody can be told of must not wait.
+	b.leftPermits.Do(b.CloseLeftPermits)
+
 	if terms.Accepted(b.Root) {
 		b.agreement.running = true
 		b.startNow(ctx)
@@ -1679,6 +1691,9 @@ func (b *Brain) start(ctx context.Context) {
 func (b *Brain) Stop() {
 	// A question from another program still being answered is given up.
 	b.stopOutside()
+
+	// And the permission questions of other programs are closed as a no.
+	b.takeBackPermits(true)
 
 	// And nothing held back for the terms starts on the way out.
 	b.agreement.mu.Lock()

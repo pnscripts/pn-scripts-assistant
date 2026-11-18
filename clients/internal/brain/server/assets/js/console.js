@@ -1576,11 +1576,17 @@ async function decide(id, decision, programName) {
         const done = answer.invocation || {};
         const said = (done.result || '').trim();
 
-        const note = approving
+        // Another program's permission question: nothing was done here,
+        // so the page says what that program was told (programs.js).
+        const permit = window.pnPrograms && window.pnPrograms.permitDecided
+            ? window.pnPrograms.permitDecided(done, approving, answer.error)
+            : '';
+
+        const note = permit || (approving
             ? (answer.error
                 ? words('cc.failed', { why: answer.error })
                 : (said ? words('cc.doneWith', { said }) : words('cc.done')))
-            : words('cc.rejected');
+            : words('cc.rejected'));
 
         addMessage('system', note, { cssClass: 'brain' });
     } catch (err) {

@@ -330,7 +330,9 @@
             // One line on the card, so the answers stay in view; the rest
             // is said when the line is pointed at. The question itself
             // already starts "Always asked (another program asked for it)".
-            out.askedBy = { label: who.chip, title: who.title + ' ' + T('out.ap.note') };
+            // A program's own permission question: the yes lets that
+            // program act, once; nothing is done here.
+            out.askedBy = { label: who.chip, title: who.title + ' ' + T(item.tool === PERMIT ? 'out.ap.permit' : 'out.ap.note') };
             return out;
         }
 
@@ -365,15 +367,25 @@
 
     // Each switch, and each question, in words (literal keys: a test reads
     // them from this file).
-    const SUBJECT = { programs: 'out.programs', ask: 'out.ask', memory: 'out.memory' };
-    const QUESTION = { assistant_status: 'out.q.status', list_programs: 'out.q.programs', ask_assistant: 'out.q.ask', search_memory: 'out.q.memory' };
+    const SUBJECT = { programs: 'out.programs', ask: 'out.ask', memory: 'out.memory', permissions: 'out.permits' };
+    const QUESTION = {
+        assistant_status: 'out.q.status', list_programs: 'out.q.programs', ask_assistant: 'out.q.ask', search_memory: 'out.q.memory',
+        permission_prompt: 'out.q.permit',
+    };
+
+    // The tool another program puts its own permission questions through
+    // (otherprograms.PermissionTool on the server).
+    const PERMIT = 'permission_prompt';
 
     // What turning a switch on means, said under it before it is turned:
     // none for the list of programs, whose name says it all.
-    const MEANS = { ask: 'out.askMeans', memory: 'out.memoryMeans' };
+    const MEANS = { ask: 'out.askMeans', memory: 'out.memoryMeans', permissions: 'out.permitsMeans' };
 
     // A question refused because its switch is off, by its tool.
-    const REFUSED = { list_programs: 'out.rec.refused', ask_assistant: 'out.rec.refusedAsk', search_memory: 'out.rec.refusedMemory' };
+    const REFUSED = {
+        list_programs: 'out.rec.refused', ask_assistant: 'out.rec.refusedAsk', search_memory: 'out.rec.refusedMemory',
+        permission_prompt: 'out.rec.refusedPermit',
+    };
 
     // How one of the assistant's own tools ended (the record's words).
     const ENDED = { done: 'outcome.done', failed: 'outcome.failed', waiting: 'outcome.waiting', refused: 'outcome.refused' };
@@ -413,9 +425,13 @@
                 when: when(a.at),
                 who: caller(a.by),
                 what: question ? T(QUESTION[a.tool]) : T('out.q.tool', { tool }),
-                outcome: question
-                    ? (a.outcome === 'done' ? T('out.answered') : T('out.notAnswered'))
-                    : T(ENDED[a.outcome] || 'outcome.failed'),
+                // A permission question is not "answered" by me: its
+                // user allowed it, or it was not allowed.
+                outcome: a.tool === PERMIT
+                    ? (a.outcome === 'done' ? T('out.permitYes') : T('out.permitNo'))
+                    : question
+                        ? (a.outcome === 'done' ? T('out.answered') : T('out.notAnswered'))
+                        : T(ENDED[a.outcome] || 'outcome.failed'),
                 answered: a.outcome === 'done' || a.outcome === 'waiting',
             };
         });
@@ -454,6 +470,8 @@
             // and fetched by the program after: the record cannot know
             // that it was, so it says what it knows.
             went: question && item.outcome === 'done' ? T(item.tool === 'ask_assistant' ? 'out.ready' : 'out.went') : '',
+            // A permission question is decided by its user, or by nobody.
+            decided: item.tool === PERMIT ? permitBy(item) : '',
         };
     }
 
@@ -466,6 +484,14 @@
         if (!d || !d.asked_by || !QUESTION[d.tool]) return '';
 
         const result = String(d.result || '');
+
+        // A permission question: how it ended, whoever ended it. (One
+        // refused because its switch is off is said with the rest, below.)
+        if (d.tool === PERMIT) {
+            for (const [like, key] of PERMIT_ENDED) {
+                if (like.test(result)) return T(key);
+            }
+        }
 
         if (d.outcome === 'refused') {
             // Refused for being one of too many in a minute, whatever was
@@ -510,8 +536,62 @@
 
         if (d.tool === 'ask_assistant' && asked.startsWith('Question: ')) return T('out.rec.question', { text: asked.slice(10) });
         if (d.tool === 'search_memory' && asked.startsWith('Search: ')) return T('out.rec.search', { text: asked.slice(8) });
+        if (d.tool === PERMIT && asked.startsWith('Permission: ')) return T('out.rec.permitAsked', { text: asked.slice(12) });
 
         return '';
+    }
+
+    /*
+     * How a permission question of another program ended, by the words
+     * the record keeps (brain/permit.go): a regular expression each, never
+     * a quoted string.
+     */
+    const PERMIT_ENDED = [
+        [/^Allowed on its card/, 'out.rec.permitYes'],
+        [/told it may not/, 'out.rec.permitNo'],
+        [/nobody answered in time/, 'out.rec.permitUnanswered'],
+        [/stopped waiting/, 'out.rec.permitGone'],
+        [/taken back/, 'out.rec.permitTakenBack'],
+        [/permission questions only/, 'out.rec.permitNotOne'],
+        [/were waiting already/, 'out.rec.permitFull'],
+    ];
+
+    // Where a permission question was decided, for its line on the
+    // record: on its card at this computer, or by nobody. Not "by you":
+    // the record cannot tell the window from a program posting as it.
+    function permitBy(d) {
+        const result = String((d && d.result) || '');
+
+        if (/^Allowed on its card/.test(result) || /told it may not/.test(result)) return T('out.permitOnCard');
+        if (/nobody answered|stopped waiting|taken back/.test(result)) return T('out.permitByNobody');
+
+        return '';
+    }
+
+    /*
+     * What the page says after a permission card was answered: the
+     * invocation the server sent back, whether yes was pressed, and the
+     * fault if there was one. Empty for any other card.
+     */
+    function permitDecided(invocation, approving, error) {
+        if (!invocation || invocation.tool !== PERMIT) return '';
+
+        /*
+         * By what became of the question, not by which button was
+         * pressed or whether the press failed: a second press on a card
+         * already answered is refused, and the page must still say what
+         * the first one did.
+         */
+        const result = String(invocation.result || '');
+
+        if (/^Allowed on its card/.test(result)) return T('out.permit.yes');
+        if (/told it may not/.test(result)) return T('out.permit.no');
+        // A yes that could not be written down was handed over as a no.
+        if (/could not be written/.test(result)) return T('out.permit.unrecorded');
+        // Anything else is a question nobody waits for any more.
+        if (error || result) return T('out.permit.gone');
+
+        return T(approving ? 'out.permit.yes' : 'out.permit.no');
     }
 
     /*
@@ -526,7 +606,7 @@
     }
 
     window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, may, why, stopping, approvalChoices,
-        outside, askedBy, outsideResult, outsideAsked, turnedWhere,
+        outside, askedBy, outsideResult, outsideAsked, turnedWhere, permitDecided,
         reasons: Object.keys(WHY), answers: ANSWERS };
 
     // ---- drawing ----

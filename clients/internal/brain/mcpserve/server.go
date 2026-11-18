@@ -212,8 +212,51 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 		failed  error
 	)
 
+	/*
+	 * The input is read beside the loop, so that being told to stop is
+	 * heard while the next line is waited for: a program sent a signal to
+	 * end must end though its client still holds the pipe open, and give
+	 * up what it has in hand (a question may wait there for minutes).
+	 */
+	type read struct {
+		line    []byte
+		tooLong bool
+		err     error
+	}
+
+	lines := make(chan read)
+
+	go func() {
+		for {
+			line, tooLong, err := readLine(reader, most)
+
+			select {
+			case lines <- read{line, tooLong, err}:
+			case <-ctx.Done():
+				return
+			}
+
+			if err != nil {
+				return
+			}
+		}
+	}()
+
 	for {
-		line, tooLong, err := readLine(reader, most)
+		var next read
+
+		select {
+		case next = <-lines:
+		case <-ctx.Done():
+		}
+
+		// Told to stop: nothing more is read, and what is in hand is
+		// stopped below without its grace.
+		if ctx.Err() != nil {
+			break
+		}
+
+		line, tooLong, err := next.line, next.tooLong, next.err
 
 		if tooLong {
 			se.write(response{ID: null, Error: &rpcError{Code: codeInvalidRequest,
