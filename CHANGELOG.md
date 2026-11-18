@@ -77,6 +77,10 @@ whenever something visible changed.
   did" with who asked. As with everything at the assistant's own address, a
   program running under your account could answer a card too; see "Known
   limits".
+- **A yes to another program is not counted as your habit.** The
+  suggestion "you always approve this, stop asking?" counted the cards
+  another program had asked for too. It now counts only what you asked for
+  yourself.
 - **`pn-scripts-assistant mcp` ends when it is told to.** Sent a signal to
   stop while its client still held its input open, it went on waiting for
   the next line. It now stops at once and gives up what it has in hand.
