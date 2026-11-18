@@ -162,3 +162,63 @@ func TestASwitchThatCannotBeReadIsNotAllowed(t *testing.T) {
 		t.Errorf("read as allowed: %v %v", may, err)
 	}
 }
+
+/*
+ * A name that looks like the store's own sealed text is not kept as one.
+ * Text beginning with the sealed mark is written as it is (it is taken
+ * for already sealed) and then cannot be read back, which would take the
+ * whole record with it; and the name is whatever a program chose to send.
+ */
+func TestANameThatLooksSealedDoesNotBreakTheRecord(t *testing.T) {
+	for name, opened := range map[string]func(*testing.T) *DB{
+		"a sealed brain": func(t *testing.T) *DB {
+			d, err := OpenSealed(filepath.Join(t.TempDir(), "brain.sqlite"), sealKey(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Cleanup(func() { d.Close() })
+
+			return d
+		},
+		"a brain with no key": open,
+	} {
+		t.Run(name, func(t *testing.T) {
+			d := opened(t)
+
+			for _, by := range []string{"pnsealed1:x", "pnsealed1:pnsealed1:AAAA", "pnsealed1:", "  pnsealed1:pnsealed1:"} {
+				if _, err := d.AddDeed(Deed{Tool: "assistant_status", Summary: "x", AskedBy: by, Outcome: "done"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			deeds, err := d.Deeds(DeedFilter{Outside: true})
+			if err != nil {
+				t.Fatalf("the record cannot be read any more: %v", err)
+			}
+
+			if len(deeds) != 4 || deeds[3].AskedBy != "x" || deeds[2].AskedBy != "AAAA" || deeds[1].AskedBy != NoName || deeds[0].AskedBy != NoName {
+				t.Errorf("the names kept: %q %q %q %q", deeds[3].AskedBy, deeds[2].AskedBy, deeds[1].AskedBy, deeds[0].AskedBy)
+			}
+
+			id, _ := d.RecordInvocation(1, "write_file", `{}`, "x", "mutating")
+			if err := d.InvocationAskedBy(id, "pnsealed1:Cursor"); err != nil {
+				t.Fatal(err)
+			}
+
+			pending, err := d.PendingInvocations()
+			if err != nil || len(pending) != 1 || pending[0].AskedBy != "Cursor" {
+				t.Errorf("the waiting question: %+v %v", pending, err)
+			}
+
+			other, _ := d.RecordInvocation(1, "write_file", `{}`, "x", "mutating")
+			if err := d.InvocationAskedBy(other, "pnsealed1:"); err != nil {
+				t.Fatal(err)
+			}
+
+			if q, err := d.Invocation(other); err != nil || q.AskedBy != NoName {
+				t.Errorf("a name that is only the mark: %+v %v", q, err)
+			}
+		})
+	}
+}

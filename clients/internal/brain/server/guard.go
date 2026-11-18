@@ -186,12 +186,15 @@ var awayMayDo = []string{
 
 /*
  * onThisComputerOnly are routes nothing away from this computer may use,
- * whatever its rights: the door other programs ask through. A question
+ * whatever its rights. The door other programs ask through: a question
  * there is recorded as asked by "another program on this computer", which
- * a device elsewhere is not.
+ * a device elsewhere is not. And the switch for what they may ask: it
+ * decides what leaves this computer through programs running on it, and
+ * is set where those programs are.
  */
 var onThisComputerOnly = []string{
 	"/api/outside/ask",
+	"/api/outside/allow",
 }
 
 func hereOnly(path string) bool {

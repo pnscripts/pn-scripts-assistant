@@ -39,8 +39,9 @@ type outsidePage struct {
 	Deeds   []struct {
 		Chip, Said, Title, Trait, Went, Result string
 	}
-	Tool struct{ Chip, Trait, Went string }
-	Mine struct{ Chip, Result string }
+	Tool   struct{ Chip, Trait, Went string }
+	Mine   struct{ Chip, Result string }
+	Turned []string
 }
 
 /*
@@ -226,6 +227,15 @@ func TestThePageSaysWhoAskedAndWhatMayBeAskedInBothLanguages(t *testing.T) {
 		t.Errorf("a tool run for another program: %+v", en.Tool)
 	}
 
+	// The change of the switch is a line of the record too, in both languages.
+	if len(en.Turned) != 1 || en.Turned[0] != "What other programs may ask: Other programs may now ask which programs are installed" {
+		t.Errorf("in English, the switch on the record: %q", en.Turned)
+	}
+
+	if len(bg.Turned) != 1 || bg.Turned[0] != "Какво могат да питат другите програми: Другите програми вече може да питат кои програми са инсталирани" {
+		t.Errorf("in Bulgarian, the switch on the record: %q", bg.Turned)
+	}
+
 	// What was done at the desk says nothing about another program.
 	if en.Mine.Chip != "" || en.Mine.Result != "" || bg.Mine.Chip != "" {
 		t.Errorf("a deed from the desk: %+v", en.Mine)
@@ -289,7 +299,10 @@ eval(read('i18n.js'));
 eval(read('programs.js'));
 const P = window.pnPrograms;
 const cards = json('cards.json');
-const deeds = json('deeds.json').deeds;
+const all = json('deeds.json').deeds;
+// What other programs asked; the change of the switch is a line of its own.
+const deeds = all.filter((d) => d.asked_by);
+const turned = all.filter((d) => d.tool === 'other_programs_switch').map((d) => window.pnToolName(d.tool) + ': ' + ((window.pnLang() === 'bg' && d.summary_bg) || d.summary));
 const upper = (o) => o && typeof o === 'object' && !Array.isArray(o)
     ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k[0].toUpperCase() + k.slice(1), upper(v)]))
     : (Array.isArray(o) ? o.map(upper) : o);
@@ -303,6 +316,7 @@ process.stdout.write(JSON.stringify(upper({
     card: P.approvalChoices(cards[0], 'write_file'),
     desk: P.approvalChoices(cards[1], 'write_file'),
     deeds: deeds.map(record),
+    turned,
     mine: record({ tool: 'write_file', summary: 'Write notes.txt', outcome: 'done', result: 'wrote 3 lines' }),
     tool: record({ tool: 'write_file', summary: 'Write notes.txt', outcome: 'done', result: 'wrote 3 lines', changes_something: true, asked_by: 'Cursor 3.0' }),
 })));

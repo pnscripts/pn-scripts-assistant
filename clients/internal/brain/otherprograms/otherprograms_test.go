@@ -57,6 +57,20 @@ func TestTheNameAProgramGivesIsMadeSafeToShow(t *testing.T) {
 		}
 	}
 
+	// Marks stacked on one letter would draw over the lines above and
+	// below: two stay, the rest go. Letters that need a mark keep it.
+	if got := Caller("Z"+strings.Repeat("\u0301", 50)+"algo", ""); got != "Z\u0301\u0301algo" {
+		t.Errorf("stacked marks: %q", got)
+	}
+
+	if got := Caller("Вѝдео Naïve हिन्दी", ""); got != "Вѝдео Naïve हिन्दी" {
+		t.Errorf("letters that carry a mark: %q", got)
+	}
+
+	if got := Caller(strings.Repeat("\u0301", 30), "\ufe0f\ufe0f"); got != Unnamed {
+		t.Errorf("marks with no letter under them: %q", got)
+	}
+
 	// Cut on a letter, never inside one.
 	if got := Caller(strings.Repeat("я", 100), ""); !utf8.ValidString(got) || utf8.RuneCountInString(got) != 60 {
 		t.Errorf("a long Cyrillic name: %q", got)
@@ -80,6 +94,12 @@ func TestEveryQuestionIsSaidInBothLanguages(t *testing.T) {
 	}
 
 	for _, s := range Subjects() {
+		for _, allowed := range []bool{true, false} {
+			if en, bg := Switched(s, allowed); en == "" || bg == "" || en == bg || strings.ContainsAny(en+bg, "–—") {
+				t.Errorf("%s switched %v: %q / %q", s, allowed, en, bg)
+			}
+		}
+
 		en, bg := NotAllowed(s)
 		if en == "" || bg == "" || en == bg || !strings.Contains(en, "Programs") {
 			t.Errorf("%s refused: %q / %q", s, en, bg)

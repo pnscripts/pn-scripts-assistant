@@ -3,7 +3,10 @@ package store
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
+
+	"pn-scripts-assistant/internal/brain/vault"
 )
 
 /*
@@ -73,4 +76,36 @@ func (d *DB) OutsideAllowed() (map[string]time.Time, error) {
 	}
 
 	return out, nil
+}
+
+// NoName is kept for a program whose name leaves nothing to keep (see
+// askedByName; otherprograms.Unnamed is the same word).
+const NoName = "unnamed"
+
+/*
+ * askedByName is the name of a program that asked, as it may be written.
+ *
+ * The name is whatever another program chose to send. Text that begins
+ * with the mark of sealed text is written as it is, because it is taken
+ * for already sealed, and then cannot be read back: one such name would
+ * make the whole record unreadable. So the mark is taken off the front,
+ * however often it is repeated, and a name that was nothing else is kept
+ * as NoName. An empty name stays empty: nobody else asked.
+ */
+func askedByName(by string) string {
+	if by == "" {
+		return ""
+	}
+
+	by = strings.TrimSpace(by)
+
+	for vault.IsSealedString(by) {
+		by = strings.TrimSpace(strings.TrimPrefix(by, vault.Prefix))
+	}
+
+	if by == "" {
+		return NoName
+	}
+
+	return by
 }

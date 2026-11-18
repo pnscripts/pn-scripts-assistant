@@ -575,19 +575,27 @@ func TestOnlyThisComputerAsksAsAnotherProgram(t *testing.T) {
 		t.Errorf("a device elsewhere asked as another program (%d)", w.Code)
 	}
 
-	// The same device may do what its rights allow: see and set the switch.
-	for _, each := range [][2]string{{"GET", "/api/outside"}, {"POST", "/api/outside/allow"}} {
-		*got = false
-
-		if w := ask(s, each[0], each[1], "192.168.1.9:4000", carry); w.Code != 200 || !*got {
-			t.Errorf("a device with every right could not %s %s (%d)", each[0], each[1], w.Code)
-		}
-	}
-
-	// And from this computer the door is open.
+	// Nor does it decide what other programs may ask: that switch is set
+	// at this computer, whatever a device's rights.
 	*got = false
 
-	if w := ask(s, "POST", "/api/outside/ask", "127.0.0.1:5000", nil); w.Code != 200 || !*got {
-		t.Errorf("a program on this computer could not ask (%d)", w.Code)
+	if w := ask(s, "POST", "/api/outside/allow", "192.168.1.9:4000", carry); w.Code != http.StatusForbidden || *got {
+		t.Errorf("a device elsewhere set what other programs may ask (%d)", w.Code)
+	}
+
+	// It may see how the switch stands.
+	*got = false
+
+	if w := ask(s, "GET", "/api/outside", "192.168.1.9:4000", carry); w.Code != 200 || !*got {
+		t.Errorf("a device with every right could not see the switch (%d)", w.Code)
+	}
+
+	// And from this computer both are open.
+	for _, path := range []string{"/api/outside/ask", "/api/outside/allow"} {
+		*got = false
+
+		if w := ask(s, "POST", path, "127.0.0.1:5000", nil); w.Code != 200 || !*got {
+			t.Errorf("this computer could not post to %s (%d)", path, w.Code)
+		}
 	}
 }

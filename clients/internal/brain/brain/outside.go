@@ -36,28 +36,52 @@ func (b *Brain) OutsideMay(subject otherprograms.Subject) bool {
 	return allowed
 }
 
-// AllowOutside sets one switch: whether other programs may ask about
-// subject.
+/*
+ * AllowOutside sets one switch: whether other programs may ask about
+ * subject. A change is written on the record of what was done, whoever
+ * made it: the assistant's own page and a program on this computer that
+ * posts to the same address cannot be told apart, so the record does not
+ * say "you", it says where. A switch set to what it already is changes
+ * nothing and records nothing.
+ */
 func (b *Brain) AllowOutside(subject otherprograms.Subject, allowed bool) error {
 	if !otherprograms.Known(subject) {
 		return fmt.Errorf("%q is not something other programs can be allowed to ask about", subject)
 	}
 
-	if !allowed {
-		if err := b.DB.DisallowOutside(string(subject)); err != nil {
-			return err
-		}
-
-		b.Log.Info("other programs may no longer ask", "about", string(subject))
-
-		return nil
-	}
-
-	if err := b.DB.AllowOutside(string(subject), time.Now()); err != nil {
+	may, err := b.DB.OutsideAllowed()
+	if err != nil {
 		return err
 	}
 
-	b.Log.Info("other programs may ask", "about", string(subject))
+	if _, was := may[string(subject)]; was == allowed {
+		return nil
+	}
+
+	if allowed {
+		err = b.DB.AllowOutside(string(subject), time.Now())
+	} else {
+		err = b.DB.DisallowOutside(string(subject))
+	}
+
+	if err != nil {
+		return err
+	}
+
+	b.Log.Info("what other programs may ask was changed", "about", string(subject), "allowed", allowed)
+
+	en, bg := otherprograms.Switched(subject, allowed)
+
+	if _, err := b.DB.AddDeed(store.Deed{
+		Tool:       "other_programs_switch",
+		Summary:    en,
+		SummaryBG:  bg,
+		Specialist: "changed at this computer",
+		Outcome:    "done",
+		Changes:    true,
+	}); err != nil {
+		b.Log.Warn("could not record a change of what other programs may ask", "error", err)
+	}
 
 	return nil
 }

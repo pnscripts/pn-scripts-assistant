@@ -133,3 +133,27 @@ func AskedByOf(ctx context.Context) string {
 
 	return by
 }
+
+/*
+ * OpenToOtherPrograms is implemented by a tool that a turn another program
+ * asked for may run without a question to the person.
+ *
+ * Closed unless opened: how a tool is classed at the desk says nothing
+ * here. Reading a file, the mail or the memory is "safe" for the person's
+ * own request and is still handing what is theirs to somebody else; a few
+ * tools classed safe write (a to-do, a reminder, a hire). So a tool is
+ * open to other programs only when it says so itself, and whoever opens
+ * one answers the question "would the person mind any program asking
+ * this, any number of times?".
+ */
+type OpenToOtherPrograms interface {
+	OpenToOtherPrograms() bool
+}
+
+// IsOpenToOtherPrograms reports whether a tool says other programs may
+// have it run without a question.
+func IsOpenToOtherPrograms(t Tool) bool {
+	o, ok := t.(OpenToOtherPrograms)
+
+	return ok && o.OpenToOtherPrograms()
+}

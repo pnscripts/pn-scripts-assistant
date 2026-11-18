@@ -507,6 +507,32 @@ func TestTheStatusIsToldEvenWhenTheQuestionCannotBeNoted(t *testing.T) {
 		t.Errorf("the list from an older assistant: %v", err)
 	}
 
+	// But an assistant that has the door and could not write the question
+	// down did not answer it, and neither does this: what another program
+	// is told is always on the record.
+	broken := http.NewServeMux()
+
+	broken.HandleFunc("GET /api/v1/version", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"product":"PN Scripts Assistant","version":"1.2.0","platform":"linux/amd64"}`)
+	})
+
+	broken.HandleFunc("GET /api/terms", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"version":1,"accepted":true}`)
+	})
+
+	broken.HandleFunc("POST /api/outside/ask", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, `{"error":"The question could not be written on the record, so it was not answered."}`)
+	})
+
+	bs := httptest.NewServer(broken)
+	defer bs.Close()
+
+	if text, err = run(t, New(bs.URL, "1"), "assistant_status", `{}`); err == nil || text != "" ||
+		!strings.Contains(err.Error(), "could not be written on the record") {
+		t.Errorf("a question that could not be written down: %q %v", text, err)
+	}
+
 	before, kept := fakeWith(t, threePrograms, false, true)
 
 	if text, err = run(t, New(before.URL, "1"), "assistant_status", `{}`); err != nil || !strings.Contains(text, "have not been accepted yet") {

@@ -102,13 +102,31 @@ func NotAllowed(s Subject) (en, bg string) {
 	return "", ""
 }
 
+// Switched is how the record says a switch was turned, in English and in
+// Bulgarian.
+func Switched(s Subject, allowed bool) (en, bg string) {
+	if s != Programs {
+		return "", ""
+	}
+
+	if allowed {
+		return "Other programs may now ask which programs are installed",
+			"Другите програми вече може да питат кои програми са инсталирани"
+	}
+
+	return "Other programs may no longer ask which programs are installed",
+		"Другите програми вече не може да питат кои програми са инсталирани"
+}
+
 // Unnamed is recorded for a program that gave no name that can be shown.
 const Unnamed = "unnamed"
 
-// How much of a name and of a version is kept.
+// How much of a name and of a version is kept, and how many combining
+// marks one letter may carry.
 const (
 	mostName    = 60
 	mostVersion = 30
+	mostMarks   = 2
 )
 
 /*
@@ -133,14 +151,29 @@ func Caller(name, version string) string {
 func shown(s string, most int) string {
 	var b strings.Builder
 
+	// marks is how many combining marks follow the letter before: a letter
+	// may carry two (as real writing does), and none stands on nothing.
+	marks, letter := 0, false
+
 	for _, r := range s {
 		switch {
 		case r == '\n' || r == '\r' || r == '\t':
 			b.WriteRune(' ')
+
+			marks, letter = 0, false
 		case unicode.IsControl(r), unicode.In(r, unicode.Cf, unicode.Co, unicode.Cs, unicode.Zl, unicode.Zp), r == unicode.ReplacementChar:
 			// Left out: it would not be seen, or would move what is.
+		case unicode.In(r, unicode.Mn, unicode.Me):
+			// Stacked marks draw over the lines above and below.
+			if letter && marks < mostMarks {
+				b.WriteRune(r)
+
+				marks++
+			}
 		default:
 			b.WriteRune(r)
+
+			marks, letter = 0, !unicode.IsSpace(r)
 		}
 	}
 

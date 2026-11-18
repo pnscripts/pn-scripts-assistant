@@ -436,8 +436,10 @@ func TestTheMCPServerAsksThroughTheDoorAndIsWrittenDown(t *testing.T) {
 		} `json:"deeds"`
 	}
 
+	// Three questions with who asked, and the change of the switch between them.
 	getJSON(t, ts.URL+"/api/deeds", &served)
-	if len(served.Deeds) != 3 || served.Deeds[0].AskedBy != "claude-code 2.1.0" {
+	if len(served.Deeds) != 4 || served.Deeds[0].AskedBy != "claude-code 2.1.0" ||
+		served.Deeds[2].Tool != "other_programs_switch" || served.Deeds[2].AskedBy != "" {
 		t.Errorf("the record as the page is served it: %+v", served)
 	}
 }
@@ -484,5 +486,79 @@ func TestAWaitingQuestionSaysWhichProgramAskedForIt(t *testing.T) {
 	deeds := theirs(t, db)
 	if len(deeds) != 1 || deeds[0].AskedBy != "claude-code 2.1.0" || deeds[0].Outcome != "refused" {
 		t.Errorf("the record of the rejection: %+v", deeds)
+	}
+}
+
+/*
+ * Every change of the switch is on the record, whoever made it: the
+ * assistant's own page, or any program on this computer that posts to the
+ * same address (nothing can tell the two apart, which is why it is
+ * written down rather than promised impossible).
+ */
+func TestEveryChangeOfTheSwitchIsOnTheRecord(t *testing.T) {
+	ts, db, _ := newServer(t)
+
+	post(t, ts.URL+"/api/outside/allow", `{"subject":"programs","allowed":true}`)
+	post(t, ts.URL+"/api/outside/allow", `{"subject":"programs","allowed":true}`)
+	post(t, ts.URL+"/api/outside/allow", `{"subject":"programs","allowed":false}`)
+
+	deeds, err := db.Deeds(store.DeedFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Allowed twice is one change.
+	if len(deeds) != 2 {
+		t.Fatalf("the record of the switch: %+v", deeds)
+	}
+
+	off, on := deeds[0], deeds[1]
+
+	if on.Tool != "other_programs_switch" || !on.Changes || on.Outcome != "done" || on.AskedBy != "" ||
+		on.Summary != "Other programs may now ask which programs are installed" ||
+		on.SummaryBG != "Другите програми вече може да питат кои програми са инсталирани" ||
+		on.Specialist != "changed at this computer" {
+		t.Errorf("allowing, on the record: %+v", on)
+	}
+
+	if off.Summary != "Other programs may no longer ask which programs are installed" ||
+		off.SummaryBG != "Другите програми вече не може да питат кои програми са инсталирани" {
+		t.Errorf("taking it back, on the record: %+v", off)
+	}
+
+	// The page names it in both languages.
+	names := readAsset(t, "js/i18n.js")
+	if !strings.Contains(names, "other_programs_switch: ['What other programs may ask', 'Какво могат да питат другите програми']") {
+		t.Error("the record's name for the switch is not in both languages")
+	}
+}
+
+// The word for a program with no name is one word in both places.
+func TestNoNameIsOneWord(t *testing.T) {
+	if otherprograms.Unnamed != store.NoName {
+		t.Errorf("%q and %q", otherprograms.Unnamed, store.NoName)
+	}
+}
+
+// A name that looks like the store's sealed text neither breaks the record
+// nor the card with the switch.
+func TestANameThatLooksSealedIsJustAName(t *testing.T) {
+	ts, db, _ := newServer(t)
+
+	for _, name := range []string{"pnsealed1:x", "pnsealed1:"} {
+		if code, body := post(t, ts.URL+"/api/outside/ask", `{"tool":"assistant_status","client":{"name":"`+name+`"}}`); code != http.StatusOK {
+			t.Fatalf("%s: %d %s", name, code, body)
+		}
+	}
+
+	var state outsideState
+
+	getJSON(t, ts.URL+"/api/outside", &state)
+	if len(state.Subjects) != 1 || len(state.Recent) != 2 || state.Recent[0].By != otherprograms.Unnamed || state.Recent[1].By != "x" {
+		t.Errorf("the card after such a name: %+v", state)
+	}
+
+	if deeds := theirs(t, db); len(deeds) != 2 {
+		t.Errorf("the record after such a name: %+v", deeds)
 	}
 }

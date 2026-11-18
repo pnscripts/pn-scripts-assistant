@@ -207,8 +207,8 @@
         ],
         'out.title': ['What other programs may ask', 'Какво могат да питат другите програми'],
         'out.lead': [
-            'Programs you connect to me, such as Claude Code, Claude Desktop or Cursor, can ask me questions. What they may ask is decided here, and only here. Every question is written in “What I did”, with the name the program gave.',
-            'Програмите, които свържете с мен, например Claude Code, Claude Desktop или Cursor, могат да ми задават въпроси. Какво имат право да питат се решава тук и само тук. Всеки въпрос се записва в „Какво направих“ с името, което програмата е дала.',
+            'Programs you connect to me, such as Claude Code, Claude Desktop or Cursor, can ask me questions. What they may ask is decided here, at this computer. Every question, and every change of a switch, is written in “What I did”.',
+            'Програмите, които свържете с мен, например Claude Code, Claude Desktop или Cursor, могат да ми задават въпроси. Какво имат право да питат се решава тук, на този компютър. Всеки въпрос и всяка промяна на превключвател се записват в „Какво направих“.',
         ],
         'out.status': ['Whether I am running, and which version I am', 'Дали работя и коя версия съм'],
         'out.always': ['Always answered', 'Винаги се отговаря'],
@@ -252,8 +252,8 @@
             'Друга програма поиска това чрез мен. Отговорът важи само за този път: за искане от друга програма не се предлага трайно разрешение.',
         ],
         'out.desk': [
-            'Only at this computer: what other programs may ask is decided here, not from a phone.',
-            'Само на този компютър: какво могат да питат другите програми се решава тук, не от телефон.',
+            'Only at this computer: what other programs may ask is decided here, not from another device.',
+            'Само на този компютър: какво могат да питат другите програми се решава тук, не от друго устройство.',
         ],
         'out.notKept': ['That was not kept. Try again.', 'Това не беше запазено. Опитайте отново.'],
         'out.failed': [
@@ -4472,6 +4472,7 @@
         scroll: ['Scroll', 'Превъртане'],
         search_files: ['Search files', 'Търсене във файлове'],
         send_draft: ['Send a draft', 'Изпращане на чернова'],
+        other_programs_switch: ['What other programs may ask', 'Какво могат да питат другите програми'],
         send_email: ['Send email', 'Изпращане на имейл'],
         set_appearance: ['Change how it looks', 'Промяна на външния вид'],
         set_device: ['Control a device', 'Управление на устройство'],

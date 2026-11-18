@@ -84,7 +84,7 @@ func (d *DB) AddDeed(deed Deed) (int64, error) {
 		d.seal(redact.Text(truncate(deed.Result, deedResultLimit))),
 		deed.Specialist, deed.Model, deed.ModelWhy, deed.Outcome, deed.Level, changes,
 		d.seal(deed.Leaves), deed.Millis, now.UTC().Format(time.RFC3339Nano),
-		d.seal(redact.Text(truncate(deed.AskedBy, 120))),
+		d.seal(askedByName(redact.Text(truncate(deed.AskedBy, 120)))),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("recording what was done: %w", err)

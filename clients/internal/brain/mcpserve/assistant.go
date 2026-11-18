@@ -335,15 +335,18 @@ func (a *assistant) status(ctx context.Context, _ json.RawMessage, who Caller) (
 
 	/*
 	 * The question is put through the door so that it is on the record
-	 * with who asked. Whether that worked changes nothing in the answer:
-	 * the program is running, which is all this tool says, and an
-	 * assistant from before the door existed is running too.
+	 * with who asked, and an assistant that could not write it down did
+	 * not answer, so neither does this. One exception: an assistant from
+	 * before the door existed is running all the same, keeps no such
+	 * record, and saying so is all this tool does.
 	 */
 	var noted struct {
 		Noted bool `json:"noted"`
 	}
 
-	_ = a.ask(ctx, "assistant_status", struct{}{}, who, &noted)
+	if err := a.ask(ctx, "assistant_status", struct{}{}, who, &noted); err != nil && !errors.Is(err, errNoDoor) {
+		return "", err
+	}
 
 	return said + " Its terms of use are accepted, so it answers.", nil
 }

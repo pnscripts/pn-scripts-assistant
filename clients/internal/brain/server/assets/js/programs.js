@@ -784,6 +784,11 @@
     async function setOutside(subject, allowed) {
         outsideSaying = '';
 
+        // Drawn again whatever comes back: the box was just ticked by hand,
+        // and must end showing what the assistant keeps, also when the
+        // answer is the same refusal as the last time.
+        outsideDrawn = '';
+
         try {
             const res = await fetch('/api/outside/allow', {
                 method: 'POST',

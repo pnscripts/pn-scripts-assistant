@@ -79,9 +79,13 @@ against the code on 9 November 2026.
   asking program to the model it uses, usually a service on the internet.
   The list of programs is off until you allow it on the Programs page.
   Every question is on the record with the name the asking program gave;
-  that name is the program's own word and nothing checks it, and any
-  program running as you on this computer can ask the same way, under any
-  name. On Windows give the program's full path in the entry.
+  that name is the program's own word and nothing checks it. The switch
+  and the record are for programs that ask through `pn-scripts-assistant
+  mcp`: a program running under your account on this computer can reach
+  the assistant's own address as its window does, so it can ask under any
+  name, read the list of programs there, or turn the switch itself. Every
+  change of the switch is on the record. On Windows give the program's
+  full path in the entry.
 - **MCP servers from other programs: four programs, their own settings
   only.** Claude Desktop, Claude Code (`~/.claude.json`, or the folder
   `CLAUDE_CONFIG_DIR` names), Cursor (`~/.cursor/mcp.json`) and VS Code (the

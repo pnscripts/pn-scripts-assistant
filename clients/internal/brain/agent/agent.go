@@ -1460,13 +1460,15 @@ func (l *Loop) RunBrief(
 
 			/*
 			 * What another program asked for (through the MCP server) is
-			 * its person's to decide whenever it would change something,
-			 * whatever is allowed at the desk: they allowed their own
-			 * requests, not everybody's. Nothing lasting is offered on the
-			 * card either (askedForMore). What only reads runs, and the
-			 * record says who it was for.
+			 * its person's to decide, whatever is allowed at the desk:
+			 * they allowed their own requests, not everybody's. Closed
+			 * unless opened: only a tool that says it is open to other
+			 * programs runs without the question (tools.OpenToOtherPrograms),
+			 * because "safe" at the desk still reads what is the person's.
+			 * Nothing lasting is offered on the card either (askedForMore),
+			 * and the record says who it was for.
 			 */
-			if brief.AskedBy != "" && tool.Risk() != tools.Safe {
+			if brief.AskedBy != "" && !tools.IsOpenToOtherPrograms(tool) {
 				ask = true
 				askedForMore = true
 				answer = permits.Ask

@@ -101,49 +101,88 @@ func TestTheSameRequestFromTheDeskIsNotAskedTwice(t *testing.T) {
 	}
 }
 
-// Something that only reads runs for another program too, and the record
-// says who it was for.
-func TestWhatOnlyReadsRunsForAnotherProgramAndSaysWho(t *testing.T) {
-	ran := 0
-	loop, db := newLoop(t, counted{name: "list_programs", ran: &ran})
+// open is a tool that says other programs may use it without a question.
+type open struct{ counted }
+
+func (open) OpenToOtherPrograms() bool { return true }
+
+/*
+ * A turn another program asked for runs nothing unasked that does not say
+ * it is open to other programs. "Only reads" is not enough: reading a
+ * file, the mail or the memory is reading what is the person's, and some
+ * tools that count as safe at the desk write (a to-do, a reminder, a
+ * hire). So the rule is by name, not by kind: closed unless opened.
+ */
+func TestATurnForAnotherProgramRunsOnlyWhatIsOpenToOtherPrograms(t *testing.T) {
+	readRan, openRan := 0, 0
+	loop, db := newLoop(t, counted{name: "read_file", ran: &readRan}, open{counted{name: "list_programs", ran: &openRan}})
+	loop.MayI = func(string, string, bool, risk.Level) permits.Answer { return permits.Allow }
+	loop.NothingAsks = func() bool { return true }
+	loop.Unbounded = func() bool { return true }
 
 	var deeds []Deed
 	loop.Did = func(d Deed) { deeds = append(deeds, d) }
 
 	conv, _ := db.NewConversation("t")
 
+	model := &scripted{replies: []llm.Response{{
+		Content: "Looking.",
+		ToolCalls: []llm.ToolCall{
+			{ID: "c1", Name: "list_programs", Arguments: json.RawMessage(`{}`)},
+			{ID: "c2", Name: "read_file", Arguments: json.RawMessage(`{}`)},
+		},
+	}}}
+
 	// Named in the brief, as the door will name it.
-	res, err := loop.RunBrief(context.Background(), conv, askingFor("list_programs"), nil,
-		Brief{WithTools: true, AskedBy: "Cursor 3.0"})
+	res, err := loop.RunBrief(context.Background(), conv, model, nil, Brief{WithTools: true, AskedBy: "Cursor 3.0"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if ran != 1 || len(res.Pending) != 0 {
-		t.Fatalf("ran %d times, %d questions", ran, len(res.Pending))
+	if openRan != 1 {
+		t.Errorf("the tool open to other programs ran %d times", openRan)
 	}
 
-	if len(deeds) != 1 || deeds[0].AskedBy != "Cursor 3.0" || deeds[0].Outcome != DeedDone {
+	if readRan != 0 || len(res.Pending) != 1 || res.Pending[0].Tool != "read_file" {
+		t.Fatalf("a tool that is not open to other programs ran %d times, %d questions", readRan, len(res.Pending))
+	}
+
+	q, _ := db.Invocation(res.Pending[0].ID)
+	if q.AskedBy != "Cursor 3.0" || !strings.HasPrefix(q.Summary, "Always asked (another program asked for it): ") {
+		t.Errorf("the question: %+v", q)
+	}
+
+	if len(deeds) != 2 || deeds[0].AskedBy != "Cursor 3.0" || deeds[0].Outcome != DeedDone ||
+		deeds[1].AskedBy != "Cursor 3.0" || deeds[1].Outcome != DeedWaiting {
 		t.Errorf("the record: %+v", deeds)
+	}
+
+	// The same safe tool from the desk runs without a question.
+	readRan = 0
+	conv, _ = db.NewConversation("t2")
+
+	if res, err = loop.RunBrief(context.Background(), conv, askingFor("read_file"), nil, Brief{WithTools: true}); err != nil ||
+		readRan != 1 || len(res.Pending) != 0 {
+		t.Errorf("from the desk: ran %d times, %d questions (%v)", readRan, len(res.Pending), err)
 	}
 }
 
 // A tool reached through another tool still knows who asked: the name
 // travels with the call.
 type asksWho struct {
-	counted
+	open
 	heard *string
 }
 
 func (a asksWho) Execute(ctx context.Context, args json.RawMessage) (string, error) {
 	*a.heard = tools.AskedByOf(ctx)
 
-	return a.counted.Execute(ctx, args)
+	return a.open.Execute(ctx, args)
 }
 
 func TestAToolIsToldWhoAsked(t *testing.T) {
 	ran, heard := 0, ""
-	loop, db := newLoop(t, asksWho{counted{name: "list_programs", ran: &ran}, &heard})
+	loop, db := newLoop(t, asksWho{open{counted{name: "list_programs", ran: &ran}}, &heard})
 
 	conv, _ := db.NewConversation("t")
 

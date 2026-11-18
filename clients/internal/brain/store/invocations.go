@@ -159,7 +159,7 @@ func (d *DB) InvocationAskedBy(id int64, by string) error {
 
 	_, err := d.sql().Exec(
 		`UPDATE tool_invocations SET asked_by = ?, updated_at = ? WHERE id = ? AND status = ?`,
-		d.seal(by), time.Now().UTC().Format(time.RFC3339), id, InvocationPending)
+		d.seal(askedByName(truncate(by, 120))), time.Now().UTC().Format(time.RFC3339), id, InvocationPending)
 
 	return err
 }

@@ -30,13 +30,15 @@ whenever something visible changed.
   assistant is running is always answered; the list of installed programs
   is off until you switch it on there, on a new installation and after an
   update alike, and a program that asks while it is off is told to ask you.
-  The switch is changed only in the assistant's window at this computer.
-  Every question from another program is written in "What I did" with
-  "Asked by" and the name the program gave, answered or not, and the last
-  five are listed under the switch. A program is told a program's name,
-  version and source, never where it is or how it is started. If something
-  another program asks for needs your yes, its card says who asked and
-  offers yes or no for that once, whatever you have allowed for yourself.
+  The switch is set at this computer, never from another device or a web
+  page, and every change of it is on the record. Every question from
+  another program is written in "What I did" with "Asked by" and the name
+  the program gave, answered or not, and the last five are listed under
+  the switch. A program is told a program's name, version and source,
+  never where it is or how it is started. Whatever another program asks
+  for beyond these questions is put to you first, with who asked on its
+  card and yes or no for that once, whatever you have allowed for
+  yourself; another program can never give that yes.
 - **The assistant's own entry is not offered for import.** After that
   set-up, "Found in your other programs" lists the entry as the assistant
   itself, with nothing to import.

@@ -26,19 +26,26 @@ installed on this computer". It is off on a new installation and after an
 update. While it is off, a program that asks is told that you have not
 allowed it and where you can; it gets no list.
 
-The switch is changed only in the assistant's own window at this computer:
-not from a paired phone, not by a web page, and not by the program that
-asks.
+The switch is set at this computer: not from a paired device and not by a
+web page, and the asking program is given no way to change it. Every change
+of it is written in "What I did", so a change you did not make would show
+there.
 
 ## You see who asked
 Every question is written in "What I did" with "Asked by" and the name the
 program gave, whether it was answered or not. The last five are also listed
 under the switch. If something another program asks for ever needs your
 yes, its card says "Asked by" the same way, and offers yes or no for that
-once: no "always" is offered for what another program asks.
+once: no "always" is offered for what another program asks, and another
+program can never give the yes itself.
 
 The name is what the program says about itself. Nothing can check it, so it
 is shown to you and never decides anything.
+
+The switch and the record are for programs that ask the way they are meant
+to, through `pn-scripts-assistant mcp`. A program running under your own
+account on this computer can do what you can do at this computer, as with
+your files; see "Known limits".
 
 ## Setting it up
 The assistant must be installed so that `pn-scripts-assistant` is a command
