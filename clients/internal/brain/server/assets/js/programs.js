@@ -464,8 +464,19 @@
         return '';
     }
 
+    /*
+     * Where a switch for what other programs may ask was changed, for its
+     * line on the record. Not "who": the assistant's own page and a
+     * program on this computer posting to the same address look the same,
+     * so the record says where and nothing it cannot know. Empty for any
+     * other deed.
+     */
+    function turnedWhere(d) {
+        return d && d.tool === 'other_programs_switch' ? T('out.atDesk') : '';
+    }
+
     window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, may, why, stopping, approvalChoices,
-        outside, askedBy, outsideResult,
+        outside, askedBy, outsideResult, turnedWhere,
         reasons: Object.keys(WHY), answers: ANSWERS };
 
     // ---- drawing ----

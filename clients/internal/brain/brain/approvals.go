@@ -151,7 +151,12 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 	 * must not quietly open every .env on the machine. The list of what it has
 	 * learned is shown in the privacy panel and any of it can be taken back.
 	 */
-	if path, _, held := protect.InArguments(json.RawMessage(invocation.Arguments)); held {
+	/*
+	 * Not for what another program asked for: that yes is for this once.
+	 * Learning it would open the file to every later request, the
+	 * person's own included, on the strength of somebody else's question.
+	 */
+	if path, _, held := protect.InArguments(json.RawMessage(invocation.Arguments)); held && invocation.AskedBy == "" {
 		protect.Learn(b.Root, path)
 
 		b.Log.Info("learned that a protected file is allowed",

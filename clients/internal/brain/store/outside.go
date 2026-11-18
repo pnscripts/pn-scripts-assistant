@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -40,6 +41,52 @@ func (d *DB) DisallowOutside(subject string) error {
 	}
 
 	return nil
+}
+
+/*
+ * SwitchOutside turns one switch and writes its line on the record of
+ * what was done, as one thing: both happen or neither does. The record is
+ * how its person sees a change they did not make, so a change that cannot
+ * be recorded is not made. It reports whether anything changed: a switch
+ * turned to where it already is changes nothing and records nothing.
+ */
+func (d *DB) SwitchOutside(subject string, allowed bool, at time.Time, turned Deed) (bool, error) {
+	if subject == "" {
+		return false, errors.New("nothing named to allow other programs to ask about")
+	}
+
+	tx, err := d.sql().Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	var res sql.Result
+
+	if allowed {
+		res, err = tx.Exec(`INSERT INTO outside_may (subject, since) VALUES (?, ?) ON CONFLICT (subject) DO NOTHING`,
+			subject, at.UTC().Format(time.RFC3339Nano))
+	} else {
+		res, err = tx.Exec(`DELETE FROM outside_may WHERE subject = ?`, subject)
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("changing what other programs may ask about %s: %w", subject, err)
+	}
+
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return false, err
+	}
+
+	if _, err := d.insertDeed(tx, turned); err != nil {
+		return false, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 /*

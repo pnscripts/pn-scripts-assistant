@@ -222,3 +222,69 @@ func TestANameThatLooksSealedDoesNotBreakTheRecord(t *testing.T) {
 		})
 	}
 }
+
+/*
+ * A change of what other programs may ask and its line on the record are
+ * one thing: both happen or neither does. The record is how its person
+ * sees a change they did not make, so a change with no record is refused.
+ */
+func TestASwitchIsNotTurnedWithoutItsRecord(t *testing.T) {
+	d := open(t)
+	now := time.Now()
+
+	turned := Deed{Tool: "other_programs_switch", Summary: "Other programs may now ask which programs are installed", Outcome: "done", Changes: true}
+
+	changed, err := d.SwitchOutside("programs", true, now, turned)
+	if err != nil || !changed {
+		t.Fatalf("turning it on: %v %v", changed, err)
+	}
+
+	// Turned on while on: nothing changes and nothing more is written.
+	if changed, err = d.SwitchOutside("programs", true, now.Add(time.Hour), turned); err != nil || changed {
+		t.Fatalf("turning on what is on: %v %v", changed, err)
+	}
+
+	deeds, _ := d.Deeds(DeedFilter{})
+	may, _ := d.OutsideAllowed()
+
+	if len(deeds) != 1 || deeds[0].Tool != "other_programs_switch" || !deeds[0].Changes || !may["programs"].Equal(now.UTC().Truncate(time.Nanosecond)) {
+		t.Fatalf("after turning it on: %+v %v", deeds, may)
+	}
+
+	if changed, err = d.SwitchOutside("programs", false, now, turned); err != nil || !changed {
+		t.Fatalf("turning it off: %v %v", changed, err)
+	}
+
+	if may, _ = d.OutsideAllowed(); len(may) != 0 {
+		t.Fatalf("still on: %v", may)
+	}
+
+	// The record cannot be written: the switch stays where it was, both ways.
+	if _, err := d.sql().Exec(`ALTER TABLE deeds RENAME TO deeds_away`); err != nil {
+		t.Fatal(err)
+	}
+
+	if changed, err = d.SwitchOutside("programs", true, now, turned); err == nil || changed {
+		t.Errorf("turned on with no record: %v %v", changed, err)
+	}
+
+	if may, _ = d.OutsideAllowed(); len(may) != 0 {
+		t.Errorf("on, with no record of it: %v", may)
+	}
+
+	d.sql().Exec(`ALTER TABLE deeds_away RENAME TO deeds`)
+	d.SwitchOutside("programs", true, now, turned)
+	d.sql().Exec(`ALTER TABLE deeds RENAME TO deeds_away`)
+
+	if changed, err = d.SwitchOutside("programs", false, now, turned); err == nil || changed {
+		t.Errorf("turned off with no record: %v %v", changed, err)
+	}
+
+	if may, _ = d.OutsideAllowed(); len(may) != 1 {
+		t.Errorf("off, with no record of it: %v", may)
+	}
+
+	if _, err := d.SwitchOutside("", true, now, turned); err == nil {
+		t.Error("a switch with no name was turned")
+	}
+}

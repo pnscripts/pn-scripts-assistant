@@ -516,14 +516,20 @@ func TestEveryChangeOfTheSwitchIsOnTheRecord(t *testing.T) {
 
 	if on.Tool != "other_programs_switch" || !on.Changes || on.Outcome != "done" || on.AskedBy != "" ||
 		on.Summary != "Other programs may now ask which programs are installed" ||
-		on.SummaryBG != "Другите програми вече може да питат кои програми са инсталирани" ||
-		on.Specialist != "changed at this computer" {
+		on.SummaryBG != "Другите програми вече могат да питат кои програми са инсталирани" ||
+		on.Specialist != "" {
 		t.Errorf("allowing, on the record: %+v", on)
 	}
 
 	if off.Summary != "Other programs may no longer ask which programs are installed" ||
-		off.SummaryBG != "Другите програми вече не може да питат кои програми са инсталирани" {
+		off.SummaryBG != "Другите програми вече не могат да питат кои програми са инсталирани" {
 		t.Errorf("taking it back, on the record: %+v", off)
+	}
+
+	// A switch turned to where it is writes nothing more; one that could
+	// not be recorded is not turned, and the page is told it was not kept.
+	if _, err := db.Deeds(store.DeedFilter{}); err != nil {
+		t.Fatal(err)
 	}
 
 	// The page names it in both languages.

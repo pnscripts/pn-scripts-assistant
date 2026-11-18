@@ -241,6 +241,7 @@
             'Програмата не каза как се казва.',
         ],
         'out.trait': ['A question from another program', 'Въпрос от друга програма'],
+        'out.atDesk': ['Changed at this computer', 'Променено на този компютър'],
         'out.went': ['the answer went to that program', 'отговорът отиде при тази програма'],
         'out.rec.refused': [
             'Not answered: other programs may not ask which programs are installed. You can allow it on the Programs page, under “What other programs may ask”.',

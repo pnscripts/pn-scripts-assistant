@@ -111,11 +111,11 @@ func Switched(s Subject, allowed bool) (en, bg string) {
 
 	if allowed {
 		return "Other programs may now ask which programs are installed",
-			"Другите програми вече може да питат кои програми са инсталирани"
+			"Другите програми вече могат да питат кои програми са инсталирани"
 	}
 
 	return "Other programs may no longer ask which programs are installed",
-		"Другите програми вече не може да питат кои програми са инсталирани"
+		"Другите програми вече не могат да питат кои програми са инсталирани"
 }
 
 // Unnamed is recorded for a program that gave no name that can be shown.

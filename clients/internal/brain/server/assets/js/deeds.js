@@ -154,7 +154,11 @@
 
         if (d.task_name) body.appendChild(field(T('deeds.task'), d.task_name));
 
-        body.appendChild(field(T('deeds.who'), d.specialist || T('deeds.you')));
+        // A switch for what other programs may ask says where it was
+        // changed, which is all that can be known of who.
+        const where = window.pnPrograms && window.pnPrograms.turnedWhere ? window.pnPrograms.turnedWhere(d) : '';
+
+        body.appendChild(field(T('deeds.who'), where || d.specialist || T('deeds.you')));
 
         if (asker) {
             body.appendChild(field(T('deeds.askedBy'), asker.said));

@@ -41,50 +41,40 @@ func (b *Brain) OutsideMay(subject otherprograms.Subject) bool {
  * subject. A change is written on the record of what was done, whoever
  * made it: the assistant's own page and a program on this computer that
  * posts to the same address cannot be told apart, so the record does not
- * say "you", it says where. A switch set to what it already is changes
- * nothing and records nothing.
+ * say "you", it says where. The change and its record are one thing: a
+ * change that cannot be recorded is not made (store.SwitchOutside). A
+ * switch set to what it already is changes nothing and records nothing.
  */
 func (b *Brain) AllowOutside(subject otherprograms.Subject, allowed bool) error {
 	if !otherprograms.Known(subject) {
 		return fmt.Errorf("%q is not something other programs can be allowed to ask about", subject)
 	}
 
-	may, err := b.DB.OutsideAllowed()
-	if err != nil {
-		return err
-	}
-
-	if _, was := may[string(subject)]; was == allowed {
-		return nil
-	}
-
-	if allowed {
-		err = b.DB.AllowOutside(string(subject), time.Now())
-	} else {
-		err = b.DB.DisallowOutside(string(subject))
-	}
-
-	if err != nil {
-		return err
-	}
-
-	b.Log.Info("what other programs may ask was changed", "about", string(subject), "allowed", allowed)
-
 	en, bg := otherprograms.Switched(subject, allowed)
 
-	if _, err := b.DB.AddDeed(store.Deed{
-		Tool:       "other_programs_switch",
-		Summary:    en,
-		SummaryBG:  bg,
-		Specialist: "changed at this computer",
-		Outcome:    "done",
-		Changes:    true,
-	}); err != nil {
-		b.Log.Warn("could not record a change of what other programs may ask", "error", err)
+	// Who made the change is not said: the assistant's own page and a
+	// program posting to the same address look the same. The page says
+	// where instead (deeds.js, for this tool).
+	changed, err := b.DB.SwitchOutside(string(subject), allowed, time.Now(), store.Deed{
+		Tool:      SwitchTool,
+		Summary:   en,
+		SummaryBG: bg,
+		Outcome:   "done",
+		Changes:   true,
+	})
+	if err != nil {
+		return err
+	}
+
+	if changed {
+		b.Log.Info("what other programs may ask was changed", "about", string(subject), "allowed", allowed)
 	}
 
 	return nil
 }
+
+// SwitchTool is the name the record keeps a change of a switch under.
+const SwitchTool = "other_programs_switch"
 
 // OutsideSwitch is one switch as the page shows it.
 type OutsideSwitch struct {

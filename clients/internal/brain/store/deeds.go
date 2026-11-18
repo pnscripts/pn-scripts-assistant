@@ -62,6 +62,30 @@ const (
 // AddDeed records one call. Secrets are taken out first, as everywhere text
 // from a tool is kept.
 func (d *DB) AddDeed(deed Deed) (int64, error) {
+	res, err := d.insertDeed(d.sql(), deed)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := res.LastInsertId()
+
+	// Kept for half a year, tidied now and then rather than on every call.
+	if err == nil && id%200 == 0 {
+		d.PruneDeeds(time.Now().Add(-DeedsKept))
+	}
+
+	return id, err
+}
+
+// execer is the database, or a transaction on it.
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+// insertDeed writes one deed through the database or through a
+// transaction, for a record that must be written together with what it
+// records (see SwitchOutside).
+func (d *DB) insertDeed(to execer, deed Deed) (sql.Result, error) {
 	now := deed.CreatedAt
 	if now.IsZero() {
 		now = time.Now()
@@ -72,7 +96,7 @@ func (d *DB) AddDeed(deed Deed) (int64, error) {
 		changes = 1
 	}
 
-	res, err := d.sql().Exec(`
+	res, err := to.Exec(`
 		INSERT INTO deeds (conversation_id, task_id, tool, summary, summary_bg, asked, request, result,
 			specialist, model, model_why, outcome, level, changes, leaves, millis, created_at, asked_by)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -87,17 +111,10 @@ func (d *DB) AddDeed(deed Deed) (int64, error) {
 		d.seal(askedByName(redact.Text(truncate(deed.AskedBy, 120)))),
 	)
 	if err != nil {
-		return 0, fmt.Errorf("recording what was done: %w", err)
+		return nil, fmt.Errorf("recording what was done: %w", err)
 	}
 
-	id, err := res.LastInsertId()
-
-	// Kept for half a year, tidied now and then rather than on every call.
-	if err == nil && id%200 == 0 {
-		d.PruneDeeds(time.Now().Add(-DeedsKept))
-	}
-
-	return id, err
+	return res, nil
 }
 
 // DeedsKept is how long the record of what was done is kept.
