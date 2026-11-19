@@ -63,13 +63,22 @@ func main() {
 	msgs, err := db.History(1)
 	check(err == nil && len(msgs) >= 2 && has(msgs[0].Content) && has(msgs[1].Content), "conversation 1: %d messages, words intact (%v)", len(msgs), err)
 
+	// What an older version wrote as it came because it began like sealed
+	// text: readable again, and as it was written.
+	recent, err := db.RecentConversations(50)
+	found := false
+	for _, c := range recent {
+		found = found || c.Opening == "pnsealed1:pasted from a page "+mark
+	}
+	check(err == nil && found, "text that began with the sealed mark reads as it was written (%v)", err)
+
 	if len(msgs) >= 2 {
 		src, err := db.Sources(msgs[1].ID)
 		check(err == nil && has(string(src)), "sources of the answer (%v)", err)
 	}
 
 	facts, err := db.AllFacts()
-	found := false
+	found = false
 	for _, f := range facts {
 		found = found || has(f.Content)
 	}

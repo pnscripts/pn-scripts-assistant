@@ -112,5 +112,13 @@ func main() {
 	_, err = db.AddLesson(0, "The lease ends in May "+mark, "proposed", "high", "document:/home/you/lease.md")
 	must(err)
 
+	// Text beginning with the mark of sealed text: versions before 1.2.0 took
+	// it for sealed, wrote it as it came and could not read it back. This
+	// tree must seal it and read it as it was written.
+	pasted, err := db.NewConversation("A pasted line " + mark)
+	must(err)
+	_, err = db.AddMessage(pasted, "user", "", "", "pnsealed1:pasted from a page "+mark)
+	must(err)
+
 	fmt.Println("seeded", r.Path, "conversation", conv)
 }

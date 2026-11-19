@@ -146,8 +146,10 @@ func (r *sealedRows) Next(dest []driver.Value) error {
 					return fmt.Errorf("column %d: %w", i, err)
 				}
 
-				dest[i] = plain
+				x = plain
 			}
+
+			dest[i] = vault.Unkeep(x)
 		case []byte:
 			if vault.IsSealed(x) {
 				if r.key == nil {
@@ -159,8 +161,8 @@ func (r *sealedRows) Next(dest []driver.Value) error {
 					return fmt.Errorf("column %d: %w", i, err)
 				}
 
-				dest[i] = plain
-			} else if vault.IsSealedString(string(x)) {
+				x = plain
+			} else if vault.IsSealedString(string(x[:min(len(x), len(vault.Prefix))])) {
 				// Text that came back as bytes.
 				if r.key == nil {
 					return fmt.Errorf("column %d: %w", i, vault.ErrNoKey)
@@ -171,23 +173,79 @@ func (r *sealedRows) Next(dest []driver.Value) error {
 					return fmt.Errorf("column %d: %w", i, err)
 				}
 
-				dest[i] = []byte(plain)
+				x = []byte(plain)
 			}
+
+			dest[i] = vault.UnkeepBytes(x)
 		}
 	}
 
 	return nil
 }
 
-// seal is a personal value as it is written: sealed when this database has a
-// key, as it is when it does not (a test, or a brain opened by a tool that
-// reads nothing personal).
+/*
+ * What is handed to a query, on its way in.
+ *
+ * Reading tells a sealed value by how it begins, and text from outside can
+ * begin the same way (vault.Keep). So only what this package sealed itself
+ * goes in as it is: seal and sealBlob hand it over as storedText and
+ * storedBlob. Every other text or bytes, for any column of any table, sealed
+ * or not, with a key or without, is kept apart with vault.Keep when it
+ * begins with a mark. Reading takes that off again, so a caller writes and
+ * reads its own text and never sees any of this.
+ */
+
+// storedText is text exactly as it is to lie in the file.
+type storedText string
+
+// storedBlob is bytes exactly as they are to lie in the file.
+type storedBlob []byte
+
+// CheckNamedValue is database/sql asking what an argument becomes.
+func (c *sealedConn) CheckNamedValue(nv *driver.NamedValue) error {
+	switch x := nv.Value.(type) {
+	case storedText:
+		nv.Value = string(x)
+
+		return nil
+	case storedBlob:
+		nv.Value = []byte(x)
+
+		return nil
+	}
+
+	v, err := driver.DefaultParameterConverter.ConvertValue(nv.Value)
+	if err != nil {
+		return err
+	}
+
+	switch x := v.(type) {
+	case string:
+		v = vault.Keep(x)
+	case []byte:
+		v = vault.KeepBytes(x)
+	}
+
+	nv.Value = v
+
+	return nil
+}
+
+/*
+ * seal is a personal value as it is written: sealed when this database has a
+ * key, as it is when it does not (a test, or a brain opened by a tool that
+ * reads nothing personal).
+ *
+ * Whatever the text is, it is sealed: text that begins like a sealed value
+ * is not taken for one. It used to be, was written as it came, and could not
+ * be read back.
+ */
 func (d *DB) seal(text string) any {
-	if d.key == nil || text == "" || vault.IsSealedString(text) {
+	if d.key == nil || text == "" {
 		return text
 	}
 
-	return d.key.SealString(text)
+	return storedText(d.key.SealString(vault.Keep(text)))
 }
 
 // sealNull is seal for a column that may be NULL.
@@ -201,11 +259,11 @@ func (d *DB) sealNull(text sql.NullString) any {
 
 // sealBlob is seal for bytes — an embedding of somebody's words is their words.
 func (d *DB) sealBlob(b []byte) any {
-	if d.key == nil || b == nil || vault.IsSealed(b) {
+	if d.key == nil || b == nil {
 		return b
 	}
 
-	return d.key.Seal(b)
+	return storedBlob(d.key.Seal(vault.KeepBytes(b)))
 }
 
 // Sealed reports whether this database seals what it writes.

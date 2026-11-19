@@ -222,3 +222,116 @@ func TestALogSaysNothingOnDisk(t *testing.T) {
 		t.Errorf("read back: %q", got)
 	}
 }
+
+// Text that begins with one of the marks is kept behind a mark of its own
+// and comes back as it was; other text is not touched.
+func TestTextThatBeginsWithAMarkIsKeptAndComesBack(t *testing.T) {
+	k, _ := Generate()
+
+	for _, text := range []string{
+		"", "hello", "Здравей", "see pnsealed1:x",
+		"pnsealed1:", "pnsealed1:x", "pnsealed1:pnsealed1:x", "pnplain1:", "pnplain1:x", "pnplain1:pnplain1:x",
+		"pnplain1:pnsealed1:x", "\x89PNSEAL\x01", "\x89PNSEAL\x01 words", "\x89PNPLAIN\x01 words",
+		k.SealString("sealed before"),
+	} {
+		kept := Keep(text)
+
+		if strings.HasPrefix(text, "pn") || strings.HasPrefix(text, "\x89") {
+			if kept != Kept+text {
+				t.Errorf("%q was kept as %q", text, kept)
+			}
+		} else if kept != text {
+			t.Errorf("%q needed no keeping and became %q", text, kept)
+		}
+
+		if IsSealedString(kept) || IsSealed([]byte(kept)) {
+			t.Errorf("%q, kept, still looks sealed: %q", text, kept)
+		}
+
+		if back := Unkeep(kept); back != text {
+			t.Errorf("%q came back as %q", text, back)
+		}
+
+		bytesKept := KeepBytes([]byte(text))
+
+		if IsSealed(bytesKept) || IsSealedString(string(bytesKept)) {
+			t.Errorf("%q as bytes, kept, still looks sealed: %q", text, bytesKept)
+		}
+
+		if back := UnkeepBytes(bytesKept); string(back) != text {
+			t.Errorf("%q as bytes came back as %q", text, back)
+		}
+
+		// Sealed and opened, the same.
+		opened, err := k.OpenString(k.SealString(Keep(text)))
+		if err != nil || Unkeep(opened) != text {
+			t.Errorf("%q sealed and opened: %q %v", text, opened, err)
+		}
+	}
+
+	if KeepBytes(nil) != nil {
+		t.Error("no bytes became some bytes")
+	}
+}
+
+// What SealString made is told by how it begins, damaged or not; text that
+// only carries the mark is not taken for it.
+func TestWhatWasSealedIsToldFromTextWithTheMark(t *testing.T) {
+	k, _ := Generate()
+
+	sealed := k.SealString("x")
+
+	for _, made := range []string{sealed, k.SealString(""), sealed[:len(Prefix)+14], sealed[:len(sealed)-3] + "!ab", sealed[:30] + "B" + sealed[31:]} {
+		if !BeginsSealed(made) {
+			t.Errorf("%q, sealed here, is taken for text", made)
+		}
+	}
+
+	for _, text := range []string{"", "x", "pnsealed1:", "pnsealed1:x", "pnsealed1:not base64 !", "pnsealed1:AAAA", "pnsealed1:iVBOU0VBT",
+		"pnsealed1:Здравей", " " + sealed, Kept + sealed} {
+		if BeginsSealed(text) {
+			t.Errorf("%q is taken for a sealed value", text)
+		}
+	}
+}
+
+// A setting that begins like sealed text is sealed like any other. One that
+// is sealed already is left as it is when the file is written back, and so
+// is one sealed by another brain: it reads as not set, never as a value.
+func TestASettingThatLooksSealedIsSealed(t *testing.T) {
+	k, _ := Generate()
+	other, _ := Generate()
+
+	Use(k)
+	defer Use(nil)
+
+	for _, text := range []string{"pnsealed1:x", "pnsealed1:", "pnsealed1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "an ordinary value"} {
+		stored := SealIfActive(text)
+
+		if stored == text {
+			t.Errorf("%q was written as it came", text)
+		}
+
+		if back, err := OpenIfSealed(stored); err != nil || back != text {
+			t.Errorf("%q came back as %q (%v)", text, back, err)
+		}
+
+		if again := SealIfActive(stored); again != stored {
+			t.Errorf("%q, sealed already, was sealed again", text)
+		}
+	}
+
+	foreign := other.SealString("from another brain")
+
+	if SealIfActive(foreign) != foreign {
+		t.Error("a value sealed by another brain was sealed again, and would be read as a setting")
+	}
+
+	if _, err := OpenIfSealed(SealIfActive(foreign)); err == nil {
+		t.Error("a value sealed by another brain was opened")
+	}
+
+	if SealIfActive("") != "" {
+		t.Error("nothing was sealed into something")
+	}
+}
