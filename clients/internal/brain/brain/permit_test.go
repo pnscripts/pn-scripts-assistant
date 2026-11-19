@@ -570,3 +570,51 @@ func TestTheRecordOfAPermissionQuestionDoesNotSayWhoAnswered(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * The question and who asked are written together. Written one after the
+ * other, the question stood for a moment as one from the desk: a page
+ * drawing it just then showed a card of nobody's, and whatever leaves
+ * other programs' questions alone did not know it for one.
+ */
+func TestAPermissionQuestionIsNeverSeenWithoutWhoAsked(t *testing.T) {
+	b := permitsAllowed(t)
+
+	for round := 0; round < 30; round++ {
+		asked := askPermit(b, context.Background(), "claude-code 2.1.303", "Bash", `{"command":"ls"}`, time.Minute)
+
+		var card *store.Invocation
+
+		// Looked at as fast as it can be, from before it is there.
+		for deadline := time.Now().Add(5 * time.Second); card == nil && time.Now().Before(deadline); {
+			pending, err := b.PendingApprovals()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for i := range pending {
+				if pending[i].Tool == otherprograms.PermissionTool {
+					card = &pending[i]
+				}
+			}
+		}
+
+		if card == nil {
+			t.Fatalf("round %d: the question never waited", round)
+		}
+
+		if card.AskedBy != "claude-code 2.1.303" {
+			t.Fatalf("round %d: the question was seen with %q as who asked", round, card.AskedBy)
+		}
+
+		if _, err := b.Decide(context.Background(), card.ID, false); err != nil {
+			t.Fatal(err)
+		}
+
+		select {
+		case <-asked:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the program was never given an answer")
+		}
+	}
+}

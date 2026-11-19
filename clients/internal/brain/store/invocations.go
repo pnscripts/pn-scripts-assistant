@@ -76,6 +76,19 @@ func (d *DB) RecordInvocation(conversationID int64, tool, arguments, summary, ri
 
 // RecordInvocationIn is RecordInvocation with the card in Bulgarian too.
 func (d *DB) RecordInvocationIn(conversationID int64, tool, arguments, summary, summaryBG, risk string) (int64, error) {
+	return d.RecordInvocationAskedBy(conversationID, tool, arguments, summary, summaryBG, risk, "")
+}
+
+/*
+ * RecordInvocationAskedBy is RecordInvocationIn for a question another
+ * program asked for (Invocation.AskedBy), by the name it gave; an empty name
+ * is a question from the desk.
+ *
+ * The question and who asked are one row written at once. Written one after
+ * the other, the question waited for a moment as one from the desk, and
+ * whoever read the waiting questions just then saw it so.
+ */
+func (d *DB) RecordInvocationAskedBy(conversationID int64, tool, arguments, summary, summaryBG, risk, by string) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// The conversation is stored rather than discarded. It has been a
@@ -83,9 +96,10 @@ func (d *DB) RecordInvocationIn(conversationID int64, tool, arguments, summary, 
 	// never be traced back to what was being discussed when it was proposed.
 	res, err := d.sql().Exec(
 		`INSERT INTO tool_invocations
-		   (tool, arguments, summary, summary_bg, risk, status, conversation_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   (tool, arguments, summary, summary_bg, risk, status, conversation_id, created_at, updated_at, asked_by)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		tool, d.seal(arguments), d.seal(summary), d.seal(summaryBG), risk, InvocationPending, conversationID, now, now,
+		d.seal(askedByName(truncate(by, 120))),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("recording tool call: %w", err)

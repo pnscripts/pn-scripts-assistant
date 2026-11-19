@@ -1534,15 +1534,12 @@ func (l *Loop) RunBrief(
 					call.Arguments = p.Pin(call.Arguments)
 				}
 
-				id, err := l.DB.RecordInvocationIn(conversationID, tool.Name(), string(call.Arguments), summary, summaryBG, string(tools.Mutating))
+				// With who asked, when another program did, in the same
+				// row at once.
+				id, err := l.DB.RecordInvocationAskedBy(conversationID, tool.Name(), string(call.Arguments), summary, summaryBG,
+					string(tools.Mutating), brief.AskedBy)
 				if err != nil {
 					return Result{}, err
-				}
-
-				if brief.AskedBy != "" {
-					if err := l.DB.InvocationAskedBy(id, brief.AskedBy); err != nil {
-						return Result{}, err
-					}
 				}
 
 				// Said once it has a number, so the decision, whenever it

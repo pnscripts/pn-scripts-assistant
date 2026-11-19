@@ -146,19 +146,11 @@ func (b *Brain) AskPermissionForOutside(ctx context.Context, by, tool string, in
 		return false, "", ErrPermitsFull
 	}
 
-	id, err := b.DB.RecordInvocationIn(0, otherprograms.PermissionTool, string(arguments), en, bg, string(tools.Mutating))
-	if err == nil {
-		err = b.DB.InvocationAskedBy(id, by)
-	}
-
+	// The question and who asked, written as one: it never waits as a
+	// question of nobody's.
+	id, err := b.DB.RecordInvocationAskedBy(0, otherprograms.PermissionTool, string(arguments), en, bg, string(tools.Mutating), by)
 	if err != nil {
 		b.permits.mu.Unlock()
-
-		// A row that got its place but not its asker must not wait as a
-		// question of nobody's.
-		if id > 0 {
-			b.DB.DecideInvocation(id, store.InvocationDenied)
-		}
 
 		return false, "", err
 	}
