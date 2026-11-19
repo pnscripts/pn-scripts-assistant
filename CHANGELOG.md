@@ -125,9 +125,9 @@ whenever something visible changed.
 - **Fixed: text that began like the assistant's own sealed text could make
   a whole list unreadable.** What is personal is kept sealed on disk, and a
   sealed value is recognised by how it begins. A message, a page's text, a
-  mail's subject, a to-do or a program's name that happened to begin with
-  the same mark (`pnsealed1:`) was taken for sealed, written as it came,
-  and from then on that conversation, record or list could not be read.
+  mail's subject or a to-do that happened to begin with the same mark
+  (`pnsealed1:`) was taken for sealed, written as it came, and from then
+  on that conversation, record or list could not be read.
   Now such text is kept and sealed like any other text, in every table,
   and reads back exactly as it was written. If an older version left such
   text behind, the first start of this version seals it properly and the

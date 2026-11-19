@@ -328,9 +328,14 @@ func openDB() (*store.DB, paths.Root, error) {
 	} else if done.Rows > 0 {
 		fmt.Fprintf(os.Stderr, "  sealed %d records in place; a sealed copy of the brain as it was is in %s\n",
 			done.Rows, store.BackupBeforeSealing(root.DatabasePath()))
-	} else if done.PutRight > 0 {
-		fmt.Fprintf(os.Stderr, "  %d records an older version could not read back can be read again\n",
-			done.PutRight)
+	} else {
+		if done.PutRight > 0 {
+			fmt.Fprintf(os.Stderr, "  %d records an older version could not read back can be read again\n", done.PutRight)
+		}
+
+		for _, left := range done.LeftAsFound {
+			fmt.Fprintf(os.Stderr, "  a table could not be looked through for text an older version left unreadable (%s); it is tried again at the next start\n", left)
+		}
 	}
 
 	if err := sealTheRest(root.Path, u.Key); err != nil {

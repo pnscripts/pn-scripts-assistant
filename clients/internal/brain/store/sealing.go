@@ -102,6 +102,10 @@ type SealProgress struct {
 	// PutRight is how many records an older version had left unreadable and
 	// this start made readable again (see putRightOnce).
 	PutRight int
+
+	// LeftAsFound names the tables that tidy could not go through, each
+	// with why. They are tried again at the next start.
+	LeftAsFound []string
 }
 
 // lookalikesPutRight names the one-time tidy of putRightOnce in chores.
@@ -128,10 +132,11 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 	}
 
 	if d.state("sealed") == "done" {
+		var err error
+
 		p.AlreadyOK = true
 
-		n, err := d.putRightOnce(ctx)
-		p.PutRight = n
+		p.PutRight, p.LeftAsFound, err = d.putRightOnce(ctx)
 
 		return p, err
 	}
@@ -166,7 +171,7 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 	}
 
 	// And such text in the columns that are not sealed.
-	if p.PutRight, err = d.putRight(ctx); err != nil {
+	if p.PutRight, p.LeftAsFound, err = d.putRight(ctx); err != nil {
 		return p, err
 	}
 
@@ -187,7 +192,12 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 		return p, err
 	}
 
-	// Every table was just looked at: nothing is left for putRightOnce.
+	// Every table was just looked at: nothing is left for putRightOnce,
+	// unless one could not be gone through.
+	if len(p.LeftAsFound) > 0 {
+		return p, nil
+	}
+
 	return p, d.choreDone(lookalikesPutRight)
 }
 
@@ -251,28 +261,36 @@ func (d *DB) sealRows(ctx context.Context) (int, error) {
  * next start does it from the beginning and then writes the name down. The
  * journal is emptied before that, whatever was found, so the text that lay
  * in the clear is not left there by a start that was cut off after its work.
+ *
+ * A table it cannot go through is named and left, and the name of the tidy
+ * is then not written down: the next start tries again. The program starts
+ * all the same; a tidy is not worth a brain that will not open.
  */
-func (d *DB) putRightOnce(ctx context.Context) (int, error) {
+func (d *DB) putRightOnce(ctx context.Context) (int, []string, error) {
 	var done int
 
 	if err := d.sql().QueryRow(`SELECT COUNT(*) FROM chores WHERE name = ?`, lookalikesPutRight).Scan(&done); err != nil {
-		return 0, fmt.Errorf("asking whether %s was done: %w", lookalikesPutRight, err)
+		return 0, nil, fmt.Errorf("asking whether %s was done: %w", lookalikesPutRight, err)
 	}
 
 	if done > 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 
-	n, err := d.putRight(ctx)
+	n, left, err := d.putRight(ctx)
 	if err != nil {
-		return n, err
+		return n, left, err
 	}
 
 	if _, err := d.sql().Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
-		return n, err
+		return n, left, err
 	}
 
-	return n, d.choreDone(lookalikesPutRight)
+	if len(left) > 0 {
+		return n, left, nil
+	}
+
+	return n, left, d.choreDone(lookalikesPutRight)
 }
 
 /*
@@ -291,11 +309,12 @@ func (d *DB) putRightOnce(ctx context.Context) (int, error) {
  * key included: left where it does not belong, it would be opened for
  * whoever put it there.
  *
- * The rows are found in SQL, by the mark written into the query itself, and
- * read as hex, which nothing takes for a sealed value: a brain of any size
- * costs one pass and only the rows concerned are touched.
+ * The rows are found in SQL, by the marks written into the query itself, so
+ * a brain of any size costs one pass inside SQLite and only the rows
+ * concerned come out of it, read as hex, which nothing takes for a sealed
+ * value.
  */
-func (d *DB) putRight(ctx context.Context) (int, error) {
+func (d *DB) putRight(ctx context.Context) (int, []string, error) {
 	sealed := map[string]map[string]bool{}
 
 	for _, t := range sealedColumns {
@@ -308,25 +327,30 @@ func (d *DB) putRight(ctx context.Context) (int, error) {
 
 	tables, err := d.names(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
-	changed := 0
+	var (
+		changed int
+		left    []string
+	)
 
 	for _, table := range tables {
 		if err := ctx.Err(); err != nil {
-			return changed, err
+			return changed, left, err
 		}
 
 		n, err := d.putRightIn(table, sealed[table])
 		if err != nil {
-			return changed, fmt.Errorf("putting %s right: %w", table, err)
+			left = append(left, table+": "+err.Error())
+
+			continue
 		}
 
 		changed += n
 	}
 
-	return changed, nil
+	return changed, left, nil
 }
 
 func (d *DB) names(query string, args ...any) ([]string, error) {
@@ -371,7 +395,15 @@ func (d *DB) putRightIn(table string, sealed map[string]bool) (int, error) {
 		q := quoted(c)
 		selects = append(selects, "typeof("+q+"), hex("+q+")")
 
-		wheres = append(wheres, "(typeof("+q+") = 'text' AND substr("+q+", 1, "+fmt.Sprint(len(vault.Prefix))+") = "+markInSQL+")")
+		text := "typeof(" + q + ") = 'text' AND substr(" + q + ", 1, " + fmt.Sprint(len(vault.Prefix)) + ") = " + markInSQL
+
+		if sealed[c] {
+			// Nearly everything in a sealed column begins with the mark:
+			// only what does not go on as sealing writes is asked for.
+			text += " AND substr(" + q + ", 1, " + fmt.Sprint(len(vault.SealedHead())) + ") <> '" + vault.SealedHead() + "'"
+		}
+
+		wheres = append(wheres, "("+text+")")
 
 		if !sealed[c] {
 			wheres = append(wheres, "(typeof("+q+") = 'blob' AND (hex(substr("+q+", 1, "+fmt.Sprint(len(vault.Seal0()))+")) = "+magicInSQL+
@@ -388,12 +420,6 @@ func (d *DB) putRightIn(table string, sealed map[string]bool) (int, error) {
 	rows, err := tx.Query(`SELECT rowid, ` + strings.Join(selects, ", ") + ` FROM ` + quoted(table) +
 		` WHERE ` + strings.Join(wheres, " OR "))
 	if err != nil {
-		// A table with no rowid of its own: none holds anything of a
-		// person's, and none exists today.
-		if strings.Contains(err.Error(), "no such column: rowid") {
-			return 0, nil
-		}
-
 		return 0, err
 	}
 
@@ -605,7 +631,14 @@ func (d *DB) sealBatch(table string, cols []string, blob map[string]bool, after 
 			values[i] = storedText(text)
 
 			if len(v) > 0 && !vault.BeginsSealed(text) {
-				values[i] = storedText(d.key.SealString(vault.Keep(text)))
+				// With the mark here it came from an older version, as it
+				// was; text this version wrote with no key is kept apart
+				// already and is sealed as it lies.
+				if vault.IsSealedString(text) {
+					text = vault.Kept + text
+				}
+
+				values[i] = storedText(d.key.SealString(text))
 				changed = true
 			}
 		}

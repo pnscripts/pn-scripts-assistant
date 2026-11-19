@@ -247,6 +247,10 @@ var sealedHead = Prefix + base64.RawStdEncoding.EncodeToString(magic)[:len(magic
  */
 func BeginsSealed(s string) bool { return strings.HasPrefix(s, sealedHead) }
 
+// SealedHead is what BeginsSealed looks for, for whoever has to look for it
+// where this package cannot (a query).
+func SealedHead() string { return sealedHead }
+
 /*
  * The key this program is running with.
  *

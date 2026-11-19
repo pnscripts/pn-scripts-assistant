@@ -955,3 +955,131 @@ func TestOtherArgumentsAndAReopenedBrain(t *testing.T) {
 		})
 	}
 }
+
+// A brain written with no key by this version, such text in it kept apart
+// already, and sealed in place afterwards: the text reads as it was written.
+func TestTextKeptWithNoKeyReadsTheSameOnceSealed(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "brain.sqlite")
+
+	plain, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	texts := []string{"pnsealed1:x", "pnplain1:hello", "pnsealed1:the code is LOOKALIKE-ZZQ-4471", "ordinary"}
+
+	for _, text := range texts {
+		if _, err := plain.AddTodo("pnsealed1:list", text, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	plain.Close()
+
+	d, err := OpenSealed(path, sealKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	if _, err := d.SealInPlace(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	todos, err := d.Todos("pnsealed1:list", true)
+	if err != nil || len(todos) != len(texts) {
+		t.Fatalf("the to-dos after sealing: %+v %v", todos, err)
+	}
+
+	for i, text := range texts {
+		if todos[i].Text != text {
+			t.Errorf("%q came back as %q", text, todos[i].Text)
+		}
+	}
+}
+
+/*
+ * The one-time tidy goes through every table there is, so one it cannot
+ * read must not keep the program from starting: that table is left, the
+ * others are put right, and the tidy is tried again at the next start.
+ */
+func TestATableTheTidyCannotReadDoesNotStopTheStart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "brain.sqlite")
+	k := sealKey(t)
+
+	d, err := OpenSealed(path, k)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := d.SealInPlace(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	d.Close()
+
+	old := rawly(t, path)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// A column of its own called rowid, holding words: no row of it can be
+	// named the way the tidy names rows.
+	for _, q := range []string{
+		`CREATE TABLE zz_odd (rowid TEXT, t TEXT)`,
+		`INSERT INTO zz_odd (rowid, t) VALUES ('first', 'pnsealed1:x')`,
+		`INSERT INTO todos (list, text, created_at) VALUES ('list', 'pnsealed1:milk', '` + now + `')`,
+		`DELETE FROM chores`,
+	} {
+		if _, err := old.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	old.Close()
+
+	d, err = OpenSealed(path, k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	done, err := d.SealInPlace(context.Background())
+	if err != nil {
+		t.Fatalf("the start was refused over one table: %v", err)
+	}
+
+	if done.PutRight != 1 || len(done.LeftAsFound) != 1 || !strings.Contains(done.LeftAsFound[0], "zz_odd") {
+		t.Errorf("put right %d, left as found %q", done.PutRight, done.LeftAsFound)
+	}
+
+	todos, err := d.Todos("list", true)
+	if err != nil || len(todos) != 1 || todos[0].Text != "pnsealed1:milk" {
+		t.Errorf("the to-do: %+v %v", todos, err)
+	}
+
+	var written int
+
+	d.sql().QueryRow(`SELECT COUNT(*) FROM chores WHERE name = ?`, lookalikesPutRight).Scan(&written)
+
+	if written != 0 {
+		t.Error("the tidy was written down as done with a table left as found")
+	}
+}
+
+// The tidy names rows by rowid, and no table of a person's words is without
+// one: a table made WITHOUT ROWID later would be passed over in silence.
+func TestEveryTableHasARowid(t *testing.T) {
+	d := open(t)
+
+	tables, err := d.names(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
+	if err != nil || len(tables) < 30 {
+		t.Fatalf("%d tables: %v", len(tables), err)
+	}
+
+	for _, table := range tables {
+		var n int
+
+		if err := d.sql().QueryRow(`SELECT COUNT(rowid) FROM "` + table + `"`).Scan(&n); err != nil {
+			t.Errorf("%s: %v", table, err)
+		}
+	}
+}
