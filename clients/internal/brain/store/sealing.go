@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"pn-scripts-assistant/internal/brain/vault"
 )
@@ -96,7 +97,14 @@ type SealProgress struct {
 	Rows      int
 	BackedUp  bool
 	AlreadyOK bool
+
+	// PutRight is how many records an older version had left unreadable and
+	// this start sealed properly (see putRightOnce).
+	PutRight int
 }
+
+// lookalikesPutRight names the one-time tidy of putRightOnce in chores.
+const lookalikesPutRight = "sealed-lookalikes-put-right"
 
 /*
  * SealInPlace seals every personal value still in the clear, with a verified
@@ -121,7 +129,10 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 	if d.state("sealed") == "done" {
 		p.AlreadyOK = true
 
-		return p, nil
+		n, err := d.putRightOnce(ctx)
+		p.PutRight = n
+
+		return p, err
 	}
 
 	if err := d.setState("key_id", d.key.ID()); err != nil {
@@ -146,7 +157,38 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 	}
 
 	// 2. The rows, a batch at a time.
-	batches := 0
+	n, err := d.sealRows(ctx)
+	p.Rows = n
+
+	if err != nil {
+		return p, err
+	}
+
+	// 3. Nothing of the old text left in free pages or the journal.
+	if err := d.setState("sealed", "rows"); err != nil {
+		return p, err
+	}
+
+	if _, err := d.sql().Exec(`VACUUM`); err != nil {
+		return p, fmt.Errorf("rebuilding the file without the plain text: %w", err)
+	}
+
+	if _, err := d.sql().Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+		return p, err
+	}
+
+	if err := d.setState("sealed", "done"); err != nil {
+		return p, err
+	}
+
+	// Every row was just looked at: nothing is left for putRightOnce.
+	return p, d.choreDone(lookalikesPutRight)
+}
+
+// sealRows goes through every personal column and seals what is not, a batch
+// at a time; it returns how many rows it changed.
+func (d *DB) sealRows(ctx context.Context) (int, error) {
+	changed, batches := 0, 0
 
 	for _, t := range sealedColumns {
 		cols := d.existing(t.table, append(append([]string{}, t.text...), t.blob...))
@@ -163,15 +205,15 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 
 		for {
 			if err := ctx.Err(); err != nil {
-				return p, err
+				return changed, err
 			}
 
 			n, last, err := d.sealBatch(t.table, cols, blob, after)
 			if err != nil {
-				return p, fmt.Errorf("sealing %s: %w", t.table, err)
+				return changed, fmt.Errorf("sealing %s: %w", t.table, err)
 			}
 
-			p.Rows += n
+			changed += n
 
 			if last == 0 {
 				break
@@ -186,20 +228,57 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 		}
 	}
 
-	// 3. Nothing of the old text left in free pages or the journal.
-	if err := d.setState("sealed", "rows"); err != nil {
-		return p, err
+	return changed, nil
+}
+
+/*
+ * putRightOnce seals what an older version left unreadable in a sealed brain.
+ *
+ * Until 1.2.0 text that began with the mark of sealed text was taken for
+ * sealed and written as it came: a message, a page's words, a mail's
+ * subject. It could not be opened, and no query that met it could be
+ * answered. Such text is not shaped like anything this program seals
+ * (vault.ShapedString), which is how it is told from a sealed value somebody
+ * changed: that one is left alone and goes on failing the read, as it
+ * should. Text built to have the full shape stays unreadable for the same
+ * reason; nothing can tell it from a damaged value.
+ *
+ * Once per brain, by name in chores. Each batch is a transaction and a row
+ * put right is not touched again, so a power cut part way costs nothing: the
+ * next start carries on and then writes the name down.
+ */
+func (d *DB) putRightOnce(ctx context.Context) (int, error) {
+	var done int
+
+	if err := d.sql().QueryRow(`SELECT COUNT(*) FROM chores WHERE name = ?`, lookalikesPutRight).Scan(&done); err != nil {
+		return 0, fmt.Errorf("asking whether %s was done: %w", lookalikesPutRight, err)
 	}
 
-	if _, err := d.sql().Exec(`VACUUM`); err != nil {
-		return p, fmt.Errorf("rebuilding the file without the plain text: %w", err)
+	if done > 0 {
+		return 0, nil
 	}
 
-	if _, err := d.sql().Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
-		return p, err
+	n, err := d.sealRows(ctx)
+	if err != nil {
+		return n, err
 	}
 
-	return p, d.setState("sealed", "done")
+	// What was put right lay in the clear until now: not in the journal
+	// either, from here on.
+	if n > 0 {
+		if _, err := d.sql().Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+			return n, err
+		}
+	}
+
+	return n, d.choreDone(lookalikesPutRight)
+}
+
+func (d *DB) choreDone(name string) error {
+	_, err := d.sql().Exec(`INSERT OR IGNORE INTO chores (name, done_at) VALUES (?, ?)`,
+		name, time.Now().UTC().Format(time.RFC3339))
+
+	return err
 }
 
 // existing is which of the columns a table has: an older brain may predate
@@ -301,21 +380,39 @@ func (d *DB) sealBatch(table string, cols []string, blob map[string]bool, after 
 				return 0, 0, err
 			}
 
+			/*
+			 * Every value goes back exactly as given here (storedText,
+			 * storedBlob). What has the shape of a sealed value is left as
+			 * it is, which is what lets this carry on after a power cut.
+			 * Anything else is somebody's text or bytes: when it begins with
+			 * the sealed mark all the same, an older version wrote it as it
+			 * came, and it is kept apart before it is sealed, as it would be
+			 * written today.
+			 */
 			if blob[c] {
-				values[i] = v
+				values[i] = storedBlob(v)
 
-				if len(v) > 0 && !vault.IsSealed(v) {
-					values[i] = d.key.Seal(v)
+				if len(v) > 0 && !vault.Shaped(v) {
+					if vault.IsSealed(v) {
+						v = vault.KeepBytes(v)
+					}
+
+					values[i] = storedBlob(d.key.Seal(v))
 					changed = true
 				}
 
 				continue
 			}
 
-			values[i] = string(v)
+			text := string(v)
+			values[i] = storedText(text)
 
-			if len(v) > 0 && !vault.IsSealedString(string(v)) {
-				values[i] = d.key.SealString(string(v))
+			if len(v) > 0 && !vault.ShapedString(text) {
+				if vault.IsSealedString(text) {
+					text = vault.Keep(text)
+				}
+
+				values[i] = storedText(d.key.SealString(text))
 				changed = true
 			}
 		}

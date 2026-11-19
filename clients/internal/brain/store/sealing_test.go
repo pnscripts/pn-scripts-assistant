@@ -211,7 +211,11 @@ func TestAChangedValueInTheDatabaseIsCaught(t *testing.T) {
 		t.Skip("could not alter it in place")
 	}
 
-	d.sql().Exec(`UPDATE messages SET content = ? WHERE role = 'user'`, string(text))
+	// Changed in the file itself, as it would be: through this program the
+	// same text would be somebody's words and kept as words (lookalike_test.go).
+	if _, err := rawly(t, path).Exec(`UPDATE messages SET content = ? WHERE role = 'user'`, string(text)); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := d.History(conv); err == nil {
 		t.Error("a changed message was read as if nothing had happened")

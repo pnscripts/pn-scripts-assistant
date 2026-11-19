@@ -163,11 +163,88 @@ func (k *Key) OpenString(sealed string) (string, error) {
 	return string(plain), err
 }
 
-// IsSealed reports whether a blob was sealed here.
+// IsSealed reports whether a blob begins the way a sealed one does. Text
+// somebody else wrote can begin that way too: see Keep.
 func IsSealed(b []byte) bool { return bytes.HasPrefix(b, magic) }
 
-// IsSealedString reports whether text was sealed here.
+// IsSealedString reports whether text begins the way sealed text does.
 func IsSealedString(s string) bool { return strings.HasPrefix(s, Prefix) }
+
+/*
+ * Text that only looks sealed.
+ *
+ * A sealed value is told from a plain one by how it begins, and what a
+ * person, a web page, a file, a mail or another program hands over can begin
+ * the same way. Taken for sealed, such text was once written as it came and
+ * could never be read back, and the table it lay in with it. So text that
+ * begins with one of this package's marks is kept behind a mark of its own,
+ * Kept, before it is stored (and before it is sealed), and that mark is taken
+ * off again after it is read (and opened). Whatever begins with Kept itself
+ * gets the same treatment, so nothing is ever taken off that was not put on.
+ */
+
+// Kept opens stored text that began with one of the marks when it came.
+const Kept = "pnplain1:"
+
+// keptBlob is Kept for bytes.
+var keptBlob = []byte("\x89PNPLAIN\x01")
+
+func marked(s string) bool {
+	return strings.HasPrefix(s, Prefix) || strings.HasPrefix(s, Kept) ||
+		strings.HasPrefix(s, string(magic)) || strings.HasPrefix(s, string(keptBlob))
+}
+
+// Keep is text as it may be stored: as it is, or behind Kept when it begins
+// with a mark.
+func Keep(text string) string {
+	if marked(text) {
+		return Kept + text
+	}
+
+	return text
+}
+
+// Unkeep is stored text as it came: what Keep put in front is taken off.
+func Unkeep(stored string) string { return strings.TrimPrefix(stored, Kept) }
+
+// KeepBytes is Keep for bytes.
+func KeepBytes(b []byte) []byte {
+	if b != nil && marked(string(b[:min(len(b), len(Prefix))])) {
+		return append(append(make([]byte, 0, len(keptBlob)+len(b)), keptBlob...), b...)
+	}
+
+	return b
+}
+
+// UnkeepBytes is Unkeep for bytes, whichever of the two marks stands first.
+func UnkeepBytes(stored []byte) []byte {
+	if bytes.HasPrefix(stored, keptBlob) {
+		return stored[len(keptBlob):]
+	}
+
+	if bytes.HasPrefix(stored, []byte(Kept)) {
+		return stored[len(Kept):]
+	}
+
+	return stored
+}
+
+// Shaped reports whether a blob could be one Seal made: its opening bytes,
+// then room for a key's name, a nonce and a tag.
+func Shaped(b []byte) bool {
+	return IsSealed(b) && len(b) >= len(magic)+idSize+12+16
+}
+
+// ShapedString reports whether text could be what SealString made.
+func ShapedString(s string) bool {
+	if !IsSealedString(s) {
+		return false
+	}
+
+	raw, err := base64.RawStdEncoding.DecodeString(s[len(Prefix):])
+
+	return err == nil && Shaped(raw)
+}
 
 /*
  * The key this program is running with.
@@ -185,12 +262,23 @@ func Use(k *Key) { active.Store(k) }
 func Active() *Key { return active.Load() }
 
 // SealIfActive seals text with the key in force, or leaves it as it is.
+//
+// Text that is already sealed with that key is left: a settings file is
+// written back whole, its sealed values as they were read. Text that only
+// begins like sealed text is somebody's own and is sealed like any other.
 func SealIfActive(plain string) string {
-	if k := Active(); k != nil && plain != "" && !IsSealedString(plain) {
-		return k.SealString(plain)
+	k := Active()
+	if k == nil || plain == "" {
+		return plain
 	}
 
-	return plain
+	if IsSealedString(plain) {
+		if _, err := k.OpenString(plain); err == nil {
+			return plain
+		}
+	}
+
+	return k.SealString(plain)
 }
 
 // OpenIfSealed opens text sealed with the key in force; plain text is

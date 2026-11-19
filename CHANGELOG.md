@@ -122,6 +122,18 @@ whenever something visible changed.
 - **Quiet hours: a held question is judged as the one who asked.** A
   "never" you gave one member of the team is now seen when a question of
   theirs, held for the quiet hours, comes up to answer itself.
+- **Fixed: text that began like the assistant's own sealed text could make
+  a whole list unreadable.** What is personal is kept sealed on disk, and a
+  sealed value is recognised by how it begins. A message, a page's text, a
+  mail's subject, a to-do or a program's name that happened to begin with
+  the same mark (`pnsealed1:`) was taken for sealed, written as it came,
+  and from then on that conversation, record or list could not be read.
+  Now such text is kept and sealed like any other text, in every table,
+  and reads back exactly as it was written. If an older version left such
+  text behind, the first start of this version seals it properly and the
+  list can be read again; nothing needs to be done. A value built to match
+  the whole shape of a sealed one and saved by an older version cannot be
+  told from a damaged value and stays unreadable.
 
 ## 1.1.0 (2026-11-16)
 
