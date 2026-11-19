@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -553,6 +554,10 @@ func TestSealingInPlaceSealsTextThatLooksSealed(t *testing.T) {
 		}
 	}
 
+	if _, err := old.Exec(`UPDATE messages SET model = 'pnsealed1:model-name' WHERE role = 'assistant'`); err != nil {
+		t.Fatal(err)
+	}
+
 	old.Close()
 
 	d, err := OpenSealed(path, sealKey(t))
@@ -575,6 +580,10 @@ func TestSealingInPlaceSealsTextThatLooksSealed(t *testing.T) {
 	for _, m := range history {
 		if m.Role == "assistant" {
 			said = append(said, m.Content)
+
+			if m.Model != "pnsealed1:model-name" {
+				t.Errorf("a column that is not sealed came back as %q", m.Model)
+			}
 		}
 	}
 
@@ -616,7 +625,14 @@ func TestWhatAnOlderVersionLeftUnreadableIsPutRightOnce(t *testing.T) {
 	}
 
 	conv := fill(t, d, 2)
-	other := fill(t, d, 1)
+
+	// Three more conversations, each with one sealed message to damage.
+	damaged := map[string]int64{"one character changed": 0, "a character no sealed text has": 0, "cut short": 0}
+	for kind := range damaged {
+		damaged[kind] = fill(t, d, 1)
+	}
+
+	unsealed := fill(t, d, 1)
 	d.Close()
 
 	old := rawly(t, path)
@@ -638,18 +654,41 @@ func TestWhatAnOlderVersionLeftUnreadableIsPutRightOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// And a sealed value somebody changed, in another conversation.
-	var stored string
-
-	if err := old.QueryRow(`SELECT content FROM messages WHERE conversation_id = ? AND role = 'user'`, other).Scan(&stored); err != nil {
+	// The same kind of text in columns that are not sealed: every read of
+	// their tables failed on it as well.
+	if _, err := old.Exec(`UPDATE messages SET model = 'pnsealed1:model-name', provider = ? WHERE conversation_id = ?`,
+		k.SealString("looks entirely sealed"), unsealed); err != nil {
 		t.Fatal(err)
 	}
 
-	changed := []byte(stored)
-	changed[len(changed)-3] ^= 0x01
+	// And sealed values that were damaged: these are not text, and must go
+	// on failing the read whatever is put right around them.
+	for kind, id := range damaged {
+		var stored string
 
-	if _, err := old.Exec(`UPDATE messages SET content = ? WHERE conversation_id = ? AND role = 'user'`, string(changed), other); err != nil {
-		t.Fatal(err)
+		if err := old.QueryRow(`SELECT content FROM messages WHERE conversation_id = ? AND role = 'user'`, id).Scan(&stored); err != nil {
+			t.Fatal(err)
+		}
+
+		changed := []byte(stored)
+
+		switch kind {
+		case "one character changed":
+			at := len(changed) - 3
+			if changed[at] == 'B' {
+				changed[at] = 'C'
+			} else {
+				changed[at] = 'B'
+			}
+		case "a character no sealed text has":
+			changed[len(changed)-3] = '!'
+		case "cut short":
+			changed = changed[:len(vault.Prefix)+14]
+		}
+
+		if _, err := old.Exec(`UPDATE messages SET content = ? WHERE conversation_id = ? AND role = 'user'`, string(changed), id); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	old.Close()
@@ -677,12 +716,24 @@ func TestWhatAnOlderVersionLeftUnreadableIsPutRightOnce(t *testing.T) {
 			t.Fatalf("start %d: %v", start, err)
 		}
 
-		if start == 1 && done.PutRight != 3 {
-			t.Errorf("the first start put %d records right, want 3", done.Rows)
+		if start == 1 && done.PutRight != 4 {
+			t.Errorf("the first start put %d records right, want 4", done.PutRight)
 		}
 
 		if start == 2 && done.PutRight != 0 {
-			t.Errorf("the second start changed %d records", done.Rows)
+			t.Errorf("the second start changed %d records", done.PutRight)
+		}
+
+		// Done again from the beginning, as after a power cut before its
+		// name was written down: nothing is sealed twice.
+		if start == 2 {
+			if _, err := d.sql().Exec(`DELETE FROM chores WHERE name = ?`, lookalikesPutRight); err != nil {
+				t.Fatal(err)
+			}
+
+			if again, err := d.SealInPlace(context.Background()); err != nil || again.PutRight != 0 {
+				t.Errorf("done again it changed %d records (%v)", again.PutRight, err)
+			}
 		}
 
 		history, err := d.History(conv)
@@ -707,8 +758,19 @@ func TestWhatAnOlderVersionLeftUnreadableIsPutRightOnce(t *testing.T) {
 			t.Errorf("start %d: the to-do: %+v %v", start, todos, err)
 		}
 
-		if _, err := d.History(other); err == nil {
-			t.Errorf("start %d: a changed sealed value was read as if nothing had happened", start)
+		for kind, id := range damaged {
+			if _, err := d.History(id); err == nil {
+				t.Errorf("start %d: a sealed value with %s was read as if nothing had happened", start, kind)
+			}
+		}
+
+		there, err := d.History(unsealed)
+		if err != nil {
+			t.Fatalf("start %d: the conversation with such text in a column that is not sealed: %v", start, err)
+		}
+
+		if m := there[0]; m.Model != "pnsealed1:model-name" || !strings.HasPrefix(m.Provider, vault.Prefix) || len(m.Provider) < 40 {
+			t.Errorf("start %d: those columns came back as %q and %q", start, m.Model, m.Provider)
 		}
 
 		d.Close()
@@ -805,6 +867,90 @@ func TestWhateverIsWrittenIsReadBack(t *testing.T) {
 
 			if err := quick.Check(check, &quick.Config{MaxCount: 400}); err != nil {
 				t.Error(err)
+			}
+		})
+	}
+}
+
+// Who was hired for a task, a line each: a line that begins with a mark is
+// kept as written among the others.
+func TestAHireLineThatLooksSealedIsKeptAsWritten(t *testing.T) {
+	for name, opened := range brains(t) {
+		t.Run(name, func(t *testing.T) {
+			d, _, _ := opened(t)
+
+			id, err := d.NewTask(Task{Name: "a task", Goal: "a goal"})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			lines := []string{"pnsealed1:Welder: needed", "pnsealed1:Title: why", "Driver: for Tuesday", "pnplain1:Cook: lunch"}
+
+			for _, line := range lines {
+				if err := d.RecordHire(id, line); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			task, err := d.Task(id)
+			if err != nil || task == nil {
+				t.Fatalf("the task cannot be read any more: %v", err)
+			}
+
+			if task.Hired != strings.Join(lines, "\n") {
+				t.Errorf("the hires came back as %q", task.Hired)
+			}
+		})
+	}
+}
+
+// What is not text passes as it always did, and a brain opened again after
+// its drive came back keeps such text the same way.
+func TestOtherArgumentsAndAReopenedBrain(t *testing.T) {
+	for name, opened := range brains(t) {
+		t.Run(name, func(t *testing.T) {
+			d, _, _ := opened(t)
+
+			if _, err := d.sql().Exec(`CREATE TABLE zz_kinds (id INTEGER PRIMARY KEY, at TIMESTAMP, yes INTEGER, none TEXT, empty BLOB, raw TEXT, n REAL)`); err != nil {
+				t.Fatal(err)
+			}
+
+			at := time.Date(2026, 11, 19, 22, 0, 0, 0, time.UTC)
+
+			if _, err := d.sql().Exec(`INSERT INTO zz_kinds (at, yes, none, empty, raw, n) VALUES (?, ?, ?, ?, ?, ?)`,
+				at, true, nil, []byte(nil), json.RawMessage(`{"pnsealed1:":1}`), 2.5); err != nil {
+				t.Fatal(err)
+			}
+
+			var (
+				gotAt time.Time
+				yes   bool
+				none  sql.NullString
+				empty []byte
+				raw   string
+				n     float64
+			)
+
+			if err := d.sql().QueryRow(`SELECT at, yes, none, empty, raw, n FROM zz_kinds`).Scan(&gotAt, &yes, &none, &empty, &raw, &n); err != nil {
+				t.Fatal(err)
+			}
+
+			if !gotAt.Equal(at) || !yes || none.Valid || len(empty) != 0 || raw != `{"pnsealed1:":1}` || n != 2.5 {
+				t.Errorf("came back as %v %v %v %q %q %v", gotAt, yes, none, empty, raw, n)
+			}
+
+			if err := d.Reopen(); err != nil {
+				t.Fatal(err)
+			}
+
+			todo, err := d.AddTodo("list", "pnsealed1:after the drive came back", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			todos, err := d.Todos("list", true)
+			if err != nil || len(todos) != 1 || todos[0].ID != todo.ID || todos[0].Text != "pnsealed1:after the drive came back" {
+				t.Errorf("after reopening: %+v %v", todos, err)
 			}
 		})
 	}

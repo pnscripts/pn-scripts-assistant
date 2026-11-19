@@ -2,7 +2,6 @@ package vault
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -275,28 +274,30 @@ func TestTextThatBeginsWithAMarkIsKeptAndComesBack(t *testing.T) {
 	}
 }
 
-// What Seal made has the shape; text that only begins like it has not.
-func TestOnlyWhatWasSealedHasTheShape(t *testing.T) {
+// What SealString made is told by how it begins, damaged or not; text that
+// only carries the mark is not taken for it.
+func TestWhatWasSealedIsToldFromTextWithTheMark(t *testing.T) {
 	k, _ := Generate()
 
-	if !ShapedString(k.SealString("x")) || !ShapedString(k.SealString("")) || !Shaped(k.Seal(nil)) {
-		t.Error("a sealed value is not seen as one")
-	}
+	sealed := k.SealString("x")
 
-	for _, text := range []string{"", "x", "pnsealed1:", "pnsealed1:x", "pnsealed1:not base64 !", "pnsealed1:AAAA",
-		Prefix + base64.RawStdEncoding.EncodeToString([]byte("\x89PNSEAL\x01 short"))} {
-		if ShapedString(text) {
-			t.Errorf("%q is taken for a sealed value", text)
+	for _, made := range []string{sealed, k.SealString(""), sealed[:len(Prefix)+14], sealed[:len(sealed)-3] + "!ab", sealed[:30] + "B" + sealed[31:]} {
+		if !BeginsSealed(made) {
+			t.Errorf("%q, sealed here, is taken for text", made)
 		}
 	}
 
-	if Shaped([]byte("\x89PNSEAL\x01 short")) || Shaped(nil) {
-		t.Error("a few bytes are taken for a sealed blob")
+	for _, text := range []string{"", "x", "pnsealed1:", "pnsealed1:x", "pnsealed1:not base64 !", "pnsealed1:AAAA", "pnsealed1:iVBOU0VBT",
+		"pnsealed1:Здравей", " " + sealed, Kept + sealed} {
+		if BeginsSealed(text) {
+			t.Errorf("%q is taken for a sealed value", text)
+		}
 	}
 }
 
-// A setting that begins like sealed text is sealed like any other, and one
-// that is sealed already is left as it is when the file is written back.
+// A setting that begins like sealed text is sealed like any other. One that
+// is sealed already is left as it is when the file is written back, and so
+// is one sealed by another brain: it reads as not set, never as a value.
 func TestASettingThatLooksSealedIsSealed(t *testing.T) {
 	k, _ := Generate()
 	other, _ := Generate()
@@ -304,7 +305,7 @@ func TestASettingThatLooksSealedIsSealed(t *testing.T) {
 	Use(k)
 	defer Use(nil)
 
-	for _, text := range []string{"pnsealed1:x", "pnsealed1:", other.SealString("from another brain"), "an ordinary value"} {
+	for _, text := range []string{"pnsealed1:x", "pnsealed1:", "pnsealed1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "an ordinary value"} {
 		stored := SealIfActive(text)
 
 		if stored == text {
@@ -318,6 +319,16 @@ func TestASettingThatLooksSealedIsSealed(t *testing.T) {
 		if again := SealIfActive(stored); again != stored {
 			t.Errorf("%q, sealed already, was sealed again", text)
 		}
+	}
+
+	foreign := other.SealString("from another brain")
+
+	if SealIfActive(foreign) != foreign {
+		t.Error("a value sealed by another brain was sealed again, and would be read as a setting")
+	}
+
+	if _, err := OpenIfSealed(SealIfActive(foreign)); err == nil {
+		t.Error("a value sealed by another brain was opened")
 	}
 
 	if SealIfActive("") != "" {

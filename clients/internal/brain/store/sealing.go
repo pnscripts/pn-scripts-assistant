@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/hex"
@@ -99,7 +100,7 @@ type SealProgress struct {
 	AlreadyOK bool
 
 	// PutRight is how many records an older version had left unreadable and
-	// this start sealed properly (see putRightOnce).
+	// this start made readable again (see putRightOnce).
 	PutRight int
 }
 
@@ -164,6 +165,11 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 		return p, err
 	}
 
+	// And such text in the columns that are not sealed.
+	if p.PutRight, err = d.putRight(ctx); err != nil {
+		return p, err
+	}
+
 	// 3. Nothing of the old text left in free pages or the journal.
 	if err := d.setState("sealed", "rows"); err != nil {
 		return p, err
@@ -181,7 +187,7 @@ func (d *DB) SealInPlace(ctx context.Context) (SealProgress, error) {
 		return p, err
 	}
 
-	// Every row was just looked at: nothing is left for putRightOnce.
+	// Every table was just looked at: nothing is left for putRightOnce.
 	return p, d.choreDone(lookalikesPutRight)
 }
 
@@ -232,20 +238,19 @@ func (d *DB) sealRows(ctx context.Context) (int, error) {
 }
 
 /*
- * putRightOnce seals what an older version left unreadable in a sealed brain.
+ * putRightOnce makes readable what an older version left unreadable in a
+ * sealed brain.
  *
  * Until 1.2.0 text that began with the mark of sealed text was taken for
  * sealed and written as it came: a message, a page's words, a mail's
- * subject. It could not be opened, and no query that met it could be
- * answered. Such text is not shaped like anything this program seals
- * (vault.ShapedString), which is how it is told from a sealed value somebody
- * changed: that one is left alone and goes on failing the read, as it
- * should. Text built to have the full shape stays unreadable for the same
- * reason; nothing can tell it from a damaged value.
+ * subject, the name of a model. It could not be opened, and no query that
+ * met it could be answered. See putRight for what is done about it.
  *
- * Once per brain, by name in chores. Each batch is a transaction and a row
- * put right is not touched again, so a power cut part way costs nothing: the
- * next start carries on and then writes the name down.
+ * Once per brain, by name in chores. A table is one transaction and a row
+ * put right is not found again, so a power cut part way costs nothing: the
+ * next start does it from the beginning and then writes the name down. The
+ * journal is emptied before that, whatever was found, so the text that lay
+ * in the clear is not left there by a start that was cut off after its work.
  */
 func (d *DB) putRightOnce(ctx context.Context) (int, error) {
 	var done int
@@ -258,20 +263,216 @@ func (d *DB) putRightOnce(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	n, err := d.sealRows(ctx)
+	n, err := d.putRight(ctx)
 	if err != nil {
 		return n, err
 	}
 
-	// What was put right lay in the clear until now: not in the journal
-	// either, from here on.
-	if n > 0 {
-		if _, err := d.sql().Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
-			return n, err
-		}
+	if _, err := d.sql().Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+		return n, err
 	}
 
 	return n, d.choreDone(lookalikesPutRight)
+}
+
+/*
+ * putRight looks through every column of every table for text that begins
+ * with the sealed mark and was stored as it came, and stores it as it would
+ * be stored today. It returns how many rows it changed.
+ *
+ * In a sealed column that is text with the mark and not the rest of what
+ * sealing writes (vault.BeginsSealed): it is kept apart and sealed. A value
+ * that does begin like a sealed one is left alone, whether it opens or not:
+ * changed, cut short or built to look the part, nothing here can tell which,
+ * and a damaged value has to go on failing the read.
+ *
+ * In any other column nothing is ever sealed, so whatever begins with the
+ * mark there is text and is kept apart, a value sealed with this brain's own
+ * key included: left where it does not belong, it would be opened for
+ * whoever put it there.
+ *
+ * The rows are found in SQL, by the mark written into the query itself, and
+ * read as hex, which nothing takes for a sealed value: a brain of any size
+ * costs one pass and only the rows concerned are touched.
+ */
+func (d *DB) putRight(ctx context.Context) (int, error) {
+	sealed := map[string]map[string]bool{}
+
+	for _, t := range sealedColumns {
+		sealed[t.table] = map[string]bool{}
+
+		for _, c := range append(append([]string{}, t.text...), t.blob...) {
+			sealed[t.table][c] = true
+		}
+	}
+
+	tables, err := d.names(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
+	if err != nil {
+		return 0, err
+	}
+
+	changed := 0
+
+	for _, table := range tables {
+		if err := ctx.Err(); err != nil {
+			return changed, err
+		}
+
+		n, err := d.putRightIn(table, sealed[table])
+		if err != nil {
+			return changed, fmt.Errorf("putting %s right: %w", table, err)
+		}
+
+		changed += n
+	}
+
+	return changed, nil
+}
+
+func (d *DB) names(query string, args ...any) ([]string, error) {
+	rows, err := d.sql().Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []string
+
+	for rows.Next() {
+		var name string
+
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+
+		out = append(out, name)
+	}
+
+	return out, rows.Err()
+}
+
+// The marks as SQL sees them.
+var (
+	markInSQL  = "'" + vault.Prefix + "'"
+	magicInSQL = "'" + strings.ToUpper(hex.EncodeToString(vault.Seal0())) + "'"
+)
+
+func (d *DB) putRightIn(table string, sealed map[string]bool) (int, error) {
+	cols, err := d.names(`SELECT name FROM pragma_table_info(?)`, table)
+	if err != nil || len(cols) == 0 {
+		return 0, err
+	}
+
+	quoted := func(name string) string { return `"` + strings.ReplaceAll(name, `"`, `""`) + `"` }
+
+	var selects, wheres []string
+
+	for _, c := range cols {
+		q := quoted(c)
+		selects = append(selects, "typeof("+q+"), hex("+q+")")
+
+		wheres = append(wheres, "(typeof("+q+") = 'text' AND substr("+q+", 1, "+fmt.Sprint(len(vault.Prefix))+") = "+markInSQL+")")
+
+		if !sealed[c] {
+			wheres = append(wheres, "(typeof("+q+") = 'blob' AND (hex(substr("+q+", 1, "+fmt.Sprint(len(vault.Seal0()))+")) = "+magicInSQL+
+				" OR hex(substr("+q+", 1, "+fmt.Sprint(len(vault.Prefix))+")) = '"+strings.ToUpper(hex.EncodeToString([]byte(vault.Prefix)))+"'))")
+		}
+	}
+
+	tx, err := d.sql().Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.Query(`SELECT rowid, ` + strings.Join(selects, ", ") + ` FROM ` + quoted(table) +
+		` WHERE ` + strings.Join(wheres, " OR "))
+	if err != nil {
+		// A table with no rowid of its own: none holds anything of a
+		// person's, and none exists today.
+		if strings.Contains(err.Error(), "no such column: rowid") {
+			return 0, nil
+		}
+
+		return 0, err
+	}
+
+	type change struct {
+		rowid  int64
+		column string
+		value  any
+	}
+
+	var (
+		changes []change
+		touched = map[int64]bool{}
+	)
+
+	for rows.Next() {
+		var rowid int64
+
+		kind := make([]string, len(cols))
+		hexed := make([]string, len(cols))
+		dest := []any{&rowid}
+
+		for i := range cols {
+			dest = append(dest, &kind[i], &hexed[i])
+		}
+
+		if err := rows.Scan(dest...); err != nil {
+			rows.Close()
+
+			return 0, err
+		}
+
+		for i, c := range cols {
+			if kind[i] != "text" && kind[i] != "blob" {
+				continue
+			}
+
+			v, err := hex.DecodeString(hexed[i])
+			if err != nil {
+				rows.Close()
+
+				return 0, err
+			}
+
+			text := string(v)
+
+			switch {
+			case kind[i] == "text" && sealed[c]:
+				if vault.IsSealedString(text) && !vault.BeginsSealed(text) {
+					changes = append(changes, change{rowid, c, storedText(d.key.SealString(vault.Keep(text)))})
+				}
+			case kind[i] == "text":
+				if vault.IsSealedString(text) {
+					changes = append(changes, change{rowid, c, storedText(vault.Keep(text))})
+				}
+			case !sealed[c]:
+				if vault.IsSealed(v) || bytes.HasPrefix(v, []byte(vault.Prefix)) {
+					changes = append(changes, change{rowid, c, storedBlob(vault.KeepBytes(v))})
+				}
+			}
+		}
+	}
+
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+
+	for _, ch := range changes {
+		if _, err := tx.Exec(`UPDATE `+quoted(table)+` SET `+quoted(ch.column)+` = ? WHERE rowid = ?`, ch.value, ch.rowid); err != nil {
+			return 0, err
+		}
+
+		touched[ch.rowid] = true
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	return len(touched), nil
 }
 
 func (d *DB) choreDone(name string) error {
@@ -382,21 +583,17 @@ func (d *DB) sealBatch(table string, cols []string, blob map[string]bool, after 
 
 			/*
 			 * Every value goes back exactly as given here (storedText,
-			 * storedBlob). What has the shape of a sealed value is left as
+			 * storedBlob). What begins the way sealing writes is left as
 			 * it is, which is what lets this carry on after a power cut.
-			 * Anything else is somebody's text or bytes: when it begins with
-			 * the sealed mark all the same, an older version wrote it as it
-			 * came, and it is kept apart before it is sealed, as it would be
-			 * written today.
+			 * Anything else is somebody's text or bytes: text that carries
+			 * the sealed mark all the same was written as it came by an
+			 * older version, and is kept apart before it is sealed, as it
+			 * would be written today.
 			 */
 			if blob[c] {
 				values[i] = storedBlob(v)
 
-				if len(v) > 0 && !vault.Shaped(v) {
-					if vault.IsSealed(v) {
-						v = vault.KeepBytes(v)
-					}
-
+				if len(v) > 0 && !vault.IsSealed(v) {
 					values[i] = storedBlob(d.key.Seal(v))
 					changed = true
 				}
@@ -407,12 +604,8 @@ func (d *DB) sealBatch(table string, cols []string, blob map[string]bool, after 
 			text := string(v)
 			values[i] = storedText(text)
 
-			if len(v) > 0 && !vault.ShapedString(text) {
-				if vault.IsSealedString(text) {
-					text = vault.Keep(text)
-				}
-
-				values[i] = storedText(d.key.SealString(text))
+			if len(v) > 0 && !vault.BeginsSealed(text) {
+				values[i] = storedText(d.key.SealString(vault.Keep(text)))
 				changed = true
 			}
 		}

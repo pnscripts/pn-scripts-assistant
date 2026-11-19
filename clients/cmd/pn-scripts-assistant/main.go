@@ -329,7 +329,7 @@ func openDB() (*store.DB, paths.Root, error) {
 		fmt.Fprintf(os.Stderr, "  sealed %d records in place; a sealed copy of the brain as it was is in %s\n",
 			done.Rows, store.BackupBeforeSealing(root.DatabasePath()))
 	} else if done.PutRight > 0 {
-		fmt.Fprintf(os.Stderr, "  %d records an older version could not read back were sealed properly and can be read again\n",
+		fmt.Fprintf(os.Stderr, "  %d records an older version could not read back can be read again\n",
 			done.PutRight)
 	}
 

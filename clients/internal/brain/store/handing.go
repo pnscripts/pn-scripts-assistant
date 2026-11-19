@@ -1,6 +1,8 @@
 package store
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -189,13 +191,37 @@ func (d *DB) Step(id int64) (*TaskStep, error) {
 }
 
 // RecordHire adds one hire to a task's account of who was taken on for it.
+//
+// Joined here and not in the query: a line is whatever the planner wrote,
+// and one that begins with a mark is kept apart as a whole value on its way
+// in (sealed.go), which a line added to the others inside SQL would not be.
 func (d *DB) RecordHire(taskID int64, line string) error {
-	_, err := d.sql().Exec(`
-		UPDATE tasks SET hired = CASE WHEN COALESCE(hired,'') = '' THEN ? ELSE hired || char(10) || ? END,
-		       updated_at = ?
-		WHERE id = ?`, line, line, time.Now().UTC().Format(time.RFC3339), taskID)
+	tx, err := d.sql().Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
-	return err
+	var hired sql.NullString
+
+	if err := tx.QueryRow(`SELECT hired FROM tasks WHERE id = ?`, taskID).Scan(&hired); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+
+		return err
+	}
+
+	if hired.String != "" {
+		line = hired.String + "\n" + line
+	}
+
+	if _, err := tx.Exec(`UPDATE tasks SET hired = ?, updated_at = ? WHERE id = ?`,
+		line, time.Now().UTC().Format(time.RFC3339), taskID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // Root is the task at the top of a chain of handings-on, which is the one a

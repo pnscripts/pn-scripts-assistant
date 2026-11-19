@@ -131,9 +131,9 @@ whenever something visible changed.
   Now such text is kept and sealed like any other text, in every table,
   and reads back exactly as it was written. If an older version left such
   text behind, the first start of this version seals it properly and the
-  list can be read again; nothing needs to be done. A value built to match
-  the whole shape of a sealed one and saved by an older version cannot be
-  told from a damaged value and stays unreadable.
+  list can be read again; nothing needs to be done. Text saved by an older
+  version that begins exactly as a sealed value does, past the mark, cannot
+  be told from a damaged value and stays unreadable.
 
 ## 1.1.0 (2026-11-16)
 
