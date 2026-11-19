@@ -77,6 +77,9 @@ whenever something visible changed.
   did" with who asked. As with everything at the assistant's own address, a
   program running under your account could answer a card too; see "Known
   limits".
+- **A question from another program says who asked from the first moment.**
+  The question and the program's name were written one after the other,
+  so for an instant the card could be read as one of your own.
 - **A yes to another program is not counted as your habit.** The
   suggestion "you always approve this, stop asking?" counted the cards
   another program had asked for too. It now counts only what you asked for

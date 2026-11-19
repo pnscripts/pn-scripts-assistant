@@ -288,3 +288,55 @@ func TestASwitchIsNotTurnedWithoutItsRecord(t *testing.T) {
 		t.Error("a switch with no name was turned")
 	}
 }
+
+// A question another program asked for is written with who asked in one
+// row: sealed, read back, and a question from the desk carries nobody.
+func TestAQuestionIsRecordedWithWhoAsked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "brain.sqlite")
+
+	d, err := OpenSealed(path, sealKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	theirs, err := d.RecordInvocationAskedBy(0, "permission_prompt", `{}`, "Wants to run this", "Иска да изпълни това", "mutating", "clinic-helper-zzq 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	odd, err := d.RecordInvocationAskedBy(0, "permission_prompt", `{}`, "x", "", "mutating", "pnsealed1:Cursor")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mine, err := d.RecordInvocationAskedBy(1, "write_file", `{}`, "Write a file", "", "mutating", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pending, err := d.PendingInvocations()
+	if err != nil || len(pending) != 3 {
+		t.Fatalf("%+v %v", pending, err)
+	}
+
+	for _, inv := range pending {
+		want := map[int64]string{theirs: "clinic-helper-zzq 1", odd: "Cursor", mine: ""}[inv.ID]
+
+		if inv.AskedBy != want {
+			t.Errorf("question %d was asked by %q, want %q", inv.ID, inv.AskedBy, want)
+		}
+	}
+
+	if pending[0].SummaryBG != "Иска да изпълни това" || pending[2].ConversationID != 1 {
+		t.Errorf("the rest of the question: %+v", pending)
+	}
+
+	d.Close()
+
+	raw, _ := os.ReadFile(path)
+	wal, _ := os.ReadFile(path + "-wal")
+
+	if strings.Contains(string(raw)+string(wal), "helper-zzq") {
+		t.Error("the name of the program that asked is readable on disk")
+	}
+}
