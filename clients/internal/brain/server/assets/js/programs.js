@@ -947,7 +947,21 @@
             });
 
             if (!res.ok) {
-                outsideSaying = T(res.status === 403 ? 'out.desk' : 'out.notKept');
+                // Two refusals with the same number: this page is not the
+                // assistant's own window (desk.js), or it is another device.
+                let why = null;
+
+                try {
+                    why = await res.json();
+                } catch (err) {
+                    why = null;
+                }
+
+                if (window.pnDesk && window.pnDesk.refused(res.status, why)) {
+                    outsideSaying = T('desk.notHere');
+                } else {
+                    outsideSaying = T(res.status === 403 ? 'out.desk' : 'out.notKept');
+                }
             } else {
                 const body = await res.json();
                 lastOutside = body && body.data ? body.data : body;

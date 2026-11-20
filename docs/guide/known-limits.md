@@ -94,9 +94,10 @@ against the code on 9 November 2026.
   that name is the program's own word and nothing checks it. The switch
   and the record are for programs that ask through `pn-scripts-assistant
   mcp`: a program running under your account on this computer can reach
-  the assistant's own address as its window does, so it can ask under any
-  name, read the list of programs or search the memory there, or turn a
-  switch itself. Every
+  the assistant's own address, so it can ask under any name, or read the
+  list of programs or search the memory there. It cannot turn a switch:
+  the switches are set only in the assistant's own window (see "Answers on
+  cards and the switches" below). Every
   change of the switch is on the record. On Windows give the program's
   full path in the entry.
 - **Claude Code's permission questions: asked through the assistant, only
@@ -118,12 +119,38 @@ against the code on 9 November 2026.
   hands a permission tool, and tested with a stand-in for it and with the
   MCP project's own client; a signed-in Claude Code session was not part of
   the tests. As with every question from another program, the name on the
-  card is the program's own word, and a program running under your account
-  can reach the assistant's own address as its window does, so it could
-  answer a card there too, or turn the switch on itself; that includes
-  Claude Code itself if you let it run commands that do so. The record
-  therefore says a question was answered "on its card", not "by you". The
-  switch is for programs that ask the way they are meant to.
+  card is the program's own word.
+- **Answers on cards and the switches for other programs: only from the
+  assistant's own window, and what that does not stop.** When the window
+  opens it is given a key that lasts until it closes. Without that key
+  these are refused when they come from this computer: an answer posted to
+  a card (Approve, Reject, Always for a program), a change of "What other
+  programs may ask", a pairing code, and opening the assistant to the
+  network or the internet. A card another program put there (its permission
+  questions among them) is answered in that window only, not in words to
+  the assistant and not from a paired device; that includes Claude Code.
+  Not stopped: a program running under your account that types and clicks
+  in the window as you would, or that reads the memory or the files of the
+  window (the window keeps the key in its session storage, which some web
+  views hold in their profile folder until the window closes). The record
+  therefore says a question was answered "on its card", not "by you".
+  Everything else at the assistant's address is open to programs on this
+  computer as before: a conversation, the settings, what the assistant may
+  do without asking. So a program can still talk to the assistant as you do,
+  and have it approve its own waiting cards in words ("approve everything
+  waiting") or change what it asks about; the key protects what other
+  programs ask, not the assistant's own actions. In a browser instead of
+  the window (`pn-scripts-assistant serve`, macOS, a build without a
+  window) the page shows everything and answers no card, until that browser
+  tab is opened by a link that works once. Started in a terminal, the
+  assistant prints the link there; whoever can read the terminal before you
+  use it can use it instead, and the page then says the link no longer
+  works. Started any other way it prints none unless asked with
+  `-desk-link`, and the link is then wherever that output is kept. On
+  Windows, when the window cannot be drawn and the browser is opened
+  instead, the link is handed to the browser on its command line. A device
+  paired with every right answers the assistant's own cards with its token,
+  as before.
 - **MCP servers from other programs: four programs, their own settings
   only.** Claude Desktop, Claude Code (`~/.claude.json`, or the folder
   `CLAUDE_CONFIG_DIR` names), Cursor (`~/.cursor/mcp.json`) and VS Code (the

@@ -107,3 +107,17 @@ this assistant answers to localhost, not to example.com
 ```
 
 That is deliberate. See [security.md](../audit/security.md).
+
+## Approve does nothing in a browser: "Not from this page"
+
+Answers on cards and the switches for what other programs may ask are taken
+only from the assistant's own window. A browser tab pointed at the address
+shows everything, and says "Not from this page" when a button is pressed
+(a program that posts there is told "That is decided in the assistant's own
+window").
+
+Answer in the window. When there is no window (`pn-scripts-assistant serve`,
+macOS, a build without one), start it in a terminal and open the link it
+prints, once; started any other way, ask for the link with `-desk-link`.
+If the assistant's own window says this, close PN Scripts Assistant and open
+it again. Why, and what it does not stop: [known limits](known-limits.md).

@@ -58,11 +58,13 @@ your answer goes back to Claude Code. What holds:
   "everything allowed" setting says yes here. The answer is the one given
   on the card: "approve everything waiting", said or typed to the
   assistant, leaves these cards where they are, and a paired device cannot
-  answer them. The card belongs to this computer, though, not to you
-  alone: a program running under your account can reach the assistant's
-  address as its window does, and that includes Claude Code if you let it
-  run commands that do so. The record therefore says "on its card", not
-  "by you"; see "Known limits".
+  answer them. An answer is taken only from the assistant's own window:
+  the window is given a key when it opens, and an answer sent without it
+  is refused. A program that posts to the assistant's address, Claude Code
+  included, cannot answer its own question that way. A program that types
+  and clicks in the window as you would, or reads what the window keeps,
+  is not stopped by this, so the record says "on its card", not "by you";
+  see "Known limits".
 - **A yes is for that once**, and it lets Claude Code do the thing itself.
   The assistant does nothing. No "always" is offered.
 - **No answer is a no.** A question nobody answers within ten minutes is
@@ -115,7 +117,9 @@ and how many things were handed over. The
 last five are also listed under the switches. If something another program asks for ever needs your
 yes, its card says "Asked by" the same way, and offers yes or no for that
 once: no "always" is offered for what another program asks, and another
-program can never give the yes itself.
+program can never give the yes itself. The yes is given on the card:
+"approve everything waiting", said or typed, leaves such a card where it
+is.
 
 At most 30 questions a minute are answered, from all programs together. The
 ones over that are refused, and written as one line, so a program that asks
@@ -125,10 +129,11 @@ assistant is running counts too.
 The name is what the program says about itself. Nothing can check it, so it
 is shown to you and never decides anything.
 
-The switch and the record are for programs that ask the way they are meant
-to, through `pn-scripts-assistant mcp`. A program running under your own
-account on this computer can do what you can do at this computer, as with
-your files; see "Known limits".
+The switches are set only in the assistant's own window: a change sent by
+anything else on this computer is refused. The record is for programs that
+ask the way they are meant to, through `pn-scripts-assistant mcp`. A program
+running under your own account can still reach the rest of the assistant's
+address, as it can reach your files; see "Known limits".
 
 ## Setting it up
 The assistant must be installed so that `pn-scripts-assistant` is a command

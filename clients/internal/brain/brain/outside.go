@@ -48,9 +48,10 @@ func (b *Brain) OutsideMay(subject otherprograms.Subject) bool {
 /*
  * AllowOutside sets one switch: whether other programs may ask about
  * subject. A change is written on the record of what was done, whoever
- * made it: the assistant's own page and a program on this computer that
- * posts to the same address cannot be told apart, so the record does not
- * say "you", it says where. The change and its record are one thing: a
+ * made it: the switch is taken only from the assistant's own window
+ * (server/desk.go), but a program that types and clicks in that window is
+ * not told from the person, so the record does not say "you", it says
+ * where. The change and its record are one thing: a
  * change that cannot be recorded is not made (store.SwitchOutside). A
  * switch set to what it already is changes nothing and records nothing.
  */
@@ -61,9 +62,9 @@ func (b *Brain) AllowOutside(subject otherprograms.Subject, allowed bool) error 
 
 	en, bg := otherprograms.Switched(subject, allowed)
 
-	// Who made the change is not said: the assistant's own page and a
-	// program posting to the same address look the same. The page says
-	// where instead (deeds.js, for this tool).
+	// Who made the change is not said: it came from the assistant's own
+	// window, and who sat at it is not something the record can know. The
+	// page says where instead (deeds.js, for this tool).
 	changed, err := b.DB.SwitchOutside(string(subject), allowed, time.Now(), store.Deed{
 		Tool:      SwitchTool,
 		Summary:   en,

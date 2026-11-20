@@ -50,6 +50,10 @@ type Server struct {
 	// (outside.go).
 	outsidePace otherprograms.Pace
 
+	// desk is what tells the assistant's own window from another program
+	// on this computer (desk.go).
+	desk *desk
+
 	brain  *brain.Brain
 	log    *slog.Logger
 	mux    *http.ServeMux
@@ -100,7 +104,7 @@ func (s *Server) OnQuit(quit func()) { s.quit = quit }
 
 // New builds the server and registers its routes.
 func New(b *brain.Brain, logger *slog.Logger) *Server {
-	s := &Server{brain: b, log: logger, mux: http.NewServeMux(), assets: assetHandler(logger)}
+	s := &Server{brain: b, log: logger, mux: http.NewServeMux(), assets: assetHandler(logger), desk: newDesk()}
 
 	/*
 	 * Which devices have been let in, read before anything can be served.
@@ -125,6 +129,10 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	 * to the thing that hears.
 	 */
 	brain.Listening = s.recentlyHeard
+
+	// The window's own way in. See desk.go.
+	s.mux.HandleFunc("GET /desk/{code}", s.handleDeskPage)
+	s.mux.HandleFunc("POST /api/desk/enter", s.handleDeskEnter)
 
 	s.mux.HandleFunc("POST /api/chat", s.handleChat)
 	s.mux.HandleFunc("GET /api/status", s.handleStatus)
@@ -832,6 +840,24 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decision := r.PathValue("decision")
+
+	/*
+	 * What another program asked for is answered at this computer.
+	 *
+	 * A paired device with every right answers the assistant's own cards.
+	 * A card another program put here (its permission questions among
+	 * them) belongs where that program runs, in the window that holds the
+	 * key: otherwise pairing would be the way round it.
+	 */
+	if !s.whoIsAsking(r).Here {
+		if waiting, err := s.brain.DB.Invocation(id); err == nil && waiting != nil &&
+			(waiting.AskedBy != "" || brain.IsPermitQuestion(*waiting)) {
+			fail(w, http.StatusForbidden,
+				"What another program asked for is answered at the computer it runs on, in the assistant's own window.")
+
+			return
+		}
+	}
 
 	/*
 	 * Both words for the same thing.

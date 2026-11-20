@@ -2,6 +2,7 @@ package brain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -33,6 +34,13 @@ func (b *Brain) PendingActions() ([]tools.QueueItem, error) {
 			continue
 		}
 
+		// Nor is anything else another program asked for: a conversation
+		// can be started by any program on this computer, the asking one
+		// included, and only the card is the window's alone (server/desk.go).
+		if row.AskedBy != "" {
+			continue
+		}
+
 		summary := strings.TrimSpace(row.Summary)
 		if summary == "" {
 			summary = row.Tool
@@ -43,6 +51,10 @@ func (b *Brain) PendingActions() ([]tools.QueueItem, error) {
 
 	return out, nil
 }
+
+// errAskedOnTheCard is said to anything but the card that tries to answer
+// what another program asked for.
+var errAskedOnTheCard = errors.New("what another program asked for is answered on its card in the assistant's window")
 
 // PendingLessons lists things the brain wants to remember, waiting for a yes.
 func (b *Brain) PendingLessons() ([]tools.QueueItem, error) {
@@ -66,6 +78,8 @@ func (b *Brain) DecideAction(ctx context.Context, id int64, approve bool) (strin
 	// permission question (permit.go).
 	if waiting, err := b.DB.Invocation(id); err == nil && waiting != nil && IsPermitQuestion(*waiting) {
 		return "", errPermitOnTheCard
+	} else if err == nil && waiting != nil && waiting.AskedBy != "" {
+		return "", errAskedOnTheCard
 	}
 
 	invocation, err := b.Decide(ctx, id, approve)

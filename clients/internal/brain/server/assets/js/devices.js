@@ -92,7 +92,7 @@
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                say('paired-said', body.error ? T('reach.failedWhy', { why: body.error }) : T('reach.failed'));
+                say('paired-said', whyOf(res, body) ? T('reach.failedWhy', { why: whyOf(res, body) }) : T('reach.failed'));
                 return;
             }
 
@@ -101,6 +101,14 @@
         } catch (err) {
             say('paired-said', T('reach.failedWhy', { why: err.message }));
         }
+    }
+
+    // Why something was refused: in the page's language when the reason is
+    // that this page is not the assistant's own window (desk.js).
+    function whyOf(res, body) {
+        if (window.pnDesk && window.pnDesk.refused(res.status, body)) return T('desk.notHere');
+
+        return (body && body.error) || '';
     }
 
     async function offer() {
@@ -116,7 +124,7 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('paired-said', body.error ? T('reach.failedWhy', { why: body.error }) : T('reach.failed'));
+                say('paired-said', whyOf(res, body) ? T('reach.failedWhy', { why: whyOf(res, body) }) : T('reach.failed'));
                 return;
             }
 
@@ -165,7 +173,7 @@
             const body = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('reach-said', body.error ? T('reach.notSavedWhy', { why: body.error }) : T('reach.notSaved'));
+                say('reach-said', whyOf(res, body) ? T('reach.notSavedWhy', { why: whyOf(res, body) }) : T('reach.notSaved'));
                 return;
             }
 
@@ -362,7 +370,7 @@
             const answer = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                say('tunnel-said', answer.error ? T('reach.failedWhy', { why: answer.error }) : T('reach.failed'));
+                say('tunnel-said', whyOf(res, answer) ? T('reach.failedWhy', { why: whyOf(res, answer) }) : T('reach.failed'));
                 return;
             }
 
@@ -387,7 +395,7 @@
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                say('tunnel-said', body.error ? T('reach.failedWhy', { why: body.error }) : T('reach.failed'));
+                say('tunnel-said', whyOf(res, body) ? T('reach.failedWhy', { why: whyOf(res, body) }) : T('reach.failed'));
                 return;
             }
 

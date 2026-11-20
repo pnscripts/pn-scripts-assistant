@@ -37,6 +37,7 @@ var beforeTheTerms = map[string]bool{
 	"GET /api/v1/version":   true,
 	"POST /api/present":     true, // a second copy bringing this window forward
 	"POST /api/open-source": true, // the terms in the documentation, in the browser
+	"POST /api/desk/enter":  true, // the window taking its key, before anything else
 }
 
 // termsAccepted is whether its owner has accepted the terms in force, read

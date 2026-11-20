@@ -47,6 +47,10 @@ async function why(res, path) {
         const data = await res.json();
 
         said = (data && data.error) || '';
+
+        // Refused because this page is not the assistant's own window
+        // (desk.js): said in the page's language.
+        if (window.pnDesk && window.pnDesk.refused(res.status, data)) said = words('desk.notHere');
     } catch {
         said = '';
     }
@@ -1590,7 +1594,11 @@ async function decide(id, decision, programName) {
 
         addMessage('system', note, { cssClass: 'brain' });
     } catch (err) {
-        const why = decision === 'always-program'
+        // Refused because this page is not the assistant's own window:
+        // that reason, whichever button was pressed.
+        const notHere = String(err.message || '') === words('desk.notHere');
+
+        const why = decision === 'always-program' && !notHere
             ? words('prg.ap.failed', { name: programName || '' })
             : String(err.message || err);
 

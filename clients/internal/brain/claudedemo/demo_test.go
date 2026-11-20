@@ -179,13 +179,14 @@ func (a *anthropic) calls() int {
 }
 
 type demo struct {
-	t     *testing.T
-	ts    *httptest.Server
-	b     *brain.Brain
-	model *model
-	home  string
-	stub  string // the folder of the Claude Code stand-in
-	api   *anthropic
+	window string // the key of the assistant's own window
+	t      *testing.T
+	ts     *httptest.Server
+	b      *brain.Brain
+	model  *model
+	home   string
+	stub   string // the folder of the Claude Code stand-in
+	api    *anthropic
 }
 
 // buildStandIn builds the Claude Code stand-in as "claude" in its own folder.
@@ -284,20 +285,55 @@ func newDemo(t *testing.T) *demo {
 	m := &model{home: home}
 	b.Router = llm.NewRouter(llm.ModeOpen, "ollama", m)
 
-	ts := httptest.NewServer(server.New(b, logger).Handler())
+	srv := server.New(b, logger)
+	ts := httptest.NewServer(srv.Handler())
+	windowKey := asTheWindow(t, srv, ts.URL)
 
 	t.Cleanup(func() {
 		ts.Close()
 		db.Close()
 	})
 
-	return &demo{t: t, ts: ts, b: b, model: m, home: home, stub: stub, api: api}
+	return &demo{window: windowKey, t: t, ts: ts, b: b, model: m, home: home, stub: stub, api: api}
+}
+
+// asTheWindow takes the key the assistant's own window holds, the way the
+// window does: by the link the program gives it, swapped once. The demo
+// presses the buttons a person presses, and those are the window's.
+func asTheWindow(t *testing.T, srv *server.Server, base string) string {
+	t.Helper()
+
+	code := strings.TrimPrefix(srv.DeskLink(base), base+"/desk/")
+
+	res, err := http.Post(base+"/api/desk/enter", "application/json", strings.NewReader(`{"code":"`+code+`"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	var out struct {
+		Key string `json:"key"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil || out.Key == "" {
+		t.Fatalf("the window was not given its key (%d): %v", res.StatusCode, err)
+	}
+
+	return out.Key
 }
 
 func (d *demo) post(path, body string, into any) (int, string) {
 	d.t.Helper()
 
-	res, err := http.Post(d.ts.URL+path, "application/json", strings.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, d.ts.URL+path, strings.NewReader(body))
+	if err != nil {
+		d.t.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(server.DeskHeader, d.window)
+
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		d.t.Fatal(err)
 	}
