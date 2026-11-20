@@ -35,7 +35,11 @@ import (
  *
  * What this does not do, said here because the limit is real: a program
  * that reads another program's memory or its browser profile, or that types
- * and clicks in the window as a person would, is not stopped by a key. It
+ * and clicks in the window as a person would, is not stopped by a key; nor
+ * is one that starts the window itself with its web view told to open a
+ * debugging port (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS on Windows, which
+ * CI uses to prove the window takes its key), since it can then read the
+ * key the way it reads anything else in the page. It
  * stops a program answering by itself with one request, which is what the
  * review of 1.2.0 found.
  */

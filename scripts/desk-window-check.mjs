@@ -39,11 +39,13 @@ function fail(why) {
 async function findThePage() {
     const until = Date.now() + 90_000;
     let seen = [];
+    let answered = false;
 
     while (Date.now() < until) {
         try {
-            const res = await fetch(`http://127.0.0.1:${port}/json/list`);
+            const res = await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(5000) });
             seen = await res.json();
+            answered = true;
 
             const page = seen.find((t) => t.type === 'page' && typeof t.url === 'string'
                 && t.url.startsWith(base + '/') && !t.url.includes('/desk/'));
@@ -56,7 +58,11 @@ async function findThePage() {
         await sleep(1000);
     }
 
-    fail(`no window showed ${base}/ within 90 s (pages: ${seen.map((t) => t.url).join(', ') || 'none'})`);
+    // Never the one-time address itself: its code may still be unused.
+    const said = seen.map((t) => (String(t.url).includes('/desk/') ? `${base}/desk/(code not shown)` : t.url));
+    fail(answered
+        ? `no window showed ${base}/ within 90 s (pages: ${said.join(', ') || 'none'})`
+        : `nothing answered on the debugging port ${port} within 90 s: the web view was not started with it`);
 }
 
 function connect(url) {
@@ -133,7 +139,7 @@ console.log(`the window holds its key (${held.kept} characters, not shown) and l
 
 // 2. A program on this computer: the switch, posted without the key, is refused.
 const switchState = async () => {
-    const res = await fetch(`${base}/api/outside`);
+    const res = await fetch(`${base}/api/outside`, { signal: AbortSignal.timeout(10_000) });
     const body = await res.json();
     const all = (body && body.data ? body.data : body).subjects || [];
     const row = all.find((s) => s.subject === 'programs' || s.id === 'programs' || s.name === 'programs');
@@ -147,13 +153,17 @@ const program = await fetch(`${base}/api/outside/allow`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ subject: 'programs', allowed: true }),
+    signal: AbortSignal.timeout(10_000),
 });
+const refusal = await program.json().catch(() => ({}));
 
-if (program.status !== 403 || await switchState() !== false) {
-    fail(`a program without the key turned the switch on (answer ${program.status})`);
+// Refused for the key, not for something else on the way (an Origin the
+// guard did not like would be a 403 too, and would prove nothing here).
+if (program.status !== 403 || !refusal || refusal.desk !== 'not the window' || await switchState() !== false) {
+    fail(`a program without the key was not refused for the key (answer ${program.status}, ${JSON.stringify(refusal)})`);
 }
 
-console.log('a program on this computer without the key was refused (403) and the switch stayed off');
+console.log('a program on this computer without the key was refused for not being the window (403) and the switch stayed off');
 
 // 3. A person in the window: opens Programs and ticks the switch with the mouse.
 await evaluate(`(() => {

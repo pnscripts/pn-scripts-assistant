@@ -98,6 +98,11 @@ const refused = JSON.parse(read('refused.json'));
 process.stdout.write(JSON.stringify({
     away: said('cards.json'),
     here: said('window.json'),
+    // Other programs stopped as well: where it is answered still comes first.
+    stopped: JSON.parse(read('cards.json')).filter((c) => c.asked_by).map((c) => {
+        const o = P.approvalChoices(Object.assign({}, c, { programs_stopped: true }), c.tool);
+        return { approve: o.approve, reject: o.reject, note: o.note };
+    }),
     atTheComputer: window.pnDesk.atTheComputer(403, refused),
     notTheWindow: window.pnDesk.refused(403, refused),
     words: window.pnT('desk.atTheComputer'),
@@ -118,7 +123,7 @@ process.stdout.write(JSON.stringify({
 		}
 
 		var got struct {
-			Away, Here                  []card
+			Away, Here, Stopped         []card
 			AtTheComputer, NotTheWindow bool
 			Words                       string
 		}
@@ -156,6 +161,10 @@ process.stdout.write(JSON.stringify({
 			if !c.Approve || !c.Reject || c.Note != "" {
 				t.Errorf("%s: in the window a card lost its buttons: %+v", language, c)
 			}
+		}
+
+		if len(got.Stopped) != 1 || got.Stopped[0].Approve || got.Stopped[0].Reject || got.Stopped[0].Note != got.Words {
+			t.Errorf("%s: with other programs stopped too, the card on a device elsewhere: %+v", language, got.Stopped)
 		}
 
 		if !got.AtTheComputer || got.NotTheWindow {

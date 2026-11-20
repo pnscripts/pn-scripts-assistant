@@ -360,11 +360,11 @@
         ],
         'desk.notHereDevices': [
             'Not from this page. Pairing a device and what may reach the assistant are changed in its own window: change them there. If this is that window, close PN Scripts Assistant and open it again.',
-            'Не може от тази страница. Сдвояването на устройства и това какво има достъп до асистента се променят в собствения му прозорец: променете ги там. Ако това е този прозорец, затворете PN Scripts Assistant и го отворете отново.',
+            'Не може от тази страница. Сдвояването на устройства и кое има достъп до асистента се променят в собствения му прозорец: променете ги там. Ако това е този прозорец, затворете PN Scripts Assistant и го отворете отново.',
         ],
         'desk.atTheComputer': [
             'Another program asked for this, so it is answered at the computer that program runs on, in the assistant’s own window.',
-            'Това го поиска друга програма, затова се отговаря на компютъра, на който тя работи, в собствения прозорец на асистента.',
+            'Това е поискано от друга програма, затова на него се отговаря на компютъра, на който тя работи, в собствения прозорец на асистента.',
         ],
         'out.notKept': ['That was not kept. Try again.', 'Това не беше запазено. Опитайте отново.'],
         'out.failed': [

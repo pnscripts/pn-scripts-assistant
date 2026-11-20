@@ -326,7 +326,7 @@
             out.note = T('desk.atTheComputer');
             if (item.asked_by) {
                 const who = askedBy(item);
-                out.askedBy = { label: who.chip, title: who.title };
+                out.askedBy = { label: who.chip, title: who.title + ' ' + T(item.tool === PERMIT ? 'out.ap.permit' : 'out.ap.note') };
             }
             return out;
         }

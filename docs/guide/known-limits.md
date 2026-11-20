@@ -130,8 +130,10 @@ against the code on 9 November 2026.
   questions among them) is answered in that window only, not in words to
   the assistant and not from a paired device; that includes Claude Code.
   Not stopped: a program running under your account that types and clicks
-  in the window as you would, or that reads the memory or the files of the
-  window (the window keeps the key in its session storage, which some web
+  in the window as you would, that reads the memory or the files of the
+  window, or that starts the window itself with its web view open to a
+  debugging tool, which on Windows a variable of your account can ask
+  WebView2 for (the window keeps the key in its session storage, which some web
   views hold in their profile folder until the window closes). The record
   therefore says a question was answered "on its card", not "by you".
   Everything else at the assistant's address is open to programs on this

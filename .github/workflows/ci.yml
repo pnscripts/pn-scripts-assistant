@@ -578,9 +578,9 @@ jobs:
       # address, the page swaps it for a key it keeps for the tab, and what
       # it posts carries the key; a program on the same computer posting the
       # same thing is refused. Node tests prove the scripts and Go tests the
-      # guard; this proves the real WebView2 window does it. The portable
-      # copy photographed above (terms accepted, recovery note dismissed) is
-      # opened as people open it, with a debugging port for this run only
+      # guard; this proves the real WebView2 window does it. A portable copy
+      # of its own is opened as people open it, with a debugging port for
+      # this run only
       # (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, never set by the program), and
       # scripts/desk-window-check.mjs opens Programs in the window and ticks
       # "which programs are installed" with the mouse, after checking that a
@@ -591,6 +591,7 @@ jobs:
 
       - name: The Windows window takes its key
         shell: pwsh
+        timeout-minutes: 8
         env:
           BRAIN_SETUP_DONE: 'true'
           OLLAMA_BASE_URL: 'http://127.0.0.1:9'
@@ -598,18 +599,46 @@ jobs:
           WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9333'
         run: |
           $ErrorActionPreference = 'Stop'
-          $exe = "$env:RUNNER_TEMP\gallery\PN-Scripts-Assistant\pn-scripts-assistant.exe"
-          if (-not (Test-Path $exe)) { throw 'the portable copy of the step before is not there' }
-          $p = Start-Process $exe -ArgumentList 'app','-addr','127.0.0.1:8895','-skip-setup' -PassThru
-          $up = $false
-          for ($i = 0; $i -lt 90 -and -not $up; $i++) {
-            try { $up = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8895/health).StatusCode -eq 200 } catch { Start-Sleep 1 }
+          # A copy of its own: its own brain and its own web view folder, so
+          # no web view process left from the picture above is reused (one
+          # that is still running ignores the debugging port asked for here).
+          $zip = Get-ChildItem build/packages/*-windows-amd64.zip | Select-Object -First 1
+          $to = "$env:RUNNER_TEMP\keycheck"
+          Expand-Archive $zip.FullName -DestinationPath $to
+          $exe = "$to\PN-Scripts-Assistant\pn-scripts-assistant.exe"
+
+          function Wait-Up {
+            for ($i = 0; $i -lt 90; $i++) {
+              try { if ((Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8895/health).StatusCode -eq 200) { return $true } } catch { Start-Sleep 1 }
+            }
+            return $false
           }
-          if (-not $up) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not answer within 90 s' }
-          node scripts/desk-window-check.mjs 9333 127.0.0.1:8895 | Tee-Object -FilePath desk-window-check.txt
-          $code = $LASTEXITCODE
-          $p.CloseMainWindow() | Out-Null
-          if (-not $p.WaitForExit(30000)) { Stop-Process -Id $p.Id; throw 'the program did not close with its window' }
+
+          # Terms accepted and the recovery note dismissed once, as its owner
+          # does in the window (the photograph step does the same).
+          $p = Start-Process $exe -ArgumentList 'serve','-addr','127.0.0.1:8895' -PassThru
+          if (-not (Wait-Up)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not answer within 90 s' }
+          $terms = Invoke-RestMethod http://127.0.0.1:8895/api/terms
+          Invoke-RestMethod -Method Post -Headers @{ Origin = 'http://127.0.0.1:8895' } -ContentType 'application/json' -Body (@{ version = $terms.version } | ConvertTo-Json) http://127.0.0.1:8895/api/terms | Out-Null
+          Invoke-RestMethod -Method Post -Headers @{ Origin = 'http://127.0.0.1:8895' } http://127.0.0.1:8895/api/vault/recovery/kept | Out-Null
+          Stop-Process -Id $p.Id
+          $p.WaitForExit(20000) | Out-Null
+
+          $p = Start-Process $exe -ArgumentList 'app','-addr','127.0.0.1:8895','-skip-setup' -PassThru
+          if (-not (Wait-Up)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not answer within 90 s' }
+          try {
+            node scripts/desk-window-check.mjs 9333 127.0.0.1:8895 | Tee-Object -FilePath desk-window-check.txt
+            $code = $LASTEXITCODE
+            if ($code -ne 0) {
+              # Whether the web view was started with the debugging port at all.
+              Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'" |
+                Where-Object { $_.CommandLine -notmatch '--type=' } |
+                ForEach-Object { Write-Output "web view: $($_.CommandLine -replace '/desk/[^ "]+', '/desk/(code not shown)')" }
+            }
+          } finally {
+            $p.CloseMainWindow() | Out-Null
+            if (-not $p.WaitForExit(30000)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not close with its window' }
+          }
           if ($code -ne 0) { throw "the window check failed ($code)" }
           if (-not (Select-String -Path desk-window-check.txt -Pattern 'desk window check OK' -SimpleMatch -Quiet)) { throw 'the window check did not say OK' }
 

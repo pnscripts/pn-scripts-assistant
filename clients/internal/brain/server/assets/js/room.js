@@ -106,17 +106,24 @@
         tool.textContent = toolName(item.tool);
         row.appendChild(tool);
 
-        // Other programs stopped: a question that uses one can only be
-        // refused here, and says why.
-        if (item.programs_stopped) row.appendChild(note(T('prg.ap.stopped')));
-
         // Another program asked for it and this is a device elsewhere: the
         // server marks it, and it is answered in the assistant's own window.
+        // Who asked, and where it is answered, as the command centre says it
+        // (programs.js); nothing about other programs being stopped, which
+        // changes nothing here.
         if (item.at_the_computer_only) {
+            const offer = window.pnPrograms && window.pnPrograms.approvalChoices
+                ? window.pnPrograms.approvalChoices(item, item.tool) : null;
+
+            if (offer && offer.askedBy) row.appendChild(note(offer.askedBy.label));
             row.appendChild(note(T('desk.atTheComputer')));
 
             return row;
         }
+
+        // Other programs stopped: a question that uses one can only be
+        // refused here, and says why.
+        if (item.programs_stopped) row.appendChild(note(T('prg.ap.stopped')));
 
         const buttons = document.createElement('div');
         buttons.className = 'agent-controls';
