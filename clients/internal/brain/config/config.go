@@ -1349,14 +1349,24 @@ func SealFile(path string) error {
 	return vault.WriteAtomic(path, []byte(sealed), 0o600)
 }
 
-// readFile parses key=value lines, ignoring blanks and # comments. A missing
-// file is not an error: it means "all defaults", which is a valid state.
 /*
  * readOpened reads a settings file with its sealed values opened (ADR 0008).
  *
- * A value that will not open (no key here yet, or another brain's) reads as
- * unset rather than as ciphertext. Every read Load makes goes through here,
- * so no sealed text can reach a setting.
+ * Only what SealSetting seals is opened: a personal setting whose value
+ * begins the way everything this program seals does (vault.BeginsSealed).
+ * Such a value that will not open (no key here yet, another brain's, or
+ * damaged) reads as unset rather than as ciphertext. Every read Load makes
+ * goes through here, so no sealed text can reach a personal setting.
+ *
+ * Everything else is read as it was written, whatever it begins with
+ * (found 19.11.2026): a setting that is not personal is never sealed, so a
+ * calendar user name or an address typed with the mark is somebody's text,
+ * and a sealed value copied into such a setting stays sealed rather than
+ * being opened and shown on the page. A personal value that carries the mark
+ * and not the rest was typed that way while no key was in force, and is
+ * text too. Personal has never changed what it counts since sealing came in
+ * (ea891c6, 11.10.2026), so nothing sealed by an earlier version is left
+ * unopened by this.
  */
 func readOpened(path string) (map[string]string, error) {
 	values, err := readFile(path)
@@ -1365,19 +1375,23 @@ func readOpened(path string) (map[string]string, error) {
 	}
 
 	for k, v := range values {
-		if vault.IsSealedString(v) {
-			plain, err := vault.OpenIfSealed(v)
-			if err != nil {
-				plain = ""
-			}
-
-			values[k] = plain
+		if !Personal(k) || !vault.BeginsSealed(v) {
+			continue
 		}
+
+		plain, err := vault.OpenIfSealed(v)
+		if err != nil {
+			plain = ""
+		}
+
+		values[k] = plain
 	}
 
 	return values, nil
 }
 
+// readFile parses key=value lines, ignoring blanks and # comments. A missing
+// file is not an error: it means "all defaults", which is a valid state.
 func readFile(path string) (map[string]string, error) {
 	out := map[string]string{}
 

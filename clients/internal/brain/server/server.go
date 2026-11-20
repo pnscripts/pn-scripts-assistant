@@ -850,8 +850,22 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 	 * key: otherwise pairing would be the way round it.
 	 */
 	if !s.whoIsAsking(r).Here {
-		if waiting, err := s.brain.DB.Invocation(id); err == nil && waiting != nil &&
-			(waiting.AskedBy != "" || brain.IsPermitQuestion(*waiting)) {
+		waiting, err := s.brain.DB.Invocation(id)
+
+		/*
+		 * A card that cannot be read cannot be told apart, so it is not
+		 * answered from elsewhere at all (found by the review of the
+		 * window's key, 20.11.2026): before, the answer went on to Decide
+		 * and was stopped only because Decide failed on the same error.
+		 */
+		if err != nil {
+			fail(w, http.StatusInternalServerError,
+				"That card could not be read, so it was not answered: "+err.Error())
+
+			return
+		}
+
+		if waiting != nil && (waiting.AskedBy != "" || brain.IsPermitQuestion(*waiting)) {
 			fail(w, http.StatusForbidden,
 				"What another program asked for is answered at the computer it runs on, in the assistant's own window.")
 

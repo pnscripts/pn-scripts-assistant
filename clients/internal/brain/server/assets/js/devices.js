@@ -188,7 +188,9 @@
         let body;
 
         try {
-            const res = await fetch('/api/paired');
+            // With the window's key: the pairing code on offer is shown only
+            // to the window (desk.js).
+            const res = await fetch('/api/paired', window.pnDesk ? window.pnDesk.read('/api/paired') : undefined);
             if (!res.ok) return;
             body = await res.json();
         } catch (err) {

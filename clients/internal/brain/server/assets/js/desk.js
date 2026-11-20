@@ -10,7 +10,8 @@
  *
  * Loaded before every other script, so that nothing on the page has to know:
  * each request the page makes to its own address that changes something gets
- * the header. Never a request that only reads, and never one to anywhere else.
+ * the header. Never a request that only reads (apart from the one that asks
+ * for it by name, pnDesk.read), and never one to anywhere else.
  */
 (function () {
     'use strict';
@@ -43,10 +44,16 @@
     // options to send with, the key added where it belongs, or `init` as it
     // was given.
     function carry(key, here, input, init) {
-        if (!key) return init;
-
         const method = methodOf(input, init);
         if (method === 'GET' || method === 'HEAD') return init;
+
+        return withKey(key, here, input, init);
+    }
+
+    // withKey adds the key to a request to this page's own address, whatever
+    // its method, and leaves every other request as it was given.
+    function withKey(key, here, input, init) {
+        if (!key) return init;
 
         let where;
 
@@ -73,6 +80,13 @@
 
     window.pnDesk = {
         carry,
+        withKey,
+        /*
+         * The one reading that carries the key: the devices page, whose
+         * pairing code on offer the server shows only to the window (a
+         * program that read it could claim it before the phone does).
+         */
+        read: (input, init) => withKey(key, window.location.href, input, init),
         // Whether this page was opened by the assistant as its own window.
         here: () => key !== '',
         // Whether an answer is the server saying "not from the window".
