@@ -136,7 +136,11 @@ AMD). What it does not do yet is written down in
   there goes back.
   Each of these is off until you allow it on the Programs page, by its own
   switch, and every question is on the record with the name of the program
-  that asked.
+  that asked. The switches and the answers on cards are given in the
+  assistant's own window only: a program on this computer cannot give them
+  by posting to the assistant itself, and a paired phone does not answer
+  what another program asked for. Started without a window (`serve`), the
+  assistant prints a link that works once for the browser tab that decides.
 - **Uses the MCP servers you already set up.** Servers set up in Claude
   Desktop, Claude Code, Cursor or VS Code are found by themselves and listed
   under Integrations. Import one with a button and approve it before it runs;
