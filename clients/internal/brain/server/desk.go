@@ -175,6 +175,18 @@ func notTheWindow(w http.ResponseWriter) {
 	})
 }
 
+// atTheComputer is the refusal a device elsewhere gets for a card another
+// program asked for, with a word the page says in its own language beside
+// the English (desk.js pnDesk.atTheComputer).
+func atTheComputer(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusForbidden)
+	json.NewEncoder(w).Encode(map[string]string{
+		"error": "What another program asked for is answered at the computer it runs on, in the assistant's own window.",
+		"desk":  "at the computer",
+	})
+}
+
 /*
  * DeskLink is the address the program's own window opens first.
  *

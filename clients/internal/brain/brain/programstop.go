@@ -124,6 +124,19 @@ type ApprovalCard struct {
 	// Stopped: it uses another program and every use of other programs is
 	// stopped, so approving it would be refused.
 	Stopped bool `json:"programs_stopped,omitempty"`
+
+	// AtTheComputerOnly: another program asked for it, and whoever reads
+	// the list is a device elsewhere, which may not answer it (the server's
+	// handleDecision). Set by the server for that reader only; the page
+	// shows a line in place of the buttons.
+	AtTheComputerOnly bool `json:"at_the_computer_only,omitempty"`
+}
+
+// AnsweredAtTheComputerOnly is whether a card belongs to the assistant's own
+// window: another program asked for it, or it is that program's own
+// permission question. A device elsewhere neither answers nor is offered it.
+func AnsweredAtTheComputerOnly(inv store.Invocation) bool {
+	return inv.AskedBy != "" || IsPermitQuestion(inv)
 }
 
 // ApprovalCards is every waiting question, with the program each is about.

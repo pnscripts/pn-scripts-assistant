@@ -51,6 +51,10 @@ async function why(res, path) {
         // Refused because this page is not the assistant's own window
         // (desk.js): said in the page's language.
         if (window.pnDesk && window.pnDesk.refused(res.status, data)) said = words('desk.notHere');
+
+        // A card another program asked for, pressed on a device elsewhere
+        // (a page drawn before the card was marked): where it is answered.
+        if (window.pnDesk && window.pnDesk.atTheComputer && window.pnDesk.atTheComputer(res.status, data)) said = words('desk.atTheComputer');
     } catch {
         said = '';
     }
@@ -531,6 +535,12 @@ async function refreshStatus() {
     try {
         const s = await api.get('/api/status');
         state.brainName = s.name || state.brainName;
+
+        // The lessons waiting, for the count beside "Waiting for you"
+        // (dashboard.js): read here after every decision, not five seconds on.
+        if (window.pnCountWaiting && s.memory && typeof s.memory.pending_lessons === 'number') {
+            window.pnCountWaiting(s.memory.pending_lessons);
+        }
         state.wakeWord = s.wake_word || '';
         state.alwaysName = s.always_name !== false;
         state.firstRun = s.first_run === true;
@@ -1273,6 +1283,10 @@ async function refreshLessons() {
  * things waiting.
  */
 function syncWaitingEmpty() {
+    // The count beside "Waiting for you", from the cards just drawn
+    // (dashboard.js), so it never says 1 above an empty list.
+    if (window.pnCountWaiting) window.pnCountWaiting();
+
     const empty = el('waiting-empty');
 
     if (!empty) return;
@@ -1506,7 +1520,7 @@ async function refreshApprovals() {
             buttons.push(always);
         }
 
-        buttons.push(reject);
+        if (offer.reject !== false) buttons.push(reject);
         actions.append(...buttons);
 
         let stoppedNote = null;
@@ -1514,6 +1528,8 @@ async function refreshApprovals() {
         if (offer.note) {
             stoppedNote = document.createElement('p');
             stoppedNote.className = 'approval-stopped';
+            // Where it is answered is not a fault: said in the plain colour.
+            if (offer.reject === false) stoppedNote.classList.add('approval-elsewhere');
             stoppedNote.textContent = offer.note;
         }
         /*
@@ -1596,7 +1612,8 @@ async function decide(id, decision, programName) {
     } catch (err) {
         // Refused because this page is not the assistant's own window:
         // that reason, whichever button was pressed.
-        const notHere = String(err.message || '') === words('desk.notHere');
+        const notHere = String(err.message || '') === words('desk.notHere')
+            || String(err.message || '') === words('desk.atTheComputer');
 
         const why = decision === 'always-program' && !notHere
             ? words('prg.ap.failed', { name: programName || '' })

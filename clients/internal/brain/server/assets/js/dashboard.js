@@ -512,6 +512,81 @@
         return CATEGORIES.includes(name) ? T(`cc.category.${name}`) : name;
     }
 
+    /*
+     * The count beside "Waiting for you" and on the bell.
+     *
+     * Counted again whenever the cards are drawn (console.js calls it after
+     * every redraw of the list), not only when the status is polled: after
+     * the last card was answered the count stayed 1 for up to five seconds
+     * while the list under it was already empty (seen in a walk, 20.11.2026).
+     */
+    let lessonsWaiting = 0;
+
+    function countWaiting() {
+        const waitingCount = el('waiting-count');
+        const waitingEmpty = el('waiting-empty');
+
+        if (waitingCount) {
+            const approvals = el('approvals');
+            const lessons = el('lessons');
+
+            /*
+             * The badge counts what is waiting; the list shows the first
+             * hundred of it.
+             *
+             * It used to count the cards on screen, which made it a report on
+             * the fetch rather than on the queue: /api/lessons returns a
+             * hundred at a time, so the badge read exactly 100 while the
+             * figure opposite read 9197. Both were describing the same list.
+             *
+             * Approvals are not paged — there are never many — so those can be
+             * counted where they are drawn. Lessons come from the status
+             * count, which is the whole queue.
+             */
+            const onScreen = (approvals ? approvals.children.length : 0)
+                + (lessons ? lessons.children.length : 0);
+            const total = (approvals ? approvals.children.length : 0) + lessonsWaiting;
+
+            waitingCount.textContent = total;
+            waitingCount.hidden = total === 0;
+
+            const badge = el('bell-count');
+
+            if (badge) {
+                badge.textContent = total;
+                badge.hidden = total === 0;
+            }
+
+            /*
+             * Say plainly that there is more behind the list, so a queue that
+             * does not shrink when you clear the visible cards is explained
+             * before it is noticed.
+             */
+            const more = el('waiting-more');
+
+            if (more) {
+                const behind = total - onScreen;
+
+                more.textContent = behind > 0
+                    ? T('cc.more', { shown: onScreen, behind: count(behind) })
+                    : '';
+                more.hidden = behind <= 0 || onScreen === 0;
+            }
+
+            // Keyed to the cards, not the count: "nothing needs a decision"
+            // has to agree with an empty panel underneath it.
+            if (waitingEmpty) waitingEmpty.hidden = onScreen > 0;
+        }
+    }
+
+    // Counted again from the cards on screen; given a number, that is the
+    // lessons waiting, from a status console.js just read.
+    window.pnCountWaiting = (lessons) => {
+        if (typeof lessons === 'number') lessonsWaiting = lessons;
+
+        countWaiting();
+    };
+
     function renderStatus(status) {
         const memory = status.memory || {};
         const storage = status.storage || {};
@@ -562,60 +637,10 @@
 
         text('owner-name', status.owner || status.name || '—');
 
-        const waitingCount = el('waiting-count');
-        const waitingEmpty = el('waiting-empty');
-
-        if (waitingCount) {
-            const approvals = el('approvals');
-            const lessons = el('lessons');
-
-            /*
-             * The badge counts what is waiting; the list shows the first
-             * hundred of it.
-             *
-             * It used to count the cards on screen, which made it a report on
-             * the fetch rather than on the queue: /api/lessons returns a
-             * hundred at a time, so the badge read exactly 100 while the
-             * figure opposite read 9197. Both were describing the same list.
-             *
-             * Approvals are not paged — there are never many — so those can be
-             * counted where they are drawn. Lessons come from the status
-             * count, which is the whole queue.
-             */
-            const onScreen = (approvals ? approvals.children.length : 0)
-                + (lessons ? lessons.children.length : 0);
-            const total = (approvals ? approvals.children.length : 0) + waiting;
-
-            waitingCount.textContent = total;
-            waitingCount.hidden = total === 0;
-
-            const badge = el('bell-count');
-
-            if (badge) {
-                badge.textContent = total;
-                badge.hidden = total === 0;
-            }
-
-            /*
-             * Say plainly that there is more behind the list, so a queue that
-             * does not shrink when you clear the visible cards is explained
-             * before it is noticed.
-             */
-            const more = el('waiting-more');
-
-            if (more) {
-                const behind = total - onScreen;
-
-                more.textContent = behind > 0
-                    ? T('cc.more', { shown: onScreen, behind: count(behind) })
-                    : '';
-                more.hidden = behind <= 0 || onScreen === 0;
-            }
-
-            // Keyed to the cards, not the count: "nothing needs a decision"
-            // has to agree with an empty panel underneath it.
-            if (waitingEmpty) waitingEmpty.hidden = onScreen > 0;
-        }
+        // The lessons waiting, from the whole queue; the cards are counted
+        // where they are drawn (countWaiting).
+        lessonsWaiting = waiting;
+        countWaiting();
 
         // Counts beside the places they belong to, as a nav should have.
         const badge = (view, count) => {
