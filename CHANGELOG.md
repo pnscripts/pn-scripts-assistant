@@ -152,6 +152,13 @@ whenever something visible changed.
   list can be read again; nothing needs to be done. Text saved by an older
   version that begins exactly as a sealed value does, past the mark, cannot
   be told from a damaged value and stays unreadable.
+- **Fixed: a setting that began like sealed text read as not set.** In the
+  settings file only secrets and who you are are sealed. A calendar user
+  name, an address or a name that began with the same mark (`pnsealed1:`),
+  or a password saved that way before the assistant had its key, read back
+  as empty. Now only those personal settings are ever opened, and every
+  other setting reads exactly as it was written; a sealed value copied into
+  a setting that is not personal stays sealed and is never shown opened.
 
 ## 1.1.0 (2026-11-16)
 
