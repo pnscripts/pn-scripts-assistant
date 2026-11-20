@@ -579,16 +579,13 @@ jobs:
       # it posts carries the key; a program on the same computer posting the
       # same thing is refused. Node tests prove the scripts and Go tests the
       # guard; this proves the real WebView2 window does it. A portable copy
-      # of its own is opened as people open it, with a debugging port for
-      # this run only (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS and WebView2's
-      # registry place for it, never set by the program), and
-      # scripts/desk-window-check.mjs opens Programs in the window and ticks
-      # "which programs are installed" with the mouse, after checking that a
-      # program without the key cannot. The key is never printed.
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24.22.2
-
+      # of its own is opened as people open it, and
+      # scripts/desk-window-check.ps1 checks that a program without the key
+      # is refused for the key, then reaches Programs with the window's next
+      # arrow and ticks "which programs are installed" through UI Automation
+      # (as assistive technology does; no debugging port: WebView2 157 did
+      # not open one for WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS nor for its
+      # registry place), and the assistant must keep it.
       - name: The Windows window takes its key
         shell: pwsh
         timeout-minutes: 8
@@ -596,12 +593,8 @@ jobs:
           BRAIN_SETUP_DONE: 'true'
           OLLAMA_BASE_URL: 'http://127.0.0.1:9'
           PN_SCRIPTS_ASSISTANT_SILENT: '1'
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9333'
         run: |
           $ErrorActionPreference = 'Stop'
-          # A copy of its own: its own brain and its own web view folder, so
-          # no web view process left from the picture above is reused (one
-          # that is still running ignores the debugging port asked for here).
           $zip = Get-ChildItem build/packages/*-windows-amd64.zip | Select-Object -First 1
           $to = "$env:RUNNER_TEMP\keycheck"
           Expand-Archive $zip.FullName -DestinationPath $to
@@ -624,27 +617,13 @@ jobs:
           Stop-Process -Id $p.Id
           $p.WaitForExit(20000) | Out-Null
 
-          # The same port asked for in WebView2's documented registry place as
-          # well, for this program only and removed again below: the first
-          # run with the variable alone started the web view without it.
-          $policy = 'HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
-          New-Item -Path $policy -Force | Out-Null
-          New-ItemProperty -Path $policy -Name 'pn-scripts-assistant.exe' -Value $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS -PropertyType String -Force | Out-Null
-          Write-Output "asked for: $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS (variable and registry)"
-
           $p = Start-Process $exe -ArgumentList 'app','-addr','127.0.0.1:8895','-skip-setup' -PassThru
-          if (-not (Wait-Up)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; Remove-Item -Path $policy -Recurse -Force; throw 'the program did not answer within 90 s' }
+          if (-not (Wait-Up)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not answer within 90 s' }
           try {
-            node scripts/desk-window-check.mjs 9333 127.0.0.1:8895 | Tee-Object -FilePath desk-window-check.txt
+            # Windows PowerShell: UI Automation's client assemblies are part of it.
+            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/desk-window-check.ps1 -ProcessId $p.Id -Address 127.0.0.1:8895 | Tee-Object -FilePath desk-window-check.txt
             $code = $LASTEXITCODE
-            if ($code -ne 0) {
-              # Whether the web view was started with the debugging port at all.
-              Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'" |
-                Where-Object { $_.CommandLine -notmatch '--type=' } |
-                ForEach-Object { Write-Output "web view: $($_.CommandLine -replace '/desk/[^ "]+', '/desk/(code not shown)')" }
-            }
           } finally {
-            Remove-Item -Path $policy -Recurse -Force -ErrorAction SilentlyContinue
             $p.CloseMainWindow() | Out-Null
             if (-not $p.WaitForExit(30000)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not close with its window' }
           }

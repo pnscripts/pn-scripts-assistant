@@ -180,7 +180,7 @@ whenever something visible changed.
   empty list. It now follows the cards as they are drawn, and a lesson
   decided is counted at once too.
 - **The window's key is proved in the Windows window.** Every build opens
-  the real Windows window, ticks a switch in it with the mouse and checks
+  the real Windows window, ticks a switch in it and checks
   that the assistant kept it, after checking that a program on the same
   computer could not do the same without the window.
 
