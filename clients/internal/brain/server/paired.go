@@ -22,6 +22,20 @@ import (
 func (s *Server) handlePaired(w http.ResponseWriter, r *http.Request) {
 	code, until, can := s.paired.Waiting()
 
+	/*
+	 * The code on offer goes to the window and nowhere else (found by the
+	 * review of the window's key, 20.11.2026). Any program on this computer
+	 * can read this page, and one that read the code while the person was
+	 * pairing a phone could claim it first and come back as a device with
+	 * every right. Offering a code needs the window's key already
+	 * (fromTheWindowOnly); now so does seeing one.
+	 */
+	var codeUntil any = until
+
+	if !s.desk.holds(r.Header.Get(DeskHeader)) || code == "" {
+		code, codeUntil, can = "", nil, ""
+	}
+
 	certificate, _ := pair.Certificate(s.brain.Root)
 
 	// The port the encrypted listener is on, not the local one. They differ by
@@ -39,7 +53,7 @@ func (s *Server) handlePaired(w http.ResponseWriter, r *http.Request) {
 		// The code being offered right now, so the screen can keep showing it
 		// and stop when it runs out.
 		"code":       code,
-		"code_until": until,
+		"code_until": codeUntil,
 		"code_can":   can,
 
 		// Where to go and what to check, for somebody holding a phone.

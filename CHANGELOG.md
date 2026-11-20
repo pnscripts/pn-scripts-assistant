@@ -159,6 +159,13 @@ whenever something visible changed.
   as empty. Now only those personal settings are ever opened, and every
   other setting reads exactly as it was written; a sealed value copied into
   a setting that is not personal stays sealed and is never shown opened.
+- **The pairing code is shown only in the assistant's own window.** While
+  you pair a phone, another program on this computer could read the code
+  from the assistant and claim it first. Now the code is given only to the
+  window that offered it.
+- **A card that cannot be read is not answered from another device.** If
+  the assistant cannot read a waiting card, a paired device is told so and
+  nothing is decided, instead of the answer going further.
 
 ## 1.1.0 (2026-11-16)
 

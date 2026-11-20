@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"pn-scripts-assistant/internal/brain/config"
+	"pn-scripts-assistant/internal/brain/pair"
 )
 
 /*
@@ -107,6 +108,10 @@ async function post(win, to, body) {
     const asGiven = { method: 'POST' };
     out.noKey = c('', base + '/', '/api/approvals/1/approve', asGiven) === asGiven && !asGiven.headers ? 'left alone' : 'changed';
 
+    // The one reading that carries the key: the pairing code on offer.
+    out.readElsewhere = keyOn(own.pnDesk.withKey('k', base + '/', 'https://example.org/api/paired', undefined));
+    out.ownCode = (await (await own.fetch('/api/paired', own.pnDesk.read('/api/paired'))).json()).code;
+
     // The same link a second time, in another tab: used up.
     const second = tab(link);
     await load(second, 'desk-enter.js');
@@ -121,10 +126,16 @@ async function post(win, to, body) {
     out.otherAllowed = await post(other, '/api/outside/allow', { subject: 'ask', allowed: true });
     out.otherRefused = other.pnDesk.refused(out.otherAllowed.status, out.otherAllowed.said);
     out.otherCard = await post(other, '/api/approvals/1/approve', {});
+    out.otherCode = (await (await other.fetch('/api/paired', other.pnDesk.read('/api/paired'))).json()).code;
 
     process.stdout.write(JSON.stringify(out));
 })().catch((e) => { console.error(e); process.exit(1); });
 `), 0o644)
+
+	offered, _, err := s.paired.Offer(pair.Limited)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	raw, err := exec.Command("node", filepath.Join(dir, "run.js"), dir, ts, s.DeskLink(ts)).Output()
 	if err != nil {
@@ -165,6 +176,9 @@ async function post(win, to, body) {
 		OtherCard    struct {
 			Status int `json:"status"`
 		} `json:"otherCard"`
+		ReadElsewhere *string `json:"readElsewhere"`
+		OwnCode       string  `json:"ownCode"`
+		OtherCode     string  `json:"otherCode"`
 	}
 
 	if err := json.Unmarshal(raw, &got); err != nil {
@@ -197,6 +211,11 @@ async function post(win, to, body) {
 
 	if got.OtherHere || got.OtherAllowed.Status != 403 || !got.OtherRefused || got.OtherCard.Status != 403 {
 		t.Errorf("a page nobody gave the link to decided, or could not tell why it was refused: %s", raw)
+	}
+
+	if got.OwnCode != offered || got.OtherCode != "" || got.ReadElsewhere != nil {
+		t.Errorf("the pairing code on offer is for the window only (window %q, other page %q, want %q): %s",
+			got.OwnCode, got.OtherCode, offered, raw)
 	}
 
 	if on, err := s.brain.DB.OutsideAllowed(); err != nil || len(on) != 1 {
