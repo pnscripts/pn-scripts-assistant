@@ -590,12 +590,19 @@ func TestOnlyThisComputerAsksAsAnotherProgram(t *testing.T) {
 		t.Errorf("a device with every right could not see the switch (%d)", w.Code)
 	}
 
-	// And from this computer both are open.
-	for _, path := range []string{"/api/outside/ask", "/api/outside/allow"} {
-		*got = false
+	// And from this computer both are open: the door to any program, the
+	// switch to the assistant's own window (desk.go), which carries its key.
+	*got = false
 
-		if w := ask(s, "POST", path, "127.0.0.1:5000", nil); w.Code != 200 || !*got {
-			t.Errorf("this computer could not post to %s (%d)", path, w.Code)
-		}
+	if w := ask(s, "POST", "/api/outside/ask", "127.0.0.1:5000", nil); w.Code != 200 || !*got {
+		t.Errorf("this computer could not post to /api/outside/ask (%d)", w.Code)
+	}
+
+	*got = false
+
+	window := func(r *http.Request) { r.Header.Set(DeskHeader, testDeskKey) }
+
+	if w := ask(s, "POST", "/api/outside/allow", "127.0.0.1:5000", window); w.Code != 200 || !*got {
+		t.Errorf("the window on this computer could not post to /api/outside/allow (%d)", w.Code)
 	}
 }

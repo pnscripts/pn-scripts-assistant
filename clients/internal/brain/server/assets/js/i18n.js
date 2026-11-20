@@ -354,6 +354,10 @@
             'Only at this computer: what other programs may ask is decided here, not from another device.',
             'Само на този компютър: какво могат да питат другите програми се решава тук, не от друго устройство.',
         ],
+        'desk.notHere': [
+            'Not from this page. Answers on cards and these switches are given in the assistant’s own window: answer there. If this is that window, close PN Scripts Assistant and open it again.',
+            'Не може от тази страница. Отговорите по картите и тези превключватели се дават в собствения прозорец на асистента: отговорете там. Ако това е този прозорец, затворете PN Scripts Assistant и го отворете отново.',
+        ],
         'out.notKept': ['That was not kept. Try again.', 'Това не беше запазено. Опитайте отново.'],
         'out.failed': [
             'What other programs may ask could not be read. Until it can, nothing but whether I am running is answered.',

@@ -74,9 +74,24 @@ whenever something visible changed.
   minutes is a no; at most three wait at once; turning the switch off or
   closing the assistant answers the waiting ones no. Each question and how
   it ended (allowed or refused on its card, nobody answered) is in "What I
-  did" with who asked. As with everything at the assistant's own address, a
-  program running under your account could answer a card too; see "Known
-  limits".
+  did" with who asked.
+- **What another program asks you is answered only in the assistant's own
+  window, and so are the switches for what programs may ask.** A program on
+  this computer could post the answer to a card, or turn a switch on, with
+  one request to the assistant's address: nothing told it from the window.
+  The window is now given a key when it opens, which lasts until it closes,
+  and without it these are refused, with the reason said on the page: an
+  answer posted to a card, a change of "What other programs may ask", a
+  pairing code, and opening the assistant to the network or the internet.
+  A card another program put there (its permission questions among them) is
+  answered in that window only: not by "approve everything waiting", said or
+  typed, and not from a paired device. Nothing changes in the window itself.
+  A browser pointed at the address shows everything and answers no card;
+  where there is no window, `pn-scripts-assistant serve` started in a
+  terminal prints a link that works once and gives one browser tab the key
+  (`-desk-link` prints it anywhere). A device paired with every right
+  answers the assistant's own cards as before. What this does not stop is
+  in "Known limits".
 - **A question from another program says who asked from the first moment.**
   The question and the program's name were written one after the other,
   so for an instant the card could be read as one of your own.

@@ -20,7 +20,7 @@ holds** (model keys, mail password, integration tokens).
 | Who | What they are trusted with | How that is enforced |
 |---|---|---|
 | The person at the keyboard | Everything, through the interface | The window and `http://127.0.0.1:<port>` |
-| A program on this machine (a script, the CLI) | Everything the API offers | It sends no `Origin`; nothing else distinguishes it from the owner, and it is already running as them |
+| A program on this machine (a script, the CLI) | Everything the API offers, except: posting the answer to a card, the switches for what other programs may ask, a pairing code, opening it to the network or the internet | It sends no `Origin` and is already running as the owner; those posts need the key only the assistant's own window is given (`server/desk.go`, 1.2.0). It can still hold a conversation, and so have the assistant approve its own waiting cards in words; cards another program asked for are left to the window |
 | **A web page the owner has open** | **Nothing** | `Origin` must be this server; the `Host` must be a loopback name. Both checked before the request is routed |
 | A paired device, full | Everything except nothing — it is a second keyboard | Token given in person, stored hashed; cookie `HttpOnly`/`Secure`/`SameSite=Strict`; TLS ≥ 1.2 |
 | A paired device, limited | Ask and watch; no decisions | `atTheDeskOnly` route prefixes refuse approvals, settings, pairing and files |

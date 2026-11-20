@@ -415,6 +415,8 @@ func runStatus(args []string) error {
 func runServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	addr := fs.String("addr", "", "address to listen on (loopback only)")
+	deskLink := fs.Bool("desk-link", false,
+		"print the one-time link that lets a browser answer cards (printed anyway when this is a terminal)")
 	fs.Parse(args)
 
 	askForRecovery = func(root paths.Root) (vault.Unlocked, error) { return recoveryWindow(root, true) }
@@ -593,6 +595,10 @@ func runServe(args []string) error {
 	// https when it is answering on the network, because it is: saying http
 	// would be telling somebody to type an address that does not work.
 	fmt.Printf("  %s\n\n", whereToOpen(cfg, ln))
+
+	if *deskLink || saidToAPerson(os.Stdout) {
+		sayDeskLink(os.Stdout, srv.DeskLink("http://"+ln.Addr().String()))
+	}
 
 	return srv.Serve(ctx, listeners...)
 }
@@ -798,6 +804,8 @@ func runApp(args []string) error {
 	fs := flag.NewFlagSet("app", flag.ExitOnError)
 	addr := fs.String("addr", "", "address to listen on (loopback only)")
 	skipSetup := fs.Bool("skip-setup", false, "start even if the machine is missing something")
+	deskLink := fs.Bool("desk-link", false,
+		"where there is no window: print the one-time link that lets a browser answer cards")
 	fs.Parse(args)
 
 	askForRecovery = func(root paths.Root) (vault.Unlocked, error) { return recoveryWindow(root, false) }
@@ -1165,12 +1173,18 @@ func runApp(args []string) error {
 		// rather than exiting on a missing build dependency.
 		fmt.Fprintf(os.Stderr, "  %v\n\n", window.Open(url, cfg.Name, 1280, 860))
 
+		if *deskLink || saidToAPerson(os.Stdout) {
+			sayDeskLink(os.Stdout, srv.DeskLink(url))
+		}
+
 		return <-serveErr
 	}
 
 	// The window owns the main thread from here; closing it ends the program,
-	// which is what closing an application's window should do.
-	if err := window.Open(url, cfg.Name, 1280, 860); err != nil {
+	// which is what closing an application's window should do. Its first
+	// address is the one that gives it its key (server/desk.go): handed to
+	// it here, inside the program, and to nothing else.
+	if err := window.Open(srv.DeskLink(url), cfg.Name, 1280, 860); err != nil {
 		return err
 	}
 
@@ -2653,6 +2667,27 @@ func listenAs(cfg config.Config, root string, logger *slog.Logger) ([]net.Listen
 		"fingerprint", pair.Fingerprint(certificate))
 
 	return []net.Listener{here, out}, nil
+}
+
+/*
+ * saidToAPerson is whether what is printed there is read by somebody at a
+ * terminal, rather than kept in a file or a service's log.
+ *
+ * The link for a browser works once and is worth as much as the window's
+ * key until it is used. On a terminal it is seen by whoever started the
+ * program; in a log it would wait there for any program that reads logs.
+ */
+func saidToAPerson(out *os.File) bool {
+	info, err := out.Stat()
+
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+// sayDeskLink prints the link a browser needs to answer cards.
+func sayDeskLink(out io.Writer, link string) {
+	fmt.Fprintf(out, "  Answers on cards and the switches for what other programs may ask are given\n"+
+		"  in the assistant's own window. To give them from a browser on this computer,\n"+
+		"  open this once (it stops working when used, and when this is closed):\n\n  %s\n\n", link)
 }
 
 // whereToOpen is the address to type, said correctly for how it is listening.

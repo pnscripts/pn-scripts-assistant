@@ -85,10 +85,10 @@ var (
 
 /*
  * How each ending is written on the record: what the program was told.
- * "On its card", not "by you": the assistant's own window and a program
- * on this computer that posts to the same address cannot be told apart
- * (see AllowOutside), so the record says where the answer was given and
- * nothing it cannot know.
+ * "On its card", not "by you": the answer is taken only from the
+ * assistant's own window (server/desk.go), and who pressed the button
+ * there is not something the record can know (see AllowOutside), so it
+ * says where the answer was given and nothing more.
  */
 var permitSaid = map[PermitEnded]string{
 	PermitAllowed:    "Allowed on its card: the program was told it may.",

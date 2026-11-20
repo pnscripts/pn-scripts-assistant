@@ -46,14 +46,35 @@
 
     /* ---------- waiting for you ---------- */
 
+    // Whether the last answer on a card was refused for not coming from
+    // the assistant's own window.
+    let notHere = false;
+
     async function decide(id, approve) {
         try {
             const res = await fetch('/api/approvals/' + id + '/' + (approve ? 'approve' : 'deny'), {
                 method: 'POST'
             });
 
-            if (!res.ok) return;
+            if (!res.ok) {
+                // Refused because this page is not the assistant's own
+                // window (desk.js): said under the cards, or pressing the
+                // button would look like nothing happened.
+                let why = null;
 
+                try {
+                    why = await res.json();
+                } catch (err) {
+                    why = null;
+                }
+
+                notHere = Boolean(window.pnDesk && window.pnDesk.refused(res.status, why));
+                refresh();
+
+                return;
+            }
+
+            notHere = false;
             refresh();
         } catch (err) {
             /* the next poll will show it either way */
@@ -114,6 +135,14 @@
         list.textContent = '';
 
         for (const item of items) list.appendChild(waitingRow(item));
+
+        if (notHere && items.length > 0) {
+            const said = document.createElement('p');
+            said.className = 'task-step-what';
+            said.setAttribute('role', 'status');
+            said.textContent = T('desk.notHere');
+            list.appendChild(said);
+        }
 
         const count = el('nav-room');
         if (count) {

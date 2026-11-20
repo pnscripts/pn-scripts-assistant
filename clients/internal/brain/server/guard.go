@@ -195,6 +195,7 @@ var awayMayDo = []string{
 var onThisComputerOnly = []string{
 	"/api/outside/ask",
 	"/api/outside/allow",
+	"/api/desk/enter", // the window's key is given to the window, here
 }
 
 func hereOnly(path string) bool {
@@ -299,6 +300,19 @@ func (s *Server) Guard(next http.Handler) http.Handler {
 			// rather than a browser, and is allowed; see fromHere.
 			if changesSomething(r) && !fromHere(r) {
 				fail(w, http.StatusForbidden, "that request came from somewhere else")
+
+				return
+			}
+
+			/*
+			 * And for the few things another program here would gain by
+			 * answering for the person, the window's own key. A request
+			 * that names no page passed the lock above, because that is
+			 * what a program sends: this is the lock for programs. See
+			 * desk.go.
+			 */
+			if windowOnly(r) && !s.desk.holds(r.Header.Get(DeskHeader)) {
+				notTheWindow(w)
 
 				return
 			}
