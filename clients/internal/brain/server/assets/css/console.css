@@ -6943,3 +6943,10 @@ button.agreement-accept:disabled { opacity: 0.4; cursor: default; filter: none; 
     color: var(--accent);
     overflow-wrap: anywhere;
 }
+
+/* A card another program asked for, seen on a device elsewhere: where it is
+   answered, in the plain colour (not a fault, unlike "other programs are
+   stopped"). */
+.approval-stopped.approval-elsewhere {
+    color: var(--text-dim);
+}

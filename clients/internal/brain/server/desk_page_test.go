@@ -249,8 +249,11 @@ func TestThePageCarriesTheKeyBeforeAnythingElse(t *testing.T) {
 		t.Errorf("the refusal is not said in both languages: %q / %q", en, bg)
 	}
 
-	for _, script := range []string{"console.js", "room.js", "programs.js", "devices.js"} {
-		if !strings.Contains(readAsset(t, filepath.Join("js", script)), "'desk.notHere'") {
+	// The devices page says its own (pairing and reach, not cards):
+	// TestTheDevicesPageSaysItsOwnRefusal.
+	for script, key := range map[string]string{"console.js": "desk.notHere", "room.js": "desk.notHere",
+		"programs.js": "desk.notHere", "devices.js": "desk.notHereDevices"} {
+		if !strings.Contains(readAsset(t, filepath.Join("js", script)), "'"+key+"'") {
 			t.Errorf("%s does not say why an answer was refused", script)
 		}
 	}

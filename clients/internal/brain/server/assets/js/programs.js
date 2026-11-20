@@ -311,7 +311,25 @@
     function approvalChoices(item, toolName) {
         const p = item && item.program;
         const alwaysAsked = /^Always asked/.test((item && item.summary) || '');
-        const out = { approve: true, forProgram: null, anyProgram: null, note: '', askedBy: null };
+        const out = { approve: true, reject: true, forProgram: null, anyProgram: null, note: '', askedBy: null };
+
+        /*
+         * Seen on a device elsewhere, which may not answer it (another
+         * program asked for it; the server marks the card for that reader
+         * only): who asked, and a line where the buttons would be, in place
+         * of buttons that can only be refused. Before anything else: other
+         * programs being stopped changes nothing about where it is answered.
+         */
+        if (item && item.at_the_computer_only) {
+            out.approve = false;
+            out.reject = false;
+            out.note = T('desk.atTheComputer');
+            if (item.asked_by) {
+                const who = askedBy(item);
+                out.askedBy = { label: who.chip, title: who.title + ' ' + T(item.tool === PERMIT ? 'out.ap.permit' : 'out.ap.note') };
+            }
+            return out;
+        }
 
         if (item && item.programs_stopped) {
             out.approve = false;
@@ -333,6 +351,7 @@
             // A program's own permission question: the yes lets that
             // program act, once; nothing is done here.
             out.askedBy = { label: who.chip, title: who.title + ' ' + T(item.tool === PERMIT ? 'out.ap.permit' : 'out.ap.note') };
+
             return out;
         }
 

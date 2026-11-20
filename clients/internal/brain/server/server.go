@@ -826,6 +826,17 @@ func (s *Server) handleApprovals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/*
+	 * A device elsewhere is told which cards it cannot answer, so its page
+	 * shows a line where the buttons would be instead of buttons that can
+	 * only be refused (review of the window's key, 20.11.2026, note 2).
+	 */
+	if !s.whoIsAsking(r).Here {
+		for i := range pending {
+			pending[i].AtTheComputerOnly = brain.AnsweredAtTheComputerOnly(pending[i].Invocation)
+		}
+	}
+
 	// A bare array, because that is what the interface expects to count.
 	ok(w, pending)
 }
@@ -865,9 +876,8 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if waiting != nil && (waiting.AskedBy != "" || brain.IsPermitQuestion(*waiting)) {
-			fail(w, http.StatusForbidden,
-				"What another program asked for is answered at the computer it runs on, in the assistant's own window.")
+		if waiting != nil && brain.AnsweredAtTheComputerOnly(*waiting) {
+			atTheComputer(w)
 
 			return
 		}

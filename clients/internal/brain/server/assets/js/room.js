@@ -50,6 +50,10 @@
     // the assistant's own window.
     let notHere = false;
 
+    // Whether it was refused because another program asked for it and this
+    // is a device elsewhere.
+    let atTheComputer = false;
+
     async function decide(id, approve) {
         try {
             const res = await fetch('/api/approvals/' + id + '/' + (approve ? 'approve' : 'deny'), {
@@ -69,12 +73,14 @@
                 }
 
                 notHere = Boolean(window.pnDesk && window.pnDesk.refused(res.status, why));
+                atTheComputer = Boolean(window.pnDesk && window.pnDesk.atTheComputer && window.pnDesk.atTheComputer(res.status, why));
                 refresh();
 
                 return;
             }
 
             notHere = false;
+            atTheComputer = false;
             refresh();
         } catch (err) {
             /* the next poll will show it either way */
@@ -99,6 +105,21 @@
         tool.className = 'task-step-note';
         tool.textContent = toolName(item.tool);
         row.appendChild(tool);
+
+        // Another program asked for it and this is a device elsewhere: the
+        // server marks it, and it is answered in the assistant's own window.
+        // Who asked, and where it is answered, as the command centre says it
+        // (programs.js); nothing about other programs being stopped, which
+        // changes nothing here.
+        if (item.at_the_computer_only) {
+            const offer = window.pnPrograms && window.pnPrograms.approvalChoices
+                ? window.pnPrograms.approvalChoices(item, item.tool) : null;
+
+            if (offer && offer.askedBy) row.appendChild(note(offer.askedBy.label));
+            row.appendChild(note(T('desk.atTheComputer')));
+
+            return row;
+        }
 
         // Other programs stopped: a question that uses one can only be
         // refused here, and says why.
@@ -136,11 +157,11 @@
 
         for (const item of items) list.appendChild(waitingRow(item));
 
-        if (notHere && items.length > 0) {
+        if ((notHere || atTheComputer) && items.length > 0) {
             const said = document.createElement('p');
             said.className = 'task-step-what';
             said.setAttribute('role', 'status');
-            said.textContent = T('desk.notHere');
+            said.textContent = T(notHere ? 'desk.notHere' : 'desk.atTheComputer');
             list.appendChild(said);
         }
 

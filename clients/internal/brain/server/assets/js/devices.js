@@ -104,9 +104,10 @@
     }
 
     // Why something was refused: in the page's language when the reason is
-    // that this page is not the assistant's own window (desk.js).
+    // that this page is not the assistant's own window (desk.js), in the
+    // words of this page (pairing and reach), not of the cards.
     function whyOf(res, body) {
-        if (window.pnDesk && window.pnDesk.refused(res.status, body)) return T('desk.notHere');
+        if (window.pnDesk && window.pnDesk.refused(res.status, body)) return T('desk.notHereDevices');
 
         return (body && body.error) || '';
     }

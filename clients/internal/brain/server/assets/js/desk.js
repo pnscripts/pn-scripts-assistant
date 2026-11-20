@@ -91,5 +91,8 @@
         here: () => key !== '',
         // Whether an answer is the server saying "not from the window".
         refused: (status, body) => status === 403 && Boolean(body) && body.desk === 'not the window',
+        // Whether an answer is the server saying a card another program
+        // asked for is answered at the computer, not on this device.
+        atTheComputer: (status, body) => status === 403 && Boolean(body) && body.desk === 'at the computer',
     };
 })();

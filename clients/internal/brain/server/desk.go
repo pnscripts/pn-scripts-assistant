@@ -34,8 +34,12 @@ import (
  * fromTheWindowOnly refuse a post from this computer without it.
  *
  * What this does not do, said here because the limit is real: a program
- * that reads another program's memory or its browser profile, or that types
- * and clicks in the window as a person would, is not stopped by a key. It
+ * that reads another program's memory or its browser profile, that types
+ * and clicks in the window as a person would, or that works the page
+ * through UI automation, as assistive technology does (CI's own Windows
+ * check ticks a switch that way with no rights of its own), is not stopped
+ * by a key; nor is one that starts the window itself, or replaces or
+ * reaches into its web view. It
  * stops a program answering by itself with one request, which is what the
  * review of 1.2.0 found.
  */
@@ -172,6 +176,18 @@ func notTheWindow(w http.ResponseWriter) {
 		"error": "That is decided in the assistant's own window. This request did not come from it: " +
 			"open PN Scripts Assistant and answer there.",
 		"desk": "not the window",
+	})
+}
+
+// atTheComputer is the refusal a device elsewhere gets for a card another
+// program asked for, with a word the page says in its own language beside
+// the English (desk.js pnDesk.atTheComputer).
+func atTheComputer(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusForbidden)
+	json.NewEncoder(w).Encode(map[string]string{
+		"error": "What another program asked for is answered at the computer it runs on, in the assistant's own window.",
+		"desk":  "at the computer",
 	})
 }
 

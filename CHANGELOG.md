@@ -166,6 +166,23 @@ whenever something visible changed.
 - **A card that cannot be read is not answered from another device.** If
   the assistant cannot read a waiting card, a paired device is told so and
   nothing is decided, instead of the answer going further.
+- **On a paired device, a card another program asked for says where it is
+  answered.** Such a card is answered at the computer, in the assistant's
+  own window. A phone or another computer showed Approve and Reject on it
+  anyway, and pressing one gave a refusal in English only. Now the card
+  shows who asked and one line, in your language, in place of the buttons.
+- **The devices page says its own reason.** Pairing a device, and what may
+  reach the assistant, pressed in a browser that is not the assistant's
+  window, said "Answers on cards and these switches"; it now names pairing
+  and reach, in both languages.
+- **Fixed: the count beside "Waiting for you" lagged behind.** After the
+  last card was answered it still said 1 for up to five seconds above an
+  empty list. It now follows the cards as they are drawn, and a lesson
+  decided is counted at once too.
+- **The window's key is proved in the Windows window.** Every build opens
+  the real Windows window, ticks a switch in it and checks
+  that the assistant kept it, after checking that a program on the same
+  computer could not do the same without the window.
 
 ## 1.1.0 (2026-11-16)
 

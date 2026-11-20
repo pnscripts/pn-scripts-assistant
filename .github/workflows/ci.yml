@@ -574,6 +574,62 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # The window's key (1.2.0): the program opens its window at a one-time
+      # address, the page swaps it for a key it keeps for the tab, and what
+      # it posts carries the key; a program on the same computer posting the
+      # same thing is refused. Node tests prove the scripts and Go tests the
+      # guard; this proves the real WebView2 window does it. A portable copy
+      # of its own is opened as people open it, and
+      # scripts/desk-window-check.ps1 checks that a program without the key
+      # is refused for the key, then reaches Programs with the window's next
+      # arrow and ticks "which programs are installed" through UI Automation
+      # (as assistive technology does; no debugging port: WebView2 157 did
+      # not open one for WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS nor for its
+      # registry place), and the assistant must keep it.
+      - name: The Windows window takes its key
+        shell: pwsh
+        timeout-minutes: 8
+        env:
+          BRAIN_SETUP_DONE: 'true'
+          OLLAMA_BASE_URL: 'http://127.0.0.1:9'
+          PN_SCRIPTS_ASSISTANT_SILENT: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Get-ChildItem build/packages/*-windows-amd64.zip | Select-Object -First 1
+          $to = "$env:RUNNER_TEMP\keycheck"
+          Expand-Archive $zip.FullName -DestinationPath $to
+          $exe = "$to\PN-Scripts-Assistant\pn-scripts-assistant.exe"
+
+          function Wait-Up {
+            for ($i = 0; $i -lt 90; $i++) {
+              try { if ((Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 http://127.0.0.1:8895/health).StatusCode -eq 200) { return $true } } catch { Start-Sleep 1 }
+            }
+            return $false
+          }
+
+          # Terms accepted and the recovery note dismissed once, as its owner
+          # does in the window (the photograph step does the same).
+          $p = Start-Process $exe -ArgumentList 'serve','-addr','127.0.0.1:8895' -PassThru
+          if (-not (Wait-Up)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not answer within 90 s' }
+          $terms = Invoke-RestMethod http://127.0.0.1:8895/api/terms
+          Invoke-RestMethod -Method Post -Headers @{ Origin = 'http://127.0.0.1:8895' } -ContentType 'application/json' -Body (@{ version = $terms.version } | ConvertTo-Json) http://127.0.0.1:8895/api/terms | Out-Null
+          Invoke-RestMethod -Method Post -Headers @{ Origin = 'http://127.0.0.1:8895' } http://127.0.0.1:8895/api/vault/recovery/kept | Out-Null
+          Stop-Process -Id $p.Id
+          $p.WaitForExit(20000) | Out-Null
+
+          $p = Start-Process $exe -ArgumentList 'app','-addr','127.0.0.1:8895','-skip-setup' -PassThru
+          if (-not (Wait-Up)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not answer within 90 s' }
+          try {
+            # Windows PowerShell: UI Automation's client assemblies are part of it.
+            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/desk-window-check.ps1 -ProcessId $p.Id -Address 127.0.0.1:8895 | Tee-Object -FilePath desk-window-check.txt
+            $code = $LASTEXITCODE
+          } finally {
+            $p.CloseMainWindow() | Out-Null
+            if (-not $p.WaitForExit(30000)) { Stop-Process -Id $p.Id -ErrorAction SilentlyContinue; throw 'the program did not close with its window' }
+          }
+          if ($code -ne 0) { throw "the window check failed ($code)" }
+          if (-not (Select-String -Path desk-window-check.txt -Pattern 'desk window check OK' -SimpleMatch -Quiet)) { throw 'the window check did not say OK' }
+
       # What somebody does with the download (G3): the installer, silently,
       # for this account only; the program it installed starts and serves its
       # page; removing it takes the program and leaves the brain.
