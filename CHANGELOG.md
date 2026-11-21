@@ -9,6 +9,54 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
+## Unreleased
+
+Four notes of the security review of 1.2.0. None of them let another
+program do more than before; each closes a way to get in the way or to be
+believed.
+
+- **A program that asks in a loop no longer answers Claude Code's
+  permission questions "no".** All questions of other programs shared one
+  number, 30 a minute. A program asking "is it running" in a loop used it
+  up, and every permission question in that minute was refused without
+  you being asked. Permission questions are now counted by themselves (12
+  a minute, with one line on the record for the ones over it), and a flood
+  of either kind leaves the other alone.
+- **A program on this computer can no longer take a pairing code off the
+  screen or use it up.** While you paired a phone, a program on this
+  computer could withdraw the code with one request, or spend it with a
+  wrong guess, as often as it liked. On this computer, withdrawing a code
+  now needs the window's key, like asking for one. A wrong code sent from
+  this computer (its own addresses on your network included) spends
+  nothing, and only three such guesses are looked at for one code, so it
+  cannot be guessed at either; after them no code is read from this
+  computer until you ask for a new one, and a device elsewhere pairs as
+  usual. A wrong code from another device on the
+  network still spends the code, as before (known limits say what that
+  leaves).
+- **`pn-scripts-assistant mcp` passes on only what the running assistant
+  sealed.** It used to believe whatever answered on the assistant's port.
+  With the assistant not running, another program could listen there and
+  answer a permission question "allow". The assistant now keeps a key in a
+  file only your account can read and seals every answer with it, together
+  with the question it answers; `mcp` passes nothing on without that seal
+  and says what to do. After updating, close the assistant and start it
+  again: a copy that was running through the update seals nothing, and
+  other programs are told so until it is restarted. A program running
+  under your own account can read the key and is not stopped by this
+  (known limits).
+- **The key for that seal** is `answers.key` in the assistant's settings
+  folder for your account on this computer (not in the brain, which may
+  live on a stick). It is made on the first start and kept; nothing needs
+  doing. If another program starts `pn-scripts-assistant mcp` under another
+  account or settings folder, it cannot read the key and says so.
+- **The rules for work done on another program's behalf are kept, and
+  watched.** Nothing other programs can ask today has the assistant do
+  anything for them, so those rules (every such action asked at the desk
+  with the program's name, never approved by the program itself) are not
+  reached yet. They stay as the gate for when something is, and a test now
+  fails the day the first such way in is added without them.
+
 ## 1.2.0 (2026-11-21)
 
 - **Other programs can ask the assistant.** `pn-scripts-assistant mcp`

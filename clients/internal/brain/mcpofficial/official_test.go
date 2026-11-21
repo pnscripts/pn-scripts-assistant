@@ -34,6 +34,7 @@ package mcpofficial
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,6 +53,7 @@ import (
 	"time"
 
 	"pn-scripts-assistant/internal/brain/mcpserve"
+	"pn-scripts-assistant/internal/brain/vouch"
 )
 
 const (
@@ -319,6 +321,9 @@ func (a *asked) all() []string {
 	return append([]string(nil), a.every...)
 }
 
+// standInKey is the key the stand-in assistant seals its answers with.
+var standInKey = bytes.Repeat([]byte{6}, 32)
+
 // running is a stand-in for the assistant on this computer, with its terms
 // accepted and two programs it knows.
 func running(t *testing.T) (*httptest.Server, *asked) {
@@ -326,7 +331,9 @@ func running(t *testing.T) (*httptest.Server, *asked) {
 
 	seen := &asked{}
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// It seals its answers as the assistant does (package vouch); the
+	// program finds the same key in the home that ask gives it.
+	ts := httptest.NewServer(vouch.Sealing(func(*http.Request) []byte { return standInKey }, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seen.note(r)
 
 		switch r.Method + " " + r.URL.Path {
@@ -394,7 +401,7 @@ func running(t *testing.T) (*httptest.Server, *asked) {
 		default:
 			http.NotFound(w, r)
 		}
-	}))
+	})))
 
 	t.Cleanup(ts.Close)
 
@@ -519,6 +526,24 @@ func ask(t *testing.T, node, bin, address, mode string) told {
 
 	home := t.TempDir()
 
+	/*
+	 * The key the stand-in seals with, where the program looks for its
+	 * user's on each system (os.UserConfigDir under the environment below:
+	 * XDG_CONFIG_HOME on Linux, APPDATA on Windows, the Library folder of
+	 * HOME on a Mac), written as the assistant writes it.
+	 */
+	for _, settings := range []string{filepath.Join(home, "config"), home, filepath.Join(home, "Library", "Application Support")} {
+		dir := filepath.Join(settings, "pn-scripts-assistant")
+
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := os.WriteFile(filepath.Join(dir, vouch.FileName), []byte(hex.EncodeToString(standInKey)+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -625,7 +650,7 @@ func TestTheOfficialClientUsesTheAssistant(t *testing.T) {
 
 	// What the program offers, from the program: a tool added there is one
 	// the official client must be able to read here.
-	offered := mcpserve.New("http://127.0.0.1:1", "x").Tools
+	offered := mcpserve.New("http://127.0.0.1:1", "x", nil).Tools
 
 	want := make([]string, 0, len(offered))
 	for _, each := range offered {

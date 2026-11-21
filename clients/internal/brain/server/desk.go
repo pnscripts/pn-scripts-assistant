@@ -145,10 +145,18 @@ var fromTheWindowOnly = []string{
 	 * the key: a pairing code, and opening the assistant to the network or
 	 * the internet. Without these a program here could pair itself with
 	 * every right and come back by this computer's own network address
-	 * (found by the review of this change). Taking a device away, and
-	 * claiming a code somebody was shown, stay as they were.
+	 * (found by the review of this change). Taking a device away stays as
+	 * it was.
+	 *
+	 * Withdrawing the code is the window's too: without the key any
+	 * program here could take the code off the screen while the person
+	 * pairs a phone, as often as it liked (a note of the review of 1.2.0).
+	 * Claiming a code is not in this list, because a device elsewhere has
+	 * no key to send; a wrong guess from this computer spends nothing
+	 * instead (handleClaim).
 	 */
 	"/api/pair/offer",
+	"/api/pair/stop",
 	"/api/reach",
 	"/api/tunnel",
 }

@@ -48,6 +48,7 @@ import (
 	"pn-scripts-assistant/internal/brain/storage"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/vault"
+	"pn-scripts-assistant/internal/brain/vouch"
 	"pn-scripts-assistant/internal/brain/window"
 	"pn-scripts-assistant/internal/preflight"
 	"pn-scripts-assistant/internal/setup"
@@ -553,6 +554,7 @@ func runServe(args []string) error {
 	b.WarmGreeting()
 	b.WarmIntroduction()
 	srv := server.New(b, logger)
+	sealAnswers(srv, logger)
 
 	// Served without a window, an update still has to get this copy out of
 	// the installer's way: it stops serving, as on Ctrl+C.
@@ -1114,6 +1116,7 @@ func runApp(args []string) error {
 	ln := listeners[0]
 
 	srv := server.New(b, logger)
+	sealAnswers(srv, logger)
 
 	// So a second copy can ask this one to show itself rather than opening
 	// another window onto the same brain.
@@ -2681,6 +2684,30 @@ func saidToAPerson(out *os.File) bool {
 	info, err := out.Stat()
 
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+/*
+ * sealAnswers gives the server the key it seals its answers with for
+ * "pn-scripts-assistant mcp" (package vouch), made on the first start and
+ * kept in its user's settings folder on this computer.
+ *
+ * Not being able to keep one does not stop the program: its window and
+ * everything in it work without. Other programs are then told that what
+ * answered could not be shown to be the assistant, which is the truth.
+ */
+func sealAnswers(srv *server.Server, logger *slog.Logger) {
+	place, err := vouch.Place()
+	if err == nil {
+		var key []byte
+
+		if key, err = vouch.Keep(place); err == nil {
+			srv.Vouch(key)
+
+			return
+		}
+	}
+
+	logger.Warn("the key that seals answers for other programs could not be kept; pn-scripts-assistant mcp will pass none of them on", "error", err)
 }
 
 // sayDeskLink prints the link a browser needs to answer cards.

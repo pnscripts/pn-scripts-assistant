@@ -26,7 +26,7 @@ import (
 func asked(t *testing.T, address, tool, arguments string) (string, error) {
 	t.Helper()
 
-	for _, each := range mcpserve.New(address, "test").Tools {
+	for _, each := range mcpserve.New(address, "test", testAnswersKey).Tools {
 		if each.Name == tool {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()

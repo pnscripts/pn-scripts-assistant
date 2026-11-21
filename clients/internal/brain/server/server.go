@@ -41,6 +41,7 @@ import (
 	"pn-scripts-assistant/internal/brain/storage"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/voiceprint"
+	"pn-scripts-assistant/internal/brain/vouch"
 	"pn-scripts-assistant/internal/brain/wake"
 )
 
@@ -50,9 +51,17 @@ type Server struct {
 	// (outside.go).
 	outsidePace otherprograms.Pace
 
+	// permitPace counts their permission questions by themselves, so that
+	// a flood of the one never answers the other (outside.go).
+	permitPace otherprograms.Pace
+
 	// desk is what tells the assistant's own window from another program
 	// on this computer (desk.go).
 	desk *desk
+
+	// answersKey seals the answers to whoever asks for a seal on this
+	// computer (Vouch, package vouch). Nil until the program gives it.
+	answersKey []byte
 
 	brain  *brain.Brain
 	log    *slog.Logger
@@ -104,7 +113,8 @@ func (s *Server) OnQuit(quit func()) { s.quit = quit }
 
 // New builds the server and registers its routes.
 func New(b *brain.Brain, logger *slog.Logger) *Server {
-	s := &Server{brain: b, log: logger, mux: http.NewServeMux(), assets: assetHandler(logger), desk: newDesk()}
+	s := &Server{brain: b, log: logger, mux: http.NewServeMux(), assets: assetHandler(logger), desk: newDesk(), answersKey: fixedAnswersKey}
+	s.permitPace.Most = otherprograms.MostPermissionsAMinute
 
 	/*
 	 * Which devices have been let in, read before anything can be served.
@@ -501,11 +511,54 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
  */
 func (s *Server) Handler() http.Handler {
 	if s.through == nil {
-		// Who is asking first, then whether the terms are accepted.
-		s.through = s.Guard(s.untilAgreed(s.mux))
+		// Who is asking first, then whether the terms are accepted. Around
+		// both, the seal on an answer for whoever asked for one, so that
+		// every refusal on the way is sealed like an answer.
+		s.through = vouch.Sealing(s.answersKeyFor, s.Guard(s.untilAgreed(s.mux)))
 	}
 
 	return s.through
+}
+
+// fixedAnswersKey is set by this package's tests and by nothing else: a
+// server made while it is set seals its answers with it (compare
+// fixedDeskKey).
+var fixedAnswersKey []byte
+
+/*
+ * Vouch gives the server the key it seals its answers with, for a program
+ * on this computer that asks for the seal: "pn-scripts-assistant mcp"
+ * passes nothing on without it (package vouch). The program reads the key
+ * from its user's settings folder when it starts and calls this before it
+ * serves; without it no answer is sealed, and the MCP server says it could
+ * not tell who answered.
+ */
+func (s *Server) Vouch(key []byte) { s.answersKey = key }
+
+/*
+ * answersKeyFor is the key for a request from this computer to one of the
+ * three routes "pn-scripts-assistant mcp" asks, and none for anything
+ * else.
+ *
+ * From this computer only: the seal is for programs here, which can read
+ * the same file, and a device elsewhere has no use for it. And for these
+ * routes only, because a sealed answer is held in memory until it is
+ * whole: a seal on every route would let any program here have the
+ * stream of what the assistant is doing, or a large file, held for it
+ * without end (found by the review of this change), and would seal for
+ * whoever asked things nobody needs sealed.
+ */
+func (s *Server) answersKeyFor(r *http.Request) []byte {
+	if !cameFromThisMachine(r.RemoteAddr) {
+		return nil
+	}
+
+	switch r.Method + " " + r.URL.Path {
+	case "GET /api/v1/version", "GET /api/terms", "POST /api/outside/ask":
+		return s.answersKey
+	}
+
+	return nil
 }
 
 // Devices is which things may reach this brain, so the interface can show them

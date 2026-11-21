@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -88,6 +89,10 @@ type Book struct {
 	code      string
 	codeUntil time.Time
 	codeCan   string
+
+	// wrongHere is how many wrong guesses at this code came from the
+	// computer itself (AcceptHere).
+	wrongHere int
 }
 
 // Load reads the paired devices for a brain. A missing file is no devices,
@@ -147,6 +152,7 @@ func (b *Book) Offer(can string) (string, time.Time, error) {
 	b.code = code
 	b.codeUntil = time.Now().Add(HowLongACodeLasts)
 	b.codeCan = level(can)
+	b.wrongHere = 0
 
 	return code, b.codeUntil, nil
 }
@@ -169,7 +175,88 @@ func (b *Book) StopOffering() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.code, b.codeUntil, b.codeCan = "", time.Time{}, ""
+	b.code, b.codeUntil, b.codeCan, b.wrongHere = "", time.Time{}, "", 0
+}
+
+// MostWrongHere is how many wrong guesses at one code are looked at when
+// they come from the computer itself (AcceptHere).
+const MostWrongHere = 3
+
+var (
+	// ErrWrongHere is a guess from the computer itself that was wrong.
+	// The code on offer is as it was.
+	ErrWrongHere = errors.New("that code is not right, and a guess from the computer the assistant runs on does not use the code up")
+
+	// ErrNoMoreHere is a claim from the computer itself after as many
+	// wrong guesses as are looked at: it was not read, right or wrong.
+	// The code on offer is as it was, for a device elsewhere.
+	ErrNoMoreHere = errors.New("no more codes are read from the computer the assistant runs on until a new code is asked for")
+)
+
+/*
+ * AcceptHere is Accept for a claim that came from the computer the
+ * assistant runs on.
+ *
+ * A wrong guess spends the code (see Accept), which is right for a
+ * stranger on the network and was a free denial for any program on the
+ * computer itself: one wrong guess, repeated, and no phone could ever be
+ * paired (a note of the review of 1.2.0). So from here a wrong guess spends
+ * nothing. That must not turn into a code that can be guessed at, so only
+ * a few wrong guesses from here are looked at for one code
+ * (MostWrongHere); after them every claim from here is refused unread
+ * until a new code is asked for, and the device the code was made for,
+ * which is elsewhere, pairs as if nothing had happened. Three guesses at
+ * a code of thirty bits is nothing to worry about; the code itself is
+ * shown only in the assistant's own window.
+ *
+ * The right code still pairs from here, as it always did: somebody who
+ * brings a device to the computer's own address (a forwarded port) is
+ * typing what the screen shows. What a program here can still do is use
+ * up those few guesses, so that this one way of pairing needs a new code
+ * (ErrNoMoreHere says so); pairing from elsewhere is not touched by it.
+ */
+func (b *Book) AcceptHere(code, name, from string) (Device, string, error) {
+	b.mu.Lock()
+
+	if b.code == "" || time.Now().After(b.codeUntil) {
+		b.code, b.codeUntil, b.codeCan, b.wrongHere = "", time.Time{}, "", 0
+		b.mu.Unlock()
+
+		return Device{}, "", errNoCode
+	}
+
+	if b.wrongHere >= MostWrongHere {
+		b.mu.Unlock()
+
+		return Device{}, "", ErrNoMoreHere
+	}
+
+	if subtle.ConstantTimeCompare([]byte(typed(code)), []byte(b.code)) != 1 {
+		b.wrongHere++
+		b.mu.Unlock()
+
+		return Device{}, "", ErrWrongHere
+	}
+
+	// The right code: spent under the same lock that compared it, and
+	// paired exactly as from anywhere else.
+	can := b.codeCan
+
+	b.code, b.codeUntil, b.codeCan, b.wrongHere = "", time.Time{}, "", 0
+
+	b.mu.Unlock()
+
+	return b.pairAs(can, name, from)
+}
+
+// errNoCode is a claim when no code is on offer, or the one that was has
+// run out.
+var errNoCode = errors.New("no code is being offered; ask for one on the computer the assistant runs on")
+
+// typed is a code as somebody typed it, made comparable: no spaces, upper
+// case.
+func typed(code string) string {
+	return strings.ToUpper(strings.TrimSpace(strings.ReplaceAll(code, " ", "")))
 }
 
 /*
@@ -188,24 +275,26 @@ func (b *Book) Accept(code, name, from string) (Device, string, error) {
 
 	offered, until, can := b.code, b.codeUntil, b.codeCan
 
-	b.code, b.codeUntil, b.codeCan = "", time.Time{}, ""
+	b.code, b.codeUntil, b.codeCan, b.wrongHere = "", time.Time{}, "", 0
 
 	b.mu.Unlock()
 
 	if offered == "" || time.Now().After(until) {
-		return Device{}, "", fmt.Errorf(
-			"no code is being offered; ask for one on the computer the assistant runs on")
+		return Device{}, "", errNoCode
 	}
-
-	given := strings.ToUpper(strings.TrimSpace(strings.ReplaceAll(code, " ", "")))
 
 	// Compared in constant time. The difference is unmeasurable over a network
 	// and costs nothing, and a comparison that returns early is a comparison
 	// that answers questions one character at a time.
-	if subtle.ConstantTimeCompare([]byte(given), []byte(offered)) != 1 {
+	if subtle.ConstantTimeCompare([]byte(typed(code)), []byte(offered)) != 1 {
 		return Device{}, "", fmt.Errorf("that code is not right; ask for a new one")
 	}
 
+	return b.pairAs(can, name, from)
+}
+
+// pairAs makes the device and its token, once its code was taken.
+func (b *Book) pairAs(can, name, from string) (Device, string, error) {
 	token, err := secret()
 	if err != nil {
 		return Device{}, "", err

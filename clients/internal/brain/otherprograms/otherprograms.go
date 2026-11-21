@@ -187,8 +187,47 @@ func TooMany() (en, bg string) {
 			"Въпросите над тази граница получават отказ и не се изброяват един по един."
 }
 
-// Pace counts the questions of the minute. Its zero value is ready.
+/*
+ * MostPermissionsAMinute is how many permission questions of other
+ * programs (PermissionTool) are taken in one minute, all programs together.
+ *
+ * Counted by themselves. They shared the number above, and a program that
+ * asked "is it running" in a loop used it up: every permission question of
+ * Claude Code was then answered no without its person being asked (the
+ * review of 1.2.0). Their own number keeps the two apart both ways: a flood
+ * of other questions costs a permission question nothing, and a flood of
+ * permission questions leaves the others their minute.
+ *
+ * Small, because each one is a card a person reads: one every five seconds
+ * is more than anybody answers, and well over the few that wait at once
+ * (MostPermissionsWaiting). It is still one number for all programs, for
+ * the reason above: a program that floods permission questions makes the
+ * next program's question a no for that minute, with the flood on the
+ * record. Only its person can tell the two programs apart.
+ */
+const MostPermissionsAMinute = 12
+
+// TooManyPermissions is what the record says of the permission questions
+// refused for being too many, in English and in Bulgarian. The page reads
+// the number out of the English (programs.js), as it does from TooMany.
+func TooManyPermissions() (en, bg string) {
+	n := strconv.Itoa(MostPermissionsAMinute)
+
+	return "Not answered: other programs asked for your permission with more than " + n + " questions in a minute. " +
+			"The ones over that are refused and not listed one by one.",
+		"Без отговор: другите програми поискаха вашето разрешение с повече от " + n + " въпроса за една минута. " +
+			"Въпросите над тази граница получават отказ и не се изброяват един по един."
+}
+
+/*
+ * Pace counts the questions of the minute. Its zero value is ready, and
+ * counts to MostAMinute; Most is another number to count to (anything
+ * under one is MostAMinute, never "no limit").
+ */
 type Pace struct {
+	// Most is how many are within the minute. Set before the first Next.
+	Most int
+
 	mu     sync.Mutex
 	since  time.Time
 	asked  int
@@ -209,7 +248,12 @@ func (p *Pace) Next(now time.Time) (within, first bool) {
 		p.since, p.asked, p.listed = now, 0, false
 	}
 
-	if p.asked < MostAMinute {
+	most := p.Most
+	if most < 1 {
+		most = MostAMinute
+	}
+
+	if p.asked < most {
 		p.asked++
 
 		return true, false

@@ -54,10 +54,10 @@ func answering(t *testing.T, answers ...string) (*Server, *door) {
 		fmt.Fprint(w, body)
 	})
 
-	ts := httptest.NewServer(mux)
+	ts := httptest.NewServer(sealing(mux))
 	t.Cleanup(ts.Close)
 
-	return New(ts.URL, "1"), kept
+	return New(ts.URL, "1", theKey), kept
 }
 
 const ticket = "0123456789abcdef0123456789abcdef"

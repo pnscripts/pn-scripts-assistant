@@ -12,6 +12,7 @@ import (
 
 	"pn-scripts-assistant/internal/brain/mcpserve"
 	"pn-scripts-assistant/internal/brain/release"
+	"pn-scripts-assistant/internal/brain/vouch"
 )
 
 /*
@@ -27,6 +28,11 @@ import (
  * Standard output is the conversation: nothing but messages may be written
  * there, so everything meant for a person goes to standard error.
  */
+// answersKey reads the key the running assistant seals its answers with,
+// from its user's settings folder on this computer. A variable so a test
+// reads a key of its own and not this account's.
+var answersKey = vouch.Here
+
 func runMCP(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -62,7 +68,7 @@ func serveMCP(ctx context.Context, args []string, in io.Reader, out, said io.Wri
 		return err
 	}
 
-	server := mcpserve.New(address, release.Is())
+	server := mcpserve.New(address, release.Is(), answersKey)
 	server.Log = said
 
 	return server.Serve(ctx, in, out)

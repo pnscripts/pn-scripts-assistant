@@ -401,7 +401,7 @@ func TestTheMCPServerAsksThroughTheDoorAndIsWrittenDown(t *testing.T) {
 	twoPrograms(t, db)
 
 	run := func(tool, arguments string) (string, error) {
-		for _, each := range mcpserve.New(ts.URL, "test").Tools {
+		for _, each := range mcpserve.New(ts.URL, "test", testAnswersKey).Tools {
 			if each.Name == tool {
 				return each.Run(t.Context(), json.RawMessage(arguments), mcpserve.Caller{Name: "claude-code", Version: "2.1.0"})
 			}
@@ -460,7 +460,7 @@ func TestTheMCPServerAsksThroughTheDoorAndIsWrittenDown(t *testing.T) {
 // added to either without the other fails here.
 func TestTheDoorAndTheMCPServerOfferTheSameQuestions(t *testing.T) {
 	var offered []string
-	for _, each := range mcpserve.New("http://127.0.0.1:1", "test").Tools {
+	for _, each := range mcpserve.New("http://127.0.0.1:1", "test", testAnswersKey).Tools {
 		offered = append(offered, each.Name)
 	}
 
