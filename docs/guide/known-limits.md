@@ -142,6 +142,58 @@ against the code on 9 November 2026.
   MCP project's own client; a signed-in Claude Code session was not part of
   the tests. As with every question from another program, the name on the
   card is the program's own word.
+- **Other programs handing the assistant things: six kinds, no model, and
+  what a program's words can still do.** Since November 2026
+  `pn-scripts-assistant mcp` also takes a thing to remember, a reminder, a
+  line for a to-do list, a message for you, a line to say aloud and the
+  name of one of your actions to run, each behind its own switch (off
+  until you allow it) and each on the record with the name the program
+  gave. None of this runs a model for the program and none of it is a way
+  to approve anything: a thing to remember is believed by nobody until you
+  accept it on its card in the assistant's own window, and a message is a
+  card you read. What that leaves: a reminder and a line of the list are
+  written without asking you again, with "From another program" and the
+  program's name in front, and the assistant's own model can later read
+  them when you ask it about your reminders or lists, as it reads
+  everything else there; treat those two switches as letting a program
+  write a short note the assistant will see. Their numbers are bounded (20
+  reminders waiting and 50 set in a day, 30 open lines, all programs
+  together; the day's number starts again when the assistant is started
+  again), but each reminder is said aloud when due, so the switch for
+  reminders is also a way for a program to make the assistant speak. A
+  thing you accepted is known from then on with "Told by another program"
+  and the name in front. The name is the program's own word: the fixed
+  words stand before it and it cannot close their bracket, and nothing
+  more is known about who it is. An action runs the command you
+  wrote, as you wrote it, through the shell and with your account's
+  rights, without asking again; the program adds nothing, but a command
+  that reads something a program can change (a file in a project it
+  works in) does what that file says, so write actions that take no input
+  from such places. Its output goes to the program and on to the model it
+  uses, with what looks like a key or a token taken out; what it prints
+  beyond 64 kB is dropped as it comes. An action has 45 seconds;
+  one that starts longer work must start it in the background and return,
+  and is then told as ended about three seconds later. "Stop using other
+  programs" stops actions being started, not one that is running. On Windows
+  the command runs through `cmd /C`; that path is built and vetted but
+  was not run on a Windows machine for this change, and a command with
+  quotation marks in it may reach `cmd` quoted differently from how it
+  was typed: on Windows, put such a command in a script file and name
+  the file.
+- **Connecting a program writes into that program's settings file.** The
+  button on the Programs page writes one entry into Claude Code's
+  `.claude.json` or Claude Desktop's `claude_desktop_config.json`, after
+  showing the file and the entry and copying the file as it was beside
+  it. The names in the file keep their order and every value is kept as
+  written, but its spacing is rewritten (two spaces a level). A file that
+  is not plain JSON, is a link, or is larger than 32 MB is left alone. If
+  the other program writes its settings in the same instant, the
+  assistant writes nothing and shows the file again; an instant between
+  its last look and the writing remains, as for any two programs sharing
+  a file, and the copy beside the file is the way back. The entry names
+  the full path of the program that was running, so after moving or
+  reinstalling it elsewhere, connect again. Cursor and VS Code are
+  connected by hand.
 - **Answers on cards and the switches for other programs: only from the
   assistant's own window, and what that does not stop.** When the window
   opens it is given a key that lasts until it closes. Without that key

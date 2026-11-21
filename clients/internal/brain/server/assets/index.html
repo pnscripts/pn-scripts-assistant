@@ -935,7 +935,7 @@
                      here; every question is on the record with who asked. -->
                 <div class="card card-wide outside-card" id="outside-card" data-ready="false">
                     <h2 data-i18n="out.title">What other programs may ask</h2>
-                    <p class="note" data-i18n="out.lead">Programs you connect to me, such as Claude Code, Claude Desktop or Cursor, can ask me questions. What they may ask is decided here, at this computer. Every question, and every change of a switch, is written in “What I did”. At most 30 questions a minute are answered; the ones over that are refused and written as one line.</p>
+                    <p class="note" data-i18n="out.lead">Programs you connect to me, such as Claude Code, Claude Desktop or Cursor, can ask me questions and hand me things. What they may ask and hand over is decided here, at this computer, one switch for each kind. Every question, everything handed over and every change of a switch is written in “What I did”. At most 30 a minute are taken; the ones over that are refused and written as one line.</p>
                     <ul class="outside-list">
                         <li class="outside-row outside-fixed">
                             <span class="outside-label" id="outside-fixed-label" data-i18n="out.status">Whether I am running, and which version I am</span>
@@ -944,9 +944,45 @@
                     </ul>
                     <ul class="outside-list" id="outside-switches"></ul>
                     <p class="note outside-note" id="outside-note" role="status" aria-live="polite"></p>
-                    <h3 data-i18n="out.recentTitle">Last questions</h3>
+                    <h3 data-i18n="out.recentTitle">Last asked and handed over</h3>
                     <div class="outside-recent" id="outside-recent"></div>
                     <p class="note" id="outside-recent-note"></p>
+                </div>
+
+                <!-- The actions other programs may run (programs.js, GET
+                     /api/outside/actions): commands written here, in this
+                     window, and run by their name through the switch
+                     above. A program can never write one. -->
+                <div class="card card-wide actions-card" id="actions-card" data-ready="false">
+                    <h2 data-i18n="act.title">Actions other programs may run</h2>
+                    <p class="note" data-i18n="act.lead">An action is a name and a command of this computer, written here by you. With the switch “Run the actions you wrote below” on, a program you connected can ask me to run one by its name. I run the command exactly as it stands here: a program can add nothing to it, change none and write none. What it prints goes back to that program. Every run is written in “What I did” with who asked.</p>
+                    <ul class="actions-list" id="actions-list"></ul>
+                    <p class="note" id="actions-none"></p>
+                    <form class="action-form" id="action-form" autocomplete="off">
+                        <label class="field action-field">
+                            <span data-i18n="act.name">Name</span>
+                            <input type="text" id="action-name" maxlength="40" spellcheck="false" data-i18n-placeholder="act.namePlaceholder" placeholder="for example backup-photos">
+                        </label>
+                        <label class="field action-field action-field-wide">
+                            <span data-i18n="act.command">Command</span>
+                            <input type="text" id="action-command" maxlength="500" spellcheck="false" data-i18n-placeholder="act.commandPlaceholder" placeholder="for example rsync -a ~/Pictures /mnt/backup">
+                        </label>
+                        <button type="submit" class="model-action" id="action-add" data-i18n="act.add">Write this action</button>
+                    </form>
+                    <p class="note" id="actions-limits"></p>
+                    <p class="note outside-note" id="actions-note" role="status" aria-live="polite"></p>
+                </div>
+
+                <!-- Connecting a program to the assistant (programs.js, GET
+                     /api/outside/connect): the entry that starts
+                     "pn-scripts-assistant mcp", written into that program's
+                     own settings only after the file and the entry were
+                     shown here and the second button was pressed. -->
+                <div class="card card-wide connect-card" id="connect-card" data-ready="false">
+                    <h2 data-i18n="con.title">Connect a program to me</h2>
+                    <p class="note" data-i18n="con.lead">Claude Code and Claude Desktop find me through one entry in their own settings file. I can write it for you. First I show you the file and the entry, word for word; nothing is written until you press the button under them. The file as it was is copied beside it first, and everything else in it stays as it is. Connecting allows nothing by itself: what a connected program may ask or hand me is decided by the switches above.</p>
+                    <ul class="connect-list" id="connect-list"></ul>
+                    <p class="note connect-note" id="connect-note" role="status" aria-live="polite"></p>
                 </div>
 
                 <div class="card card-wide programs-card" id="programs-card" hidden>

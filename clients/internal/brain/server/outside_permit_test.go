@@ -152,8 +152,16 @@ func TestPermissionQuestionsAreOffUntilAllowedAtTheDesk(t *testing.T) {
 
 	getJSON(t, ts.URL+"/api/outside", &state)
 
-	if n := len(state.Subjects); n != 4 || state.Subjects[n-1].ID != "permissions" || state.Subjects[n-1].Allowed {
+	// The last of the four for what is asked; the six for what is handed
+	// over come after it (November 2026), every one off.
+	if n := len(state.Subjects); n != 10 || state.Subjects[3].ID != "permissions" || state.Subjects[3].Allowed {
 		t.Errorf("the switches the page is given: %+v", state.Subjects)
+	}
+
+	for _, s := range state.Subjects[4:] {
+		if s.Allowed {
+			t.Errorf("%s is on, and nobody turned it on", s.ID)
+		}
 	}
 }
 

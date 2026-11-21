@@ -1222,7 +1222,12 @@ function speak(text) {
 }
 
 // How sure the learning was, as the badge on a lesson says it.
-const CONFIDENCE = { low: 'cc.conf.low', medium: 'cc.conf.medium', high: 'cc.conf.high', 'very-high': 'cc.conf.veryHigh' };
+const CONFIDENCE = {
+    low: 'cc.conf.low', medium: 'cc.conf.medium', high: 'cc.conf.high', 'very-high': 'cc.conf.veryHigh',
+    // Not a confidence: something another program told the assistant to
+    // remember (otherprograms.Told on the server). Its text says which.
+    told: 'cc.conf.told',
+};
 
 async function refreshLessons() {
     let pending = [];
@@ -1471,6 +1476,14 @@ async function refreshApprovals() {
 
         const buttons = [];
 
+        // A message another program left is seen, not approved. The line
+        // above it says what it is and who left it, so the card shows the
+        // message itself and not the tool's name a second time.
+        if (offer.seen) {
+            approve.textContent = offer.seen.label;
+            summary.textContent = offer.seen.text;
+        }
+
         if (offer.approve) buttons.push(approve);
 
         if (offer.forProgram) {
@@ -1555,7 +1568,11 @@ async function refreshApprovals() {
             by.className = 'approval-asker';
             by.textContent = offer.askedBy.label;
             by.title = offer.askedBy.title;
-            tool.after(by);
+
+            // Under the tool's name; or first on the card of a message,
+            // which shows no tool's name.
+            if (tool.parentNode) tool.after(by);
+            else summary.prepend(by);
         }
 
         card.append(summary);

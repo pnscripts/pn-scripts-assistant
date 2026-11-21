@@ -283,3 +283,24 @@ func (d *DB) Sources(messageID int64) (json.RawMessage, error) {
 
 	return json.RawMessage(raw), nil
 }
+
+/*
+ * FinishDeed writes how something that was recorded as started ended: its
+ * outcome, what it came to and how long it took. For the one kind of deed
+ * that is written before it happens because it cannot be taken back (a
+ * command run for another program); everything else is recorded once, when
+ * it is over.
+ */
+func (d *DB) FinishDeed(id int64, outcome, result string, millis int64) error {
+	res, err := d.sql().Exec(`UPDATE deeds SET outcome = ?, result = ?, millis = ? WHERE id = ?`,
+		outcome, d.seal(redact.Text(truncate(result, deedResultLimit))), millis, id)
+	if err != nil {
+		return fmt.Errorf("recording how it ended: %w", err)
+	}
+
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return fmt.Errorf("there is no record %d to finish", id)
+	}
+
+	return nil
+}

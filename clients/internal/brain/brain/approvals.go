@@ -97,6 +97,12 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 		return b.decidePermit(*invocation, approve)
 	}
 
+	// A message another program left: it was seen, whichever button said
+	// so, and nothing is carried out for it (handover.go).
+	if IsMessage(*invocation) {
+		return b.seenMessage(*invocation)
+	}
+
 	if !approve {
 		invocation.Status = store.InvocationDenied
 

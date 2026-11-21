@@ -115,7 +115,7 @@ func TestThePageSaysWhoAskedAndWhatMayBeAskedInBothLanguages(t *testing.T) {
 
 	// The switch, off: one fixed line and one switch, not allowed.
 	if en.Off.Fixed.Label != "Whether I am running, and which version I am" || en.Off.Fixed.State != "Always answered" ||
-		len(en.Off.Rows) != 4 || en.Off.Rows[0].ID != "programs" || en.Off.Rows[0].Allowed || en.Off.Rows[0].Means != "" ||
+		len(en.Off.Rows) != 10 || en.Off.Rows[0].ID != "programs" || en.Off.Rows[0].Allowed || en.Off.Rows[0].Means != "" ||
 		en.Off.Rows[0].Label != "Which programs are installed on this computer" ||
 		en.Off.Rows[0].State != "Not allowed. A program that asks is told to ask you." ||
 		len(en.Off.Recent) != 0 || en.Off.None != "No program has asked anything yet." {
@@ -435,7 +435,7 @@ func TestThePageSaysAskingAndSearchingInBothLanguages(t *testing.T) {
 
 	// The switches, in the page's order, each off, the two new ones with
 	// what allowing them means.
-	if len(en.Off.Rows) != 4 || en.Off.Rows[1].ID != "ask" || en.Off.Rows[2].ID != "memory" ||
+	if len(en.Off.Rows) != 10 || en.Off.Rows[1].ID != "ask" || en.Off.Rows[2].ID != "memory" ||
 		en.Off.Rows[1].Label != "Questions to me, answered in words" || en.Off.Rows[2].Label != "Searching what I remember about you" ||
 		en.Off.Rows[1].Allowed || en.Off.Rows[2].Allowed ||
 		!strings.Contains(en.Off.Rows[1].Means, "I do nothing for the program that asks") ||
@@ -677,7 +677,7 @@ func TestThePageSaysAPermissionQuestionInBothLanguages(t *testing.T) {
 	bg := outsidePageSays(t, "bg-BG", off, on, cards, deeds)
 
 	// The switch: the last of four, off, with what turning it on means.
-	if len(en.Off.Rows) != 4 || en.Off.Rows[3].ID != "permissions" || en.Off.Rows[3].Allowed ||
+	if len(en.Off.Rows) != 10 || en.Off.Rows[3].ID != "permissions" || en.Off.Rows[3].Allowed ||
 		en.Off.Rows[3].Label != "Their own permission questions, put to you here" ||
 		!strings.Contains(en.Off.Rows[3].Means, "I answer none of them myself") ||
 		!strings.Contains(en.Off.Rows[3].Means, "a question nobody answers in ten minutes is a no") ||

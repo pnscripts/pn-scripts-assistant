@@ -91,6 +91,16 @@ func (b *Brain) AllowOutside(subject otherprograms.Subject, allowed bool) error 
 		b.takeBackPermits(false)
 	}
 
+	// And the messages that wait to be seen go with theirs.
+	if changed && !allowed && subject == otherprograms.Tell {
+		b.takeBackMessages()
+	}
+
+	// And the reminders of other programs that were not said yet.
+	if changed && !allowed && subject == otherprograms.Remind {
+		b.takeBackReminders()
+	}
+
 	return nil
 }
 

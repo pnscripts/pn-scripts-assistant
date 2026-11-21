@@ -11,6 +11,29 @@ whenever something visible changed.
 
 ## Unreleased
 
+- **Claude can hand the assistant work, as the assistant could already ask
+  Claude.** Until now a program you connected (Claude Code, Claude
+  Desktop, Cursor) could only ask. It can now also hand over six things,
+  each behind a switch of its own on the Programs page, off until you turn
+  it on: a thing to remember, a reminder, a line for a to-do list, a
+  message for you on a card in the window, a line said aloud, and the name
+  of one of your actions to run. Nothing a program hands over is followed
+  by a model, and nothing is approved through these tools. A thing to
+  remember waits, marked "from another program", until you accept it on
+  its card in the assistant's own window; saying "remember them all" does
+  not accept it, and neither does a program posting to the assistant. A
+  message is a card with one button, Seen. An action is a command you
+  wrote yourself on the Programs page: a program gives its name and
+  nothing else, and can neither write nor change one. Everything handed
+  over is in "What I did" with the name the program gave, and what could
+  not be recorded was not taken.
+- **Connect Claude Code or Claude Desktop with one button.** The Programs
+  page shows whether each is connected. Before anything is written you
+  are shown the settings file and the entry, word for word; the file as it
+  was is copied beside it first, everything else in it stays, and a file
+  that changed after it was shown is not written. Connecting allows
+  nothing by itself: the switches do.
+
 - **A window you look at without touching no longer costs most of a
   processor core.** For the first minute after the last touch the page kept
   drawing sixty frames a second for a small ring that spins: measured on a

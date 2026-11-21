@@ -193,6 +193,27 @@ func (b *Brain) handleLessonInstruction(ctx context.Context, message string) (st
 		return "", false
 	}
 
+	/*
+	 * What another program told is accepted on its card only, so "remember
+	 * that" is not about it. With nothing else waiting the sentence is
+	 * somebody talking about something else, as with an empty list: before
+	 * this, it was swallowed and answered "I could not store those" (found
+	 * by the review of handing over).
+	 */
+	if instruction.Accept {
+		own := pending[:0:0]
+
+		for _, l := range pending {
+			if !ToldByAnotherProgram(l) {
+				own = append(own, l)
+			}
+		}
+
+		if pending = own; len(pending) == 0 {
+			return "", false
+		}
+	}
+
 	// The whole list is a job, not a turn. See workThroughTheQueue.
 	if instruction.All {
 		return b.startOnTheQueue(instruction.Accept)
@@ -377,6 +398,12 @@ func (b *Brain) workThroughTheQueue(ctx context.Context, accept bool, total int)
 
 			after = l.ID
 			seen++
+
+			// What another program told me to remember is accepted on
+			// its card only; discarding it with the rest is fine.
+			if accept && ToldByAnotherProgram(l) {
+				continue
+			}
 
 			if !accept {
 				if err := b.DB.SetLessonStatus(l.ID, learning.StatusRejected); err != nil {

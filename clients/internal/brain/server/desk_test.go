@@ -229,6 +229,9 @@ func TestTheGuardAsksTheWindowsKeyOnlyWhereItMatters(t *testing.T) {
 	for _, path := range []string{
 		"/api/approvals/3/approve", "/api/approvals/3/deny", "/api/approvals/3/reject",
 		"/api/approvals/3/always-program", "/api/outside/allow",
+		// What other programs may run, and what is written into another
+		// program's settings (November 2026).
+		"/api/outside/actions", "/api/outside/actions/remove", "/api/outside/connect",
 	} {
 		for name, set := range map[string]func(*http.Request){
 			"no key":           nil,

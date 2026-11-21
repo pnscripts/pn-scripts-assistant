@@ -365,6 +365,11 @@ func New(b *brain.Brain, logger *slog.Logger) *Server {
 	s.mux.HandleFunc("GET /api/outside", s.handleOutside)
 	s.mux.HandleFunc("POST /api/outside/allow", s.handleOutsideAllow)
 	s.mux.HandleFunc("POST /api/outside/ask", s.handleOutsideAsk)
+	s.mux.HandleFunc("GET /api/outside/actions", s.handleOutsideActions)
+	s.mux.HandleFunc("POST /api/outside/actions", s.handleOutsideActionAdd)
+	s.mux.HandleFunc("POST /api/outside/actions/remove", s.handleOutsideActionRemove)
+	s.mux.HandleFunc("GET /api/outside/connect", s.handleOutsideConnectPlans)
+	s.mux.HandleFunc("POST /api/outside/connect", s.handleOutsideConnect)
 	s.mux.HandleFunc("POST /api/machine/care/stop", s.handleStopLeftover)
 	s.mux.HandleFunc("GET /api/machine/care/watch", s.handleRestartWatchState)
 	s.mux.HandleFunc("POST /api/machine/care/watch", s.handleRestartWatch)
@@ -996,7 +1001,9 @@ func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
 // allowed to. These are model inferences, which nothing can verify — the whole
 // reason they wait for a person rather than promoting themselves.
 func (s *Server) handleLessons(w http.ResponseWriter, r *http.Request) {
-	lessons, err := s.brain.DB.LessonsByStatus("proposed", 100)
+	// What another program told is listed first: it is decided here and
+	// nowhere else, and must not wait unseen behind a long list.
+	lessons, err := s.brain.LessonsToDecide(100)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 
@@ -1023,7 +1030,32 @@ func (s *Server) handleLessonDecision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.brain.DecideLesson(r.Context(), id, decision == "accept")
+	/*
+	 * Something another program told the assistant to remember is accepted
+	 * in the assistant's own window and nowhere else: a program here that
+	 * could post the yes would be telling the assistant what to believe
+	 * about its person. So such a card takes the window's key (desk.go),
+	 * and a device elsewhere is told where it is answered.
+	 */
+	decide := s.brain.DecideLesson
+
+	if lesson, err := s.brain.DB.Lesson(id); err == nil && lesson != nil && brain.ToldByAnotherProgram(*lesson) {
+		if !s.whoIsAsking(r).Here {
+			atTheComputer(w)
+
+			return
+		}
+
+		if !s.desk.holds(r.Header.Get(DeskHeader)) {
+			notTheWindow(w)
+
+			return
+		}
+
+		decide = s.brain.DecideLessonInTheWindow
+	}
+
+	result, err := decide(r.Context(), id, decision == "accept")
 	if err != nil {
 		fail(w, http.StatusBadRequest, err.Error())
 

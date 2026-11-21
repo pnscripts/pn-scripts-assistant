@@ -749,7 +749,7 @@ func (b *Brain) waitingLine() string {
 		return ""
 	}
 
-	approvals, _ := b.DB.PendingInvocations()
+	approvals := b.actionsWaiting()
 
 	switch {
 	case len(approvals) > 0 && pending > 0:

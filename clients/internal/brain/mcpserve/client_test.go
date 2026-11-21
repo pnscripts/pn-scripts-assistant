@@ -188,12 +188,26 @@ func TestARealClientFindsItCurrentAndUsesItsTools(t *testing.T) {
 			continue
 		}
 
+		// What hands the assistant something says it does not only read,
+		// and only the one that runs a command says it may destroy.
+		if handsOver := map[string]bool{"remember_fact": true, "add_reminder": true, "add_todo": true, "tell_user": true,
+			"say_to_user": true, "run_action": true}; handsOver[tool.Name] {
+			a := tool.Annotations
+
+			if a == nil || a.ReadOnlyHint == nil || *a.ReadOnlyHint || a.DestructiveHint == nil || *a.DestructiveHint != (tool.Name == "run_action") {
+				t.Errorf("%s hands something over and does not say so as a client reads it: %+v", tool.Name, a)
+			}
+
+			continue
+		}
+
 		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint == nil || !*tool.Annotations.ReadOnlyHint {
 			t.Errorf("%s does not say it only reads", tool.Name)
 		}
 	}
 
-	if strings.Join(names, ",") != "assistant_status,list_programs,ask_assistant,search_memory,permission_prompt" {
+	if strings.Join(names, ",") != "assistant_status,list_programs,ask_assistant,search_memory,permission_prompt,"+
+		"remember_fact,add_reminder,add_todo,tell_user,say_to_user,run_action" {
 		t.Errorf("tools: %v", names)
 	}
 
@@ -281,8 +295,8 @@ func TestAnOlderClientsConversationOverRealPipes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if list := ask(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`); len(list["tools"].([]any)) != 5 {
-		t.Errorf("the list: %v", list)
+	if list := ask(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`); len(list["tools"].([]any)) != 11 {
+		t.Errorf("the list has %d tools, not 11", len(list["tools"].([]any)))
 	}
 
 	status := ask(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"assistant_status","arguments":{}}}`)

@@ -141,6 +141,16 @@ var fromTheWindowOnly = []string{
 	"/api/outside/allow",
 
 	/*
+	 * What other programs may run, and what is written into another
+	 * program's settings: an action is a command its person wrote, and a
+	 * program that could post one here would run whatever it liked through
+	 * the switch for actions. (A thing a program told the assistant to
+	 * remember takes the key too, where its yes is given: handleLessonDecision.)
+	 */
+	"/api/outside/actions",
+	"/api/outside/connect",
+
+	/*
 	 * And the ways to become "a device elsewhere", which is not asked for
 	 * the key: a pairing code, and opening the assistant to the network or
 	 * the internet. Without these a program here could pair itself with
@@ -161,8 +171,28 @@ var fromTheWindowOnly = []string{
 	"/api/tunnel",
 }
 
+/*
+ * readInTheWindowOnly are the few things that are only read with the
+ * window's key as well: the actions other programs may run, with the
+ * command each stands for (the door tells a program their names and never
+ * the commands, and the table is sealed on disk, so reading them here was
+ * the one way to them; found by the review of handing over), and the plans
+ * for connecting a program, which name files and show an entry that stands
+ * in one.
+ */
+var readInTheWindowOnly = []string{
+	"/api/outside/actions",
+	"/api/outside/connect",
+}
+
 func windowOnly(r *http.Request) bool {
 	if !changesSomething(r) {
+		for _, path := range readInTheWindowOnly {
+			if r.URL.Path == path {
+				return true
+			}
+		}
+
 		return false
 	}
 

@@ -120,6 +120,12 @@ func fakeWith(t *testing.T, programs string, agreed, allowed bool) (*httptest.Se
 	return ts, kept
 }
 
+// handsOver are the tools that give the assistant something, as against
+// the ones that ask it.
+var handsOver = map[string]bool{
+	"remember_fact": true, "add_reminder": true, "add_todo": true, "tell_user": true, "say_to_user": true, "run_action": true,
+}
+
 const threePrograms = `{"programs":[
  {"kind":"deb","id":"krita","name":"krita","version":"5.2","present":false,"removed_at":"2026-11-13T09:30:00Z"},
  {"kind":"app","id":"gimp.desktop","name":"GIMP","exec":"gimp","present":true},
@@ -187,7 +193,18 @@ func TestItOffersAShortFixedListThatOnlyReads(t *testing.T) {
 			continue
 		}
 
-		if !tool.ReadOnly {
+		// What asks only reads and says so; what hands something over
+		// says that instead, and only the one that runs a command says it
+		// may change or remove things.
+		if handsOver[tool.Name] {
+			if tool.ReadOnly || !tool.HandsOver || tool.RunsSomething != (tool.Name == "run_action") {
+				t.Errorf("%s hands something over: read-only %v, hands over %v, runs something %v", tool.Name, tool.ReadOnly, tool.HandsOver, tool.RunsSomething)
+			}
+
+			if !strings.Contains(tool.Description, "(off until they do)") {
+				t.Errorf("%s does not say it is off until its user allows it: %q", tool.Name, tool.Description)
+			}
+		} else if !tool.ReadOnly || tool.HandsOver || tool.RunsSomething {
 			t.Errorf("%s is not marked as only reading", tool.Name)
 		}
 
@@ -202,8 +219,19 @@ func TestItOffersAShortFixedListThatOnlyReads(t *testing.T) {
 		}
 	}
 
-	if got := strings.Join(names, ","); got != "assistant_status,list_programs,ask_assistant,search_memory,permission_prompt" {
+	if got := strings.Join(names, ","); got != "assistant_status,list_programs,ask_assistant,search_memory,permission_prompt,"+
+		"remember_fact,add_reminder,add_todo,tell_user,say_to_user,run_action" {
 		t.Errorf("the tools offered: %s", got)
+	}
+
+	// Nothing offered writes an action, accepts what was told, answers a
+	// card or turns a switch: those are its user's, in the window.
+	for _, name := range names {
+		for _, never := range []string{"approve", "accept", "allow", "decide", "switch", "write_action", "add_action", "connect"} {
+			if strings.Contains(name, never) {
+				t.Errorf("%s is offered to other programs: nothing that decides for the user is", name)
+			}
+		}
 	}
 
 	if s.Name != "pn-scripts-assistant" || s.Version != "1.2.3" || !strings.Contains(s.Instructions, "PN Scripts Assistant") {

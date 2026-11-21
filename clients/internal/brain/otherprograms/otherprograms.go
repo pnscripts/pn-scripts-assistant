@@ -15,6 +15,15 @@
  *     Everything else is off until its person turns it on at the desk.
  *   - The name is the program's own word for itself. Nothing checks it, so
  *     it is shown and recorded, and never decides anything.
+ *
+ * Since November 2026 a program may also hand the assistant something (the
+ * second half of the list): a thing to remember, a reminder, a line for the
+ * to-do list, a message for its person in the window or aloud, and the
+ * running of an action its person wrote for that. Each has a switch of its
+ * own, off like the rest, and none of them lets a program decide anything:
+ * what it tells the assistant to remember waits for a yes in the window,
+ * a message is a card its person reads, and the only things that run are
+ * the ones written by its person at the desk, by name and as written.
  */
 package otherprograms
 
@@ -53,10 +62,54 @@ const (
 	 * given here lets that other program act on the computer.
 	 */
 	Permit Subject = "permissions"
+
+	/*
+	 * What a program may hand over, each with its own switch.
+	 *
+	 * Remember is a thing told to be remembered: it is kept apart, with
+	 * who told it, until its person accepts it in the window; nothing is
+	 * believed before that.
+	 */
+	Remember Subject = "remember"
+
+	// Remind is a reminder, said aloud when it is due like the
+	// assistant's own, with who set it.
+	Remind Subject = "reminders"
+
+	// Todo is a line on a to-do list of its own.
+	Todo Subject = "todos"
+
+	// Tell is a message for its person, shown on a card in the window
+	// until they have seen it.
+	Tell Subject = "tell"
+
+	// Speak is a message said aloud in the assistant's voice.
+	Speak Subject = "speak"
+
+	/*
+	 * Actions is running one of the actions its person wrote on the
+	 * Programs page: by its name, as it was written, with nothing a
+	 * program adds. A program can neither write one nor change one.
+	 */
+	Actions Subject = "actions"
 )
 
-// Subjects is every switch, in the order the page shows them.
-func Subjects() []Subject { return []Subject{Programs, Ask, Memory, Permit} }
+// Subjects is every switch, in the order the page shows them: what
+// programs may ask, then what they may hand over.
+func Subjects() []Subject {
+	return []Subject{Programs, Ask, Memory, Permit, Remember, Remind, Todo, Tell, Speak, Actions}
+}
+
+// HandsOver reports whether a switch is for something a program hands
+// the assistant, as against something it asks.
+func HandsOver(s Subject) bool {
+	switch s {
+	case Remember, Remind, Todo, Tell, Speak, Actions:
+		return true
+	}
+
+	return false
+}
 
 // Known reports whether s is a switch.
 func Known(s Subject) bool {
@@ -83,7 +136,23 @@ var questions = []question{
 	{"ask_assistant", Ask, "Another program asked me a question", "Друга програма ми зададе въпрос"},
 	{"search_memory", Memory, "Another program searched what I remember", "Друга програма потърси в това, което помня"},
 	{PermissionTool, Permit, "Another program asked whether it may do something", "Друга програма попита дали може да направи нещо"},
+	{RememberTool, Remember, "Another program told me something to remember", "Друга програма ми каза нещо за запомняне"},
+	{RemindTool, Remind, "Another program set a reminder", "Друга програма зададе напомняне"},
+	{TodoTool, Todo, "Another program put something on the to-do list", "Друга програма добави нещо в списъка със задачи"},
+	{TellTool, Tell, "Another program left you a message", "Друга програма ви остави съобщение"},
+	{SpeakTool, Speak, "Another program asked me to say something aloud", "Друга програма поиска да кажа нещо на глас"},
+	{ActionTool, Actions, "Another program asked me to run one of your actions", "Друга програма поиска да изпълня едно от вашите действия"},
 }
+
+// The tools a program hands something over through.
+const (
+	RememberTool = "remember_fact"
+	RemindTool   = "add_reminder"
+	TodoTool     = "add_todo"
+	TellTool     = "tell_user"
+	SpeakTool    = "say_to_user"
+	ActionTool   = "run_action"
+)
 
 // PermissionTool is the tool another program puts its permission
 // questions through (Claude Code: --permission-prompt-tool).
@@ -96,6 +165,12 @@ var said = map[Subject][2]string{
 	Ask:      {"ask me questions", "да ми задават въпроси"},
 	Memory:   {"search what I remember", "да търсят в това, което помня"},
 	Permit:   {"put their permission questions to you", "да ви задават своите въпроси за разрешение"},
+	Remember: {"tell me things to remember", "да ми казват неща за запомняне"},
+	Remind:   {"set reminders for you", "да ви задават напомняния"},
+	Todo:     {"put things on your to-do list", "да добавят неща в списъка ви със задачи"},
+	Tell:     {"leave you messages in my window", "да ви оставят съобщения в моя прозорец"},
+	Speak:    {"have me say things aloud", "да искат от мен да казвам неща на глас"},
+	Actions:  {"run the actions you wrote for them", "да изпълняват действията, които сте написали за тях"},
 }
 
 // Tools is every question other programs may ask, by the name of its tool.
@@ -271,6 +346,199 @@ const (
 	MostQuestion = 2000
 	MostSearch   = 200
 )
+
+// How much a program may hand over at once, in characters, and how many
+// of its things wait at the desk together.
+const (
+	// MostRemembered is a thing to remember: a sentence or two.
+	MostRemembered = 500
+
+	// MostReminder and MostTodo are a reminder and a line of the list.
+	MostReminder = 300
+	MostTodo     = 300
+
+	// MostMessage is a message shown in the window; MostSpoken one said
+	// aloud, which nobody can skim.
+	MostMessage = 500
+	MostSpoken  = 300
+
+	// MostActionName is the name of an action, and MostActionCommand the
+	// command its person wrote under it; MostActions is how many there are.
+	MostActionName    = 40
+	MostActionCommand = 500
+	MostActions       = 20
+
+	// MostMessagesWaiting is how many messages of other programs wait to
+	// be seen at once, and MostToldWaiting how many things told to be
+	// remembered wait for a yes: one over is refused, so a program that
+	// hands over in a loop cannot bury the desk.
+	MostMessagesWaiting = 5
+	MostToldWaiting     = 20
+
+	// MostReminderAhead is how far ahead a program may set a reminder.
+	MostReminderAhead = 366 * 24 * time.Hour
+
+	/*
+	 * MostRemindersWaiting is how many reminders of other programs wait to
+	 * be said at once, and MostRemindersADay how many they set in a day,
+	 * all programs together: each is said aloud when it is due, and without
+	 * a number the switch for reminders would be a way to make the
+	 * assistant talk without end (found by the review of this change).
+	 * MostTodosWaiting is how many lines of theirs are on the list, not
+	 * ticked, at once.
+	 */
+	MostRemindersWaiting = 20
+	MostRemindersADay    = 50
+	MostTodosWaiting     = 30
+)
+
+// TodoList is the list a program's lines go on: one of their own, so its
+// person tells them from what they wrote themselves. Named in the
+// language the assistant is used in (TodoListIn).
+const TodoList = "from other programs"
+
+// TodoListBG is that list for an assistant used in Bulgarian.
+const TodoListBG = "от други програми"
+
+// TodoListIn is the list for an assistant used in the given language (an
+// ISO code such as bg or en).
+func TodoListIn(language string) string {
+	if strings.EqualFold(strings.TrimSpace(language), "bg") {
+		return TodoListBG
+	}
+
+	return TodoList
+}
+
+/*
+ * Told marks something a program told the assistant to remember, where
+ * the things it wants to remember wait for a yes (a lesson's confidence).
+ * By it the page says where the thing came from, and everything that could
+ * say yes for its person leaves it for the window.
+ */
+const Told = "told"
+
+/*
+ * ToldLine is something a program told the assistant to remember, as it
+ * is kept: with who said it in front, in fixed words, so that neither the
+ * person reading it nor the model that is later given it takes it for
+ * something the assistant found out itself.
+ */
+func ToldLine(by, text string) string { return ToldLineIn("", by, text) }
+
+// ToldLineIn is ToldLine for an assistant used in the given language (an
+// ISO code such as bg or en): its fixed words are that language's.
+func ToldLineIn(language, by, text string) string {
+	return pick(language, ToldMark, ToldMarkBG) + named(by) + "): " + text
+}
+
+func pick(language, en, bg string) string {
+	if strings.EqualFold(strings.TrimSpace(language), "bg") {
+		return bg
+	}
+
+	return en
+}
+
+/*
+ * The fixed words every line of another program begins with, wherever it
+ * is kept or said. They stand first, before the name: the name is the
+ * program's own word, and a program that called itself "Alex" or
+ * "Reminder: your meeting is cancelled" must not have that read, or
+ * heard, as who or what the line is (found by the review of this change).
+ */
+const (
+	ToldMark = "Told by another program ("
+	FromMark = "From another program ("
+	SaidMark = "Another program ("
+
+	// The same for an assistant used in Bulgarian: a reminder is said
+	// aloud, and is said in the language its person hears.
+	ToldMarkBG = "Казано от друга програма ("
+	FromMarkBG = "От друга програма ("
+	SaidMarkBG = "Друга програма ("
+)
+
+// FromLine is a reminder or a line of the list as it is kept, with who
+// handed it over in front.
+func FromLine(by, text string) string { return FromLineIn("", by, text) }
+
+// FromLineIn is FromLine for an assistant used in the given language.
+func FromLineIn(language, by, text string) string {
+	return pick(language, FromMark, FromMarkBG) + named(by) + "): " + text
+}
+
+// SaidLine is a line as it is said aloud for a program.
+func SaidLine(by, text string) string { return SaidLineIn("", by, text) }
+
+// SaidLineIn is SaidLine for an assistant used in the given language.
+func SaidLineIn(language, by, text string) string {
+	return pick(language, SaidMark, SaidMarkBG) + named(by) + pick(language, ") says: ", ") казва: ") + text
+}
+
+// FromAnotherProgram reports whether a reminder or a line of the list was
+// handed over by a program, by how it begins, in either language.
+func FromAnotherProgram(line string) bool {
+	return strings.HasPrefix(line, FromMark) || strings.HasPrefix(line, FromMarkBG)
+}
+
+/*
+ * named is the name of a program inside the bracket of such a line: what
+ * Caller made of it, without the three characters that would let it close
+ * the bracket or start a sentence of its own.
+ */
+func named(by string) string {
+	by = strings.Join(strings.Fields(strings.Map(func(r rune) rune {
+		switch r {
+		case '(', ')', ':', '（', '）', '：', '﹕', '︰':
+			return ' '
+		}
+
+		return r
+	}, by)), " ")
+
+	if by == "" {
+		return Unnamed
+	}
+
+	return by
+}
+
+/*
+ * ActionName is the name of an action as it is kept and matched: small
+ * letters, digits, and single dashes between them, at most MostActionName
+ * long. Empty when nothing of that kind is left: a name is typed by a
+ * person on the page and by a program in its request, and both are read
+ * the same way.
+ */
+func ActionName(s string) string {
+	var b strings.Builder
+
+	dash := false
+
+	for _, r := range strings.ToLower(strings.TrimSpace(s)) {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			if dash && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+
+			dash = false
+
+			b.WriteRune(r)
+		case r == '-' || r == '_' || r == ' ':
+			dash = true
+		default:
+			return ""
+		}
+	}
+
+	if b.Len() > MostActionName {
+		return ""
+	}
+
+	return b.String()
+}
 
 /*
  * Words is text another program sent to be read by the assistant (a

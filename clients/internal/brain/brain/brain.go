@@ -66,6 +66,9 @@ type Brain struct {
 	// their answer (permit.go).
 	permits permitsWaiting
 
+	// handover is what other programs hand over (handover.go).
+	handover handover
+
 	// leftPermits closes, once, what an earlier run left of them.
 	leftPermits sync.Once
 

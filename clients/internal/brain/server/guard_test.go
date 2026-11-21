@@ -263,6 +263,8 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 		"/api/rules", "/api/rules/3", "/api/rules/3/decide", "/api/rules/3/switch", "/api/machine/care/stop", "/api/machine/care/watch",
 		"/api/terms", "/api/programs/permit", "/api/programs/resume",
 		"/api/outside/allow", "/api/outside/ask",
+		"/api/outside/actions", "/api/outside/actions/remove", "/api/outside/connect",
+		"/api/lessons/3/accept",
 	} {
 		*got = false
 
@@ -270,6 +272,28 @@ func TestChangesThatAreDecisionsStayAtTheDesk(t *testing.T) {
 
 		if w.Code != http.StatusForbidden || *got {
 			t.Errorf("a limited device was allowed to post to %s (%d)", path, w.Code)
+		}
+	}
+
+	/*
+	 * The actions other programs may run and the plans for connecting one
+	 * are for the computer they are about, whatever a device's rights: an
+	 * action is a command of this computer, a plan names its files. A
+	 * device paired with every right neither reads nor writes them.
+	 */
+	full, _, _ := s.paired.Offer(pair.Full)
+	_, all, _ := s.paired.Accept(full, "tablet", "192.168.1.10")
+
+	everyRight := func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+all) }
+
+	for _, c := range [][2]string{
+		{"GET", "/api/outside/actions"}, {"POST", "/api/outside/actions"}, {"POST", "/api/outside/actions/remove"},
+		{"GET", "/api/outside/connect"}, {"POST", "/api/outside/connect"},
+	} {
+		*got = false
+
+		if w := ask(s, c[0], c[1], "192.168.1.10:4000", everyRight); w.Code != http.StatusForbidden || *got {
+			t.Errorf("a device elsewhere with every right reached %s %s (%d)", c[0], c[1], w.Code)
 		}
 	}
 

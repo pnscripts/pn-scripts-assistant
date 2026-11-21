@@ -66,6 +66,12 @@ func (b *Brain) PendingLessons() ([]tools.QueueItem, error) {
 	out := make([]tools.QueueItem, 0, len(rows))
 
 	for _, row := range rows {
+		// What another program told me to remember is accepted on its
+		// card in the window, not by a sentence said to me.
+		if ToldByAnotherProgram(row) {
+			continue
+		}
+
 		out = append(out, tools.QueueItem{ID: row.ID, Summary: strings.TrimSpace(row.Content)})
 	}
 

@@ -195,6 +195,14 @@ var awayMayDo = []string{
 var onThisComputerOnly = []string{
 	"/api/outside/ask",
 	"/api/outside/allow",
+
+	// The actions other programs may run, and connecting one of them:
+	// written where those programs are, and read there too (an action is a
+	// command of this computer, a plan names its files).
+	"/api/outside/actions",
+	"/api/outside/actions/remove",
+	"/api/outside/connect",
+
 	"/api/desk/enter", // the window's key is given to the window, here
 }
 

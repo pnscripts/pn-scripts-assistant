@@ -67,6 +67,18 @@ try {
   told.permitted = await call('permission_prompt', { tool_name: 'Bash', input: { command: 'ls -la' }, tool_use_id: 'toolu_01' });
   told.notPermitted = await call('permission_prompt', { tool_name: 'Write', input: { file_path: '/home/you/a.txt', content: 'x' }, tool_use_id: 'toolu_02' });
 
+  // What a program hands the assistant: each tool with what it takes, and
+  // two that are refused before they reach it.
+  told.told = await call('remember_fact', { text: 'The accountant is Maria.' });
+  told.reminded = await call('add_reminder', { text: 'call the bank', in_minutes: 30 });
+  told.listed = await call('add_todo', { text: 'renew the domain', due: '2027-01-31' });
+  told.left = await call('tell_user', { text: 'The build is done.' });
+  told.spoken = await call('say_to_user', { text: 'The build is done.' });
+  told.ran = await call('run_action', { name: 'backup' });
+  told.names = await call('run_action', {});
+  told.approving = await call('remember_fact', { text: 'x', approved: true });
+  told.adding = await call('run_action', { name: 'backup', command: 'rm -rf ~' });
+
   // Three at once: each is answered once, to the one who asked.
   told.together = await Promise.all([call('assistant_status', {}), call('list_programs', { search: 'gimp' }), call('assistant_status', {})]);
 } catch (e) {

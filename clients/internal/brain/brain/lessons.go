@@ -2,6 +2,7 @@ package brain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"pn-scripts-assistant/internal/brain/learning"
@@ -23,6 +24,27 @@ type LessonDecision struct {
 // that, the one path a human touches would be the one path that can create
 // duplicates.
 func (b *Brain) DecideLesson(ctx context.Context, id int64, accept bool) (LessonDecision, error) {
+	return b.decideLesson(ctx, id, accept, false)
+}
+
+/*
+ * DecideLessonInTheWindow is DecideLesson for an answer given on the
+ * lesson's own card in the assistant's window (the server takes it with
+ * the window's key). The only way something another program told the
+ * assistant to remember is accepted: every other way of saying yes (out
+ * loud, typed to the assistant, "remember them all", the queue worked
+ * through in the background) leaves it where it is, because none of them
+ * shows its person that one thing with who told it.
+ */
+func (b *Brain) DecideLessonInTheWindow(ctx context.Context, id int64, accept bool) (LessonDecision, error) {
+	return b.decideLesson(ctx, id, accept, true)
+}
+
+// ErrToldInTheWindow is a yes, given anywhere but on its card, to
+// something another program told the assistant to remember.
+var ErrToldInTheWindow = errors.New("what another program told me to remember is accepted on its card in the assistant's window")
+
+func (b *Brain) decideLesson(ctx context.Context, id int64, accept, inTheWindow bool) (LessonDecision, error) {
 	lesson, err := b.DB.Lesson(id)
 	if err != nil {
 		return LessonDecision{}, err
@@ -35,6 +57,10 @@ func (b *Brain) DecideLesson(ctx context.Context, id int64, accept bool) (Lesson
 	if lesson.Status != learning.StatusProposed {
 		return LessonDecision{}, fmt.Errorf(
 			"that lesson was already %s and cannot be decided again", lesson.Status)
+	}
+
+	if accept && !inTheWindow && ToldByAnotherProgram(*lesson) {
+		return LessonDecision{}, ErrToldInTheWindow
 	}
 
 	if !accept {

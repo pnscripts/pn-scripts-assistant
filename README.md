@@ -134,6 +134,11 @@ AMD). What it does not do yet is written down in
   questions to you in the assistant's window (`--permission-prompt-tool`):
   the assistant answers none of them, and the answer given on the card
   there goes back.
+  They can hand it things too: a thing to remember (which waits for your
+  yes in the window), a reminder, a line for a to-do list, a message for
+  you on a card or aloud, and the name of an action you wrote for them to
+  run. One button on the Programs page connects Claude Code or Claude
+  Desktop, after showing you the file and the entry it would write.
   Each of these is off until you allow it on the Programs page, by its own
   switch, and every question is on the record with the name of the program
   that asked. The switches and the answers on cards are given in the

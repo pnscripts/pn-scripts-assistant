@@ -308,6 +308,11 @@
      * question that is always asked. While other programs are stopped a
      * question that uses one can only be refused, and says why.
      */
+    // What a card another program asked for says when it is pointed at.
+    function apNote(item) {
+        return item.tool === PERMIT ? 'out.ap.permit' : 'out.ap.note';
+    }
+
     function approvalChoices(item, toolName) {
         const p = item && item.program;
         const alwaysAsked = /^Always asked/.test((item && item.summary) || '');
@@ -326,8 +331,25 @@
             out.note = T('desk.atTheComputer');
             if (item.asked_by) {
                 const who = askedBy(item);
-                out.askedBy = { label: who.chip, title: who.title + ' ' + T(item.tool === PERMIT ? 'out.ap.permit' : 'out.ap.note') };
+                out.askedBy = { label: who.chip, title: who.title + ' ' + T(apNote(item)) };
             }
+            return out;
+        }
+
+        /*
+         * A message another program left: it is read, not decided. One
+         * button, "Seen", and who left it; other programs being stopped
+         * changes nothing about reading it.
+         */
+        if (item && item.tool === MESSAGE && item.asked_by) {
+            const who = askedBy(item);
+
+            out.reject = false;
+            // The message as it was left, without the record's word before
+            // it: the line above it says what it is and who left it.
+            out.seen = { label: T('out.msg.seen'), text: String(item.summary || '').replace(/^Message: /, '') };
+            out.askedBy = { label: T('out.msg.from', { who: caller(item.asked_by, true) }), title: who.title + ' ' + T('out.msg.note') };
+
             return out;
         }
 
@@ -350,7 +372,7 @@
             // already starts "Always asked (another program asked for it)".
             // A program's own permission question: the yes lets that
             // program act, once; nothing is done here.
-            out.askedBy = { label: who.chip, title: who.title + ' ' + T(item.tool === PERMIT ? 'out.ap.permit' : 'out.ap.note') };
+            out.askedBy = { label: who.chip, title: who.title + ' ' + T(apNote(item)) };
 
             return out;
         }
@@ -386,11 +408,25 @@
 
     // Each switch, and each question, in words (literal keys: a test reads
     // them from this file).
-    const SUBJECT = { programs: 'out.programs', ask: 'out.ask', memory: 'out.memory', permissions: 'out.permits' };
+    const SUBJECT = {
+        programs: 'out.programs', ask: 'out.ask', memory: 'out.memory', permissions: 'out.permits',
+        remember: 'out.remember', reminders: 'out.reminders', todos: 'out.todos', tell: 'out.tell', speak: 'out.speak', actions: 'out.actions',
+    };
     const QUESTION = {
         assistant_status: 'out.q.status', list_programs: 'out.q.programs', ask_assistant: 'out.q.ask', search_memory: 'out.q.memory',
         permission_prompt: 'out.q.permit',
+        remember_fact: 'out.q.remember', add_reminder: 'out.q.reminder', add_todo: 'out.q.todo', tell_user: 'out.q.tell',
+        say_to_user: 'out.q.speak', run_action: 'out.q.action',
     };
+
+    // The switches for what a program hands over, as against what it asks
+    // (otherprograms.HandsOver on the server): they stand under a heading
+    // of their own.
+    const HANDS = { remember: true, reminders: true, todos: true, tell: true, speak: true, actions: true };
+
+    // The tool a program leaves a message through (otherprograms.TellTool):
+    // its card is seen, not decided.
+    const MESSAGE = 'tell_user';
 
     // The tool another program puts its own permission questions through
     // (otherprograms.PermissionTool on the server).
@@ -398,12 +434,25 @@
 
     // What turning a switch on means, said under it before it is turned:
     // none for the list of programs, whose name says it all.
-    const MEANS = { ask: 'out.askMeans', memory: 'out.memoryMeans', permissions: 'out.permitsMeans' };
+    const MEANS = {
+        ask: 'out.askMeans', memory: 'out.memoryMeans', permissions: 'out.permitsMeans',
+        remember: 'out.rememberMeans', reminders: 'out.remindersMeans', todos: 'out.todosMeans', tell: 'out.tellMeans',
+        speak: 'out.speakMeans', actions: 'out.actionsMeans',
+    };
 
     // A question refused because its switch is off, by its tool.
     const REFUSED = {
         list_programs: 'out.rec.refused', ask_assistant: 'out.rec.refusedAsk', search_memory: 'out.rec.refusedMemory',
         permission_prompt: 'out.rec.refusedPermit',
+        remember_fact: 'out.rec.refusedRemember', add_reminder: 'out.rec.refusedReminder', add_todo: 'out.rec.refusedTodo',
+        tell_user: 'out.rec.refusedTell', say_to_user: 'out.rec.refusedSpeak', run_action: 'out.rec.refusedAction',
+    };
+
+    // Something handed over, by its tool: how its line in the list of the
+    // last ones ends when it was taken, and when it was not.
+    const TAKEN = {
+        remember_fact: 'out.taken.remember', add_reminder: 'out.taken', add_todo: 'out.taken', tell_user: 'out.taken.tell',
+        say_to_user: 'out.taken.speak', run_action: 'out.taken.action',
     };
 
     // How one of the assistant's own tools ended (the record's words).
@@ -431,6 +480,7 @@
             allowed: !!s.allowed,
             state: s.allowed ? T('out.on', { when: when(s.since) }) : T('out.off'),
             means: MEANS[s.id] ? T(MEANS[s.id]) : '',
+            hands: !!HANDS[s.id],
         }));
 
         // One of the questions, answered or not; or one of the assistant's
@@ -448,6 +498,8 @@
                 // user allowed it, or it was not allowed.
                 outcome: a.tool === PERMIT
                     ? (a.outcome === 'done' ? T('out.permitYes') : T('out.permitNo'))
+                    : TAKEN[a.tool]
+                        ? (a.outcome === 'done' || a.outcome === 'waiting' ? T(TAKEN[a.tool]) : T('out.notTaken'))
                     : question
                         ? (a.outcome === 'done' ? T('out.answered') : T('out.notAnswered'))
                         : T(ENDED[a.outcome] || 'outcome.failed'),
@@ -458,9 +510,75 @@
         return {
             fixed: { label: T('out.status'), state: T('out.always') },
             rows,
+            // Said once, above the first switch for something handed over.
+            handing: T('out.handTitle'),
             recent,
             none: recent.length ? '' : T('out.none'),
         };
+    }
+
+    /*
+     * The actions its user wrote for other programs (GET
+     * /api/outside/actions), as the page lists them, and the words for an
+     * action that cannot be kept (the server's code, never its English).
+     */
+    const NOT_KEPT = { name: 'act.bad.name', command: 'act.bad.command', taken: 'act.bad.taken', full: 'act.bad.full' };
+
+    function actions(state) {
+        const list = state && Array.isArray(state.actions) ? state.actions : [];
+
+        return {
+            rows: list.map((a) => ({ id: a.id, name: a.name, command: a.command, since: T('act.since', { when: when(a.created_at) }) })),
+            none: list.length ? '' : T('act.none'),
+            limits: T('act.limits', {
+                most: count(Number((state && state.most) || 0)), seconds: count(Number((state && state.seconds) || 0)),
+            }),
+            full: !!state && list.length >= Number(state.most || 0),
+        };
+    }
+
+    function actionNotKept(why) {
+        return T(NOT_KEPT[why] || 'act.bad.other');
+    }
+
+    /*
+     * Connecting a program (GET /api/outside/connect): for each one, how
+     * things stand in its settings file, and what would be written, word
+     * for word, before anything is.
+     */
+    const STANDS = {
+        nofile: 'con.state.noFile', absent: 'con.state.notThere', same: 'con.state.same',
+        different: 'con.state.different', unread: 'con.state.unread',
+    };
+    const NOT_WRITTEN = { changed: 'con.bad.changed', unread: 'con.bad.unread', same: 'con.bad.same' };
+
+    function connecting(state) {
+        const list = state && Array.isArray(state.programs) ? state.programs : [];
+
+        return list.map((p) => ({
+            client: p.client,
+            title: p.title,
+            file: p.file,
+            entry: p.entry,
+            now: p.now || '',
+            seen: p.seen,
+            state: T(STANDS[p.state] || 'con.state.unread'),
+            // Nothing to write where it is connected already, or where the
+            // file is not something the assistant can change.
+            can: p.state !== 'same' && p.state !== 'unread',
+            connected: p.state === 'same',
+            button: T(p.state === 'different' ? 'con.replace' : 'con.connect'),
+        }));
+    }
+
+    function connectNotWritten(why) {
+        return T(NOT_WRITTEN[why] || 'con.bad.other');
+    }
+
+    function connectDone(done) {
+        if (!done || !done.file) return '';
+
+        return done.backup ? T('con.done', { file: done.file, backup: done.backup }) : T('con.doneNew', { file: done.file });
     }
 
     /*
@@ -512,6 +630,16 @@
             }
         }
 
+        // Something handed over: how it ended, by the words the record
+        // keeps (brain/handover.go), a regular expression each. Before the
+        // refusals below: one of these that was refused says why itself (no
+        // action of that name, no voice), and only a switch that is off is
+        // said by the words for that.
+        for (const [like, key, pick] of HANDED) {
+            const m = result.match(like);
+            if (m) return T(key, pick ? pick(m) : undefined);
+        }
+
         if (d.outcome === 'refused') {
             // Refused for being one of too many in a minute, whatever was
             // asked; or because its switch is off.
@@ -557,7 +685,62 @@
         if (d.tool === 'search_memory' && asked.startsWith('Search: ')) return T('out.rec.search', { text: asked.slice(8) });
         if (d.tool === PERMIT && asked.startsWith('Permission: ')) return T('out.rec.permitAsked', { text: asked.slice(12) });
 
+        // Something handed over, behind the record's fixed word for it.
+        for (const [tool, word, key] of GIVEN) {
+            if (d.tool === tool && word.test(asked)) return T(key, { text: asked.replace(word, '') });
+        }
+
         return '';
+    }
+
+    /*
+     * How something handed over ended, by the words the record keeps
+     * (brain/handover.go): a regular expression each, never a quoted
+     * string, with what the page's sentence takes from it.
+     */
+    const HANDED = [
+        [/^Kept for you to accept or discard/, 'out.rec.kept'],
+        [/^Reminder set for (\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})\.$/, 'out.rec.reminded', (m) => ({ when: day(m) })],
+        [/^Put on the list/, 'out.rec.listed'],
+        [/^Shown on a card in my window/, 'out.rec.shown'],
+        [/^To be said aloud/, 'out.rec.said'],
+        [/^Not set: as many reminders/, 'out.rec.fullReminders'],
+        [/^Not set: other programs set as many reminders today/, 'out.rec.dayReminders'],
+        [/^Not put on the list: as many lines/, 'out.rec.fullTodos'],
+        [/^Not said: I have no voice/, 'out.rec.noVoice'],
+        [/^Not said: the line before it/, 'out.rec.stillSaying'],
+        [/^Not shown: as many messages/, 'out.rec.fullMessages'],
+        [/^Not kept: as many things/, 'out.rec.fullTold'],
+        [/^Started\.$/, 'out.rec.started'],
+        [/^Ended with exit code (-?\d+) after ([\d.]+) s/, 'out.rec.ended', (m) => ({ code: m[1], seconds: seconds(m[2]) })],
+        [/^Stopped: it was still running/, 'out.rec.timedOut'],
+        [/^Could not be started/, 'out.rec.notStarted'],
+        [/^Not run: another action was running/, 'out.rec.actionBusy'],
+        [/^Not run: there is no action with that name/, 'out.rec.noAction'],
+        [/^Not run: /, 'out.rec.actionStopped'],
+        [/^Names of your actions I told it: (\d+)/, 'out.rec.names', (m) => ({ n: m[1] })],
+    ];
+
+    // What was handed over, behind the record's fixed word for it.
+    const GIVEN = [
+        ['remember_fact', /^Remember: /, 'out.rec.givenRemember'],
+        ['add_reminder', /^Reminder: /, 'out.rec.givenReminder'],
+        ['add_todo', /^To do: /, 'out.rec.givenTodo'],
+        ['tell_user', /^Message: /, 'out.rec.givenMessage'],
+        ['say_to_user', /^Say: /, 'out.rec.givenSay'],
+        ['run_action', /^Action: /, 'out.rec.givenAction'],
+    ];
+
+    // A day and an hour as the record keeps them (year first), in the
+    // order the page's language writes them.
+    function day(m) {
+        return bg() ? m[3] + '.' + m[2] + '.' + m[1] + ' ' + m[4] : m[1] + '-' + m[2] + '-' + m[3] + ' ' + m[4];
+    }
+
+    // Seconds as the page's language writes them (a decimal comma in
+    // Bulgarian).
+    function seconds(text) {
+        return bg() ? String(text).replace('.', ',') : String(text);
     }
 
     /*
@@ -593,6 +776,9 @@
      * fault if there was one. Empty for any other card.
      */
     function permitDecided(invocation, approving, error) {
+        // A message another program left: it was seen, and that is all.
+        if (invocation && invocation.tool === MESSAGE) return T('out.msg.wasSeen');
+
         if (!invocation || invocation.tool !== PERMIT) return '';
 
         /*
@@ -626,6 +812,7 @@
 
     window.pnPrograms = { summary, choices, keeping, changes, list, found, canDo, may, why, stopping, approvalChoices,
         outside, askedBy, outsideResult, outsideAsked, turnedWhere, permitDecided,
+        actions, actionNotKept, connecting, connectNotWritten, connectDone,
         reasons: Object.keys(WHY), answers: ANSWERS };
 
     // ---- drawing ----
@@ -873,7 +1060,20 @@
         if (list) {
             list.textContent = '';
 
+            let headed = false;
+
             for (const r of o.rows) {
+                // The switches for what a program hands over stand under
+                // a heading of their own, said once.
+                if (r.hands && !headed) {
+                    headed = true;
+
+                    const heading = document.createElement('li');
+                    heading.className = 'outside-heading';
+                    heading.textContent = o.handing;
+                    list.appendChild(heading);
+                }
+
                 const item = document.createElement('li');
                 item.className = 'outside-row';
                 item.dataset.allowed = String(r.allowed);
@@ -994,12 +1194,332 @@
         drawOutside();
     }
 
+    /*
+     * The actions other programs may run (GET /api/outside/actions): the
+     * ones its user wrote, each with the command it stands for, a form to
+     * write another and a button to take one away. Written here and
+     * nowhere else: the posts take the window's key (desk.js).
+     */
+    let lastActions = null;
+    let actionsFailed = false;
+    let actionsSaying = '';
+    let actionsDrawn = '';
+
+    function drawActions() {
+        const card = el('actions-card');
+        if (!card) return;
+
+        const now = JSON.stringify([lastActions, actionsFailed, actionsElsewhere, actionsSaying, bg()]);
+        if (now === actionsDrawn) return;
+
+        actionsDrawn = now;
+
+        if (actionsFailed || !lastActions) {
+            // Not a fault where this page is not the assistant's own
+            // window: the actions are shown there.
+            say('actions-note', actionsElsewhere ? T('out.windowOnly') : (actionsFailed ? T('act.failed') : ''));
+            card.dataset.ready = 'false';
+            return;
+        }
+
+        card.dataset.ready = 'true';
+
+        const a = actions(lastActions);
+        const list = el('actions-list');
+
+        if (list) {
+            list.textContent = '';
+
+            for (const r of a.rows) {
+                const item = document.createElement('li');
+                item.className = 'action-row';
+
+                const name = document.createElement('span');
+                name.className = 'action-name';
+                name.textContent = r.name;
+
+                // The command as it will run, word for word.
+                const command = document.createElement('code');
+                command.className = 'action-command';
+                command.textContent = r.command;
+
+                const since = document.createElement('span');
+                since.className = 'action-since';
+                since.textContent = r.since;
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'model-action';
+                remove.classList.add('action-remove');
+                remove.textContent = T('act.remove');
+                remove.addEventListener('click', () => changeActions('/api/outside/actions/remove', { id: r.id }));
+
+                item.append(name, command, since, remove);
+                list.appendChild(item);
+            }
+        }
+
+        say('actions-none', a.none);
+        say('actions-limits', a.limits);
+        say('actions-note', actionsSaying);
+
+        const add = el('action-add');
+        if (add) add.disabled = a.full;
+    }
+
+    // What only the assistant's own window reads is asked for with the
+    // window's key (desk.js); a page that is not the window is told so.
+    async function readInTheWindow(path) {
+        const init = { headers: { Accept: 'application/json' } };
+        const res = await fetch(path, window.pnDesk ? window.pnDesk.read(path, init) : init);
+
+        if (res.ok) {
+            const body = await res.json();
+
+            return { state: body && body.data ? body.data : body, elsewhere: false };
+        }
+
+        if (res.status === 403) return { state: null, elsewhere: true };
+
+        throw new Error(String(res.status));
+    }
+
+    let actionsElsewhere = false;
+
+    async function loadActions() {
+        try {
+            const read = await readInTheWindow('/api/outside/actions');
+
+            lastActions = read.state;
+            actionsElsewhere = read.elsewhere;
+            actionsFailed = false;
+        } catch (err) {
+            actionsFailed = true;
+        }
+
+        drawActions();
+    }
+
+    // What a refused post says, in the page's words: this page is not the
+    // assistant's own window, or the server's code for why.
+    async function refusedWords(res, words, other) {
+        let why = null;
+
+        try {
+            why = await res.json();
+        } catch (err) {
+            why = null;
+        }
+
+        if (window.pnDesk && window.pnDesk.refused(res.status, why)) return T('desk.notHere');
+        if (res.status === 403) return T('out.desk');
+
+        return why && why.why ? words(why.why) : T(other);
+    }
+
+    async function changeActions(path, body) {
+        actionsSaying = '';
+        actionsDrawn = '';
+
+        let kept = false;
+
+        try {
+            const res = await fetch(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(body),
+            });
+
+            if (!res.ok) {
+                actionsSaying = await refusedWords(res, actionNotKept, 'out.notKept');
+            } else {
+                const answer = await res.json();
+                lastActions = answer && answer.data ? answer.data : answer;
+                kept = true;
+            }
+        } catch (err) {
+            actionsSaying = T('out.notKept');
+        }
+
+        drawActions();
+
+        return kept;
+    }
+
+    async function addAction(event) {
+        event.preventDefault();
+
+        const name = el('action-name');
+        const command = el('action-command');
+        if (!name || !command) return;
+
+        // What was typed stays in the form when it was not kept.
+        if (await changeActions('/api/outside/actions', { name: name.value, command: command.value })) {
+            name.value = '';
+            command.value = '';
+        }
+    }
+
+    /*
+     * Connecting a program (GET /api/outside/connect): for each, how its
+     * settings stand, and a button that first shows the file and the entry
+     * word for word. Only the second button, under what was shown, writes.
+     */
+    let lastConnect = null;
+    let connectFailed = false;
+    let connectSaying = '';
+    let connectOpen = '';
+    let connectDrawn = '';
+
+    function drawConnect() {
+        const card = el('connect-card');
+        if (!card) return;
+
+        const now = JSON.stringify([lastConnect, connectFailed, connectElsewhere, connectSaying, connectOpen, bg()]);
+        if (now === connectDrawn) return;
+
+        connectDrawn = now;
+
+        if (connectFailed || !lastConnect) {
+            say('connect-note', connectElsewhere ? T('out.windowOnly') : (connectFailed ? T('con.failed') : ''));
+            card.dataset.ready = 'false';
+            return;
+        }
+
+        card.dataset.ready = 'true';
+
+        const list = el('connect-list');
+
+        if (list) {
+            list.textContent = '';
+
+            for (const p of connecting(lastConnect)) {
+                const item = document.createElement('li');
+                item.className = 'connect-row';
+                item.dataset.connected = String(p.connected);
+
+                const title = document.createElement('span');
+                title.className = 'connect-title';
+                title.textContent = p.title;
+
+                const state = document.createElement('span');
+                state.className = 'connect-state';
+                state.textContent = p.state;
+
+                item.append(title, state);
+
+                if (p.can) {
+                    const show = document.createElement('button');
+                    show.type = 'button';
+                    show.className = 'model-action';
+                    show.id = 'connect-show-' + p.client;
+                    show.textContent = p.button;
+                    show.setAttribute('aria-expanded', String(connectOpen === p.client));
+                    show.addEventListener('click', () => {
+                        connectOpen = connectOpen === p.client ? '' : p.client;
+                        connectSaying = '';
+                        drawConnect();
+                    });
+                    item.appendChild(show);
+                }
+
+                // What would be written, shown before the button that
+                // writes it: the file, the entry, and what stands there now.
+                if (p.can && connectOpen === p.client) {
+                    const plan = document.createElement('div');
+                    plan.className = 'connect-plan';
+
+                    const lines = [[T('con.file'), p.file, 'connect-file'], [T('con.entry'), p.entry, 'connect-entry']];
+                    if (p.now) lines.push([T('con.now'), p.now, 'connect-now']);
+
+                    for (const [label, text, cls] of lines) {
+                        const head = document.createElement('p');
+                        head.className = 'connect-label';
+                        head.textContent = label;
+
+                        const body = document.createElement('pre');
+                        body.className = cls;
+                        body.textContent = text;
+
+                        plan.append(head, body);
+                    }
+
+                    const promise = document.createElement('p');
+                    promise.className = 'note';
+                    promise.textContent = T('con.promise');
+
+                    const write = document.createElement('button');
+                    write.type = 'button';
+                    write.className = 'model-action';
+                    write.id = 'connect-write-' + p.client;
+                    write.textContent = T('con.write');
+                    write.addEventListener('click', () => connect(p.client, p.seen));
+
+                    plan.append(promise, write);
+                    item.appendChild(plan);
+                }
+
+                list.appendChild(item);
+            }
+        }
+
+        say('connect-note', connectSaying);
+    }
+
+    let connectElsewhere = false;
+
+    async function loadConnect() {
+        try {
+            const read = await readInTheWindow('/api/outside/connect');
+
+            lastConnect = read.state;
+            connectElsewhere = read.elsewhere;
+            connectFailed = false;
+        } catch (err) {
+            connectFailed = true;
+        }
+
+        drawConnect();
+    }
+
+    async function connect(client, seen) {
+        connectSaying = '';
+        connectDrawn = '';
+
+        try {
+            const res = await fetch('/api/outside/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ client, seen }),
+            });
+
+            if (!res.ok) {
+                connectSaying = await refusedWords(res, connectNotWritten, 'con.bad.other');
+
+                // Shown again as things stand now, before another try.
+                await loadConnect();
+                connectDrawn = '';
+            } else {
+                const answer = await res.json();
+                lastConnect = answer && answer.data ? answer.data : answer;
+                connectSaying = connectDone(lastConnect.done);
+                connectOpen = '';
+            }
+        } catch (err) {
+            connectSaying = T('con.bad.other');
+        }
+
+        drawConnect();
+    }
+
     function draw() {
         if (!last) return;
 
         say('programs-summary', summary(last));
         drawStop();
         drawOutside();
+        drawActions();
+        drawConnect();
 
         const keep = el('programs-keeping');
         if (keep) {
@@ -1054,6 +1574,8 @@
         }
 
         await loadOutside();
+        await loadActions();
+        await loadConnect();
     }
 
     function wire() {
@@ -1064,6 +1586,7 @@
         el('programs-choice')?.addEventListener('change', draw);
         el('programs-stop-button')?.addEventListener('click', pressStop);
         el('programs-search')?.addEventListener('input', draw);
+        el('action-form')?.addEventListener('submit', addAction);
         el('programs-card-close')?.addEventListener('click', () => {
             chosen = null;
             saying = '';

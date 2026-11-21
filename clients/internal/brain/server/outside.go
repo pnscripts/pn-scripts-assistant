@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/agent"
@@ -270,6 +271,132 @@ func (s *Server) handleOutsideAsk(w http.ResponseWriter, r *http.Request) {
 
 	case otherprograms.PermissionTool:
 		s.outsidePermit(w, r, by, given, notAllowed)
+
+	case otherprograms.RememberTool, otherprograms.RemindTool, otherprograms.TodoTool,
+		otherprograms.TellTool, otherprograms.SpeakTool, otherprograms.ActionTool:
+		s.outsideHandOver(w, r, asked.Tool, by, given, notAllowed, noted)
+	}
+}
+
+// refusedFor answers a handing over that cannot be taken now, with a word
+// the MCP server says in its own.
+func refusedFor(w http.ResponseWriter, status int, outside, said string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", "30")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": said, "outside": outside})
+}
+
+/*
+ * outsideHandOver takes what another program hands the assistant (the
+ * second half of package otherprograms): a thing to remember, a reminder,
+ * a line for the list, a message, a line to say, the running of an action.
+ * Each is written on the record by the brain as part of taking it, and
+ * what could not be recorded was not taken (brain/handover.go).
+ */
+func (s *Server) outsideHandOver(w http.ResponseWriter, r *http.Request, tool, by string, given outsideAsked, notAllowed func(),
+	noted func(tool, askedFor, result string) bool) {
+	// What every one of them can end in.
+	ended := func(err error) bool {
+		switch {
+		case err == nil:
+			return false
+		case errors.Is(err, brain.ErrOutsideNotAllowed):
+			// Switched off between the door's own look and the brain's.
+			notAllowed()
+		case errors.Is(err, brain.ErrNotOnTheRecord):
+			fail(w, http.StatusInternalServerError, "It could not be written on the record, so it was not taken.")
+		case errors.Is(err, brain.ErrHandoverFull):
+			refusedFor(w, http.StatusServiceUnavailable, "full", "As many of those as wait for the assistant's user at once are waiting already.")
+		case errors.Is(err, brain.ErrNoVoice):
+			refusedFor(w, http.StatusServiceUnavailable, "no voice", "The assistant has no voice on this computer now.")
+		case errors.Is(err, brain.ErrStillSaying):
+			refusedFor(w, http.StatusServiceUnavailable, "saying", "The assistant has not said the line before this one yet.")
+		case errors.Is(err, brain.ErrActionRunning):
+			refusedFor(w, http.StatusServiceUnavailable, "action running", "Another action is running now.")
+		case errors.Is(err, brain.ErrActionStopped):
+			refusedFor(w, http.StatusForbidden, "stopped", "Its user has stopped that.")
+		default:
+			s.log.Warn("what another program handed over could not be taken", "tool", tool, "error", err)
+			fail(w, http.StatusInternalServerError, "That could not be taken.")
+		}
+
+		return true
+	}
+
+	switch tool {
+	case otherprograms.RememberTool:
+		if !ended(s.brain.RememberForOutside(by, given.text)) {
+			ok(w, map[string]any{"kept": true})
+		}
+
+	case otherprograms.RemindTool:
+		reminder, err := s.brain.RemindForOutside(by, given.text, given.at)
+		if !ended(err) {
+			ok(w, map[string]any{"at": reminder.At.UTC().Format(time.RFC3339)})
+		}
+
+	case otherprograms.TodoTool:
+		todo, err := s.brain.TodoForOutside(by, given.text, given.due)
+		if !ended(err) {
+			ok(w, map[string]any{"list": todo.List})
+		}
+
+	case otherprograms.TellTool:
+		if _, err := s.brain.TellForOutside(by, given.text); !ended(err) {
+			ok(w, map[string]any{"shown": true})
+		}
+
+	case otherprograms.SpeakTool:
+		if !ended(s.brain.SayForOutside(by, given.text)) {
+			ok(w, map[string]any{"said": true})
+		}
+
+	case otherprograms.ActionTool:
+		// No name: which actions there are. Their names only, never what
+		// stands under one.
+		names := func() ([]string, bool) {
+			actions, err := s.brain.OutsideActions()
+			if err != nil {
+				fail(w, http.StatusInternalServerError, "The actions could not be read.")
+
+				return nil, false
+			}
+
+			out := make([]string, 0, len(actions))
+			for _, a := range actions {
+				out = append(out, a.Name)
+			}
+
+			return out, true
+		}
+
+		if given.action == "" {
+			if list, read := names(); read && noted(tool, "", fmt.Sprintf("Names of your actions I told it: %d.", len(list))) {
+				ok(w, map[string]any{"actions": list})
+			}
+
+			return
+		}
+
+		// The command may take most of a minute: the connection is given
+		// the time.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(brain.ActionTimeout() + time.Minute))
+
+		run, err := s.brain.RunActionForOutside(r.Context(), by, given.action)
+		if errors.Is(err, brain.ErrNoSuchAction) {
+			// On the record already. The names are told with it, so the
+			// program can ask for one that exists.
+			if list, read := names(); read {
+				ok(w, map[string]any{"unknown": true, "actions": list})
+			}
+
+			return
+		}
+
+		if !ended(err) {
+			ok(w, map[string]any{"run": run})
+		}
 	}
 }
 
@@ -365,6 +492,13 @@ type outsideAsked struct {
 	// How long each text of the input really is, where the MCP server
 	// sent it cut.
 	permitCut map[string]int
+
+	// Something handed over: its words, when a reminder is for, the day a
+	// line of the list is due, the name of an action.
+	text   string
+	at     time.Time
+	due    *time.Time
+	action string
 }
 
 // kindLine is the source asked for, as the record keeps it.
@@ -400,6 +534,13 @@ func outsideGiven(tool string, raw json.RawMessage) (outsideAsked, string) {
 			Input     json.RawMessage `json:"input"`
 			ToolUseID *string         `json:"tool_use_id"`
 			Cut       json.RawMessage `json:"cut"`
+
+			// Something handed over.
+			Text      *string `json:"text"`
+			At        *string `json:"at"`
+			InMinutes *int    `json:"in_minutes"`
+			Due       *string `json:"due"`
+			Name      *string `json:"name"`
 		}
 	)
 
@@ -415,8 +556,29 @@ func outsideGiven(tool string, raw json.RawMessage) (outsideAsked, string) {
 	if (arguments.Kind != nil && tool != "list_programs") ||
 		((arguments.Query != nil || arguments.Limit != nil) && tool != "search_memory") ||
 		((arguments.Question != nil || arguments.AnswerTo != nil) && tool != "ask_assistant") ||
-		((arguments.ToolName != nil || arguments.Input != nil || arguments.ToolUseID != nil || arguments.Cut != nil) && tool != otherprograms.PermissionTool) {
+		((arguments.ToolName != nil || arguments.Input != nil || arguments.ToolUseID != nil || arguments.Cut != nil) && tool != otherprograms.PermissionTool) ||
+		(arguments.Text != nil && !takesWords[tool]) ||
+		((arguments.At != nil || arguments.InMinutes != nil) && tool != otherprograms.RemindTool) ||
+		(arguments.Due != nil && tool != otherprograms.TodoTool) ||
+		(arguments.Name != nil && tool != otherprograms.ActionTool) {
 		return given, notThose
+	}
+
+	// The words of something handed over: read the same way for each, cut
+	// to nothing invisible, and refused when longer than that thing may be.
+	if most, takes := mostHanded[tool]; takes {
+		if arguments.Text == nil || len([]rune(*arguments.Text)) > most {
+			return given, fmt.Sprintf("text is what to hand over, at most %d characters.", most)
+		}
+
+		if given.text = otherprograms.Words(*arguments.Text, most); given.text == "" {
+			return given, "text is what to hand over: it had nothing readable in it."
+		}
+
+		// One line where it will be read or said as one.
+		if tool != otherprograms.RememberTool && tool != otherprograms.TellTool {
+			given.text = strings.Join(strings.Fields(given.text), " ")
+		}
 	}
 
 	switch tool {
@@ -477,6 +639,53 @@ func outsideGiven(tool string, raw json.RawMessage) (outsideAsked, string) {
 			}
 		}
 
+	case otherprograms.RemindTool:
+		const when = "Say when: at (a time such as 2027-01-31T09:00:00+02:00) or in_minutes (from 1), one of the two, and within a year."
+
+		if (arguments.At == nil) == (arguments.InMinutes == nil) {
+			return given, when
+		}
+
+		now := time.Now()
+
+		if arguments.InMinutes != nil {
+			if *arguments.InMinutes < 1 || time.Duration(*arguments.InMinutes)*time.Minute > otherprograms.MostReminderAhead {
+				return given, when
+			}
+
+			given.at = now.Add(time.Duration(*arguments.InMinutes) * time.Minute)
+		} else {
+			at, err := time.Parse(time.RFC3339, strings.TrimSpace(*arguments.At))
+			if err != nil || at.Before(now.Add(-time.Minute)) || at.After(now.Add(otherprograms.MostReminderAhead)) {
+				return given, when
+			}
+
+			given.at = at
+		}
+
+	case otherprograms.TodoTool:
+		if arguments.Due != nil {
+			due, err := time.Parse("2006-01-02", strings.TrimSpace(*arguments.Due))
+			if err != nil {
+				return given, "due is a day, such as 2027-01-31."
+			}
+
+			given.due = &due
+		}
+
+	case otherprograms.ActionTool:
+		if arguments.Name != nil && strings.TrimSpace(*arguments.Name) != "" {
+			if len(*arguments.Name) > 4*otherprograms.MostActionName {
+				return given, "name is the name of an action, as its user wrote it."
+			}
+
+			// A name that could not be one is asked for as it is: the
+			// brain finds no such action and says so on the record.
+			if given.action = otherprograms.ActionName(*arguments.Name); given.action == "" {
+				given.action = "?"
+			}
+		}
+
 	case "ask_assistant":
 		// A question, or the ticket of one asked before: one of the two.
 		if (arguments.Question == nil) == (arguments.AnswerTo == nil) {
@@ -502,6 +711,23 @@ func outsideGiven(tool string, raw json.RawMessage) (outsideAsked, string) {
 
 	return given, ""
 }
+
+// mostHanded is how long the words of each thing handed over may be, and
+// takesWords which tools take words at all.
+var (
+	mostHanded = map[string]int{
+		otherprograms.RememberTool: otherprograms.MostRemembered,
+		otherprograms.RemindTool:   otherprograms.MostReminder,
+		otherprograms.TodoTool:     otherprograms.MostTodo,
+		otherprograms.TellTool:     otherprograms.MostMessage,
+		otherprograms.SpeakTool:    otherprograms.MostSpoken,
+	}
+
+	takesWords = map[string]bool{
+		otherprograms.RememberTool: true, otherprograms.RemindTool: true, otherprograms.TodoTool: true,
+		otherprograms.TellTool: true, otherprograms.SpeakTool: true,
+	}
+)
 
 // ticketLike reports whether s has the shape of a ticket: 32 hex digits.
 func ticketLike(s string) bool {
@@ -636,7 +862,7 @@ func (s *Server) handleOutsideAllow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := strictly(w, r, &asked); err != nil || asked.Allowed == nil || !otherprograms.Known(otherprograms.Subject(asked.Subject)) {
-		fail(w, http.StatusBadRequest, "Say which (programs, ask, memory or permissions) and whether it is allowed (true or false).")
+		fail(w, http.StatusBadRequest, "Say which switch and whether it is allowed (true or false).")
 
 		return
 	}

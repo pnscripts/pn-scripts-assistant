@@ -342,3 +342,48 @@ func pathOf(source string) string {
 
 	return source
 }
+
+/*
+ * CountLessonsMarked is how many lessons at one stage carry one mark in
+ * their confidence (what another program told the assistant, above all).
+ * Counted by the database: the list of what waits can be thousands long,
+ * and a count taken from its first page misses everything behind it.
+ */
+func (d *DB) CountLessonsMarked(status, confidence string) (int, error) {
+	var n int
+
+	err := d.sql().QueryRow(`SELECT COUNT(*) FROM lessons WHERE status = ? AND COALESCE(confidence,'') = ?`, status, confidence).Scan(&n)
+
+	return n, err
+}
+
+// LessonsMarkedFirst is LessonsByStatus with the lessons carrying one mark
+// in their confidence first, so a long list does not hide them.
+func (d *DB) LessonsMarkedFirst(status, confidence string, limit int) ([]Lesson, error) {
+	rows, err := d.sql().Query(`
+		SELECT id, COALESCE(conversation_id,0), content, status,
+		       COALESCE(confidence,''), COALESCE(source,''), created_at
+		FROM lessons WHERE status = ?
+		ORDER BY (COALESCE(confidence,'') = ?) DESC, id LIMIT ?`, status, confidence, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []Lesson{}
+
+	for rows.Next() {
+		var l Lesson
+		var created string
+
+		if err := rows.Scan(&l.ID, &l.ConversationID, &l.Content, &l.Status,
+			&l.Confidence, &l.Source, &created); err != nil {
+			return nil, err
+		}
+
+		l.CreatedAt, _ = time.Parse(time.RFC3339, created)
+		out = append(out, l)
+	}
+
+	return out, rows.Err()
+}

@@ -67,7 +67,9 @@ func (b *Brain) about(last *LastTalk, backAlready bool, introducing bool) About 
 			facts["things you would like to remember, waiting for them"] = n
 		}
 
-		if approvals, err := b.DB.PendingInvocations(); err == nil && len(approvals) > 0 {
+		// A message another program left waits to be seen, not approved:
+		// it is not counted as an action.
+		if approvals := b.actionsWaiting(); len(approvals) > 0 {
 			facts["actions waiting for their approval"] = len(approvals)
 		}
 	}

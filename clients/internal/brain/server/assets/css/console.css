@@ -6950,3 +6950,82 @@ button.agreement-accept:disabled { opacity: 0.4; cursor: default; filter: none; 
 .approval-stopped.approval-elsewhere {
     color: var(--text-dim);
 }
+
+/* ---------- what other programs may hand over, the actions they may run,
+ * and connecting one (programs.js) ---------- */
+.outside-heading {
+    margin: 12px 0 2px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.actions-list,
+.connect-list { list-style: none; margin: 0 0 6px; padding: 0; }
+
+.actions-card[data-ready="false"] .actions-list,
+.actions-card[data-ready="false"] .action-form,
+.connect-card[data-ready="false"] .connect-list { display: none; }
+
+.action-row,
+.connect-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+    padding: 7px 10px;
+    margin: 0 0 4px;
+    border-left: 2px solid var(--line);
+    background: var(--bg-raised);
+}
+
+.action-name { flex: 0 0 auto; font-family: var(--mono); font-size: 12.5px; color: var(--accent); }
+
+.action-command {
+    flex: 1 1 260px;
+    min-width: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.action-since { flex: 0 0 auto; font-size: 11px; color: var(--text-faint); }
+.action-remove { flex: none; }
+
+.action-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; margin: 8px 0 6px; }
+.action-form .action-field { flex: 1 1 160px; min-width: 0; margin: 0; }
+.action-form .action-field-wide { flex: 3 1 280px; }
+.action-form .action-field input[type="text"] { width: 100%; min-width: 0; margin: 0; font-family: var(--mono); font-size: 12.5px; box-sizing: border-box; }
+.action-form button { flex: none; margin: 0; }
+.connect-plan .model-action { margin: 0; }
+
+.connect-row[data-connected="true"] { border-left-color: var(--ok); }
+.connect-title { flex: 0 0 auto; font-size: 13px; color: var(--text); }
+.connect-state { flex: 1 1 240px; min-width: 0; font-size: 12px; color: var(--text-dim); }
+.connect-row[data-connected="true"] .connect-state { color: var(--ok); }
+
+.connect-plan { flex: 1 1 100%; min-width: 0; padding: 4px 0 2px; }
+.connect-label { margin: 8px 0 3px; font-size: 11.5px; color: var(--text-dim); }
+
+.connect-plan pre {
+    margin: 0;
+    padding: 8px 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 260px;
+    overflow: auto;
+}
+
+.connect-plan .note { margin: 8px 0 6px; }
+.connect-note { margin: 4px 0 0; color: var(--text); }
+.connect-note:empty { display: none; }

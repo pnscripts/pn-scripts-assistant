@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 
 	_ "modernc.org/sqlite"
@@ -47,6 +48,11 @@ type DB struct {
 
 	// key seals what is personal in it (sealed.go), or nil.
 	key *vault.Key
+
+	// actions holds the list of actions still while one is added or taken
+	// away (actions.go): their names are sealed, so "no two under one
+	// name" is looked at here and not by the database.
+	actions sync.Mutex
 }
 
 // sql hands over the pool in use at this moment.
@@ -1267,6 +1273,21 @@ var migrations = []string{
 	CREATE TABLE outside_may (
 		subject TEXT PRIMARY KEY,
 		since   TEXT NOT NULL
+	);
+	`,
+
+	/*
+	 * 38: the actions its person wrote for other programs to run (the
+	 * "actions" switch of package otherprograms): a name and the command
+	 * under it, both its person's own words and sealed like them. A program
+	 * runs one by its name and can neither write nor change one.
+	 */
+	`
+	CREATE TABLE outside_actions (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		name       TEXT NOT NULL,
+		command    TEXT NOT NULL,
+		created_at TEXT NOT NULL
 	);
 	`,
 }

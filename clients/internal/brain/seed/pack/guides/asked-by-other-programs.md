@@ -87,14 +87,79 @@ Every one is written in "What I did": what was asked, who asked, and
 whether it was allowed or refused on its card or nobody answered. **Off until you allow it**,
 with the switch "Their own permission questions, put to you here".
 
+## What they can hand it
+Since November 2026 a program can also hand the assistant something, the
+other way round from asking. Six things, each with a switch of its own,
+each off until you allow it. None of them lets a program decide anything
+for you, and none goes through a model: what a program hands over is
+stored or shown, never followed.
+
+- **A thing to remember.** It is not remembered. It waits under "Waiting
+  for you" as something the assistant wants to remember, marked "from
+  another program" and beginning "Told by another program" and the name
+  the program gave, until you press Remember or Discard on its card in the
+  assistant's own window. What programs told is listed before the
+  assistant's own. A
+  sentence said or typed to the assistant ("remember them all") leaves it
+  where it is, and so does a program posting to the assistant's address.
+  Until you accept it, nothing knows it. At most 20 wait at once.
+- **A reminder.** Set without asking you again, up to a year ahead, and
+  said aloud when it is due like the assistant's own, beginning "From
+  another program" and the name the program gave. At most 20 of theirs
+  wait at once and 50 are set in a day, all programs together; turning the
+  switch off takes away the ones not said yet.
+- **A line for a to-do list.** It goes on a list of its own, "from other
+  programs" (in Bulgarian "от други програми"), never on your lists,
+  beginning "From another program" and the name the program gave. It
+  starts no work. At most 30 lines of theirs are open at once.
+- **A message for you.** A card under "Waiting for you" that says "Message
+  from" and the name, with one button, Seen. It asks you nothing, no answer
+  goes back, and the assistant does nothing because of it. It never enters
+  a conversation, so the model does not read it. At most five wait at
+  once; turning the switch off takes the waiting ones away.
+- **A line said aloud**, in the assistant's own voice, beginning "Another
+  program", the name the program gave and "says". One line at a time, when
+  there is a gap in what is being said and heard. Sound interrupts: leave it off
+  unless you want it.
+- **Running one of your actions.** An action is a name and a command of
+  this computer that you wrote on the Programs page, under "Actions other
+  programs may run". A program gives a name, and the assistant runs the
+  command under it exactly as you wrote it, without asking you again. The
+  program can add nothing to it (no arguments, no settings), change none
+  and write none; with no name it is told the names there are, never the
+  commands. What the command prints goes back to the program, with keys
+  and tokens it printed taken out. One runs at a time, each has 45
+  seconds, and "Stop using other programs" stops them too. The actions and
+  their commands are shown in the assistant's own window only. Every run is written in "What I did" before it starts, with who
+  asked, and the line says how it ended.
+
+Everything handed over is written in "What I did" with "Asked by" and the
+name the program gave, whether it was taken or not. What cannot be written
+there is not taken: a thing that could not be recorded is not kept, shown,
+said or run.
+
+Those fixed words come first on purpose: the name is the program's own
+word, and a program that called itself after you, or after a sentence, is
+still read and heard as another program. In an assistant used in Bulgarian
+they are Bulgarian ("От друга програма", "Друга програма ... казва").
+
+Approving is yours, in the assistant's own window. No tool offered to
+other programs accepts a thing to remember, marks a message as seen, writes
+an action or turns a switch, and a request sent to the assistant's address
+for any of these without the window's key is refused.
+
 ## You decide what they may ask
 On the Programs page, the card "What other programs may ask" has one switch
 for each thing that can be allowed: "Which programs are installed on this
 computer", "Questions to me, answered in words", "Searching what I
-remember about you" and "Their own permission questions, put to you here".
+remember about you" and "Their own permission questions, put to you here";
+and, under "What they may hand me", "Things to remember, which wait for
+your yes", "Reminders for you", "Lines for a to-do list of their own",
+"Messages for you, on a card in this window", "Lines I say aloud for them"
+and "Run the actions you wrote below".
 Each is off on a new installation and after an update,
-and allowing one never allows another. Under the last three the card says what
-allowing them means before you tick them. While a switch is off, a program
+and allowing one never allows another. Under every one but the first the card says what
+allowing it means before you tick it. While a switch is off, a program
 that asks is told that you have not allowed it and where you can; it gets
 nothing else. Turning "Questions to me" or "Searching what I remember" off
 also takes back what is in hand: a question the model is still working on
@@ -138,8 +203,20 @@ running under your own account can still reach the rest of the assistant's
 address, as it can reach your files; see "Known limits".
 
 ## Setting it up
-The assistant must be installed so that `pn-scripts-assistant` is a command
-(the Linux package does that).
+For Claude Code and Claude Desktop the assistant can do it: on the Programs
+page, the card "Connect a program to me" lists both and says whether each
+is connected. "Show what would be written" shows the settings file of that
+program and the entry, word for word, and what stands there now if an
+older entry would be replaced. Nothing is written until you press "Write
+this entry" under them. The file as it was is copied beside it first
+(its name ends in `.before-pn-scripts-assistant-` and the time), everything
+else in the file stays as it is, and if the file changed after it was
+shown, nothing is written and it is shown again. It is written in "What I
+did". Connecting allows nothing by itself: the switches do. Start that
+program again afterwards.
+
+By hand, the assistant must be installed so that `pn-scripts-assistant` is
+a command (the Linux package does that).
 
 - **Claude Code**, in a terminal:
   `claude mcp add pn-scripts-assistant -- pn-scripts-assistant mcp`
@@ -150,7 +227,9 @@ The assistant must be installed so that `pn-scripts-assistant` is a command
 Then allow the question on the Programs page and ask there, for example:
 "ask PN Scripts Assistant whether GIMP is installed and which version", or
 "search PN Scripts Assistant's memory for what I decided about the invoice
-template".
+template"; or, with those switches on, "leave me a message in PN Scripts
+Assistant when the build is done" and "have PN Scripts Assistant remind me
+in an hour to call the bank".
 
 ## What to know
 - **The assistant must be running.** `pn-scripts-assistant mcp` holds

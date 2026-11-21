@@ -84,6 +84,13 @@ type Tool struct {
 	// ReadOnly says the tool changes nothing, which a client may show.
 	ReadOnly bool
 
+	// HandsOver says the tool gives the assistant something to keep, show
+	// or do (never together with ReadOnly), which a client may show too;
+	// RunsSomething that what it starts is a command, which may change or
+	// remove things and reach beyond this computer.
+	HandsOver     bool
+	RunsSomething bool
+
 	// Run does it. What it returns is the answer; an error is an answer
 	// too, said to the caller as one that failed.
 	Run func(ctx context.Context, arguments json.RawMessage, who Caller) (string, error)
@@ -707,8 +714,11 @@ func (s *Server) list() []map[string]any {
 			tool["title"] = t.Title
 		}
 
-		if t.ReadOnly {
+		switch {
+		case t.ReadOnly:
 			tool["annotations"] = map[string]any{"readOnlyHint": true, "openWorldHint": false}
+		case t.HandsOver:
+			tool["annotations"] = map[string]any{"readOnlyHint": false, "destructiveHint": t.RunsSomething, "openWorldHint": t.RunsSomething}
 		}
 
 		out = append(out, tool)

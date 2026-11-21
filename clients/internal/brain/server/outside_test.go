@@ -111,11 +111,19 @@ func TestWhichProgramsAreInstalledIsNotToldUntilAllowedAtTheDesk(t *testing.T) {
 	var state outsideState
 
 	getJSON(t, ts.URL+"/api/outside", &state)
-	// Four switches since 1.2.0 step 5 (programs, ask, memory,
-	// permissions), every one off on a new brain.
-	if len(state.Subjects) != 4 || state.Subjects[0].ID != "programs" || state.Subjects[1].ID != "ask" || state.Subjects[2].ID != "memory" ||
-		state.Subjects[3].ID != "permissions" {
+	// Four switches for what is asked since 1.2.0 step 5 (programs, ask,
+	// memory, permissions), then six for what is handed over (November
+	// 2026), every one off on a new brain.
+	if len(state.Subjects) != 10 || state.Subjects[0].ID != "programs" || state.Subjects[1].ID != "ask" || state.Subjects[2].ID != "memory" ||
+		state.Subjects[3].ID != "permissions" || state.Subjects[4].ID != "remember" || state.Subjects[5].ID != "reminders" ||
+		state.Subjects[6].ID != "todos" || state.Subjects[7].ID != "tell" || state.Subjects[8].ID != "speak" || state.Subjects[9].ID != "actions" {
 		t.Fatalf("the switches on a new brain: %+v", state.Subjects)
+	}
+
+	for _, s := range state.Subjects {
+		if s.Allowed || s.Since != nil {
+			t.Fatalf("%s is on a new brain's switches as allowed: %+v", s.ID, s)
+		}
 	}
 
 	for _, each := range state.Subjects {
@@ -136,9 +144,14 @@ func TestWhichProgramsAreInstalledIsNotToldUntilAllowedAtTheDesk(t *testing.T) {
 
 	json.Unmarshal([]byte(body), &state)
 	// Allowing one allows that one and no other.
-	if len(state.Subjects) != 4 || !state.Subjects[0].Allowed || state.Subjects[0].Since == nil ||
-		state.Subjects[1].Allowed || state.Subjects[2].Allowed {
+	if len(state.Subjects) != 10 || !state.Subjects[0].Allowed || state.Subjects[0].Since == nil {
 		t.Fatalf("the switches after allowing the list of programs: %s", body)
+	}
+
+	for _, s := range state.Subjects[1:] {
+		if s.Allowed {
+			t.Fatalf("allowing the list of programs allowed %s too: %s", s.ID, body)
+		}
 	}
 
 	code, body = post(t, ts.URL+"/api/outside/ask", ask)
@@ -572,7 +585,7 @@ func TestANameThatLooksSealedIsJustAName(t *testing.T) {
 	var state outsideState
 
 	getJSON(t, ts.URL+"/api/outside", &state)
-	if len(state.Subjects) != 4 || len(state.Recent) != 2 || state.Recent[0].By != otherprograms.Unnamed || state.Recent[1].By != "x" {
+	if len(state.Subjects) != 10 || len(state.Recent) != 2 || state.Recent[0].By != otherprograms.Unnamed || state.Recent[1].By != "x" {
 		t.Errorf("the card after such a name: %+v", state)
 	}
 
