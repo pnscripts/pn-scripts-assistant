@@ -2,18 +2,30 @@
 #
 # load-check.sh — what the assistant costs the machine while nobody uses it.
 #
-#   scripts/load-check.sh [program] [budget-resting-%] [budget-hidden-%]
+#   scripts/load-check.sh [program] [budget-resting-%] [budget-hidden-%] [budget-calm-%] [budget-memory-MB]
 #
-# The CPU budgets depend on the machine; the third check does not: while the
-# page rests, WebKit's network process (every request goes through it) makes
-# almost no system calls (LOAD_CHECK_CALLS, default 200 in 30 s; one poller
-# alone makes thousands).
+# The CPU budgets depend on the machine; the request check does not: while
+# the page rests, WebKit's network process (every request goes through it)
+# makes almost no system calls (LOAD_CHECK_CALLS, default 200 in 30 s; one
+# poller alone makes thousands).
 #
 # Opens the real window (WebKitGTK) on a scratch brain, on its own virtual
-# display, leaves it untouched until the page rests (pace.js: a minute), then
-# measures the program, its page and network processes AND the display server
-# for 30 seconds; then unmaps the window, as minimising does, and measures
-# again. Fails when either total is over its budget, in percent of one core.
+# display, and leaves it untouched. Three times it measures the program, its
+# page and network processes AND the display server, in percent of one core:
+#
+#   - calm: looked at, not touched. From ten seconds after the last touch
+#     pace.js stands the decoration still and slows the asking (20 s,
+#     measured from LOAD_CHECK_CALM_SETTLE seconds after the window opened).
+#   - resting: nothing for a minute (30 s).
+#   - hidden: the window unmapped, as minimising does (30 s).
+#
+# And once, while it rests, how much memory the program and its page hold
+# (proportional set size, so memory shared with other programs is counted by
+# its share). Fails when any of them is over its budget.
+#
+# Measured 21.11.2026 on four cores without a graphics card (WebKitGTK
+# 2.52.6): before the calm state the untouched window cost 62 % of a core for
+# its first minute; calm it costs 6 %, resting 2 %, hidden 0.2 %.
 #
 # Measured 08.11.2026 on four cores without a graphics card: before pace.js
 # the idle window cost 45 % of a core plus 86 % in the display server; resting
@@ -29,6 +41,10 @@ set -euo pipefail
 PROGRAM="${1:-build/pn-scripts-assistant}"
 BUDGET_RESTING="${2:-6}"
 BUDGET_HIDDEN="${3:-3}"
+BUDGET_CALM="${4:-12}"
+BUDGET_MEMORY="${5:-550}"
+CALM_SETTLE="${LOAD_CHECK_CALM_SETTLE:-25}"
+CALM_SECONDS="${LOAD_CHECK_CALM_SECONDS:-20}"
 BUDGET_CALLS="${LOAD_CHECK_CALLS:-200}"
 PORT="${LOAD_CHECK_PORT:-8871}"
 SETTLE="${LOAD_CHECK_SETTLE:-80}"
@@ -120,8 +136,8 @@ curl -fs -m 2 "http://127.0.0.1:$PORT/health" > /dev/null || { echo "the program
 for _ in $(seq 1 30); do pgrep -P "$APP_PID" WebKitWebProces > /dev/null && break; sleep 1; done
 pgrep -P "$APP_PID" WebKitWebProces > /dev/null || { echo "no window: the page process never started"; tail -20 "$WORK/app.log"; exit 1; }
 
-echo "→ window open on $DISPLAY; leaving it untouched for ${SETTLE}s so the page rests"
-sleep "$SETTLE"
+echo "→ window open on $DISPLAY; leaving it untouched for ${CALM_SETTLE}s so the page goes calm"
+sleep "$CALM_SETTLE"
 
 # CPU of the program, everything under it, and the display server, in percent
 # of one core over the given seconds.
@@ -175,6 +191,44 @@ PY
 
 over() { python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) else 1)" "$1" "$2"; }
 
+# Memory the program and everything under it hold, in megabytes: the
+# proportional set size of each process (the display server is not counted,
+# it is not the program's).
+memory() {
+    python3 - "$APP_PID" << 'PY'
+import os, sys
+def tree(root):
+    out, todo = [], [root]
+    while todo:
+        p = todo.pop(); out.append(p)
+        for t in os.listdir(f'/proc/{p}/task') if os.path.isdir(f'/proc/{p}/task') else []:
+            try: todo += [int(c) for c in open(f'/proc/{p}/task/{t}/children').read().split()]
+            except OSError: pass
+    return out
+total = 0
+for p in tree(int(sys.argv[1])):
+    try:
+        name = open(f'/proc/{p}/comm').read().strip()
+        kb = sum(int(line.split()[1]) for line in open(f'/proc/{p}/smaps_rollup') if line.startswith('Pss:'))
+    except (OSError, ValueError, IndexError):
+        continue
+    total += kb
+    print(f'    {name:<18} {kb / 1024:7.1f} MB', file=sys.stderr)
+print(f'{total / 1024:.1f}')
+PY
+}
+
+echo "→ calm (looked at, not touched), ${CALM_SECONDS}s:"
+calm="$(measure "$CALM_SECONDS")"
+echo "  calm: $calm % of one core (budget $BUDGET_CALM %)"
+
+# The rest of the minute after the last touch, and a margin, until it rests.
+remaining=$((SETTLE - CALM_SETTLE - CALM_SECONDS))
+if [ "$remaining" -gt 0 ]; then
+    echo "→ leaving it untouched for ${remaining}s more so the page rests"
+    sleep "$remaining"
+fi
+
 # What the page is told: busy keeps it awake, by design.
 echo "  pulse: $(curl -sN -m 2 "http://127.0.0.1:$PORT/api/pulse" 2> /dev/null | grep -m1 '^data:' || echo none)"
 echo "  doing: $(curl -s -m 2 "http://127.0.0.1:$PORT/api/progress" 2> /dev/null | head -c 300)"
@@ -192,6 +246,10 @@ network_calls=$(( $(calls) - calls_before ))
 echo "  page requests while resting: $network_calls network system calls (budget $BUDGET_CALLS)"
 echo "  resting: $resting % of one core (budget $BUDGET_RESTING %)"
 
+echo "→ memory held while resting:"
+held="$(memory)"
+echo "  memory: $held MB (budget $BUDGET_MEMORY MB)"
+
 window="$(xdotool search --pid "$APP_PID" 2> /dev/null | tail -1 || true)"
 [ -n "$window" ] || window="$(xdotool search --onlyvisible --name . 2> /dev/null | tail -1 || true)"
 [ -n "$window" ] || { echo "could not find the window to hide it"; exit 1; }
@@ -203,9 +261,11 @@ hidden="$(measure "$SECONDS_SAMPLED")"
 echo "  hidden: $hidden % of one core (budget $BUDGET_HIDDEN %)"
 
 failed=0
+if over "$calm" "$BUDGET_CALM"; then echo "FAIL: the window nobody touches costs $calm %, over $BUDGET_CALM %"; failed=1; fi
+if over "$held" "$BUDGET_MEMORY"; then echo "FAIL: the program and its page hold $held MB, over $BUDGET_MEMORY MB"; failed=1; fi
 if over "$resting" "$BUDGET_RESTING"; then echo "FAIL: the resting window costs $resting %, over $BUDGET_RESTING %"; failed=1; fi
 if over "$hidden" "$BUDGET_HIDDEN"; then echo "FAIL: the hidden window costs $hidden %, over $BUDGET_HIDDEN %"; failed=1; fi
 if [ "$network_calls" -gt "$BUDGET_CALLS" ]; then echo "FAIL: the resting page is still asking the program for things ($network_calls system calls in ${SECONDS_SAMPLED}s)"; failed=1; fi
 
-[ "$failed" -eq 0 ] && echo "→ load check OK: resting $resting %, hidden $hidden % of one core"
+[ "$failed" -eq 0 ] && echo "→ load check OK: calm $calm %, resting $resting %, hidden $hidden % of one core, $held MB"
 exit "$failed"

@@ -318,6 +318,34 @@ jobs:
   # .deb, the one inside the Windows zip) must carry this version. Runs on a
   # manual run too, so a release can be rehearsed from a branch without
   # publishing; on a tag the tag must also be the version the files carry.
+  # What it costs a machine while nobody uses it is a gate of the release, as
+  # it is of every push (ci.yml "Idle load stays under budget"): the package
+  # that is about to be published is installed, its real window is opened on
+  # a virtual display, and the release stops when the untouched, the resting
+  # or the hidden window costs more than its budget, or the program and its
+  # page hold more memory than theirs. See scripts/load-check.sh.
+  load:
+    needs: deb
+    name: Idle load stays under budget
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ubuntu-deb
+          path: package
+
+      - name: Install the package, a virtual display and xdotool
+        timeout-minutes: 25
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ./package/*.deb xvfb xdotool
+
+      - name: Calm, resting and hidden, and the memory held, measured
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 40 700
+
   versions:
     needs: [deb, windows, cli, desktop]
     name: Every file says its version
@@ -357,7 +385,7 @@ jobs:
     # the thing the documentation tells people to install is not a release.
     # One per system — the .deb and the Windows setup — and the plain
     # archives beside them for anybody who would rather not install anything.
-    needs: [tests, deb, windows, cli, desktop, versions]
+    needs: [tests, deb, windows, cli, desktop, versions, load]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:

@@ -11,6 +11,23 @@ whenever something visible changed.
 
 ## Unreleased
 
+- **A window you look at without touching no longer costs most of a
+  processor core.** For the first minute after the last touch the page kept
+  drawing sixty frames a second for a small ring that spins: measured on a
+  four-core computer without a graphics card, 62 % of one core, and for as
+  long as the assistant worked, which took that from the model doing the
+  work. Ten seconds after the last touch the window now goes calm: the
+  endless decoration stands still, and the page asks for news every ten
+  seconds (while the assistant works, every second and a half). Measured the
+  same way: about 6 %. A touch, or anything happening, makes it move again
+  at once; resting after a minute (about 2 %) and hidden (0.2 %) are as
+  before.
+- **Light on the machine is now a condition of every release.** The check
+  that opens the real window on a virtual display has a budget for the
+  untouched window and one for the memory the program and its page hold
+  (364 MB measured), beside the ones for the resting and the hidden window.
+  It runs on every push and before a release is published, and stops both.
+
 Four notes of the security review of 1.2.0. None of them let another
 program do more than before; each closes a way to get in the way or to be
 believed.

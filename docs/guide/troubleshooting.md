@@ -93,8 +93,17 @@ stopped and done again afterwards, so nothing is lost. In 0.13.0 and
 earlier a question asked while a new brain was reading its own guides could
 wait about fourteen minutes on a four-core computer without a graphics card.
 
+Ten seconds after you last touched the window it goes calm: the moving
+decoration stands still and the page asks for news every ten seconds instead
+of several times a second, so what it says stays current at a few percent of
+one core. After a minute it rests, and minimised it costs next to nothing.
+Anything that happens, and any touch, makes it move again at once.
+
 If an untouched window still costs more than a few percent, something on the
-page is not resting: `scripts/load-check.sh` measures it the way CI does.
+page is not resting: `scripts/load-check.sh` measures it the way CI does,
+with a budget for the calm, the resting and the hidden window and one for
+the memory the program and its page hold. A release is not published when
+any of them is over.
 
 ## A web page cannot reach it, and should not
 

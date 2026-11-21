@@ -332,10 +332,13 @@ jobs:
 
   # What it costs the machine while nobody uses it (owner 08.11.2026: as
   # little as it possibly can). The packaged program opens its real window on
-  # a virtual display, is left alone until its page rests, and the program,
-  # its page and the display server together must stay under budget — and
-  # under a smaller one with the window hidden. Before pace.js the resting
-  # window cost over a whole core; see scripts/load-check.sh.
+  # a virtual display, is left alone, and the program, its page and the
+  # display server together must stay under budget three times: looked at and
+  # not touched (calm), left for a minute (resting), and with the window
+  # hidden. The memory the program and its page hold has a budget too. Before
+  # pace.js the resting window cost over a whole core, and before its calm
+  # state the untouched one cost most of a core for its first minute; see
+  # scripts/load-check.sh.
   load:
     needs: package
     name: Idle load stays under budget
@@ -356,11 +359,12 @@ jobs:
           sudo apt-get install -y ./package/*.deb xvfb xdotool
 
       # A runner draws the resting page through software GL (llvmpipe), which
-      # costs about 10 % there against 1 % on a desktop, so its CPU budget is
-      # wider; the request count is the same everywhere and is the exact
-      # check. The old build measured over 100 % here.
-      - name: Resting and hidden, measured
-        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3
+      # costs about 10 % there against 1 % on a desktop, so its CPU budgets
+      # are wider; the request count is the same everywhere and is the exact
+      # check. The old build measured over 100 % here. In order: resting 20 %,
+      # hidden 3 %, calm 40 % of one core, and 700 MB of memory.
+      - name: Calm, resting and hidden, and the memory held, measured
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 40 700
 
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting

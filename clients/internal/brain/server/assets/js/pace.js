@@ -15,8 +15,15 @@
  * page, and loaded before anything else so that everything after it is paced
  * without knowing it:
  *
- *   - awake: as before. Someone touched the page in the last minute, or the
- *     assistant is doing something (the server says so through /api/pulse).
+ *   - awake: as before. Someone touched the page in the last ten seconds,
+ *     or something has just happened (the server says so through /api/pulse).
+ *   - calm: looked at, not touched, for ten seconds. What the page says stays
+ *     current and its decoration waits: the endless animations stand still
+ *     (only those: one that plays once still brings in what it brings),
+ *     animation frames come every two seconds, and no poller asks more
+ *     often than every ten seconds. While the assistant works the page stays calm
+ *     instead of going on to rest, at a quicker pace: four frames a second
+ *     and the pollers every second and a half.
  *   - resting: nothing for a minute. Every interval and animation frame is
  *     held, CSS animation is paused, and one server-sent stream is the only
  *     thing open. While it learns in the background, the stream says once a
@@ -30,14 +37,35 @@
  * With reduced motion asked for in the system, it rests after ten seconds
  * instead of a minute, and the endless CSS animations are already off.
  *
- * Timers are held, not slowed: a slowed poller still wakes the processor, the
- * page, the program and the display, and it is the waking that costs.
+ * Resting timers are held, not slowed: a slowed poller still wakes the
+ * processor, the page, the program and the display, and it is the waking that
+ * costs.
+ *
+ * Calm was added on 21.11.2026, when the minute before resting was measured
+ * on the real window (WebKitGTK 2.52.6, a private Xvfb, four cores): 62 % of
+ * one core, and with every poller taken out still 68 %. It was the frames:
+ * without the endless CSS animations 33 %, without those and the animation
+ * frames 8 %, without all three 2 %. Each frame is drawn, composited, handed
+ * to the program and put on the screen by the display server, whatever its
+ * size; a 26 pixel ring that spins costs a whole frame sixty times a second.
+ * A working assistant kept the page awake for as long as it worked, so the
+ * page took that from the model that was doing the work. Calm, the same
+ * window measured 6 % (a frame a second and pollers every five seconds: 11 %).
  */
 (function () {
     'use strict';
 
     const AWAKE_FOR = 60 * 1000;
     const REDUCED_AWAKE_FOR = 10 * 1000;
+
+    // How long after the last touch the page goes calm.
+    const CALM_AFTER = 10 * 1000;
+    const REDUCED_CALM_AFTER = 2 * 1000;
+
+    // The pace of a calm page: a frame every so many milliseconds, and no
+    // poller more often than the floor. Quicker while the assistant works.
+    const CALM = { frame: 2000, floor: 10000 };
+    const CALM_WORKING = { frame: 250, floor: 1500 };
 
     const reduced = window.matchMedia
         ? window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -59,15 +87,34 @@
 
     let state = 'awake';
     let restTimer = 0;
+    let calmTimer = 0;
+
+    // While calm: its pace, the timer for the next frame, the timer that
+    // looks for endless animations begun since, and the ones stood still.
+    let cadence = CALM;
+    let frameTimer = 0;
+    let stillTimer = 0;
+    const stilled = new Set();
     let busy = false;
     let pulse = null;
     let lastPulse = null;
     let lastSaid = {};
 
-    function holding() { return state !== 'awake'; }
+    function holding() { return state === 'resting' || state === 'hidden'; }
+
+    // How often a poller runs now: as it asked, or no more often than the
+    // calm pace allows.
+    function period(entry) {
+        return state === 'calm' ? Math.max(entry.ms, cadence.floor) : entry.ms;
+    }
 
     function start(entry) {
-        if (entry.real === 0) entry.real = realSetInterval(entry.run, entry.ms);
+        if (entry.real !== 0) return;
+
+        const every = period(entry);
+
+        entry.slowed = every !== entry.ms;
+        entry.real = realSetInterval(entry.run, every);
     }
 
     function stop(entry) {
@@ -85,7 +132,7 @@
 
         const id = nextId++;
         const run = () => fn(...args);
-        const entry = { run, ms: Math.max(0, Number(ms) || 0), real: 0, missed: false };
+        const entry = { run, ms: Math.max(0, Number(ms) || 0), real: 0, missed: false, slowed: false };
 
         intervals.set(id, entry);
 
@@ -107,13 +154,69 @@
     };
 
     window.requestAnimationFrame = function (fn) {
-        if (!holding()) return realFrame(fn);
+        if (state === 'awake') return realFrame(fn);
 
         const id = -(nextFrame++);
         heldFrames.set(id, fn);
 
+        // Calm: the frames asked for are drawn together, at the calm pace.
+        if (state === 'calm' && frameTimer === 0) frameTimer = realSetTimeout(calmFrame, cadence.frame);
+
         return id;
     };
+
+    function calmFrame() {
+        frameTimer = 0;
+
+        if (state !== 'calm' || heldFrames.size === 0) return;
+
+        const frames = heldFrames;
+        heldFrames = new Map();
+
+        realFrame((time) => {
+            for (const fn of frames.values()) {
+                try { fn(time); } catch (error) { console.error(error); }
+            }
+        });
+    }
+
+    /*
+     * The endless animations stand still while the page is calm, one by one
+     * and only those. A rule in the stylesheet for everything would also
+     * hold an animation that plays once, and what such a one brings in (a
+     * new line arriving from nothing) would stay invisible until a touch.
+     * New ones begun while calm (a spinner of work that started) are found
+     * at the calm pace.
+     */
+    function stillTheEndless() {
+        if (typeof document.getAnimations !== 'function') return;
+
+        for (const animation of document.getAnimations()) {
+            let timing = null;
+
+            try { timing = animation.effect && animation.effect.getComputedTiming(); } catch { /* not ours to hold */ }
+
+            if (timing && timing.iterations === Infinity && animation.playState === 'running') {
+                try {
+                    animation.pause();
+                    stilled.add(animation);
+                } catch { /* gone in this moment */ }
+            }
+        }
+    }
+
+    function moveAgain() {
+        for (const animation of stilled) {
+            // Only one still standing where it was stood: an animation whose
+            // rule went away meanwhile is over, and playing it would start
+            // it again with nothing in the stylesheet to end it.
+            if (animation.playState !== 'paused') continue;
+
+            try { animation.play(); } catch { /* its element is gone */ }
+        }
+
+        stilled.clear();
+    }
 
     window.cancelAnimationFrame = function (id) {
         if (id < 0) heldFrames.delete(id);
@@ -128,13 +231,26 @@
 
         document.documentElement.dataset.pace = next;
 
+        if (was === 'calm') {
+            realClearTimeout(frameTimer);
+            realClearInterval(stillTimer);
+            frameTimer = 0;
+            stillTimer = 0;
+        }
+
         if (next === 'awake') {
+            moveAgain();
+
             for (const entry of intervals.values()) {
+                // A poller that missed its turns, or ran slower than it
+                // asked, runs now, so what is on the screen is current the
+                // moment someone looks.
+                const behind = entry.missed || entry.slowed;
+
+                stop(entry);
                 start(entry);
 
-                // A poller that missed its turns runs now, so what is on the
-                // screen is current the moment someone looks.
-                if (entry.missed) {
+                if (behind) {
                     entry.missed = false;
                     try { entry.run(); } catch (error) { console.error(error); }
                 }
@@ -144,7 +260,17 @@
             heldFrames = new Map();
 
             for (const fn of frames.values()) realFrame(fn);
-        } else if (was === 'awake') {
+        } else if (next === 'calm') {
+            cadence = busy ? CALM_WORKING : CALM;
+
+            for (const entry of intervals.values()) {
+                stop(entry);
+                start(entry);
+            }
+
+            stillTheEndless();
+            stillTimer = realSetInterval(stillTheEndless, cadence.floor);
+        } else {
             for (const entry of intervals.values()) {
                 stop(entry);
                 entry.missed = true;
@@ -158,6 +284,7 @@
     }
 
     function awakeFor() { return reduced.matches ? REDUCED_AWAKE_FOR : AWAKE_FOR; }
+    function calmAfter() { return reduced.matches ? REDUCED_CALM_AFTER : CALM_AFTER; }
 
     function rest() {
         realClearTimeout(restTimer);
@@ -165,7 +292,7 @@
 
         if (document.hidden) return;
 
-        // Working is not resting: the picture shows the work.
+        // Working is not resting: the page stays calm and shows the work.
         if (busy) {
             restTimer = realSetTimeout(rest, awakeFor());
 
@@ -175,13 +302,23 @@
         setState('resting');
     }
 
+    function calmDown() {
+        calmTimer = 0;
+
+        if (document.hidden || state !== 'awake') return;
+
+        setState('calm');
+    }
+
     function wake() {
         if (document.hidden) return;
 
         setState('awake');
 
         realClearTimeout(restTimer);
+        realClearTimeout(calmTimer);
         restTimer = realSetTimeout(rest, awakeFor());
+        calmTimer = realSetTimeout(calmDown, calmAfter());
     }
 
     // The stream says when the assistant starts or stops doing something.
@@ -263,7 +400,9 @@
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             realClearTimeout(restTimer);
+            realClearTimeout(calmTimer);
             restTimer = 0;
+            calmTimer = 0;
             setState('hidden');
         } else {
             wake();
