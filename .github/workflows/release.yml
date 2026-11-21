@@ -343,8 +343,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ./package/*.deb xvfb xdotool
 
+      # The same budgets as ci.yml, where they are explained and where the
+      # runner's own numbers are written down.
       - name: Calm, resting and hidden, and the memory held, measured
-        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 40 700
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950
 
   versions:
     needs: [deb, windows, cli, desktop]

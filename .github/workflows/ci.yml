@@ -362,9 +362,17 @@ jobs:
       # costs about 10 % there against 1 % on a desktop, so its CPU budgets
       # are wider; the request count is the same everywhere and is the exact
       # check. The old build measured over 100 % here. In order: resting 20 %,
-      # hidden 3 %, calm 40 % of one core, and 700 MB of memory.
+      # hidden 3 %, calm 50 % of one core, and 950 MB of memory.
+      #
+      # Measured here on 21.11.2026 (run 44943834123): calm 31 %, resting
+      # 10 %, hidden 0.1 %, and 796 MB held, 625 MB of it by the page, which
+      # under software GL keeps its pictures in ordinary memory (on a desktop
+      # the whole is 365 MB). The first guess for memory, 700 MB, was made
+      # before any run and failed that one; the budgets are what was measured
+      # with room for a noisy runner, and still far under what they guard
+      # against (a page that never goes calm costs over 100 % here).
       - name: Calm, resting and hidden, and the memory held, measured
-        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 40 700
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950
 
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting
