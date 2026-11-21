@@ -64,9 +64,16 @@ test:
 # thing it is looking for is rare — but it is looking in the right place: this
 # program answers on HTTP while a learning worker writes to the same database,
 # and a race there is a corrupted brain rather than a crash somebody notices.
+#
+# Twenty minutes for one package, not go's ten. The two largest packages
+# start a real server or a real brain for most of their tests, which the
+# detector makes several times slower: the server's took 560 of the 600
+# seconds on CI at 1.2.0, and the next eight tests took it over (a red run
+# that was no fault and no race). The limit is there to stop a test that
+# hangs, and still does; a run that is slow is not a run that hangs.
 race:
 	@echo "→ go test -race"
-	@cd clients && $(QUIET) $(GO) test -race ./... -p 2
+	@cd clients && $(QUIET) $(GO) test -race -timeout 20m ./... -p 2
 
 # Known vulnerabilities, in what is imported and in the toolchain itself.
 #

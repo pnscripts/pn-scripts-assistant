@@ -92,11 +92,16 @@ jobs:
       # -race, which the release workflow does not run: this program answers
       # on HTTP while a learning worker writes to the same database, and a data
       # race there is a corrupted brain rather than a crash somebody notices.
+      #
+      # Twenty minutes for one package, not go's ten (as `make race`): the
+      # server's tests took 560 of the 600 seconds here at 1.2.0 and the next
+      # eight took the run over, red with no fault in it. The limit still
+      # stops a test that hangs.
       - name: Tests, with the race detector
         working-directory: clients
         env:
           CGO_ENABLED: '1'
-        run: go test -race ./... -p 2
+        run: go test -race -timeout 20m ./... -p 2
 
   # It builds for every system it claims to build for.
   #
