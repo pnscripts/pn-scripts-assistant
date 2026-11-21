@@ -9,7 +9,7 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
-## 1.2.0 (not yet released: the date is set when it is tagged)
+## 1.2.0 (2026-11-21)
 
 - **Other programs can ask the assistant.** `pn-scripts-assistant mcp`
   makes the assistant a Model Context Protocol server for Claude Code
