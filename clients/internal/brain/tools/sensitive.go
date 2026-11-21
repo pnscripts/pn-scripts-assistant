@@ -117,6 +117,21 @@ type askedByKey struct{}
  * program gave itself (package otherprograms). The loop puts everything such a
  * call would change to its person, with the name on the question, and the
  * record keeps it. An empty name marks nothing.
+ *
+ * Nothing in the program starts such a call yet (said plainly, because the
+ * review of 1.2.0 found it and asked): what other programs may ask today
+ * is answered without the loop (a question goes straight to the model on
+ * this computer, a permission question is a card and nothing is carried
+ * out for it), so in a released program this mark is never set and the
+ * rules that hang on it never fire. They are kept, with their tests,
+ * because they are the gate the next thing other programs may ask for
+ * needs before it exists and not after: something done for another program
+ * (using a program for it). Removing them would leave the row's own "asked
+ * by" (which is in use: the cards, the record, who may answer) without the
+ * loop's half, to be written again under a deadline. The test
+ * TestNothingStartsATurnForAnotherProgramYet (package agent) names every
+ * place that sets the mark, and fails the day one is added, so that this
+ * paragraph and the known limits are put right with it.
  */
 func AskedBy(ctx context.Context, by string) context.Context {
 	if by == "" {

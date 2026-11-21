@@ -1,6 +1,7 @@
 package pair
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -241,5 +242,107 @@ func TestTheAddressOnTheScreenIsTheOneThatAnswers(t *testing.T) {
 		if !strings.HasPrefix(address, "https://") {
 			t.Errorf("offered %q, which is not encrypted", address)
 		}
+	}
+}
+
+/*
+ * A guess from the computer itself does not spend the code, and only a few
+ * are looked at.
+ *
+ * A wrong guess spends the code so that it cannot be guessed at; from the
+ * computer the assistant runs on that was a free way to keep any device
+ * from being paired, one request at a time (the review of 1.2.0). From
+ * here the code stays, the guesses are counted, and past a few nothing
+ * from here is read any more: neither a denial nor a way to guess.
+ */
+func TestAGuessFromTheComputerItselfDoesNotSpendTheCode(t *testing.T) {
+	book, _ := Load(t.TempDir())
+
+	code, _, _ := book.Offer(Full)
+
+	for i := 0; i < 500; i++ {
+		_, _, err := book.AcceptHere("WRONG1", "a program", "127.0.0.1")
+
+		// The few that are looked at are wrong; the rest are not read.
+		if want := map[bool]error{true: ErrWrongHere, false: ErrNoMoreHere}[i < MostWrongHere]; !errors.Is(err, want) {
+			t.Fatalf("wrong guess %d from here: %v", i+1, err)
+		}
+	}
+
+	if waiting, _, can := book.Waiting(); waiting != code || can != Full {
+		t.Fatalf("500 wrong guesses from here left %q on offer, not %q", waiting, code)
+	}
+
+	// The device the code was made for pairs with it all the same.
+	if _, token, err := book.Accept(code, "phone", "192.168.1.9"); err != nil || token == "" {
+		t.Fatalf("after the guesses from here the phone could not pair: %v", err)
+	}
+}
+
+func TestOnlyAFewGuessesFromTheComputerAreLookedAt(t *testing.T) {
+	book, _ := Load(t.TempDir())
+
+	code, _, _ := book.Offer(Limited)
+
+	for i := 0; i < MostWrongHere; i++ {
+		book.AcceptHere("WRONG1", "a program", "127.0.0.1")
+	}
+
+	// Past the few, even the right code from here is not read: otherwise
+	// a program could go through every code there is.
+	if _, _, err := book.AcceptHere(code, "a program", "127.0.0.1"); !errors.Is(err, ErrNoMoreHere) {
+		t.Fatalf("the right code from here after %d wrong ones: %v", MostWrongHere, err)
+	}
+
+	if book.Any() {
+		t.Fatal("a device was paired from here after the guesses ran out")
+	}
+
+	if waiting, _, _ := book.Waiting(); waiting != code {
+		t.Fatal("the code was spent from here")
+	}
+
+	// A new code starts the count again, and the right code typed at the
+	// computer's own address pairs, spaced and in small letters as people
+	// type it.
+	again, _, _ := book.Offer(Limited)
+
+	if _, _, err := book.AcceptHere("WRONG1", "a program", "127.0.0.1"); !errors.Is(err, ErrWrongHere) {
+		t.Fatal(err)
+	}
+
+	typedAs := strings.ToLower(again[:3]) + " " + again[3:]
+
+	device, token, err := book.AcceptHere(typedAs, "a tablet on a forwarded port", "127.0.0.1")
+	if err != nil || token == "" || device.Can != Limited {
+		t.Fatalf("the right code from here: %+v %v", device, err)
+	}
+
+	// Used once, from here as from anywhere.
+	if _, _, err := book.AcceptHere(again, "again", "127.0.0.1"); err == nil || errors.Is(err, ErrWrongHere) || errors.Is(err, ErrNoMoreHere) {
+		t.Errorf("the code worked twice from here: %v", err)
+	}
+
+	// With nothing on offer, or a code that ran out, it says so.
+	book.Offer(Limited)
+	book.mu.Lock()
+	book.codeUntil = time.Now().Add(-time.Second)
+	book.mu.Unlock()
+
+	if _, _, err := book.AcceptHere("ABC234", "x", "127.0.0.1"); err == nil || errors.Is(err, ErrWrongHere) {
+		t.Errorf("a code that ran out, from here: %v", err)
+	}
+
+	// Taking the code back forgets the count with it.
+	book.Offer(Limited)
+	for i := 0; i < MostWrongHere; i++ {
+		book.AcceptHere("WRONG1", "x", "127.0.0.1")
+	}
+
+	book.StopOffering()
+
+	next, _, _ := book.Offer(Limited)
+	if _, _, err := book.AcceptHere(next, "x", "127.0.0.1"); err != nil {
+		t.Errorf("a new code after taking one back: %v", err)
 	}
 }

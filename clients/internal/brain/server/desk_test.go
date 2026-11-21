@@ -38,6 +38,10 @@ func (a asTheWindow) RoundTrip(r *http.Request) (*http.Response, error) {
 func TestMain(m *testing.M) {
 	fixedDeskKey = testDeskKey
 
+	// And every test server seals its answers for the MCP server's tools
+	// with one key (vouch_test.go), as the program does with its user's.
+	fixedAnswersKey = answersKey
+
 	// The default client only: http.DefaultTransport stays what the
 	// program's own clients expect it to be.
 	http.DefaultClient.Transport = asTheWindow{plain: http.DefaultTransport}

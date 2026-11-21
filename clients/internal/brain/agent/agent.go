@@ -256,6 +256,9 @@ const (
  * sentence that asks for it is the approval; from another program there
  * is no such sentence, and a program that could call it would approve the
  * very questions the loop puts to the person on its behalf.
+ *
+ * No turn is started for another program yet (see tools.AskedBy for why
+ * this is kept all the same, and the test that watches for the first).
  */
 var NotForAnotherProgram = []string{"decide_waiting"}
 

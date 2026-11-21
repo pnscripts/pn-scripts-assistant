@@ -512,7 +512,7 @@ func TestAProgramThatAsksInALoopDoesNotFillTheRecord(t *testing.T) {
 	}
 
 	// The MCP server says it in words a model can pass on.
-	for _, each := range mcpserve.New(ts.URL, "test").Tools {
+	for _, each := range mcpserve.New(ts.URL, "test", testAnswersKey).Tools {
 		if each.Name != "list_programs" {
 			continue
 		}
@@ -535,7 +535,7 @@ func TestTheMCPServerAsksAndSearchesThroughTheDoor(t *testing.T) {
 	remembered(t, b, model, "Who is the accountant?", "Alex's accountant is Maria")
 
 	run := func(tool, arguments string) (string, error) {
-		for _, each := range mcpserve.New(ts.URL, "test").Tools {
+		for _, each := range mcpserve.New(ts.URL, "test", testAnswersKey).Tools {
 			if each.Name == tool {
 				return each.Run(t.Context(), json.RawMessage(arguments), mcpserve.Caller{Name: "claude-code", Version: "2.1.0"})
 			}
@@ -732,7 +732,7 @@ func TestThroughTheDoorAProgramsQuestionGivesWayToThePerson(t *testing.T) {
 	}
 
 	// The MCP server says it in words a model can act on.
-	for _, each := range mcpserve.New(ts.URL, "test").Tools {
+	for _, each := range mcpserve.New(ts.URL, "test", testAnswersKey).Tools {
 		if each.Name != "ask_assistant" {
 			continue
 		}

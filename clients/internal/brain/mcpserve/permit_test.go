@@ -93,7 +93,11 @@ func TestEveryNoSaysWhy(t *testing.T) {
 		{`429 {"error":"Other programs have asked too many questions in the last minute.","outside":"too many"}`,
 			[]string{"too many questions in the last minute"}},
 		{`403 {"error":"The terms of use have not been accepted yet.","terms":"not accepted"}`, []string{"terms of use have not been accepted"}},
-		{`404 not found`, []string{"older than this server"}},
+		// An assistant that seals its answers has the door, so a sealed
+		// "not found" is not the assistant's answer to this. (One from
+		// before the door seals nothing and is not believed at all:
+		// TestAnAssistantThatCannotSealOrNoteIsNotAnsweredFor.)
+		{`404 not found`, []string{"did not answer as PN Scripts Assistant"}},
 		// Anything that is not a plain yes is a no: a yes misspelt, a yes
 		// beside something else, a page.
 		{`200 {"behavior":"Allow"}`, []string{"did not answer as PN Scripts Assistant"}},
@@ -122,7 +126,7 @@ func TestEveryNoSaysWhy(t *testing.T) {
 	}
 
 	// Nothing running there at all.
-	got := permitted(t, New("http://127.0.0.1:1", "1"), `{"tool_name":"Bash","input":{"command":"ls"}}`)
+	got := permitted(t, New("http://127.0.0.1:1", "1", theKey), `{"tool_name":"Bash","input":{"command":"ls"}}`)
 	if string(got["behavior"]) != `"deny"` || !strings.Contains(string(got["message"]), "is not running on this computer") {
 		t.Errorf("with nothing running: %s", got)
 	}

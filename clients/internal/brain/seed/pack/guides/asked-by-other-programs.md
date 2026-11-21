@@ -124,7 +124,9 @@ is.
 At most 30 questions a minute are answered, from all programs together. The
 ones over that are refused, and written as one line, so a program that asks
 in a loop is held to that many lines a minute on the record. Whether the
-assistant is running counts too.
+assistant is running counts too. Permission questions are counted by
+themselves, at most 12 a minute from all programs together, so a program
+that asks other things in a loop does not turn them into refusals.
 
 The name is what the program says about itself. Nothing can check it, so it
 is shown to you and never decides anything.
@@ -158,6 +160,15 @@ template".
 - **Only this computer.** It asks the assistant on this computer's own
   address and refuses any other. If you changed the port the assistant
   serves on, add `--api http://127.0.0.1:<port>` after `mcp`.
+- **Only the assistant's own answers.** The assistant seals each answer
+  with a key it keeps in a file only your account can read, and
+  `pn-scripts-assistant mcp` passes on nothing without that seal. So a
+  program that listens on the assistant's port while the assistant is not
+  running is not believed. If a program is told that something answered
+  "but not in a way that shows it is PN Scripts Assistant", close the
+  assistant and start
+  it again: a copy that was running while it was updated seals nothing
+  until it has been closed and started again.
 - **Where the answer goes.** What a tool answers is given to the program
   that asked, and that program passes it to whatever model it uses, which
   for Claude and Cursor is a service on the internet. The list of your

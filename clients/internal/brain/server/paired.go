@@ -2,8 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"pn-scripts-assistant/internal/brain/config"
@@ -125,6 +127,24 @@ func (s *Server) handleStopOffering(w http.ResponseWriter, r *http.Request) {
  * already. What protects it is that the code is short-lived, single-use, and
  * only exists while somebody is standing at the computer having asked for it —
  * and that a wrong guess spends it, so there is nothing to try repeatedly.
+ *
+ * A stranger elsewhere, that is. From this computer a wrong guess spends
+ * nothing: since a wrong guess spends the code, one request from any
+ * program here, repeated, kept every phone from ever being paired (a note
+ * of the review of 1.2.0). Only a few wrong guesses from here are looked
+ * at for one code, so that it cannot be guessed at either
+ * (pair.AcceptHere); the right code typed at this computer's own address
+ * pairs as before.
+ *
+ * "From this computer" is the loopback interface and also this computer's
+ * own addresses on its networks: a program here reaches the network
+ * listener by the machine's own address just as easily, and arrives
+ * looking like a device elsewhere (found by the review of this change).
+ *
+ * What is left, and is said in the known limits: a device on a network the
+ * assistant was opened to, paired or not, can still spend a code with a
+ * wrong guess. Letting a code survive wrong guesses from the network would
+ * trade that for a code that can be guessed at, the worse of the two.
  */
 func (s *Server) handleClaim(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -138,7 +158,33 @@ func (s *Server) handleClaim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	device, token, err := s.paired.Accept(body.Code, body.Name, fromAddress(r))
+	accept := s.paired.Accept
+	if s.whoIsAsking(r).Here || ownAddress(fromAddress(r)) {
+		accept = s.paired.AcceptHere
+	}
+
+	device, token, err := accept(body.Code, body.Name, fromAddress(r))
+
+	// With a word of its own, so that whoever reads the refusal can tell
+	// it from a code that was spent.
+	said := ""
+
+	switch {
+	case errors.Is(err, pair.ErrWrongHere):
+		said = "That code is not right. The code on the screen still works: a guess from the computer the assistant runs on does not use it up, and only a few are looked at."
+	case errors.Is(err, pair.ErrNoMoreHere):
+		said = "Too many wrong codes came from the computer the assistant runs on, so no more are read from it, this one included. " +
+			"Ask for a new code in the assistant's window. A device elsewhere can still use the code on the screen."
+	}
+
+	if said != "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": said, "pair": "from this computer"})
+
+		return
+	}
+
 	if err != nil {
 		fail(w, http.StatusForbidden, err.Error())
 
@@ -167,6 +213,40 @@ func (s *Server) handleClaim(w http.ResponseWriter, r *http.Request) {
 	})
 
 	ok(w, map[string]any{"device": device.ID, "name": device.Name, "can": device.Can})
+}
+
+// interfaceAddrs is this computer's addresses; a variable so a test can
+// say what they are.
+var interfaceAddrs = net.InterfaceAddrs
+
+// ownAddress is whether host is one of this computer's own addresses on
+// its networks: a connection from there was made on this computer.
+func ownAddress(host string) bool {
+	host = strings.Trim(host, "[]")
+
+	// An address of the link itself comes with the name of the link
+	// (fe80::1%eth0), which is not part of the address.
+	if at := strings.IndexByte(host, '%'); at >= 0 {
+		host = host[:at]
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+
+	addresses, err := interfaceAddrs()
+	if err != nil {
+		return false
+	}
+
+	for _, address := range addresses {
+		if network, ok := address.(*net.IPNet); ok && network.IP.Equal(ip) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // handleForgetDevice unpairs one. A phone left in a taxi is the case this

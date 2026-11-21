@@ -3,12 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"pn-scripts-assistant/internal/brain/vouch"
 )
 
 const mcpMeta = `"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"a test","version":"1"}}`
@@ -16,16 +21,32 @@ const mcpMeta = `"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"
 // "pn-scripts-assistant mcp" answers another program on its standard
 // streams: messages on the output and nothing else there.
 func TestTheMCPCommandAnswersOnItsStreams(t *testing.T) {
-	running := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// The stand-in seals its answers as the assistant does, and the
+	// command reads the same key from a file, as it reads its user's.
+	key := bytes.Repeat([]byte{2}, 32)
+	file := filepath.Join(t.TempDir(), vouch.FileName)
+
+	if err := os.WriteFile(file, []byte(hex.EncodeToString(key)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	before := answersKey
+	answersKey = func() ([]byte, error) { return vouch.Read(file) }
+
+	defer func() { answersKey = before }()
+
+	running := httptest.NewServer(vouch.Sealing(func(*http.Request) []byte { return key }, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/version":
 			fmt.Fprint(w, `{"product":"PN Scripts Assistant","version":"1.1.0","platform":"linux/amd64"}`)
 		case "/api/terms":
 			fmt.Fprint(w, `{"accepted":true}`)
+		case "/api/outside/ask":
+			fmt.Fprint(w, `{"noted":true}`)
 		default:
 			http.NotFound(w, r)
 		}
-	}))
+	})))
 	defer running.Close()
 
 	in := strings.NewReader(

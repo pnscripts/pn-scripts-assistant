@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"pn-scripts-assistant/internal/brain/mcpserve"
+	"pn-scripts-assistant/internal/brain/vouch"
 )
 
 func main() {
@@ -18,7 +19,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := mcpserve.New(address, "stand-in")
+	// The real program reads the key from the account's settings folder
+	// (vouch.Here). A test names a file instead, so that it needs no
+	// folder of the account it runs under, on any system.
+	key := vouch.Here
+	if file := os.Getenv("STANDIN_KEY_FILE"); file != "" {
+		key = func() ([]byte, error) { return vouch.Read(file) }
+	}
+
+	server := mcpserve.New(address, "stand-in", key)
 	server.Log = os.Stderr
 
 	if err := server.Serve(context.Background(), os.Stdin, os.Stdout); err != nil {

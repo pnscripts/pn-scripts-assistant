@@ -83,10 +83,32 @@ against the code on 9 November 2026.
   on this computer that has it can fetch it. The record keeps the question
   and the first 600 characters of the answer. With no model on this computer a question is not answered, and
   the memory cannot be searched. At most 30 questions a minute are
-  answered, from all programs together. It needs the assistant
+  answered, from all programs together; permission questions (below) are
+  counted by themselves, at most 12 a minute, so neither kind uses up the
+  other's. Both numbers are for all programs together: a program that asks
+  one kind in a loop makes the next program's question of that kind a
+  refusal for that minute. It needs the assistant
   running, and asks it only on this computer's own address
   (`--api http://127.0.0.1:<port>` when the port was changed; the address in
-  an encrypted settings file is not read). What it answers is passed by the
+  an encrypted settings file is not read). It passes on only what carries
+  the running assistant's seal. When the assistant starts it keeps a key in
+  a file that only your account can read (`answers.key` in its settings
+  folder: `~/.config/pn-scripts-assistant` on Linux,
+  `%AppData%\pn-scripts-assistant` on Windows,
+  `~/Library/Application Support/pn-scripts-assistant` on a Mac), and seals
+  each answer with
+  it together with the question it answers; so a program that listens on
+  the assistant's port while the assistant is not running is not believed,
+  and cannot answer a permission question "allow". This does not stop a
+  program running under your account: it can read that file, as it can
+  read your other files. On Windows the file is as private as that folder
+  is. An assistant that was already running when it was updated seals
+  nothing until it is closed and started again, and until then other
+  programs are told that what answered could not be shown to be the
+  assistant. The same is said for good when the asking program starts
+  `pn-scripts-assistant mcp` under another account, or with another
+  settings folder than the assistant's (a program packaged in its own
+  confinement may): it cannot read the key there. What it answers is passed by the
   asking program to the model it uses, usually a service on the internet.
   Everything but whether it is running is off until you allow it on the
   Programs page, each thing by its own switch.
@@ -125,8 +147,22 @@ against the code on 9 November 2026.
   opens it is given a key that lasts until it closes. Without that key
   these are refused when they come from this computer: an answer posted to
   a card (Approve, Reject, Always for a program), a change of "What other
-  programs may ask", a pairing code, and opening the assistant to the
-  network or the internet. A card another program put there (its permission
+  programs may ask", a pairing code (asking for one and taking it back),
+  and opening the assistant to the network or the internet. A wrong
+  pairing code sent from this computer itself (its own addresses on your
+  network included) does not spend the code on offer, and only three such
+  guesses are looked at for one code: after them no code is read from this
+  computer, the right one included, until you ask for a new code, so a
+  program here can still get in the way of pairing through this computer's
+  own address (a forwarded port), not of pairing a device elsewhere. "From
+  this computer" is what arrives from its own addresses; a program in a
+  container with a network of its own arrives like another device. A wrong
+  code from another device on
+  a network you opened the assistant to still spends the code, so somebody
+  on that network can keep a device from being paired for as long as they
+  keep guessing; ask for a new code, or close the assistant to the
+  network. A device paired with every right can still ask for a code and
+  take one back. A card another program put there (its permission
   questions among them) is answered in that window only, not in words to
   the assistant and not from a paired device; that includes Claude Code.
   Not stopped: a program running under your account that types and clicks

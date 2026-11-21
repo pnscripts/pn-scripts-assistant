@@ -2,7 +2,9 @@ package mcpserve_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +20,7 @@ import (
 	"time"
 
 	"pn-scripts-assistant/internal/brain/mcp"
+	"pn-scripts-assistant/internal/brain/vouch"
 )
 
 /*
@@ -29,6 +32,27 @@ import (
  * falls back to the older handshake: both ends were written from the
  * specification apart, and here they have to agree.
  */
+
+// clientKey is the key the stand-in assistant of these tests seals its
+// answers with, and keyFile the file the stand-in program reads it from
+// (the real program reads its account's: vouch.Here).
+var clientKey = bytes.Repeat([]byte{5}, 32)
+
+func sealing(h http.Handler) http.Handler {
+	return vouch.Sealing(func(*http.Request) []byte { return clientKey }, h)
+}
+
+func keyFile(t *testing.T) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), vouch.FileName)
+
+	if err := os.WriteFile(path, []byte(hex.EncodeToString(clientKey)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	return path
+}
 
 func standIn(t *testing.T) string {
 	t.Helper()
@@ -75,7 +99,7 @@ func running(t *testing.T) (*httptest.Server, *asked) {
 
 	kept := &asked{}
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(sealing(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method + " " + r.URL.Path {
 		case "GET /api/v1/version":
 			fmt.Fprint(w, `{"product":"PN Scripts Assistant","version":"1.1.0","platform":"linux/amd64"}`)
@@ -106,7 +130,7 @@ func running(t *testing.T) (*httptest.Server, *asked) {
 		default:
 			http.NotFound(w, r)
 		}
-	}))
+	})))
 
 	t.Cleanup(ts.Close)
 
@@ -117,7 +141,7 @@ func TestARealClientFindsItCurrentAndUsesItsTools(t *testing.T) {
 	bin := standIn(t)
 	ts, kept := running(t)
 
-	stdio, err := mcp.StartStdio([]string{bin}, []string{"PN_SCRIPTS_ASSISTANT_API_URL=" + ts.URL}, t.TempDir())
+	stdio, err := mcp.StartStdio([]string{bin}, []string{"PN_SCRIPTS_ASSISTANT_API_URL=" + ts.URL, "STANDIN_KEY_FILE=" + keyFile(t)}, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +231,7 @@ func TestAnOlderClientsConversationOverRealPipes(t *testing.T) {
 	ts, kept := running(t)
 
 	cmd := exec.Command(bin)
-	cmd.Env = []string{"PN_SCRIPTS_ASSISTANT_API_URL=" + ts.URL}
+	cmd.Env = []string{"PN_SCRIPTS_ASSISTANT_API_URL=" + ts.URL, "STANDIN_KEY_FILE=" + keyFile(t)}
 
 	in, err := cmd.StdinPipe()
 	if err != nil {

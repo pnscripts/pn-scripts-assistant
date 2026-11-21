@@ -345,7 +345,7 @@ func TestAQuestionOfTheProgramsOwnIsNotPassedOn(t *testing.T) {
 }
 
 // Only a few wait at once: one more is told so, and nothing is added to
-// the desk. They count toward the minute's number like every question.
+// the desk. They count toward the minute's number for permission questions.
 func TestOneMorePermissionQuestionThanMayWaitIsToldSo(t *testing.T) {
 	ts, db, b := newServer(t)
 	permitWaits(t, 2*time.Second)
@@ -437,7 +437,7 @@ func TestThePermissionToolAnswersAsClaudeCodeReadsIt(t *testing.T) {
 	run := func(arguments string) map[string]json.RawMessage {
 		t.Helper()
 
-		for _, each := range mcpserve.New(ts.URL, "test").Tools {
+		for _, each := range mcpserve.New(ts.URL, "test", testAnswersKey).Tools {
 			if each.Name != mcpserve.PermissionTool {
 				continue
 			}
@@ -514,7 +514,7 @@ func TestThePermissionToolAnswersAsClaudeCodeReadsIt(t *testing.T) {
 	permitCards(t, ts.URL, 0)
 
 	// Nothing running at the address: a deny that says so.
-	for _, each := range mcpserve.New("http://127.0.0.1:1", "test").Tools {
+	for _, each := range mcpserve.New("http://127.0.0.1:1", "test", testAnswersKey).Tools {
 		if each.Name == mcpserve.PermissionTool {
 			text, err := each.Run(t.Context(), json.RawMessage(bash), mcpserve.Caller{Name: "claude-code"})
 			if err != nil || !strings.Contains(text, `"behavior":"deny"`) || !strings.Contains(text, "is not running") {
@@ -554,7 +554,7 @@ func TestALongPermissionQuestionIsShownCutAndGivenBackWhole(t *testing.T) {
 	done := make(chan string, 1)
 
 	go func() {
-		for _, each := range mcpserve.New(ts.URL, "test").Tools {
+		for _, each := range mcpserve.New(ts.URL, "test", testAnswersKey).Tools {
 			if each.Name == mcpserve.PermissionTool {
 				text, _ := each.Run(t.Context(), arguments, mcpserve.Caller{Name: "claude-code"})
 				done <- text

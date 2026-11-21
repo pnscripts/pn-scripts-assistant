@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"pn-scripts-assistant/internal/brain/vouch"
 )
 
 /*
@@ -118,15 +120,31 @@ type assistant struct {
 	// permitting waits for a person: the door holds a permission question
 	// open until its user answers it at the desk (see permit).
 	permitting *http.Client
+
+	// key reads the key the assistant seals its answers with (package
+	// vouch), each time something is asked: the assistant may have been
+	// started, and have written it, since the last question.
+	key func() ([]byte, error)
 }
 
 // mostAnswer bounds what is read from the assistant: a few thousand
 // programs are well under it.
 const mostAnswer = 32 << 20
 
-// New is the server other programs talk to, with its tools pointed at the
-// assistant at address (see Loopback).
-func New(address, version string) *Server {
+/*
+ * New is the server other programs talk to, with its tools pointed at the
+ * assistant at address (see Loopback).
+ *
+ * key reads the key that tells the assistant's answers from anything else
+ * answering on that address (vouch.Here in the program). Nothing that does
+ * not carry the assistant's seal is passed on, so with no key (nil, or one
+ * that cannot be read) every tool says it could not tell who answered.
+ */
+func New(address, version string, key func() ([]byte, error)) *Server {
+	if key == nil {
+		key = func() ([]byte, error) { return nil, vouch.ErrNoKey }
+	}
+
 	// The assistant never sends its callers elsewhere; something that
 	// does is not the assistant.
 	stay := func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
@@ -137,6 +155,8 @@ func New(address, version string) *Server {
 		patient: &http.Client{Timeout: PatientFor, CheckRedirect: stay},
 
 		permitting: &http.Client{Timeout: PermitPatientFor, CheckRedirect: stay},
+
+		key: key,
 	}
 
 	return &Server{
@@ -261,6 +281,22 @@ func (a *assistant) errNotRunning() error {
 		"Start it, then ask again; if it serves on another port, start this server with --api http://127.0.0.1:<port>.", a.url)
 }
 
+/*
+ * errNotProved is something answering at the address without the
+ * assistant's seal on its answer. Nothing of what it said is passed on:
+ * when the assistant is not running anything may listen on its port, and
+ * what it answers would otherwise be the assistant's word (a yes to a
+ * permission question, above all).
+ */
+func (a *assistant) errNotProved() error {
+	return fmt.Errorf("Something answered at %s, but not in a way that shows it is PN Scripts Assistant, so nothing it said is passed on. "+
+		"The user closes PN Scripts Assistant and starts it again (a copy started before its last update cannot show it); "+
+		"if it is not running, they start it. Then ask again. "+
+		"If the assistant serves on another port, start this server with --api http://127.0.0.1:<port>. "+
+		"If it still says this, this server was started under another account or with another settings folder than the assistant's, "+
+		"and cannot read the assistant's key there.", a.url)
+}
+
 func (a *assistant) errNotIt() error {
 	return fmt.Errorf("Whatever answers at %s did not answer as PN Scripts Assistant. "+
 		"If the assistant serves on another port, start this server with --api http://127.0.0.1:<port>.", a.url)
@@ -269,10 +305,11 @@ func (a *assistant) errNotIt() error {
 /*
  * get asks the assistant one question and reads its answer into into.
  *
- * What comes back is used only when it is the assistant's own JSON. A
- * refusal is passed on in the assistant's words when it gave them as it
- * always does ({"error": ...}), cut to a line; anything else on that port
- * is named as not the assistant and none of its text is passed on.
+ * What comes back is used only when it carries the assistant's seal and
+ * is the assistant's own JSON. A refusal is passed on in the assistant's
+ * words when it gave them as it always does ({"error": ...}), cut to a
+ * line; anything else on that port is named as not the assistant and none
+ * of its text is passed on.
  */
 func (a *assistant) get(ctx context.Context, path string, into any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.url+path, nil)
@@ -280,7 +317,7 @@ func (a *assistant) get(ctx context.Context, path string, into any) error {
 		return err
 	}
 
-	return a.answered(ctx, req, into)
+	return a.answeredBy(a.http, ctx, req, nil, into)
 }
 
 /*
@@ -307,35 +344,37 @@ func (a *assistant) ask(ctx context.Context, tool string, arguments any, who Cal
 
 	switch tool {
 	case "ask_assistant":
-		return a.answeredBy(a.patient, ctx, req, into)
+		return a.answeredBy(a.patient, ctx, req, body, into)
 	case PermissionTool:
-		return a.answeredBy(a.permitting, ctx, req, into)
+		return a.answeredBy(a.permitting, ctx, req, body, into)
 	}
 
-	return a.answered(ctx, req, into)
+	return a.answeredBy(a.http, ctx, req, body, into)
 }
-
-// errNoDoor is an assistant running that has no door: one from before
-// other programs' questions were shown at the desk.
-var errNoDoor = errors.New("The PN Scripts Assistant running on this computer is older than this server and cannot be asked that. " +
-	"Update it (it says how under \"What it runs on\"), start it again, then ask again.")
 
 /*
- * answered sends a request to the assistant and reads its answer into
- * into.
+ * answeredBy sends a request (whose body is sent) to the assistant and
+ * reads its answer into into.
  *
- * What comes back is used only when it is the assistant's own JSON. A
- * refusal is passed on in the assistant's words when it gave them as it
- * always does ({"error": ...}), cut to a line; a question its user has
- * not allowed is said in this program's own words; anything else on that
- * port is named as not the assistant and none of its text is passed on.
+ * Every request carries a number made for it, and the answer is looked at
+ * only when it carries the assistant's seal over that number, the request
+ * and the answer (package vouch). Without it, whatever answered is not
+ * known to be the assistant and none of its text is passed on, refusals
+ * included.
+ *
+ * Past that, what comes back is used only when it is the assistant's own
+ * JSON. A refusal is passed on in the assistant's words when it gave them
+ * as it always does ({"error": ...}), cut to a line; a question its user
+ * has not allowed is said in this program's own words.
  */
-func (a *assistant) answered(ctx context.Context, req *http.Request, into any) error {
-	return a.answeredBy(a.http, ctx, req, into)
-}
+func (a *assistant) answeredBy(client *http.Client, ctx context.Context, req *http.Request, sent []byte, into any) error {
+	number, err := vouch.Number()
+	if err != nil {
+		return errors.New("this computer gave no randomness to ask PN Scripts Assistant with")
+	}
 
-func (a *assistant) answeredBy(client *http.Client, ctx context.Context, req *http.Request, into any) error {
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set(vouch.AskHeader, number)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -358,10 +397,11 @@ func (a *assistant) answeredBy(client *http.Client, ctx context.Context, req *ht
 		return a.errNotIt()
 	}
 
-	// The door is not there: the mux of an assistant from before it
-	// answers 404 (or 405) in plain text.
-	if req.Method == http.MethodPost && (res.StatusCode == http.StatusNotFound || res.StatusCode == http.StatusMethodNotAllowed) {
-		return errNoDoor
+	// The key is read after the answer came: an assistant that was
+	// starting while this asked has written it by now.
+	key, err := a.key()
+	if err != nil || !vouch.Holds(key, number, req.Method, req.URL.RequestURI(), sent, res.StatusCode, raw, res.Header.Get(vouch.SealHeader)) {
+		return a.errNotProved()
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -467,15 +507,13 @@ func (a *assistant) status(ctx context.Context, _ json.RawMessage, who Caller) (
 	/*
 	 * The question is put through the door so that it is on the record
 	 * with who asked, and an assistant that could not write it down did
-	 * not answer, so neither does this. One exception: an assistant from
-	 * before the door existed is running all the same, keeps no such
-	 * record, and saying so is all this tool does.
+	 * not answer, so neither does this.
 	 */
 	var noted struct {
 		Noted bool `json:"noted"`
 	}
 
-	if err := a.ask(ctx, "assistant_status", struct{}{}, who, &noted); err != nil && !errors.Is(err, errNoDoor) {
+	if err := a.ask(ctx, "assistant_status", struct{}{}, who, &noted); err != nil {
 		return "", err
 	}
 

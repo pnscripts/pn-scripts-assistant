@@ -205,6 +205,71 @@ func TestAProgramThatAsksInALoopIsStoppedAndListedOnce(t *testing.T) {
 	}
 }
 
+/*
+ * Permission questions are counted by themselves, and by a smaller number:
+ * a program that asks something else in a loop uses up none of them, and
+ * a flood of them leaves the other questions their own minute.
+ */
+func TestPermissionQuestionsAreCountedByThemselves(t *testing.T) {
+	if MostPermissionsAMinute < MostPermissionsWaiting || MostPermissionsAMinute >= MostAMinute {
+		t.Fatalf("%d permission questions a minute, %d wait at once, %d questions a minute", MostPermissionsAMinute, MostPermissionsWaiting, MostAMinute)
+	}
+
+	var all Pace
+
+	permits := Pace{Most: MostPermissionsAMinute}
+	start := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
+
+	// The other questions, to their number and far over it.
+	for i := 0; i < MostAMinute+500; i++ {
+		all.Next(start)
+	}
+
+	if within, _ := all.Next(start); within {
+		t.Fatal("the flood of other questions was not stopped")
+	}
+
+	for i := 0; i < MostPermissionsAMinute; i++ {
+		if within, first := permits.Next(start.Add(time.Second)); !within || first {
+			t.Fatalf("permission question %d of the minute, during a flood of other questions: within %v, first %v", i+1, within, first)
+		}
+	}
+
+	if within, first := permits.Next(start.Add(2 * time.Second)); within || !first {
+		t.Fatalf("the first permission question over its number: within %v, first %v", within, first)
+	}
+
+	if within, first := permits.Next(start.Add(3 * time.Second)); within || first {
+		t.Fatalf("one more over the number: within %v, first %v", within, first)
+	}
+
+	if within, _ := permits.Next(start.Add(time.Minute + time.Second)); !within {
+		t.Error("permission questions still refused a minute later")
+	}
+
+	// A number that makes no sense is the usual one, never "no limit".
+	odd := Pace{Most: -3}
+
+	for i := 0; i < MostAMinute; i++ {
+		odd.Next(start)
+	}
+
+	if within, _ := odd.Next(start); within {
+		t.Error("a pace with a negative number has no limit")
+	}
+
+	en, bg := TooManyPermissions()
+	if !strings.Contains(en, fmt.Sprintf("more than %d questions in a minute", MostPermissionsAMinute)) ||
+		!strings.Contains(bg, fmt.Sprintf("повече от %d въпроса за една минута", MostPermissionsAMinute)) ||
+		!strings.Contains(en, "permission") || !strings.Contains(bg, "разрешение") || strings.ContainsAny(en+bg, "–—") {
+		t.Errorf("the line for too many permission questions: %q / %q", en, bg)
+	}
+
+	if other, _ := TooMany(); other == en {
+		t.Error("the two floods are said with the same line")
+	}
+}
+
 func TestPaceIsSafeFromManyAtOnce(t *testing.T) {
 	var p Pace
 

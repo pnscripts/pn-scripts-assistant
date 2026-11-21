@@ -135,12 +135,23 @@ func (s *Server) handleOutsideAsk(w http.ResponseWriter, r *http.Request) {
 	 * answer to a question already taken is not another question: it does
 	 * no work and writes nothing, and counting it would let one program's
 	 * flood lose another program its answer.
+	 *
+	 * Permission questions are counted by themselves, by a smaller number
+	 * (otherprograms.MostPermissionsAMinute): a program that asks whether
+	 * the assistant is running in a loop must not turn every permission
+	 * question of another program into a no nobody gave, and a flood of
+	 * permission questions must not stop the rest.
 	 */
+	pace, tooMany := &s.outsidePace, otherprograms.TooMany
+	if asked.Tool == otherprograms.PermissionTool {
+		pace, tooMany = &s.permitPace, otherprograms.TooManyPermissions
+	}
+
 	if given.answerTo != "" {
 		// Not counted.
-	} else if within, first := s.outsidePace.Next(time.Now()); !within {
+	} else if within, first := pace.Next(time.Now()); !within {
 		if first {
-			en, _ := otherprograms.TooMany()
+			en, _ := tooMany()
 
 			if err := s.brain.AskedFromOutside(asked.Tool, by, "", agent.DeedRefused, en); err != nil {
 				s.log.Warn("could not record that other programs asked too much", "tool", asked.Tool, "error", err)
@@ -311,8 +322,9 @@ func (s *Server) outsidePermit(w http.ResponseWriter, r *http.Request, by string
 		// Switched off between the door's own look and the brain's.
 		notAllowed()
 	case errors.Is(err, brain.ErrPermitsFull):
-		// On the record like every refusal; the minute's number bounds
-		// how many such lines a program can write.
+		// On the record like every refusal; the minute's number for
+		// permission questions bounds how many such lines a program can
+		// write.
 		full := fmt.Sprintf("Not answered: %d permission questions were waiting already, and no more wait at once.", otherprograms.MostPermissionsWaiting)
 
 		if err := s.brain.AskedFromOutside(otherprograms.PermissionTool, by, "", agent.DeedRefused, full); err != nil {
