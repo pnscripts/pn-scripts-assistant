@@ -57,7 +57,14 @@ window.setInterval = (fn, ms) => { const id = nextTimer++; timers.set(id, { fn, 
 window.setTimeout = (fn, ms) => { const id = nextTimer++; timers.set(id, { fn, ms: Math.max(0, ms || 0), at: now + Math.max(0, ms || 0), every: false }); return id; };
 window.clearInterval = (id) => { timers.delete(id); };
 window.clearTimeout = (id) => { timers.delete(id); };
-window.requestAnimationFrame = (fn) => { const id = nextTimer++; frames.set(id, fn); return id; };
+// whenQueued is called once, the next time a real frame is asked for.
+let whenQueued = null;
+window.requestAnimationFrame = (fn) => {
+    const id = nextTimer++;
+    frames.set(id, fn);
+    if (whenQueued) { const then = whenQueued; whenQueued = null; then(); }
+    return id;
+};
 window.cancelAnimationFrame = (id) => { frames.delete(id); };
 
 function advance(ms) {
@@ -151,6 +158,31 @@ out.busyCalm = during(20000);
 advance(120000);
 out.busyLater = state();
 
+// (Found by a review.) Not working any more, and touched every fifteen
+// seconds for two minutes: a poller of twenty seconds still comes round.
+pulse({ busy: false, waiting: 0 });
+let longer = 0;
+setInterval(() => { longer++; }, 20000);
+for (let i = 0; i < 8; i++) {
+    advance(11000);
+    for (const fn of listeners.pointermove || []) fn();
+    advance(4000);
+}
+out.longer = longer;
+
+// A frame asked for on a calm page and cancelled after it was handed on
+// to be drawn is not drawn.
+advance(11000);
+out.cancelState = state();
+let drewCancelled = 0, drewKept = 0;
+const doomed = requestAnimationFrame(() => { drewCancelled++; });
+requestAnimationFrame(() => { drewKept++; });
+// Cancelled in the moment after the held frames were handed on to a real
+// frame, before that frame comes.
+whenQueued = () => cancelAnimationFrame(doomed);
+advance(2500);
+out.cancelled = { drewCancelled, drewKept };
+
 process.stdout.write(JSON.stringify(out));
 `), 0o644)
 
@@ -184,6 +216,10 @@ process.stdout.write(JSON.stringify(out));
 		BusyCalmAt string
 		BusyCalm   struct{ Fast, Drawn int }
 		BusyLater  string
+
+		Longer      int
+		CancelState string
+		Cancelled   struct{ DrewCancelled, DrewKept int }
 	}
 
 	if err := json.Unmarshal(raw, &out); err != nil {
@@ -246,6 +282,18 @@ process.stdout.write(JSON.stringify(out));
 	if out.BusyCalm.Drawn < 60 || out.BusyCalm.Drawn > 90 || out.BusyCalm.Fast < 10 || out.BusyCalm.Fast > 15 {
 		t.Errorf("a calm page of a working assistant drew %d frames and asked %d times in 20 s; four frames a second and every second and a half are meant",
 			out.BusyCalm.Drawn, out.BusyCalm.Fast)
+	}
+
+	// A poller no faster than the calm pace keeps its own rhythm however
+	// often the page goes calm and is touched: in two minutes a poller of
+	// twenty seconds comes round five or six times, not never.
+	if out.Longer < 5 || out.Longer > 7 {
+		t.Errorf("a poller of twenty seconds ran %d times in two minutes on a page touched every fifteen seconds", out.Longer)
+	}
+
+	if out.CancelState != "calm" || out.Cancelled.DrewCancelled != 0 || out.Cancelled.DrewKept != 1 {
+		t.Errorf("on a %s page a cancelled frame was drawn %d times and the one beside it %d: nought and one are meant",
+			out.CancelState, out.Cancelled.DrewCancelled, out.Cancelled.DrewKept)
 	}
 }
 

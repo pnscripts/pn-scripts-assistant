@@ -81,8 +81,11 @@
     // Every interval the page has asked for, by the id it was given.
     const intervals = new Map();
 
-    // Animation frames asked for while held, run when it wakes.
+    // Animation frames asked for while held, run when it wakes; and the
+    // ones handed on to a real frame that has not come yet, which can
+    // still be cancelled by the id they were given.
     let heldFrames = new Map();
+    const handed = new Map();
     let nextFrame = 1;
 
     let state = 'awake';
@@ -113,6 +116,7 @@
 
         const every = period(entry);
 
+        entry.every = every;
         entry.slowed = every !== entry.ms;
         entry.real = realSetInterval(entry.run, every);
     }
@@ -124,6 +128,20 @@
         }
     }
 
+    /*
+     * A poller is started again only when how often it runs changes. One
+     * that asks no more often than the calm pace allows keeps its own
+     * rhythm across awake and calm: started again at every change, a poller
+     * of twenty seconds on a page touched every fifteen never came round
+     * at all (found by the review of the calm state).
+     */
+    function repace(entry) {
+        if (entry.real !== 0 && entry.every === period(entry)) return;
+
+        stop(entry);
+        start(entry);
+    }
+
     // Ids of its own, far above the browser's, so the two never meet.
     let nextId = 1 << 30;
 
@@ -132,7 +150,7 @@
 
         const id = nextId++;
         const run = () => fn(...args);
-        const entry = { run, ms: Math.max(0, Number(ms) || 0), real: 0, missed: false, slowed: false };
+        const entry = { run, ms: Math.max(0, Number(ms) || 0), real: 0, every: 0, missed: false, slowed: false };
 
         intervals.set(id, entry);
 
@@ -168,16 +186,9 @@
     function calmFrame() {
         frameTimer = 0;
 
-        if (state !== 'calm' || heldFrames.size === 0) return;
+        if (state !== 'calm') return;
 
-        const frames = heldFrames;
-        heldFrames = new Map();
-
-        realFrame((time) => {
-            for (const fn of frames.values()) {
-                try { fn(time); } catch (error) { console.error(error); }
-            }
-        });
+        handOn();
     }
 
     /*
@@ -219,9 +230,31 @@
     }
 
     window.cancelAnimationFrame = function (id) {
-        if (id < 0) heldFrames.delete(id);
-        else realCancelFrame(id);
+        if (id < 0) {
+            heldFrames.delete(id);
+            handed.delete(id);
+        } else {
+            realCancelFrame(id);
+        }
     };
+
+    // Held frames are drawn in one real frame, each unless it was
+    // cancelled in the meantime.
+    function handOn() {
+        if (heldFrames.size === 0) return;
+
+        for (const [id, fn] of heldFrames) handed.set(id, fn);
+        heldFrames = new Map();
+
+        realFrame((time) => {
+            const frames = [...handed];
+            handed.clear();
+
+            for (const [, fn] of frames) {
+                try { fn(time); } catch (error) { console.error(error); }
+            }
+        });
+    }
 
     function setState(next) {
         if (next === state) return;
@@ -247,8 +280,7 @@
                 // moment someone looks.
                 const behind = entry.missed || entry.slowed;
 
-                stop(entry);
-                start(entry);
+                repace(entry);
 
                 if (behind) {
                     entry.missed = false;
@@ -256,17 +288,11 @@
                 }
             }
 
-            const frames = heldFrames;
-            heldFrames = new Map();
-
-            for (const fn of frames.values()) realFrame(fn);
+            handOn();
         } else if (next === 'calm') {
             cadence = busy ? CALM_WORKING : CALM;
 
-            for (const entry of intervals.values()) {
-                stop(entry);
-                start(entry);
-            }
+            for (const entry of intervals.values()) repace(entry);
 
             stillTheEndless();
             stillTimer = realSetInterval(stillTheEndless, cadence.floor);
@@ -365,8 +391,15 @@
         });
 
         // The browser reconnects by itself; an error while resting is not a
-        // reason to wake everything up.
-        pulse.onerror = () => {};
+        // reason to wake everything up. Whether the assistant works is not
+        // known while the stream is down, and "working" left standing
+        // would keep the page from ever resting: the first message after
+        // it is back is read as the first, and wakes the page when the
+        // assistant is working.
+        pulse.onerror = () => {
+            busy = false;
+            lastPulse = null;
+        };
     }
 
     function sameApartFromMemory(a, b) {
