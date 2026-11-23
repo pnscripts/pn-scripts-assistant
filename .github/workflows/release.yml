@@ -347,7 +347,7 @@ jobs:
       # The same budgets as ci.yml, where they are explained and where the
       # runner's own numbers are written down.
       - name: In use, calm, resting and hidden, and the memory held, measured
-        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950 400
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950 240
 
   versions:
     needs: [deb, windows, cli, desktop]
