@@ -17,6 +17,8 @@
  *
  *   - awake: as before. Someone touched the page in the last ten seconds,
  *     or something has just happened (the server says so through /api/pulse).
+ *     A loop that draws less often than the screen refreshes asks for its
+ *     next frame with pnPace.frameIn, and is woken when it has one to draw.
  *   - calm: looked at, not touched, for ten seconds. What the page says stays
  *     current and its decoration waits: the endless animations stand still
  *     (only those: one that plays once still brings in what it brings),
@@ -238,6 +240,62 @@
         }
     };
 
+    /*
+     * A frame no sooner than so many milliseconds from now, for a loop that
+     * draws less often than the screen refreshes.
+     *
+     * Such a loop used to ask for every frame and turn most of them down:
+     * the core draws eight times a second while nothing happens and was
+     * woken sixty times to find that out, and so were the sound traces and
+     * the memory map nobody had open. Asked for through here, the page is
+     * woken when there is something to draw (measured 23.11.2026 on the
+     * real window with the pointer moving over it).
+     *
+     * The wait is a timer and the frame after it goes through the page's
+     * own requestAnimationFrame above, so a calm, resting or hidden page
+     * holds it like any other. A wait shorter than two frames is a plain
+     * frame: a timer cannot pace that finely. Returns a number that
+     * dropFrame takes.
+     */
+    const SHORTEST_WAIT = 34;
+    const waits = new Map();
+    let nextWait = 1;
+
+    function frameIn(ms, fn) {
+        const id = nextWait++;
+        const entry = { timer: 0, frame: 0 };
+        const drawn = (time) => {
+            waits.delete(id);
+            fn(time);
+        };
+
+        waits.set(id, entry);
+
+        if (!(Number(ms) >= SHORTEST_WAIT)) {
+            entry.frame = window.requestAnimationFrame(drawn);
+
+            return id;
+        }
+
+        entry.timer = realSetTimeout(() => {
+            entry.timer = 0;
+            entry.frame = window.requestAnimationFrame(drawn);
+        }, Number(ms));
+
+        return id;
+    }
+
+    function dropFrame(id) {
+        const entry = waits.get(id);
+
+        if (!entry) return;
+
+        waits.delete(id);
+
+        if (entry.timer !== 0) realClearTimeout(entry.timer);
+        else window.cancelAnimationFrame(entry.frame);
+    }
+
     // Held frames are drawn in one real frame, each unless it was
     // cancelled in the meantime.
     function handOn() {
@@ -447,8 +505,10 @@
     window.pnPace = {
         state: () => state,
         wake,
+        frameIn,
+        dropFrame,
         // For tests: what is being held right now.
-        held: () => ({ intervals: intervals.size, frames: heldFrames.size }),
+        held: () => ({ intervals: intervals.size, frames: heldFrames.size, waits: waits.size }),
     };
 
     document.documentElement.dataset.pace = state;

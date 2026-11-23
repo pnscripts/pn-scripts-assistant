@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# load-check.sh — what the assistant costs the machine while nobody uses it.
+# load-check.sh — what the assistant costs the machine, in use and while nobody uses it.
 #
-#   scripts/load-check.sh [program] [budget-resting-%] [budget-hidden-%] [budget-calm-%] [budget-memory-MB]
+#   scripts/load-check.sh [program] [budget-resting-%] [budget-hidden-%] [budget-calm-%] [budget-memory-MB] [budget-awake-%]
 #
 # The CPU budgets depend on the machine; the request check does not: while
 # the page rests, WebKit's network process (every request goes through it)
@@ -10,18 +10,28 @@
 # poller alone makes thousands).
 #
 # Opens the real window (WebKitGTK) on a scratch brain, on its own virtual
-# display, and leaves it untouched. Three times it measures the program, its
-# page and network processes AND the display server, in percent of one core:
+# display. Four times it measures the program, its page and network
+# processes AND the display server, in percent of one core:
 #
+#   - awake: somebody is using it. The pointer is moved over the window once
+#     a second, as a hand on the mouse does (LOAD_CHECK_AWAKE_SECONDS,
+#     measured from LOAD_CHECK_AWAKE_SETTLE seconds after the window opened,
+#     when the page has been drawn for the first time).
 #   - calm: looked at, not touched. From ten seconds after the last touch
 #     pace.js stands the decoration still and slows the asking (20 s,
-#     measured from LOAD_CHECK_CALM_SETTLE seconds after the window opened).
+#     measured from LOAD_CHECK_CALM_SETTLE seconds after the last touch).
 #   - resting: nothing for a minute (30 s).
 #   - hidden: the window unmapped, as minimising does (30 s).
 #
 # And once, while it rests, how much memory the program and its page hold
 # (proportional set size, so memory shared with other programs is counted by
 # its share). Fails when any of them is over its budget.
+#
+# Measured 23.11.2026 on the same machine, busy with other work: the window
+# in use cost 50 to 57 % of a core (the rings of the orb turning, the dots
+# fading at sixty frames a second, three loops asking for every frame); with
+# the rings still, the dots pulsing in steps and the loops woken when they
+# have a frame to draw, 20 to 25 %.
 #
 # Measured 21.11.2026 on four cores without a graphics card (WebKitGTK
 # 2.52.6): before the calm state the untouched window cost 62 % of a core for
@@ -43,6 +53,9 @@ BUDGET_RESTING="${2:-6}"
 BUDGET_HIDDEN="${3:-3}"
 BUDGET_CALM="${4:-12}"
 BUDGET_MEMORY="${5:-550}"
+BUDGET_AWAKE="${6:-35}"
+AWAKE_SETTLE="${LOAD_CHECK_AWAKE_SETTLE:-20}"
+AWAKE_SECONDS="${LOAD_CHECK_AWAKE_SECONDS:-20}"
 CALM_SETTLE="${LOAD_CHECK_CALM_SETTLE:-25}"
 CALM_SECONDS="${LOAD_CHECK_CALM_SECONDS:-20}"
 BUDGET_CALLS="${LOAD_CHECK_CALLS:-200}"
@@ -64,6 +77,7 @@ printf '{"version": %s, "accepted_at": "2026-11-13T00:00:00Z", "language": "en"}
 
 XVFB_PID=""
 APP_PID=""
+TOUCH_PID=""
 
 # Asks a process to stop, waits up to the given seconds and kills it if it is
 # still there, so nothing outlives the check (an Xvfb still starting up when
@@ -82,6 +96,7 @@ stop_pid() {
 
 # shellcheck disable=SC2317 # called by the EXIT trap
 stop_all() {
+    stop_pid "$TOUCH_PID" 2
     stop_pid "$APP_PID" 10
     stop_pid "$XVFB_PID" 5
     rm -rf "$WORK"
@@ -136,8 +151,8 @@ curl -fs -m 2 "http://127.0.0.1:$PORT/health" > /dev/null || { echo "the program
 for _ in $(seq 1 30); do pgrep -P "$APP_PID" WebKitWebProces > /dev/null && break; sleep 1; done
 pgrep -P "$APP_PID" WebKitWebProces > /dev/null || { echo "no window: the page process never started"; tail -20 "$WORK/app.log"; exit 1; }
 
-echo "→ window open on $DISPLAY; leaving it untouched for ${CALM_SETTLE}s so the page goes calm"
-sleep "$CALM_SETTLE"
+echo "→ window open on $DISPLAY; ${AWAKE_SETTLE}s for the page to be drawn for the first time"
+sleep "$AWAKE_SETTLE"
 
 # CPU of the program, everything under it, and the display server, in percent
 # of one core over the given seconds.
@@ -218,6 +233,30 @@ print(f'{total / 1024:.1f}')
 PY
 }
 
+# Somebody using it: the pointer goes to another place in the window once a
+# second for as long as the measuring lasts, and is then left where it is.
+# The places are inside the first screen of every window size the check uses.
+touch_the_window() {
+    local n=0
+    while :; do
+        xdotool mousemove $((300 + (n % 5) * 120)) $((200 + (n % 3) * 90)) 2> /dev/null || true
+        n=$((n + 1))
+        sleep 1
+    done
+}
+
+echo "→ awake (the pointer moving over it), ${AWAKE_SECONDS}s:"
+touch_the_window &
+TOUCH_PID=$!
+awake="$(measure "$AWAKE_SECONDS")"
+kill "$TOUCH_PID" 2> /dev/null || true
+wait "$TOUCH_PID" 2> /dev/null || true
+TOUCH_PID=""
+echo "  awake: $awake % of one core (budget $BUDGET_AWAKE %)"
+
+echo "→ leaving it untouched for ${CALM_SETTLE}s so the page goes calm"
+sleep "$CALM_SETTLE"
+
 echo "→ calm (looked at, not touched), ${CALM_SECONDS}s:"
 calm="$(measure "$CALM_SECONDS")"
 echo "  calm: $calm % of one core (budget $BUDGET_CALM %)"
@@ -261,11 +300,12 @@ hidden="$(measure "$SECONDS_SAMPLED")"
 echo "  hidden: $hidden % of one core (budget $BUDGET_HIDDEN %)"
 
 failed=0
+if over "$awake" "$BUDGET_AWAKE"; then echo "FAIL: the window somebody is using costs $awake %, over $BUDGET_AWAKE %"; failed=1; fi
 if over "$calm" "$BUDGET_CALM"; then echo "FAIL: the window nobody touches costs $calm %, over $BUDGET_CALM %"; failed=1; fi
 if over "$held" "$BUDGET_MEMORY"; then echo "FAIL: the program and its page hold $held MB, over $BUDGET_MEMORY MB"; failed=1; fi
 if over "$resting" "$BUDGET_RESTING"; then echo "FAIL: the resting window costs $resting %, over $BUDGET_RESTING %"; failed=1; fi
 if over "$hidden" "$BUDGET_HIDDEN"; then echo "FAIL: the hidden window costs $hidden %, over $BUDGET_HIDDEN %"; failed=1; fi
 if [ "$network_calls" -gt "$BUDGET_CALLS" ]; then echo "FAIL: the resting page is still asking the program for things ($network_calls system calls in ${SECONDS_SAMPLED}s)"; failed=1; fi
 
-[ "$failed" -eq 0 ] && echo "→ load check OK: calm $calm %, resting $resting %, hidden $hidden % of one core, $held MB"
+[ "$failed" -eq 0 ] && echo "→ load check OK: awake $awake %, calm $calm %, resting $resting %, hidden $hidden % of one core, $held MB"
 exit "$failed"

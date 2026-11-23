@@ -332,10 +332,10 @@ jobs:
 
   # What it costs the machine while nobody uses it (owner 08.11.2026: as
   # little as it possibly can). The packaged program opens its real window on
-  # a virtual display, is left alone, and the program, its page and the
-  # display server together must stay under budget three times: looked at and
-  # not touched (calm), left for a minute (resting), and with the window
-  # hidden. The memory the program and its page hold has a budget too. Before
+  # a virtual display, and the program, its page and the display server
+  # together must stay under budget four times: in use, with the pointer
+  # moving over it (awake), looked at and not touched (calm), left for a
+  # minute (resting), and with the window hidden. The memory the program and its page hold has a budget too. Before
   # pace.js the resting window cost over a whole core, and before its calm
   # state the untouched one cost most of a core for its first minute; see
   # scripts/load-check.sh.
@@ -371,8 +371,13 @@ jobs:
       # before any run and failed that one; the budgets are what was measured
       # with room for a noisy runner, and still far under what they guard
       # against (a page that never goes calm costs over 100 % here).
-      - name: Calm, resting and hidden, and the memory held, measured
-        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950
+      #
+      # The window in use (the pointer moving over it) is measured since
+      # 23.11.2026, the last number. It is wide open here until a run on
+      # this runner has said what the window costs it; a budget for a machine
+      # is set from a run on that machine, never guessed.
+      - name: In use, calm, resting and hidden, and the memory held, measured
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950 400
 
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting

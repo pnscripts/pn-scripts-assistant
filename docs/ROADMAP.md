@@ -180,8 +180,9 @@ gate is what makes a badly behaved model annoying rather than dangerous.
   0.5 %. `scripts/load-check.sh` measures it and CI holds it there. Since
   November 2026 the minute before it rests is light too: ten seconds after
   the last touch the window goes calm (about 6 % of one core instead of
-  62 %), the memory held has a budget, and a release is not published over
-  any of the budgets.
+  62 %), the memory held has a budget, the window in use has one too (20 to
+  25 % of one core with the pointer moving over it, instead of 50 to 57 %),
+  and a release is not published over any of the budgets.
 - **A stranger's install, proved on the published files** (0.11): a clean
   Ubuntu runner installs the released `.deb` with `apt`, a clean Windows runner
   the released installer, after every release.

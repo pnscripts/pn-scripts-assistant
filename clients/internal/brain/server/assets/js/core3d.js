@@ -638,6 +638,18 @@ export function startCore() {
     const WHILE_WORKING = 1000 / 30;
     const WHILE_RESTING = 1000 / 8;
 
+    // With another page open in front of it: how soon it notices it is
+    // looked at again. The last picture stays in the canvas meanwhile.
+    const WHILE_UNSEEN = 400;
+
+    /*
+     * Woken when there is a frame to draw, not sixty times a second to turn
+     * fifty-two of them down (pace.js, frameIn). Without pace.js, as before.
+     */
+    const frameIn = window.pnPace && window.pnPace.frameIn
+        ? window.pnPace.frameIn
+        : (wait, fn) => requestAnimationFrame(fn);
+
     // The states in which nothing is happening that anybody is watching for.
     const QUIET = new Set(['idle', 'listening', 'waiting', 'stopping']);
 
@@ -666,7 +678,10 @@ const FRAME_BUDGET_MS = 9;
 const JUDGE_AFTER = 40;
 
     function frame(now) {
-        requestAnimationFrame(frame);
+        const unseen = canvas.offsetParent === null || document.hidden;
+        const gap = QUIET.has(signals.state || 'idle') ? WHILE_RESTING : WHILE_WORKING;
+
+        frameIn(unseen ? WHILE_UNSEEN : gap, frame);
 
         /*
          * Nothing is drawn while nobody is looking at it.
@@ -680,7 +695,7 @@ const JUDGE_AFTER = 40;
          * is what a hidden view is. Cheap enough to ask every frame, and it
          * asks nothing of the layout that was not already computed.
          */
-        if (canvas.offsetParent === null || document.hidden) return;
+        if (unseen) return;
 
         /*
          * And not more often than it is worth drawing.
@@ -698,8 +713,6 @@ const JUDGE_AFTER = 40;
          * this ever ran at. What is worth thirty frames a second is the brain
          * actually doing something: thinking, working, speaking, learning.
          */
-        const gap = QUIET.has(signals.state || 'idle') ? WHILE_RESTING : WHILE_WORKING;
-
         if (now - drawnAt < gap) return;
 
         const delta = Math.min(0.25, (now - (last || now)) / 1000);

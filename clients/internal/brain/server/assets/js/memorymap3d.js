@@ -604,7 +604,25 @@ export function startMemoryMap() {
 
     let last = performance.now();
 
+    /*
+     * The map is drawn at every frame while it is looked at, because a hand
+     * turns it. With another page in front of it there is nothing to draw,
+     * and it used to be woken sixty times a second to find that out; now it
+     * looks a few times a second whether it has come back (pace.js, frameIn).
+     */
+    const WHILE_UNSEEN = 400;
+    const frameIn = window.pnPace && window.pnPace.frameIn
+        ? window.pnPace.frameIn
+        : (wait, fn) => requestAnimationFrame(fn);
+
     function frame(now) {
+        if (canvas.offsetParent === null) {
+            last = now;
+            frameIn(WHILE_UNSEEN, frame);
+
+            return;
+        }
+
         requestAnimationFrame(frame);
 
         const delta = Math.min(0.1, (now - last) / 1000);
