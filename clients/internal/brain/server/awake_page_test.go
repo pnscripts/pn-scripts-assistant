@@ -15,8 +15,9 @@ import (
  *
  * Measured on 23.11.2026 on the real window (WebKitGTK 2.52.6, a private
  * Xvfb, four cores, the pointer moving over the command centre once a
- * second): 40 % of one core. Without the endless CSS animations 22 %,
- * without the animation frames 30 %. Nothing was happening on the page: the
+ * second): 77 % of one core on a quiet machine. On a busy one, where frames
+ * are dropped, 40 to 57 %; there, without the endless CSS animations 22 %
+ * and without the animation frames 30 %. Nothing was happening on the page: the
  * rings of the orb turned (which cannot be seen, a ring looks the same at
  * every angle), its dot faded smoothly, and three loops asked for every
  * frame of the screen to turn most of them down.

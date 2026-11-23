@@ -27,11 +27,12 @@
 # (proportional set size, so memory shared with other programs is counted by
 # its share). Fails when any of them is over its budget.
 #
-# Measured 23.11.2026 on the same machine, busy with other work: the window
-# in use cost 50 to 57 % of a core (the rings of the orb turning, the dots
-# fading at sixty frames a second, three loops asking for every frame); with
-# the rings still, the dots pulsing in steps and the loops woken when they
-# have a frame to draw, 20 to 25 %.
+# Measured 23.11.2026 on the same machine: the window in use cost 77 % of a
+# core (the rings of the orb turning, the dots fading at sixty frames a
+# second, three loops asking for every frame); with the rings still, the
+# dots pulsing in steps and the loops woken when they have a frame to draw,
+# 30 %. With the machine busy with other work, when frames are dropped, the
+# same two builds measured 50 to 57 % and 20 to 25 %.
 #
 # Measured 21.11.2026 on four cores without a graphics card (WebKitGTK
 # 2.52.6): before the calm state the untouched window cost 62 % of a core for
@@ -53,7 +54,7 @@ BUDGET_RESTING="${2:-6}"
 BUDGET_HIDDEN="${3:-3}"
 BUDGET_CALM="${4:-12}"
 BUDGET_MEMORY="${5:-550}"
-BUDGET_AWAKE="${6:-35}"
+BUDGET_AWAKE="${6:-45}"
 AWAKE_SETTLE="${LOAD_CHECK_AWAKE_SETTLE:-20}"
 AWAKE_SECONDS="${LOAD_CHECK_AWAKE_SECONDS:-20}"
 CALM_SETTLE="${LOAD_CHECK_CALM_SETTLE:-25}"

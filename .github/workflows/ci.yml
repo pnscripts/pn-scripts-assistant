@@ -379,7 +379,7 @@ jobs:
       # hidden 0.3 % and 796 MB. In use the core is drawn eight times a
       # second, and under software GL each of those pictures is the
       # processor's work on every core it has; on a desktop the same window
-      # costs 20 to 25 %. The budget is what was measured with the same
+      # costs 30 %. The budget is what was measured with the same
       # room as the calm one has.
       - name: In use, calm, resting and hidden, and the memory held, measured
         run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950 240

@@ -47,8 +47,8 @@ whenever something visible changed.
   before.
 - **A window you are using costs less than half of what it did.** With
   the pointer moving over the command centre and nothing happening, the
-  window cost 50 to 57 % of one processor core on a four-core computer
-  without a graphics card; it now costs 20 to 25 %, measured the same way.
+  window cost 77 % of one processor core on a four-core computer without a
+  graphics card; it now costs 30 %, measured the same way.
   Three things were drawn for nobody. The rings of the orb beside the name
   turned, which cannot be seen (a ring looks the same at every angle), so
   they stand still. The small dots that pulse (the orb, the microphone
