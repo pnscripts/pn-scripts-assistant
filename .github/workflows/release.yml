@@ -321,9 +321,10 @@ jobs:
   # What it costs a machine while nobody uses it is a gate of the release, as
   # it is of every push (ci.yml "Idle load stays under budget"): the package
   # that is about to be published is installed, its real window is opened on
-  # a virtual display, and the release stops when the untouched, the resting
-  # or the hidden window costs more than its budget, or the program and its
-  # page hold more memory than theirs. See scripts/load-check.sh.
+  # a virtual display, and the release stops when the window in use, the
+  # untouched, the resting or the hidden one costs more than its budget, or
+  # the program and its page hold more memory than theirs. See
+  # scripts/load-check.sh.
   load:
     needs: deb
     name: Idle load stays under budget
@@ -345,8 +346,8 @@ jobs:
 
       # The same budgets as ci.yml, where they are explained and where the
       # runner's own numbers are written down.
-      - name: Calm, resting and hidden, and the memory held, measured
-        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950
+      - name: In use, calm, resting and hidden, and the memory held, measured
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950 240
 
   versions:
     needs: [deb, windows, cli, desktop]

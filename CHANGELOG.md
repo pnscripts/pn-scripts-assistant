@@ -45,10 +45,28 @@ whenever something visible changed.
   same way: about 6 %. A touch, or anything happening, makes it move again
   at once; resting after a minute (about 2 %) and hidden (0.2 %) are as
   before.
+- **A window you are using costs less than half of what it did.** With
+  the pointer moving over the command centre and nothing happening, the
+  window cost 77 % of one processor core on a four-core computer without a
+  graphics card; it now costs 30 %, measured the same way.
+  Three things were drawn for nobody. The rings of the orb beside the name
+  turned, which cannot be seen (a ring looks the same at every angle), so
+  they stand still. The small dots that pulse (the orb, the microphone
+  button, a running step) faded smoothly at sixty frames a second; they
+  now pulse in steps, a handful of frames a second. And the core, the sound
+  traces and the memory map asked for every frame of the screen and turned
+  most of them down; each is now woken when it has a frame to draw, the
+  memory map only while its page is open, and the traces of a quiet room
+  are a flat line drawn once. The core moves as before.
+- **Fixed: a window in use slowly gathered listeners.** The sound traces
+  beside the message box added a listener for the window changing size
+  some fifty times a second, so a window open for hours measured its
+  traces thousands of times over on every resize.
 - **Light on the machine is now a condition of every release.** The check
   that opens the real window on a virtual display has a budget for the
   untouched window and one for the memory the program and its page hold
-  (364 MB measured), beside the ones for the resting and the hidden window.
+  (364 MB measured), beside the ones for the resting and the hidden window,
+  and one for the window in use, with the pointer moving over it.
   It runs on every push and before a release is published, and stops both.
 
 Four notes of the security review of 1.2.0. None of them let another

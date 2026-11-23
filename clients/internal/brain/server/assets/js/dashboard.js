@@ -361,7 +361,8 @@
             rect = measureTrace(canvas);
         }
 
-        if (!rect) return;
+        // Not on the screen yet: nothing was drawn, and the caller is told.
+        if (!rect) return false;
 
         const ctx = canvas.getContext('2d');
 
@@ -396,6 +397,8 @@
 
             ctx.fillRect(i * gap, middle - h / 2, Math.max(1, gap - 1.5), h);
         }
+
+        return true;
     }
 
     const traces = [el('voicewave'), el('wave-left'), el('wave-right')].filter(Boolean);
@@ -412,15 +415,52 @@
      * a canvas can be asked for and was being spent on a strip forty pixels
      * high. Both are gone.
      */
+    const TRACE_EVERY = 70;
     let lastTrace = 0;
 
-    function drawTraces(now) {
-        if (now - lastTrace < 70) {
-            window.addEventListener('resize', () => {
-        for (const canvas of traces) measureTrace(canvas);
+    /*
+     * Woken when a reading is due, not at every frame of the screen to turn
+     * four in five of them down (pace.js, frameIn). Without pace.js, as
+     * before.
+     */
+    const traceIn = window.pnPace && window.pnPace.frameIn
+        ? window.pnPace.frameIn
+        : (wait, fn) => requestAnimationFrame(fn);
+
+    /*
+     * A quiet room is a flat line, and a flat line is drawn once.
+     *
+     * The readings move on through the trace whether or not there is sound
+     * in them, so the same line used to be cleared and drawn again fourteen
+     * times a second, each time a frame for the page, the compositor, the
+     * program and the display. What is kept per canvas is the picture it
+     * shows and the width it was drawn at; nothing is kept while there is
+     * anything but noughts in the trace.
+     */
+    const STILL_EVERY = 250;
+    const still = new Map();
+
+    function stillPicture(reading) {
+        for (const sample of reading.wave) {
+            if (sample) return '';
+        }
+
+        return 'still:' + (reading.source || '');
+    }
+
+    // Measured again when the window changes size, which empties the
+    // canvas, so its flat line is owed again. Listened for once: this used
+    // to be added inside the loop, by every frame it turned down.
+    window.addEventListener('resize', () => {
+        for (const canvas of traces) {
+            measureTrace(canvas);
+            still.delete(canvas);
+        }
     });
 
-    requestAnimationFrame(drawTraces);
+    function drawTraces(now) {
+        if (now - lastTrace < TRACE_EVERY) {
+            traceIn(TRACE_EVERY - (now - lastTrace), drawTraces);
 
             return;
         }
@@ -429,8 +469,19 @@
 
         const reading = window.brainLevel ? window.brainLevel() : null;
 
+        const picture = reading ? stillPicture(reading) : '';
+
         if (reading) {
-            for (const canvas of traces) drawTrace(canvas, reading);
+            for (const canvas of traces) {
+                const shown = picture + '@' + canvas.clientWidth;
+
+                if (picture && still.get(canvas) === shown) continue;
+
+                // Kept only when it was really drawn: a canvas that has no
+                // size yet is tried again until it has one.
+                if (drawTrace(canvas, reading) && picture) still.set(canvas, shown);
+                else still.delete(canvas);
+            }
 
             // Lit by sound that is really there, and in the colour of whoever
             // is making it.
@@ -446,7 +497,9 @@
             }
         }
 
-        requestAnimationFrame(drawTraces);
+        // With nothing to draw it looks four times a second whether there
+        // is sound again; the readings themselves come once a second then.
+        traceIn(picture ? STILL_EVERY : TRACE_EVERY, drawTraces);
     }
 
     requestAnimationFrame(drawTraces);

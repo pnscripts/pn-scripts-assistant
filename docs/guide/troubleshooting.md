@@ -101,9 +101,9 @@ Anything that happens, and any touch, makes it move again at once.
 
 If an untouched window still costs more than a few percent, something on the
 page is not resting: `scripts/load-check.sh` measures it the way CI does,
-with a budget for the calm, the resting and the hidden window and one for
-the memory the program and its page hold. A release is not published when
-any of them is over.
+with a budget for the window in use (the pointer moving over it), for the
+calm, the resting and the hidden window, and one for the memory the program
+and its page hold. A release is not published when any of them is over.
 
 ## A web page cannot reach it, and should not
 

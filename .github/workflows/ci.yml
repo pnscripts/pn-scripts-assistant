@@ -332,10 +332,10 @@ jobs:
 
   # What it costs the machine while nobody uses it (owner 08.11.2026: as
   # little as it possibly can). The packaged program opens its real window on
-  # a virtual display, is left alone, and the program, its page and the
-  # display server together must stay under budget three times: looked at and
-  # not touched (calm), left for a minute (resting), and with the window
-  # hidden. The memory the program and its page hold has a budget too. Before
+  # a virtual display, and the program, its page and the display server
+  # together must stay under budget four times: in use, with the pointer
+  # moving over it (awake), looked at and not touched (calm), left for a
+  # minute (resting), and with the window hidden. The memory the program and its page hold has a budget too. Before
   # pace.js the resting window cost over a whole core, and before its calm
   # state the untouched one cost most of a core for its first minute; see
   # scripts/load-check.sh.
@@ -362,7 +362,8 @@ jobs:
       # costs about 10 % there against 1 % on a desktop, so its CPU budgets
       # are wider; the request count is the same everywhere and is the exact
       # check. The old build measured over 100 % here. In order: resting 20 %,
-      # hidden 3 %, calm 50 % of one core, and 950 MB of memory.
+      # hidden 3 %, calm 50 % of one core, 950 MB of memory, and in use
+      # 240 % of one core.
       #
       # Measured here on 21.11.2026 (run 44943834123): calm 31 %, resting
       # 10 %, hidden 0.1 %, and 796 MB held, 625 MB of it by the page, which
@@ -371,8 +372,17 @@ jobs:
       # before any run and failed that one; the budgets are what was measured
       # with room for a noisy runner, and still far under what they guard
       # against (a page that never goes calm costs over 100 % here).
-      - name: Calm, resting and hidden, and the memory held, measured
-        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950
+      #
+      # The window in use (the pointer moving over it) has a budget since
+      # 23.11.2026, the last number: 240 % of one core. Measured here on
+      # that day (run 45170488109): 151 %, beside calm 31 %, resting 11 %,
+      # hidden 0.3 % and 796 MB. In use the core is drawn eight times a
+      # second, and under software GL each of those pictures is the
+      # processor's work on every core it has; on a desktop the same window
+      # costs 30 %. The budget is what was measured with the same
+      # room as the calm one has.
+      - name: In use, calm, resting and hidden, and the memory held, measured
+        run: bash scripts/load-check.sh /usr/bin/pn-scripts-assistant 20 3 50 950 240
 
   # The shell scripts, at the level that catches real mistakes rather than
   # style. Errors only: this is a gate, and a gate that argues about quoting
