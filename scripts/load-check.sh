@@ -245,6 +245,10 @@ touch_the_window() {
     done
 }
 
+# The first move is not allowed to fail: with a pointer that cannot be moved
+# the window would go calm, and a calm window would be measured as one in use.
+xdotool mousemove 240 160 || { echo "could not move the pointer over the window"; exit 1; }
+
 echo "→ awake (the pointer moving over it), ${AWAKE_SECONDS}s:"
 touch_the_window &
 TOUCH_PID=$!

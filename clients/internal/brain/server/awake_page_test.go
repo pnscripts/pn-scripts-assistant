@@ -83,8 +83,19 @@ func TestALoopIsWokenWhenItHasAFrameToDraw(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "pace.js"), []byte(readAsset(t, filepath.Join("js", "pace.js"))), 0o644)
 
 	os.WriteFile(filepath.Join(dir, "run.js"), []byte(awakeClock+`
-globalThis.document = { hidden: false, documentElement: { dataset: {} }, addEventListener() {}, getAnimations: () => [] };
-globalThis.EventSource = class { addEventListener() {} close() {} };
+const onDocument = {};
+globalThis.document = { hidden: false, documentElement: { dataset: {} }, getAnimations: () => [],
+    addEventListener: (kind, fn) => { (onDocument[kind] = onDocument[kind] || []).push(fn); } };
+
+// The pulse stream, said by the test.
+let stream = null;
+globalThis.EventSource = class {
+    constructor() { this.handlers = {}; stream = this; }
+    addEventListener(kind, fn) { this.handlers[kind] = fn; }
+    close() { stream = null; }
+};
+const pulse = (said) => stream && stream.handlers.pulse({ data: JSON.stringify(said) });
+const show = (shown) => { document.hidden = !shown; for (const fn of onDocument.visibilitychange || []) fn(); };
 
 new Function(fs.readFileSync(path.join(dir, 'pace.js'), 'utf8'))();
 
@@ -137,6 +148,15 @@ out.dropped = { droppedEarly, droppedLate, kept };
 advance(11000);
 out.calm = during(20000, false);
 
+// (Found by a review.) On a calm page a frame dropped by another frame of
+// the same held batch is not drawn either.
+let droppedInBatch = 0, dropper = 0;
+let victim = 0;
+window.pnPace.frameIn(40, () => { dropper++; window.pnPace.dropFrame(victim); });
+victim = window.pnPace.frameIn(40, () => { droppedInBatch++; });
+advance(4500);
+out.batch = { dropper, droppedInBatch, state: state() };
+
 // A minute and a half: resting, nothing drawn, and nothing asked for.
 advance(90000);
 out.resting = during(30000, false);
@@ -146,6 +166,23 @@ const before = drawn;
 touch(); advance(40);
 out.wokeDrawn = drawn - before;
 out.after = during(5000, true);
+
+// Minimised: nothing drawn and nothing asked for; shown again, drawn at once.
+show(false);
+out.hidden = during(10000, false);
+const beforeShown = drawn;
+show(true); advance(40);
+out.shownDrawn = drawn - beforeShown;
+
+// (Found by a review.) While the assistant works the page is calm at four
+// frames a second, and the loop draws at that pace: its own wait is not
+// added on top of the calm one.
+pulse({ busy: false, waiting: 0 });
+pulse({ busy: true, waiting: 0 });
+advance(12000);
+out.working = during(20000, false);
+pulse({ busy: false, waiting: 0 });
+touch(); advance(1000);
 out.waits = window.pnPace.held().waits;
 
 process.stdout.write(JSON.stringify(out));
@@ -168,7 +205,15 @@ process.stdout.write(JSON.stringify(out));
 		Quick   int
 		Dropped struct{ DroppedEarly, DroppedLate, Kept int }
 		Calm    span
+		Batch   struct {
+			Dropper, DroppedInBatch int
+			State                   string
+		}
 		Resting span
+		Hidden  span
+		Working span
+
+		ShownDrawn int
 
 		WokeDrawn int
 		After     span
@@ -210,8 +255,25 @@ process.stdout.write(JSON.stringify(out));
 	}
 
 	// Calm: with every other frame, one every two seconds.
-	if out.Calm.State != "calm" || out.Calm.Drawn < 6 || out.Calm.Drawn > 12 {
+	if out.Calm.State != "calm" || out.Calm.Drawn < 9 || out.Calm.Drawn > 11 {
 		t.Errorf("on a %s page the loop drew %d times in 20 s; calm and one every two seconds is meant", out.Calm.State, out.Calm.Drawn)
+	}
+
+	if out.Batch.State != "calm" || out.Batch.Dropper != 1 || out.Batch.DroppedInBatch != 0 {
+		t.Errorf("on a %s page a frame dropped by the frame before it in the same batch was drawn %d times (the one that dropped it %d)", out.Batch.State, out.Batch.DroppedInBatch, out.Batch.Dropper)
+	}
+
+	if out.Hidden.State != "hidden" || out.Hidden.Drawn != 0 || out.Hidden.Frames != 0 {
+		t.Errorf("on a %s page the loop drew %d times and %d frames were asked for in 10 s; hidden, nothing", out.Hidden.State, out.Hidden.Drawn, out.Hidden.Frames)
+	}
+
+	if out.ShownDrawn < 1 {
+		t.Error("shown again, the picture did not come back at once")
+	}
+
+	// Four frames a second for twenty seconds.
+	if out.Working.State != "calm" || out.Working.Drawn < 72 || out.Working.Drawn > 84 {
+		t.Errorf("while the assistant works the loop drew %d times in 20 s on a %s page; calm and four a second is meant", out.Working.Drawn, out.Working.State)
 	}
 
 	if out.Resting.State != "resting" || out.Resting.Drawn != 0 || out.Resting.Frames != 0 {
@@ -415,7 +477,7 @@ func TestEveryEndlessAnimationMovesInSteps(t *testing.T) {
 		t.Fatal("the stylesheet names no stepped timing (--in-steps)")
 	}
 
-	endless := regexp.MustCompile(`animation(?:-iteration-count)?:[^;{}]*infinite[^;{}]*;`)
+	endless := regexp.MustCompile(`animation(?:-iteration-count)?:[^;{}]*infinite[^;{}]*[;}]`)
 	found := endless.FindAllString(css, -1)
 
 	if len(found) < 5 {
@@ -475,8 +537,17 @@ func TestTheScenesAskForTheFramesTheyDraw(t *testing.T) {
 			t.Errorf("%s does not ask pace.js for its frames (pnPace.frameIn)", name)
 		}
 
-		if !strings.Contains(body[:strings.Index(body, "\n    }\n")], "WHILE_UNSEEN") {
+		body = body[:strings.Index(body, "\n    }\n")]
+
+		if !strings.Contains(body, "WHILE_UNSEEN") {
 			t.Errorf("%s does not wait longer for its next frame while another page is open in front of it", name)
+		}
+
+		// (Found by a review.) A frame that comes a moment early is turned
+		// down; what is asked for then is the rest of the wait, not the
+		// whole of it again, or the picture is drawn half as often.
+		if name == "core3d.js" && !regexp.MustCompile(`if \(since < gap\) \{\s+frameIn\(gap - since, frame\);\s+return;`).MatchString(body) {
+			t.Errorf("%s: a frame turned down for coming early does not ask for the rest of its wait", name)
 		}
 	}
 }

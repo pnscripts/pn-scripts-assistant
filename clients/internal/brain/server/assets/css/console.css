@@ -38,7 +38,7 @@
        graphics card that was most of what a used window cost (23.11.2026).
        In steps the same pulse is a handful of frames a second and reads the
        same at that size. Every endless animation in this file moves this
-       way: assets_test.go refuses one that does not. */
+       way: awake_page_test.go refuses one that does not. */
     --in-steps: steps(6, jump-none);
     --in-steps-slow: steps(8, jump-none);
 

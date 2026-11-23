@@ -254,8 +254,11 @@
      * The wait is a timer and the frame after it goes through the page's
      * own requestAnimationFrame above, so a calm, resting or hidden page
      * holds it like any other. A wait shorter than two frames is a plain
-     * frame: a timer cannot pace that finely. Returns a number that
-     * dropFrame takes.
+     * frame: a timer cannot pace that finely. On a page that holds its
+     * frames the wait is not added on top of the holding: a resting or
+     * hidden page draws when it wakes, and a calm one at its own pace
+     * unless the wait asked for is longer than that. Returns a number
+     * that dropFrame takes.
      */
     const SHORTEST_WAIT = 34;
     const waits = new Map();
@@ -264,14 +267,17 @@
     function frameIn(ms, fn) {
         const id = nextWait++;
         const entry = { timer: 0, frame: 0 };
+        // Not drawn when it was dropped meanwhile, also by a frame drawn
+        // just before it in the same batch of held frames.
         const drawn = (time) => {
-            waits.delete(id);
-            fn(time);
+            if (waits.delete(id)) fn(time);
         };
 
         waits.set(id, entry);
 
-        if (!(Number(ms) >= SHORTEST_WAIT)) {
+        const held = holding() || (state === 'calm' && Number(ms) <= cadence.frame);
+
+        if (held || !(Number(ms) >= SHORTEST_WAIT)) {
             entry.frame = window.requestAnimationFrame(drawn);
 
             return id;
