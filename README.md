@@ -4,7 +4,7 @@
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.26-00ADD8.svg)](clients/go.mod)
 
-PN Scripts Assistant is a [PN Scripts](https://pnscripts.com) product ([product page](https://pnscripts.com/products/pn-scripts-assistant)).
+PN Scripts Assistant is a [PN Scripts](https://pnscripts.com) product ([product page](https://pnscripts.com/marketplace/pn-scripts-assistant)).
 
 A personal, self-learning AI assistant that runs entirely on your own machine.
 
