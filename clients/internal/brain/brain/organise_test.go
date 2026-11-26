@@ -127,6 +127,30 @@ func TestAProjectInConversation(t *testing.T) {
 	conv, _ := b.DB.NewConversation("tetris")
 	dir := filepath.Join(t.TempDir(), "tetris")
 
+	/*
+	 * The project's work goes on in the background after the test has
+	 * seen what it wanted, writing into dir. Stopped and waited for before
+	 * the temporary folder is removed (cleanups run last registered
+	 * first); the folder was removed under it otherwise, about 3 runs in
+	 * 12 under the race detector (ASSISTANT-FLAKE-PROJECT-TEMPDIR-1121).
+	 */
+	t.Cleanup(func() {
+		b.Jobs.StopAll()
+
+		done := make(chan struct{})
+
+		go func() {
+			b.Jobs.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(60 * time.Second):
+			t.Error("the project's background work did not stop within a minute")
+		}
+	})
+
 	steps := []struct {
 		say, want string
 	}{
