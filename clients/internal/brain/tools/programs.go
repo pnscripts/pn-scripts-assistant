@@ -131,7 +131,7 @@ func (t ListPrograms) Execute(_ context.Context, raw json.RawMessage) (string, e
 	stopped := ""
 	if choices != nil && choices.Stopped {
 		stopped = "Stopped: the owner stopped all use of other programs on " + choices.Since.Local().Format("2 Jan 2006 at 15:04") +
-			"; nothing is opened, typed, clicked, scrolled or run in another program until they turn it back on " +
+			"; no other program is opened, typed or clicked in, scrolled or run as a command until they turn it back on " +
 			"(\"Use other programs again\" on the Programs page). "
 	}
 

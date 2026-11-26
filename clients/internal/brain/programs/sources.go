@@ -684,13 +684,19 @@ func subdirs(dir string, depth int) []string {
 // mostFile bounds a menu entry or a metadata file.
 const mostFile = 1 << 20
 
+// readSmall is a regular file of at most mostFile bytes, opened once
+// without waiting (openToRead) and measured as opened.
 func readSmall(path string) ([]byte, error) {
-	f, err := os.Open(path)
+	f, err := openToRead(path)
 	if err != nil {
 		return nil, err
 	}
 
 	defer f.Close()
+
+	if st, err := f.Stat(); err != nil || !plainFile(st.Mode()) {
+		return nil, fmt.Errorf("%s is not a plain file", path)
+	}
 
 	b, err := io.ReadAll(io.LimitReader(f, mostFile+1))
 	if err != nil {

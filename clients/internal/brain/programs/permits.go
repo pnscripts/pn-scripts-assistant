@@ -179,7 +179,7 @@ func Match(records []Record, u Use) []Record {
 			id := strings.TrimSuffix(r.ID, ".desktop")
 
 			switch {
-			case desktop != "" && strings.EqualFold(id, desktop):
+			case desktop != "" && sameID(id, desktop):
 				add(r)
 			case u.Path != "" && r.Exec != "" && !startsOthers(r.Exec) && sameProgram(r.Exec, u.Path):
 				// A file elsewhere shares only the name with an entry
@@ -190,7 +190,7 @@ func Match(records []Record, u Use) []Record {
 				} else {
 					add(r)
 				}
-			case flatpak != "" && strings.EqualFold(id, flatpak):
+			case flatpak != "" && sameID(id, flatpak):
 				add(r)
 			}
 		case Snap:
@@ -272,6 +272,8 @@ func startsOthers(exec string) bool {
 	case "env", "sh", "bash", "dash", "zsh", "fish", "ksh", "busybox",
 		"flatpak", "snap", "gtk-launch", "gio", "xdg-open", "dex", "kioclient", "kioclient5",
 		"sudo", "doas", "pkexec", "nohup", "setsid", "nice", "ionice", "timeout", "stdbuf", "systemd-run", "xargs", "script",
+		"su", "runuser", "taskset", "chrt", "flock", "strace", "ltrace", "watch", "unshare", "nsenter", "chroot",
+		"dbus-run-session", "xvfb-run",
 		"java", "javaw", "mono", "dotnet", "wine", "wine64", "electron", "deno", "bun",
 		"cmd", "powershell", "pwsh", "wscript", "cscript", "rundll32", "explorer", "msiexec":
 		return true
@@ -284,6 +286,20 @@ func startsOthers(exec string) bool {
 	}
 
 	return false
+}
+
+/*
+ * sameID is whether two menu ids (or a menu id and a Flatpak id) are one:
+ * letter for letter on Linux, where org.gimp.GIMP and org.gimp.gimp are
+ * two entries and a file of the user's can be named like another's in
+ * other letters; without case on Windows, where names are told apart so.
+ */
+func sameID(a, b string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+
+	return a == b
 }
 
 // namedInFull is a file given by its whole place, from the root (or a
@@ -562,7 +578,7 @@ func GoneSentence(r Record) string {
  */
 func StoppedSentence(since time.Time) string {
 	return "Refused: the owner stopped all use of other programs on " + since.Local().Format("2 Jan 2006 at 15:04") +
-		", so nothing is opened, typed, clicked, scrolled or run in another program. Do not try it again; say so. " +
+		", so no other program is opened, typed or clicked in, scrolled or run as a command. Do not try it again; say so. " +
 		"They can turn it back on with \"Use other programs again\" on the Programs page."
 }
 

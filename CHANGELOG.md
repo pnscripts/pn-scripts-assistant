@@ -108,6 +108,37 @@ believed.
   live on a stick). It is made on the first start and kept; nothing needs
   doing. If another program starts `pn-scripts-assistant mcp` under another
   account or settings folder, it cannot read the key and says so.
+- **Your choices on a program's card hold in more of the ways it can be
+  started.** Found by a read of what the 1.2.0 review had not read in
+  depth. A "never" on a program now also reaches it when a command runs
+  it through `su -c`, `runuser`, `taskset`, `chrt`, `flock`, `strace`,
+  `watch`, `unshare`, `nsenter`, `chroot`, `dbus-run-session`, `xvfb-run`,
+  `find -exec`, a terminal's `-e`, `cmd /c` or PowerShell's `-Command`;
+  through any of them its "always" is not used, so it is asked. Opening an
+  application by a place (`/tmp/gimp`) no longer borrows the "always" of
+  the program of that name and is not opened: a file is run as a command.
+  A name that found a menu entry is never run as a command of its first
+  word instead when the entry cannot be started ("text editor" no longer
+  runs a program called `text`). An "always" on a snap's, a Flatpak's, a
+  D-Bus started or a script's menu entry is now asked again when the
+  program behind it is updated, and when an entry of the same name is put
+  into your own menu folder; after updating, such an "always" is asked
+  about once. Menu and Flatpak ids are told apart by case on Linux.
+- **Imported MCP settings: what is hidden and what is followed.** A
+  setting whose name only mentions a key while naming a place, an address
+  or a command (`AUTH_URL`, `TOKEN_ENDPOINT`, `KEY_FILE`, `TOKEN_COMMAND`,
+  `XAUTHORITY`) is now shown on the card, and changing it in the other
+  program asks for approval again; before, it was hidden and could change
+  unseen. A key inside a value under a plain name (an address with
+  `?api_key=`, a connection string with `Password=`) is now kept sealed
+  instead of shown. A settings file that is a pipe or a device no longer
+  stops the look at the other programs' settings, and none is read past
+  32 MB, even while it grows.
+- **"Stop using other programs" says what it covers.** The page, the
+  guide and what the model is told now name what the switch does not
+  stop (the assistant's own browser, coding agents and your own Claude,
+  game builds, installing, stopping a leftover process, approved
+  integrations) instead of saying nothing runs.
 - **The rules for work done on another program's behalf are kept, and
   watched.** Nothing other programs can ask today has the assistant do
   anything for them, so those rules (every such action asked at the desk

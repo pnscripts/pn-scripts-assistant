@@ -90,6 +90,19 @@ func (OpenApp) ProgramUse(_ context.Context, raw json.RawMessage) programs.Use {
 		return u
 	}
 
+	/*
+	 * A place ("/tmp/gimp", "./gimp") is a file, said as a command says
+	 * one: elsewhere unless it is the very file its name runs here, so a
+	 * card that knows the program by its file name lends it nothing.
+	 * Execute does not open it either.
+	 */
+	if givenByPlace(name) {
+		c := commandUse(strings.Fields(name)[:1], "")
+		c.Verb = programs.VerbStart
+
+		return c
+	}
+
 	// The same order Execute tries: the menu entry, then a command.
 	if entry, ok := findDesktopEntry(name); ok {
 		u.Desktop = entry
@@ -198,11 +211,33 @@ func alsoRun(argv []string, dir string) []programs.Use {
 		return true
 	}
 
+	/*
+	 * wrapper is one of the wrappers read since the read after 1.2.0 (su,
+	 * find, a terminal, cmd, powershell...; wrappers.go) that the walk
+	 * passes through on its way in: named too, so a "never" on its own
+	 * card still refuses the call, as when it was read as the program
+	 * itself; like the rest, it allows nothing.
+	 */
+	wrapper := func(argv []string) {
+		if !namedWrapper(argv) {
+			return
+		}
+
+		u := useOf(argv[:1], dir, true)
+
+		if !u.Empty() && !seen[u] {
+			seen[u] = true
+			out = append(out, u)
+		}
+	}
+
 	var walk func(argv []string, depth int)
 
 	walk = func(argv []string, depth int) {
 		for step := 0; step < 12 && len(argv) > 0 && depth < 8; step++ {
 			if line, ok := lineOf(argv); ok {
+				wrapper(argv)
+
 				for _, cmd := range commandsOf(line, 0) {
 					if add(cmd) {
 						walk(cmd, depth+1)
@@ -224,6 +259,8 @@ func alsoRun(argv []string, dir string) []programs.Use {
 			if !was {
 				return
 			}
+
+			wrapper(argv)
 
 			argv = rest
 		}
@@ -248,6 +285,10 @@ func lineOf(argv []string) (string, bool) {
 	}
 
 	rest := argv[1:]
+
+	if line, ok, known := handedLine(argv); known {
+		return line, ok
+	}
 
 	switch base := filepath.Base(argv[0]); {
 	case shellNames[base]:
@@ -646,21 +687,25 @@ var statProgram = os.Stat
  * elsewhere.
  */
 func commandUse(argv []string, dir string) programs.Use {
-	u := programs.Use{Verb: programs.VerbChange}
-
 	inside, wrapped := unwrapped(argv)
 
-	if len(inside) == 0 || strings.TrimSpace(inside[0]) == "" {
+	return useOf(inside, dir, wrapped)
+}
+
+/*
+ * useOf is the program argv names by its first word, not unwrapped.
+ * Read through a wrapper (wrapped), the program is named so that its card
+ * can refuse it, and no card allows it: env can change which file runs
+ * and what it loads, and a shell line can run anything after it.
+ */
+func useOf(argv []string, dir string, wrapped bool) programs.Use {
+	u := programs.Use{Verb: programs.VerbChange}
+
+	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
 		return u
 	}
 
-	/*
-	 * Read through a wrapper, the program is named so that its card can
-	 * refuse it, and no card allows it: env can change which file runs
-	 * and what it loads, and a shell line can run anything after it.
-	 */
 	u.Wrapped = wrapped
-	argv = inside
 
 	first := filepath.Base(argv[0])
 
@@ -866,6 +911,10 @@ func insideOf(argv []string) ([]string, bool) {
 		if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
 			return rest, true
 		}
+	}
+
+	if inside, was, known := moreWrapped(argv); known {
+		return inside, was
 	}
 
 	// A shell given one line, and script -c: the line's first command.
