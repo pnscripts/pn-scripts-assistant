@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 /*
@@ -289,5 +290,85 @@ func TestDesktopIDsAreToldApartByCaseOnLinux(t *testing.T) {
 
 	if got := Match([]Record{flat}, Use{Verb: VerbChange, Flatpak: "org.gimp.GIMP"}); len(got) != 1 {
 		t.Errorf("org.gimp.GIMP: %+v", got)
+	}
+}
+
+/*
+ * Found by the review of the fix: a wrapper script that writes a log was
+ * followed into the log, so its "always" slept after every start; and a
+ * pipe put where a script or a service file was expected held whoever
+ * worked out the fingerprint until something wrote to it.
+ */
+func TestAScriptsLogIsNotFollowedAndAPipeDoesNotHoldTheLook(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("scripts with #! and pipes in folders are Linux things")
+	}
+
+	m := scratchMachine(t)
+
+	real := m.write(t, "/opt/demo/demo-bin", "one", 0o755)
+	log := m.write(t, "/var/log/demo.log", "", 0o644)
+	wrapper := m.write(t, "/usr/bin/demo", "#!/bin/sh\nexec "+real+" \"$@\" >> "+log+" 2>&1\n", 0o755)
+
+	r := m.entry(t, "demo.desktop", "Exec="+wrapper+" %F\n")
+	before := Pin(r, noLook)
+
+	// Started once: the log grew.
+	m.write(t, "/var/log/demo.log", "started\n", 0o644)
+
+	if after := Pin(r, noLook); before != after {
+		t.Error("the log a wrapper script writes changed the fingerprint")
+	}
+
+	// Pipes where the script and the service file were.
+	os.Remove(wrapper)
+
+	if err := mkfifo(wrapper); err != nil {
+		t.Skip("no pipes here:", err)
+	}
+
+	service := m.at("/home/you/.local/share/dbus-1/services/org.example.Pipe.service")
+	os.MkdirAll(filepath.Dir(service), 0o755)
+
+	if err := mkfifo(service); err != nil {
+		t.Fatal(err)
+	}
+
+	dbus := m.entry(t, "org.example.Pipe.desktop", "DBusActivatable=true\nExec="+wrapper+"\n")
+
+	done := make(chan struct{})
+
+	go func() {
+		Pin(r, noLook)
+		Pin(dbus, noLook)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(20 * time.Second):
+		t.Fatal("a pipe held the fingerprint")
+	}
+
+	// A menu entry that is a pipe has nothing to follow, and holds nothing.
+	pipeEntry := m.at("/usr/share/applications/pipe.desktop")
+	if err := mkfifo(pipeEntry); err != nil {
+		t.Fatal(err)
+	}
+
+	done = make(chan struct{})
+
+	go func() {
+		if got := Pin(Record{Program: Program{Kind: App, ID: "pipe.desktop", Path: pipeEntry}}, noLook); got != "" {
+			t.Errorf("a pipe has a fingerprint: %q", got)
+		}
+
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(20 * time.Second):
+		t.Fatal("a menu entry that is a pipe held the fingerprint")
 	}
 }

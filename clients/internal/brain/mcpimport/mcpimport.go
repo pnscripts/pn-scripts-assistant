@@ -772,19 +772,28 @@ func credentialName(name string) bool {
 
 	words := flagWords(name)
 
+	// The last key's word decides: KEY_STORE_PASSWORD holds a password,
+	// PASSWORD_STORE_DIR a folder.
+	last := -1
+
 	for i, w := range words {
 		if switchWords[w] {
 			return false
 		}
 
-		if !secretName.MatchString(w) {
-			continue
+		if secretName.MatchString(w) || credentialWords[w] {
+			last = i
 		}
+	}
 
-		for _, after := range words[i+1:] {
-			if notAKeyValue[after] || notAKeyValue[strings.TrimSuffix(after, "s")] {
-				return false
-			}
+	if last < 0 {
+		// The key's word spans words of the name: hidden, as it was.
+		return true
+	}
+
+	for _, after := range words[last+1:] {
+		if notAKeyValue[after] || notAKeyValue[strings.TrimSuffix(after, "s")] {
+			return false
 		}
 	}
 

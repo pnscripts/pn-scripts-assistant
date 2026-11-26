@@ -123,3 +123,20 @@ func TestAChangedPlaceUnderAKeysWordIsANewDefinition(t *testing.T) {
 		t.Error("a renewed key changed the fingerprint")
 	}
 }
+
+// Found by the review of the fix: the last key's word decides, so a name
+// that ends in a key after a place's word stays hidden.
+func TestTheLastKeysWordOfANameDecides(t *testing.T) {
+	for _, name := range []string{"KEY_STORE_PASSWORD", "SSH_KEY_PATH_PASSPHRASE", "PRIVATE_KEY_FILE_PASSWORD",
+		"AUTH_SERVER_TOKEN", "AUTH_SERVER_API_KEY", "TOKEN_URL_SECRET"} {
+		if !Secret(name, "x") {
+			t.Errorf("%s is shown: it holds a key", name)
+		}
+	}
+
+	for _, name := range []string{"PASSWORD_STORE_DIR", "API_KEY_HELPER", "SSH_AUTH_SOCK", "KEY_FILE"} {
+		if Secret(name, "/a/place") {
+			t.Errorf("%s is hidden: it holds a place", name)
+		}
+	}
+}

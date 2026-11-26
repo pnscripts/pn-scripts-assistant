@@ -197,7 +197,7 @@ func (OpenApp) Execute(ctx context.Context, raw json.RawMessage) (string, error)
 	// A place is a file, not an application's name: ProgramUse says it is
 	// elsewhere, and a file is run as a command, where it is ruled on as one.
 	if givenByPlace(name) {
-		return "", fmt.Errorf("%q is a file, not the name of an application: open_app opens installed applications by name; to run a file, use run_command", name)
+		return "", fmt.Errorf("%q is a file, not the name of an application; to run a file, use run_command", name)
 	}
 
 	/*

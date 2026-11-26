@@ -256,3 +256,78 @@ func TestTheWrappersOfTheReadAfter120AreSeenThrough(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Found by the review of the fix: read through, a wrapper was no longer
+ * named at all, so a "never" on its own card (find, a terminal,
+ * powershell, su), which refused the call when the wrapper was read as
+ * the program, refused nothing. And strace's -A and -n take no value,
+ * ltrace's -l does.
+ */
+func TestANeverOnTheWrapperItselfStillRefuses(t *testing.T) {
+	swapFinding(t, nil, map[string]string{"rm": "/usr/bin/rm", "find": "/usr/bin/find", "gnome-terminal": "/usr/bin/gnome-terminal",
+		"powershell": "/usr/bin/powershell", "su": "/usr/bin/su", "cmd": "/usr/bin/cmd", "taskset": "/usr/bin/taskset", "bash": "/usr/bin/bash"})
+
+	card := func(name string) programs.Record {
+		return programs.Record{Program: programs.Program{Kind: programs.App, ID: name + ".desktop", Name: name, Exec: name},
+			RowID: 40, Present: true}
+	}
+	never := map[int64][]programs.Permit{40: {{Verb: programs.VerbChange, Answer: programs.Never}}}
+
+	for wrapper, argv := range map[string][]string{
+		"find":           {"find", ".", "-exec", "rm", "{}", ";"},
+		"gnome-terminal": {"gnome-terminal", "--", "bash"},
+		"powershell":     {"powershell", "-Command", "rm x"},
+		"su":             {"su", "-c", "rm x"},
+		"cmd":            {"cmd", "/c", "rm x"},
+		"taskset":        {"taskset", "1", "rm", "x"},
+	} {
+		raw, _ := json.Marshal(map[string]any{"argv": argv})
+
+		refused := false
+
+		uses := append([]programs.Use{}, AlsoRunsOf(context.Background(), RunCommand{}, raw)...)
+		if u, ok := ProgramUseOf(context.Background(), RunCommand{}, raw); ok {
+			uses = append(uses, u)
+		}
+
+		for _, u := range uses {
+			if programs.Rule(programs.Match([]programs.Record{card(wrapper)}, u), never, programs.VerbChange).Answer == programs.Never {
+				refused = true
+			}
+
+			if u.Name == wrapper && !u.Wrapped {
+				t.Errorf("%q: the wrapper %s is named as one that may be allowed: %+v", argv, wrapper, u)
+			}
+		}
+
+		if !refused {
+			t.Errorf("%q: a never on %s does not refuse it: %+v", argv, wrapper, uses)
+		}
+	}
+
+	// A plain command still says nothing more.
+	raw, _ := json.Marshal(map[string]any{"argv": []string{"rm", "x"}})
+	if more := AlsoRunsOf(context.Background(), RunCommand{}, raw); len(more) != 0 {
+		t.Errorf("a plain command also runs %+v", more)
+	}
+}
+
+func TestTracersOptionsAreReadAsTheyAre(t *testing.T) {
+	swapFinding(t, nil, map[string]string{"rm": "/usr/bin/rm"})
+
+	for _, argv := range [][]string{
+		{"strace", "-A", "-o", "log", "rm", "x"},
+		{"strace", "-n", "rm", "x"},
+		{"strace", "--quiet", "rm", "x"},
+		{"strace", "--decode-fds", "rm", "x"},
+		{"ltrace", "-l", "libfoo.so", "rm", "x"},
+		{"ltrace", "-A", "5", "-n", "2", "rm", "x"},
+	} {
+		raw, _ := json.Marshal(map[string]any{"argv": argv})
+
+		if u, _ := ProgramUseOf(context.Background(), RunCommand{}, raw); u.Name != "rm" || !u.Wrapped {
+			t.Errorf("%q: %+v, want rm", argv, u)
+		}
+	}
+}

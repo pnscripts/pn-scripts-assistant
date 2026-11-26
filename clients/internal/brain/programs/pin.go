@@ -282,20 +282,20 @@ const (
 )
 
 /*
- * namedByScript is every regular file a script names by its whole place,
- * in the order they come, each once, at most mostNamed: the program a
- * wrapper script runs is one of them. Not its #! line (the interpreter's
- * updates are not this program's) and not the script itself. A file that
- * is not a script (it does not begin with "#!"), or is larger than
- * mostScript, names nothing. A place the script puts together while it
- * runs ($HERE/bin/x) is not seen.
+ * namedByScript is every program file (regular, executable by someone) a
+ * script names by its whole place, in the order they come, each once, at
+ * most mostNamed: the program a wrapper script runs is one of them. Not
+ * its #! line (the interpreter's updates are not this program's) and not
+ * the script itself. A file that is not a script (it does not begin with
+ * "#!"), or is larger than mostScript, names nothing. A place the script
+ * puts together while it runs ($HERE/bin/x) is not seen.
  */
 func namedByScript(path string) []string {
 	if path == "" || !namedInFull(path) {
 		return nil
 	}
 
-	f, err := os.Open(path)
+	f, err := openToRead(path)
 	if err != nil {
 		return nil
 	}
@@ -333,7 +333,10 @@ func namedByScript(path string) []string {
 
 		seen[p] = true
 
-		if st, err := os.Stat(p); err != nil || !st.Mode().IsRegular() {
+		// A program: a regular file someone may run. Not a log, a pid
+		// file or a setting the script writes to, which change with
+		// every start and would make the "always" sleep each time.
+		if st, err := os.Stat(p); err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o111 == 0 {
 			continue
 		}
 
@@ -358,12 +361,16 @@ var placeInScript = regexp.MustCompile(`/[A-Za-z0-9._+@-]+(?:/[A-Za-z0-9._+@-]+)
  * empty for what is not a .desktop file.
  */
 func whatItStarts(entry string) (starts, line string, ok bool) {
-	f, err := os.Open(entry)
+	f, err := openToRead(entry)
 	if err != nil {
 		return "", "", false
 	}
 
 	defer f.Close()
+
+	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
+		return "", "", false
+	}
 
 	raw, err := io.ReadAll(io.LimitReader(f, mostEntry+1))
 	if err != nil || len(raw) > mostEntry {

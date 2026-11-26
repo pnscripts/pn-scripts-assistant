@@ -143,10 +143,14 @@ func moreWrapped(argv []string) (inside []string, was, known bool) {
 		}
 
 		return after, true, true
-	case "strace", "ltrace":
-		return pastOptions(rest, "abeEIoOpPsSuUXAn", "--attach", "--output", "--signal", "--string-limit", "--user",
-			"--env", "--trace", "--status", "--columns", "--decode-fds", "--quiet", "--summary-columns",
-			"--summary-sort-by", "--inject", "--fault", "--trace-path", "--library"), true, true
+	case "strace":
+		// Options whose value is optional (--quiet, --decode-fds) take it
+		// after "=" only.
+		return pastOptions(rest, "abeEIoOpPsSuUX", "--attach", "--output", "--signal", "--string-limit", "--user",
+			"--env", "--trace", "--status", "--columns", "--summary-columns", "--summary-sort-by", "--inject",
+			"--fault", "--trace-path", "--detach-on"), true, true
+	case "ltrace":
+		return pastOptions(rest, "aADeFlnopsuwx", "--align", "--indent", "--library", "--output", "--config"), true, true
 	case "watch":
 		rest, exec := watchCommand(rest)
 		if !exec {
@@ -212,6 +216,22 @@ func moreWrapped(argv []string) (inside []string, was, known bool) {
 	}
 
 	return nil, false, false
+}
+
+// namedWrapper is whether argv starts with one of the wrappers read here,
+// which a "never" on its own card must go on refusing.
+func namedWrapper(argv []string) bool {
+	if len(argv) == 0 {
+		return false
+	}
+
+	if _, _, known := handedLine(argv); known {
+		return true
+	}
+
+	_, _, known := moreWrapped(argv)
+
+	return known
 }
 
 // hasOption is whether one of the options stands among the words before
