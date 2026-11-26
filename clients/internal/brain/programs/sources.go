@@ -694,8 +694,8 @@ func readSmall(path string) ([]byte, error) {
 
 	defer f.Close()
 
-	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s is not a regular file", path)
+	if st, err := f.Stat(); err != nil || !plainFile(st.Mode()) {
+		return nil, fmt.Errorf("%s is not a plain file", path)
 	}
 
 	b, err := io.ReadAll(io.LimitReader(f, mostFile+1))

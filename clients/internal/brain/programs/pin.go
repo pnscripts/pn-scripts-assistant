@@ -303,7 +303,7 @@ func namedByScript(path string) []string {
 	defer f.Close()
 
 	st, err := f.Stat()
-	if err != nil || !st.Mode().IsRegular() || st.Size() > mostScript {
+	if err != nil || !plainFile(st.Mode()) || st.Size() > mostScript {
 		return nil
 	}
 
@@ -336,7 +336,7 @@ func namedByScript(path string) []string {
 		// A program: a regular file someone may run. Not a log, a pid
 		// file or a setting the script writes to, which change with
 		// every start and would make the "always" sleep each time.
-		if st, err := os.Stat(p); err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o111 == 0 {
+		if st, err := os.Stat(p); err != nil || !plainFile(st.Mode()) || st.Mode().Perm()&0o111 == 0 {
 			continue
 		}
 
@@ -368,7 +368,7 @@ func whatItStarts(entry string) (starts, line string, ok bool) {
 
 	defer f.Close()
 
-	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
+	if st, err := f.Stat(); err != nil || !plainFile(st.Mode()) {
 		return "", "", false
 	}
 
@@ -508,3 +508,12 @@ func Pinned(records []Record, permits map[int64][]Permit, look func(names ...str
 
 // pinScanner is the machine a fingerprint looks at; tests replace it.
 var pinScanner = FromEnvironment
+
+/*
+ * plainFile is a file that holds bytes to read: not a folder, a pipe, a
+ * device or a socket. Not IsRegular: on Windows a file held as a cloud
+ * placeholder (OneDrive) reports itself irregular and is still a file.
+ */
+func plainFile(m os.FileMode) bool {
+	return !m.IsDir() && m&(os.ModeNamedPipe|os.ModeDevice|os.ModeCharDevice|os.ModeSocket) == 0
+}

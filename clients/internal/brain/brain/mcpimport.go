@@ -212,7 +212,7 @@ func (b *Brain) readMCPSettings() ([]mcpimport.Found, []MCPFile, map[string]bool
  * readSettingsFile is a settings file's bytes and its state: opened once
  * (links followed, as people keep these files in folders of their own)
  * without waiting (a pipe would wait for a writer), measured as opened,
- * read only when it is a regular file, and never past mcpimport.MostBytes,
+ * read only when it is a plain file (not a folder, pipe, device or socket), and never past mcpimport.MostBytes,
  * even when it grows while it is read. Only FileRead comes with bytes.
  */
 func readSettingsFile(path string) ([]byte, string) {
@@ -230,7 +230,9 @@ func readSettingsFile(path string) ([]byte, string) {
 	st, err := f.Stat()
 
 	switch {
-	case err != nil || !st.Mode().IsRegular():
+	case err != nil || st.IsDir() || st.Mode()&(os.ModeNamedPipe|os.ModeDevice|os.ModeCharDevice|os.ModeSocket) != 0:
+		// Not IsRegular: a cloud placeholder on Windows reports itself
+		// irregular and is still a file.
 		return nil, FileError
 	case st.Size() > mcpimport.MostBytes:
 		return nil, FileBig
