@@ -85,6 +85,10 @@ of it with one click: nothing is opened, typed, clicked, scrolled or run in
 another program, whatever is allowed, every program's **Always** and
 "everything allowed" included, until you press **Use other programs again**.
 A question already waiting can then only be refused, and says why. The
+switch covers these program tools only: it does not stop the assistant's own
+browser, a coding agent or your own Claude, building games, installing a
+part or what a task needs, stopping a leftover process, or integrations you
+approved. The
 switch is kept when the assistant restarts. It may be pressed from a paired
 phone too; turning it back on is done at this computer. Asking "which
 programs do I have" also tells the assistant each program's choices and

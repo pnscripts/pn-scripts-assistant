@@ -90,6 +90,19 @@ func (OpenApp) ProgramUse(_ context.Context, raw json.RawMessage) programs.Use {
 		return u
 	}
 
+	/*
+	 * A place ("/tmp/gimp", "./gimp") is a file, said as a command says
+	 * one: elsewhere unless it is the very file its name runs here, so a
+	 * card that knows the program by its file name lends it nothing.
+	 * Execute does not open it either.
+	 */
+	if givenByPlace(name) {
+		c := commandUse(strings.Fields(name)[:1], "")
+		c.Verb = programs.VerbStart
+
+		return c
+	}
+
 	// The same order Execute tries: the menu entry, then a command.
 	if entry, ok := findDesktopEntry(name); ok {
 		u.Desktop = entry
@@ -248,6 +261,10 @@ func lineOf(argv []string) (string, bool) {
 	}
 
 	rest := argv[1:]
+
+	if line, ok, known := handedLine(argv); known {
+		return line, ok
+	}
 
 	switch base := filepath.Base(argv[0]); {
 	case shellNames[base]:
@@ -866,6 +883,10 @@ func insideOf(argv []string) ([]string, bool) {
 		if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
 			return rest, true
 		}
+	}
+
+	if inside, was, known := moreWrapped(argv); known {
+		return inside, was
 	}
 
 	// A shell given one line, and script -c: the line's first command.

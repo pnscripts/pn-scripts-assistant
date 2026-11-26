@@ -193,8 +193,8 @@
             'Отварянето на други програми, писането и щракването в тях, превъртането и пускането им следват избора за всяка програма. Едно щракване спира всичко това.',
         ],
         'prg.stop.stopped': [
-            'Stopped since {when}: I open, type, click, scroll and run nothing in other programs, whatever is allowed, until you use them again.',
-            'Спряно от {when}: не отварям, не пиша, не щраквам, не превъртам и не пускам нищо в други програми, каквото и да е разрешено, докато не ги включите отново.',
+            'Stopped since {when}: I open, type, click, scroll and run nothing in other programs, whatever is allowed, until you use them again. This switch does not stop my own browser, a coding agent or your own Claude, building games, installing a part or what a task needs, stopping a leftover process, or integrations you approved.',
+            'Спряно от {when}: не отварям, не пиша, не щраквам, не превъртам и не пускам нищо в други програми, каквото и да е разрешено, докато не ги включите отново. Този превключвател не спира собствения ми браузър, агент за код или вашия Claude, компилирането на игри, инсталирането на компонент или на необходимото за задача, спирането на останал процес и одобрените от вас интеграции.',
         ],
         'prg.stop.desk': [
             'Only at this computer: using other programs again is decided here, not from a phone.',

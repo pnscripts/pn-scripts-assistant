@@ -736,13 +736,85 @@ var (
 
 /*
  * Secret is whether a setting is a credential: by its name (…_KEY, TOKEN,
- * PASSWORD…), by a value that looks like a known kind of key, or by an
- * address with a password in it. Credentials go to the sealed secrets
- * file; everything else is shown as a setting.
+ * PASSWORD…; credentialName), by a value that looks like a known kind of
+ * key, or by a value that carries one: an address with a password in it
+ * or a key among its questions (?api_key=), a connection string with a
+ * password (Password=…). Credentials go to the sealed secrets file;
+ * everything else is shown as a setting.
  */
 func Secret(name, value string) bool {
-	return secretName.MatchString(name) || secretValue.MatchString(value) || userInURL.MatchString(value)
+	return credentialName(name) || secretValue.MatchString(value) || userInURL.MatchString(value) ||
+		credentialInAddress(value) || passwordInValue.MatchString(value)
 }
+
+// passwordInValue is a password written into a value as a setting of its
+// own: "Server=db;Password=x", "host=db password=x".
+var passwordInValue = regexp.MustCompile(`(?i)(^|[;\s])\s*(password|passwd|pwd)\s*=\s*[^;\s]`)
+
+/*
+ * credentialName is whether a setting's name says its value is a key. A
+ * key's word somewhere in it is not enough: AUTH_URL, TOKEN_ENDPOINT,
+ * KEY_FILE, API_KEY_HELPER and TOKEN_COMMAND name a place, an address or
+ * a command, SSH_AUTH_SOCK a socket, NO_AUTH a switch, and a few names
+ * known to hold places are listed. Those are shown and part of the
+ * fingerprint, so a change to one is asked about again; a value that
+ * carries a key is still hidden for that (Secret).
+ */
+func credentialName(name string) bool {
+	if !secretName.MatchString(name) {
+		return false
+	}
+
+	upper := strings.ToUpper(name)
+	if placeNames[upper] || gitConfigKey.MatchString(upper) {
+		return false
+	}
+
+	words := flagWords(name)
+
+	for i, w := range words {
+		if switchWords[w] {
+			return false
+		}
+
+		if !secretName.MatchString(w) {
+			continue
+		}
+
+		for _, after := range words[i+1:] {
+			if notAKeyValue[after] || notAKeyValue[strings.TrimSuffix(after, "s")] {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+/*
+ * The words after a key's word that say the value is something else: a
+ * place, an address, a command, a socket, a name, a kind or a number.
+ * Not "header" or "prefix": AUTH_HEADER may hold the key itself.
+ */
+var notAKeyValue = map[string]bool{
+	"file": true, "path": true, "dir": true, "directory": true, "folder": true, "url": true, "uri": true,
+	"endpoint": true, "host": true, "server": true, "domain": true, "issuer": true, "socket": true, "sock": true,
+	"helper": true, "command": true, "cmd": true, "program": true, "exec": true, "script": true, "hook": true,
+	"name": true, "env": true, "var": true, "type": true, "method": true, "mode": true, "scope": true,
+	"timeout": true, "ttl": true, "expiry": true, "lifetime": true, "limit": true, "count": true, "max": true,
+	"min": true, "size": true, "length": true, "format": true, "algorithm": true, "location": true,
+	"enabled": true, "disabled": true, "required": true, "store": true,
+}
+
+// Names known to hold a place, not a key, whatever words they hold.
+var placeNames = map[string]bool{
+	"XAUTHORITY": true, "ICEAUTHORITY": true, "SSLKEYLOGFILE": true, "GOOGLE_APPLICATION_CREDENTIALS": true,
+	"AWS_SHARED_CREDENTIALS_FILE": true, "KRB5_KTNAME": true,
+}
+
+// gitConfigKey is git's GIT_CONFIG_KEY_<n>: the name of a setting git is
+// given (core.sshCommand), which says what it runs.
+var gitConfigKey = regexp.MustCompile(`^GIT_CONFIG_KEY_[0-9]+$`)
 
 var variable = regexp.MustCompile(`\$\{([^}]*)\}`)
 
@@ -800,7 +872,7 @@ func fingerprint(s mcp.Server, values map[string]string) string {
 	for _, k := range s.Secrets {
 		b.WriteString("secret " + k + "\n")
 
-		if s.Transport == "stdio" && !secretName.MatchString(k) {
+		if s.Transport == "stdio" && !credentialName(k) {
 			sum := sha256.Sum256([]byte(values[k]))
 			b.WriteString("value " + hex.EncodeToString(sum[:]) + "\n")
 		}

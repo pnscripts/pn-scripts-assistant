@@ -194,6 +194,12 @@ func (OpenApp) Execute(ctx context.Context, raw json.RawMessage) (string, error)
 		return "", fmt.Errorf("say which application")
 	}
 
+	// A place is a file, not an application's name: ProgramUse says it is
+	// elsewhere, and a file is run as a command, where it is ruled on as one.
+	if givenByPlace(name) {
+		return "", fmt.Errorf("%q is a file, not the name of an application: open_app opens installed applications by name; to run a file, use run_command", name)
+	}
+
 	/*
 	 * By desktop entry first, then as a command.
 	 *
@@ -201,33 +207,58 @@ func (OpenApp) Execute(ctx context.Context, raw json.RawMessage) (string, error)
 	 * environment and the right icon. A bare command works for the things that
 	 * have no entry, and is tried second because "files" is a menu entry and
 	 * not a program.
+	 *
+	 * A name that found a menu entry is that entry and nothing else: it is
+	 * what ProgramUse said and what the person's choices were weighed on.
+	 * When gtk-launch is not there or fails, the first word is not run as a
+	 * command instead ("text editor" is not a program called "text").
 	 */
-	if entry, ok := desktopEntryFor(name); ok {
-		if tool, found := exe.Look("gtk-launch"); found {
-			cmd := display(exec.Command(tool, entry))
-
-			if err := cmd.Start(); err == nil {
-				go cmd.Wait()
-
-				return "Opened " + name, nil
-			}
+	if entry, ok := findDesktopEntry(name); ok {
+		tool, found := lookProgram("gtk-launch")
+		if !found {
+			return "", fmt.Errorf("%s is a menu entry (%s), and gtk-launch, which starts menu entries, is not installed", name, entry)
 		}
+
+		// After "--": an entry is never read as one of gtk-launch's options.
+		if err := startApp(tool, "--", entry); err != nil {
+			return "", fmt.Errorf("could not open %s: %w", name, err)
+		}
+
+		return "Opened " + name, nil
 	}
 
-	program, found := exe.Look(strings.Fields(strings.ToLower(name))[0])
+	program, found := lookProgram(strings.Fields(strings.ToLower(name))[0])
 	if !found {
 		return "", fmt.Errorf("there is no application called %q on this machine", name)
 	}
 
-	cmd := display(exec.Command(program))
+	if err := startApp(program); err != nil {
+		return "", fmt.Errorf("could not open %s: %w", name, err)
+	}
+
+	return "Opened " + name, nil
+}
+
+// startApp starts a program in the background with the display set and
+// does not wait for it; tests replace it.
+var startApp = func(path string, args ...string) error {
+	cmd := display(exec.Command(path, args...))
 
 	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("could not open %s: %w", name, err)
+		return err
 	}
 
 	go cmd.Wait()
 
-	return "Opened " + name, nil
+	return nil
+}
+
+// givenByPlace is whether a name's first word is a place (a slash or a
+// backslash in it) rather than a name.
+func givenByPlace(name string) bool {
+	f := strings.Fields(name)
+
+	return len(f) > 0 && strings.ContainsAny(f[0], `/\`)
 }
 
 // desktopEntryFor finds an application's menu entry by rough name: by the

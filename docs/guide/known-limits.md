@@ -35,12 +35,19 @@ against the code on 9 November 2026.
   script file or by another program is not followed). A command is read
   through `env`, `nohup`, `setsid`, `nice`, `ionice`, `timeout`, `stdbuf`,
   `sudo`, `doas`, `pkexec`, `xargs`, `busybox`, `script -c`, `systemd-run`,
-  `eval` and a shell given a line (`sh -c "..."`). A "never" reaches every
-  command of such a line, the lines inside it too, and every program a
-  one-line script names (`python3 -c`, `perl -e`, `node -e`, `php -r`); it
-  does not reach what a script file starts, a name the line puts together
-  while it runs (from a variable, or in pieces), or a command handed to
-  `find -exec` and the like. "Always" answers only for the program itself, run
+  `su -c`, `runuser`, `taskset`, `chrt`, `flock`, `strace`, `ltrace`, `watch`,
+  `unshare`, `nsenter`, `chroot`, `dbus-run-session`, `xvfb-run`,
+  `find -exec`, a terminal's `-e`, `-x` or `--`, `cmd /c`, PowerShell's
+  `-Command`, `-EncodedCommand` and `-File`, `eval` and a shell given a line
+  (`sh -c "..."`). A "never" reaches every command of such a line, the lines
+  inside it too, and every program a one-line script names (`python3 -c`,
+  `perl -e`, `node -e`, `php -r`); it does not reach what a script file
+  starts, a name the line puts together while it runs (from a variable, or in
+  pieces), a second `-exec` of one `find`, or a wrapper not named here.
+  `open_app` opens applications by name only: a place (`/tmp/gimp`) is
+  refused there and is run, if at all, as a command, where it is ruled on as
+  a file elsewhere. A name that finds a menu entry is started as that entry
+  or not at all; it is never run as a command instead. "Always" answers only for the program itself, run
   plainly: the file its name runs here (the first one found where programs are
   looked for, your own folders such as `~/.local/bin` included). Run through
   any of those wrappers, or as administrator, a program can be refused by its
@@ -53,7 +60,19 @@ against the code on 9 November 2026.
   file that line really starts (where it is, its size and its times; its
   contents are not read): after an update, a changed Exec line, or a
   same-named file put earlier where programs are looked for, it is asked
-  again, and an "always" given by 1.1.0 is asked about once. On a snap, a
+  again, and an "always" given by 1.1.0 is asked about once. What stands
+  behind an entry is followed too: a snap's revision, a Flatpak's deployed
+  commit, an entry started over D-Bus by its service file and the program
+  that file runs, the files a wrapper script names by their whole place (at
+  most 16; a place the script puts together while it runs is not seen), and
+  a same-id entry put earlier in the menu folders, which starts instead from
+  the moment it is there. Updating to the version that brought this asks
+  once more about an "always" on such an entry. Desktop ids and Flatpak ids
+  are told apart by case on Linux. Outside Linux a file is followed by where
+  it is, its size and when it was written (there is no change time to read).
+  Typing and clicking are tied to a window's program through the process id
+  the window states about itself (X11's `_NET_WM_PID`), which a program can
+  state falsely. On a snap, a
   Flatpak or a package it is asked again after an update. A Windows program
   that states no version has nothing of the kind to follow yet, so its
   "always" stays. Typing approved at the desk goes to the window in front at
@@ -67,7 +86,10 @@ against the code on 9 November 2026.
   too, and none of these is started in the background. It does not
   stop the assistant's own helpers (reading the screen, recognising text,
   its own browser), MCP servers that are already approved, or a coding agent
-  already at work: stop those on the Organisation page.
+  already at work: stop those on the Organisation page. Nor does it stop
+  asking a coding agent or your own Claude, building a game (also with
+  Godot), installing a part or what a task needs, or stopping a leftover
+  process; the page and what the model is told say so.
 - **Other programs asking the assistant: four questions, this computer
   only.** `pn-scripts-assistant mcp` (for Claude Code, Claude Desktop,
   Cursor) answers whether the assistant is running, which programs are
@@ -256,8 +278,15 @@ against the code on 9 November 2026.
   whose settings would make it load other code (`NODE_OPTIONS`, `LD_PRELOAD`,
   `PYTHONSTARTUP` and the like), and one with a key or password written into
   its command or address: put the key in a setting (`env`) or a header there
-  and it is kept sealed here. Every other setting is shown with its value on
-  the card. An imported program is treated as one that may reach the
+  and it is kept sealed here. A setting is kept sealed when its name says it
+  holds a key (`API_KEY`, `GITHUB_TOKEN`, `DB_PASSWORD`) or its value carries
+  one (`sk-...`, an address with a password or `?api_key=`, a connection
+  string with `Password=`); a name that only mentions a key and names a
+  place, an address or a command (`AUTH_URL`, `KEY_FILE`, `TOKEN_COMMAND`,
+  `XAUTHORITY`) is shown, and a change to it is asked about again. A key
+  renewed under a key's own name keeps the approval. Every other setting is
+  shown with its value on the card. The settings files are read only when
+  they are regular files (a link to one is followed), never past 32 MB. An imported program is treated as one that may reach the
   internet, so it is held back while privacy keeps everything on this
   computer. Its command and the settings that are not secrets are kept as
   plain words in the integrations file.

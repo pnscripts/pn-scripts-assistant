@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -182,23 +183,12 @@ func (b *Brain) readMCPSettings() ([]mcpimport.Found, []MCPFile, map[string]bool
 	for _, p := range mcpimport.Places(env) {
 		f := MCPFile{Client: string(p.Client), File: p.File}
 
-		st, err := os.Stat(p.File)
+		raw, state := readSettingsFile(p.File)
 
-		switch {
-		case errors.Is(err, fs.ErrNotExist):
+		switch state {
+		case FileNone:
 			f.State, read[p.File] = FileNone, true
-		case err != nil || st.IsDir():
-			f.State = FileError
-		case st.Size() > mcpimport.MostBytes:
-			f.State = FileBig
-		default:
-			raw, err := os.ReadFile(p.File)
-			if err != nil {
-				f.State = FileError
-
-				break
-			}
-
+		case FileRead:
 			list, err := mcpimport.Read(p, raw, env.Home)
 			if err != nil {
 				f.State = FileBroken
@@ -208,12 +198,54 @@ func (b *Brain) readMCPSettings() ([]mcpimport.Found, []MCPFile, map[string]bool
 
 			f.State, f.Count, read[p.File] = FileRead, len(list), true
 			found = append(found, list...)
+		default:
+			f.State = state
 		}
 
 		files = append(files, f)
 	}
 
 	return found, files, read
+}
+
+/*
+ * readSettingsFile is a settings file's bytes and its state: opened once
+ * (links followed, as people keep these files in folders of their own)
+ * without waiting (a pipe would wait for a writer), measured as opened,
+ * read only when it is a regular file, and never past mcpimport.MostBytes,
+ * even when it grows while it is read. Only FileRead comes with bytes.
+ */
+func readSettingsFile(path string) ([]byte, string) {
+	f, err := openWithoutWaiting(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, FileNone
+	}
+
+	if err != nil {
+		return nil, FileError
+	}
+
+	defer f.Close()
+
+	st, err := f.Stat()
+
+	switch {
+	case err != nil || !st.Mode().IsRegular():
+		return nil, FileError
+	case st.Size() > mcpimport.MostBytes:
+		return nil, FileBig
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(f, mcpimport.MostBytes+1))
+
+	switch {
+	case err != nil:
+		return nil, FileError
+	case len(raw) > mcpimport.MostBytes:
+		return nil, FileBig
+	}
+
+	return raw, FileRead
 }
 
 /*
