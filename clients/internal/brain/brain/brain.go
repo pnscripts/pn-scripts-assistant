@@ -1010,6 +1010,9 @@ func New(db *store.DB, cfg config.Config, root, dbPath string, logger *slog.Logg
 	// folder on the first start and refreshed on upgrades (see seed).
 	b.installSeed()
 
+	// What an older version wrote on the record that it should not have.
+	b.forgetTheActionCommands1_3_0Wrote()
+
 	// The agent skills on this machine first, so they are in the list too.
 	b.importSkills()
 

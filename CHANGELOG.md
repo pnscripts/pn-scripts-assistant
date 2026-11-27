@@ -9,6 +9,15 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
+## Unreleased
+
+- **The command behind an action stays in the window.** 1.3.0 wrote the
+  command of every action you wrote for other programs into "What I did",
+  which programs on this computer and paired devices can read, while the
+  list of actions itself is read in the window only. The record now names
+  the action and not its command, and lines 1.3.0 wrote are cleared once
+  when the new version opens your brain.
+
 ## 1.3.0 (2026-11-27)
 
 Before updating: close the assistant and start it again after the update.

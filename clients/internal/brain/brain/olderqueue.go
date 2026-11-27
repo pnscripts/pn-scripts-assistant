@@ -78,3 +78,30 @@ func (b *Brain) tidyTheQueueOlderVersionsFilled() {
 			"gone", done[learning.StatusRejected])
 	}
 }
+
+// forgotTheActionCommands names the one-time tidy below in the brain's chores.
+const forgotTheActionCommands = "1.3.1: commands of actions on the record, written by 1.3.0"
+
+/*
+ * forgetTheActionCommands1_3_0Wrote clears the command behind each action
+ * 1.3.0 wrote into "What I did" ("Command: <the line>"), once per brain.
+ * The record is read by programs on this computer and by paired devices;
+ * the command is the window's alone (ASSISTANT-ACTION-COMMAND-RECORD-1127).
+ * The line keeps the action's name in its summary.
+ */
+func (b *Brain) forgetTheActionCommands1_3_0Wrote() {
+	if b.DB == nil {
+		return
+	}
+
+	n, err := b.DB.ClearDeedsAskedOnce(forgotTheActionCommands, ActionsTool, "Command: ")
+	if err != nil {
+		b.Log.Warn("could not take the commands of actions off the record", "error", err)
+
+		return
+	}
+
+	if n > 0 {
+		b.Log.Info("took the commands of actions off the record", "lines", n)
+	}
+}

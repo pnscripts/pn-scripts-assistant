@@ -122,3 +122,85 @@ func TestALessonTidyRunsOnceOnAnOlderBrain(t *testing.T) {
 		t.Errorf("a %% in the prefix matched every lesson: %d left", len(still))
 	}
 }
+
+/*
+ * Clearing what was asked on lines of the record, through a sealed brain:
+ * the decision reads the words unsealed (two sealings of "Command: " differ
+ * on disk), only the tool's lines that begin so are cleared, the cleared
+ * words are not on disk any more, and a second run changes nothing.
+ */
+func TestClearingWhatWasAskedOnTheRecordRunsOnceThroughTheSeal(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "brain.sqlite")
+
+	d, err := OpenSealed(path, sealKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { d.Close() })
+
+	add := func(tool, asked string) {
+		t.Helper()
+
+		if _, err := d.AddDeed(Deed{Tool: tool, Summary: "a line of " + tool, Asked: asked, Outcome: "done"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	add("other_programs_action", "Command: rsync -a /srv/egret /mnt/backup")
+	add("other_programs_action", "Command: echo grebe")
+	add("other_programs_action", "Commands are listed elsewhere")
+	add("run_command", "Command: ls /srv/egret")
+
+	n, err := d.ClearDeedsAskedOnce("test: clear commands", "other_programs_action", "Command: ")
+	if err != nil || n != 2 {
+		t.Fatalf("cleared %d lines (%v), want the two commands", n, err)
+	}
+
+	deeds, _ := d.Deeds(DeedFilter{Limit: 10})
+
+	got := map[string]int{}
+	for _, deed := range deeds {
+		got[deed.Tool+" | "+deed.Asked]++
+
+		if deed.Summary != "a line of "+deed.Tool {
+			t.Errorf("a summary changed: %+v", deed)
+		}
+	}
+
+	want := map[string]int{
+		"other_programs_action | ":                              2,
+		"other_programs_action | Commands are listed elsewhere": 1,
+		"run_command | Command: ls /srv/egret":                  1,
+	}
+
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("after clearing: %v, want %v", got, want)
+
+			break
+		}
+	}
+
+	// Once: a line written later stays.
+	add("other_programs_action", "Command: true")
+
+	if n, err := d.ClearDeedsAskedOnce("test: clear commands", "other_programs_action", "Command: "); err != nil || n != 0 {
+		t.Errorf("the second run cleared %d (%v)", n, err)
+	}
+
+	if later, _ := d.Deeds(DeedFilter{Limit: 1}); len(later) != 1 || later[0].Asked != "Command: true" {
+		t.Errorf("the second run touched a later line: %+v", later)
+	}
+
+	// Sealed, so never readable in the file; held anyway, so a later
+	// change to how the record is kept cannot bring them back in plain.
+	d.Close()
+
+	raw, _ := os.ReadFile(path)
+	for _, word := range []string{"egret", "grebe", "rsync"} {
+		if strings.Contains(string(raw), word) {
+			t.Errorf("%q is readable in the brain's file", word)
+		}
+	}
+}
