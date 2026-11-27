@@ -58,7 +58,7 @@ function visible() {
 /* ---------- saying numbers the way people say them ---------- */
 
 function bytes(n) {
-    if (!isFinite(n) || n < 0) return '—';
+    if (!isFinite(n) || n < 0) return '…';
 
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     let i = 0;
@@ -72,16 +72,16 @@ function bytes(n) {
 }
 
 function rate(n) {
-    return isFinite(n) && n >= 0 ? `${bytes(n)}/s` : '—';
+    return isFinite(n) && n >= 0 ? `${bytes(n)}/s` : '…';
 }
 
 function percent(n, places = 0) {
-    return isFinite(n) && n >= 0 ? decimal(`${n.toFixed(places)}%`) : '—';
+    return isFinite(n) && n >= 0 ? decimal(`${n.toFixed(places)}%`) : '…';
 }
 
 // Uptime the way it is said out loud, not as a count of seconds.
 function forHowLong(seconds) {
-    if (!isFinite(seconds) || seconds <= 0) return '—';
+    if (!isFinite(seconds) || seconds <= 0) return '…';
 
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
@@ -432,7 +432,7 @@ function drawCores(cores) {
                 <div class="ops-core-fill"${state ? ` data-state="${state}"` : ''}
                      style="width:${known ? Math.min(100, v).toFixed(1) : 0}%"></div>
             </div>
-            <span class="ops-core-value">${known ? `${Math.round(v)}%` : '—'}</span>
+            <span class="ops-core-value">${known ? `${Math.round(v)}%` : '…'}</span>
         </div>`;
     }).join('');
 }
@@ -511,12 +511,12 @@ function drawGPUs(gpus, note, history, times) {
                 <div class="ops-bar-row">
                     <span class="ops-bar-label" data-busy-label>${escape(T('ops.busy'))}</span>
                     <div class="ops-bar"><div data-busy></div></div>
-                    <span class="ops-bar-value" data-busy-value>—</span>
+                    <span class="ops-bar-value" data-busy-value>…</span>
                 </div>
                 <div class="ops-bar-row" data-mem-row${g.memory_total_bytes > 0 ? '' : ' hidden'}>
                     <span class="ops-bar-label">${escape(T('ops.memory'))}</span>
                     <div class="ops-bar"><div data-series="b" data-mem></div></div>
-                    <span class="ops-bar-value" data-mem-value>—</span>
+                    <span class="ops-bar-value" data-mem-value>…</span>
                 </div>
             </div>
             <figure class="ops-figure">
@@ -624,7 +624,7 @@ function drawGPUs(gpus, note, history, times) {
 
 // Processor time as the server says it ("2h 19m", "1m 05s"), in the page's units.
 function clock(said) {
-    if (!said) return '—';
+    if (!said) return '…';
     if (!bg()) return said;
 
     return String(said)
@@ -640,7 +640,7 @@ function drawProcesses(list) {
 
     body.innerHTML = (list || []).map((p) => `<tr${p.ours ? ' class="ours"' : ''}>
         <td class="num">${p.pid}</td>
-        <td>${p.user || '—'}</td>
+        <td>${p.user || '…'}</td>
         <td class="num">${percent(p.cpu_percent, 1)}</td>
         <td class="num">${percent(p.mem_percent, 1)}</td>
         <td class="num">${bytes(p.rss_bytes)}</td>
@@ -658,11 +658,11 @@ function drawBrain(brain, machine) {
     const models = brain.models || {};
 
     const rows = [
-        [T('ops.answeringWith'), brain.model || '—'],
+        [T('ops.answeringWith'), brain.model || '…'],
         [T('ops.doingNow'), step.busy ? (step.note || step.kind || T('ops.working')) : T('ops.nothing')],
         [T('ops.modelRoles'),
-            [models.talk, models.work, models.reason].filter(Boolean).join(' · ') || '—'],
-        [T('ops.memoryAt'), brain.root || '—'],
+            [models.talk, models.work, models.reason].filter(Boolean).join(' · ') || '…'],
+        [T('ops.memoryAt'), brain.root || '…'],
         [T('ops.network'), T('ops.inOut', { in: rate(machine.network_in_per_second), out: rate(machine.network_out_per_second) })],
         [T('ops.disk'), T('ops.readWritten', { read: rate(machine.disk_read_per_second), written: rate(machine.disk_write_per_second) })],
     ];
@@ -714,10 +714,10 @@ async function refresh() {
     const history = data.history || [];
 
     el('ops-uptime').textContent = forHowLong(m.uptime_seconds);
-    el('ops-load').textContent = (m.load_average || []).map((v) => decimal(v.toFixed(2))).join(' ') || '—';
+    el('ops-load').textContent = (m.load_average || []).map((v) => decimal(v.toFixed(2))).join(' ') || '…';
     el('ops-tasks').textContent = m.tasks
         ? T('ops.tasksChip', { tasks: m.tasks, threads: m.threads, running: m.running })
-        : '—';
+        : '…';
     el('ops-window').textContent = T('ops.window', { n: history.length, s: data.seconds_back });
 
     drawCores(m.cores);

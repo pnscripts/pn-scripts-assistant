@@ -664,8 +664,8 @@
         // One place each. The three stat-* readouts were the same numbers
         // again in a panel that has gone; writing to elements that no longer
         // exist is how a removed panel comes back looking half-alive.
-        text('fig-facts', memory.facts ?? '—');
-        text('fig-convos', memory.conversations ?? '—');
+        text('fig-facts', memory.facts ?? '…');
+        text('fig-convos', memory.conversations ?? '…');
 
         /*
          * The loading screen is told, rather than left to guess.
@@ -688,7 +688,7 @@
         text('core-title', status.name || T('cc.assistant'));
         text('core-sub', status.model ? `${status.provider} · ${status.model}` : T('cc.noModel'));
 
-        text('owner-name', status.owner || status.name || '—');
+        text('owner-name', status.owner || status.name || '…');
 
         // The lessons waiting, from the whole queue; the cards are counted
         // where they are drawn (countWaiting).
@@ -883,7 +883,7 @@
             // figure, and a wrong one.
             ring.style.strokeDashoffset = RING;
             ring.className.baseVal = 'gauge-fill unknown';
-            label.textContent = '—';
+            label.textContent = '…';
 
             return;
         }

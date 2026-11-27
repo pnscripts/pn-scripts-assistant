@@ -17,6 +17,11 @@ whenever something visible changed.
   list of actions itself is read in the window only. The record now names
   the action and not its command, and lines 1.3.0 wrote are cleared once
   when the new version opens your brain.
+- **Small things on the page.** A value that is not there yet shows "…"
+  instead of a dash. The buttons that step back to every panel and turn
+  the ring, the bell, and the line under the panels when stepped back are
+  in Bulgarian on a Bulgarian page. "Where I look" on the Organisation page
+  ends its sentence before "Kept current by file events" begins.
 
 ## 1.3.0 (2026-11-27)
 

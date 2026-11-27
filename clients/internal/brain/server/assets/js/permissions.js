@@ -117,7 +117,7 @@
              * than claiming this switch decides it. For a while it said the
              * opposite, which was true then and is not now.
              */
-            const mode = data.privacy ? T('privacy.' + data.privacy) : '—';
+            const mode = data.privacy ? T('privacy.' + data.privacy) : '…';
 
             note.textContent = T('control.privacyNote', { p: mode.startsWith('privacy.') ? data.privacy : mode });
         }

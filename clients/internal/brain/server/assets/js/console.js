@@ -1707,7 +1707,7 @@ async function refreshActivity() {
         title.className = 'row-name';
         title.textContent = item.summary
             || (item.tool && window.pnToolName ? window.pnToolName(item.tool) : item.tool)
-            || '—';
+            || '…';
 
         const when = document.createElement('span');
         when.className = 'row-state';

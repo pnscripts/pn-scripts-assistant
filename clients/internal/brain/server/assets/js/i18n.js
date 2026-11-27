@@ -34,6 +34,13 @@
 
         // The menu: the name of every view, and the tooltips of the two
         // buttons at the top that open one by name.
+        'stage.back': ['Step back and see every panel', 'Отстъпете назад и вижте всички панели'],
+        'stage.prev': ['Turn to the panel before', 'Завъртете към предишния панел'],
+        'stage.next': ['Turn to the panel after', 'Завъртете към следващия панел'],
+        'stage.hint': [
+            'Every panel, where it stands. Drag to turn round, click one to go to it, Esc to go back.',
+            'Всички панели, всеки на мястото си. Плъзнете, за да завъртите, щракнете върху панел, за да отидете там, Esc връща назад.',
+        ],
         'nav.console': ['Command centre', 'Команден център'],
         'nav.memory': ['Memory map', 'Карта на паметта'],
         'nav.models': ['Models', 'Модели'],
@@ -4363,7 +4370,7 @@
         ],
         'org.imp.settings': ['settings it is given: {list}', 'настройки, които получава: {list}'],
         'org.imp.p.invalid': ['it cannot be run safely as written ({detail})', 'не може да се стартира безопасно така ({detail})'],
-        'org.imp.files': ['Where I look: {list}', 'Къде търся: {list}'],
+        'org.imp.files': ['Where I look: {list}.', 'Къде търся: {list}.'],
         'org.imp.f.read': ['{client}: found {n}', '{client}: намерени {n}'],
         'org.imp.f.none': ['{client}: not set up', '{client}: не е настроен'],
         'org.imp.f.broken': ['{client}: not readable JSON, nothing changed', '{client}: невалиден JSON, нищо не е променено'],

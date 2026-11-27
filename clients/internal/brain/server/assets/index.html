@@ -155,8 +155,8 @@
             read a bite at a time over hours, and how much of it is left.
         -->
         <div class="clock" id="headline">
-            <span id="headline-what">—</span>
-            <strong id="headline-count">—</strong>
+            <span id="headline-what">…</span>
+            <strong id="headline-count">…</strong>
         </div>
 
         <div class="topbar-gap"></div>
@@ -170,14 +170,14 @@
             it does. Hidden with the stage, for the same reason that button is.
         -->
         <div class="ring-turner" id="stage-turner" hidden>
-            <button type="button" class="ring-turn" id="stage-prev" aria-label="Turn to the panel before">
+            <button type="button" class="ring-turn" id="stage-prev" aria-label="Turn to the panel before" data-i18n-label="stage.prev">
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                     <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8"
                           stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
-            <button type="button" class="ring-here" id="stage-here" title="Step back and see every panel">—</button>
-            <button type="button" class="ring-turn" id="stage-next" aria-label="Turn to the panel after">
+            <button type="button" class="ring-here" id="stage-here" title="Step back and see every panel" data-i18n-title="stage.back">…</button>
+            <button type="button" class="ring-turn" id="stage-next" aria-label="Turn to the panel after" data-i18n-label="stage.next">
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                     <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8"
                           stroke-linecap="round" stroke-linejoin="round"/>
@@ -202,7 +202,7 @@
                 nothing would be the only thing on this bar that did nothing.
             -->
             <button type="button" class="icon-button" id="stage-overview"
-                    title="Step back and see every panel" aria-pressed="false" hidden>
+                    title="Step back and see every panel" data-i18n-title="stage.back" aria-pressed="false" hidden>
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                     <ellipse cx="12" cy="13" rx="9" ry="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
                     <rect x="9.5" y="4" width="5" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
@@ -212,7 +212,7 @@
                      used to show beside each place, added up. -->
                 <span class="icon-badge" id="stage-waiting" hidden>0</span>
             </button>
-            <button type="button" class="icon-button" id="bell" title="Waiting for you">
+            <button type="button" class="icon-button" id="bell" title="Waiting for you" data-i18n-title="cc.waitingForYou">
                 <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
                     <path d="M6 10a6 6 0 0112 0v5l2 3H4l2-3z" fill="none" stroke="currentColor" stroke-width="1.6"/>
                     <path d="M10 21h4" fill="none" stroke="currentColor" stroke-width="1.6"/>
@@ -230,7 +230,7 @@
 
         <div class="operator">
             <div class="operator-text">
-                <strong id="owner-name">—</strong>
+                <strong id="owner-name">…</strong>
                 <span data-i18n="cc.owner">owner</span>
             </div>
             <div class="operator-mark" aria-hidden="true">
@@ -661,7 +661,7 @@
                     <canvas id="brainmap" aria-hidden="true"></canvas>
                     <div class="core-caption">
                         <p class="core-title" id="core-title">{{ .Name }}</p>
-                        <p class="core-sub" id="core-sub">—</p>
+                        <p class="core-sub" id="core-sub">…</p>
                     </div>
                 </div>
 
@@ -699,7 +699,7 @@
                     <aside class="memory-detail" id="memory-detail" hidden>
                         <button type="button" class="memory-detail-close" id="memory-detail-close"
                                 aria-label="Close" data-i18n-label="cc.close">×</button>
-                        <span class="memory-detail-category" id="memory-detail-category">—</span>
+                        <span class="memory-detail-category" id="memory-detail-category">…</span>
                         <p class="memory-detail-text" id="memory-detail-text"></p>
                         <button type="button" class="memory-ask" id="memory-ask" data-i18n="cc.askAbout">Ask about this</button>
                         <h3 data-i18n="cc.closest">Closest to it</h3>
@@ -774,7 +774,7 @@
                                 <circle class="gauge-track" cx="22" cy="22" r="18"/>
                                 <circle class="gauge-fill" id="gauge-cpu" cx="22" cy="22" r="18"/>
                             </svg>
-                            <span class="gauge-value" id="cpu-value">—</span>
+                            <span class="gauge-value" id="cpu-value">…</span>
                             <span class="gauge-label" data-i18n="cc.gauge.cpu">cpu</span>
                         </div>
                         <div class="gauge">
@@ -782,7 +782,7 @@
                                 <circle class="gauge-track" cx="22" cy="22" r="18"/>
                                 <circle class="gauge-fill" id="gauge-ram" cx="22" cy="22" r="18"/>
                             </svg>
-                            <span class="gauge-value" id="ram-value">—</span>
+                            <span class="gauge-value" id="ram-value">…</span>
                             <span class="gauge-label" data-i18n="cc.gauge.memory">memory</span>
                         </div>
                         <div class="gauge">
@@ -790,7 +790,7 @@
                                 <circle class="gauge-track" cx="22" cy="22" r="18"/>
                                 <circle class="gauge-fill" id="gauge-disk" cx="22" cy="22" r="18"/>
                             </svg>
-                            <span class="gauge-value" id="disk-value">—</span>
+                            <span class="gauge-value" id="disk-value">…</span>
                             <span class="gauge-label" data-i18n="cc.gauge.disk">disk</span>
                         </div>
                     </div>
@@ -830,8 +830,8 @@
                     <div class="insight">
                         <div class="bars" id="category-breakdown"></div>
                         <div class="insight-figures">
-                            <div><span class="figure" id="fig-facts">—</span><span class="figure-label" data-i18n="cc.memories">memories</span></div>
-                            <div><span class="figure" id="fig-convos">—</span><span class="figure-label" data-i18n="cc.threads">threads</span></div>
+                            <div><span class="figure" id="fig-facts">…</span><span class="figure-label" data-i18n="cc.memories">memories</span></div>
+                            <div><span class="figure" id="fig-convos">…</span><span class="figure-label" data-i18n="cc.threads">threads</span></div>
                             <!--
                                 "Awaiting review" was here, and does not belong
                                 in a panel called What it knows: the queue is
@@ -1173,7 +1173,7 @@
                 </div>
                 <div class="card">
                     <h2 data-i18n="sys.modelsTitle">Models in use</h2>
-                    <p class="note" id="models-roles">—</p>
+                    <p class="note" id="models-roles">…</p>
                     <div id="models-warning" hidden>
                         <p class="storage-advice" data-i18n="sys.modelsWarn">Both models cannot be held in memory at
                             once on this machine, so every switch between them reloads one,
@@ -1232,7 +1232,7 @@
                 </div>
                 <div class="card">
                     <h2 data-i18n="sys.menu">Applications menu</h2>
-                    <p class="note" id="menu-note">—</p>
+                    <p class="note" id="menu-note">…</p>
                     <button type="button" class="model-action" id="menu-add" data-i18n="sys.menuAdd">Add to the applications menu</button>
                     <button type="button" class="model-action" id="menu-remove" hidden data-i18n="sys.menuRemove">Take it out of the menu</button>
                 </div>
@@ -1242,7 +1242,7 @@
                         this is the same list it is given when it answers. Switch one off and
                         it stops being offered, including the tools that cannot work without
                         it.</p>
-                    <div id="environment-list" class="environment-list">—</div>
+                    <div id="environment-list" class="environment-list">…</div>
                 </div>
                 <div class="card card-wide">
                     <h2 data-i18n="sys.heard">What it has been hearing</h2>
@@ -1261,7 +1261,7 @@
                 <div class="card">
                     <h2 data-i18n="sys.storage">Storage</h2>
                     <div class="storage-bar"><div id="storage-fill"></div></div>
-                    <p class="storage-text" id="storage-text">—</p>
+                    <p class="storage-text" id="storage-text">…</p>
                     <div id="storage-warning" hidden>
                         <p class="storage-advice" id="storage-advice"></p>
                     </div>
@@ -1410,7 +1410,7 @@
                 <span data-i18n="sys.mic">Microphone</span>
                 <select id="microphone" aria-label="Microphone" data-i18n-label="sys.mic"></select>
             </label>
-            <p class="engine-meta" id="engine-meta">—</p>
+            <p class="engine-meta" id="engine-meta">…</p>
         </section>
                 <div class="card">
                     <h2 data-i18n="sys.capabilities">Capabilities</h2>
@@ -1443,10 +1443,10 @@
             <div class="ops-head">
                 <h1 data-i18n="ops.title">Operations</h1>
                 <div class="ops-head-figures">
-                    <span class="ops-chip"><b id="ops-uptime">—</b> <span data-i18n="ops.up">up</span></span>
-                    <span class="ops-chip"><b id="ops-load">—</b> <span data-i18n="ops.load">load</span></span>
-                    <span class="ops-chip"><b id="ops-tasks">—</b> <span data-i18n="ops.tasks">tasks</span></span>
-                    <span class="ops-chip" id="ops-window">—</span>
+                    <span class="ops-chip"><b id="ops-uptime">…</b> <span data-i18n="ops.up">up</span></span>
+                    <span class="ops-chip"><b id="ops-load">…</b> <span data-i18n="ops.load">load</span></span>
+                    <span class="ops-chip"><b id="ops-tasks">…</b> <span data-i18n="ops.tasks">tasks</span></span>
+                    <span class="ops-chip" id="ops-window">…</span>
                 </div>
             </div>
 
@@ -1530,12 +1530,12 @@
                         <div class="ops-bar-row">
                             <span class="ops-bar-label" data-i18n="ops.memory">memory</span>
                             <div class="ops-bar"><div id="ops-mem-fill"></div></div>
-                            <span class="ops-bar-value" id="ops-mem-value">—</span>
+                            <span class="ops-bar-value" id="ops-mem-value">…</span>
                         </div>
                         <div class="ops-bar-row">
                             <span class="ops-bar-label" data-i18n="ops.swap">swap</span>
                             <div class="ops-bar"><div id="ops-swap-fill"></div></div>
-                            <span class="ops-bar-value" id="ops-swap-value">—</span>
+                            <span class="ops-bar-value" id="ops-swap-value">…</span>
                         </div>
                     </div>
                     <figure class="ops-figure">
@@ -1754,7 +1754,7 @@
                         and typed into a phone.
                     -->
                     <div id="pair-code-box" hidden>
-                        <p class="pair-code" id="pair-code">— — —</p>
+                        <p class="pair-code" id="pair-code">…</p>
                         <p class="note" id="pair-how"></p>
                         <button type="button" class="task-button" id="pair-stop" data-i18n="reach.stop">Never mind</button>
                     </div>
@@ -1815,7 +1815,7 @@
                 -->
                 <div class="card">
                     <h2 data-i18n="reach.outTitle">From outside your house</h2>
-                    <p class="note" id="tunnel-state">—</p>
+                    <p class="note" id="tunnel-state">…</p>
 
                     <div class="field">
                         <span data-i18n="reach.endpoint">How a device finds your house from outside</span>
@@ -1995,7 +1995,7 @@
                         The two are counted apart on purpose: a task finishes when its plan
                         runs out of steps, whether or not anything in it was ever confirmed.
                     </p>
-                    <div id="review-summary"><p class="note">—</p></div>
+                    <div id="review-summary"><p class="note">…</p></div>
                     <div id="review-people"></div>
 
                     <!--
@@ -2018,7 +2018,7 @@
                         your own words; it is not a form.
                     </p>
                     <textarea id="profile-text" rows="14" spellcheck="false"></textarea>
-                    <p class="note" id="profile-count">—</p>
+                    <p class="note" id="profile-count">…</p>
                     <button type="button" class="task-button" id="profile-save" data-i18n="teach.save">Save</button>
                     <p class="note" id="profile-said"></p>
 
@@ -2029,7 +2029,7 @@
                         every single turn — including all the ones that have
                         nothing to do with them.
                     -->
-                    <p class="note" id="profile-where">—</p>
+                    <p class="note" id="profile-where">…</p>
                 </div>
 
                 <div class="card">
@@ -2169,8 +2169,8 @@
                         seat with nobody in it is not a gap: it is this saying there is a
                         place for somebody who does that here.
                     </p>
-                    <p class="note" id="org-counts">—</p>
-                    <div id="org-chart"><p class="note">—</p></div>
+                    <p class="note" id="org-counts">…</p>
+                    <div id="org-chart"><p class="note">…</p></div>
                     <p class="note" id="org-said"></p>
                     <p class="note" id="org-folders"></p>
                 </div>
@@ -2249,7 +2249,7 @@
                         Advisory work touches nothing; work that needs a licensed professional
                         says who.
                     </p>
-                    <div id="pkg-list"><p class="note">—</p></div>
+                    <div id="pkg-list"><p class="note">…</p></div>
                 </div>
 
                 <div class="card" id="res-card">
@@ -2260,9 +2260,9 @@
                         then this machine. How much of a subscription is left is shown only when
                         its service says; otherwise it is "unknown", never a guess.
                     </p>
-                    <p class="note tiny" id="res-machine">—</p>
-                    <pre class="proposal-text" id="res-coding">—</pre>
-                    <div id="res-list"><p class="note">—</p></div>
+                    <p class="note tiny" id="res-machine">…</p>
+                    <pre class="proposal-text" id="res-coding">…</pre>
+                    <div id="res-list"><p class="note">…</p></div>
                     <details class="res-policy">
                         <summary data-i18n="org.policy">Your policy</summary>
                         <div class="field">
@@ -2311,7 +2311,7 @@
                         for can be installed from here, pinned to a version and checked;
                         licensed software is yours to install.
                     </p>
-                    <div id="prov-list"><p class="note">—</p></div>
+                    <div id="prov-list"><p class="note">…</p></div>
                     <p class="note" id="prov-said"></p>
                 </div>
 
@@ -2324,7 +2324,7 @@
                         information, never as instructions. What leaves this machine waits
                         for your privacy setting.
                     </p>
-                    <div id="int-list"><p class="note">—</p></div>
+                    <div id="int-list"><p class="note">…</p></div>
                     <p class="note" id="int-said"></p>
                     <h3 class="equip-subhead" data-i18n="org.imp.title">Found in your other programs</h3>
                     <p class="note" data-i18n="org.imp.intro">
@@ -2352,8 +2352,8 @@
                 </div>
 
                 <div class="card" id="org-hire-card" hidden>
-                    <h2 id="org-hire-title">—</h2>
-                    <p class="note" id="org-hire-what">—</p>
+                    <h2 id="org-hire-title">…</h2>
+                    <p class="note" id="org-hire-what">…</p>
                     <div class="field">
                         <span data-i18n="org.called">Called</span>
                         <input type="text" id="org-hire-name" autocomplete="off"
@@ -2404,7 +2404,7 @@
                             placeholder="/home/you/Downloads/ESCO dataset - v1.2.0.zip">
                     </div>
                     <button type="button" class="task-button" id="org-import-go" data-i18n="org.importGo">Import</button>
-                    <div id="org-imports"><p class="note">—</p></div>
+                    <div id="org-imports"><p class="note">…</p></div>
                 </div>
 
                 <div class="card">
@@ -2418,7 +2418,7 @@
                         <input type="text" id="org-who-can" autocomplete="off"
                             placeholder="postgresql">
                     </div>
-                    <div id="org-who"><p class="note">—</p></div>
+                    <div id="org-who"><p class="note">…</p></div>
                 </div>
             </div>
         </section>
@@ -2457,7 +2457,7 @@
                         of the same compromise. Anything that changes something still
                         waits for you, whoever is doing it.
                     </p>
-                    <div id="team-list"><p class="note">—</p></div>
+                    <div id="team-list"><p class="note">…</p></div>
                     <p class="note" id="team-said"></p>
                     <p class="note" id="team-folder"></p>
                 </div>
@@ -2476,8 +2476,8 @@
                 </div>
 
                 <div class="card" id="task-detail-card" hidden>
-                    <h2 id="task-detail-name">—</h2>
-                    <p class="note" id="task-detail-state">—</p>
+                    <h2 id="task-detail-name">…</h2>
+                    <p class="note" id="task-detail-state">…</p>
                     <p class="note" id="task-detail-chain" hidden></p>
                     <p class="note" id="task-detail-report" hidden></p>
                     <div id="task-detail-steps"></div>
@@ -3449,7 +3449,7 @@
                 -->
                 <div class="card card-wide">
                     <h2 data-i18n="control.asks">How much it asks</h2>
-                    <p class="privacy-summary" id="freedom-summary">—</p>
+                    <p class="privacy-summary" id="freedom-summary">…</p>
 
                     <div class="field">
                         <span data-i18n="control.before">Before it does something on this machine</span>
@@ -3458,7 +3458,7 @@
                             <option value="granted" data-i18n="freedom.granted">Do what I have allowed, ask about the rest</option>
                             <option value="everything" data-i18n="freedom.everything">Act freely, and record everything</option>
                         </select>
-                        <small class="field-note" id="freedom-means">—</small>
+                        <small class="field-note" id="freedom-means">…</small>
                     </div>
 
                     <!--
@@ -3523,7 +3523,7 @@
             <div class="view-inner">
                 <div class="card">
                     <h2 data-i18n="prv.title">Privacy</h2>
-                    <p class="privacy-summary" id="privacy-summary">—</p>
+                    <p class="privacy-summary" id="privacy-summary">…</p>
                     <p class="privacy-detail" id="privacy-detail"></p>
                     <div id="privacy-facts" class="kv"></div>
                     <!-- Three pieces, so filling each in leaves the button in place. -->

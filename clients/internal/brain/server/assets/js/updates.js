@@ -60,7 +60,7 @@ async function load() {
 }
 
 function render(parts) {
-    const paid = parts.filter((p) => p.cost && p.cost !== 'free' && p.cost !== '—');
+    const paid = parts.filter((p) => p.cost && p.cost !== 'free' && p.cost !== 'none');
 
     note.textContent = paid.length ? T('parts.freeExcept') : T('parts.allFree');
 
@@ -73,7 +73,7 @@ function render(parts) {
 
         const icon = document.createElement('span');
         icon.className = 'row-icon';
-        icon.textContent = part.cost === 'free' ? T('parts.free') : part.cost === '—' ? '—' : T('parts.paid');
+        icon.textContent = part.cost === 'free' ? T('parts.free') : part.cost === 'none' ? '' : T('parts.paid');
 
         const text = document.createElement('span');
         text.className = 'row-text';
