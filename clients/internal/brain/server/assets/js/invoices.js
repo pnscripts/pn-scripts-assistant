@@ -303,7 +303,7 @@
 
         const lines = [];
         for (const l of s.sales || []) lines.push({ cells: [T('books.salesAt', { rate: l.rate }), String(l.n), l.net, l.vat] });
-        if (s.reverse && s.reverse.n) lines.push({ cells: [T('books.reverseLine'), String(s.reverse.n), s.reverse.net, '—'] });
+        if (s.reverse && s.reverse.n) lines.push({ cells: [T('books.reverseLine'), String(s.reverse.n), s.reverse.net, '…'] });
         for (const l of s.purchases || []) lines.push({ cells: [T('books.purchasesAt', { rate: l.rate }), String(l.n), l.net, l.vat] });
 
         table(el('books-lines'), [T('books.line'), T('books.count'), T('books.net'), T('books.vat')], lines, [1, 2, 3]);

@@ -97,7 +97,7 @@
     function stepMark(step) {
         if (step.state === 'done') return step.verdict === 'verified' ? '✓' : '~';
         if (step.state === 'failed') return '✗';
-        if (step.state === 'skipped') return '–';
+        if (step.state === 'skipped') return '·';
         if (step.state === 'needs_you') return '!';
         if (step.state === 'running') return '…';
         return '·';

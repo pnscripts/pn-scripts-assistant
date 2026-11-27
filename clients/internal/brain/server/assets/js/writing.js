@@ -286,7 +286,7 @@
             draft = await send('/api/writing/rewrite', { text, ...opts });
 
             el('writing-new-counts').textContent = T('writing.rewritten', {
-                model: draft.model || '—', removed: draft.diff.words_removed, added: draft.diff.words_added,
+                model: draft.model || '…', removed: draft.diff.words_removed, added: draft.diff.words_added,
             });
             diff(el('writing-new-diff'), draft.diff.parts);
             el('writing-new').hidden = false;

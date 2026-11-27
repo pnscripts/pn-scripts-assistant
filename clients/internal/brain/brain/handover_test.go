@@ -697,9 +697,11 @@ func TestTheListOfActionsIsWrittenWithCare(t *testing.T) {
 		t.Fatalf("the list: %+v", actions)
 	}
 
-	// Writing and taking away are on the record, as changes.
+	// Writing and taking away are on the record, as changes, by the
+	// action's name and never its command: the record is read by programs
+	// on this computer and by paired devices (ASSISTANT-ACTION-COMMAND-RECORD-1127).
 	deeds, _ := b.DB.Deeds(store.DeedFilter{Limit: 10})
-	if len(deeds) != 1 || deeds[0].Tool != ActionsTool || !deeds[0].Changes || deeds[0].Asked != "Command: true" ||
+	if len(deeds) != 1 || deeds[0].Tool != ActionsTool || !deeds[0].Changes || deeds[0].Asked != "" ||
 		!strings.HasSuffix(deeds[0].Summary, ": backup") || !strings.HasSuffix(deeds[0].SummaryBG, ": backup") {
 		t.Fatalf("the record of writing one: %+v", deeds)
 	}

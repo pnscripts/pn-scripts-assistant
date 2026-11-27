@@ -132,7 +132,7 @@ function row(c) {
      * question somebody actually has.
      */
     when.textContent = c.never
-        ? '—'
+        ? '…'
         : `${things(c.facts)} · ${ago(c.age_seconds)}`;
 
     row.append(where, when);

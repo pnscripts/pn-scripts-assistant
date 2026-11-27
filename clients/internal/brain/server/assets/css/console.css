@@ -5470,11 +5470,15 @@ html.has-stage.stage-overview .stage-frame * { pointer-events: none !important; 
     padding: 7px 14px;
     transform: translateX(-50%);
     border: 1px solid rgba(77, 208, 225, 0.25);
-    border-radius: 999px;
+    border-radius: 14px;
     background: rgba(4, 8, 15, 0.72);
     color: var(--text-dim);
     font-size: 12px;
-    white-space: nowrap;
+    text-align: center;
+    /* One line where it fits; wrapped, inside the window, where it does not
+       (a phone, and the longer Bulgarian line). */
+    width: max-content;
+    max-width: min(760px, calc(100vw - 32px));
     pointer-events: none;
 }
 

@@ -27,8 +27,10 @@ type Part struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
 	Status  string `json:"status"`
-	Cost    string `json:"cost"`
-	Note    string `json:"note"`
+	// Cost is "free", "none" for a part that is not set up (nothing to
+	// pay, nothing running), or what the provider charges.
+	Cost string `json:"cost"`
+	Note string `json:"note"`
 
 	// NoteKey names the note in i18n.js ('parts.note.<key>', filled with
 	// Args) and NameKey a name that is a description rather than a product
@@ -188,7 +190,7 @@ func earsPart() Part {
 func cloudPart(configured bool, model string) Part {
 	if !configured {
 		return Part{
-			Name: "Cloud model", Status: "not configured", Cost: "—", NameKey: "cloud",
+			Name: "Cloud model", Status: "not configured", Cost: "none", NameKey: "cloud",
 			Note:    "Nothing is sent anywhere. Everything above runs on this machine.",
 			NoteKey: "cloudOff",
 		}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -268,7 +269,9 @@ func TestTheTopBarsNameIsSaidAgainWhenTheLanguageChanges(t *testing.T) {
 
 	back := stage[strings.LastIndex(stage, "\n    return {"):]
 
-	if !strings.Contains(back, "retitle: sayWhere,") {
+	// retitle says the panel's name again (and, since UI-SMALL-1115, the
+	// hint under the panels too: uismall_test.go holds that part).
+	if !regexp.MustCompile(`retitle(: sayWhere,|\(\)\s*\{\s*sayWhere\(\);)`).MatchString(back) {
 		t.Error("the stage does not hand back a way to say where it is again (retitle)")
 	}
 

@@ -70,6 +70,7 @@ const stage = startStage({
     // The light in the middle is the brain's status colour and the measured
     // sound level: the same two readings the core draws, from the same place.
     pulse: () => ({ colour: statusColour(), level: signals.level }),
+    hint: () => (window.pnT ? window.pnT('stage.hint') : ''),
     button: document.getElementById('stage-overview'),
     turner: {
         root: document.getElementById('stage-turner'),

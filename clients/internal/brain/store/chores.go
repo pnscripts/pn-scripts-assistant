@@ -109,3 +109,75 @@ func (d *DB) TidyLessonsOnce(chore, prefix string, decide func(Lesson) string) (
 
 	return out, tx.Commit()
 }
+
+/*
+ * ClearDeedsAskedOnce empties what was asked on every line of the record
+ * kept under tool whose asked words begin with prefix, once per brain under
+ * the name chore, and says how many lines it cleared; none, when the chore
+ * was already done. Everything else on those lines (the summary, the
+ * outcome, the time) stays as it was.
+ *
+ * For 1.3.0, which wrote the command behind an action into the record that
+ * programs on this computer and paired devices read (ASSISTANT-ACTION-
+ * COMMAND-RECORD-1127). One transaction, decided in Go, as TidyLessonsOnce:
+ * the words are sealed, so SQL cannot tell which lines begin with prefix.
+ */
+func (d *DB) ClearDeedsAskedOnce(chore, tool, prefix string) (int, error) {
+	tx, err := d.sql().Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	defer tx.Rollback()
+
+	var done int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM chores WHERE name = ?`, chore).Scan(&done); err != nil {
+		return 0, fmt.Errorf("asking whether %s was done: %w", chore, err)
+	}
+
+	if done > 0 {
+		return 0, nil
+	}
+
+	rows, err := tx.Query(`SELECT id, COALESCE(asked,'') FROM deeds WHERE tool = ? ORDER BY id`, tool)
+	if err != nil {
+		return 0, err
+	}
+
+	var clear []int64
+
+	for rows.Next() {
+		var id int64
+		var asked string
+
+		if err := rows.Scan(&id, &asked); err != nil {
+			rows.Close()
+
+			return 0, err
+		}
+
+		if strings.HasPrefix(asked, prefix) {
+			clear = append(clear, id)
+		}
+	}
+
+	rows.Close()
+
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	for _, id := range clear {
+		if _, err := tx.Exec(`UPDATE deeds SET asked = ? WHERE id = ?`, d.seal(""), id); err != nil {
+			return 0, fmt.Errorf("clearing line %d of the record: %w", id, err)
+		}
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	if _, err := tx.Exec(`INSERT INTO chores (name, done_at) VALUES (?, ?)`, chore, now); err != nil {
+		return 0, fmt.Errorf("recording %s: %w", chore, err)
+	}
+
+	return len(clear), tx.Commit()
+}

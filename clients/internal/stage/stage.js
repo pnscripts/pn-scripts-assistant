@@ -232,6 +232,9 @@ export function startStage(options) {
         pulse = null,
         button = null,
         turner = null,
+        // The line under the panels when stepped back, in the page's
+        // language: the stage has no words of its own page.
+        hint: hintOf = null,
     } = options;
 
     const panels = (options.panels || []).filter(Boolean);
@@ -1010,7 +1013,10 @@ export function startStage(options) {
 
     hint.className = 'stage-hint';
     hint.hidden = true;
-    hint.textContent = 'Every panel, where it stands. Drag to turn round, click one to go to it, Esc to go back.';
+    const hintText = () => (hintOf && hintOf()) ||
+        'Every panel, where it stands. Drag to turn round, click one to go to it, Esc to go back.';
+
+    hint.textContent = hintText();
     document.body.append(hint);
 
     function openOverview() {
@@ -1330,6 +1336,9 @@ export function startStage(options) {
         closeOverview,
         // The name of the panel in front, said again: its words can change
         // (another language) without the stage having turned.
-        retitle: sayWhere,
+        retitle() {
+            sayWhere();
+            hint.textContent = hintText();
+        },
     };
 }

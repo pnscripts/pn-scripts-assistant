@@ -615,11 +615,16 @@ func (b *Brain) AddOutsideAction(name, command string) (store.OutsideAction, err
 		return store.OutsideAction{}, ErrNotAnAction{ActionBadCommand}
 	}
 
+	/*
+	 * The record names the action and never its command: "What I did" is
+	 * read by programs on this computer and by paired devices, and the
+	 * command is read with the window's key only (server readInTheWindowOnly).
+	 * 1.3.0 wrote it here; forgetTheActionCommands1_3_0Wrote clears that.
+	 */
 	a, err := b.DB.AddOutsideAction(clean, command, otherprograms.MostActions, store.Deed{
 		Tool:      ActionsTool,
 		Summary:   "An action other programs may run was written: " + clean,
 		SummaryBG: "Написано е действие, което другите програми могат да изпълняват: " + clean,
-		Asked:     "Command: " + command,
 		Outcome:   agent.DeedDone,
 		Changes:   true,
 	})

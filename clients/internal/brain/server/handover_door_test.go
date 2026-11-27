@@ -471,7 +471,7 @@ func TestTheActionsAreWrittenInTheWindow(t *testing.T) {
 
 	deeds, _ := db.Deeds(store.DeedFilter{Limit: 10})
 	if len(deeds) != 2 || deeds[0].Tool != brain.ActionsTool || deeds[1].Tool != brain.ActionsTool || !deeds[0].Changes || !deeds[1].Changes ||
-		deeds[1].Asked != "Command: rsync -a ~/Pictures /mnt/backup" {
+		deeds[1].Asked != "" || !strings.HasSuffix(deeds[1].Summary, ": backup-photos") {
 		t.Errorf("the record: %+v", deeds)
 	}
 
