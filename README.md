@@ -167,10 +167,12 @@ AMD). What it does not do yet is written down in
   until 07:00) and goals that start themselves, the reading of the places it
   learns from and a coding agent that is spending its allowance too fast wait
   for it; one press or your yes starts any of them at once.
-- **Stays out of the way.** A minute after you stop using the window it rests:
-  no timers, no animation, one quiet connection that wakes it when something
-  happens. Untouched, it costs about 2 % of one core, minimised about 0.5 %
-  (four cores, no graphics card); CI fails if that grows.
+- **Stays out of the way.** Ten seconds after you stop touching the window
+  it goes calm, and a minute later it rests: no timers, no animation, one
+  quiet connection that wakes it when something happens. Measured on four
+  cores with no graphics card: in use about 30 % of one core, calm about
+  6 %, resting about 2 %, minimised under 0.5 %; CI fails if any of these
+  or the memory it holds grows past its budget.
 
 ## Privacy
 
@@ -397,6 +399,10 @@ the release's `SHA256SUMS`, installs it and opens the assistant again. It asks
 GitHub's public releases page once a day and sends nothing about you; the
 switch is on the *What it runs on* page, and on Ubuntu `pn-scripts-assistant
 update --check` asks from a terminal. Updates keep everything learned.
+
+After an update, close the assistant and start it again if it was running:
+the copy that was running keeps the old program until it is restarted, and
+other programs that ask it are told so.
 
 Removing the program leaves the brain alone, deliberately: years of somebody's
 memory should not go with an `apt remove`:

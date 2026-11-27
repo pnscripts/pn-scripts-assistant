@@ -9,7 +9,12 @@ did (a setting, a command, where the data lives); the second when something
 new arrives; the third for fixes. Before 1.0.0 the second number changed
 whenever something visible changed.
 
-## Unreleased
+## 1.3.0 (2026-11-27)
+
+Before updating: close the assistant and start it again after the update.
+A copy left running through the update keeps the old program: it seals
+nothing for `pn-scripts-assistant mcp`, and connecting a program and the
+actions you write for other programs need the new one.
 
 - **Claude can hand the assistant work, as the assistant could already ask
   Claude.** Until now a program you connected (Claude Code, Claude
