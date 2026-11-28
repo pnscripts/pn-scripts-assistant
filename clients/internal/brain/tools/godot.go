@@ -223,7 +223,7 @@ func (t GodotDocs) Execute(ctx context.Context, args json.RawMessage) (string, e
 		branch = godot.BranchFor(engine.Version)
 	}
 
-	progress.Detail("reading the " + a.Class + " reference")
+	progress.DetailFor(ctx, "reading the "+a.Class+" reference")
 
 	class, err := godot.Lookup(ctx, nil, a.Class, branch)
 	if err != nil {
@@ -380,14 +380,14 @@ func (GodotBuild) ExecuteShowing(ctx context.Context, args json.RawMessage) (str
 			folder, adapter.File = filepath.Dir(a.Into), a.Into
 		}
 
-		progress.Detail("exporting " + filepath.Base(a.Project))
+		progress.DetailFor(ctx, "exporting "+filepath.Base(a.Project))
 
 		run := adapter.Build(ctx, p, folder)
 
 		return run.Summary(), RunEvidence(run, store.EvidenceExport), nil
 	}
 
-	progress.Detail("running " + filepath.Base(a.Project))
+	progress.DetailFor(ctx, "running "+filepath.Base(a.Project))
 
 	run := adapter.Check(ctx, p)
 

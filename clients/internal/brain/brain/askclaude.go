@@ -152,7 +152,7 @@ func (b *Brain) askClaudeCode(ctx context.Context, prompt string) (tools.ClaudeA
 	cmd.Stdout = &limited{w: &out, left: mostClaudeOutput}
 	cmd.Stderr = &limited{w: &stderr, left: 64 << 10}
 
-	progress.Detail("Claude Code is answering")
+	progress.DetailFor(ctx, "Claude Code is answering")
 
 	runErr := cmd.Run()
 
@@ -194,7 +194,7 @@ func (b *Brain) askWithChosenKey(ctx context.Context, prompt string) (tools.Clau
 		}
 	}
 
-	progress.Detail("Claude is answering")
+	progress.DetailFor(ctx, "Claude is answering")
 
 	reply, err := client.Chat(ctx, llm.Request{
 		Messages: []llm.Message{

@@ -373,6 +373,52 @@
         return Object.keys(env).sort().map((name) => name + '=' + env[name]).join(', ');
     }
 
+    /*
+     * The catalogue's own servers are named in the page's language: the Go
+     * catalogue says them in English, and a Bulgarian page drew that as it
+     * was. Keys written out one by one, so the key test can read them; the
+     * English of each is the catalogue's own (a test holds them together).
+     * Any other integration keeps the words it was given.
+     */
+    const CATALOGUE = {
+        everything: ['org.int.cat.everything', 'org.int.catWhy.everything'],
+        memory: ['org.int.cat.memory', 'org.int.catWhy.memory'],
+        thinking: ['org.int.cat.thinking', 'org.int.catWhy.thinking'],
+        git: ['org.int.cat.git', 'org.int.catWhy.git'],
+        fetch: ['org.int.cat.fetch', 'org.int.catWhy.fetch'],
+        time: ['org.int.cat.time', 'org.int.catWhy.time'],
+    };
+
+    // A catalogue licence that says more than its identifiers, in the
+    // page's language; the identifiers themselves are the same everywhere.
+    const LICENCES = [
+        [/^Apache-2\.0, older parts MIT$/, 'org.int.lic.apacheOlderMit'],
+    ];
+
+    function licenceSaid(licence) {
+        const known = LICENCES.find(([shape]) => shape.test(licence || ''));
+
+        return known ? named(known[1], licence) : (licence || '');
+    }
+
+    // What the list says of one integration: its title, why it is there, and
+    // the badge beside it, which never says more than the sentence under it.
+    // A program set up in another program is not known to stay here, so it
+    // "may" leave; nothing says it does.
+    function integrationWords(v) {
+        const known = v.from_catalogue && Object.prototype.hasOwnProperty.call(CATALOGUE, v.id) ? CATALOGUE[v.id] : null;
+        const maybe = v.transport !== 'http' && v.network && v.from;
+
+        return {
+            title: known ? named(known[0], v.title) : (v.title || ''),
+            why: known ? named(known[1], v.why || '') : (v.why || ''),
+            badge: v.leaves_the_machine ? T(maybe ? 'org.int.mayLeave' : 'org.int.leaves') : '',
+            licence: licenceSaid(v.licence),
+        };
+    }
+
+    window.pnIntegrationWords = integrationWords;
+
     async function integrations() {
         const list = el('int-list');
 
@@ -394,14 +440,16 @@
                 else if (v.approved) state = T('org.int.stopped');
                 else if (v.listed) state = T('org.int.added');
 
-                head.append(node('span', 'equip-title', v.title), node('span', 'org-kind', state));
+                const words = integrationWords(v);
 
-                if (v.leaves_the_machine) head.appendChild(node('span', 'org-risk org-risk-high', T('org.int.leaves')));
+                head.append(node('span', 'equip-title', words.title), node('span', 'org-kind', state));
+
+                if (words.badge) head.appendChild(node('span', 'org-risk org-risk-high', words.badge));
 
                 item.appendChild(head);
-                item.appendChild(node('p', 'note', v.why || ''));
+                item.appendChild(node('p', 'note', words.why));
                 item.appendChild(node('p', 'note tiny', whereWords(v) + (v.version ? ' · ' + v.version : '')
-                    + (v.licence ? ' · ' + T('org.licence', { licence: v.licence }) : '')));
+                    + (words.licence ? ' · ' + T('org.licence', { licence: words.licence }) : '')));
 
                 // Every setting it is given, with its value: a setting can
                 // change what the command above runs.

@@ -233,7 +233,7 @@ func (t GameDocs) Execute(ctx context.Context, raw json.RawMessage) (string, err
 		return strings.TrimSpace(b.String()), nil
 	}
 
-	progress.Detail("reading the " + adapter.Title() + " reference for " + a.Topic)
+	progress.DetailFor(ctx, "reading the "+adapter.Title()+" reference for "+a.Topic)
 
 	switch adapter.ID() {
 	case "godot":
@@ -355,7 +355,7 @@ func (t GameCheck) ExecuteShowing(ctx context.Context, raw json.RawMessage) (str
 		return "", nil, err
 	}
 
-	progress.Detail("checking " + p.Name)
+	progress.DetailFor(ctx, "checking "+p.Name)
 
 	run := adapter.Check(ctx, p)
 
@@ -467,7 +467,7 @@ func (t GameBuild) ExecuteShowing(ctx context.Context, raw json.RawMessage) (str
 
 	switch a.What {
 	case "smoke":
-		progress.Detail("running " + p.Name + " for a few seconds")
+		progress.DetailFor(ctx, "running "+p.Name+" for a few seconds")
 
 		run := adapter.Smoke(ctx, p, filepath.Join(a.Project, workspace.Evidence))
 
@@ -489,7 +489,7 @@ func (t GameBuild) ExecuteShowing(ctx context.Context, raw json.RawMessage) (str
 			}
 		}
 
-		progress.Detail("building " + p.Name)
+		progress.DetailFor(ctx, "building "+p.Name)
 
 		run := adapter.Build(ctx, p, into)
 

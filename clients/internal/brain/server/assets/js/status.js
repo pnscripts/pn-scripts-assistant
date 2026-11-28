@@ -214,6 +214,7 @@ const STEP_KEYS = [
     'cc.step.prompt',
     'cc.step.rate',
     'cc.step.words',
+    'cc.step.oneWord',
     'cc.step.nothingBack',
     'cc.step.linesBack',
     'cc.step.failed',
@@ -294,6 +295,22 @@ window.pnLocalNumber = localNumber;
 // The lines that introduce a question's card: "Waiting for you: {1}" and
 // what it becomes once decided. Their {1} is the card itself.
 const CARD_STEPS = new Set(['cc.step.waitingFor', 'cc.step.approved', 'cc.step.refused', 'cc.step.startedItself']);
+
+/*
+ * pnDetailLine says line i under a step. A line that came with its own
+ * Bulgarian (detail_bg, side by side with detail: a tool's result, which is
+ * the tool's English for the model) is said in it on a Bulgarian page; any
+ * other line by its shape, as pnStepLine says it.
+ */
+window.pnDetailLine = function (step, i) {
+    const line = (step && step.detail && step.detail[i]) || '';
+    const bg = window.pnLang && window.pnLang() === 'bg';
+    const own = bg && step && step.detail_bg ? step.detail_bg[i] : '';
+
+    if (own) return own;
+
+    return window.pnStepLine ? window.pnStepLine(line) : line;
+};
 
 /*
  * stepWords says one line about a step in the page's language: the note

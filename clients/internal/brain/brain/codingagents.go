@@ -117,11 +117,11 @@ func (b *Brain) AskCodingAgent(ctx context.Context, id, folder, task, access str
 		Access:  access,
 		Timeout: AgentTimeout,
 		Progress: func(line string) {
-			progress.Detail(resource.Title + ": " + line)
+			progress.DetailFor(ctx, resource.Title+": "+line)
 		},
 	}
 
-	progress.Detail(resource.Title + " is working in " + dir)
+	progress.DetailFor(ctx, resource.Title+" is working in "+dir)
 
 	outcome := executor.Run(ctx, job)
 

@@ -277,10 +277,10 @@ function drawFeed(steps) {
              * Sofia today · 10 results back in 1.2s" is not a picture of
              * anything else.
              */
-            (step.detail || []).forEach((text) => {
+            (step.detail || []).forEach((text, i) => {
                 const detail = document.createElement('span');
                 detail.className = 'feed-detail';
-                detail.textContent = feedLine(text);
+                detail.textContent = window.pnDetailLine ? window.pnDetailLine(step, i) : feedLine(text);
                 body.appendChild(detail);
             });
 

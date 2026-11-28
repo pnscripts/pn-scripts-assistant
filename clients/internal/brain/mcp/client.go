@@ -225,23 +225,124 @@ func (c *Client) Instructions() string {
 
 // HowLongAProbeWaits is how long an old server gets to answer a question it
 // does not know before it is taken to be old: some never answer at all.
-const HowLongAProbeWaits = 8 * time.Second
+var HowLongAProbeWaits = 8 * time.Second
 
 /*
  * Connect works out which era the server is and gets ready to talk to it.
  *
  * server/discover first, with the modern version: an answer is a modern
  * server; a modern error means modern but another version, and the client
- * uses one it offers; anything else — another error, or silence — means an
- * older server, which is then given the initialize handshake it expects.
+ * uses one it offers; another error means an older server, which is then
+ * given the initialize handshake it expects.
+ *
+ * Silence is the hard case: an old server may never answer a method it
+ * does not know, and a modern one may simply not be up yet (npx on a loaded
+ * machine took longer than the wait). After HowLongAProbeWaits of silence
+ * the old handshake is started beside the probe, not in place of it, and
+ * the first decisive answer wins. A server reads its input in order, so a
+ * modern one that was only slow answers the probe first, however late; an
+ * old one answers the handshake. Before this, a slow start read as an old
+ * server, and the same server spoke one era on one start and the other on
+ * the next (seen 15.11), or failed to connect at all when it was modern
+ * only.
  */
 func (c *Client) Connect(ctx context.Context) error {
-	probe, cancel := context.WithTimeout(ctx, HowLongAProbeWaits)
+	asked, stop := context.WithCancel(ctx)
+	defer stop()
 
-	raw, err := c.request(probe, "server/discover", map[string]any{}, "modern", Modern)
+	type found struct {
+		raw json.RawMessage
+		err error
+	}
 
-	cancel()
+	discovered := make(chan found, 1)
 
+	go func() {
+		raw, err := c.request(asked, "server/discover", map[string]any{}, "modern", Modern)
+		discovered <- found{raw, err}
+	}()
+
+	select {
+	case f := <-discovered:
+		era, version, err := c.byDiscover(f.raw, f.err)
+		if era == "modern" || err != nil {
+			return err
+		}
+
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		return c.initialize(ctx, version)
+	case <-time.After(HowLongAProbeWaits):
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	type greeting struct {
+		g   greeted
+		err error
+	}
+
+	greetings := make(chan greeting, 1)
+
+	go func() {
+		g, err := c.greet(asked, Legacy)
+		greetings <- greeting{g, err}
+	}()
+
+	var (
+		last  error
+		older string
+	)
+
+	for discovered != nil || greetings != nil {
+		select {
+		case f := <-discovered:
+			discovered = nil
+
+			era, version, err := c.byDiscover(f.raw, f.err)
+			if era == "modern" || err != nil {
+				return err
+			}
+
+			// An old server after all, offering an older version than the
+			// one already asked for: asked with it if the first fails.
+			if version != Legacy {
+				if greetings == nil {
+					return c.initialize(ctx, version)
+				}
+
+				older = version
+			}
+		case g := <-greetings:
+			greetings = nil
+
+			if g.err == nil {
+				return c.agree(ctx, g.g)
+			}
+
+			// A modern server refuses the old handshake: its answer to the
+			// probe is still to come.
+			last = g.err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	if older != "" {
+		return c.initialize(ctx, older)
+	}
+
+	return last
+}
+
+/*
+ * byDiscover reads the answer to server/discover. "modern" is a modern
+ * server, already set up; "legacy" with a version is an old one, to be
+ * greeted with it; an error is a server nothing here can speak to.
+ */
+func (c *Client) byDiscover(raw json.RawMessage, err error) (era, version string, _ error) {
 	if err == nil {
 		var found struct {
 			SupportedVersions []string        `json:"supportedVersions"`
@@ -253,22 +354,20 @@ func (c *Client) Connect(ctx context.Context) error {
 		}
 
 		if json.Unmarshal(raw, &found) == nil && len(found.SupportedVersions) > 0 {
-			version, ok := pick(found.SupportedVersions, modernVersions)
-
-			if ok {
+			if version, ok := pick(found.SupportedVersions, modernVersions); ok {
 				c.mu.Lock()
 				c.era, c.version = "modern", version
 				c.capabilities, c.instructions, c.server = found.Capabilities, found.Instructions, found.Meta.ServerInfo
 				c.mu.Unlock()
 
-				return nil
+				return "modern", version, nil
 			}
 
 			if legacy, ok := pick(found.SupportedVersions, legacyVersions); ok {
-				return c.initialize(ctx, legacy)
+				return "legacy", legacy, nil
 			}
 
-			return fmt.Errorf("the server speaks %s, and this program speaks none of them",
+			return "", "", fmt.Errorf("the server speaks %s, and this program speaks none of them",
 				strings.Join(found.SupportedVersions, ", "))
 		}
 	}
@@ -285,21 +384,17 @@ func (c *Client) Connect(ctx context.Context) error {
 			c.era, c.version = "modern", version
 			c.mu.Unlock()
 
-			return nil
+			return "modern", version, nil
 		}
 
 		if legacy, ok := pick(data.Supported, legacyVersions); ok {
-			return c.initialize(ctx, legacy)
+			return "legacy", legacy, nil
 		}
 
-		return fmt.Errorf("the server supports %v, and this program none of them", data.Supported)
+		return "", "", fmt.Errorf("the server supports %v, and this program none of them", data.Supported)
 	}
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	return c.initialize(ctx, Legacy)
+	return "legacy", Legacy, nil
 }
 
 func pick(offered, ours []string) (string, bool) {
@@ -317,6 +412,25 @@ func pick(offered, ours []string) (string, bool) {
 // initialize is the older handshake: say what we are, hear what it is, and
 // say we are ready.
 func (c *Client) initialize(ctx context.Context, version string) error {
+	g, err := c.greet(ctx, version)
+	if err != nil {
+		return err
+	}
+
+	return c.agree(ctx, g)
+}
+
+// greeted is what an old server said of itself in the handshake.
+type greeted struct {
+	version      string
+	capabilities json.RawMessage
+	server       Info
+	instructions string
+}
+
+// greet asks an old server for the handshake and reads its answer, and
+// changes nothing yet: Connect may still hear that the server is modern.
+func (c *Client) greet(ctx context.Context, version string) (greeted, error) {
 	params := map[string]any{
 		"protocolVersion": version,
 		"capabilities":    map[string]any{},
@@ -325,7 +439,7 @@ func (c *Client) initialize(ctx context.Context, version string) error {
 
 	raw, err := c.request(ctx, "initialize", params, "legacy", version)
 	if err != nil {
-		return fmt.Errorf("the server would not start a session: %w", err)
+		return greeted{}, fmt.Errorf("the server would not start a session: %w", err)
 	}
 
 	var answer struct {
@@ -336,20 +450,26 @@ func (c *Client) initialize(ctx context.Context, version string) error {
 	}
 
 	if err := json.Unmarshal(raw, &answer); err != nil {
-		return fmt.Errorf("the server's greeting could not be read: %w", err)
+		return greeted{}, fmt.Errorf("the server's greeting could not be read: %w", err)
 	}
 
 	agreed := answer.ProtocolVersion
 	if _, ok := pick([]string{agreed}, legacyVersions); !ok {
-		return fmt.Errorf("the server wants protocol %s, which this program does not speak", agreed)
+		return greeted{}, fmt.Errorf("the server wants protocol %s, which this program does not speak", agreed)
 	}
 
+	return greeted{version: agreed, capabilities: answer.Capabilities, server: answer.ServerInfo,
+		instructions: answer.Instructions}, nil
+}
+
+// agree settles on the old era the server greeted with, and says we are ready.
+func (c *Client) agree(ctx context.Context, g greeted) error {
 	c.mu.Lock()
-	c.era, c.version = "legacy", agreed
-	c.capabilities, c.instructions, c.server = answer.Capabilities, answer.Instructions, answer.ServerInfo
+	c.era, c.version = "legacy", g.version
+	c.capabilities, c.instructions, c.server = g.capabilities, g.instructions, g.server
 	c.mu.Unlock()
 
-	return c.transport.Notify(ctx, message{JSONRPC: "2.0", Method: "notifications/initialized"}, agreed)
+	return c.transport.Notify(ctx, message{JSONRPC: "2.0", Method: "notifications/initialized"}, g.version)
 }
 
 // meta is what a modern request carries about itself.

@@ -203,6 +203,10 @@ func (b *Brain) decide(ctx context.Context, id int64, approve, itself bool) (sto
 	// Said where it was asked, by a tool whose answer comes later.
 	ctx = tools.InConversation(ctx, invocation.ConversationID)
 
+	// What it says while it runs belongs on the question's own row
+	// ("Approved: ..."), not on the step running when the yes came.
+	ctx = progress.OnStep(ctx, progress.StepOf(id))
+
 	/*
 	 * Its user's rules, again: a rule kept, or switched on, while this was
 	 * waiting still counts, and a yes given to a question asked before it
