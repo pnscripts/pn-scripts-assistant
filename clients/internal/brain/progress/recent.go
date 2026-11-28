@@ -1,6 +1,7 @@
 package progress
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -73,6 +74,11 @@ type Entry struct {
 	 */
 	Detail []string `json:"detail"`
 
+	// DetailBG is each line of Detail in Bulgarian, side by side with it,
+	// when the line carries its own (DetailOnIn); "" where it does not, and
+	// the page then says the English line its own way.
+	DetailBG []string `json:"detail_bg"`
+
 	// Decided says how the question this step waited on was decided:
 	// Approved, Refused or ByItself. Empty while it waits, and for any
 	// other step. See Decided.
@@ -141,6 +147,7 @@ func rememberAs(step Entry) {
 	step.At = now
 	step.Took = 0
 	step.Detail = nil
+	step.DetailBG = nil
 	step.Decided = ""
 
 	history.entries = append(history.entries, step)
@@ -197,27 +204,39 @@ func Detail(line string) {
 	history.mu.Lock()
 	defer history.mu.Unlock()
 
-	n := len(history.entries)
-	if n == 0 {
-		return
+	if n := len(history.entries); n > 0 {
+		addDetail(&history.entries[n-1], line, "")
 	}
+}
 
-	// A handful at most. This is a panel, not a transcript, and a step that
-	// reports forty lines pushes everything else off the screen.
+/*
+ * addDetail adds one line, and its Bulgarian when it has one, to an entry.
+ * Called with the history locked.
+ *
+ * A handful at most. This is a panel, not a transcript, and a step that
+ * reports forty lines pushes everything else off the screen. The same line
+ * twice says nothing the first did not.
+ */
+func addDetail(e *Entry, line, bg string) {
 	const mostDetail = 4
 
-	if len(history.entries[n-1].Detail) >= mostDetail {
+	if len(e.Detail) >= mostDetail {
 		return
 	}
 
-	// The same line twice says nothing the first did not.
-	for _, had := range history.entries[n-1].Detail {
+	for _, had := range e.Detail {
 		if had == line {
 			return
 		}
 	}
 
-	history.entries[n-1].Detail = append(history.entries[n-1].Detail, line)
+	// Side by side: the Bulgarian of line i is DetailBG[i].
+	for len(e.DetailBG) < len(e.Detail) {
+		e.DetailBG = append(e.DetailBG, "")
+	}
+
+	e.Detail = append(e.Detail, line)
+	e.DetailBG = append(e.DetailBG, bg)
 }
 
 /*
@@ -315,6 +334,12 @@ func QuietenOn(mark int64) {
 }
 
 func DetailOn(mark int64, line string) {
+	DetailOnIn(mark, line, "")
+}
+
+// DetailOnIn is DetailOn with the line in Bulgarian as well, for a line the
+// page cannot say from its English (a tool's own result, say).
+func DetailOnIn(mark int64, line, bg string) {
 	if line == "" || mark == 0 {
 		return
 	}
@@ -323,24 +348,56 @@ func DetailOn(mark int64, line string) {
 	defer history.mu.Unlock()
 
 	for i := range history.entries {
-		if history.entries[i].id != mark {
-			continue
-		}
+		if history.entries[i].id == mark {
+			addDetail(&history.entries[i], line, bg)
 
-		const mostDetail = 4
-
-		if len(history.entries[i].Detail) >= mostDetail {
 			return
 		}
+	}
+}
 
-		for _, had := range history.entries[i].Detail {
-			if had == line {
-				return
-			}
+/*
+ * StepOf is the mark of the step that waited on a stored question, decided
+ * or not, or 0 when it is no longer among the recent steps. What an
+ * approved tool says while it runs belongs on that row ("Approved: ..."),
+ * not on whatever started since.
+ */
+func StepOf(invocation int64) int64 {
+	if invocation == 0 {
+		return 0
+	}
+
+	history.mu.RLock()
+	defer history.mu.RUnlock()
+
+	for i := len(history.entries) - 1; i >= 0; i-- {
+		if history.entries[i].invocation == invocation {
+			return history.entries[i].id
 		}
+	}
 
-		history.entries[i].Detail = append(history.entries[i].Detail, line)
+	return 0
+}
+
+type stepKey struct{}
+
+/*
+ * OnStep hands work the step it runs for, so what it says lands there
+ * (DetailFor) and not on whatever runs by the time it speaks. Mark 0 is a
+ * step that says nothing: a loop that runs quietly hands that.
+ */
+func OnStep(ctx context.Context, mark int64) context.Context {
+	return context.WithValue(ctx, stepKey{}, mark)
+}
+
+// DetailFor is Detail on the step the context was handed (OnStep), or on
+// whatever runs now when it was handed none.
+func DetailFor(ctx context.Context, line string) {
+	if mark, ok := ctx.Value(stepKey{}).(int64); ok {
+		DetailOn(mark, line)
 
 		return
 	}
+
+	Detail(line)
 }

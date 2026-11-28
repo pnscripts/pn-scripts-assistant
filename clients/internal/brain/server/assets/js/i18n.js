@@ -2304,6 +2304,7 @@
         'cc.step.prompt': ['{1} · reading {2} words', '{1} · чете {2} думи'],
         'cc.step.rate': ['{1} words in {2} · {3} a second', '{1} думи за {2} · {3} в секунда'],
         'cc.step.words': ['{1} words in {2}', '{1} думи за {2}'],
+        'cc.step.oneWord': ['1 word in {1}', '1 дума за {1}'],
         'cc.step.nothingBack': ['nothing back in {1}', 'без резултат за {1}'],
         'cc.step.linesBack': ['{1} lines back in {2}', '{1} реда резултат за {2}'],
         'cc.step.failed': ['failed: {1}', 'неуспех: {1}'],
@@ -4268,6 +4269,35 @@
         'org.int.stopped': ['approved · stopped', 'одобрена · спряна'],
         'org.int.added': ['added · not approved', 'добавена · неодобрена'],
         'org.int.leaves': ['leaves this machine', 'напуска компютъра'],
+        'org.int.mayLeave': ['may leave this machine', 'може да напуска компютъра'],
+        'org.int.lic.apacheOlderMit': ['Apache-2.0, older parts MIT', 'Apache-2.0, по-старите части MIT'],
+        'org.int.cat.everything': ['MCP test server', 'Тестов MCP сървър'],
+        'org.int.catWhy.everything': [
+            'the protocol\'s own reference server, with sample tools, resources and prompts, for checking that integrations work',
+            'еталонният сървър на самия протокол, с примерни инструменти, ресурси и подкани, за проверка дали интеграциите работят',
+        ],
+        'org.int.cat.memory': ['Knowledge graph memory', 'Памет като граф на знанията'],
+        'org.int.catWhy.memory': [
+            'a separate store of entities and relations a project\'s agents can build up',
+            'отделно хранилище на понятия и връзки между тях, което агентите на даден проект изграждат',
+        ],
+        'org.int.cat.thinking': ['Sequential thinking', 'Последователно мислене'],
+        'org.int.catWhy.thinking': [
+            'a structured scratchpad for working a problem through step by step',
+            'подредена чернова, в която задача се обмисля стъпка по стъпка',
+        ],
+        'org.int.cat.git': ['Git', 'Git'],
+        'org.int.catWhy.git': [
+            'reads a repository\'s history, diffs and branches',
+            'чете историята, разликите и клоновете на хранилище',
+        ],
+        'org.int.cat.fetch': ['Web fetch', 'Изтегляне от уеб'],
+        'org.int.catWhy.fetch': ['fetches web pages as text', 'изтегля уеб страници като текст'],
+        'org.int.cat.time': ['Time and time zones', 'Час и часови зони'],
+        'org.int.catWhy.time': [
+            'the time anywhere, and converting between zones',
+            'часът навсякъде по света и превръщане между часови зони',
+        ],
         'org.int.whereRemote': [
             'a server elsewhere, at {url}; what it is sent leaves this machine',
             'сървър другаде, на {url}; това, което му се изпраща, напуска компютъра',

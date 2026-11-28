@@ -2367,10 +2367,10 @@ function showActivity(steps) {
             : step.note || step.kind;
         body.appendChild(what);
 
-        (step.detail || []).forEach((line) => {
+        (step.detail || []).forEach((line, i) => {
             const d = document.createElement('span');
             d.className = 'act-detail';
-            d.textContent = window.pnStepLine ? window.pnStepLine(line) : line;
+            d.textContent = window.pnDetailLine ? window.pnDetailLine(step, i) : line;
             body.appendChild(d);
         });
 

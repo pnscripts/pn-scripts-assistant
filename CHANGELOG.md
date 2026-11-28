@@ -17,6 +17,20 @@ whenever something visible changed.
   list of actions itself is read in the window only. The record now names
   the action and not its command, and lines 1.3.0 wrote are cleared once
   when the new version opens your brain.
+- **The rest of the small things on the page.** The integrations
+  catalogue is named and explained in Bulgarian on a Bulgarian page, and a
+  program brought in from another program is marked "may leave this
+  machine", as its sentence says, instead of "leaves this machine". What
+  a tool says while it runs, and what came back, stay on that tool's own
+  row in Doing now: "Claude Code is answering" no longer lands under the
+  learning that started meanwhile. On a Bulgarian page the result line says
+  how much came back and how long it took, in Bulgarian, instead of the
+  tool's English for the model.
+- **A slow integration keeps its protocol.** A modern integration that took
+  longer than eight seconds to start was taken for an old one, so it spoke
+  the old protocol on one start and the new one on the next, or did not
+  connect at all. The old handshake now starts beside the first question,
+  and whichever the integration answers first decides.
 - **The tests compile on Windows and macOS too.** Three test files named
   something only Linux has, so `go vet` for Windows failed while every build
   was green. Those checks now live beside the Linux code they test, the

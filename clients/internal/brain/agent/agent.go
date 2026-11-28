@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"pn-scripts-assistant/internal/brain/cite"
 	"pn-scripts-assistant/internal/brain/llm"
@@ -1574,6 +1576,12 @@ func (l *Loop) RunBrief(
 
 			l.usingTool(tool.Name(), summary, inBulgarian(summary, summaryBG))
 
+			// The tool's own step: what it says while it runs, and what came
+			// back, are written there, not on whatever started meanwhile (a
+			// background step began while ask_claude waited for Claude Code,
+			// and took its line). Zero when the loop runs quietly: nowhere.
+			toolStep := l.mark()
+
 			/*
 			 * What it was actually asked to do, in its own words.
 			 *
@@ -1583,7 +1591,7 @@ func (l *Loop) RunBrief(
 			 * a tool called with the wrong argument and a tool that is merely
 			 * slow look identical until you can see what it was handed.
 			 */
-			l.detail(askedFor(call.Arguments))
+			l.detailOn(toolStep, askedFor(call.Arguments))
 
 			started := time.Now()
 
@@ -1593,6 +1601,7 @@ func (l *Loop) RunBrief(
 			}
 
 			acting = tools.InConversation(acting, conversationID)
+			acting = progress.OnStep(acting, toolStep)
 
 			output, evidence, err := tools.Perform(acting, tool, call.Arguments)
 
@@ -1611,7 +1620,7 @@ func (l *Loop) RunBrief(
 				step.Failed = true
 				step.Result = err.Error()
 
-				l.detail("failed: " + truncate(err.Error(), 120))
+				l.detailOn(toolStep, "failed: "+truncate(err.Error(), 120))
 			} else {
 				// Judged again on what it did: see rules.After.
 				if len(act.Actions) > 0 {
@@ -1625,8 +1634,10 @@ func (l *Loop) RunBrief(
 				// What came back and how long it took, so a tool that returned
 				// nothing is distinguishable from one that returned plenty —
 				// which is the difference between a wrong answer and no answer.
-				l.detail(fmt.Sprintf("%s in %s",
-					sizeOfResult(output), took(time.Since(started))))
+				spent := took(time.Since(started))
+
+				l.detailOnIn(toolStep, fmt.Sprintf("%s in %s", sizeOfResult(output), spent),
+					resultInBulgarian(output, spent))
 			}
 
 			step.Millis = time.Since(started).Milliseconds()
@@ -2483,6 +2494,64 @@ func sizeOfResult(output string) string {
 	}
 }
 
+/*
+ * resultInBulgarian is the line sizeOfResult and took make, said in
+ * Bulgarian, or "" when the page can say it from the English itself
+ * ("nothing back", "N lines back" have their shapes in status.js).
+ *
+ * A short result is shown as it came on an English page, and it is the
+ * tool's own English, written for the model: "Wrote 22 bytes to notes.txt".
+ * A Bulgarian page says how much came back instead. A result with no Latin
+ * letter in it (a number, a Bulgarian line) has nothing to translate and is
+ * shown as it is.
+ */
+func resultInBulgarian(output, took string) string {
+	trimmed := strings.TrimSpace(output)
+
+	if trimmed == "" || len(trimmed) >= 400 {
+		return ""
+	}
+
+	shown := sizeOfResult(output)
+
+	if !strings.ContainsFunc(shown, func(r rune) bool { return r < 128 && unicode.IsLetter(r) }) {
+		return shown + " за " + tookInBulgarian(took)
+	}
+
+	n := utf8.RuneCountInString(trimmed)
+
+	what := fmt.Sprintf("резултат от %d знака", n)
+	if n == 1 {
+		what = "резултат от 1 знак"
+	}
+
+	return what + " за " + tookInBulgarian(took)
+}
+
+// tookInBulgarian writes what took wrote as Bulgarian does, the way the
+// page's bulgarianDuration does: "1.5s" is "1,5 с", "1m 05s" "1 мин 05 с".
+func tookInBulgarian(took string) string {
+	minutes, rest, ok := strings.Cut(took, "m ")
+	if !ok {
+		minutes, rest = "", took
+	}
+
+	unit := " с"
+	number := strings.TrimSuffix(rest, "s")
+
+	if strings.HasSuffix(rest, "ms") {
+		unit, number = " мс", strings.TrimSuffix(rest, "ms")
+	}
+
+	said := strings.Replace(number, ".", ",", 1) + unit
+
+	if minutes != "" {
+		said = minutes + " мин " + said
+	}
+
+	return said
+}
+
 // took renders a duration the way somebody reads it aloud.
 func took(d time.Duration) string {
 	switch {
@@ -2535,6 +2604,10 @@ func rateOfReply(content string, elapsed time.Duration) string {
 	 * reporting "0.0 a second" for it describes a machine that has stopped.
 	 * Below a sentence or two the duration alone is the honest number.
 	 */
+	if words == 1 {
+		return fmt.Sprintf("1 word in %s", took(elapsed))
+	}
+
 	if words < 20 {
 		return fmt.Sprintf("%d words in %s", words, took(elapsed))
 	}
@@ -2669,6 +2742,12 @@ func (l *Loop) mark() int64 {
 func (l *Loop) detailOn(mark int64, line string) {
 	if !l.Quietly {
 		progress.DetailOn(mark, line)
+	}
+}
+
+func (l *Loop) detailOnIn(mark int64, line, bg string) {
+	if !l.Quietly {
+		progress.DetailOnIn(mark, line, bg)
 	}
 }
 

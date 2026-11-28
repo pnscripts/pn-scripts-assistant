@@ -65,6 +65,7 @@ func TestEveryStepLineHasItsBulgarian(t *testing.T) {
 		{"Started by itself: Ask Claude Code", "progress/decided.go", `ByItself: "Started by itself: "`},
 		{"qwen3:4b · reading 2.4k words", "agent/agent.go", `"%s · reading %s"`},
 		{"12 words in 3.1s", "agent/agent.go", `"%d words in %s"`},
+		{"1 word in 80ms", "agent/agent.go", `"1 word in %s"`},
 		{"120 words in 1m 04s · 1.9 a second", "agent/agent.go", `"%d words in %s · %.1f a second"`},
 		{"nothing back in 80ms", "agent/agent.go", `"nothing back"`},
 		{"14 lines back in 1.2s", "agent/agent.go", `"%d lines back"`},
@@ -100,16 +101,16 @@ func TestEveryStepLineHasItsBulgarian(t *testing.T) {
 		{"Re-indexing memories with nomic-embed-text: 40 of 900", "server/server.go", `"Re-indexing memories with %s: %d of %d"`},
 		{"Fetching what tells voices apart", "server/voiceprint.go", `"Fetching what tells voices apart"`},
 		{"Listening to film.mkv", "tools/subtitles.go", `"Listening to "`},
-		{"reading the Godot reference for signals", "tools/games.go", `"reading the " + adapter.Title() + " reference for "`},
-		{"reading the Node2D reference", "tools/godot.go", `"reading the " + a.Class + " reference"`},
+		{"reading the Godot reference for signals", "tools/games.go", `"reading the "+adapter.Title()+" reference for "`},
+		{"reading the Node2D reference", "tools/godot.go", `"reading the "+a.Class+" reference"`},
 		{"checking tetris", "tools/games.go", `"checking "`},
 		{"running tetris for a few seconds", "tools/games.go", `" for a few seconds"`},
 		{"building tetris", "tools/games.go", `"building "`},
 		{"exporting tetris", "tools/godot.go", `"exporting "`},
 		{"running tetris", "tools/godot.go", `"running "`},
 		{"Claude Code is working in /home/you/tetris", "brain/codingagents.go", `" is working in "`},
-		{"Claude Code is answering", "brain/askclaude.go", `progress.Detail("Claude Code is answering")`},
-		{"Claude is answering", "brain/askclaude.go", `progress.Detail("Claude is answering")`},
+		{"Claude Code is answering", "brain/askclaude.go", `progress.DetailFor(ctx, "Claude Code is answering")`},
+		{"Claude is answering", "brain/askclaude.go", `progress.DetailFor(ctx, "Claude is answering")`},
 	}
 
 	for _, l := range lines {

@@ -39,10 +39,30 @@ func fakeServer(era string) {
 
 	initialized := false
 
+	// "slow-modern" is a modern server that takes a while to start, as npx
+	// does on a loaded machine: it reads nothing until it is up, then
+	// answers what waited in the pipe in order. "silent-legacy" is an old
+	// server that never answers a method it does not know.
+	if era == "slow-modern" {
+		wait, _ := time.ParseDuration(os.Getenv("MCP_FAKE_STARTS_IN"))
+		time.Sleep(wait)
+
+		era = "modern"
+	}
+
+	silent := era == "silent-legacy"
+	if silent {
+		era = "legacy"
+	}
+
 	for in.Scan() {
 		var req message
 
 		if json.Unmarshal(in.Bytes(), &req) != nil || req.ID == nil {
+			continue
+		}
+
+		if silent && req.Method == "server/discover" {
 			continue
 		}
 
@@ -177,6 +197,56 @@ func TestBothErasAreSpokenOverStdio(t *testing.T) {
 		}
 
 		c.Close()
+	}
+}
+
+/*
+ * A modern server that is slow to start is still taken for modern, and an
+ * old one that never answers the probe is still taken for old.
+ *
+ * Seen 15.11 under load: the catalogue's test server negotiated the modern
+ * protocol on one start and the legacy one on the next. npx took longer
+ * than the probe's wait to start it, the silence was read as an old server,
+ * and the handshake went the old way while the answer to the probe was
+ * still on its way. Silence now starts the old handshake beside the probe
+ * instead of in place of it, and whichever answers decisively first wins:
+ * a server reads its pipe in order, so a modern one answers the probe
+ * first, however late.
+ */
+func TestASlowModernServerIsNotTakenForAnOldOne(t *testing.T) {
+	defer func(was time.Duration) { HowLongAProbeWaits = was }(HowLongAProbeWaits)
+
+	HowLongAProbeWaits = 200 * time.Millisecond
+
+	for _, c := range []struct{ era, want string }{
+		{"slow-modern", "modern"},
+		{"silent-legacy", "legacy"},
+		{"legacy", "legacy"},
+		{"modern", "modern"},
+	} {
+		s, err := fakeCommand(c.era)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		stdio, err := StartStdio(s.Command, []string{"MCP_FAKE=" + c.era, "MCP_FAKE_STARTS_IN=900ms"}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		client := NewClient(stdio)
+
+		if err := client.Connect(context.Background()); err != nil {
+			t.Errorf("%s: %v", c.era, err)
+		} else if client.Era() != c.want {
+			t.Errorf("a %s server was taken for %s", c.era, client.Era())
+		}
+
+		if found, err := client.Tools(context.Background()); err != nil || len(found) != 2 {
+			t.Errorf("%s: after connecting, tools %v %v", c.era, found, err)
+		}
+
+		client.Close()
 	}
 }
 

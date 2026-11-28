@@ -33,6 +33,7 @@ import (
 	"pn-scripts-assistant/internal/brain/brain"
 	"pn-scripts-assistant/internal/brain/config"
 	"pn-scripts-assistant/internal/brain/llm"
+	"pn-scripts-assistant/internal/brain/progress"
 	"pn-scripts-assistant/internal/brain/server"
 	"pn-scripts-assistant/internal/brain/store"
 	"pn-scripts-assistant/internal/brain/terms"
@@ -541,8 +542,29 @@ func TestTheDeveloperAsksTheUsersOwnClaudeToSummariseNotes(t *testing.T) {
 		t.Fatal("summary.md was written before the yes")
 	}
 
+	/*
+	 * Learning from the conversation starts while the card waits, as it does
+	 * after every turn. Seen 15.11: "Claude Code is answering" landed under
+	 * that step, the one running when the yes came, instead of the
+	 * question's own row.
+	 */
+	progress.SetBackground("learning", "Learning from the last conversation")
+
 	// 2. Approved: exactly what was shown, and nothing else.
 	done := d.decide(card[0].ID, "approve")
+
+	for _, e := range progress.Recent() {
+		said := strings.Join(e.Detail, " | ")
+
+		if e.Note == "Learning from the last conversation" && said != "" {
+			t.Errorf("the background step took the question's line: %q", said)
+		}
+
+		if e.Kind == progress.KindDecided && strings.Contains(e.Note, "Summarise notes.md") &&
+			!strings.Contains(said, "Claude Code is answering") {
+			t.Errorf("the approved question's own row says %q", said)
+		}
+	}
 
 	if done.Status != store.InvocationDone {
 		t.Fatalf("approved, the hand-off: %+v", done)
