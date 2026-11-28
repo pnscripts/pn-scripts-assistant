@@ -17,6 +17,11 @@ whenever something visible changed.
   list of actions itself is read in the window only. The record now names
   the action and not its command, and lines 1.3.0 wrote are cleared once
   when the new version opens your brain.
+- **The tests compile on Windows and macOS too.** Three test files named
+  something only Linux has, so `go vet` for Windows failed while every build
+  was green. Those checks now live beside the Linux code they test, the
+  Windows one asks the volume a folder is on, and `make check` and CI vet
+  every package with its tests for each system the program is built for.
 - **Small things on the page.** A value that is not there yet shows "…"
   instead of a dash. The buttons that step back to every panel and turn
   the ring, the bell, and the line under the panels when stepped back are

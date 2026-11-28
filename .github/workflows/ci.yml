@@ -140,6 +140,17 @@ jobs:
           go build -o /dev/null ./cmd/cli
           go build -o /dev/null ./cmd/doctor
 
+      # Vet compiles the test files too, which a build of the commands never
+      # does: a test naming a Linux-only symbol failed the Windows vet for a
+      # week while every build here was green (ASSISTANT-TEST-WINDOWS-VET-1120).
+      - name: Vet every package with its tests
+        working-directory: clients
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: go vet ./...
+
       # The packages that have to work without cgo, tested rather than built:
       # setup and the starter are the first thing a new person meets, and they
       # are what runs on the systems with no window.

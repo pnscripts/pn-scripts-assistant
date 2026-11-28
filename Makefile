@@ -50,6 +50,12 @@ check:
 		{ echo "not formatted:"; gofmt -l clients/cmd clients/internal; exit 1; }
 	@echo "→ go vet"
 	@cd clients && $(GO) vet ./...
+	@# The other systems the program is built for, tests included: a test
+	@# file that names a Linux-only symbol builds nowhere else, and a build
+	@# of the commands alone never compiles test files.
+	@echo "→ go vet for Windows and macOS"
+	@cd clients && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
+	@cd clients && GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go vet ./...
 	@bash scripts/version-order-test.sh
 	@bash scripts/release-versions-test.sh
 	@bash scripts/release-followers-test.sh

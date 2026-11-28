@@ -152,7 +152,9 @@ func TestMoveReportsProgress(t *testing.T) {
 	}
 }
 
-func TestDrivesExcludePseudoFilesystems(t *testing.T) {
+// Every drive offered is big enough to use, and the one holding the brain is
+// marked as the one in use.
+func TestDrivesOfferedAreUsableAndOneIsCurrent(t *testing.T) {
 	drives, err := Drives("/")
 	if err != nil {
 		t.Fatal(err)
@@ -163,10 +165,6 @@ func TestDrivesExcludePseudoFilesystems(t *testing.T) {
 	}
 
 	for _, d := range drives {
-		if pseudoFilesystems[d.Filesystem] {
-			t.Errorf("offered a pseudo filesystem: %+v", d)
-		}
-
 		// Moving a growing brain onto a 512MB EFI partition would succeed and
 		// then immediately fail.
 		if d.TotalBytes < MinimumUsableBytes {
